@@ -13,13 +13,6 @@ class FileBase(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
-    def indxByPref(self, valu):
-        valu = valu.strip().lower().replace('\\', '/')
-        indx = valu.encode('utf8', 'surrogatepass')[:248]
-        return (
-            ('pref', indx),
-        )
-
     def _normPyStr(self, valu):
 
         norm = valu.strip().lower().replace('\\', '/')
@@ -38,13 +31,6 @@ class FilePath(s_types.Str):
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-
-    def indxByPref(self, valu):
-        valu = valu.strip().lower().replace('\\', '/')
-        indx = valu.encode('utf8', 'surrogatepass')[:248]
-        return (
-            ('pref', indx),
-        )
 
     def _normPyStr(self, valu):
 

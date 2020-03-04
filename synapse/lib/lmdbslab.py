@@ -192,11 +192,6 @@ class SlabAbrv:
     def nameToAbrv(self, name):
         return self.bytsToAbrv(name.encode())
 
-    @s_cache.memoize(10000)
-    def bytsToInt(self, byts):
-        abrv = self.bytsToAbrv(byts)
-        return s_common.int64un(abrv)
-
 class HotCount(s_base.Base):
     '''
     A hot-loop capable counter that only sync's on commit.
@@ -778,8 +773,8 @@ class Slab(s_base.Base):
                     with s_thisplat.mmap(0, length=new_memend - prev_memend, prot=PROT, flags=FLAGS, fd=fileno,
                                          offset=prev_memend - memstart):
                         s_thisplat.mlock(prev_memend, memlen)
-                except OSError:
-                    logger.warning('error while attempting to lock memory')
+                except OSError as e:
+                    logger.warning('error while attempting to lock memory of %s: %s', path, e)
                     break
                 finally:
                     self.prefaulting = False

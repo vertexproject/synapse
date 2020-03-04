@@ -20,6 +20,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
+import synapse.lib.parser as s_parser
 import synapse.lib.grammar as s_grammar
 import synapse.lib.version as s_version
 
@@ -122,18 +123,18 @@ class Cmd:
                 snam = swit[0].strip('-')
 
                 if styp == 'valu':
-                    valu, off = s_grammar.parse_cmd_string(text, off)
+                    valu, off = s_parser.parse_cmd_string(text, off)
                     opts[snam] = valu
 
                 elif styp == 'list':
-                    valu, off = s_grammar.parse_cmd_string(text, off)
+                    valu, off = s_parser.parse_cmd_string(text, off)
                     if not isinstance(valu, list):
                         valu = valu.split(',')
                     opts[snam].extend(valu)
 
                 elif styp == 'enum':
                     vals = swit[1].get('enum:vals')
-                    valu, off = s_grammar.parse_cmd_string(text, off)
+                    valu, off = s_parser.parse_cmd_string(text, off)
                     if valu not in vals:
                         raise s_exc.BadSyntax(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
                                                    text=text)
@@ -162,13 +163,13 @@ class Cmd:
                 valu = []
 
                 while off < len(text):
-                    item, off = s_grammar.parse_cmd_string(text, off)
+                    item, off = s_parser.parse_cmd_string(text, off)
                     valu.append(item)
 
                 opts[synt[0]] = valu
                 break
 
-            valu, off = s_grammar.parse_cmd_string(text, off)
+            valu, off = s_parser.parse_cmd_string(text, off)
             opts[synt[0]] = valu
 
         return opts
