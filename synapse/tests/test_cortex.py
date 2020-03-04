@@ -1535,6 +1535,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.isin('com.test.record', resp)
             self.isin('syn.splice', resp)
             self.isin('syn.nodes', resp)
+            self.isin('syn.nodeedits', resp)
             rec = resp.get('syn.nodes')
             self.eq(rec.get('name'), 'syn.nodes')
             self.eq(rec.get('desc'), 'Add nodes to the Cortex via the packed node format.')
@@ -2549,7 +2550,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(node)
 
             # test coreapi addFeedData
-
             mesg = ('node:add', {'ndef': ('test:str', 'foobar')})
             await prox.addFeedData('syn.splice', [mesg])
 
@@ -2605,7 +2605,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node)
 
             # test feeding to a different view
-
             vdef2 = await core.view.fork()
             view2_iden = vdef2.get('iden')
             view2 = core.getView(view2_iden)
@@ -2622,7 +2621,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node)
 
             # test coreapi addFeedData to a different view
-
             mesg = ('node:add', {'ndef': ('test:str', 'baz')})
             await prox.addFeedData('syn.splice', [mesg], viewiden=view2_iden)
 
@@ -2635,7 +2633,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node)
 
             # sad paths
-
             await self.asyncraises(s_exc.NoSuchView, core.addFeedData('syn.splice', [mesg], viewiden='badiden'))
             await self.asyncraises(s_exc.NoSuchView, prox.addFeedData('syn.splice', [mesg], viewiden='badiden'))
 
