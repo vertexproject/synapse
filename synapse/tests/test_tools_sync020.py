@@ -115,12 +115,10 @@ class SyncTest(s_t_utils.SynTest):
                     splices = getAssetJson(assetdir, 'splices.json')
                     await fkcore.loadSplicelog(splices)
 
-                fkcore.dmon.share(f'layer/{lyr}', fkcore)
-
                 root = await fkcore.auth.getUserByName('root')
                 await root.setPasswd('root')
 
-                info = await fkcore.dmon.listen('tcp://127.0.0.1:0/')
+                info = await fkcore.dmon.listen(f'tcp://127.0.0.1:0/')
                 fkcore.dmon.test_addr = info
 
                 fkurl = fkcore.getLocalUrl()
@@ -151,7 +149,7 @@ class SyncTest(s_t_utils.SynTest):
                 yield core, turl, fkcore, fkurl
 
     @contextlib.asynccontextmanager
-    async def _getSyncSvc(self, conf_sync={}):
+    async def _getSyncSvc(self, conf_sync=None):
         async with self._getCoreUrls() as (core, turl, fkcore, fkurl):
 
             conf = {
@@ -159,7 +157,8 @@ class SyncTest(s_t_utils.SynTest):
                 'dest': turl,
                 'offsfile': os.path.join(core.dirn, 'migration', 'lyroffs.yaml'),
             }
-            conf.update(conf_sync)
+            if conf_sync is not None:
+                conf.update(conf_sync)
 
             with self.getTestDir() as dirn:
                 async with await s_sync.SyncMigrator.anit(dirn, conf) as sync:
@@ -212,7 +211,7 @@ class SyncTest(s_t_utils.SynTest):
             self.eq(num_splices, await sync.getLyrOffset('pull', wlyr.iden))
             self.eq(num_splices, await sync.getLyrOffset('push', wlyr.iden))
 
-            # await self._checkCore(core)
+            # await self._checkCore(core)  # TODO
 
             # make sure tasks are still running
             self.false(sync._pull_tasks[wlyr.iden].done())
@@ -248,12 +247,22 @@ class SyncTest(s_t_utils.SynTest):
             self.eq(num_splices, await sync.getLyrOffset('pull', wlyr.iden))
             self.eq(num_splices, await sync.getLyrOffset('push', wlyr.iden))
 
-            # await self._checkCore(core)
+            # await self._checkCore(core)  # TODO
 
             # make sure tasks are still running
             self.false(sync._pull_tasks[wlyr.iden].done())
             self.false(sync._push_tasks[wlyr.iden].done())
             self.false(sync._queues[wlyr.iden].isfini)
+
+            status = await sync.status()
+            status_exp = {
+                'src:nextoffs': num_splices,
+                'dest:nextoffs': num_splices,
+                'queuelen': 0,
+                'src:task': {'isdone': False},
+                'dest:task': {'isdone': False},
+            }
+            self.eq(status_exp, {k: v for k, v in status.get(wlyr.iden, {}).items() if k in status_exp})
 
     async def test_sync_srcPullLyrSplices(self):
         conf_sync = {

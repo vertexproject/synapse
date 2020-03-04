@@ -12,6 +12,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
+import synapse.lib.time as s_time
 import synapse.lib.queue as s_queue
 import synapse.lib.layer as s_layer
 import synapse.lib.config as s_config
@@ -64,7 +65,7 @@ class SyncMigrator(s_cell.Cell):
 
         self.src = self.conf.get('src')
         self.dest = self.conf.get('dest')
-        self.offsfile = self.conf.get('offsfile')  # TODO
+        self.offsfile = self.conf.get('offsfile')
         self.poll_s = self.conf.get('poll_s')
         self.batch_size = self.conf.get('batch_size')
 
@@ -72,9 +73,10 @@ class SyncMigrator(s_cell.Cell):
         self.push_fair_iter = 100
         self.err_lim = 10
 
+        # TODO: Hive may not be best place for these...
         self.pull_offs = await self.hive.dict(('sync:pulloffs', ))
         self.push_offs = await self.hive.dict(('sync:pushoffs', ))
-        self.errors = await self.hive.dict(('sync:errors', ))  # TODO
+        self.errors = await self.hive.dict(('sync:errors', ))
 
         self.model = {}
 
@@ -87,7 +89,50 @@ class SyncMigrator(s_cell.Cell):
         self._queues = {}  # lyriden: queue of splices
 
     async def status(self):
-        pass  # TODO
+        '''
+        Provide sync summary by layer
+
+        Returns:
+            (dict): Summary info with layer idens as keys
+        '''
+        retn = {}
+        for lyriden, pulloffs in self.pull_offs.items():
+            queue = self._queues.get(lyriden)
+            if queue is not None:
+                queuelen = len(queue.linklist)
+            else:
+                queuelen = None
+
+            srclaststart = self.pull_last_start.get(lyriden)
+            if srclaststart is not None:
+                srclaststart = s_time.repr(srclaststart)
+
+            destlaststart = self.pull_last_start.get(lyriden)
+            if destlaststart is not None:
+                destlaststart = s_time.repr(destlaststart)
+
+            retn[lyriden] = {
+                'src:nextoffs': pulloffs,
+                'dest:nextoffs': await self.getLyrOffset('push', lyriden),
+                'queuelen': queuelen,
+                'src:task': await self._getTaskSummary(self._pull_tasks.get(lyriden)),
+                'dest:task': await self._getTaskSummary(self._push_tasks.get(lyriden)),
+                'src:laststart': srclaststart,
+                'dest:laststart': destlaststart,
+            }
+
+        return retn
+
+    async def _getTaskSummary(self, task):
+        retn = {}
+        if task is not None:
+            done = task.done()
+            retn = {'isdone': done}
+            if done:
+                retn['cancelled'] = task.cancelled()
+                retn['exc'] = task.exception()
+
+        return retn
 
     async def startSyncFromFile(self):
         '''
