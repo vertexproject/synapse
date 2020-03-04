@@ -1742,6 +1742,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         Will only return user's own splices unless they are an admin.
         '''
+        layr = self.view.layers[0]
 
         count = 0
         async for _, mesg in layr.splicesBack():
