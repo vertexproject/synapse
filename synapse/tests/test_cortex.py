@@ -3348,6 +3348,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     msgs = await core01.streamstorm('queue.list').list()
                     self.stormIsInPrint('visi', msgs)
 
+                    # Make sure that the mirror can't mutate
+                    await self.asyncraises(s_exc.IsReadOnly, core01.nodes('$lib.queue.add(newp)'))
+
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
