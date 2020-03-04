@@ -403,7 +403,7 @@ class CoreApi(s_cell.CellApi):
     async def addFeedData(self, name, items, *, viewiden=None):
 
         if viewiden is not None:
-            view = self.getView(viewiden)
+            view = self.cell.getView(viewiden)
             if view is None:
                 raise s_exc.NoSuchView(iden=viewiden)
 

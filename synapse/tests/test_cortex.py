@@ -2509,15 +2509,22 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_feed_syn_splice(self):
 
-        iden = s_common.guid()
-
-        async with self.getTestCore() as core:
+        async with self.getTestCoreAndProxy() as (core, prox):
 
             mesg = ('node:add', {'ndef': ('test:str', 'foo')})
             await core.addFeedData('syn.splice', [mesg])
 
             async with await core.snap() as snap:
                 node = await snap.getNodeByNdef(('test:str', 'foo'))
+                self.nn(node)
+
+            # test coreapi addFeedData
+
+            mesg = ('node:add', {'ndef': ('test:str', 'foobar')})
+            await prox.addFeedData('syn.splice', [mesg])
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'foobar'))
                 self.nn(node)
 
             mesg = ('prop:set', {'ndef': ('test:str', 'foo'), 'prop': 'tick', 'valu': 200})
@@ -2566,6 +2573,41 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.getNodeByNdef(('test:str', 'foo'))
                 self.none(node)
+
+            # test feeding to a different view
+
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
+            view2 = core.getView(view2_iden)
+
+            mesg = ('node:add', {'ndef': ('test:str', 'bar')})
+            await core.addFeedData('syn.splice', [mesg], viewiden=view2_iden)
+
+            async with await core.snap(view=view2) as snap:
+                node = await snap.getNodeByNdef(('test:str', 'bar'))
+                self.nn(node)
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'bar'))
+                self.none(node)
+
+            # test coreapi addFeedData to a different view
+
+            mesg = ('node:add', {'ndef': ('test:str', 'baz')})
+            await prox.addFeedData('syn.splice', [mesg], viewiden=view2_iden)
+
+            async with await core.snap(view=view2) as snap:
+                node = await snap.getNodeByNdef(('test:str', 'baz'))
+                self.nn(node)
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'baz'))
+                self.none(node)
+
+            # sad paths
+
+            await self.asyncraises(s_exc.NoSuchView, core.addFeedData('syn.splice', [mesg], viewiden='badiden'))
+            await self.asyncraises(s_exc.NoSuchView, prox.addFeedData('syn.splice', [mesg], viewiden='badiden'))
 
     async def test_stat(self):
 
