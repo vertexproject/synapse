@@ -1742,11 +1742,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         Will only return user's own splices unless they are an admin.
         '''
-        layr = self.view.layers[0]
-        indx = (await layr.stat())['nodeeditlog_indx']
 
         count = 0
-        async for _, mesg in layr.splicesBack(indx):
+        async for _, mesg in layr.splicesBack():
             count += 1
             if not count % 1000: # pragma: no cover
                 await asyncio.sleep(0)

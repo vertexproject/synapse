@@ -595,3 +595,14 @@ class LayerTest(s_t_utils.SynTest):
 
                     nodelist1 = [node.pack() for node in nodelist1]
                     self.eq(nodelist0, nodelist1)
+
+                    meta = {'user': s_common.guid(),
+                            'time': 0,
+                            }
+
+                    for nodeedits in editlist:
+                        self.none(await layrprox.storNodeEditsNoLift(nodeedits, meta=meta))
+
+                    lastoffs = layr.nodeeditlog.index()
+                    for nodeedit in layr.nodeeditlog.sliceBack(lastoffs, 2):
+                        self.eq(meta, nodeedit[1][1])

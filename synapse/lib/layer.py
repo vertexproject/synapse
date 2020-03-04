@@ -116,25 +116,25 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.iterLayerNodeEdits():
             yield item
 
-    async def storNodeEdits(self, nodeedits):
+    async def storNodeEdits(self, nodeedits, meta=None):
 
         await self._reqUserAllowed(self.writeperm)
 
-        meta = {
-            'time': s_common.now(),
-            'user': self.user.iden
-        }
+        if meta is None:
+            meta = {'time': s_common.now(),
+                    'user': self.user.iden
+                    }
 
         return await self.layr.storNodeEdits(nodeedits, meta)
 
-    async def storNodeEditsNoLift(self, nodeedits):
+    async def storNodeEditsNoLift(self, nodeedits, meta=None):
 
         await self._reqUserAllowed(self.writeperm)
 
-        meta = {
-            'time': s_common.now(),
-            'user': self.user.iden
-        }
+        if meta is None:
+            meta = {'time': s_common.now(),
+                    'user': self.user.iden
+                    }
 
         await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
@@ -1829,7 +1829,7 @@ class Layer(s_nexus.Pusher):
             return
 
         if offs is None:
-            offs = (0, 0, 0)
+            offs = (self.nodeeditlog.index(), 0, 0)
 
         if size:
 
