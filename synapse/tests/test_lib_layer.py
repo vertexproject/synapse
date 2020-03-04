@@ -550,8 +550,12 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCoreAndProxy() as (core0, prox0):
 
             nodelist0 = []
-            nodelist0.extend(await core0.nodes('[ test:str=foo ]'))
-            nodelist0.extend(await core0.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]'))
+            nodes = await core0.nodes('[ test:str=foo ]')
+            nodelist0.extend(nodes)
+            nodes = await core0.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]')
+            nodelist0.extend(nodes)
+
+            nodelist0 = [node.pack() for node in nodelist0]
 
             count = 0
             editlist = []
@@ -568,12 +572,26 @@ class LayerTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(url) as layrprox:
 
                     for nodeedits in editlist:
-                        await layrprox.storNodeEdits(nodeedits)
+                        self.nn(await layrprox.storNodeEdits(nodeedits))
 
                     nodelist1 = []
                     nodelist1.extend(await core1.nodes('test:str'))
                     nodelist1.extend(await core1.nodes('inet:ipv4'))
 
-                    nodelist0 = [node.pack() for node in nodelist0]
+                    nodelist1 = [node.pack() for node in nodelist1]
+                    self.eq(nodelist0, nodelist1)
+
+                layr = core1.view.layers[0]
+                await layr.truncate()
+
+                async with await s_telepath.openurl(url) as layrprox:
+
+                    for nodeedits in editlist:
+                        self.none(await layrprox.storNodeEditsNoLift(nodeedits))
+
+                    nodelist1 = []
+                    nodelist1.extend(await core1.nodes('test:str'))
+                    nodelist1.extend(await core1.nodes('inet:ipv4'))
+
                     nodelist1 = [node.pack() for node in nodelist1]
                     self.eq(nodelist0, nodelist1)
