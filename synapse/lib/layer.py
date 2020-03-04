@@ -104,7 +104,7 @@ class LayerApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
 
         self.layr = layr
-        self.liftperm = ('layer:lift', self.layr.iden)
+        self.liftperm = ('layer', 'lift', self.layr.iden)
 
     async def iterLayerNodeEdits(self):
         '''
