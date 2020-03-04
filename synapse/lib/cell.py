@@ -404,6 +404,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Set to a Hive telepath URL.',
             'type': 'string'
         },
+        'logchanges': {
+            'default': False,
+            'description': 'Record all changes to the cell.  Required for mirroring.',
+            'type': 'boolean'
+        },
     }
 
     async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
@@ -433,6 +438,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             conf = {}
 
         self.conf = self._initCellConf(conf)
+        self.dologging = self.conf.get('layers:logedits')
 
         await s_nexus.Pusher.__anit__(self, self.iden)
 
@@ -503,7 +509,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
     async def _initNexsRoot(self):
-        nexsroot = await s_nexus.NexsRoot.anit(self.dirn)
+        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.dologging)
         self.onfini(nexsroot.fini)
         return nexsroot
 

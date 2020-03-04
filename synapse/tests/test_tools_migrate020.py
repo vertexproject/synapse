@@ -71,7 +71,7 @@ def tupleize(obj):
 # updated for jsonschema and a new test value
 class MigrSvcApi(s_stormsvc.StormSvc, s_cell.CellApi):
     _storm_svc_name = 'turtle'
-    _storm_svc_pkgs = ({
+    _storm_svc_pkgs = ({  # type: ignore
         'name': 'turtle',
         'version': (0, 0, 1),
         'commands': ({'name': 'newcmd', 'storm': '[ inet:fqdn=$lib.service.get($cmdconf.svciden).test() ]'},),
@@ -83,7 +83,7 @@ class MigrSvcApi(s_stormsvc.StormSvc, s_cell.CellApi):
 class MigrStormsvc(s_cell.Cell):
     cellapi = MigrSvcApi
     confdefs = (
-        ('myfqdn', {'type': 'string', 'default': 'snoop.io', 'description': 'A test fqdn'}),
+        ('myfqdn', {'type': 'string', 'default': 'snoop.io', 'description': 'A test fqdn'}),  # type: ignore
     )
 
     async def __anit__(self, dirn, conf=None):
@@ -228,7 +228,7 @@ class MigrationTest(s_t_utils.SynTest):
         self.len(2, await core.nodes('inet:dns:a:ipv4=1.2.3.4'))
 
         # check that triggers are active
-        root = await core.auth.getUserByName('root')
+        await core.auth.getUserByName('root')
         self.len(2, await core.eval('syn:trigger').list())
         tnodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
         self.nn(tnodes[0].tags.get('trgtag'))
@@ -281,7 +281,7 @@ class MigrationTest(s_t_utils.SynTest):
         defview = await core.hive.get(('cellinfo', 'defaultview'))
         secview = [k for k in core.views.keys() if k != defview][0]
 
-        ## user permissions
+        # user permissions
         # bobo
         # - read main view
         # - read/write to forked view via role
@@ -511,6 +511,11 @@ class MigrationTest(s_t_utils.SynTest):
             self.gt(offslogs0[0]['val'][0], 0)
             self.gt(offslogs0[1]['val'][0], 0)
 
+            # check the saved file
+            offsyaml = s_common.yamlload(dest0, 'migration', 'lyroffs.yaml')
+            offslogdict = {x['key']: {'nextoffs': x['val'][0], 'created': x['val'][1]} for x in offslogs0}
+            self.eq(offsyaml, offslogdict)
+
             await migr0.fini()
 
             # run migration again
@@ -540,8 +545,12 @@ class MigrationTest(s_t_utils.SynTest):
                 self.len(2, offslogs)  # one entry for each layer
                 self.gt(offslogs[0]['val'][0], 0)
                 self.gt(offslogs[1]['val'][0], 0)
-                self.gt(offslogs[0]['val'][1], offslogs0[0]['val'][1]) # timestamp should be updated
+                self.gt(offslogs[0]['val'][1], offslogs0[0]['val'][1])  # timestamp should be updated
                 self.gt(offslogs[1]['val'][1], offslogs0[1]['val'][1])
+
+                # check the saved file
+                offsyaml = s_common.yamlload(dest, 'migration', 'lyroffs.yaml')
+                self.eq(offsyaml, {x['key']: {'nextoffs': x['val'][0], 'created': x['val'][1]} for x in offslogs})
 
                 await migr.fini()
 
@@ -550,11 +559,6 @@ class MigrationTest(s_t_utils.SynTest):
                     # check core data
                     await self._checkCore(core, tdata)
                     await self._checkAuth(core)
-
-                    # check that hive information didn't get duplicated
-                    hnode = await core.hive.open(('cortex', 'storage'))
-                    hdict = await hnode.dict()
-                    self.len(1, [x for x in hdict.items()])
 
     async def test_migr_assvr(self):
         '''
@@ -768,11 +772,11 @@ class MigrationTest(s_t_utils.SynTest):
             # so we can check that the cortex is not startable as 020
             await self.asyncraises(s_exc.BadStorageVersion, s_cortex.Cortex.anit(dest, conf=None))
 
-    async def test_migr_cellyaml(self):
+    async def test_migr_cell(self):
         conf = {
             'src': None,
             'dest': None,
-            'migrops': [op for op in s_migr.ALL_MIGROPS if op != 'cellyaml'],
+            'migrops': [op for op in s_migr.ALL_MIGROPS if op != 'cell'],
         }
 
         async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
@@ -782,7 +786,7 @@ class MigrationTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadConfValu, s_cortex.Cortex.anit(dest, conf=None))
 
         async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
-            migr.migrops.append('cellyaml')
+            migr.migrops.append('cell')
             os.remove(os.path.join(migr.src, 'cell.yaml'))
 
             await migr.migrate()
@@ -796,7 +800,7 @@ class MigrationTest(s_t_utils.SynTest):
     async def test_migr_dirn(self):
         with self.getRegrDir('cortexes', REGR_VER) as src:
             with self.getTestDir() as dest:
-                locallyrs = os.listdir(os.path.join(src, 'layers'))
+                os.listdir(os.path.join(src, 'layers'))
 
                 conf = {
                     'src': src,
@@ -907,7 +911,7 @@ class MigrationTest(s_t_utils.SynTest):
             self.none(err)
             ne = (ne[0], 'foo:bar', ne[2])
 
-            storinfo = await migr._migrHiveStorInfo()
-            wlyr = await migr._destGetWlyr(migr.dest, storinfo, locallyrs[0])
+            lyrinfo = await migr._migrHiveLayerInfo(locallyrs[0])
+            wlyr = await migr._destGetWlyr(migr.dest, locallyrs[0], lyrinfo)
             res = await migr._destAddNodes(wlyr, ne, 'nexus')
             self.isin('Unable to store nodeedits', res.get('mesg', ''))

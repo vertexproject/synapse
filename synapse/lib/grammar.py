@@ -346,9 +346,16 @@ def parseQuery(text):
 # TODO:  commonize with storm.lark
 re_scmd = '[a-z][a-z0-9.]+'
 scmdre = regex.compile(re_scmd)
-univre = regex.compile(r'\.[a-z_][a-z0-9]*([:.][a-z0-9]+)*')
-propre = regex.compile(r'[a-z_][a-z0-9]*(:[a-z0-9]+)+([:.][a-z_ ][a-z0-9]+)*')
-formre = regex.compile(r'[a-z][a-z0-9]*(:[a-z0-9]+)+')
+univrestr = r'\.[a-z_][a-z0-9]*([:.][a-z0-9]+)*'
+univre = regex.compile(univrestr)
+proprestr = r'[a-z_][a-z0-9]*(:[a-z0-9]+)+([:.][a-z_ ][a-z0-9]+)*'
+proporunivrestr = f'({univrestr})|({proprestr})'
+proporunivre = regex.compile(proporunivrestr)
+propre = regex.compile(proprestr)
+formrestr = r'[a-z][a-z0-9]*(:[a-z0-9]+)+'
+formre = regex.compile(formrestr)
+tagrestr = r'(\w+\.)*\w+'
+tagre = regex.compile(tagrestr)
 
 def isPropName(name):
     return propre.fullmatch(name) is not None

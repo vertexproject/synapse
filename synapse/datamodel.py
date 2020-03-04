@@ -347,8 +347,6 @@ class Form:
             except Exception:
                 logger.exception('error on onadd for %s' % (self.name,))
 
-        await node.snap.view.runNodeAdd(node)
-
     async def wasDeleted(self, node):
         '''
         Fire the onDel() callbacks for node deletion.
@@ -362,8 +360,6 @@ class Form:
                 raise
             except Exception:
                 logger.exception('error on ondel for %s' % (self.name,))
-
-        await node.snap.view.runNodeDel(node)
 
     def prop(self, name: str):
         '''
