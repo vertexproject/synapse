@@ -1535,7 +1535,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.isin('com.test.record', resp)
             self.isin('syn.splice', resp)
             self.isin('syn.nodes', resp)
-            self.isin('syn.ingest', resp)
+            self.isin('syn.nodeedits', resp)
             rec = resp.get('syn.nodes')
             self.eq(rec.get('name'), 'syn.nodes')
             self.eq(rec.get('desc'), 'Add nodes to the Cortex via the packed node format.')
@@ -2472,93 +2472,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             opts = {'vars': {'foo': norm}}
             await self.agenlen(1, core.eval('test:pivcomp:tick=$foo', opts=opts))
 
-    async def _validate_feed(self, core, gestdef, guid, seen, pack=False):
-
-        async def awaitagen(obj):
-            '''
-            Remote async gen methods act differently than local cells in that an extra await is needed.
-            '''
-            if s_coro.iscoro(obj):
-                return await obj
-            return obj
-        # Helper for syn_ingest tests
-        await core.addFeedData('syn.ingest', [gestdef])
-
-        # Nodes are made from the forms directive
-        q = 'test:str=1234 test:str=duck test:str=knight'
-        await self.agenlen(3, await awaitagen(core.eval(q)))
-        q = 'test:int=1234'
-        await self.agenlen(1, await awaitagen(core.eval(q)))
-        q = 'test:pivcomp=(hehe,haha)'
-        await self.agenlen(1, await awaitagen(core.eval(q)))
-
-        # packed nodes are made from the nodes directive
-        nodes = await alist(await awaitagen(core.eval('test:str=ohmy')))
-        if pack:
-            nodes = [node.pack() for node in nodes]
-        self.len(1, nodes)
-        node = nodes[0]
-        self.eq(node[1]['props'].get('bar'), ('test:int', 137))
-        self.eq(node[1]['props'].get('tick'), 978307200000)
-        self.isin('beep.beep', node[1]['tags'])
-        self.isin('beep.boop', node[1]['tags'])
-        self.isin('test.foo', node[1]['tags'])
-
-        nodes = await alist(await awaitagen(core.eval('test:int=8675309')))
-        if pack:
-            nodes = [node.pack() for node in nodes]
-        self.len(1, nodes)
-        node = nodes[0]
-        self.isin('beep.morp', node[1]['tags'])
-        self.isin('test.foo', node[1]['tags'])
-
-        # Sources are made, as are seen nodes.
-        q = f'meta:source={guid} -> meta:seen:source'
-        nodes = await alist(await awaitagen(core.eval(q)))
-        if pack:
-            nodes = [node.pack() for node in nodes]
-        self.len(9, nodes)
-        for node in nodes:
-            self.isin('.seen', node[1].get('props', {}))
-
-        # Included tags are made
-        await self.agenlen(9, await awaitagen(core.eval(f'#test')))
-
-        # As are tag times
-        nodes = await alist(await awaitagen(core.eval('#test.baz')))
-        if pack:
-            nodes = [node.pack() for node in nodes]
-        self.eq(nodes[0][1].get('tags', {}).get('test.baz', ()),
-                (1388534400000, 1420070400000))
-
-        # Edges are made
-        await self.agenlen(1, await awaitagen(core.eval('edge:refs')))
-        await self.agenlen(1, await awaitagen(core.eval('edge:wentto')))
-
-    async def test_syn_ingest_remote(self):
-        guid = s_common.guid()
-        seen = s_common.now()
-        gestdef = self.getIngestDef(guid, seen)
-
-        # Test Remote Cortex
-        async with self.getTestCoreAndProxy() as (realcore, core):
-
-            # Setup user permissions
-            await core.addAuthRole('creator')
-            await core.addRoleRule('creator', (True, ('node', 'add')))
-            await core.addRoleRule('creator', (True, ('node', 'prop', 'set')))
-            await core.addRoleRule('creator', (True, ('node', 'tag', 'add')))
-            await core.addUserRole('root', 'creator')
-            await self._validate_feed(core, gestdef, guid, seen)
-
-    async def test_syn_ingest_local(self):
-        guid = s_common.guid()
-        seen = s_common.now()
-        gestdef = self.getIngestDef(guid, seen)
-
-        async with self.getTestCore() as core:
-            await self._validate_feed(core, gestdef, guid, seen, pack=True)
-
     async def test_cortex_snap_eval(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
@@ -2624,6 +2537,132 @@ class CortexBasicTest(s_t_utils.SynTest):
             data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
             await core1.addFeedData('syn.nodes', data)
             self.len(1, await core1.nodes('test:str=opps +#test.newp'))
+
+    async def test_feed_syn_splice(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            mesg = ('node:add', {'ndef': ('test:str', 'foo')})
+            await core.addFeedData('syn.splice', [mesg])
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'foo'))
+                self.nn(node)
+
+            # test coreapi addFeedData
+            mesg = ('node:add', {'ndef': ('test:str', 'foobar')})
+            await prox.addFeedData('syn.splice', [mesg])
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'foobar'))
+                self.nn(node)
+
+            mesg = ('prop:set', {'ndef': ('test:str', 'foo'), 'prop': 'tick', 'valu': 200})
+            await core.addFeedData('syn.splice', [mesg])
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'foo'))
+                self.eq(200, node.get('tick'))
+
+            mesg = ('prop:del', {'ndef': ('test:str', 'foo'), 'prop': 'tick'})
+            await core.addFeedData('syn.splice', [mesg])
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'foo'))
+                self.none(node.get('tick'))
+
+            mesg = ('tag:add', {'ndef': ('test:str', 'foo'), 'tag': 'bar', 'valu': (200, 300)})
+            await core.addFeedData('syn.splice', [mesg])
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'foo'))
+                self.eq((200, 300), node.getTag('bar'))
+
+            mesg = ('tag:del', {'ndef': ('test:str', 'foo'), 'tag': 'bar'})
+            await core.addFeedData('syn.splice', [mesg])
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'foo'))
+                self.none(node.getTag('bar'))
+
+            await core.addTagProp('score', ('int', {}), {})
+            splice = ('tag:prop:set', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100,
+                                       'curv': None})
+            await core.addFeedData('syn.splice', [splice])
+
+            self.len(1, await core.nodes('#lol:score=100'))
+
+            splice = ('tag:prop:del', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100})
+            await core.addFeedData('syn.splice', [splice])
+
+            self.len(0, await core.nodes('#lol:score=100'))
+
+            mesg = ('node:del', {'ndef': ('test:str', 'foo')})
+            await core.addFeedData('syn.splice', [mesg])
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'foo'))
+                self.none(node)
+
+            # test feeding to a different view
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
+            view2 = core.getView(view2_iden)
+
+            mesg = ('node:add', {'ndef': ('test:str', 'bar')})
+            await core.addFeedData('syn.splice', [mesg], viewiden=view2_iden)
+
+            async with await core.snap(view=view2) as snap:
+                node = await snap.getNodeByNdef(('test:str', 'bar'))
+                self.nn(node)
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'bar'))
+                self.none(node)
+
+            # test coreapi addFeedData to a different view
+            mesg = ('node:add', {'ndef': ('test:str', 'baz')})
+            await prox.addFeedData('syn.splice', [mesg], viewiden=view2_iden)
+
+            async with await core.snap(view=view2) as snap:
+                node = await snap.getNodeByNdef(('test:str', 'baz'))
+                self.nn(node)
+
+            async with await core.snap() as snap:
+                node = await snap.getNodeByNdef(('test:str', 'baz'))
+                self.none(node)
+
+            # sad paths
+            await self.asyncraises(s_exc.NoSuchView, core.addFeedData('syn.splice', [mesg], viewiden='badiden'))
+            await self.asyncraises(s_exc.NoSuchView, prox.addFeedData('syn.splice', [mesg], viewiden='badiden'))
+
+    async def test_feed_syn_nodeedits(self):
+
+        async with self.getTestCoreAndProxy() as (core0, prox0):
+
+            nodelist0 = []
+            nodelist0.extend(await core0.nodes('[ test:str=foo ]'))
+            nodelist0.extend(await core0.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]'))
+
+            count = 0
+            editlist = []
+            async for _, nodeedits in prox0.syncLayerNodeEdits(0):
+                editlist.append(nodeedits)
+                count += 1
+                if count == 7:
+                    break
+
+            async with self.getTestCoreAndProxy() as (core1, prox1):
+
+                await prox1.addFeedData('syn.nodeedits', editlist)
+
+                nodelist1 = []
+                nodelist1.extend(await core1.nodes('test:str'))
+                nodelist1.extend(await core1.nodes('inet:ipv4'))
+
+                nodelist0 = [node.pack() for node in nodelist0]
+                nodelist1 = [node.pack() for node in nodelist1]
+                self.eq(nodelist0, nodelist1)
 
     async def test_stat(self):
 
@@ -3347,6 +3386,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     msgs = await core01.streamstorm('queue.list').list()
                     self.stormIsInPrint('visi', msgs)
+
+                    # Make sure that the mirror can't mutate
+                    await self.asyncraises(s_exc.IsReadOnly, core01.nodes('$lib.queue.add(newp)'))
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 

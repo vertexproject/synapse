@@ -775,14 +775,13 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('adminkey is sekrit', mesgs)
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
-                    # Sadpath - storing a valu into the hive that can't be
-                    # msgpacked will fail
-                    # q = '[test:str=test] $lib.user.vars.set(mynode, $node)'
-                    # mesgs = await s_test.alist(prox.storm(q))
-                    # err = "can not serialize 'Node' object"
-                    # errs = [m for m in mesgs if m[0] == 'err']
-                    # self.len(1, errs)
-                    # self.eq(errs[0][1][1].get('mesg'), err)
+                    # Storing a valu into the hive that can't be msgpacked fails
+                    q = '[test:str=test] $lib.user.vars.set(mynode, $node)'
+                    mesgs = await s_test.alist(prox.storm(q))
+                    err = "can not serialize 'Node' object"
+                    errs = [m for m in mesgs if m[0] == 'err']
+                    self.len(1, errs)
+                    self.eq(errs[0][1][1].get('mesg'), err)
 
                     # Sad path - names must be strings.
                     q = '$lib.globals.set((my, nested, valu), haha)'
@@ -1377,17 +1376,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, await core.nodes('test:str'))
             self.len(1, await core.nodes('test:str#test'))
             self.len(1, await core.nodes('test:str:tick=3001'))
-
-            # Try seqn combo
-            guid = s_common.guid()
-            svars['guid'] = guid
-            svars['offs'] = 0
-            q = '''$seqn=$lib.feed.ingest("syn.nodes", $data, ($guid, $offs))
-            $lib.print("New offset: {seqn}", seqn=$seqn)
-            '''
-            mesgs = await alist(core.streamstorm(q, opts))
-            # self.stormIsInPrint('New offset: 2', mesgs)
-            # self.eq(2, await core.getFeedOffs(guid))
 
             q = 'feed.list'
             mesgs = await alist(core.streamstorm(q))

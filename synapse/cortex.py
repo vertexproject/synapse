@@ -26,6 +26,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
+import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
@@ -400,18 +401,21 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getFeedFuncs()
 
-    async def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, *, viewiden=None):
 
-        wlyr = self.cell.view.layers[0]
+        view = self.cell.getView(viewiden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=viewiden)
 
+        wlyr = view.layers[0]
         parts = name.split('.')
 
         self.user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
 
-        async with await self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user, view=view) as snap:
             with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
                 snap.strict = False
-                return await snap.addFeedData(name, items, seqn=seqn)
+                await snap.addFeedData(name, items)
 
     async def count(self, text, opts=None):
         '''
@@ -512,7 +516,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.getNexusChanges(offs):
             yield item
 
-    async def syncLayerNodeEdits(self, iden, offs, layriden=None):
+    async def syncLayerNodeEdits(self, offs, layriden=None):
         '''
         Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
 
@@ -520,30 +524,32 @@ class CoreApi(s_cell.CellApi):
         The generator will only terminate on network disconnect or if the
         consumer falls behind the max window size of 10,000 nodeedit messages.
         '''
-        self.user.confirm(('sync',), gateiden=iden)
-        async for item in self.cell.syncLayerNodeEdits(iden, offs):
+        layr = self.cell.getLayer(layriden)
+        self.user.confirm(('sync',), gateiden=layr.iden)
+
+        async for item in self.cell.syncLayerNodeEdits(layr.iden, offs):
             yield item
 
     @s_cell.adminapi
-    async def splices(self, offs, size, layriden=None):
+    async def splices(self, offs=None, size=None, layriden=None):
         '''
         Return the list of splices at the given offset.
         '''
         layr = self.cell.getLayer(layriden)
         count = 0
-        async for mesg in layr.splices(offs, size):
+        async for mesg in layr.splices(offs=offs, size=size):
             count += 1
             if not count % 1000:
                 await asyncio.sleep(0)
             yield mesg
 
     @s_cell.adminapi
-    async def splicesBack(self, offs, size):
+    async def splicesBack(self, offs=None, size=None):
         '''
         Return the list of splices backwards from the given offset.
         '''
         count = 0
-        async for mesg in self.cell.view.layers[0].splicesBack(offs, size):
+        async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
             count += 1
             if not count % 1000: # pragma: no cover
                 await asyncio.sleep(0)
@@ -1734,10 +1740,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         Will only return user's own splices unless they are an admin.
         '''
         layr = self.view.layers[0]
-        indx = (await layr.stat())['nodeeditlog_indx']
 
         count = 0
-        async for _, mesg in layr.splicesBack(indx):
+        async for _, mesg in layr.splicesBack():
             count += 1
             if not count % 1000: # pragma: no cover
                 await asyncio.sleep(0)
@@ -1753,6 +1758,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             This cortex *must* be initialized from a backup of the target cortex!
         '''
         self.mirror = True
+        self.nexsroot.readonly = True
         self.schedCoro(self._initCoreMirror(url))
 
     async def _initCoreMirror(self, url):
@@ -1812,7 +1818,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                                 items.append(nexi)
 
                             for _, args in items:
-                                await self.nexsroot.eat(*args)
+                                await self.nexsroot.issue(*args)
 
             except asyncio.CancelledError: # pragma: no cover
                 return
@@ -1958,7 +1964,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
-        self.setFeedFunc('syn.ingest', self._addSynIngest)
+        self.setFeedFunc('syn.nodeedits', self._addSynNodeEdits)
 
     def _initCortexHttpApi(self):
         '''
@@ -2630,7 +2636,6 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _onFeedTagAdd(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
-
         tag = mesg[1].get('tag')
         valu = mesg[1].get('valu')
 
@@ -2663,6 +2668,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await node.setTagProp(tag, prop, valu)
 
     async def _onFeedTagPropDel(self, snap, mesg):
+
         tag = mesg[1].get('tag')
         prop = mesg[1].get('prop')
         ndef = mesg[1].get('ndef')
@@ -2671,92 +2677,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if node is not None:
             await node.delTagProp(tag, prop)
 
-    async def _addSynIngest(self, snap, items):
+    async def _addSynNodeEdits(self, snap, items):
 
         for item in items:
-            try:
-                pnodes = self._getSynIngestNodes(item)
-                logger.info('Made [%s] nodes.', len(pnodes))
-                async for node in snap.addNodes(pnodes):
-                    yield node
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.exception('Failed to process ingest [%r]', item)
-                continue
-
-    def _getSynIngestNodes(self, item):
-        '''
-        Get a list of packed nodes from a ingest definition.
-        '''
-        pnodes = []
-        seen = item.get('seen')
-        # Track all the ndefs we make so we can make sources
-        ndefs = []
-
-        # Make the form nodes
-        tags = item.get('tags', {})
-        forms = item.get('forms', {})
-        for form, valus in forms.items():
-            for valu in valus:
-                ndef = [form, valu]
-                ndefs.append(ndef)
-                obj = [ndef, {'tags': tags}]
-                if seen:
-                    obj[1]['props'] = {'.seen': seen}
-                pnodes.append(obj)
-
-        # Make the packed nodes
-        nodes = item.get('nodes', ())
-        for pnode in nodes:
-            ndefs.append(pnode[0])
-            pnode[1].setdefault('tags', {})
-            for tag, valu in tags.items():
-                # Tag in the packed node has a higher predecence
-                # than the tag in the whole ingest set of data.
-                pnode[1]['tags'].setdefault(tag, valu)
-            if seen:
-                pnode[1].setdefault('props', {})
-                pnode[1]['props'].setdefault('.seen', seen)
-            pnodes.append(pnode)
-
-        # Make edges
-        for srcdef, etyp, destndefs in item.get('edges', ()):
-            for destndef in destndefs:
-                ndef = [etyp, [srcdef, destndef]]
-                ndefs.append(ndef)
-                obj = [ndef, {}]
-                if seen:
-                    obj[1]['props'] = {'.seen': seen}
-                if tags:
-                    obj[1]['tags'] = tags.copy()
-                pnodes.append(obj)
-
-        # Make time based edges
-        for srcdef, etyp, destndefs in item.get('time:edges', ()):
-            for destndef, time in destndefs:
-                ndef = [etyp, [srcdef, destndef, time]]
-                ndefs.append(ndef)
-                obj = [ndef, {}]
-                if seen:
-                    obj[1]['props'] = {'.seen': seen}
-                if tags:
-                    obj[1]['tags'] = tags.copy()
-                pnodes.append(obj)
-
-        # Make the source node and links
-        source = item.get('source')
-        if source:
-            # Base object
-            obj = [['meta:source', source], {}]
-            pnodes.append(obj)
-
-            # Subsequent links
-            for ndef in ndefs:
-                obj = [['meta:seen', (source, ndef)],
-                       {'props': {'.seen': seen}}]
-                pnodes.append(obj)
-        return pnodes
+            await snap.addNodeEdits(item)
 
     def getCoreMod(self, name):
         return self.modules.get(name)
@@ -2851,7 +2775,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Parse storm query text and return a Query object.
         '''
-        query = copy.deepcopy(s_grammar.parseQuery(text))
+        query = copy.deepcopy(s_parser.parseQuery(text))
         query.init(self)
         return query
 
@@ -2909,21 +2833,24 @@ class Cortex(s_cell.Cell):  # type: ignore
             async for node in snap.addNodes(nodedefs):
                 yield node
 
-    async def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, *, viewiden=None):
         '''
         Add data using a feed/parser function.
 
         Args:
             name (str): The name of the feed record format.
             items (list): A list of items to ingest.
-            seqn ((str,int)): An (iden, offs) tuple for this feed chunk.
-
-        Returns:
-            (int): The next expected offset (or None) if seqn is None.
+            iden (str): The iden of a view to use.
+                If a view is not specified, the default view is used.
         '''
-        async with await self.snap() as snap:
+
+        view = self.getView(viewiden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=viewiden)
+
+        async with await self.snap(view=view) as snap:
             snap.strict = False
-            return await snap.addFeedData(name, items, seqn=seqn)
+            await snap.addFeedData(name, items)
 
     async def snap(self, user=None, view=None):
         '''

@@ -133,7 +133,7 @@ def makeargparser():
 
     pars.add_argument('--debug', '-d', default=False, action='store_true',
                       help='Drop to interactive prompt to inspect cortex after loading data.')
-    pars.add_argument('--format', '-f', type=str, action='store', default='syn.ingest',
+    pars.add_argument('--format', '-f', type=str, action='store', default='syn.nodes',
                       help='Feed format to use for the ingested data.')
     pars.add_argument('--modules', '-m', type=str, action='append', default=[],
                       help='Additional modules to load locally with a test Cortex.')

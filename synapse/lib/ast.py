@@ -1021,36 +1021,24 @@ class LiftProp(LiftOper):
 
     async def lift(self, runt):
 
-        cmpr = '='
-        valu = None
         name = await self.kids[0].compute(runt)
 
         prop = runt.model.prop(name)
         if prop is None:
             raise s_exc.NoSuchProp(name=name)
 
-        if len(self.kids) == 1:
+        assert len(self.kids) == 1
 
-            # check if we can optimize a form lift with a tag filter...
-            if prop.isform:
-                for hint in self.getRightHints():
-                    if hint[0] == 'tag':
-                        tagname = hint[1].get('name')
-                        async for node in runt.snap.nodesByTag(tagname, form=name):
-                            yield node
-                        return
+        # check if we can optimize a form lift with a tag filter...
+        if prop.isform:
+            for hint in self.getRightHints():
+                if hint[0] == 'tag':
+                    tagname = hint[1].get('name')
+                    async for node in runt.snap.nodesByTag(tagname, form=name):
+                        yield node
+                    return
 
-            async for node in runt.snap.nodesByProp(name):
-                yield node
-
-            return
-
-        assert len(self.kids) == 3
-
-        cmpr = self.kids[1].value()
-        valu = await self.kids[2].compute(runt)
-
-        async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
+        async for node in runt.snap.nodesByProp(name):
             yield node
 
     def getRightHints(self):

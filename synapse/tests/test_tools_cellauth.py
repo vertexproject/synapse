@@ -68,7 +68,6 @@ class CellAuthTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', 'root']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('type: user')
             outp.expect('admin: True')
             outp.expect('locked: False')
@@ -83,37 +82,31 @@ class CellAuthTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--adduser', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('adding user: foo')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--addrole', 'frole']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('adding role: frole')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--admin', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('admin: True')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--noadmin', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('admin: False')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--delrole', 'frole']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('deleting role: frole')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--deluser', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('deleting user: foo')
 
     async def test_cellauth_lock(self):
@@ -129,14 +122,12 @@ class CellAuthTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--lock', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('locking user: foo')
             outp.expect('locked: True')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--unlock', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('unlocking user: foo')
             outp.expect('locked: False')
 
@@ -153,7 +144,6 @@ class CellAuthTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--passwd', 'mysecret', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('setting passwd for: foo')
 
     async def test_cellauth_grants(self):
@@ -172,13 +162,11 @@ class CellAuthTest(s_t_utils.SynTest):
 
             argv = [coreurl, 'modify', '--grant', 'bar', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('granting bar to: foo')
             outp.expect('role: bar')
 
             argv = [coreurl, 'modify', '--revoke', 'bar', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('revoking bar from: foo')
 
     async def test_cellauth_rules(self):
@@ -200,7 +188,6 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.clear()
             argv = [coreurl, 'modify', '--addrule', rule, name]
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect(f'adding rule to {name}: {rulerepr}')
             user = await prox.getUserInfo(name)
             self.eq(user.get('rules'),
@@ -209,7 +196,6 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.clear()
             argv = [coreurl, 'modify', '--delrule', '0', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect(f'deleting rule index: 0')
             user = await prox.getUserInfo(name)
             self.eq(user.get('rules'), ())

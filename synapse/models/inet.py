@@ -302,27 +302,6 @@ class Fqdn(s_types.Type):
 
         return valu, {'subs': subs}
 
-    #def indx(self, norm):
-        #return norm[::-1].encode('utf8')
-
-    #def liftByEq(self, valu):
-
-        #if valu == '':
-            #raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    #mesg='Cannot generate fqdn index bytes for a empty string.')
-
-        #if valu[0] == '*':
-            #indx = valu[1:][::-1].encode('utf8')
-            #return (
-                #('pref', indx),
-            #)
-
-        #if valu.find('*') != -1:
-            #raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    #mesg='Wild card may only appear at the beginning.')
-
-        #return s_types.Type.indxByEq(self, valu)
-
     def repr(self, valu):
         try:
             return valu.encode('utf8').decode('idna')
@@ -535,14 +514,6 @@ class Rfc2822Addr(s_types.Str):
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-
-    def indxByPref(self, valu):
-        valu = valu.replace('"', ' ').replace("'", ' ')
-        valu = valu.strip().lower()
-        valu = ' '.join(valu.split())
-        return (
-            ('pref', valu.encode('utf8', 'surrogatepass')),
-        )
 
     def _normPyStr(self, valu):
 
