@@ -4,6 +4,7 @@ import contextlib
 
 from typing import List, Dict, Any, Callable, Tuple
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -66,6 +67,7 @@ class NexsRoot(s_base.Base):
         import synapse.lib.slabseqn as s_slabseqn  # avoid import cycle
 
         self.dirn = dirn
+        self.readonly = False
         self._nexskids: Dict[str, 'Pusher'] = {}
 
         self.mirrors: List[ChangeDist] = []
@@ -194,8 +196,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         '''
         Decorator that registers a method to be a handler for a named event
 
-        event: string that distinguishes one handler from another.  Must be unique per Nexus subclass
-        postcb:  whether to pass the log offset as the parameter "nexsoff" into the handler
+        event: string that distinguishes one handler from another.  Must be unique per Pusher subclass
         '''
         def decorator(func):
             func._regme = (event, func)
@@ -228,6 +229,9 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         '''
         nexsiden = self.nexsiden
         if self.nexsroot is not None:  # Distribute through the change root
+            if self.nexsroot.readonly:
+                raise s_exc.IsReadOnly()
+
             offs, retn = await self.nexsroot.issue(nexsiden, event, args, kwargs)
             await self.nexsroot.waitForOffset(offs)
             return retn

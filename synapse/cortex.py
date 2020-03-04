@@ -1758,6 +1758,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             This cortex *must* be initialized from a backup of the target cortex!
         '''
         self.mirror = True
+        self.nexsroot.readonly = True
         self.schedCoro(self._initCoreMirror(url))
 
     async def _initCoreMirror(self, url):
@@ -1817,7 +1818,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                                 items.append(nexi)
 
                             for _, args in items:
-                                await self.nexsroot.eat(*args)
+                                await self.nexsroot.issue(*args)
 
             except asyncio.CancelledError: # pragma: no cover
                 return
