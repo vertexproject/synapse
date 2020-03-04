@@ -510,18 +510,6 @@ class HiveRuler(s_base.Base):
         await self.setRules(rules, gateiden=gateiden)
         return True
 
-#    async def delRuleIndx(self, indx, gateiden=None):
-#
-#        rules = self.getRules(gateiden=gateiden)
-#
-#        try:
-#            rules.pop(indx)
-#        except IndexError:
-#            raise s_exc.BadArg(mesg='Rule does not exist at specified index.',
-#                               valu=indx) from None
-#
-#        await self.setRules(rules, gateiden=gateiden)
-
 class HiveRole(HiveRuler):
     '''
     A role within the Hive authorization subsystem.

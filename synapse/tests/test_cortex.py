@@ -1385,6 +1385,36 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(pnfo)
             self.eq(pnfo['type'][0], 'inet:asn')
 
+            modelt = model['types']
+
+            fname = 'inet:dns:rev'
+            cmodel = core.model.form(fname)
+            modelf = model['forms'][fname]
+            self.eq(cmodel.type.stortype, modelt[fname].get('stortype'))
+
+            self.eq(cmodel.prop('ipv4').type.stortype,
+                    modelt.get(modelf['props']['ipv4']['type'][0], {}).get('stortype'))
+            self.eq(cmodel.prop('.created').type.stortype,
+                    modelt.get(modelf['props']['.created']['type'][0], {}).get('stortype'))
+
+            fname = 'file:bytes'
+            cmodel = core.model.form(fname)
+            modelf = model['forms'][fname]
+            self.eq(cmodel.type.stortype, modelt[fname].get('stortype'))
+
+            self.eq(cmodel.prop('size').type.stortype,
+                    modelt.get(modelf['props']['size']['type'][0], {}).get('stortype'))
+            self.eq(cmodel.prop('sha256').type.stortype,
+                    modelt.get(modelf['props']['sha256']['type'][0], {}).get('stortype'))
+
+            fname = 'test:int'
+            cmodel = core.model.form(fname)
+            modelf = model['forms'][fname]
+            self.eq(cmodel.type.stortype, modelt[fname].get('stortype'))
+
+            self.eq(cmodel.prop('.test:univ').type.stortype,
+                    modelt.get(modelf['props']['.test:univ']['type'][0], {}).get('stortype'))
+
     async def test_storm_graph(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -2341,47 +2371,45 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await self.agenlen(0, asvisi.eval('test:cycle0=foo | delnode --force'))
 
-# FIXME: need to make the final call on what splices look like
+    async def test_cortex_cell_splices(self):
 
-#    async def test_cortex_cell_splices(self):
-#
-#        async with self.getTestCore() as core:
-#
-#            async with core.getLocalProxy() as prox:
-#                # TestModule creates one node and 3 splices
-#                await self.agenlen(3, prox.splices(0, 1000))
-#
-#                await alist(prox.eval('[ test:str=foo ]'))
-#
-#                splicelist = await alist(prox.splices(0, 1000))
-#                splicecount = len(splicelist)
-#                self.ge(splicecount, 3)
-#
-#                # should get the same splices in reverse order
-#                splicelist.reverse()
-#                self.eq(await alist(prox.splicesBack(splicecount, 1000)), splicelist)
-#                self.eq(await alist(prox.splicesBack(splicecount, 3)), splicelist[:3])
-#
-#                self.eq(await alist(prox.spliceHistory()), splicelist)
-#
-#                await prox.addAuthUser('visi')
-#                await prox.setUserPasswd('visi', 'secret')
-#
-#                await prox.addUserRule('visi', (True, ('node:add',)))
-#                await prox.addUserRule('visi', (True, ('prop:set',)))
-#
-#                async with core.getLocalProxy(user='visi') as asvisi:
-#
-#                    # normal user can't user splicesBack
-#                    await self.agenraises(s_exc.AuthDeny, asvisi.splicesBack(1000, 1000))
-#
-#                    # make sure a normal user only gets their own splices
-#                    await alist(asvisi.eval('[ test:str=bar ]'))
-#                    await self.agenlen(2, asvisi.spliceHistory())
-#
-#                    # should get all splices now as an admin
-#                    await prox.setUserAdmin('visi', True)
-#                    await self.agenlen(splicecount + 2, asvisi.spliceHistory())
+        async with self.getTestCore() as core:
+
+            async with core.getLocalProxy() as prox:
+                # TestModule creates one node and 3 splices
+                await self.agenlen(3, prox.splices((0, 0, 0), 1000))
+
+                await alist(prox.eval('[ test:str=foo ]'))
+
+                splicelist = await alist(prox.splices((0, 0, 0), 1000))
+                splicecount = len(splicelist)
+                self.ge(splicecount, 3)
+
+                # should get the same splices in reverse order
+                splicelist.reverse()
+                self.eq(await alist(prox.splicesBack(splicelist[0][0], 1000)), splicelist)
+                self.eq(await alist(prox.splicesBack(splicelist[0][0], 3)), splicelist[:3])
+
+                self.eq(await alist(prox.spliceHistory()), [s[1] for s in splicelist])
+
+                await prox.addAuthUser('visi')
+                await prox.setUserPasswd('visi', 'secret')
+
+                await prox.addAuthRule('visi', (True, ('node', 'add')))
+                await prox.addAuthRule('visi', (True, ('prop', 'set')))
+
+                async with core.getLocalProxy(user='visi') as asvisi:
+
+                    # normal user can't user splicesBack
+                    await self.agenraises(s_exc.AuthDeny, asvisi.splicesBack((1000, 0, 0), 1000))
+
+                    # make sure a normal user only gets their own splices
+                    await alist(asvisi.eval('[ test:str=bar ]'))
+                    await self.agenlen(2, asvisi.spliceHistory())
+
+                    # should get all splices now as an admin
+                    await prox.setUserAdmin('visi', True)
+                    await self.agenlen(splicecount + 2, asvisi.spliceHistory())
 
     async def test_node_repr(self):
 
@@ -2533,6 +2561,34 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_snap_eval(self):
         async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
+            await self.agenlen(2, core.eval('test:str'))
+
+    async def test_cortex_logchanges_off(self):
+        '''
+        Everything still works when no nexus log is kept
+        '''
+        conf = {'layer:lmdb:map_async': True,
+                'provenance:en': True,
+                'logchanges': False,
+                'layers:logedits': True,
+                }
+        async with self.getTestCore(conf=conf) as core:
+            async with await core.snap() as snap:
+                await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
+            await self.agenlen(2, core.eval('test:str'))
+
+    async def test_cortex_logedits_off(self):
+        '''
+        Everything still works when no layer log is kept
+        '''
+        conf = {'layer:lmdb:map_async': True,
+                'provenance:en': True,
+                'logchanges': True,
+                'layers:logedits': False,
+                }
+        async with self.getTestCore(conf=conf) as core:
             async with await core.snap() as snap:
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
             await self.agenlen(2, core.eval('test:str'))
@@ -3256,7 +3312,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=path00) as core00:
 
+                self.false(core00.mirror)
+
                 await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.nodes('$lib.queue.add(hehe)')
+                q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
+                await core00.nodes(q)
 
                 url = core00.getLocalUrl()
 
@@ -3268,6 +3329,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     evnt = await core01.getNexusOffsEvent(offs)
 
                     await core01.initCoreMirror(url)
+
+                    self.true(core01.mirror)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
@@ -3279,8 +3342,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
+                    q = 'for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
+                    self.len(2, await core01.nodes(q))
+
                     msgs = await core01.streamstorm('queue.list').list()
                     self.stormIsInPrint('visi', msgs)
+
+                    # Make sure that the mirror can't mutate
+                    await self.asyncraises(s_exc.IsReadOnly, core01.nodes('$lib.queue.add(newp)'))
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
@@ -3289,11 +3358,15 @@ class CortexBasicTest(s_t_utils.SynTest):
                     offs = await core00.getNexusOffs() - 1
                     mirroffs = await core01.getNexusOffs() - 1
                     self.ge(offs, mirroffs)
+                    await core01.initCoreMirror(url)
+
+                    await core00.nodes('[ inet:fqdn=woot.com ]')
 
                     evnt = await core01.getNexusOffsEvent(offs)
-
-                    await core01.initCoreMirror(url)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
+
+                    q = 'for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
+                    self.len(2, await core01.nodes(q))
 
             # now lets start up in the opposite order...
             async with await s_cortex.Cortex.anit(dirn=path01) as core01:
@@ -3302,13 +3375,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:
 
-                    await core00.nodes('[ inet:ipv4=6.6.6.6 ]')
+                    self.len(1, await core00.nodes('[ inet:ipv4=6.6.6.6 ]'))
 
                     offs = await core00.getNexusOffs() - 1
                     evnt = await core01.getNexusOffsEvent(offs)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
-                    self.len(1, (await core01.nodes('inet:ipv4=6.6.6.6')))
+                    self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
 
                 # what happens if *he* goes down and comes back up again?
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:

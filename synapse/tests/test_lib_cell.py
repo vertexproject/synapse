@@ -2,7 +2,6 @@ import os
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell

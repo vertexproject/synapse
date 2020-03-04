@@ -144,7 +144,7 @@ class ConfTest(s_test.SynTest):
             'key:number': 1234.5678,
         })
 
-        # We can also get and load confdef data from environmental
+        # We can also get and load confdef data from environment
         # variables. These must be safe to decode as yaml. This
         # is mainly to faciliate machine base management of envars.
         a1 = yaml.safe_dump(['firetruck', 'spaceship'])

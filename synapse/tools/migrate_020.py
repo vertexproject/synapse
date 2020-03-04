@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 ALL_MIGROPS = (
     'dirn',
     'dmodel',
-    'cellyaml',
+    'cell',
     'hiveauth',
     'hivestor',
     'hivelyr',
@@ -543,7 +543,7 @@ class Migrator(s_base.Base):
         if self.dest is None:
             raise Exception('Destination dirn must be specified for migration.')
 
-        # setup destination directory
+        # setup destination directory (migrop handled in method)
         locallyrs = await self._migrDirn()
 
         # initialize storage for migration
@@ -556,20 +556,14 @@ class Migrator(s_base.Base):
 
         # migrate all of the config and hive data first so cortex is
         # in a valid state during node data migration
-        if 'cellyaml' in self.migrops:
-            await self._migrCellYaml()
+        if 'cell' in self.migrops:
+            await self._migrCell()
 
         if 'dmodel' in self.migrops:
             await self._migrDatamodel()
 
-        if 'hivestor' in self.migrops:
-            storinfo = await self._migrHiveStorInfo()
-        else:
-            storinfo = {}
-
-        if 'hivelyr' in self.migrops:
-            for iden in locallyrs:
-                await self._migrHiveLayerInfo(storinfo, iden)
+        # migrop handled in method
+        lyrs = {iden: await self._migrHiveLayerInfo(iden) for iden in locallyrs}
 
         if 'triggers' in self.migrops:
             await self._migrTriggers()
@@ -581,15 +575,33 @@ class Migrator(s_base.Base):
             await self._migrHiveAuth()
 
         # full layer data migration
-        for iden in locallyrs:
-            logger.info(f'Starting migration for storage {storinfo.get("iden")} and layer {iden}')
-            wlyr = await self._destGetWlyr(self.dest, storinfo, iden)
+        for iden, lyrinfo in lyrs.items():
+            logger.info(f'Starting migration for layer {iden}')
+            wlyr = await self._destGetWlyr(self.dest, iden, lyrinfo)
 
             if 'nodes' in self.migrops:
                 await self._migrNodes(iden, wlyr)
 
             if 'nodedata' in self.migrops:
                 await self._migrNodeData(iden, wlyr)
+
+        await self._dumpOffsets()
+
+    async def _dumpOffsets(self):
+        '''
+        Dump layer offsets into yaml file, overwriting if it exists.
+        '''
+        yamlout = {}
+        async for offslog in self._migrlogGet('nodes', 'nextoffs'):
+            yamlout[offslog['key']] = {
+                'nextoffs': offslog['val'][0],
+                'created': offslog['val'][1],
+            }
+
+        path = os.path.join(self.dest, self.migrdir, 'lyroffs.yaml')
+        s_common.yamlsave(yamlout, path)
+
+        logger.info(f'Saved layer offsets to {path}')
 
     async def dumpErrors(self):
         '''
@@ -847,12 +859,17 @@ class Migrator(s_base.Base):
         logger.info(f'Completed dirn copy from {src} to {dest}')
         return locallyrs
 
-    async def _migrCellYaml(self):
+    async def _migrCell(self):
         '''
-        If Cell YAML file exists, remove deprecated confdefs.
+        Migrate top-level cell information including the YAML file if it exists to
+        remove deprecated confdefs.
         '''
-        migrop = 'cellyaml'
+        migrop = 'cell'
 
+        # Set cortex:version to latest
+        await self.hive.set(('cellinfo', 'cortex:version'), s_version.version)
+
+        # confdefs
         validconfs = s_cortex.Cortex.confdefs
         yamlpath = os.path.join(self.dest, 'cell.yaml')
         if os.path.exists(yamlpath):
@@ -861,7 +878,7 @@ class Migrator(s_base.Base):
             conf = {k: v for k, v in conf.items() if k not in remconfs}
             s_common.yamlsave(conf, self.dest, 'cell.yaml')
 
-            logger.info(f'Completed cell.yaml migration, removed {remconfs}')
+            logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
             await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
 
     async def _migrDatamodel(self):
@@ -927,19 +944,21 @@ class Migrator(s_base.Base):
         logger.info('Completed datamodel migration')
         await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
 
-    async def _migrHiveLayerInfo(self, storinfo, iden):
+    async def _migrHiveLayerInfo(self, iden):
         '''
         As each layer is migrated update the hive info.
 
         Args:
-            storinfo (HiveDict): Storage information
-            iden (str): Iden of the layer
+            layrinfo (HiveDict): Layer info stored in the hive (and used to initialize wlyr)
         '''
         migrop = 'hivelyr'
 
         # get existing data from the hive
         lyrnode = await self.hive.open(('cortex', 'layers', iden))
         layrinfo = await lyrnode.dict()
+
+        if 'hivelyr' not in self.migrops:
+            return layrinfo
 
         # owner -> creator
         creator = None
@@ -973,11 +992,12 @@ class Migrator(s_base.Base):
         await layrinfo.set('iden', iden)
         await layrinfo.set('creator', creator)
         await layrinfo.set('conf', conf)
-        await layrinfo.set('stor', storinfo.get('iden'))
         await layrinfo.set('model:version', s_modelrev.maxvers)
 
         logger.info('Completed Hive layer info migration')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
+
+        return layrinfo
 
     async def _migrHiveAuth(self):
         '''
@@ -1037,38 +1057,6 @@ class Migrator(s_base.Base):
 
         logger.info('Completed HiveAuth migration')
         await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
-
-    async def _migrHiveStorInfo(self):
-        '''
-        Migrate to new storage info syntax.
-
-        Returns:
-            (HiveDict): Storage information
-        '''
-        migrop = 'hivestor'
-
-        # Set cortex:version to lateset
-        await self.hive.set(('cellinfo', 'cortex:version'), s_version.version)
-
-        # Set storage information
-        storiden = await self.hive.get(('cellinfo', 'layr:stor:default'))
-        if storiden is not None:
-            logger.info(f'Using existing default storage: {storiden}')
-        else:
-            storiden = s_common.guid()
-            await self.hive.set(('cellinfo', 'layr:stor:default'), storiden)
-
-        stornode = await self.hive.open(('cortex', 'storage', storiden))
-        stordict = await stornode.dict()
-
-        await stordict.set('iden', storiden)
-        await stordict.set('type', 'local')
-        await stordict.set('conf', {})
-
-        logger.info('Completed Hive storage info migration')
-        await self._migrlogAdd(migrop, 'prog', storiden, s_common.now())
-
-        return stordict
 
     async def _migrCron(self):
         '''
@@ -1632,19 +1620,20 @@ class Migrator(s_base.Base):
             pass
         return stortype
 
-    async def _destGetWlyr(self, dirn, storinfo, iden):
+    async def _destGetWlyr(self, dirn, iden, lyrinfo):
         '''
         Get the write Layer object for the destination.
 
         Args:
-            storinfo (HiveDict): Storage information dict
+            dirn (str): Cortex directory that contains the layer
             iden (str): iden of the layer to create object for
+            lyrinfo (HiveDict): Layer information used to construct the write layer
 
         Returns:
             (synapse.lib.Layer): Write layer
         '''
         path = os.path.join(dirn, 'layers', iden)
-        wlyr = await s_layer.Layer.anit(storinfo, path, nexsroot=self.nexusroot)
+        wlyr = await s_layer.Layer.anit(lyrinfo, path, nexsroot=self.nexusroot)
         self.onfini(wlyr.fini)
 
         return wlyr
@@ -1709,7 +1698,9 @@ class Migrator(s_base.Base):
         return None
 
 async def main(argv, outp=s_output.stdout):
-    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_stor', description='Tool for migrating Synapse storage.')
+    desc = 'Tool for migrating Synapse Cortex storage from 0.1.x to 0.2.0'
+    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_020', description=desc)
+
     pars.add_argument('--src', required=True, type=str, help='Source cortex dirn to migrate from.')
     pars.add_argument('--dest', required=False, type=str, help='Destination cortex dirn to migrate to.')
     pars.add_argument('--migr-ops', required=False, type=str.lower, nargs='+', choices=ALL_MIGROPS,

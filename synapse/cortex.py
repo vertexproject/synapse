@@ -26,6 +26,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
+import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
@@ -720,6 +721,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Should new layers lock memory for performance by default.',
             'type': 'boolean'
         },
+        'layers:logedits': {
+            'default': True,
+            'description': 'Whether nodeedits are logged in each layer.',
+            'type': 'boolean'
+        },
         'provenance:en': {
             'default': False,
             'description': 'Enable provenance tracking for all writes',
@@ -734,11 +740,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'default': 8,
             'description': 'The max number of spare processes to keep around in the storm spawn pool.',
             'type': 'integer'
-        },
-        'splice:en': {
-            'default': True,
-            'description': 'Enable storing splices for layer changes.',
-            'type': 'boolean'
         },
         'storm:log': {
             'default': False,
@@ -776,6 +777,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.splicers = {}
         self.feedfuncs = {}
         self.stormcmds = {}
+
+        self.mirror = False
         self.spawnpool = None
 
         self.storm_cmd_ctors = {}
@@ -916,7 +919,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.multiqueue.add(name, info)
 
-    @s_nexus.Pusher.onPushAuto('queue:list')
     async def listCoreQueues(self):
         return self.multiqueue.list()
 
@@ -1751,6 +1753,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         Note:
             This cortex *must* be initialized from a backup of the target cortex!
         '''
+        self.mirror = True
+        self.nexsroot.readonly = True
         self.schedCoro(self._initCoreMirror(url))
 
     async def _initCoreMirror(self, url):
@@ -1810,7 +1814,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                                 items.append(nexi)
 
                             for _, args in items:
-                                await self.nexsroot.eat(*args)
+                                await self.nexsroot.issue(*args)
 
             except asyncio.CancelledError: # pragma: no cover
                 return
@@ -2357,6 +2361,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         ldef['iden'] = s_common.guid()
         ldef.setdefault('creator', self.auth.rootuser.iden)
         ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
+        ldef.setdefault('logedits', self.conf.get('layers:logedits'))
 
         s_layer.reqValidLdef(ldef)
 
@@ -2848,7 +2853,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Parse storm query text and return a Query object.
         '''
-        query = copy.deepcopy(s_grammar.parseQuery(text))
+        query = copy.deepcopy(s_parser.parseQuery(text))
         query.init(self)
         return query
 

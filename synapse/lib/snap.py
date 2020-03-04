@@ -52,7 +52,6 @@ class Snap(s_base.Base):
         self.core = view.core
         self.view = view
         self.user = user
-        self.store_splices = self.core.conf.get('splice:en')
 
         self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]
@@ -161,12 +160,6 @@ class Snap(s_base.Base):
 
     async def nodes(self, text, opts=None, user=None):
         return [n async for n in self.eval(text, opts=opts, user=user)]
-
-    async def setOffset(self, iden, offs):
-        return await self.wlyr.setOffset(iden, offs)
-
-    async def getOffset(self, iden, offs):
-        return await self.wlyr.getOffset(iden, offs)
 
     async def clearCache(self):
         self.tagcache.clear()
@@ -649,11 +642,8 @@ class Snap(s_base.Base):
                     node.tags[tag] = valu
                     node.bylayer['tags'][tag] = wlyr
 
-                    if oldv is None:
-                        callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
-                        callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
-
-                    callbacks.append((self.view.runTagSet, (node, tag, valu, oldv), {}))
+                    callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
+                    callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
                 if edit[0] == s_layer.EDIT_TAG_DEL:
@@ -771,8 +761,6 @@ class Snap(s_base.Base):
             iden, offs = seqn
 
             nextoff = offs + len(items)
-
-            # await self.setOffset(iden, nextoff)
 
             return nextoff
 
