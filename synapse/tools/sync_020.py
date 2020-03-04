@@ -46,6 +46,10 @@ class SyncMigrator(s_cell.Cell):
         'offsfile': {
             'type': 'string',
             'description': 'File path for the YAML file containing layer offsets.'
+        },
+        'poll_s': {
+            'type': 'integer',
+            'description': 'The number of seconds to wait between calls to src for new splices.'
         }
     }
 
@@ -56,10 +60,14 @@ class SyncMigrator(s_cell.Cell):
         self.dest = self.conf.get('dest')
         self.offsfile = self.conf.get('offsfile')  # TODO
 
-        self.poll_s = 60
+        self.poll_s = self.conf.get('poll_s')
+        if self.poll_s is None:
+            self.poll_s = 60
+
         self.pull_fair_iter = 100
         self.push_fair_iter = 100
         self.batch_size = 10
+        self.err_lim = 10
 
         self.pull_offs = await self.hive.dict(('sync:pulloffs', ))
         self.push_offs = await self.hive.dict(('sync:pushoffs', ))
@@ -70,8 +78,8 @@ class SyncMigrator(s_cell.Cell):
         self._pull_tasks = {}  # lyriden: task
         self._push_tasks = {}  # lyriden: task
 
-        self.pull_last_start = {}  # TODO
-        self.push_last_start = {}  # TODO
+        self.pull_last_start = {}
+        self.push_last_start = {}
 
         self._queues = {}  # lyriden: queue of splices
 
@@ -148,11 +156,13 @@ class SyncMigrator(s_cell.Cell):
         elif pushorpull == 'push':
             return self.push_offs.get(lyriden, default=None)
 
-    async def _setLyrErr(self, lyriden, offset, mesg):
-        pass  # TODO
+    async def _setLyrErr(self, lyriden, offset, err):
+        errs = await self._getLyrErrs(lyriden)
+        errs[offset] = err
+        await self.errors.set(lyriden, errs)
 
-    async def _getLyrErr(self, lyriden, offset=None):
-        pass  # TODO
+    async def _getLyrErrs(self, lyriden):
+        return self.errors.get(lyriden, default={})
 
     async def _loadDatamodel(self):
         '''
@@ -362,6 +372,7 @@ class SyncMigrator(s_cell.Cell):
         '''
         fair_iter = self.push_fair_iter
         batch_size = self.batch_size
+        err_lim = self.err_lim
 
         ndef = None
         prov = None
@@ -382,7 +393,9 @@ class SyncMigrator(s_cell.Cell):
                     nodeedits.append((ne, meta))
                 else:
                     errs += 1
-                    pass  # TODO
+                    await self._setLyrErr(lyriden, offs, err)
+                    if errs >= err_lim:
+                        raise Exception('Error limit reached')
 
                 nodesplices = []
 
@@ -406,8 +419,7 @@ class SyncMigrator(s_cell.Cell):
             if err is None:
                 nodeedits.append((ne, meta))
             else:
-                errs += 1
-                pass  # TODO
+                await self._setLyrErr(lyriden, offs, err)
 
         if len(nodeedits) > 0:
             # await prx.foo(nodeddits)  # TODO
