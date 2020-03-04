@@ -115,7 +115,7 @@ class SyncTest(s_t_utils.SynTest):
                     splices = getAssetJson(assetdir, 'splices.json')
                     await fkcore.loadSplicelog(splices)
 
-                fkcore.dmon.share(f'cortex/layer/{lyr}', fkcore)
+                fkcore.dmon.share(f'layer/{lyr}', fkcore)
 
                 root = await fkcore.auth.getUserByName('root')
                 await root.setPasswd('root')
@@ -151,13 +151,13 @@ class SyncTest(s_t_utils.SynTest):
                 yield core, turl, fkcore, fkurl
 
     @contextlib.asynccontextmanager
-    async def _getSyncSvc(self, conf_sync):
+    async def _getSyncSvc(self, conf_sync={}):
         async with self._getCoreUrls() as (core, turl, fkcore, fkurl):
 
             conf = {
                 'src': fkurl,
                 'dest': turl,
-                'offsfile': 'none',
+                'offsfile': os.path.join(core.dirn, 'migration', 'lyroffs.yaml'),
             }
             conf.update(conf_sync)
 
@@ -195,6 +195,65 @@ class SyncTest(s_t_utils.SynTest):
             # manually check node subset
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
             self.len(2, await core.nodes('inet:dns:a:ipv4=1.2.3.4'))
+
+    async def test_startSyncFromFile(self):
+        conf_sync = {
+            'poll_s': 1,
+            'batch_size': 1,
+        }
+        async with self._getSyncSvc(conf_sync) as (core, turl, fkcore, fkurl, sync):
+            wlyr = core.view.layers[-1]
+            num_splices = len(fkcore.splicelog[wlyr.iden]['splices'])
+
+            # kick off a sync
+            await sync.startSyncFromFile()
+            await asyncio.sleep(1)
+
+            self.eq(num_splices, await sync.getLyrOffset('pull', wlyr.iden))
+            self.eq(num_splices, await sync.getLyrOffset('push', wlyr.iden))
+
+            # await self._checkCore(core)
+
+            # make sure tasks are still running
+            self.false(sync._pull_tasks[wlyr.iden].done())
+            self.false(sync._push_tasks[wlyr.iden].done())
+            self.false(sync._queues[wlyr.iden].isfini)
+
+    async def test_startSyncFromLast(self):
+        conf_sync = {
+            'poll_s': 1,
+            'batch_size': 1,
+        }
+        async with self._getSyncSvc(conf_sync) as (core, turl, fkcore, fkurl, sync):
+            wlyr = core.view.layers[-1]
+            num_splices = len(fkcore.splicelog[wlyr.iden]['splices'])
+
+            lim = 30
+            await fkcore.setSplicelim(lim)
+
+            self.none(await sync.getLyrOffset('pull', wlyr.iden))
+            self.none(await sync.getLyrOffset('push', wlyr.iden))
+
+            # kick off a sync
+            await sync._startLyrSync(wlyr.iden, 0)
+            await asyncio.sleep(1)
+
+            self.eq(lim + 1, await sync.getLyrOffset('pull', wlyr.iden))
+            self.eq(lim + 1, await sync.getLyrOffset('push', wlyr.iden))
+
+            # resume sync from last
+            await sync.startSyncFromLast()
+            await asyncio.sleep(1)
+
+            self.eq(num_splices, await sync.getLyrOffset('pull', wlyr.iden))
+            self.eq(num_splices, await sync.getLyrOffset('push', wlyr.iden))
+
+            # await self._checkCore(core)
+
+            # make sure tasks are still running
+            self.false(sync._pull_tasks[wlyr.iden].done())
+            self.false(sync._push_tasks[wlyr.iden].done())
+            self.false(sync._queues[wlyr.iden].isfini)
 
     async def test_sync_srcPullLyrSplices(self):
         conf_sync = {
