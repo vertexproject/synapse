@@ -927,7 +927,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.multiqueue.add(name, info)
 
-    @s_nexus.Pusher.onPushAuto('queue:list')
     async def listCoreQueues(self):
         return self.multiqueue.list()
 
