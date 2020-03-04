@@ -5,7 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
-import synapse.lib.grammar as s_grammar
+import synapse.lib.parser as s_parser
 import synapse.lib.trigger as s_trigger
 
 AddHelp = '''
@@ -326,7 +326,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         core = self.getCmdItem()
 
-        argv = s_grammar.Parser(line).stormcmdargs()
+        argv = s_parser.Parser(line).stormcmdargs()
         try:
             opts = self._make_argparser().parse_args(argv)
         except s_exc.ParserExit:
