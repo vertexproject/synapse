@@ -1,2 +1,2 @@
 #!/bin/bash
-python -m synapse.servers.cortex /vertex/storage
+python -O -m synapse.servers.cortex /vertex/storage
