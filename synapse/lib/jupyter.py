@@ -126,11 +126,11 @@ class CmdrCore(s_base.Base):
         self.onfini(self._onCmdrCoreFini)
         self.acm = None  # A placeholder for the context manager
 
-    async def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, *, viewiden=None):
         '''
         Add feed data to the cortex.
         '''
-        return await self.core.addFeedData(name, items, seqn)
+        return await self.core.addFeedData(name, items, viewiden=viewiden)
 
     async def runCmdLine(self, text):
         '''
