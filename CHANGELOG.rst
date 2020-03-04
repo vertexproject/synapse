@@ -8,25 +8,60 @@ v0.2.0 - 2020-xx-xx
 Features and Enhancements
 -------------------------
 - This release includes significant storage optimizations that require a data migration.
-  However, the 0.2.0 migration contains NO model migrations and is strictly limited to the internal
+  However, the 0.2.0 migration contains no *model* migrations and is strictly limited to the internal
   LMDB layer storage format.  The new format provides performance enhancements that significantly
   improve data ingest performance and reduce the memory footprint of the layer.
 
-- This release includes feature enhancments to the authorization subsystem to facilitate permissions
-  on a per-view and per-layer basis.  Additionally, APIs and tools for manipulating the auth subsystem
-  have been integrated into storm to allow user/role/rule editing from within storm queries.
+- This release includes feature enhancements to the authorization subsystem to facilitate permissions
+  on a per-view and per-layer basis.
+
+  FIXME:  words
+- Mirroring is fully featured, robust to communication drops
+
+- Spawn queries can run more things
+
+- SYNDEV_OMIT_FINI_WARNS
+
+- Provenance is disabled by default. Enable via SETTING
+
+- Added new graph cmd options
 
 Backward Compatibility Breaks
 -----------------------------
-- The splice message format has been optimized to be both smaller and to allow several atomic edits
-  to be contained in one message.  This speeds up performance of the runtime, minimizes bandwidth,
+- Pointer to migration process
 
-- The cellauth command has been removed as a stand alone tool.  Users should now use
-  the "auth" commands that are built into synapse.tools.cmdr or the commands / API built into the Storm
-  runtime.  This change was partially needed due to breaking API changes that eliminate ambiguity between
-  "user" manipulation APIs vs "role" manipulation APIs.
+- LMDB format changed
+
+- The change message format has been optimized to be both smaller and to allow several atomic edits
+  to be contained in one message.  This speeds up performance of the runtime, minimizes bandwidth,  The old change
+  format is called "splice".  The new message format is called "NodeEdits".  (Option to emit either in cmdr)
 
 - FIXME add one liners and/or additional bullets here and visi will explain them :D
+
+- Removed sudo
+
+- Cortex map_async is now default
+
+- Lots of remote API changes
+
+- Old clients can't talk to new (>=0.2.0) cortex.  New clients can't talk to < 0.2.0 cortex.
+
+- Remote layer removed
+
+- Deprecation of lots of methods
+
+- Removed cortex offset storage
+
+- Removed splices to cryotank, pushing splices, feed loop
+
+- Consolidated datamodel APIs
+
+- Triggers/cron/queues have creators and each may have admins
+
+- Removed #:score tagprop lift
+
+-Removed insecure mode
+
 
 v0.1.52 - 2019-02-27
 ====================

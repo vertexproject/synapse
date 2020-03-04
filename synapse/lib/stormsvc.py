@@ -79,7 +79,7 @@ class StormSvc:
     _storm_svc_name = 'noname'
     _storm_svc_vers = (0, 0, 1)
     _storm_svc_evts = {}  # type: ignore
-    _storm_svc_pkgs = {}  # type: ignore
+    _storm_svc_pkgs = ()  # type: ignore
 
     async def getStormSvcInfo(self):
         return {

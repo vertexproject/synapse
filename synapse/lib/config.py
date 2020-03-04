@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 re_iden = '^[0-9a-f]{32}$'
 
-JS_VALIDATORS = {}  # type: ignore
+# Cache of validator functions
+_JsValidators = {}  # type: ignore
 
 def getJsSchema(confbase, confdefs):
     '''
@@ -64,12 +65,12 @@ def getJsValidator(schema):
     # It is faster to hash and cache the functions here than it is to
     # generate new functions each time we have the same schema.
     key = s_hashitem.hashitem(schema)
-    func = JS_VALIDATORS.get(key)
+    func = _JsValidators.get(key)
     if func:
         return func
 
     func = fastjsonschema.compile(schema)
-    JS_VALIDATORS[key] = func
+    _JsValidators[key] = func
     return func
 
 jsonschematype2argparse = {
@@ -104,7 +105,7 @@ class Config(c_abc.MutableMapping):
                        configuration data against.
         conf (dict): Optional, a set of configuration data to preload.
         envar_prefix (str): Optional, a prefix used when collecting configuration
-                            data from environmental variables.
+                            data from environment variables.
 
     Notes:
         This class implements the collections.abc.MutableMapping class, so it
@@ -225,7 +226,7 @@ class Config(c_abc.MutableMapping):
     # Envar support methods
     def setConfFromEnvs(self):
         '''
-        Set configuration options from environmental variables.
+        Set configuration options from environment variables.
 
         Notes:
             Environment variables are resolved from configuration options after doing the following transform:
@@ -233,14 +234,14 @@ class Config(c_abc.MutableMapping):
             - Replace ``:`` characters with ``_``.
             - Add a config provided prefix, if set.
             - Uppercase the string.
-            - Resolve the environmental variable
-            - If the environmental variable is set, set the config value to the results of ``yaml.yaml_safeload()``
+            - Resolve the environment variable
+            - If the environment variable is set, set the config value to the results of ``yaml.yaml_safeload()``
               on the value.
 
         Examples:
 
-            For the configuration value ``auth:passwd``, the environmental variable is resolved as ``AUTH_PASSWD``.
-            With the prefix ``cortex``, the the environmental variable is resolved as ``CORTEX_AUTH_PASSWD``.
+            For the configuration value ``auth:passwd``, the environment variable is resolved as ``AUTH_PASSWD``.
+            With the prefix ``cortex``, the the environment variable is resolved as ``CORTEX_AUTH_PASSWD``.
 
         Returns:
             None: Returns None.

@@ -59,7 +59,7 @@ class ChangeDist(s_base.Base):
 
 class NexsRoot(s_base.Base):
 
-    async def __anit__(self, dirn: str):  # type: ignore
+    async def __anit__(self, dirn: str, dologging: bool = True):  # type: ignore
         await s_base.Base.__anit__(self)
 
         import synapse.lib.lmdbslab as s_lmdbslab  # avoid import cycle
@@ -69,17 +69,19 @@ class NexsRoot(s_base.Base):
         self._nexskids: Dict[str, 'Pusher'] = {}
 
         self.mirrors: List[ChangeDist] = []
+        self.dologging = dologging
 
-        path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
-        self.nexusslab = await s_lmdbslab.Slab.anit(path, map_async=False)
+        if self.dologging:
+            path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
+            self.nexusslab = await s_lmdbslab.Slab.anit(path, map_async=False)
+            self.nexuslog = s_slabseqn.SlabSeqn(self.nexusslab, 'nexuslog')
 
         async def fini():
-            await self.nexusslab.fini()
+            if self.dologging:
+                await self.nexusslab.fini()
             [(await dist.fini()) for dist in self.mirrors]
 
         self.onfini(fini)
-
-        self.nexuslog = s_slabseqn.SlabSeqn(self.nexusslab, 'nexuslog')
 
     async def issue(self, nexsiden: str, event: str, args: Any, kwargs: Any) -> Any:
         '''
@@ -87,7 +89,10 @@ class NexsRoot(s_base.Base):
         '''
         item = (nexsiden, event, args, kwargs)
 
-        indx = self.nexuslog.add(item)
+        if self.dologging:
+            indx = self.nexuslog.add(item)
+        else:
+            indx = 0
 
         [dist.update() for dist in tuple(self.mirrors)]
 
@@ -98,9 +103,7 @@ class NexsRoot(s_base.Base):
         nexsiden, event, args, kwargs = item
 
         nexus = self._nexskids[nexsiden]
-        func, passoff = nexus._nexshands[event]
-        if passoff:
-            return indx, await func(nexus, *args, nexsoff=indx, **kwargs)
+        func = nexus._nexshands[event]
 
         return indx, await func(nexus, *args, **kwargs)
 
@@ -115,12 +118,21 @@ class NexsRoot(s_base.Base):
         '''
         Returns the next offset that would be written
         '''
+        if not self.dologging:
+            return 0
+
         return self.nexuslog.index()
 
     async def waitForOffset(self, offs, timeout=None):
+        if not self.dologging:
+            return
+
         return await self.nexuslog.waitForOffset(offs, timeout=timeout)
 
     async def iter(self, offs: int):
+        if not self.dologging:
+            return
+
         maxoffs = offs
 
         for item in self.nexuslog.iter(offs):
@@ -149,12 +161,12 @@ class Pusher(s_base.Base, metaclass=RegMethType):
     '''
     A mixin-class to manage distributing changes where one might plug in mirroring or consensus protocols
     '''
-    _regclstupls: List[Tuple[str, Callable, bool]] = []
+    _regclstupls: List[Tuple[str, Callable]] = []
 
     async def __anit__(self, iden: str, nexsroot: NexsRoot = None):  # type: ignore
 
         await s_base.Base.__anit__(self)
-        self._nexshands: Dict[str, Tuple[Callable, bool]] = {}
+        self._nexshands: Dict[str, Callable] = {}
 
         self.nexsiden = iden
         self.nexsroot = None
@@ -162,8 +174,8 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         if nexsroot is not None:
             self.setNexsRoot(nexsroot)
 
-        for event, func, passoff in self._regclstupls:  # type: ignore
-            self._nexshands[event] = func, passoff
+        for event, func in self._regclstupls:  # type: ignore
+            self._nexshands[event] = func
 
     def setNexsRoot(self, nexsroot):
 
@@ -171,14 +183,14 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         def onfini():
             prev = nexsroot._nexskids.pop(self.nexsiden, None)
-            assert prev is not None
+            assert prev is not None, f'Failed removing {self.nexsiden}'
 
         self.onfini(onfini)
 
         self.nexsroot = nexsroot
 
     @classmethod
-    def onPush(cls, event: str, passoff=False) -> Callable:
+    def onPush(cls, event: str) -> Callable:
         '''
         Decorator that registers a method to be a handler for a named event
 
@@ -186,13 +198,13 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         postcb:  whether to pass the log offset as the parameter "nexsoff" into the handler
         '''
         def decorator(func):
-            func._regme = (event, func, passoff)
+            func._regme = (event, func)
             return func
 
         return decorator
 
     @classmethod
-    def onPushAuto(cls, event: str, passoff=False) -> Callable:
+    def onPushAuto(cls, event: str) -> Callable:
         '''
         Decorator that does the same as onPush, except automatically creates the top half method
         '''
@@ -200,7 +212,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             return await self._push(event, *args, **kwargs)
 
         def decorator(func):
-            pushfunc._regme = (event, func, passoff)
+            pushfunc._regme = (event, func)
             setattr(cls, '_hndl' + func.__name__, pushfunc)
             functools.update_wrapper(pushfunc, func)
             return pushfunc
@@ -221,4 +233,4 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             return retn
 
         # There's no change distribution, so directly execute
-        return await self._nexshands[event][0](self, *args, **kwargs)
+        return await self._nexshands[event](self, *args, **kwargs)

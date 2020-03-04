@@ -1904,13 +1904,7 @@ class StormTypesTest(s_test.SynTest):
             # Trigger is created disabled, so no nodes yet
             await self.agenlen(0, core.eval('test:int=6'))
 
-            # FIXME: not gonna work
-            # waiter = core.waiter(1, 'core:trigger:action')
-
             await core.storm(f'trigger.enable {goodbuid2}').list()
-            # evnts = await waiter.wait(1)
-
-            # self.eq(evnts[0][1].get('action'), 'enable')
 
             # Trigger is enabled, so it should fire
             await core.storm('[ test:type10=1 :intprop=25 ]').list()
@@ -1995,6 +1989,8 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint('No triggers found', mesgs)
 
                 q = f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}'
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('iden does not match any', mesgs)
 
                 q = f'trigger.disable {goodbuid2}'
                 mesgs = await asbond.storm(q).list()
@@ -2008,7 +2004,19 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('iden does not match any', mesgs)
 
+                q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]}'
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('must have permission trigger.add', mesgs)
+
                 # Give explicit perm
+
+                await prox.addAuthRule('bond', (True, ('trigger', 'add')))
+                mesgs = await asbond.storm(q).list()
+
+                q = 'trigger.list'
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInPrint('bond', mesgs)
+
                 await prox.addAuthRule('bond', (True, ('trigger', 'get')))
 
                 mesgs = await asbond.storm('trigger.list').list()
@@ -2126,7 +2134,8 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('No terminal defined', mesgs)
 
                 ##################
-                oldsplicespos = (await alist(prox.splices(0, 1000)))[-1][0][0]
+                oldsplicespos = (await alist(prox.splices(None, 1000)))[-1][0][0]
+                nextoffs = (oldsplicespos + 1, 0, 0)
 
                 # Start simple: add a cron job that creates a node every minute
                 q = "cron.add --minute +1 {[graph:node='*' :type=m1]}"
@@ -2144,7 +2153,7 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
 
                 # Make sure the provenance of the new splices looks right
-                splices = await alist(prox.splices(oldsplicespos + 1, 1000))
+                splices = await alist(prox.splices(nextoffs, 1000))
                 self.gt(len(splices), 1)
 
                 aliases = [splice[1][1].get('prov') for splice in splices]
@@ -2505,9 +2514,18 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
                     self.stormIsInErr('iden does not match any', mesgs)
 
+                    mesgs = await asbond.storm('cron.add --hourly 15 {#bar}').list()
+                    self.stormIsInErr('must have permission cron.add', mesgs)
+
                     # Give explicit perm
 
+                    await prox.addAuthRule('bond', (True, ('cron', 'add')))
                     await prox.addAuthRule('bond', (True, ('cron', 'get')))
+
+                    await asbond.storm('cron.add --hourly 15 {#bar}').list()
+
+                    mesgs = await asbond.storm('cron.list').list()
+                    self.stormIsInPrint('bond', mesgs)
 
                     mesgs = await asbond.storm('cron.list').list()
                     self.stormIsInPrint('user', mesgs)

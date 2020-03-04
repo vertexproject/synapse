@@ -14,11 +14,9 @@ import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.grammar as s_grammar
 
 logger = logging.getLogger(__name__)
-
-# TODO:  consolidate with grammar/parser
-tagre = regex.compile(r'(\w+\.)*\w+')
 
 class Type:
 
@@ -1471,9 +1469,9 @@ class Tag(Str):
         }
 
         norm = '.'.join(toks)
-        if not tagre.fullmatch(norm):
+        if not s_grammar.tagre.fullmatch(norm):
             raise s_exc.BadTypeValu(valu=text, name=self.name,
-                                    mesg=f'Tag does not match tagre: [{tagre.pattern}]')
+                                    mesg=f'Tag does not match tagre: [{s_grammar.tagre.pattern}]')
 
         if len(toks) > 1:
             subs['up'] = '.'.join(toks[:-1])

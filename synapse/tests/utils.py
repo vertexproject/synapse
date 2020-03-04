@@ -956,7 +956,10 @@ class SynTest(unittest.TestCase):
         '''
         if conf is None:
             conf = {'layer:lmdb:map_async': True,
-                    'provenance:en': True}
+                    'provenance:en': True,
+                    'logchanges': True,
+                    'layers:logedits': True,
+                    }
 
         conf = copy.deepcopy(conf)
 
@@ -1253,7 +1256,7 @@ class SynTest(unittest.TestCase):
     @contextlib.contextmanager
     def setTstEnvars(self, **props):
         '''
-        Set Environmental variables for the purposes of running a specific test.
+        Set Environment variables for the purposes of running a specific test.
 
         Args:
             **props: A kwarg list of envars to set. The values set are run
