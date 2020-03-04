@@ -534,25 +534,25 @@ class CoreApi(s_cell.CellApi):
             yield item
 
     @s_cell.adminapi
-    async def splices(self, offs, size, layriden=None):
+    async def splices(self, offs=None, size=None, layriden=None):
         '''
         Return the list of splices at the given offset.
         '''
         layr = self.cell.getLayer(layriden)
         count = 0
-        async for mesg in layr.splices(offs, size):
+        async for mesg in layr.splices(offs=offs, size=size):
             count += 1
             if not count % 1000:
                 await asyncio.sleep(0)
             yield mesg
 
     @s_cell.adminapi
-    async def splicesBack(self, offs, size):
+    async def splicesBack(self, offs=None, size=None):
         '''
         Return the list of splices backwards from the given offset.
         '''
         count = 0
-        async for mesg in self.cell.view.layers[0].splicesBack(offs, size):
+        async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
             count += 1
             if not count % 1000: # pragma: no cover
                 await asyncio.sleep(0)

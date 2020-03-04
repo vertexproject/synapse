@@ -148,14 +148,14 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.syncNodeEdits(offs):
             yield item
 
-    async def splices(self, offs, size):
+    async def splices(self, offs=None, size=None):
         '''
         Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
 
         Nodeedits will be flattened into splices before being yielded.
         '''
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.splices(offs, size):
+        async for item in self.layr.splices(offs=offs, size=size):
             yield item
 
     async def getNodeEditOffset(self):
@@ -1798,7 +1798,7 @@ class Layer(s_nexus.Pusher):
     async def setModelVers(self, vers):
         await self.layrinfo.set('model:version', vers)
 
-    async def splices(self, offs, size=None):
+    async def splices(self, offs=None, size=None):
         '''
         Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
 
@@ -1823,7 +1823,7 @@ class Layer(s_nexus.Pusher):
                 yield splice
                 count = count + 1
 
-    async def splicesBack(self, offs, size=None):
+    async def splicesBack(self, offs=None, size=None):
 
         if not self.logedits:
             return
