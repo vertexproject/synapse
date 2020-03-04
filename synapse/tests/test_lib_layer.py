@@ -574,6 +574,6 @@ class LayerTest(s_t_utils.SynTest):
                     nodelist1.extend(await core1.nodes('test:str'))
                     nodelist1.extend(await core1.nodes('inet:ipv4'))
 
-                    nodelist0 = [ node.pack() for node in nodelist0 ]
-                    nodelist1 = [ node.pack() for node in nodelist1 ]
+                    nodelist0 = [node.pack() for node in nodelist0]
+                    nodelist1 = [node.pack() for node in nodelist1]
                     self.eq(nodelist0, nodelist1)
