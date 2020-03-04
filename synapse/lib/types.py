@@ -163,7 +163,11 @@ class Type:
         return base + sufx
 
     def pack(self):
-        return {'info': dict(self.info), 'opts': dict(self.opts)}
+        return {
+            'info': dict(self.info),
+            'opts': dict(self.opts),
+            'stortype': self.stortype,
+        }
 
     def getTypeVals(self, valu):
         yield valu
