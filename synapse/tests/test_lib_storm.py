@@ -396,10 +396,7 @@ class StormTest(s_t_utils.SynTest):
         # Use testechocmd to exercise all of Cmd.getStormEval
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'fancystr',
-                                          {'tick': 1234,
-                                           'hehe': 'haha',
-                                           '.seen': '3001'})
+                await snap.addNode('test:str', 'fancystr', {'tick': 1234, 'hehe': 'haha', '.seen': '3001'})
 
             q = 'test:str $foo=:tick | testechocmd $foo'
             mesgs = await core.streamstorm(q).list()
@@ -440,11 +437,11 @@ class StormTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 guid = s_common.guid()
                 snode = await snap.addNode('inet:search:query', guid,
-                                          {'text': 'what about 1.2.3.4',
-                                           'time': '2019-04-04 17:03',
-                                           'engine': 'google',
+                                           {'text': 'what about 1.2.3.4',
+                                            'time': '2019-04-04 17:03',
+                                            'engine': 'google',
                                             })
-                bnode = await snap.addNode('inet:banner', ('tcp://2.4.6.8:80', 'this is a test foo@bar.com'))
+                await snap.addNode('inet:banner', ('tcp://2.4.6.8:80', 'this is a test foo@bar.com'))
 
             q = 'inet:search:query | scrape -p :text engine'
             nodes = await core.nodes(q)
@@ -485,10 +482,10 @@ class StormTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 guid = s_common.guid()
                 snode = await snap.addNode('inet:search:query', guid,
-                                          {'text': qtxt,
-                                           'time': '2019-04-04 17:03',
-                                           '.seen': ('2018/11/08 18:21:15.423', '2018/11/08 18:21:15.424'),
-                                           'engine': 'google',
+                                           {'text': qtxt,
+                                               'time': '2019-04-04 17:03',
+                                               '.seen': ('2018/11/08 18:21:15.423', '2018/11/08 18:21:15.424'),
+                                               'engine': 'google',
                                             })
 
             q = f'inet:search:query:text={qtxt} | scrape'
@@ -502,8 +499,8 @@ class StormTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
                 guid = s_common.guid()
-                node = await snap.addNode('edge:refs', (('media:news', guid), ('inet:ipv4', '1.2.3.4')))
-                node = await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+                await snap.addNode('edge:refs', (('media:news', guid), ('inet:ipv4', '1.2.3.4')))
+                await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
             await core.nodes('[ inet:ipv4=1.2.3.4 :asn=0 ]')
 
