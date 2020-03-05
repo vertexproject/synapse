@@ -1788,6 +1788,11 @@ class StormTypesTest(s_test.SynTest):
                 await alist(forkview.eval('test:int=12 [-#tag.proptest:risk]'))
                 await alist(forkview.eval('test:int=12 | delnode'))
 
+                # Make a bunch of nodes so we chunk the permission check
+                for i in range(1000):
+                    opts = {'vars': {'val': i + 1000}}
+                    await self.agenlen(1, forkview.eval('[test:int=$val]', opts=opts))
+
                 # Merge the view forked by the user
                 # Will need perms for all the ops required to merge
 
@@ -2567,7 +2572,6 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy(user='visi') as prox:
                 self.len(1, await prox.eval('inet:ipv4=1.2.3.4').list())
-                self.len(0, await prox.eval('inet:ipv4=1.2.3.4', opts={'view': None}).list())
                 self.len(0, await prox.eval('inet:ipv4=1.2.3.4', opts={'view': core.view.iden}).list())
 
             async with core.getLocalProxy(user='root') as prox:
