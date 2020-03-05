@@ -523,32 +523,27 @@ class LibFeed(Lib):
         todo = ('getFeedFuncs', (), {})
         return await self.runt.dyncall('cortex', todo)
 
-    async def _libIngest(self, name, data, seqn=None):
+    async def _libIngest(self, name, data):
         '''
         Add nodes to the graph with a given ingest type.
 
         Args:
             name (str): Name of the ingest function to send data too.
             data: Data to feed to the ingest function.
-            seqn: A tuple of (guid, offset) values used for tracking ingest data.
 
         Notes:
             This is using the Runtimes's Snap to call addFeedData(), after setting
             the snap.strict mode to False. This will cause node creation and property
             setting to produce warning messages, instead of causing the Storm Runtime
             to be torn down.
-
-        Returns:
-            None or the sequence offset value.
         '''
 
         self.runt.layerConfirm(('feed:data', *name.split('.')))
         with s_provenance.claim('feed:data', name=name):
             strict = self.runt.snap.strict
             self.runt.snap.strict = False
-            retn = await self.runt.snap.addFeedData(name, data, seqn)
+            await self.runt.snap.addFeedData(name, data)
             self.runt.snap.strict = strict
-        return retn
 
 class LibQueue(Lib):
 

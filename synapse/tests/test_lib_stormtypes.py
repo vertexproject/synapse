@@ -1377,16 +1377,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, await core.nodes('test:str#test'))
             self.len(1, await core.nodes('test:str:tick=3001'))
 
-            # Try seqn combo
-            guid = s_common.guid()
-            svars['guid'] = guid
-            svars['offs'] = 0
-            q = '''$seqn=$lib.feed.ingest("syn.nodes", $data, ($guid, $offs))
-            $lib.print("New offset: {seqn}", seqn=$seqn)
-            '''
-            mesgs = await alist(core.streamstorm(q, opts))
-            self.stormIsInPrint('New offset: 2', mesgs)
-
             q = 'feed.list'
             mesgs = await alist(core.streamstorm(q))
             self.stormIsInPrint('Storm feed list', mesgs)

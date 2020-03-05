@@ -740,13 +740,13 @@ class Snap(s_base.Base):
         async for node in genr:
             yield node
 
-    async def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items):
 
         func = self.core.getFeedFunc(name)
         if func is None:
             raise s_exc.NoSuchName(name=name)
 
-        logger.info(f'adding feed data ({name}): {len(items)} {seqn!r}')
+        logger.info(f'adding feed data ({name}): {len(items)}')
 
         retn = func(self, items)
 
@@ -755,14 +755,6 @@ class Snap(s_base.Base):
             retn = [x async for x in retn]
         elif s_coro.iscoro(retn):
             await retn
-
-        if seqn is not None:
-
-            iden, offs = seqn
-
-            nextoff = offs + len(items)
-
-            return nextoff
 
     async def addTagNode(self, name):
         '''
