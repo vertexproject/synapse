@@ -275,7 +275,7 @@ class CoreApi(s_cell.CellApi):
             valu (tuple):  A time interval tuple or (None, None).
         '''
         s_common.deprecated('addNodeTag')
-        await self._reqDefLayerAllowed(('tag:add', *tag.split('.')))
+        await self._reqDefLayerAllowed(('node', 'tag', 'add', *tag.split('.')))
         return await self.cell.addNodeTag(self.user, iden, tag, valu)
 
     async def delNodeTag(self, iden, tag):
@@ -288,7 +288,7 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
         '''
         s_common.deprecated('delNodeTag')
-        await self._reqDefLayerAllowed(('tag:del', *tag.split('.')))
+        await self._reqDefLayerAllowed(('node', 'tag', 'del', *tag.split('.')))
         return await self.cell.delNodeTag(self.user, iden, tag)
 
     async def setNodeProp(self, iden, name, valu):

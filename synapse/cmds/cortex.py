@@ -46,7 +46,7 @@ Examples:
     '''
     _cmd_name = 'log'
     _cmd_syntax = (
-        ('line', {'type': 'glob'}),
+        ('line', {'type': 'glob'}),  # type: ignore
     )
 
     splicetypes = (
