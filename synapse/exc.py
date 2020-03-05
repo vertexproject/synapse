@@ -125,6 +125,7 @@ class DupIden(SynErr): pass
 class DupFileName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass
+class DupTagPropName(SynErr): pass
 class DupUserName(SynErr): pass
 class DupStormSvc(SynErr): pass
 

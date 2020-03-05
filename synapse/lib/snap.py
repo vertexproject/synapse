@@ -609,6 +609,7 @@ class Snap(s_base.Base):
 
                     prop = node.form.props.get(name)
                     if prop is None: # pragma: no cover
+                        breakpoint()
                         logger.warning(f'addNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form}')
                         continue
 

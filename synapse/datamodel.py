@@ -48,6 +48,9 @@ class TagProp:
             'type': self.tdef,
         }
 
+    def getTagPropDef(self):
+        return (self.name, self.tdef, self.info)
+
     def getStorNode(self, form):
 
         ndef = (form.name, form.type.norm(self.name)[0])
@@ -68,9 +71,6 @@ class TagProp:
             'ndef': ndef,
             'props': pnorms
         })
-
-    def getTagPropDef(self):
-        return (self.name, self.tdef, self.info)
 
 class Prop:
     '''
@@ -398,8 +398,7 @@ class Model:
         self.formabbr = {} # name: [Form(), ... ]
         self.modeldefs = []
 
-        self.univs = []
-        self.univlook = {}
+        self.univs = {}
 
         self.propsbytype = collections.defaultdict(list) # name: Prop()
         self.arraysbytype = collections.defaultdict(list)
@@ -523,12 +522,11 @@ class Model:
         mdef = self._modeldef.copy()
         # dynamically generate form defs due to extended props
         mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
-        mdef['univs'] = [u.getPropDef() for u in self.univs]
-        mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops]
+        mdef['univs'] = [u.getPropDef() for u in self.univs.values()]
+        mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
         return [('all', mdef)]
 
     def getModelDict(self):
-        s_common.deprecated('getModelDict')
         retn = {
             'types': {},
             'forms': {},
@@ -569,6 +567,9 @@ class Model:
                 "univs":(
                     (propname, (typename, typeopts), {info}),
                 )
+                "tagprops":(
+                    (tagpropname, (typename, typeopts), {info}),
+                )
             }
 
         Args:
@@ -599,6 +600,11 @@ class Model:
             for univname, typedef, univinfo in mdef.get('univs', ()):
                 self.addUnivProp(univname, typedef, univinfo)
 
+        # Load all the tagprops
+        for _, mdef in mods:
+            for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
+                self.addTagProp(tpname, typedef, tpinfo)
+
         # now we can load all the forms...
         for _, mdef in mods:
 
@@ -610,8 +616,9 @@ class Model:
         if base is None:
             raise s_exc.NoSuchType(name=basename)
 
-        self.types[typename] = base.extend(typename, typeopts, typeinfo)
-        self._modeldef['types'].append((typename, (basename, typeopts), typeinfo))
+        newtype = base.extend(typename, typeopts, typeinfo)
+        self.types[typename] = newtype
+        self._modeldef['types'].append(newtype.getTypeDef())
 
     def addForm(self, formname, forminfo, propdefs):
 
@@ -628,7 +635,7 @@ class Model:
         self.forms[formname] = form
         self.props[formname] = form
 
-        for univname, typedef, univinfo in self.univs:
+        for univname, typedef, univinfo in (u.getPropDef() for u in self.univs.values()):
             self._addFormUniv(form, univname, typedef, univinfo)
 
         for propdef in propdefs:
@@ -641,13 +648,12 @@ class Model:
 
     def _addFormUniv(self, form, name, tdef, info):
 
-        base = '.' + name
-        prop = Prop(self, form, base, tdef, info)
+        prop = Prop(self, form, name, tdef, info)
 
-        full = f'{form.name}.{name}'
+        full = f'{form.name}{name}'
 
         self.props[full] = prop
-        self.props[(form.name, base)] = prop
+        self.props[(form.name, name)] = prop
 
     def addUnivProp(self, name, tdef, info):
 
@@ -655,12 +661,10 @@ class Model:
         univ = Prop(self, None, base, tdef, info)
 
         self.props[base] = univ
-        self.univlook[base] = univ
-
-        self.univs.append((name, tdef, info))
+        self.univs[base] = univ
 
         for form in self.forms.values():
-            self._addFormUniv(form, name, tdef, info)
+            self._addFormUniv(form, base, tdef, info)
 
     def addFormProp(self, formname, propname, tdef, info):
         form = self.forms.get(formname)
@@ -682,6 +686,9 @@ class Model:
         return self.tagprops.pop(name)
 
     def addTagProp(self, name, tdef, info):
+        if name in self.tagprops:
+            raise s_exc.DupTagPropName(mesg=name)
+
         prop = TagProp(self, name, tdef, info)
         self.tagprops[name] = prop
         return prop
@@ -715,7 +722,7 @@ class Model:
         if univ is None:
             raise s_exc.NoSuchUniv(name=propname)
 
-        self.univlook.pop(univname, None)
+        self.univs.pop(univname, None)
 
         for form in self.forms.values():
             self.delFormProp(form.name, univname)
@@ -741,7 +748,7 @@ class Model:
         return self.forms.get(name)
 
     def univ(self, name):
-        return self.univlook.get(name)
+        return self.univs.get(name)
 
     def tagprop(self, name):
         return self.tagprops.get(name)
