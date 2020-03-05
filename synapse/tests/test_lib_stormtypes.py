@@ -2567,7 +2567,6 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy(user='visi') as prox:
                 self.len(1, await prox.eval('inet:ipv4=1.2.3.4').list())
-                self.len(0, await prox.eval('inet:ipv4=1.2.3.4', opts={'view': None}).list())
                 self.len(0, await prox.eval('inet:ipv4=1.2.3.4', opts={'view': core.view.iden}).list())
 
             async with core.getLocalProxy(user='root') as prox:
