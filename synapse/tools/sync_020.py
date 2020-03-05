@@ -508,8 +508,11 @@ class SyncMigrator(s_cell.Cell):
             nodesplices.append(splice)
 
             cnt += 1
+
+            if queuelen == 0 or cnt % 100000 == 0:
+                logger.info(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={len(queue.linklist)}')
+
             if queuelen == 0 or cnt % fair_iter == 0:
-                logger.info(f'Yielding {lyriden} queue reader: read={cnt}, errs={errs}, size={len(queue.linklist)}')
                 await asyncio.sleep(0)
 
 def getParser():
