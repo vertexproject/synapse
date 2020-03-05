@@ -69,6 +69,9 @@ class TagProp:
             'props': pnorms
         })
 
+    def getTagPropDef(self):
+        return (self.name, self.tdef, self.info)
+
 class Prop:
     '''
     The Prop class represents a property defined within the data model.
@@ -382,55 +385,6 @@ class Form:
         propdefs = [p.getPropDef() for p in self.props.values() if not p.isuniv]
         return (self.name, self.info, propdefs)
 
-class ModelInfo:
-    '''
-    A summary of the information in a DataModel, sufficent for parsing storm queries.
-    '''
-    def __init__(self):
-        self.formnames = set()
-        self.propnames = set()
-        self.univnames = set()
-
-    def addDataModels(self, mods):
-        '''
-        Adds a model definition (same format as input to Model.addDataModels and output of Model.getModelDef).
-        '''
-        # Load all the universal properties
-        for _, mdef in mods:
-            for univname, _, _ in mdef.get('univs', ()):
-                self.addUnivName(univname)
-
-        # Load all the forms
-        for _, mdef in mods:
-            for formname, _, propdefs in mdef.get('forms', ()):
-
-                self.formnames.add(formname)
-                self.propnames.add(formname)
-
-                for univname in self.univnames:
-                    full = f'{formname}{univname}'
-                    self.propnames.add(full)
-
-                for propname, _, _ in propdefs:
-                    full = f'{formname}:{propname}'
-                    self.propnames.add(full)
-
-    def addUnivName(self, univname):
-        self.univnames.add('.' + univname)
-        self.propnames.add('.' + univname)
-
-    def addUnivForm(self, univname, form):
-        self.propnames.add('.'.join([form, univname]))
-
-    def isprop(self, name):
-        return name in self.propnames
-
-    def isform(self, name):
-        return name in self.formnames
-
-    def isuniv(self, name):
-        return name in self.univnames
-
 class Model:
     '''
     The data model used by a Cortex hypergraph.
@@ -457,7 +411,6 @@ class Model:
             'forms': [],
             'univs': []
         }
-        self._modelinfo = ModelInfo()
 
         # add the primitive base types
         info = {'doc': 'The base 64 bit signed integer type.'}
@@ -545,9 +498,6 @@ class Model:
             'doc': 'The time the node was created in the cortex.',
         })
 
-    def getModelInfo(self):
-        return self._modelinfo
-
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())
         # TODO order props based on score...
@@ -573,9 +523,12 @@ class Model:
         mdef = self._modeldef.copy()
         # dynamically generate form defs due to extended props
         mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
+        mdef['univs'] = [u.getPropDef() for u in self.univs]
+        mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops]
         return [('all', mdef)]
 
     def getModelDict(self):
+        s_common.deprecated('getModelDict')
         retn = {
             'types': {},
             'forms': {},
@@ -652,8 +605,6 @@ class Model:
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 self.addForm(formname, forminfo, propdefs)
 
-        self._modelinfo.addDataModels(mods)
-
     def addType(self, typename, basename, typeopts, typeinfo):
         base = self.types.get(basename)
         if base is None:
@@ -690,7 +641,6 @@ class Model:
 
     def _addFormUniv(self, form, name, tdef, info):
 
-        self._modelinfo.addUnivForm(name, form.name)
         base = '.' + name
         prop = Prop(self, form, base, tdef, info)
 
@@ -701,8 +651,6 @@ class Model:
 
     def addUnivProp(self, name, tdef, info):
 
-        self._modelinfo.addUnivName(name)
-
         base = '.' + name
         univ = Prop(self, None, base, tdef, info)
 
@@ -710,7 +658,6 @@ class Model:
         self.univlook[base] = univ
 
         self.univs.append((name, tdef, info))
-        self._modeldef['univs'].append((name, tdef, info))
 
         for form in self.forms.values():
             self._addFormUniv(form, name, tdef, info)
