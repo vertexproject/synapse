@@ -570,6 +570,12 @@ class MigrationTest(s_t_utils.SynTest):
         Test that migration service is being properly initialized from cmdline args.
         '''
         with self.getRegrDir('cortexes', REGR_VER) as src:
+            # sneak in test for missing splice slab - no impact to migration
+            for root, dirs, files in os.walk(src, topdown=True):
+                for dir in dirs:
+                    if dir == 'splices.lmdb':
+                        shutil.rmtree(os.path.join(root, dir))
+
             with self.getTestDir() as destp:
                 dest = os.path.join(destp, 'woot')  # verify svc is creating dir if it doesn't exist
 
@@ -592,6 +598,10 @@ class MigrationTest(s_t_utils.SynTest):
                     self.eq(migr.nodelim, 1000)
                     self.true(migr.safetyoff)
                     self.true(migr.srcdedicated)
+
+                    # check the saved file
+                    offsyaml = s_common.yamlload(dest, 'migration', 'lyroffs.yaml')
+                    self.true(all(v['nextoffs'] == 0 for v in offsyaml.values()))
 
                 # startup 0.2.0 core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
