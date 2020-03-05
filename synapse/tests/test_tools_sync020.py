@@ -1,7 +1,6 @@
 import os
 import json
 import asyncio
-import logging
 import itertools
 import contextlib
 
@@ -198,71 +197,74 @@ class SyncTest(s_t_utils.SynTest):
     async def test_startSyncFromFile(self):
         conf_sync = {
             'poll_s': 1,
-            'batch_size': 1,
         }
         async with self._getSyncSvc(conf_sync) as (core, turl, fkcore, fkurl, sync):
-            wlyr = core.view.layers[-1]
-            num_splices = len(fkcore.splicelog[wlyr.iden]['splices'])
+            async with sync.getLocalProxy() as syncprx:
+                wlyr = core.view.layers[-1]
+                num_splices = len(fkcore.splicelog[wlyr.iden]['splices'])
 
-            # kick off a sync
-            await sync.startSyncFromFile()
-            await asyncio.sleep(1)
+                # kick off a sync
+                # note that both layers will sync since they are in the migration offs file
+                # but the splices from the wlyr will be incorrectly pushed to both
+                # due to fakecore handling so just check the wlyr
+                await syncprx.startSyncFromFile()
+                await asyncio.sleep(1)
 
-            self.eq(num_splices, await sync.getLyrOffset('pull', wlyr.iden))
-            self.eq(num_splices, await sync.getLyrOffset('push', wlyr.iden))
+                self.eq(num_splices, await sync.getLyrOffset('pull', wlyr.iden))
+                self.eq(num_splices, await sync.getLyrOffset('push', wlyr.iden))
 
-            # await self._checkCore(core)  # TODO
+                await self._checkCore(core)
 
-            # make sure tasks are still running
-            self.false(sync._pull_tasks[wlyr.iden].done())
-            self.false(sync._push_tasks[wlyr.iden].done())
-            self.false(sync._queues[wlyr.iden].isfini)
+                # make sure tasks are still running
+                self.false(sync._pull_tasks[wlyr.iden].done())
+                self.false(sync._push_tasks[wlyr.iden].done())
+                self.false(sync._queues[wlyr.iden].isfini)
 
     async def test_startSyncFromLast(self):
         conf_sync = {
             'poll_s': 1,
-            'batch_size': 1,
         }
         async with self._getSyncSvc(conf_sync) as (core, turl, fkcore, fkurl, sync):
-            wlyr = core.view.layers[-1]
-            num_splices = len(fkcore.splicelog[wlyr.iden]['splices'])
+            async with sync.getLocalProxy() as syncprx:
+                wlyr = core.view.layers[-1]
+                num_splices = len(fkcore.splicelog[wlyr.iden]['splices'])
 
-            lim = 30
-            await fkcore.setSplicelim(lim)
+                lim = 30
+                await fkcore.setSplicelim(lim)
 
-            self.none(await sync.getLyrOffset('pull', wlyr.iden))
-            self.none(await sync.getLyrOffset('push', wlyr.iden))
+                self.none(await sync.getLyrOffset('pull', wlyr.iden))
+                self.none(await sync.getLyrOffset('push', wlyr.iden))
 
-            # kick off a sync
-            await sync._startLyrSync(wlyr.iden, 0)
-            await asyncio.sleep(1)
+                # kick off a sync
+                await sync._startLyrSync(wlyr.iden, 0)
+                await asyncio.sleep(1)
 
-            self.eq(lim + 1, await sync.getLyrOffset('pull', wlyr.iden))
-            self.eq(lim + 1, await sync.getLyrOffset('push', wlyr.iden))
+                self.eq(lim + 1, await sync.getLyrOffset('pull', wlyr.iden))
+                self.eq(lim + 1, await sync.getLyrOffset('push', wlyr.iden))
 
-            # resume sync from last
-            await sync.startSyncFromLast()
-            await asyncio.sleep(1)
+                # resume sync from last
+                await syncprx.startSyncFromLast()
+                await asyncio.sleep(1)
 
-            self.eq(num_splices, await sync.getLyrOffset('pull', wlyr.iden))
-            self.eq(num_splices, await sync.getLyrOffset('push', wlyr.iden))
+                self.eq(num_splices, await sync.getLyrOffset('pull', wlyr.iden))
+                self.eq(num_splices, await sync.getLyrOffset('push', wlyr.iden))
 
-            # await self._checkCore(core)  # TODO
+                await self._checkCore(core)
 
-            # make sure tasks are still running
-            self.false(sync._pull_tasks[wlyr.iden].done())
-            self.false(sync._push_tasks[wlyr.iden].done())
-            self.false(sync._queues[wlyr.iden].isfini)
+                # make sure tasks are still running
+                self.false(sync._pull_tasks[wlyr.iden].done())
+                self.false(sync._push_tasks[wlyr.iden].done())
+                self.false(sync._queues[wlyr.iden].isfini)
 
-            status = await sync.status()
-            status_exp = {
-                'src:nextoffs': num_splices,
-                'dest:nextoffs': num_splices,
-                'queuelen': 0,
-                'src:task': {'isdone': False},
-                'dest:task': {'isdone': False},
-            }
-            self.eq(status_exp, {k: v for k, v in status.get(wlyr.iden, {}).items() if k in status_exp})
+                status = await syncprx.status()
+                status_exp = {
+                    'src:nextoffs': num_splices,
+                    'dest:nextoffs': num_splices,
+                    'queuelen': 0,
+                    'src:task': {'isdone': False},
+                    'dest:task': {'isdone': False},
+                }
+                self.eq(status_exp, {k: v for k, v in status.get(wlyr.iden, {}).items() if k in status_exp})
 
     async def test_sync_srcPullLyrSplices(self):
         conf_sync = {
@@ -331,3 +333,44 @@ class SyncTest(s_t_utils.SynTest):
 
             # check that the destination cortex has all of the post-splice updated data
             await self._checkCore(core)
+
+    async def test_sync_destIterLyrNodeedits(self):
+        async with self._getSyncSvc() as (core, turl, fkcore, fkurl, sync):
+            wlyr = core.view.layers[-1]
+
+            async with await s_telepath.openurl(os.path.join(turl, 'layer', wlyr.iden)) as prx:
+                async with await s_queue.Window.anit(maxsize=None) as queue:
+                    await sync._loadDatamodel()
+
+                    # test that queue can be empty when task starts
+                    task = sync.schedCoro(sync._destIterLyrNodeedits(prx, queue, wlyr.iden))
+
+                    # fill up the queue with splices
+                    offs = 0
+                    async for splice in fkcore.splices(0, -1):
+                        await queue.put((offs, splice))
+                        offs += 1
+
+                    await asyncio.sleep(1)
+                    self.eq(0, len(queue.linklist))
+                    await self._checkCore(core)
+
+                    # put untranslatable splices into the queue
+                    # make sure task stays running
+                    await queue.puts([
+                        (offs, ('foo', {'ndef': 'bar'})),
+                        (offs + 1, ('cat', {'ndef': 'dog'})),
+                    ])
+                    await asyncio.sleep(1)
+                    errs = await sync.getLyrErrs(wlyr.iden)
+                    self.len(2, errs)
+                    self.isin(offs + 1, errs)
+                    self.false(task.done())
+
+                    # reach error limit which will kill task
+                    await queue.puts([(offs + i, ('foo', {'ndef': str(i)})) for i in range(3, 50)])
+                    await asyncio.sleep(1)
+                    errs = await sync.getLyrErrs(wlyr.iden)
+                    self.len(10, errs)
+                    self.true(task.done())
+                    self.eq('Error limit reached', str(task.exception()))

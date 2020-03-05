@@ -31,7 +31,7 @@ class SyncMigratorApi(s_cell.CellApi):
         return await self.cell.startSyncFromFile()
 
     async def startSyncFromLast(self):
-        return await self.cell.startSyncFromFile()
+        return await self.cell.startSyncFromLast()
 
 class SyncMigrator(s_cell.Cell):
     cellapi = SyncMigratorApi
@@ -53,11 +53,6 @@ class SyncMigrator(s_cell.Cell):
             'description': 'The number of seconds to wait between calls to src for new splices.',
             'default': 60,
         },
-        'batch_size': {
-            'type': 'integer',
-            'description': 'The number of nodeedits to batch before pushing to dest cortex.',
-            'default': 10,
-        }
     }
 
     async def __anit__(self, dirn, conf=None):
@@ -67,23 +62,21 @@ class SyncMigrator(s_cell.Cell):
         self.dest = self.conf.get('dest')
         self.offsfile = self.conf.get('offsfile')
         self.poll_s = self.conf.get('poll_s')
-        self.batch_size = self.conf.get('batch_size')
 
         self.pull_fair_iter = 100
         self.push_fair_iter = 100
         self.err_lim = 10
 
-        # TODO: Hive may not be best place for these...
         self.pull_offs = await self.hive.dict(('sync:pulloffs', ))
         self.push_offs = await self.hive.dict(('sync:pushoffs', ))
         self.errors = await self.hive.dict(('sync:errors', ))
 
         self.model = {}
 
-        self._pull_tasks = {}  # lyriden: task
-        self._push_tasks = {}  # lyriden: task
+        self._pull_tasks = {}  # lyriden: Task
+        self._push_tasks = {}
 
-        self.pull_last_start = {}
+        self.pull_last_start = {}  # lyriden: epoch
         self.push_last_start = {}
 
         self._queues = {}  # lyriden: queue of splices
@@ -124,6 +117,15 @@ class SyncMigrator(s_cell.Cell):
         return retn
 
     async def _getTaskSummary(self, task):
+        '''
+        Creates a summary status dict for a Task.
+
+        Args:
+            task (Task):  Task to summarize
+
+        Returns:
+            (dict): Summary dict
+        '''
         retn = {}
         if task is not None:
             done = task.done()
@@ -237,17 +239,34 @@ class SyncMigrator(s_cell.Cell):
             model = await prx.getModelDict()
             self.model.update(model)
 
+    def _getLayerUrl(self, tbase, lyriden):
+        '''
+        Helper for handling local/tcp urls.
+
+        Args:
+            tbase (str): Base telepath url of cell or tcp type
+            lyriden (str): Layer iden
+
+        Returns:
+            (str): Url to the layer
+        '''
+        if tbase.startswith('cell:'):
+            return os.path.join(tbase, 'layer', lyriden)
+        if tbase.startswith('tcp:'):
+            return os.path.join(tbase, 'cortex', 'layer', lyriden)
+        raise Exception(f'Invalid telepath url base provided: {tbase}')
+
     async def _srcPullLyrSplices(self, lyriden):
         '''
         Open a proxy to the source layer and initiates splice reader.
-        Intended to be run as a fired task, and will poll for updates every poll_s.
+        Intended to be run as a free-running task, and will poll for updates every poll_s.
 
         Args:
             lyriden (str): Layer iden
         '''
         poll_s = self.poll_s
-        async with await s_telepath.openurl(os.path.join(self.src, 'layer', lyriden)) as prx:
-            while not self.isfini:
+        while not self.isfini:
+            async with await s_telepath.openurl(self._getLayerUrl(self.src, lyriden)) as prx:
                 queue = self._queues.get(lyriden)
                 startoffs = await self.getLyrOffset('pull', lyriden)
 
@@ -272,6 +291,10 @@ class SyncMigrator(s_cell.Cell):
         Returns:
             (int): Next offset to start from when all splices have been read
         '''
+        if prx.isfini:
+            logger.error('Source prx is finid')
+            return startoffs
+
         curoffs = startoffs
         fair_iter = self.pull_fair_iter
         async for splice in prx.splices(startoffs, -1):
@@ -413,21 +436,23 @@ class SyncMigrator(s_cell.Cell):
     async def _destPushLyrNodeedits(self, lyriden):
         '''
         Open a proxy to the given destination layer and initiate the queue reader.
-        Intended to be run as a fired task.
+        Intended to be run as a free-running task.
 
         Args:
             lyriden (str): Layer iden
         '''
-        async with await s_telepath.openurl(os.path.join(self.dest, 'layer', lyriden)) as prx:
-            logger.info(f'Starting {lyriden} splice queue reader')
-            queue = self._queues.get(lyriden)
-            self.push_last_start[lyriden] = s_common.now()
-            await self._destIterLyrNodeedits(prx, queue, lyriden)
+        while not self.isfini:
+            async with await s_telepath.openurl(self._getLayerUrl(self.dest, lyriden)) as prx:
+                logger.info(f'Starting {lyriden} splice queue reader')
+                queue = self._queues.get(lyriden)
+                self.push_last_start[lyriden] = s_common.now()
+                await self._destIterLyrNodeedits(prx, queue, lyriden)
+                logger.warning(f'{lyriden} splice queue reader has stopped')
 
     async def _destIterLyrNodeedits(self, prx, queue, lyriden):
         '''
         Batch available source splices in a queue as nodeedits and push to the destination layer proxy.
-        Nodeedit batch boundaries are defined by the ndef and prov iden.
+        Nodeedit boundaries are defined by the ndef and prov iden.
         Will run as long as queue is not fini'd.
 
         Args:
@@ -436,28 +461,41 @@ class SyncMigrator(s_cell.Cell):
             lyriden (str): Layer iden
         '''
         fair_iter = self.push_fair_iter
-        batch_size = self.batch_size
         err_lim = self.err_lim
 
         ndef = None
         prov = None
         nodesplices = []
-        nodeedits = []
 
         cnt = 0
         errs = 0
         async for offs, splice in queue:
+            # if prx is fini'd add splice back to queue and return
+            if prx.isfini:
+                logger.error('Destination prox is finid')
+                queue.linklist.appendleft((offs, splice))
+                return
+
             queuelen = len(queue.linklist)
             next_ndef = splice[1]['ndef']
             next_prov = splice[1].get('prov')
 
             # current splice is a new node or has new prov iden or the queue is empty
-            # so create prior node nodeedit and push to destination layer if at batch size
+            # so create prior node nodeedit and push to destination layer
             if ndef is not None and (next_ndef != ndef or (prov is not None and next_prov != prov) or queuelen == 0):
-                err, ne, meta = await self._trnNodeSplicesToNodeedit(ndef, nodesplices)
-                if err is None:
-                    nodeedits.append((ne, meta))
-                else:
+                err, ne, meta = None, None, None
+                try:
+                    err, ne, meta = await self._trnNodeSplicesToNodeedit(ndef, nodesplices)
+                    if err is None:
+                        await prx.storNodeEditsNoLift([ne], meta)
+                        await self._setLyrOffset('push', lyriden, offs + 1)
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+                except Exception as e:
+                    err = {'mesg': s_common.excinfo(e), 'splices': nodesplices, 'nodeedits': ne, 'meta': meta}
+                    logger.warning(err['mesg'])
+
+                if err is not None:
                     errs += 1
                     await self._setLyrErr(lyriden, offs, err)
                     if errs >= err_lim:
@@ -465,20 +503,14 @@ class SyncMigrator(s_cell.Cell):
 
                 nodesplices = []
 
-                if len(nodeedits) >= batch_size or (queuelen == 0 and len(nodeedits) > 0):
-                    # await prx.foo(nodeddits)  # TODO
-                    await self._setLyrOffset('push', lyriden, offs + 1)
-                    nodeedits = []
-
             ndef = next_ndef
             prov = next_prov
             nodesplices.append(splice)
 
             cnt += 1
-            if cnt % fair_iter == 0:
+            if queuelen == 0 or cnt % fair_iter == 0:
                 logger.info(f'Yielding {lyriden} queue reader: read={cnt}, errs={errs}, size={len(queue.linklist)}')
                 await asyncio.sleep(0)
-
 
 def getParser():
     https = os.getenv('SYN_UNIV_HTTPS', '4443')
