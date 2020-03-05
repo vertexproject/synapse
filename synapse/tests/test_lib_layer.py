@@ -417,6 +417,11 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
+            # Make sure we still get two splices when
+            # offset is not at the beginning of a nodeedit
+            await self.agenlen(2, layr.splices((1, 0, 200), 2))
+            await self.agenlen(2, layr.splicesBack((3, 0, -1), 2))
+
     async def test_layer_stortype_float(self):
         async with self.getTestCore() as core:
 

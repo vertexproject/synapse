@@ -1788,6 +1788,11 @@ class StormTypesTest(s_test.SynTest):
                 await alist(forkview.eval('test:int=12 [-#tag.proptest:risk]'))
                 await alist(forkview.eval('test:int=12 | delnode'))
 
+                # Make a bunch of nodes so we chunk the permission check
+                for i in range(1000):
+                    opts = {'vars': {'val': i + 1000}}
+                    await self.agenlen(1, forkview.eval('[test:int=$val]', opts=opts))
+
                 # Merge the view forked by the user
                 # Will need perms for all the ops required to merge
 
