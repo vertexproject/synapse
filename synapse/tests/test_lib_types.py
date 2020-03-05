@@ -493,6 +493,8 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('#baz +#baz@=("now-1day", "+1day")'))
             await self.agenlen(1, core.eval('#biz +#biz@="now"'))
 
+            await self.agenlen(1, core.eval('#foo=("2015", "2018")'))
+
             await self.agenlen(0, core.eval('test:str#foo@=("2013", "2015")'))
             await self.agenlen(0, core.eval('test:str#foo@=("2018", "2019")'))
             await self.agenlen(1, core.eval('test:str#foo@=("1999", "2002")'))

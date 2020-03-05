@@ -517,10 +517,10 @@ class StorTypeIpv6(StorType):
         indx = self.getIPv6Indx(valu)
         yield from liftby.buidsByDups(indx)
 
-    def _liftIPv6Range(self, form, prop, valu):
+    def _liftIPv6Range(self, liftby, valu):
         minindx = self.getIPv6Indx(valu[0])
         maxindx = self.getIPv6Indx(valu[1])
-        yield from self.liftby.buidsByRange(minindx, maxindx)
+        yield from liftby.buidsByRange(minindx, maxindx)
 
 class StorTypeInt(StorType):
 
@@ -651,9 +651,11 @@ class StorTypeFloat(StorType):
 
     def _liftFloatRange(self, liftby, valu):
         valumin, valumax = valu
-        assert valumin <= valumax
+
         if math.isnan(valumin) or math.isnan(valumax):
             raise s_exc.NotANumberCompared()
+
+        assert valumin <= valumax
 
         pkeymin, pkeymax = (self.fpack(v) for v in valu)
 

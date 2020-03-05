@@ -2,6 +2,7 @@ import math
 import asyncio
 import contextlib
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -37,6 +38,8 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             layr = core.view.layers[0]
+            self.eq(str(layr), f'Layer (Layer): {layr.iden}')
+
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
             # another to check the cache...
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
@@ -428,6 +431,11 @@ class LayerTest(s_t_utils.SynTest):
             await self.agenlen(2, layr.splices((1, 0, 200), 2))
             await self.agenlen(2, layr.splicesBack((3, 0, -1), 2))
 
+            # Use the layer api to get the splices
+            url = core.getLocalUrl('*/layer')
+            async with await s_telepath.openurl(url) as layrprox:
+                await self.agenlen(26, layrprox.splices())
+
     async def test_layer_stortype_float(self):
         async with self.getTestCore() as core:
 
@@ -438,9 +446,14 @@ class LayerTest(s_t_utils.SynTest):
             vals = [math.nan, -math.inf, -99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf]
 
             indxby = s_layer.IndxBy(layr, b'', tmpdb)
+            self.raises(s_exc.NoSuchImpl, indxby.getNodeValu(s_common.guid()))
 
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
                 layr.layrslab.put(key[0], val, db=tmpdb)
+
+            # = -99999.9
+            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '=', -99999.9)]
+            self.eq(retn, [-99999.9])
 
             # <= -99999.9
             retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', -99999.9)]
@@ -493,6 +506,15 @@ class LayerTest(s_t_utils.SynTest):
             # -99999.9 to -0.1
             retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
             self.eq(retn, [-99999.9, -42.1])
+
+            # <= NaN
+            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, '<=', math.nan)
+
+            # >= NaN
+            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, '>=', math.nan)
+
+            # 1.0 to NaN
+            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, 'range=', (1.0, math.nan))
 
     async def test_layer_stortype_merge(self):
 

@@ -162,6 +162,31 @@ class GeoTest(s_t_utils.SynTest):
                 nodes = await core.nodes('geo:place=$place', opts=opts)
                 self.len(1, nodes)
 
+    async def test_eq(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+
+                guid0 = s_common.guid()
+                props = {'name': 'Vertex  HQ',
+                         'latlong': '34.1341, -118.3215',
+                         'radius': '1.337km'}
+                node = await snap.addNode('geo:place', guid0, props)
+                self.nn(node)
+
+                guid1 = s_common.guid()
+                props = {'name': 'Griffith Observatory',
+                         'latlong': '34.1341, -118.3215',
+                         'radius': '75m'}
+                node = await snap.addNode('geo:place', guid1, props)
+                self.nn(node)
+
+            nodes = await core.nodes('geo:place +:latlong=(34.1341, -118.3215)')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('geo:place +:latlong=(34.1, -118.3)')
+            self.len(0, nodes)
+
     async def test_near(self):
 
         async with self.getTestCore() as core:
@@ -196,6 +221,17 @@ class GeoTest(s_t_utils.SynTest):
                 guid4 = s_common.guid()
                 props = {'latlong': '34.13412, -118.32153'}
                 node = await snap.addNode('tel:mob:telem', guid4, props)
+                self.nn(node)
+
+                # Far away nodes to test bounding box
+                guid5 = s_common.guid()
+                props = {'latlong': '35.118660, -118.300470'}
+                node = await snap.addNode('tel:mob:telem', guid5, props)
+                self.nn(node)
+
+                guid6 = s_common.guid()
+                props = {'latlong': '33.118660, -118.300470'}
+                node = await snap.addNode('tel:mob:telem', guid6, props)
                 self.nn(node)
 
             # Node filtering behavior

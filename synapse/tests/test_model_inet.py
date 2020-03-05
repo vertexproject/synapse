@@ -759,6 +759,8 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu_str)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+            await self.agenlen(1, core.eval('inet:ipv6*range=(0::1, 0::1)'))
+
     async def test_mac(self):
         formname = 'inet:mac'
         async with self.getTestCore() as core:
