@@ -234,6 +234,12 @@ class MigrationTest(s_t_utils.SynTest):
         self.nn(tnodes[0].tags.get('trgtag'))
 
     async def _checkAuth(self, core):
+        defview = await core.hive.get(('cellinfo', 'defaultview'))
+        deflyr = core.getLayer().iden
+        secview = [k for k in core.views.keys() if k != defview][0]
+        seclyr = core.views[secview].layers[0].iden
+        self.ne(deflyr, seclyr)  # check to make sure we got the second layer
+
         # data check auth layout (users, passwords, rules, admin, etc.)
         self.sorteq(list(core.auth.usersbyname.keys()), ['root', 'fred', 'bobo'])
         self.sorteq(list(core.auth.rolesbyname.keys()), ['all', 'cowboys', 'ninjas', 'friends'])
@@ -269,6 +275,8 @@ class MigrationTest(s_t_utils.SynTest):
         friends = core.auth.rolesbyname['friends']
         friendrules = [(True, ('queue', 'fredq', 'get')), (True, ('cron', 'get'))]
         self.sorteq(friendrules, friends.info.get('rules', []))
+        friendrules_seclyr = [(True, ('node', 'add')), (True, ('node', 'prop', 'set')), (True, ('layer', 'lift'))]
+        self.sorteq(friendrules_seclyr, friends.authgates[seclyr].get('rules'))
 
         # load vals for user perm tests
         tagtrg = (await core.nodes('syn:trigger:cond=tag:add'))[0].ndef[1]
@@ -277,9 +285,6 @@ class MigrationTest(s_t_utils.SynTest):
         crons = await core.listCronJobs()
         fredcron = [c for c in crons if c['creator'] == fred.iden][0]
         bobocron = [c for c in crons if c['creator'] == bobo.iden][0]
-
-        defview = await core.hive.get(('cellinfo', 'defaultview'))
-        secview = [k for k in core.views.keys() if k != defview][0]
 
         # user permissions
         # bobo

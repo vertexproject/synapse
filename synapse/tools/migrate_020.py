@@ -271,7 +271,7 @@ class MigrAuth:
             elif any([rule[1][0].startswith(m) for m in ('prop:', 'tag:')]):
                 rules[i] = (rule[0], tuple(['node'] + rule[1][0].split(':') + list(rule[1][1:])))
 
-            elif rule[1][0].startswith('node:'):
+            elif any([rule[1][0].startswith(m) for m in ('node:', 'layer:')]):
                 rules[i] = (rule[0], tuple(rule[1][0].split(':') + list(rule[1][1:])))
 
         return rules
