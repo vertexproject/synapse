@@ -1833,7 +1833,6 @@ class Layer(s_nexus.Pusher):
 
                     yield splice
 
-
     async def splicesBack(self, offs=None, size=None):
 
         if not self.logedits:
