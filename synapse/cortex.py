@@ -75,7 +75,7 @@ class CoreApi(s_cell.CellApi):
         return self.cell.getCoreMods()
 
     def stat(self):
-        self.user.confirm(('status',), gateiden='cortex')
+        self.user.confirm(('status',))
         s_common.deprecated('stat')
         return self.cell.stat()
 
