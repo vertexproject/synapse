@@ -417,6 +417,9 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
+            # Get all the splices
+            await self.agenlen(26, layr.splices())
+
             # Make sure we still get two splices when
             # offset is not at the beginning of a nodeedit
             await self.agenlen(2, layr.splices((1, 0, 200), 2))

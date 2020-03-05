@@ -1810,7 +1810,7 @@ class Layer(s_nexus.Pusher):
         if offs is None:
             offs = (0, 0, 0)
 
-        if size:
+        if size is not None:
 
             count = 0
             for offset, (nodeedits, meta) in self.nodeeditlog.iter(offs[0]):
@@ -1841,7 +1841,7 @@ class Layer(s_nexus.Pusher):
         if offs is None:
             offs = (self.nodeeditlog.index(), 0, 0)
 
-        if size:
+        if size is not None:
 
             count = 0
             for offset, (nodeedits, meta) in self.nodeeditlog.iterBack(offs[0]):
