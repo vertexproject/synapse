@@ -1810,18 +1810,28 @@ class Layer(s_nexus.Pusher):
         if offs is None:
             offs = (0, 0, 0)
 
-        count = 0
-        for offset, (nodeedits, meta) in self.nodeeditlog.slice(offs[0], size):
-            async for splice in self.makeSplices(offset, nodeedits, meta):
+        if size is not None:
 
-                if splice[0] < offs:
-                    continue
+            count = 0
+            for offset, (nodeedits, meta) in self.nodeeditlog.iter(offs[0]):
+                async for splice in self.makeSplices(offset, nodeedits, meta):
 
-                if count >= size:
-                    return
+                    if splice[0] < offs:
+                        continue
 
-                yield splice
-                count = count + 1
+                    if count >= size:
+                        return
+
+                    yield splice
+                    count = count + 1
+        else:
+            for offset, (nodeedits, meta) in self.nodeeditlog.iter(offs[0]):
+                async for splice in self.makeSplices(offset, nodeedits, meta):
+
+                    if splice[0] < offs:
+                        continue
+
+                    yield splice
 
     async def splicesBack(self, offs=None, size=None):
 
@@ -1831,10 +1841,10 @@ class Layer(s_nexus.Pusher):
         if offs is None:
             offs = (self.nodeeditlog.index(), 0, 0)
 
-        if size:
+        if size is not None:
 
             count = 0
-            for offset, (nodeedits, meta) in self.nodeeditlog.sliceBack(offs[0], size):
+            for offset, (nodeedits, meta) in self.nodeeditlog.iterBack(offs[0]):
                 async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
 
                     if splice[0] > offs:
