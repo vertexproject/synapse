@@ -25,6 +25,7 @@ def make_core(dirn, conf, queries, queue, event):
     async def workloop():
         s_glob.iAmLoop()
         async with await s_cortex.Cortex.anit(dirn=dirn, conf=conf) as core:
+            await core.addTagProp('added', ('time', {}), {})
             for q in queries:
                 await core.nodes(q)
             core.view.layers[0].layrslab.forcecommit()
