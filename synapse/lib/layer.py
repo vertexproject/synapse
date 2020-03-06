@@ -215,7 +215,7 @@ EDIT_NODEDATA_DEL = 9 # (<type>, (<name>, <valu>))
 class IndxBy:
     '''
     IndxBy sub-classes encapsulate access methods and encoding details for
-    various types of properties within the layer to be lifted/compaired by
+    various types of properties within the layer to be lifted/compared by
     storage types.
     '''
     def __init__(self, layr, abrv, db):
@@ -1304,9 +1304,6 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.put(bkey, oldb, db=self.bybuid)
                 return ()
 
-            if oldv == valu and oldt == stortype:
-                return ()
-
             if oldt & STOR_FLAG_ARRAY:
 
                 for oldi in self.getStorIndx(oldt, oldv):
@@ -1413,7 +1410,7 @@ class Layer(s_nexus.Pusher):
                 merged = (min(oldv[0], valu[0]), max(oldv[1], valu[1]))
 
                 if merged != valu:
-                    self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
+                    self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(merged), db=self.bybuid)
                     valu = merged
 
             if oldv == valu:
@@ -1516,7 +1513,7 @@ class Layer(s_nexus.Pusher):
 
         if oldb is not None:
             oldv = s_msgpack.un(oldb)
-            if oldb == valu:
+            if oldv == valu:
                 return None
 
         return (
@@ -1782,17 +1779,6 @@ class Layer(s_nexus.Pusher):
         '''
         for lkey, _ in self.dataslab.scanByPref(buid, db=self.nodedata):
             self.dataslab.delete(lkey, db=self.nodedata)
-
-    # TODO: Hack until we get interval trees pushed all the way through
-    def _cmprIval(self, item, othr):
-
-        if othr[0] >= item[1]:
-            return False
-
-        if othr[1] <= item[0]:
-            return False
-
-        return True
 
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))

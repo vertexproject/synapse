@@ -37,15 +37,14 @@ class LayerTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            layr = core.view.layers[0]
-            self.eq(str(layr), f'Layer (Layer): {layr.iden}')
-
+            layr = core.getLayer()
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
             # another to check the cache...
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x05', layr.getPropAbrv('whip', None))
             self.eq(('visi', 'foo'), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x04'))
             self.eq(('whip', None), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x05'))
+            self.eq(None, layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x06'))
 
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
             # another to check the cache...
@@ -72,6 +71,9 @@ class LayerTest(s_t_utils.SynTest):
                     props = {'tick': 12345}
                     node = await snap.addNode('test:str', 'foo', props=props)
                     await node.setTagProp('bar', 'score', 10)
+                    await node.setData('baz', 'nodedataiscool')
+
+                    node = await snap.addNode('test:str', 'bar', props=props)
                     await node.setData('baz', 'nodedataiscool')
 
                 async with self.getTestCore(dirn=path01) as core01:
@@ -426,6 +428,8 @@ class LayerTest(s_t_utils.SynTest):
             # Get all but the first splice
             await self.agenlen(25, layr.splices((0, 0, 1)))
 
+            await self.agenlen(4, layr.splicesBack((1, 0, 0)))
+
             # Make sure we still get two splices when
             # offset is not at the beginning of a nodeedit
             await self.agenlen(2, layr.splices((1, 0, 200), 2))
@@ -446,7 +450,7 @@ class LayerTest(s_t_utils.SynTest):
             vals = [math.nan, -math.inf, -99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf]
 
             indxby = s_layer.IndxBy(layr, b'', tmpdb)
-            self.raises(s_exc.NoSuchImpl, indxby.getNodeValu(s_common.guid()))
+            self.raises(s_exc.NoSuchImpl, indxby.getNodeValu, s_common.guid())
 
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
                 layr.layrslab.put(key[0], val, db=tmpdb)
@@ -572,6 +576,8 @@ class LayerTest(s_t_utils.SynTest):
                 )),
             ]
 
+            await layr.storNodeEdits(nodeedits, {})
+
             nodes = await core.nodes('inet:ipv4=1.2.3.4')
             self.eq(tagv, nodes[0].getTag('foo.bar'))
 
@@ -639,3 +645,23 @@ class LayerTest(s_t_utils.SynTest):
                     lastoffs = layr.nodeeditlog.index()
                     for nodeedit in layr.nodeeditlog.sliceBack(lastoffs, 2):
                         self.eq(meta, nodeedit[1][1])
+
+    async def test_layer(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            layr = core.getLayer()
+            self.eq(str(layr), f'Layer (Layer): {layr.iden}')
+
+            nodes = await core.nodes('[test:str=foo]')
+            buid = nodes[0].buid
+
+            self.eq('foo', layr.getNodeValu(buid))
+            self.none(layr.getNodeTag(buid, 'faketag'))
+
+            #TODO: hasTagProp iterate tagprops so it works
+            #self.false(await layr.hasTagProp('score'))
+            #nodes = await core.nodes('[test:str=bar +#test:score=100]')
+            #self.true(await layr.hasTagProp('score'))

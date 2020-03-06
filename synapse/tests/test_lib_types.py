@@ -1078,6 +1078,10 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:array*[=1.2.3.4]')
             self.len(1, nodes)
 
+            nodes = await core.nodes('test:array*[=1.2.3.4] | delnode')
+            nodes = await core.nodes('test:array*[=1.2.3.4]')
+            self.len(0, nodes)
+
             nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:arraycomp', ((0x01020304, 0x05060708), 10)))
