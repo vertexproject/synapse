@@ -444,7 +444,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._initCellDmon()
 
-        self.cmds = {}
         self.sessions = {}
 
         self.boss = await s_boss.Boss.anit()
@@ -465,7 +464,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.cellinfo.set('synapse:version', s_version.version)
 
         synvers = self.cellinfo.get('synapse:version')
-        print(synvers, type(synvers))
+
         if synvers is None or tuple(synvers) < s_version.version:
             await self.cellinfo.set('synapse:version', s_version.version)
 
