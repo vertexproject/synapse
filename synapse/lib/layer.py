@@ -1108,11 +1108,17 @@ class Layer(s_nexus.Pusher):
                 yield await self.getStorNode(buid)
 
     async def hasTagProp(self, name):
-        abrv = self.getTagPropAbrv(None, None, name)
-        for _ in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+        async for _ in self.liftTagProp(name):
             return True
 
         return False
+
+    async def liftTagProp(self, name):
+
+        async for _, tag in self.iterFormRows('syn:tag'):
+            abrv = self.getTagPropAbrv(None, tag, name)
+            for _, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+                yield buid
 
     async def liftByTagProp(self, form, tag, prop):
         abrv = self.getTagPropAbrv(form, tag, prop)

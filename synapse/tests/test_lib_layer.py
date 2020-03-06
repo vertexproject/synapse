@@ -667,9 +667,9 @@ class LayerTest(s_t_utils.SynTest):
 
             self.eq('foo', layr.getNodeValu(buid))
             self.eq((1420070400000, 1451606400000), layr.getNodeValu(buid, '.seen'))
+            self.none(layr.getNodeValu(buid, 'noprop'))
             self.none(layr.getNodeTag(buid, 'faketag'))
 
-            #TODO: hasTagProp iterate tagprops so it works
-            #self.false(await layr.hasTagProp('score'))
-            #nodes = await core.nodes('[test:str=bar +#test:score=100]')
-            #self.true(await layr.hasTagProp('score'))
+            self.false(await layr.hasTagProp('score'))
+            nodes = await core.nodes('[test:str=bar +#test:score=100]')
+            self.true(await layr.hasTagProp('score'))
