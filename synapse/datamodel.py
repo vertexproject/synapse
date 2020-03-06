@@ -48,6 +48,9 @@ class TagProp:
             'type': self.tdef,
         }
 
+    def getTagPropDef(self):
+        return (self.name, self.tdef, self.info)
+
     def getStorNode(self, form):
 
         ndef = (form.name, form.type.norm(self.name)[0])
@@ -382,55 +385,6 @@ class Form:
         propdefs = [p.getPropDef() for p in self.props.values() if not p.isuniv]
         return (self.name, self.info, propdefs)
 
-class ModelInfo:
-    '''
-    A summary of the information in a DataModel, sufficent for parsing storm queries.
-    '''
-    def __init__(self):
-        self.formnames = set()
-        self.propnames = set()
-        self.univnames = set()
-
-    def addDataModels(self, mods):
-        '''
-        Adds a model definition (same format as input to Model.addDataModels and output of Model.getModelDef).
-        '''
-        # Load all the universal properties
-        for _, mdef in mods:
-            for univname, _, _ in mdef.get('univs', ()):
-                self.addUnivName(univname)
-
-        # Load all the forms
-        for _, mdef in mods:
-            for formname, _, propdefs in mdef.get('forms', ()):
-
-                self.formnames.add(formname)
-                self.propnames.add(formname)
-
-                for univname in self.univnames:
-                    full = f'{formname}{univname}'
-                    self.propnames.add(full)
-
-                for propname, _, _ in propdefs:
-                    full = f'{formname}:{propname}'
-                    self.propnames.add(full)
-
-    def addUnivName(self, univname):
-        self.univnames.add('.' + univname)
-        self.propnames.add('.' + univname)
-
-    def addUnivForm(self, univname, form):
-        self.propnames.add('.'.join([form, univname]))
-
-    def isprop(self, name):
-        return name in self.propnames
-
-    def isform(self, name):
-        return name in self.formnames
-
-    def isuniv(self, name):
-        return name in self.univnames
-
 class Model:
     '''
     The data model used by a Cortex hypergraph.
@@ -444,8 +398,7 @@ class Model:
         self.formabbr = {} # name: [Form(), ... ]
         self.modeldefs = []
 
-        self.univs = []
-        self.univlook = {}
+        self.univs = {}
 
         self.propsbytype = collections.defaultdict(list) # name: Prop()
         self.arraysbytype = collections.defaultdict(list)
@@ -457,7 +410,6 @@ class Model:
             'forms': [],
             'univs': []
         }
-        self._modelinfo = ModelInfo()
 
         # add the primitive base types
         info = {'doc': 'The base 64 bit signed integer type.'}
@@ -545,9 +497,6 @@ class Model:
             'doc': 'The time the node was created in the cortex.',
         })
 
-    def getModelInfo(self):
-        return self._modelinfo
-
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())
         # TODO order props based on score...
@@ -573,6 +522,8 @@ class Model:
         mdef = self._modeldef.copy()
         # dynamically generate form defs due to extended props
         mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
+        mdef['univs'] = [u.getPropDef() for u in self.univs.values()]
+        mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
         return [('all', mdef)]
 
     def getModelDict(self):
@@ -616,6 +567,9 @@ class Model:
                 "univs":(
                     (propname, (typename, typeopts), {info}),
                 )
+                "tagprops":(
+                    (tagpropname, (typename, typeopts), {info}),
+                )
             }
 
         Args:
@@ -646,21 +600,25 @@ class Model:
             for univname, typedef, univinfo in mdef.get('univs', ()):
                 self.addUnivProp(univname, typedef, univinfo)
 
+        # Load all the tagprops
+        for _, mdef in mods:
+            for tpname, typedef, tpinfo in mdef.get('tagprops', ()):
+                self.addTagProp(tpname, typedef, tpinfo)
+
         # now we can load all the forms...
         for _, mdef in mods:
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 self.addForm(formname, forminfo, propdefs)
 
-        self._modelinfo.addDataModels(mods)
-
     def addType(self, typename, basename, typeopts, typeinfo):
         base = self.types.get(basename)
         if base is None:
             raise s_exc.NoSuchType(name=basename)
 
-        self.types[typename] = base.extend(typename, typeopts, typeinfo)
-        self._modeldef['types'].append((typename, (basename, typeopts), typeinfo))
+        newtype = base.extend(typename, typeopts, typeinfo)
+        self.types[typename] = newtype
+        self._modeldef['types'].append(newtype.getTypeDef())
 
     def addForm(self, formname, forminfo, propdefs):
 
@@ -677,7 +635,7 @@ class Model:
         self.forms[formname] = form
         self.props[formname] = form
 
-        for univname, typedef, univinfo in self.univs:
+        for univname, typedef, univinfo in (u.getPropDef() for u in self.univs.values()):
             self._addFormUniv(form, univname, typedef, univinfo)
 
         for propdef in propdefs:
@@ -690,30 +648,23 @@ class Model:
 
     def _addFormUniv(self, form, name, tdef, info):
 
-        self._modelinfo.addUnivForm(name, form.name)
-        base = '.' + name
-        prop = Prop(self, form, base, tdef, info)
+        prop = Prop(self, form, name, tdef, info)
 
-        full = f'{form.name}.{name}'
+        full = f'{form.name}{name}'
 
         self.props[full] = prop
-        self.props[(form.name, base)] = prop
+        self.props[(form.name, name)] = prop
 
     def addUnivProp(self, name, tdef, info):
-
-        self._modelinfo.addUnivName(name)
 
         base = '.' + name
         univ = Prop(self, None, base, tdef, info)
 
         self.props[base] = univ
-        self.univlook[base] = univ
-
-        self.univs.append((name, tdef, info))
-        self._modeldef['univs'].append((name, tdef, info))
+        self.univs[base] = univ
 
         for form in self.forms.values():
-            self._addFormUniv(form, name, tdef, info)
+            self._addFormUniv(form, base, tdef, info)
 
     def addFormProp(self, formname, propname, tdef, info):
         form = self.forms.get(formname)
@@ -735,6 +686,9 @@ class Model:
         return self.tagprops.pop(name)
 
     def addTagProp(self, name, tdef, info):
+        if name in self.tagprops:
+            raise s_exc.DupTagPropName(mesg=name)
+
         prop = TagProp(self, name, tdef, info)
         self.tagprops[name] = prop
         return prop
@@ -768,7 +722,7 @@ class Model:
         if univ is None:
             raise s_exc.NoSuchUniv(name=propname)
 
-        self.univlook.pop(univname, None)
+        self.univs.pop(univname, None)
 
         for form in self.forms.values():
             self.delFormProp(form.name, univname)
@@ -794,7 +748,7 @@ class Model:
         return self.forms.get(name)
 
     def univ(self, name):
-        return self.univlook.get(name)
+        return self.univs.get(name)
 
     def tagprop(self, name):
         return self.tagprops.get(name)
