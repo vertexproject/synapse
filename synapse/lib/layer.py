@@ -771,7 +771,7 @@ class StorTypeLatLon(StorType):
 
     def _liftLatLonEq(self, liftby, valu):
         indx = self._getLatLonIndx(valu)
-        yield from liftby.scanByDups(indx)
+        yield from liftby.buidsByDups(indx)
 
     def _liftLatLonNear(self, liftby, valu):
 

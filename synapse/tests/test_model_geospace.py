@@ -181,10 +181,13 @@ class GeoTest(s_t_utils.SynTest):
                 node = await snap.addNode('geo:place', guid1, props)
                 self.nn(node)
 
-            nodes = await core.nodes('geo:place +:latlong=(34.1341, -118.3215)')
+            nodes = await core.nodes('geo:place:latlong=(34.1341, -118.3215)')
             self.len(2, nodes)
 
-            nodes = await core.nodes('geo:place +:latlong=(34.1, -118.3)')
+            nodes = await core.nodes('geo:place:latlong=(34.1341, -118.3)')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('geo:place:latlong=(34.1, -118.3215)')
             self.len(0, nodes)
 
     async def test_near(self):
