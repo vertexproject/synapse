@@ -465,21 +465,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.cellinfo.set('synapse:version', s_version.version)
 
         synvers = self.cellinfo.get('synapse:version')
-        if synvers is None or synvers < s_version.version:
-            await self.cellinfo.set('synapse:version', s_version.version)
-
-        self.auth = await self._initCellAuth()
-
-        # self.cellinfo, a HiveDict for general purpose persistent storage
-        node = await self.hive.open(('cellinfo',))
-        self.cellinfo = await node.dict()
-        self.onfini(node)
-
-        if self.inaugural:
-            await self.cellinfo.set('synapse:version', s_version.version)
-
-        synvers = self.cellinfo.get('synapse:version')
-        if synvers is None or synvers < s_version.version:
+        print(synvers, type(synvers))
+        if synvers is None or tuple(synvers) < s_version.version:
             await self.cellinfo.set('synapse:version', s_version.version)
 
         self.auth = await self._initCellAuth()
@@ -689,9 +676,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if isnew:
             path = os.path.join(self.dirn, 'hiveboot.yaml')
             if os.path.isfile(path):
+                logger.debug(f'Loading cell hive from {path}')
                 tree = s_common.yamlload(path)
                 if tree is not None:
                     await hive.loadHiveTree(tree)
+                    # Reload the SlabHive - this ensures that deserialized data structures
+                    # like list objects come out of msgpack as tuples. This avoids
+                    # type issues which can occurs for apis expecting lists versus tuples.
+                    await hive.fini()
+                    hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.nexsroot)
+                    self.onfini(hive)
 
         return hive
 
