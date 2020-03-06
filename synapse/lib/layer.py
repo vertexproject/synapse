@@ -382,7 +382,7 @@ class StorTypeUtf8(StorType):
     def _liftUtf8Regx(self, liftby, valu):
 
         regx = regex.compile(valu)
-        lastbuid=None
+        lastbuid = None
 
         for buid in liftby.buidsByPref():
             if buid == lastbuid:
