@@ -215,7 +215,7 @@ EDIT_NODEDATA_DEL = 9 # (<type>, (<name>, <valu>))
 class IndxBy:
     '''
     IndxBy sub-classes encapsulate access methods and encoding details for
-    various types of properties within the layer to be lifted/compaired by
+    various types of properties within the layer to be lifted/compared by
     storage types.
     '''
     def __init__(self, layr, abrv, db):
@@ -517,10 +517,10 @@ class StorTypeIpv6(StorType):
         indx = self.getIPv6Indx(valu)
         yield from liftby.buidsByDups(indx)
 
-    def _liftIPv6Range(self, form, prop, valu):
+    def _liftIPv6Range(self, liftby, valu):
         minindx = self.getIPv6Indx(valu[0])
         maxindx = self.getIPv6Indx(valu[1])
-        yield from self.liftby.buidsByRange(minindx, maxindx)
+        yield from liftby.buidsByRange(minindx, maxindx)
 
 class StorTypeInt(StorType):
 
@@ -651,9 +651,11 @@ class StorTypeFloat(StorType):
 
     def _liftFloatRange(self, liftby, valu):
         valumin, valumax = valu
-        assert valumin <= valumax
+
         if math.isnan(valumin) or math.isnan(valumax):
             raise s_exc.NotANumberCompared()
+
+        assert valumin <= valumax
 
         pkeymin, pkeymax = (self.fpack(v) for v in valu)
 
@@ -769,7 +771,7 @@ class StorTypeLatLon(StorType):
 
     def _liftLatLonEq(self, liftby, valu):
         indx = self._getLatLonIndx(valu)
-        yield from liftby.scanByDups(indx)
+        yield from liftby.buidsByDups(indx)
 
     def _liftLatLonNear(self, liftby, valu):
 
@@ -1106,11 +1108,17 @@ class Layer(s_nexus.Pusher):
                 yield await self.getStorNode(buid)
 
     async def hasTagProp(self, name):
-        abrv = self.getTagPropAbrv(None, None, name)
-        for _ in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+        async for _ in self.liftTagProp(name):
             return True
 
         return False
+
+    async def liftTagProp(self, name):
+
+        async for _, tag in self.iterFormRows('syn:tag'):
+            abrv = self.getTagPropAbrv(None, tag, name)
+            for _, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+                yield buid
 
     async def liftByTagProp(self, form, tag, prop):
         abrv = self.getTagPropAbrv(form, tag, prop)
@@ -1170,11 +1178,6 @@ class Layer(s_nexus.Pusher):
             [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
 
         return changes
-
-    async def _editToSode(self, nodeedit):
-        sode = await self.getStorNode(nodeedit[0])
-        sode[1]['edits'] = nodeedit[2]
-        return sode
 
     async def _storNodeEdit(self, nodeedit):
         '''
@@ -1302,9 +1305,6 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.put(bkey, oldb, db=self.bybuid)
                 return ()
 
-            if oldv == valu and oldt == stortype:
-                return ()
-
             if oldt & STOR_FLAG_ARRAY:
 
                 for oldi in self.getStorIndx(oldt, oldv):
@@ -1411,7 +1411,7 @@ class Layer(s_nexus.Pusher):
                 merged = (min(oldv[0], valu[0]), max(oldv[1], valu[1]))
 
                 if merged != valu:
-                    self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
+                    self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(merged), db=self.bybuid)
                     valu = merged
 
             if oldv == valu:
@@ -1514,7 +1514,7 @@ class Layer(s_nexus.Pusher):
 
         if oldb is not None:
             oldv = s_msgpack.un(oldb)
-            if oldb == valu:
+            if oldv == valu:
                 return None
 
         return (
@@ -1780,17 +1780,6 @@ class Layer(s_nexus.Pusher):
         '''
         for lkey, _ in self.dataslab.scanByPref(buid, db=self.nodedata):
             self.dataslab.delete(lkey, db=self.nodedata)
-
-    # TODO: Hack until we get interval trees pushed all the way through
-    def _cmprIval(self, item, othr):
-
-        if othr[0] >= item[1]:
-            return False
-
-        if othr[1] <= item[0]:
-            return False
-
-        return True
 
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))
