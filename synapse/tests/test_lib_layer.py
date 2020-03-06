@@ -411,6 +411,14 @@ class LayerTest(s_t_utils.SynTest):
 
             spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
+
+            # Nodedata edits don't make splices
+            nodes = await core.nodes('test:str=foo')
+            await nodes[0].setData('baz', 'nodedataiscool')
+
+            splices = await alist(layr.splices(spliceoffs, 10))
+            self.len(0, splices)
+
             # Convert a node:del splice
             await core.nodes('test:str=foo | delnode')
 
