@@ -161,7 +161,7 @@ class TeleAuth(s_telepath.Aware):
         return x + y
 
 class ConsulV1Handler(s_httpapi.Handler):
-    '''Fake Hasicorp Consul /v1/catalog/service/:service: handler'''
+    '''Fake Hashicorp Consul /v1/catalog/service/:service: handler'''
     async def get(self, servicename):
         data = self.cell.consul_data
         if servicename != data[0].get('ServiceName'):
