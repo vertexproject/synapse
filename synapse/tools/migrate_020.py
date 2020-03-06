@@ -271,7 +271,7 @@ class MigrAuth:
             elif any([rule[1][0].startswith(m) for m in ('prop:', 'tag:')]):
                 rules[i] = (rule[0], tuple(['node'] + rule[1][0].split(':') + list(rule[1][1:])))
 
-            elif rule[1][0].startswith('node:'):
+            elif any([rule[1][0].startswith(m) for m in ('node:', 'layer:')]):
                 rules[i] = (rule[0], tuple(rule[1][0].split(':') + list(rule[1][1:])))
 
         return rules
@@ -1146,12 +1146,16 @@ class Migrator(s_base.Base):
 
         # record offset
         path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')
-        spliceslab = await s_lmdbslab.Slab.anit(path, **self.srcslabopts)
-        self.onfini(spliceslab.fini)
-        splicelog = s_slabseqn.SlabSeqn(spliceslab, 'splices')
-        nextindx = splicelog.index()
+        if os.path.exists(path):
+            spliceslab = await s_lmdbslab.Slab.anit(path, **self.srcslabopts)
+            self.onfini(spliceslab.fini)
+            splicelog = s_slabseqn.SlabSeqn(spliceslab, 'splices')
+            nextindx = splicelog.index()
+            logger.info(f'Saved splicelog next offset {nextindx} for layer {iden}')
+        else:
+            logger.warning(f'Splice slab not found for {iden}, setting sync offset to 0')
+            nextindx = 0
 
-        logger.info(f'Saved splicelog next offset {nextindx} for layer {iden}')
         await self._migrlogAdd(migrop, 'nextoffs', iden, (nextindx, s_common.now()))
 
         # migrate data

@@ -74,8 +74,9 @@ class CoreApi(s_cell.CellApi):
     def getCoreMods(self):
         return self.cell.getCoreMods()
 
-    @s_cell.adminapi
     def stat(self):
+        self.user.confirm(('status',))
+        s_common.deprecated('stat')
         return self.cell.stat()
 
     async def getModelDict(self):

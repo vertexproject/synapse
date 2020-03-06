@@ -234,6 +234,12 @@ class MigrationTest(s_t_utils.SynTest):
         self.nn(tnodes[0].tags.get('trgtag'))
 
     async def _checkAuth(self, core):
+        defview = await core.hive.get(('cellinfo', 'defaultview'))
+        deflyr = core.getLayer().iden
+        secview = [k for k in core.views.keys() if k != defview][0]
+        seclyr = core.views[secview].layers[0].iden
+        self.ne(deflyr, seclyr)  # check to make sure we got the second layer
+
         # data check auth layout (users, passwords, rules, admin, etc.)
         self.sorteq(list(core.auth.usersbyname.keys()), ['root', 'fred', 'bobo'])
         self.sorteq(list(core.auth.rolesbyname.keys()), ['all', 'cowboys', 'ninjas', 'friends'])
@@ -269,6 +275,8 @@ class MigrationTest(s_t_utils.SynTest):
         friends = core.auth.rolesbyname['friends']
         friendrules = [(True, ('queue', 'fredq', 'get')), (True, ('cron', 'get'))]
         self.sorteq(friendrules, friends.info.get('rules', []))
+        friendrules_seclyr = [(True, ('node', 'add')), (True, ('node', 'prop', 'set')), (True, ('layer', 'lift'))]
+        self.sorteq(friendrules_seclyr, friends.authgates[seclyr].get('rules'))
 
         # load vals for user perm tests
         tagtrg = (await core.nodes('syn:trigger:cond=tag:add'))[0].ndef[1]
@@ -277,9 +285,6 @@ class MigrationTest(s_t_utils.SynTest):
         crons = await core.listCronJobs()
         fredcron = [c for c in crons if c['creator'] == fred.iden][0]
         bobocron = [c for c in crons if c['creator'] == bobo.iden][0]
-
-        defview = await core.hive.get(('cellinfo', 'defaultview'))
-        secview = [k for k in core.views.keys() if k != defview][0]
 
         # user permissions
         # bobo
@@ -565,6 +570,12 @@ class MigrationTest(s_t_utils.SynTest):
         Test that migration service is being properly initialized from cmdline args.
         '''
         with self.getRegrDir('cortexes', REGR_VER) as src:
+            # sneak in test for missing splice slab - no impact to migration
+            for root, dirs, files in os.walk(src, topdown=True):
+                for dir in dirs:
+                    if dir == 'splices.lmdb':
+                        shutil.rmtree(os.path.join(root, dir))
+
             with self.getTestDir() as destp:
                 dest = os.path.join(destp, 'woot')  # verify svc is creating dir if it doesn't exist
 
@@ -587,6 +598,10 @@ class MigrationTest(s_t_utils.SynTest):
                     self.eq(migr.nodelim, 1000)
                     self.true(migr.safetyoff)
                     self.true(migr.srcdedicated)
+
+                    # check the saved file
+                    offsyaml = s_common.yamlload(dest, 'migration', 'lyroffs.yaml')
+                    self.true(all(v['nextoffs'] == 0 for v in offsyaml.values()))
 
                 # startup 0.2.0 core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
