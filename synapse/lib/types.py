@@ -150,6 +150,12 @@ class Type:
             'stortype': self.stortype,
         }
 
+    def getTypeDef(self):
+        basename = self.info['bases'][-1]
+        info = self.info.copy()
+        info['stortype'] = self.stortype
+        return (self.name, (basename, self.opts), info)
+
     def getTypeVals(self, valu):
         yield valu
 
