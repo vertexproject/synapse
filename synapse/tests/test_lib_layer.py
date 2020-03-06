@@ -662,10 +662,11 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.getLayer()
             self.eq(str(layr), f'Layer (Layer): {layr.iden}')
 
-            nodes = await core.nodes('[test:str=foo]')
+            nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
             buid = nodes[0].buid
 
             self.eq('foo', layr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), layr.getNodeValu(buid, '.seen'))
             self.none(layr.getNodeTag(buid, 'faketag'))
 
             #TODO: hasTagProp iterate tagprops so it works

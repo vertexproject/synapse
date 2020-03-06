@@ -1173,11 +1173,6 @@ class Layer(s_nexus.Pusher):
 
         return changes
 
-    async def _editToSode(self, nodeedit):
-        sode = await self.getStorNode(nodeedit[0])
-        sode[1]['edits'] = nodeedit[2]
-        return sode
-
     async def _storNodeEdit(self, nodeedit):
         '''
         Execute a series of storage operations for the given node.
