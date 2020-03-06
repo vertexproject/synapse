@@ -25,6 +25,7 @@ def make_core(dirn, conf, queries, queue, event):
     async def workloop():
         s_glob.iAmLoop()
         async with await s_cortex.Cortex.anit(dirn=dirn, conf=conf) as core:
+            await core.addTagProp('added', ('time', {}), {})
             for q in queries:
                 await core.nodes(q)
             core.view.layers[0].layrslab.forcecommit()
@@ -570,6 +571,12 @@ class CoreSpawnTest(s_test.SynTest):
             msgs = await prox.storm('inet:ipv4:_woot=10', opts=opts).list()
             self.len(3, msgs)
             self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
+
+            # tag props must work
+            await prox.addTagProp('added', ('time', {}), {})
+            await prox.storm('inet:ipv4=1.2.3.4 [ +#foo.bar:added="2049" ]').list()
+            msgs = await prox.storm('inet:ipv4#foo.bar:added', opts=opts).list()
+            self.len(3, msgs)
 
     async def test_spawn_dmon_cmds(self):
         '''
