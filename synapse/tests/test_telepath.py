@@ -940,7 +940,7 @@ class TeleTest(s_t_utils.SynTest):
         ]
         with self.getTestDir() as dirn:
             async with await s_cell.Cell.anit(dirn) as cell:
-                root = cell.auth.getUserByName('root')
+                root = await cell.auth.getUserByName('root')
                 await root.setPasswd('root')
                 cell.consul_data = consul_data
                 hhost, hport = await cell.addHttpsPort(0)
