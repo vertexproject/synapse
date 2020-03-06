@@ -95,6 +95,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('#foo.bar:score*range=(10, 30)'))
 
                 self.len(1, await core.nodes('#blah:user^=vi'))
+                self.len(1, await core.nodes('#blah:user~=si'))
 
                 self.len(1, await core.nodes('test:int#foo.bar:score'))
                 self.len(1, await core.nodes('test:int#foo.bar:score=20'))
@@ -326,6 +327,10 @@ class CortexTest(s_t_utils.SynTest):
 
             ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
+
+            # test iterFormRows as well
+            rows = await alist(layr.iterFormRows('inet:ipv4'))
+            self.eq((0x01020304, 0x05050505), tuple(sorted([row[1] for row in rows])))
 
     async def test_cortex_lift_regex(self):
         async with self.getTestReadWriteCores() as (core, wcore):
@@ -2505,6 +2510,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
             await self.agenlen(2, core.eval('test:str'))
+
+            layr = core.getLayer()
+            await self.agenlen(0, layr.splices())
+            await self.agenlen(0, layr.splicesBack())
+            await self.agenlen(0, layr.syncNodeEdits(0))
+            self.eq(0, layr.getNodeEditOffset())
 
     async def test_feed_syn_nodes(self):
         async with self.getTestCore() as core0:

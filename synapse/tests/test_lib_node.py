@@ -390,6 +390,9 @@ class NodeTest(s_t_utils.SynTest):
             await node.setData('foo', 123)
             self.eq(123, await node.getData('foo'))
 
+            await node.setData('foo', 123)
+            self.eq(123, await node.getData('foo'))
+
             await node.setData('bar', (4, 5, 6))
             self.eq((4, 5, 6), await node.getData('bar'))
             self.eq(123, await node.getData('foo'))
@@ -398,6 +401,7 @@ class NodeTest(s_t_utils.SynTest):
 
             self.eq(123, await node.popData('foo'))
             self.none(await node.getData('foo'))
+            self.none(await node.popData('foo'))
 
             self.eq((4, 5, 6), await node.getData('bar'))
 
