@@ -724,8 +724,11 @@ class HiveUser(HiveRuler):
 
         return gateinfo.get('admin', False)
 
-    async def setAdmin(self, admin, gateiden=None):
-        await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
+    async def setAdmin(self, admin, gateiden=None, logged=True):
+        if logged:
+            await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
+        else:
+            await self.auth._hndlsetUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
 
     async def setLocked(self, locked):
         await self.auth.setUserInfo(self.iden, 'locked', locked)

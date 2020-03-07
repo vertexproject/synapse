@@ -222,7 +222,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         def decorator(func):
             pushfunc._regme = (event, func)
-            setattr(cls, '_hndl' + func.__name__, pushfunc)
+            setattr(cls, '_hndl' + func.__name__, func)
             functools.update_wrapper(pushfunc, func)
             return pushfunc
 
