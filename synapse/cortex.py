@@ -1796,6 +1796,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         return self.nexsroot.getOffset()
 
     async def getNexusOffsEvent(self, offs):
+        if not self.nexsroot.dologging:
+            raise s_exc.BadConfValu(mesg='This method not allowed without logchanges enabled')
+
         return self.nexsroot.nexuslog.getOffsetEvent(offs)
 
     async def _initCoreHive(self):
