@@ -475,10 +475,6 @@ class CoreApi(s_cell.CellApi):
         async for mesg in self.cell.watch(wdef):
             yield mesg
 
-    async def getNexusChanges(self, offs):
-        async for item in self.cell.getNexusChanges(offs):
-            yield item
-
     async def syncLayerNodeEdits(self, offs, layriden=None):
         '''
         Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.

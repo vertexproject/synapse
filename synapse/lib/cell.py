@@ -388,6 +388,11 @@ class CellApi(s_base.Base):
     async def saveHiveTree(self, path=()):
         return await self.cell.saveHiveTree(path=path)
 
+    @adminapi
+    async def getNexusChanges(self, offs):
+        async for item in self.cell.getNexusChanges(offs):
+            yield item
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
