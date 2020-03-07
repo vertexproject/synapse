@@ -460,7 +460,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         synvers = self.cellinfo.get('synapse:version')
 
-        if synvers is None or tuple(synvers) < s_version.version:
+        if synvers is None or synvers < s_version.version:
             await self.cellinfo.set('synapse:version', s_version.version)
 
         self.auth = await self._initCellAuth()
