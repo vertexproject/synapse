@@ -24,6 +24,7 @@ import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 
@@ -441,11 +442,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.conf = self._initCellConf(conf)
         self.dologging = self.conf.get('layers:logedits')
 
-        await self._initCellSlab(readonly=readonly)
-
         await s_nexus.Pusher.__anit__(self, self.iden)
 
         self.setNexsRoot(await self._initNexsRoot())
+
+        await self._initCellSlab(readonly=readonly)
 
         self.hive = await self._initCellHive()
 
@@ -677,13 +678,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.debug(f'Loading cell hive from {path}')
                 tree = s_common.yamlload(path)
                 if tree is not None:
+                    # Pack and unpack the tree to avoid tuple/list issues
+                    # for in-memory structures.
+                    tree = s_msgpack.un(s_msgpack.en(tree))
                     await hive.loadHiveTree(tree)
-                    # Reload the SlabHive - this ensures that deserialized data structures
-                    # like list objects come out of msgpack as tuples. This avoids
-                    # type issues which can occurs for apis expecting lists versus tuples.
-                    await hive.fini()
-                    hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.nexsroot)
-                    self.onfini(hive)
 
         return hive
 
