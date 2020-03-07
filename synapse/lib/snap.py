@@ -574,6 +574,8 @@ class Snap(s_base.Base):
         '''
         sodes = await self.issueNodeEdits(edits)
 
+        await self.fire('node:edits', edits=edits)
+
         wlyr = self.wlyr
         nodes = []
         callbacks = []

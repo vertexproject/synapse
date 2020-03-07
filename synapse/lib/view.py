@@ -175,7 +175,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         synt = await self.core.boss.promote('storm', user=user, info=info)
 
-        show = opts.get('show')
+        show = opts.get('show', set())
 
         async def runStorm():
             cancelled = False
@@ -189,10 +189,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
 
-                shownode = (show is None or 'node' in show)
+                shownode = (not show or 'node' in show)
                 async with await self.snap(user=user) as snap:
 
-                    if show is None:
+                    if not show:
                         snap.link(chan.put)
 
                     else:
@@ -227,9 +227,15 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await synt.worker(runStorm())
 
+        shownodeedits = opts.get('show-nodeedits', False)
+
         while True:
 
             mesg = await chan.get()
+
+            # Unless explicitly asked for, truncate node:edits to indicate progress
+            if mesg[0] == 'node:edits' and not shownodeedits:
+                mesg = ('node:edits', {})
 
             yield mesg
 

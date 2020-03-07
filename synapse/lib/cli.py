@@ -320,7 +320,7 @@ class Cli(s_base.Base):
 
         if color is not None:
             mesg = FormattedText([(color, mesg)])
-        return print_formatted_text(mesg)
+        return print_formatted_text(mesg, end='\n' if addnl else '')
 
     def addCmdClass(self, ctor, **opts):
         '''

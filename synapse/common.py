@@ -103,7 +103,7 @@ def buid(valu=None):
 
 def ehex(byts):
     '''
-    Encode a set of bytes to a string using binascii.hexlify.
+    Encode a bytes to a string using binascii.hexlify.
 
     Args:
         byts (bytes): Bytes to encode.

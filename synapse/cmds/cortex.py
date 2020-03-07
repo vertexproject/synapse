@@ -77,6 +77,8 @@ Examples:
                             help='Only records splices. Does not record any other messages.')
         optmux.add_argument('--nodes-only', action='store_true', default=False,
                             help='Only record the packed nodes returned by storm.')
+        optmux.add_argument('--show-nodeedits', action='store_true', default=False,
+                            help='Show the nodeedits themselves instead of dots.')
         return parser
 
     def __init__(self, cli, **opts):
@@ -210,6 +212,7 @@ class StormCmd(s_cli.Cmd):
         --hide-tags: Do not print tags.
         --hide-props: Do not print secondary properties.
         --hide-unknown: Do not print messages which do not have known handlers.
+        --show-nodeedits:  Show full nodeedits (otherwise printed as a single .)
         --raw: Print the nodes in their raw format. This overrides --hide-tags and --hide-props.
         --debug: Display cmd debug information along with nodes in raw format. This overrides other display arguments.
         --path: Get path information about returned nodes.
@@ -228,6 +231,7 @@ class StormCmd(s_cli.Cmd):
     _cmd_syntax = (
         ('--hide-tags', {}),  # type: ignore
         ('--show', {'type': 'valu'}),
+        ('--show-nodeedits', {}),
         ('--file', {'type': 'valu'}),
         ('--optsfile', {'type': 'valu'}),
         ('--hide-props', {}),
@@ -248,8 +252,26 @@ class StormCmd(s_cli.Cmd):
             'fini': self._onFini,
             'print': self._onPrint,
             'warn': self._onWarn,
-            'err': self._onErr
+            'err': self._onErr,
+            'node:edits': self._onNodeEdits
         }
+
+    def _onNodeEdits(self, mesg):
+        edit = mesg[1]
+        opts = edit.pop('_opts', {})
+        if not opts.get('show-nodeedits'):
+            self.printf('.', addnl=False, color='lightblue')
+            return
+
+        # hexlify the buids
+        newedits = []
+        for nodeedit in edit['edits']:
+            newedit = (s_common.ehex(nodeedit[0]), *nodeedit[1:])
+            newedits.append(newedit)
+
+        edit['edits'] = tuple(newedits)
+
+        self.printf(repr(edit), color='lightblue')
 
     def _onNode(self, mesg):
 
@@ -374,6 +396,11 @@ class StormCmd(s_cli.Cmd):
         showtext = opts.get('show')
         if showtext is not None:
             stormopts['show'] = showtext.split(',')
+            if opts.get('show-nodeedits'):
+                stormopts['show'].append('node:edits')
+
+        if opts.get('show-nodeedits'):
+            stormopts['show-nodeedits'] = True
 
         if opts.get('spawn'):
             stormopts['spawn'] = True
@@ -394,7 +421,7 @@ class StormCmd(s_cli.Cmd):
 
                 else:
 
-                    if mesg[0] == 'node':
+                    if mesg[0] in 'node':
 
                         if nodesfd is not None:
                             byts = json.dumps(mesg[1]).encode('utf8')
@@ -403,6 +430,10 @@ class StormCmd(s_cli.Cmd):
                         # Tuck the opts into the node dictionary since
                         # they control node metadata display
                         mesg[1][1]['_opts'] = opts
+
+                    elif mesg[0] == 'node:edits':
+                        mesg[1]['_opts'] = opts
+
                     try:
                         func = self.cmdmeths[mesg[0]]
                     except KeyError:
