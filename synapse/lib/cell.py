@@ -713,7 +713,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellAuth(self):
         node = await self.hive.open(('auth',))
-        auth = await s_hiveauth.Auth.anit(node)
+        auth = await s_hiveauth.Auth.anit(node, nexsroot=self.nexsroot)
 
         self.onfini(auth.fini)
         return auth
