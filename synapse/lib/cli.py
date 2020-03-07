@@ -12,7 +12,6 @@ from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
-from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -232,9 +231,6 @@ class Cli(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        # Tell prompt_toolkit to use the asyncio event loop.
-        use_asyncio_event_loop()
-
         if outp is None:
             outp = s_output.OutPut()
 
@@ -308,7 +304,7 @@ class Cli(s_base.Base):
             text = self.cmdprompt
 
         with patch_stdout():
-            retn = await self.sess.prompt(text, async_=True, vi_mode=self.vi_mode, enable_open_in_editor=True)
+            retn = await self.sess.prompt_async(text, vi_mode=self.vi_mode, enable_open_in_editor=True)
             return retn
 
     def printf(self, mesg, addnl=True, color=None):
