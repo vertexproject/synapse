@@ -1,4 +1,5 @@
 import os
+import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -368,5 +369,50 @@ class CellTest(s_t_utils.SynTest):
 
                 todo = s_common.todo('stream', doraise=True)
                 await self.agenraises(s_exc.BadTime, await prox.dyncall('self', todo))
+
+    async def test_cell_nexuschanges(self):
+        with self.getTestDir() as dirn:
+            dir0 = s_common.genpath(dirn, 'cell00')
+            dir1 = s_common.genpath(dirn, 'cell01')
+            conf = {'logchanges': True}
+
+            async def coro(prox, offs):
+                retn = []
+                yielded = False
+                async for offset, data in prox.getNexusChanges(offs):
+                    yielded = True
+                    nexsiden, act, args, kwargs = data
+                    if nexsiden == 'auth:auth' and act == 'user:add':
+                        retn.append(args)
+                    if len(retn) >= 2:
+                        break
+                return yielded, retn
+
+            # Enable change logging for this cell.
+            async with await s_cell.Cell.anit(dir0, conf) as cell00, \
+                    cell00.getLocalProxy() as prox00:
+
+                self.true(cell00.nexsroot.dologging)
+
+                await prox00.addAuthUser('test')
+
+                # We should have a set of auth:auth changes to find
+                task = cell00.schedCoro(coro(prox00, 0))
+                yielded, data = await asyncio.wait_for(task, 6)
+                self.true(yielded)
+                usernames = [args[1] for args in data]
+                self.eq(usernames, ['root', 'test'])
+
+            # The default cell behavior is to not log changes.
+            async with await s_cell.Cell.anit(dir1) as cell01, \
+                cell01.getLocalProxy() as prox01:
+                self.false(cell01.nexsroot.dologging)
+
+                await prox01.addAuthUser('test')
+
+                task = cell01.schedCoro(coro(prox01, 0))
+                yielded, data = await asyncio.wait_for(task, 6)
+                self.false(yielded)
+                self.eq(data, [])
 
 # TODO: cell with remote hive
