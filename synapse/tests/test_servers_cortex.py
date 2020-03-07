@@ -1,5 +1,4 @@
-import asyncio
-
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -40,7 +39,7 @@ class CortexServerTest(s_t_utils.SynTest):
 
     async def test_server_mirror(self):
 
-        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
+        with self.getTestDir() as dirn, self.withSetLoggingMock():
 
             path00 = s_common.gendir(dirn, 'core00')
             path01 = s_common.gendir(dirn, 'core01')
@@ -62,6 +61,13 @@ class CortexServerTest(s_t_utils.SynTest):
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
                 offs = core00.nexsroot.getOffset()
 
+                # Mirroring without logchanges doesn't work
+                with self.raises(s_exc.BadConfValu):
+                    async with await s_s_cortex.main(argv, outp=outp) as core01:
+                        pass
+
+                s_common.yamlsave({'logchanges': True}, path01, 'cell.yaml')
+
                 async with await s_s_cortex.main(argv, outp=outp) as core01:
 
                     # TODO functionalize this API on the cortex (cell?)
@@ -79,7 +85,7 @@ class CortexServerTest(s_t_utils.SynTest):
 
     async def test_server_mirror_badiden(self):
 
-        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
+        with self.getTestDir() as dirn, self.withSetLoggingMock():
 
             path00 = s_common.gendir(dirn, 'core00')
             path01 = s_common.gendir(dirn, 'core01')
@@ -98,6 +104,8 @@ class CortexServerTest(s_t_utils.SynTest):
                          '--mirror', core00.getLocalUrl(),
                          path01,
                          ]
+
+                s_common.yamlsave({'logchanges': True}, path01, 'cell.yaml')
 
                 async with await s_s_cortex.main(argv1, outp=out1) as core01:
                     await core01.waitfini(6)

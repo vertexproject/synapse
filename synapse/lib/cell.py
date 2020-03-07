@@ -406,7 +406,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'logchanges': {
             'default': False,
-            'description': 'Record all changes to the cell.  Required for mirroring.',
+            'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
             'type': 'boolean'
         },
     }
@@ -438,7 +438,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             conf = {}
 
         self.conf = self._initCellConf(conf)
-        self.dologging = self.conf.get('layers:logedits')
+
+        self.donexslog = self.conf.get('logchanges')
 
         await s_nexus.Pusher.__anit__(self, self.iden)
 
@@ -509,7 +510,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
     async def _initNexsRoot(self):
-        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.dologging)
+        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.donexslog)
         self.onfini(nexsroot.fini)
         return nexsroot
 

@@ -436,7 +436,7 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.fini()
 
             # startup 0.2.0 core
-            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+            async with await s_cortex.Cortex.anit(dest, conf={'logchanges': True}) as core:
                 # check that nexus root has offsets from migration
                 self.gt(await core.getNexusOffs(), 1)
 
@@ -571,7 +571,7 @@ class MigrationTest(s_t_utils.SynTest):
         '''
         with self.getRegrDir('cortexes', REGR_VER) as src:
             # sneak in test for missing splice slab - no impact to migration
-            for root, dirs, files in os.walk(src, topdown=True):
+            for root, dirs, _ in os.walk(src, topdown=True):
                 for dname in dirs:
                     if dname == 'splices.lmdb':
                         shutil.rmtree(os.path.join(root, dname))

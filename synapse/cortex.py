@@ -1719,6 +1719,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         Note:
             This cortex *must* be initialized from a backup of the target cortex!
         '''
+        if not self.donexslog:
+            raise s_exc.BadConfValu(mesg='Mirroring incompatible without logchanges')
         self.mirror = True
         self.nexsroot.readonly = True
         self.schedCoro(self._initCoreMirror(url))
