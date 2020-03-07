@@ -418,6 +418,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.dirn = s_common.gendir(dirn)
 
         self.auth = None
+        self.sessions = {}
         self.inaugural = False
         self.remote_hive = False
 
@@ -440,16 +441,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.conf = self._initCellConf(conf)
         self.dologging = self.conf.get('layers:logedits')
 
-        await s_nexus.Pusher.__anit__(self, self.iden)
-
-        await self._initCellDmon()
-
-        self.sessions = {}
-
-        self.boss = await s_boss.Boss.anit()
-        self.onfini(self.boss)
-
         await self._initCellSlab(readonly=readonly)
+
+        await s_nexus.Pusher.__anit__(self, self.iden)
 
         self.setNexsRoot(await self._initNexsRoot())
 
@@ -478,6 +472,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                                         name='auth:passwd')
             user = await self.auth.getUserByName('root')
             await user.setPasswd(auth_passwd)
+
+        await self._initCellDmon()
+
+        self.boss = await s_boss.Boss.anit()
+        self.onfini(self.boss)
 
         await self._initCellHttp()
 
