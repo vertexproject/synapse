@@ -514,6 +514,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(nexsroot.fini)
         return nexsroot
 
+    async def getNexusOffs(self):
+        return self.nexsroot.getOffset()
+
+    def getNexusOffsEvent(self, offs):
+        return self.nexsroot.getOffsetEvent(offs)
+
     async def dyniter(self, iden, todo, gatekeys=()):
 
         for useriden, perm, gateiden in gatekeys:

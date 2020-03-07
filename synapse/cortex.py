@@ -1792,12 +1792,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             await self.waitfini(1)
 
-    async def getNexusOffs(self):
-        return self.nexsroot.getOffset()
-
-    def getNexusOffsEvent(self, offs):
-        return self.nexsroot.getOffsetEvent(offs)
-
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvarsnode.dict()
