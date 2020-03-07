@@ -61,11 +61,6 @@ class CortexServerTest(s_t_utils.SynTest):
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
                 offs = core00.nexsroot.getOffset()
 
-                # Mirroring without logchanges doesn't work
-                with self.raises(s_exc.BadConfValu):
-                    async with await s_s_cortex.main(argv, outp=outp) as core01:
-                        pass
-
                 s_common.yamlsave({'logchanges': True}, path01, 'cell.yaml')
 
                 async with await s_s_cortex.main(argv, outp=outp) as core01:

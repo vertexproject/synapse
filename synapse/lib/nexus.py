@@ -131,6 +131,14 @@ class NexsRoot(s_base.Base):
 
         return await self.nexuslog.waitForOffset(offs, timeout=timeout)
 
+    def getOffsetEvent(self, offs):
+        if not self.dologging:
+            evnt = asyncio.Event()
+            evnt.set()
+            return evnt
+
+        return self.nexuslog.getOffsetEvent(offs)
+
     async def iter(self, offs: int):
         if not self.dologging:
             return

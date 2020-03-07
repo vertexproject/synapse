@@ -1795,11 +1795,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def getNexusOffs(self):
         return self.nexsroot.getOffset()
 
-    async def getNexusOffsEvent(self, offs):
-        if not self.nexsroot.dologging:
-            raise s_exc.BadConfValu(mesg='This method not allowed without logchanges enabled')
-
-        return self.nexsroot.nexuslog.getOffsetEvent(offs)
+    def getNexusOffsEvent(self, offs):
+        return self.nexsroot.getOffsetEvent(offs)
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
