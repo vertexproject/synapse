@@ -337,6 +337,25 @@ class CellTest(s_t_utils.SynTest):
             async with await s_cell.Cell.anit(dirn) as cell:
                 self.none(await cell.hive.get(('redbaloons',)))
 
+        # Do a full hive dump/load
+        with self.getTestDir() as dirn:
+            dir0 = s_common.genpath(dirn, 'cell00')
+            dir1 = s_common.genpath(dirn, 'cell01')
+            async with await s_cell.Cell.anit(dir0, {'auth:passwd': 'root'}) as cell00:
+                await cell00.hive.set(('beeps',), [1, 2, 'three'])
+
+                tree = await cell00.saveHiveTree()
+                s_common.yamlsave(tree, dir1, 'hiveboot.yaml')
+                with s_common.genfile(dir1, 'cell.guid') as fd:
+                    _ = fd.write(cell00.iden.encode())
+
+            async with await s_cell.Cell.anit(dir1) as cell01:
+                resp = await cell01.hive.get(('beeps',))
+                self.isinstance(resp, tuple)
+                self.eq(resp, (1, 2, 'three'))
+
+            self.eq(cell00.iden, cell01.iden)
+
     async def test_cell_dyncall(self):
 
         with self.getTestDir() as dirn:
