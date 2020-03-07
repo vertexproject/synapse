@@ -505,6 +505,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(nexsroot.fini)
         return nexsroot
 
+    async def getNexusChanges(self, offs):
+        async for item in self.nexsroot.iter(offs):
+            yield item
+
     async def getNexusOffs(self):
         return self.nexsroot.getOffset()
 

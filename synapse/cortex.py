@@ -1676,10 +1676,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
-    async def getNexusChanges(self, offs):
-        async for item in self.nexsroot.iter(offs):
-            yield item
-
     async def syncLayerNodeEdits(self, iden, offs):
         '''
         Yield (offs, mesg) tuples for nodeedits in a layer.
