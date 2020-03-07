@@ -3399,7 +3399,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core00.nodes('queue.add visi')
 
                     offs = await core00.getNexusOffs() - 1
-                    breakpoint()
                     evnt = core01.getNexusOffsEvent(offs)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
