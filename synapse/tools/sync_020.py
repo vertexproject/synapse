@@ -7,6 +7,7 @@ import asyncio
 import logging
 import argparse
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -132,7 +133,11 @@ class SyncMigrator(s_cell.Cell):
             retn = {'isdone': done}
             if done:
                 retn['cancelled'] = task.cancelled()
-                retn['exc'] = task.exception()
+
+                exc = task.exception()
+                if exc is not None:
+                    exc = task.exception()
+                retn['exc'] = exc
 
         return retn
 
@@ -264,20 +269,38 @@ class SyncMigrator(s_cell.Cell):
         Args:
             lyriden (str): Layer iden
         '''
+        trycnt = 0
         poll_s = self.poll_s
+        turl = self._getLayerUrl(self.src, lyriden)
         while not self.isfini:
-            async with await s_telepath.openurl(self._getLayerUrl(self.src, lyriden)) as prx:
-                queue = self._queues.get(lyriden)
-                startoffs = await self.getLyrOffset('pull', lyriden)
+            try:
+                trycnt += 1
+                prx = await s_telepath.openurl(turl)
+                trycnt = 0
 
-                logger.info(f'Pulling splices for layer {lyriden} starting from offset {startoffs}')
-                self.pull_last_start[lyriden] = s_common.now()
-                nextoffs = await self._srcIterLyrSplices(prx, startoffs, queue)
+                logger.info(f'Connected to source {lyriden}')
 
-                await self._setLyrOffset('pull', lyriden, nextoffs)
+                while not prx.isfini:
+                    queue = self._queues.get(lyriden)
+                    startoffs = await self.getLyrOffset('pull', lyriden)
 
-                logger.info(f'All splices from {lyriden} have been read; offsets: {startoffs} -> {nextoffs}')
-                await asyncio.sleep(poll_s)
+                    logger.debug(f'Pulling splices for layer {lyriden} starting from offset {startoffs}')
+
+                    self.pull_last_start[lyriden] = s_common.now()
+                    nextoffs = await self._srcIterLyrSplices(prx, startoffs, queue)
+
+                    await self._setLyrOffset('pull', lyriden, nextoffs)
+
+                    logger.debug(f'All splices from {lyriden} have been read; offsets: {startoffs} -> {nextoffs}')
+
+                    await asyncio.sleep(poll_s)
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+            except (ConnectionError, s_exc.IsFini):
+                logger.exception(f'Source layer connection error cnt={trycnt}: {lyriden}')
+                await asyncio.sleep(2 ** trycnt)
+                continue
 
     async def _srcIterLyrSplices(self, prx, startoffs, queue):
         '''
@@ -291,10 +314,6 @@ class SyncMigrator(s_cell.Cell):
         Returns:
             (int): Next offset to start from when all splices have been read
         '''
-        if prx.isfini:
-            logger.error('Source prx is finid')
-            return startoffs
-
         curoffs = startoffs
         fair_iter = self.pull_fair_iter
         async for splice in prx.splices(startoffs, -1):
@@ -441,13 +460,30 @@ class SyncMigrator(s_cell.Cell):
         Args:
             lyriden (str): Layer iden
         '''
+        trycnt = 0
         while not self.isfini:
-            async with await s_telepath.openurl(self._getLayerUrl(self.dest, lyriden)) as prx:
-                logger.info(f'Starting {lyriden} splice queue reader')
+            try:
+                trycnt += 1
+                prx = await s_telepath.openurl(self._getLayerUrl(self.dest, lyriden))
+                trycnt = 0
+
+                logger.info(f'Connected to destination {lyriden}')
+
                 queue = self._queues.get(lyriden)
+
+                logger.debug(f'Starting {lyriden} splice queue reader')
+
                 self.push_last_start[lyriden] = s_common.now()
                 await self._destIterLyrNodeedits(prx, queue, lyriden)
+
                 logger.warning(f'{lyriden} splice queue reader has stopped')
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+            except (ConnectionError, s_exc.IsFini):
+                logger.exception(f'Destination layer connection error cnt={trycnt}: {lyriden}')
+                await asyncio.sleep(2 ** trycnt)
+                continue
 
     async def _destIterLyrNodeedits(self, prx, queue, lyriden):
         '''
@@ -466,16 +502,11 @@ class SyncMigrator(s_cell.Cell):
         ndef = None
         prov = None
         nodesplices = []
+        nodespliceoffs = []
 
         cnt = 0
         errs = 0
         async for offs, splice in queue:
-            # if prx is fini'd add splice back to queue and return
-            if prx.isfini:
-                logger.error('Destination prox is finid')
-                queue.linklist.appendleft((offs, splice))
-                return
-
             queuelen = len(queue.linklist)
             next_ndef = splice[1]['ndef']
             next_prov = splice[1].get('prov')
@@ -484,12 +515,20 @@ class SyncMigrator(s_cell.Cell):
             # so create prior node nodeedit and push to destination layer
             if ndef is not None and (next_ndef != ndef or (prov is not None and next_prov != prov) or queuelen == 0):
                 err, ne, meta = None, None, None
+
                 try:
                     err, ne, meta = await self._trnNodeSplicesToNodeedit(ndef, nodesplices)
                     if err is None:
                         await prx.storNodeEditsNoLift([ne], meta)
                         await self._setLyrOffset('push', lyriden, offs + 1)
+
                 except asyncio.CancelledError:  # pragma: no cover
+                    raise
+                except (ConnectionError, s_exc.IsFini):
+                    # put back last and nodesplices
+                    queue.linklist.appendleft((offs, splice))
+                    qadd = zip(reversed(nodespliceoffs), reversed(nodesplices))
+                    queue.linklist.extendleft(qadd)
                     raise
                 except Exception as e:
                     err = {'mesg': s_common.excinfo(e), 'splices': nodesplices, 'nodeedits': ne, 'meta': meta}
@@ -502,14 +541,18 @@ class SyncMigrator(s_cell.Cell):
                         raise Exception('Error limit reached')
 
                 nodesplices = []
+                nodespliceoffs = []
 
             ndef = next_ndef
             prov = next_prov
             nodesplices.append(splice)
+            nodespliceoffs.append(offs)
 
             cnt += 1
 
-            if queuelen == 0 or cnt % 100000 == 0:
+            if queuelen == 0:
+                logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={len(queue.linklist)}')
+            elif cnt % 100000 == 0:
                 logger.info(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={len(queue.linklist)}')
 
             if queuelen == 0 or cnt % fair_iter == 0:

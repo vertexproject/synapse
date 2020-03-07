@@ -266,6 +266,15 @@ class SyncTest(s_t_utils.SynTest):
                 }
                 self.eq(status_exp, {k: v for k, v in status.get(wlyr.iden, {}).items() if k in status_exp})
 
+                # tasks should keep running on dropped connections
+                await fkcore.fini()
+                await core.fini()
+                await asyncio.sleep(1)
+
+                self.false(sync._pull_tasks[wlyr.iden].done())
+                self.false(sync._push_tasks[wlyr.iden].done())
+                self.false(sync._queues[wlyr.iden].isfini)
+
     async def test_sync_srcPullLyrSplices(self):
         conf_sync = {
             'poll_s': 1,
