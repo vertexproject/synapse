@@ -517,6 +517,10 @@ class Migrator(s_base.Base):
         if self.srcdedicated is None:
             self.srcdedicated = False
 
+        self.destdedicated = conf.get('destdedicated')
+        if self.destdedicated is None:
+            self.destdedicated = False
+
         self.srcslabopts = {
             'readonly': True,
             'map_async': True,
@@ -575,9 +579,9 @@ class Migrator(s_base.Base):
             await self._migrHiveAuth()
 
         # full layer data migration
-        for iden, lyrinfo in lyrs.items():
+        for iden, migrlyrinfo in lyrs.items():
             logger.info(f'Starting migration for layer {iden}')
-            wlyr = await self._destGetWlyr(self.dest, iden, lyrinfo)
+            wlyr = await self._destGetWlyr(self.dest, iden, migrlyrinfo)
 
             if 'nodes' in self.migrops:
                 await self._migrNodes(iden, wlyr)
@@ -949,15 +953,24 @@ class Migrator(s_base.Base):
         As each layer is migrated update the hive info.
 
         Args:
-            layrinfo (HiveDict): Layer info stored in the hive (and used to initialize wlyr)
+            iden (str): Iden of the layer
+
+        Returns:
+            migrlyrinfo (HiveDict): Shadow copy Layer info for initialization in migration only
         '''
         migrop = 'hivelyr'
+
+        # migration shadow copy
+        migrlyrnode = await self.hive.open(('migr', 'layers', iden))
+        migrlyrinfo = await migrlyrnode.dict()
 
         # get existing data from the hive
         lyrnode = await self.hive.open(('cortex', 'layers', iden))
         layrinfo = await lyrnode.dict()
 
         if 'hivelyr' not in self.migrops:
+            for name, valu in layrinfo.items():
+                await migrlyrinfo.set(name, valu)
             return layrinfo
 
         # owner -> creator
@@ -994,10 +1007,13 @@ class Migrator(s_base.Base):
         await layrinfo.set('conf', conf)
         await layrinfo.set('model:version', s_modelrev.maxvers)
 
+        for name, valu in layrinfo.items():
+            await migrlyrinfo.set(name, valu)
+
         logger.info('Completed Hive layer info migration')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
-        return layrinfo
+        return migrlyrinfo
 
     async def _migrHiveAuth(self):
         '''
@@ -1008,7 +1024,7 @@ class Migrator(s_base.Base):
 
         # get queues that need authgates added (no data migration/translation required)
         path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
-        qslab = await s_lmdbslab.Slab.anit(path, map_async=True)
+        qslab = await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False)
         self.onfini(qslab.fini)
 
         queues = []  # list of (<queue name>, <user iden>)
@@ -1147,7 +1163,7 @@ class Migrator(s_base.Base):
         # record offset
         path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')
         if os.path.exists(path):
-            spliceslab = await s_lmdbslab.Slab.anit(path, **self.srcslabopts)
+            spliceslab = await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False)
             self.onfini(spliceslab.fini)
             splicelog = s_slabseqn.SlabSeqn(spliceslab, 'splices')
             nextindx = splicelog.index()
@@ -1624,20 +1640,23 @@ class Migrator(s_base.Base):
             pass
         return stortype
 
-    async def _destGetWlyr(self, dirn, iden, lyrinfo):
+    async def _destGetWlyr(self, dirn, iden, migrlyrinfo):
         '''
         Get the write Layer object for the destination.
 
         Args:
             dirn (str): Cortex directory that contains the layer
             iden (str): iden of the layer to create object for
-            lyrinfo (HiveDict): Layer information used to construct the write layer
+            migrlyrinfo (HiveDict): Layer information used to construct the write layer
 
         Returns:
             (synapse.lib.Layer): Write layer
         '''
+        await migrlyrinfo.set('lockmemory', self.destdedicated)
+        await migrlyrinfo.set('readonly', False)
+
         path = os.path.join(dirn, 'layers', iden)
-        wlyr = await s_layer.Layer.anit(lyrinfo, path, nexsroot=self.nexusroot)
+        wlyr = await s_layer.Layer.anit(migrlyrinfo, path, nexsroot=self.nexusroot)
         self.onfini(wlyr.fini)
 
         return wlyr
@@ -1719,8 +1738,10 @@ async def main(argv, outp=s_output.stdout):
                       help='Yield loop after so many node iters')
     pars.add_argument('--safety-off', required=False, action='store_true',
                       help='Do not check node values before adding')
-    pars.add_argument('--src-dedicated', required=False, type=bool, default=False,
+    pars.add_argument('--src-dedicated', required=False, action='store_true',
                       help='Open source layer slab as dedicated (lockmemory=True).')
+    pars.add_argument('--dest-dedicated', required=False, action='store_true',
+                      help='Open destination layer slab as dedicated (lockmemory=True).')
     pars.add_argument('--log-level', required=False, default='info', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
     pars.add_argument('--form-counts', required=False, action='store_true',
@@ -1746,6 +1767,7 @@ async def main(argv, outp=s_output.stdout):
         'fairiter': opts.fair_iter,
         'safetyoff': opts.safety_off,
         'srcdedicated': opts.src_dedicated,
+        'destdedicated': opts.dest_dedicated,
         'formcounts': formcounts,
     }
 
