@@ -220,6 +220,13 @@ class SyncTest(s_t_utils.SynTest):
                 self.false(sync._push_tasks[wlyr.iden].done())
                 self.false(sync._queues[wlyr.iden].isfini)
 
+                # stop sync
+                await syncprx.stopSync()
+
+                self.true(sync._pull_tasks[wlyr.iden].done())
+                self.true(sync._push_tasks[wlyr.iden].done())
+                self.true(sync._queues[wlyr.iden].isfini)
+
     async def test_startSyncFromLast(self):
         conf_sync = {
             'poll_s': 1,

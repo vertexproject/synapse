@@ -34,6 +34,9 @@ class SyncMigratorApi(s_cell.CellApi):
     async def startSyncFromLast(self):
         return await self.cell.startSyncFromLast()
 
+    async def stopSync(self):
+        return await self.cell.stopSync()
+
 class SyncMigrator(s_cell.Cell):
     cellapi = SyncMigratorApi
     confdefs = {
@@ -54,6 +57,11 @@ class SyncMigrator(s_cell.Cell):
             'description': 'The number of seconds to wait between calls to src for new splices.',
             'default': 60,
         },
+        'pull_size': {
+            'type': 'integer',
+            'description': 'Max splices to pull from src in one iteration.',
+            'default': 10000,
+        },
     }
 
     async def __anit__(self, dirn, conf=None):
@@ -63,10 +71,12 @@ class SyncMigrator(s_cell.Cell):
         self.dest = self.conf.get('dest')
         self.offsfile = self.conf.get('offsfile')
         self.poll_s = self.conf.get('poll_s')
+        self.pull_size = self.conf.get('pull_size')
 
         self.pull_fair_iter = 100
         self.push_fair_iter = 100
         self.err_lim = 10
+        self.q_size = 100000
 
         self.pull_offs = await self.hive.dict(('sync:pulloffs', ))
         self.push_offs = await self.hive.dict(('sync:pushoffs', ))
@@ -101,7 +111,7 @@ class SyncMigrator(s_cell.Cell):
             if srclaststart is not None:
                 srclaststart = s_time.repr(srclaststart)
 
-            destlaststart = self.pull_last_start.get(lyriden)
+            destlaststart = self.push_last_start.get(lyriden)
             if destlaststart is not None:
                 destlaststart = s_time.repr(destlaststart)
 
@@ -185,8 +195,8 @@ class SyncMigrator(s_cell.Cell):
         await self._loadDatamodel()
 
         queue = self._queues.get(lyriden)
-        if queue is None:
-            queue = await s_queue.Window.anit(maxsize=None)
+        if queue is None or queue.isfini:
+            queue = await s_queue.Window.anit(maxsize=self.q_size)
             self.onfini(queue.fini)
             self._queues[lyriden] = queue
 
@@ -197,6 +207,24 @@ class SyncMigrator(s_cell.Cell):
         pushtask = self._push_tasks.get(lyriden)
         if pushtask is None or pushtask.done():
             self._push_tasks[lyriden] = self.schedCoro(self._destPushLyrNodeedits(lyriden))
+
+    async def stopSync(self):
+        '''
+        Cancel all tasks and fini queues.
+        '''
+        for lyriden, task in self._pull_tasks.items():
+            logger.warning(f'Cancelling {lyriden} pull task')
+            task.cancel()
+
+        for lyriden, task in self._push_tasks.items():
+            logger.warning(f'Cancelling {lyriden} push task')
+            task.cancel()
+
+        for lyriden, queue in self._queues.items():
+            logger.warning(f'Stopping {lyriden} queue')
+            await queue.fini()
+
+        logger.info('stopSync complete')
 
     async def _setLyrOffset(self, pushorpull, lyriden, offset):
         '''
@@ -291,6 +319,10 @@ class SyncMigrator(s_cell.Cell):
 
                     await self._setLyrOffset('pull', lyriden, nextoffs)
 
+                    if queue.isfini:
+                        logger.warning(f'Queue is finid; stopping {lyriden} src pull')
+                        return
+
                     logger.debug(f'All splices from {lyriden} have been read; offsets: {startoffs} -> {nextoffs}')
 
                     await asyncio.sleep(poll_s)
@@ -316,8 +348,11 @@ class SyncMigrator(s_cell.Cell):
         '''
         curoffs = startoffs
         fair_iter = self.pull_fair_iter
-        async for splice in prx.splices(startoffs, -1):
-            await queue.put((curoffs, splice))
+        pull_size = self.pull_size
+        async for splice in prx.splices(startoffs, pull_size):
+            qres = await queue.put((curoffs, splice))
+            if not qres:
+                return curoffs
 
             curoffs += 1
 
@@ -478,6 +513,10 @@ class SyncMigrator(s_cell.Cell):
 
                 logger.warning(f'{lyriden} splice queue reader has stopped')
 
+                if queue.isfini:
+                    logger.warning(f'Queue is finid; stopping {lyriden} dest push')
+                    return
+
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except (ConnectionError, s_exc.IsFini):
@@ -551,9 +590,9 @@ class SyncMigrator(s_cell.Cell):
             cnt += 1
 
             if queuelen == 0:
-                logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={len(queue.linklist)}')
-            elif cnt % 100000 == 0:
-                logger.info(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={len(queue.linklist)}')
+                logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
+            elif queuelen % 10000 == 0:
+                logger.info(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
 
             if queuelen == 0 or cnt % fair_iter == 0:
                 await asyncio.sleep(0)
