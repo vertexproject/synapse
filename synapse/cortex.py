@@ -475,10 +475,6 @@ class CoreApi(s_cell.CellApi):
         async for mesg in self.cell.watch(wdef):
             yield mesg
 
-    async def getNexusChanges(self, offs):
-        async for item in self.cell.getNexusChanges(offs):
-            yield item
-
     async def syncLayerNodeEdits(self, offs, layriden=None):
         '''
         Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
@@ -883,7 +879,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         creator = info.get('creator')
         if creator is not None:
             user = await self.auth.reqUser(creator)
-            await user.setAdmin(True, gateiden=f'queue:{name}')
+            await user.setAdmin(True, gateiden=f'queue:{name}', logged=False)
 
         await self.multiqueue.add(name, info)
 
@@ -1680,10 +1676,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
-    async def getNexusChanges(self, offs):
-        async for item in self.nexsroot.iter(offs):
-            yield item
-
     async def syncLayerNodeEdits(self, iden, offs):
         '''
         Yield (offs, mesg) tuples for nodeedits in a layer.
@@ -1719,6 +1711,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         Note:
             This cortex *must* be initialized from a backup of the target cortex!
         '''
+        if not self.donexslog:
+            raise s_exc.BadConfValu(mesg='Mirroring incompatible without logchanges')
         self.mirror = True
         self.nexsroot.readonly = True
         self.schedCoro(self._initCoreMirror(url))
@@ -1789,12 +1783,6 @@ class Cortex(s_cell.Cell):  # type: ignore
                 logger.exception('error in initCoreMirror loop')
 
             await self.waitfini(1)
-
-    async def getNexusOffs(self):
-        return self.nexsroot.getOffset()
-
-    async def getNexusOffsEvent(self, offs):
-        return self.nexsroot.nexuslog.getOffsetEvent(offs)
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
@@ -2175,7 +2163,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         user = await self.auth.reqUser(creator)
 
         await self.auth.addAuthGate(iden, 'view')
-        await user.setAdmin(True, gateiden=iden)
+        await user.setAdmin(True, gateiden=iden, logged=False)
 
         # worldreadable is not get persisted with the view; the state ends up in perms
         worldread = vdef.pop('worldreadable', False)
@@ -2361,7 +2349,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await layrinfo.set(name, valu)
 
         layr = await self._initLayr(layrinfo)
-        await user.setAdmin(True, gateiden=iden)
+        await user.setAdmin(True, gateiden=iden, logged=False)
 
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
@@ -3065,7 +3053,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         cdef = await self.agenda.add(cdef)
 
         await self.auth.addAuthGate(iden, 'cronjob')
-        await user.setAdmin(True, gateiden=iden)
+        await user.setAdmin(True, gateiden=iden, logged=False)
 
         return cdef
 
