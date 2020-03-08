@@ -389,6 +389,11 @@ class CellApi(s_base.Base):
     async def saveHiveTree(self, path=()):
         return await self.cell.saveHiveTree(path=path)
 
+    @adminapi
+    async def getNexusChanges(self, offs):
+        async for item in self.cell.getNexusChanges(offs):
+            yield item
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -407,7 +412,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'logchanges': {
             'default': False,
-            'description': 'Record all changes to the cell.  Required for mirroring.',
+            'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
             'type': 'boolean'
         },
     }
@@ -440,7 +445,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             conf = {}
 
         self.conf = self._initCellConf(conf)
-        self.dologging = self.conf.get('layers:logedits')
+
+        self.donexslog = self.conf.get('logchanges')
 
         await s_nexus.Pusher.__anit__(self, self.iden)
 
@@ -495,9 +501,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
     async def _initNexsRoot(self):
-        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.dologging)
+        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.donexslog)
         self.onfini(nexsroot.fini)
         return nexsroot
+
+    async def getNexusChanges(self, offs):
+        async for item in self.nexsroot.iter(offs):
+            yield item
+
+    async def getNexusOffs(self):
+        return self.nexsroot.getOffset()
+
+    def getNexusOffsEvent(self, offs):
+        return self.nexsroot.getOffsetEvent(offs)
 
     async def dyniter(self, iden, todo, gatekeys=()):
 
@@ -701,7 +717,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellAuth(self):
         node = await self.hive.open(('auth',))
-        auth = await s_hiveauth.Auth.anit(node)
+        auth = await s_hiveauth.Auth.anit(node, nexsroot=self.nexsroot)
 
         self.onfini(auth.fini)
         return auth

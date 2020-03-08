@@ -100,8 +100,8 @@ class Auth(s_nexus.Pusher):
         if self.rootuser is None:
             self.rootuser = await self.addUser('root')
 
-        await self.rootuser.setAdmin(True)
-        await self.rootuser.setLocked(False)
+        await self.rootuser.setAdmin(True, logged=False)
+        await self.rootuser.setLocked(False, logged=False)
 
         async def fini():
             await self.allrole.fini()
@@ -724,11 +724,17 @@ class HiveUser(HiveRuler):
 
         return gateinfo.get('admin', False)
 
-    async def setAdmin(self, admin, gateiden=None):
-        await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
+    async def setAdmin(self, admin, gateiden=None, logged=True):
+        if logged:
+            await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
+        else:
+            await self.auth._hndlsetUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
 
-    async def setLocked(self, locked):
-        await self.auth.setUserInfo(self.iden, 'locked', locked)
+    async def setLocked(self, locked, logged=True):
+        if logged:
+            await self.auth.setUserInfo(self.iden, 'locked', locked)
+        else:
+            await self.auth._hndlsetUserInfo(self.iden, 'locked', locked)
 
     async def setArchived(self, archived):
         await self.auth.setUserInfo(self.iden, 'archived', archived)
