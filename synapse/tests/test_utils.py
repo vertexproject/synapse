@@ -11,6 +11,7 @@ import logging
 
 import synapse.common as s_common
 
+import synapse.lib.base as s_base
 import synapse.lib.output as s_output
 
 import synapse.tests.utils as s_t_utils
@@ -144,12 +145,14 @@ class TestUtils(s_t_utils.SynTest):
         outp.expect('#1')
         self.raises(Exception, outp.expect, 'oh my')
 
-    def test_testenv(self):
+    async def test_testenv(self):
 
-        with s_t_utils.TstEnv() as env:
+        async with s_t_utils.TstEnv() as env:
 
+            base = await s_base.Base.anit()
             foo = 'foo'
             env.add('foo', foo)
+            env.add('base', base, fini=True)
 
             self.true(env.foo is foo)
 
@@ -157,6 +160,8 @@ class TestUtils(s_t_utils.SynTest):
                 env.blah
 
             self.raises(AttributeError, blah)
+
+        self.true(base.isfini)
 
     async def test_cmdg_simple_sequence(self):
         cmdg = s_t_utils.CmdGenerator(['foo', 'bar'])
