@@ -131,6 +131,14 @@ class NexsRoot(s_base.Base):
 
         return await self.nexuslog.waitForOffset(offs, timeout=timeout)
 
+    def getOffsetEvent(self, offs):
+        if not self.dologging:
+            evnt = asyncio.Event()
+            evnt.set()
+            return evnt
+
+        return self.nexuslog.getOffsetEvent(offs)
+
     async def iter(self, offs: int):
         if not self.dologging:
             return
@@ -214,7 +222,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         def decorator(func):
             pushfunc._regme = (event, func)
-            setattr(cls, '_hndl' + func.__name__, pushfunc)
+            setattr(cls, '_hndl' + func.__name__, func)
             functools.update_wrapper(pushfunc, func)
             return pushfunc
 

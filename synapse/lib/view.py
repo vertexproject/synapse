@@ -522,7 +522,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.trigdict.set(trig.iden, tdef)
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
-        await user.setAdmin(True, gateiden=tdef.get('iden'))
+        await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
 
         return trig.pack()
 
