@@ -74,8 +74,9 @@ class CoreApi(s_cell.CellApi):
     def getCoreMods(self):
         return self.cell.getCoreMods()
 
-    @s_cell.adminapi
     def stat(self):
+        self.user.confirm(('status',))
+        s_common.deprecated('stat')
         return self.cell.stat()
 
     async def getModelDict(self):
@@ -96,49 +97,11 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.getCoreInfo()
 
-    async def _getViewFromOpts(self, opts):
-        '''
-
-        Args:
-            opts(Optional[Dict]): opts dicts that may contain a view field
-
-        Returns:
-            view object
-
-        Raises:
-            s_exc.NoSuchView: If the view iden doesn't exist
-            s_exc.AuthDeny: If the current user doesn't have read access to the view
-
-        '''
-        if opts is None:
-            opts = {}
-
-        iden = opts.get('view', s_common.novalu)
-
-        if iden is s_common.novalu:
-            iden = self.user.profile.get('cortex:view')
-
-        if iden is None or iden is s_common.novalu:
-            # This assumes everyone has access to the default view
-            iden = self.cell.view.iden
-
-        return await self._getView(iden)
-
-    async def _getView(self, iden):
-
-        view = self.cell.getView(iden)
-        if view is None:
-            raise s_exc.NoSuchView(iden=iden)
-
-        self.user.confirm(('view', 'read'), gateiden=view.iden)
-        return view
-
     async def callStorm(self, text, opts=None):
         '''
         Return the value expressed in a return() statement within storm.
         '''
-        iden = (opts or {}).get('view')
-        view = self.cell.getView(iden)
+        view = self.cell._viewFromOpts(opts, self.user)
         try:
 
             async for pode in view.iterStormPodes(text, opts=opts, user=self.user):
@@ -275,7 +238,7 @@ class CoreApi(s_cell.CellApi):
             valu (tuple):  A time interval tuple or (None, None).
         '''
         s_common.deprecated('addNodeTag')
-        await self._reqDefLayerAllowed(('tag:add', *tag.split('.')))
+        await self._reqDefLayerAllowed(('node', 'tag', 'add', *tag.split('.')))
         return await self.cell.addNodeTag(self.user, iden, tag, valu)
 
     async def delNodeTag(self, iden, tag):
@@ -288,7 +251,7 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
         '''
         s_common.deprecated('delNodeTag')
-        await self._reqDefLayerAllowed(('tag:del', *tag.split('.')))
+        await self._reqDefLayerAllowed(('node', 'tag', 'del', *tag.split('.')))
         return await self.cell.delNodeTag(self.user, iden, tag)
 
     async def setNodeProp(self, iden, name, valu):
@@ -403,7 +366,7 @@ class CoreApi(s_cell.CellApi):
 
     async def addFeedData(self, name, items, *, viewiden=None):
 
-        view = self.cell.getView(viewiden)
+        view = self.cell.getView(viewiden, user=self.user)
         if view is None:
             raise s_exc.NoSuchView(iden=viewiden)
 
@@ -428,7 +391,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             (int): The number of nodes resulting from the query.
         '''
-        view = await self._getViewFromOpts(opts)
+        view = self.cell._viewFromOpts(opts, self.user)
 
         i = 0
         async for _ in view.eval(text, opts=opts, user=self.user):
@@ -440,7 +403,7 @@ class CoreApi(s_cell.CellApi):
         Evaluate a storm query and yield packed nodes.
         '''
 
-        view = await self._getViewFromOpts(opts)
+        view = self.cell._viewFromOpts(opts, self.user)
 
         async for pode in view.iterStormPodes(text, opts=opts, user=self.user):
             yield pode
@@ -452,7 +415,7 @@ class CoreApi(s_cell.CellApi):
         Yields:
             ((str,dict)): Storm messages.
         '''
-        view = await self._getViewFromOpts(opts)
+        view = self.cell._viewFromOpts(opts, self.user)
 
         if opts is not None and opts.get('spawn'):
 
@@ -511,10 +474,6 @@ class CoreApi(s_cell.CellApi):
 
         async for mesg in self.cell.watch(wdef):
             yield mesg
-
-    async def getNexusChanges(self, offs):
-        async for item in self.cell.getNexusChanges(offs):
-            yield item
 
     async def syncLayerNodeEdits(self, offs, layriden=None):
         '''
@@ -920,7 +879,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         creator = info.get('creator')
         if creator is not None:
             user = await self.auth.reqUser(creator)
-            await user.setAdmin(True, gateiden=f'queue:{name}')
+            await user.setAdmin(True, gateiden=f'queue:{name}', logged=False)
 
         await self.multiqueue.add(name, info)
 
@@ -974,7 +933,6 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'storm:log:level': self.conf.get('storm:log:level', logging.INFO),
             },
             'loglevel': logger.getEffectiveLevel(),
-            # TODO make getModelDefs include extended model
             'views': [v.getSpawnInfo() for v in self.views.values()],
             'layers': [l.getSpawnInfo() for l in self.layers.values()],
             'storm': {
@@ -1718,10 +1676,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
-    async def getNexusChanges(self, offs):
-        async for item in self.nexsroot.iter(offs):
-            yield item
-
     async def syncLayerNodeEdits(self, iden, offs):
         '''
         Yield (offs, mesg) tuples for nodeedits in a layer.
@@ -1757,6 +1711,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         Note:
             This cortex *must* be initialized from a backup of the target cortex!
         '''
+        if not self.donexslog:
+            raise s_exc.BadConfValu(mesg='Mirroring incompatible without logchanges')
         self.mirror = True
         self.nexsroot.readonly = True
         self.schedCoro(self._initCoreMirror(url))
@@ -1827,12 +1783,6 @@ class Cortex(s_cell.Cell):  # type: ignore
                 logger.exception('error in initCoreMirror loop')
 
             await self.waitfini(1)
-
-    async def getNexusOffs(self):
-        return self.nexsroot.getOffset()
-
-    async def getNexusOffsEvent(self, offs):
-        return self.nexsroot.nexuslog.getOffsetEvent(offs)
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
@@ -2213,7 +2163,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         user = await self.auth.reqUser(creator)
 
         await self.auth.addAuthGate(iden, 'view')
-        await user.setAdmin(True, gateiden=iden)
+        await user.setAdmin(True, gateiden=iden, logged=False)
 
         # worldreadable is not get persisted with the view; the state ends up in perms
         worldread = vdef.pop('worldreadable', False)
@@ -2325,7 +2275,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def getLayerDefs(self):
         return [l.pack() for l in self.layers.values()]
 
-    def getView(self, iden=None):
+    def getView(self, iden=None, user=None):
         '''
         Get a View object.
 
@@ -2336,14 +2286,25 @@ class Cortex(s_cell.Cell):  # type: ignore
             View: A View object.
         '''
         if iden is None:
-            return self.view
+            if user is not None:
+                iden = user.profile.get('cortex:view')
+
+            if iden is None:
+                iden = self.view.iden
 
         # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
         # TODO:  due to our migration policy, remove in 0.3.x
         if iden == self.iden:
-            return self.view
+            iden = self.view.iden
 
-        return self.views.get(iden)
+        view = self.views.get(iden)
+        if view is None:
+            return None
+
+        if user is not None:
+            user.confirm(('view', 'read'), gateiden=iden)
+
+        return view
 
     def listViews(self):
         return list(self.views.values())
@@ -2388,7 +2349,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await layrinfo.set(name, valu)
 
         layr = await self._initLayr(layrinfo)
-        await user.setAdmin(True, gateiden=iden)
+        await user.setAdmin(True, gateiden=iden, logged=False)
 
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
@@ -2696,15 +2657,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         if opts is None:
             opts = {}
 
-        viewiden = opts.get('view', s_common.novalu)
+        viewiden = opts.get('view')
 
-        if viewiden is s_common.novalu and user is not None:
-            viewiden = user.profile.get('cortex:view')
-
-        if viewiden is s_common.novalu:
-            viewiden = self.view.iden
-
-        view = self.getView(viewiden)
+        view = self.getView(iden=viewiden, user=user)
         if view is None:
             raise s_exc.NoSuchView(iden=viewiden)
 
@@ -2715,7 +2670,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        view = self._viewFromOpts(opts, user=user)
+        view = self._viewFromOpts(opts, user)
 
         async for node in view.eval(text, opts, user):
             yield node
@@ -2727,7 +2682,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Yields:
             (Node, Path) tuples
         '''
-        view = self._viewFromOpts(opts, user=user)
+        view = self._viewFromOpts(opts, user)
 
         async for mesg in view.storm(text, opts, user):
             yield mesg
@@ -2749,7 +2704,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Yields:
             ((str,dict)): Storm messages.
         '''
-        view = self._viewFromOpts(opts, user=user)
+        view = self._viewFromOpts(opts, user)
 
         async for mesg in view.streamstorm(text, opts, user):
             yield mesg
@@ -2759,7 +2714,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         if user is None:
             user = await self.auth.getUserByName('root')
 
-        view = self._viewFromOpts(opts, user=user)
+        view = self._viewFromOpts(opts, user)
 
         info = {'query': text}
         if opts is not None:
@@ -3098,7 +3053,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         cdef = await self.agenda.add(cdef)
 
         await self.auth.addAuthGate(iden, 'cronjob')
-        await user.setAdmin(True, gateiden=iden)
+        await user.setAdmin(True, gateiden=iden, logged=False)
 
         return cdef
 

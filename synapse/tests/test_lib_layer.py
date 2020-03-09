@@ -2,6 +2,7 @@ import math
 import asyncio
 import contextlib
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -36,13 +37,14 @@ class LayerTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            layr = core.view.layers[0]
+            layr = core.getLayer()
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
             # another to check the cache...
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x05', layr.getPropAbrv('whip', None))
             self.eq(('visi', 'foo'), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x04'))
             self.eq(('whip', None), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x05'))
+            self.eq(None, layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x06'))
 
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
             # another to check the cache...
@@ -71,7 +73,14 @@ class LayerTest(s_t_utils.SynTest):
                     await node.setTagProp('bar', 'score', 10)
                     await node.setData('baz', 'nodedataiscool')
 
+                    node = await snap.addNode('test:str', 'bar', props=props)
+                    await node.setData('baz', 'nodedataiscool')
+
                 async with self.getTestCore(dirn=path01) as core01:
+
+                    # test layer/<iden> mapping
+                    async with core00.getLocalProxy(f'*/layer/{layriden}') as layrprox:
+                        self.eq(layriden, await layrprox.getIden())
 
                     url = core00.getLocalUrl('*/layer')
                     conf = {'upstream': url}
@@ -406,6 +415,13 @@ class LayerTest(s_t_utils.SynTest):
 
             spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
+            # Nodedata edits don't make splices
+            nodes = await core.nodes('test:str=foo')
+            await nodes[0].setData('baz', 'nodedataiscool')
+
+            splices = await alist(layr.splices(spliceoffs, 10))
+            self.len(0, splices)
+
             # Convert a node:del splice
             await core.nodes('test:str=foo | delnode')
 
@@ -417,6 +433,24 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
+            # Get all the splices
+            await self.agenlen(26, layr.splices())
+
+            # Get all but the first splice
+            await self.agenlen(25, layr.splices((0, 0, 1)))
+
+            await self.agenlen(4, layr.splicesBack((1, 0, 0)))
+
+            # Make sure we still get two splices when
+            # offset is not at the beginning of a nodeedit
+            await self.agenlen(2, layr.splices((1, 0, 200), 2))
+            await self.agenlen(2, layr.splicesBack((3, 0, -1), 2))
+
+            # Use the layer api to get the splices
+            url = core.getLocalUrl('*/layer')
+            async with await s_telepath.openurl(url) as layrprox:
+                await self.agenlen(26, layrprox.splices())
+
     async def test_layer_stortype_float(self):
         async with self.getTestCore() as core:
 
@@ -427,9 +461,14 @@ class LayerTest(s_t_utils.SynTest):
             vals = [math.nan, -math.inf, -99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf]
 
             indxby = s_layer.IndxBy(layr, b'', tmpdb)
+            self.raises(s_exc.NoSuchImpl, indxby.getNodeValu, s_common.guid())
 
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
                 layr.layrslab.put(key[0], val, db=tmpdb)
+
+            # = -99999.9
+            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '=', -99999.9)]
+            self.eq(retn, [-99999.9])
 
             # <= -99999.9
             retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', -99999.9)]
@@ -482,6 +521,15 @@ class LayerTest(s_t_utils.SynTest):
             # -99999.9 to -0.1
             retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
             self.eq(retn, [-99999.9, -42.1])
+
+            # <= NaN
+            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, '<=', math.nan)
+
+            # >= NaN
+            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, '>=', math.nan)
+
+            # 1.0 to NaN
+            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, 'range=', (1.0, math.nan))
 
     async def test_layer_stortype_merge(self):
 
@@ -538,6 +586,8 @@ class LayerTest(s_t_utils.SynTest):
                     (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv)),
                 )),
             ]
+
+            await layr.storNodeEdits(nodeedits, {})
 
             nodes = await core.nodes('inet:ipv4=1.2.3.4')
             self.eq(tagv, nodes[0].getTag('foo.bar'))
@@ -606,3 +656,24 @@ class LayerTest(s_t_utils.SynTest):
                     lastoffs = layr.nodeeditlog.index()
                     for nodeedit in layr.nodeeditlog.sliceBack(lastoffs, 2):
                         self.eq(meta, nodeedit[1][1])
+
+    async def test_layer(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            layr = core.getLayer()
+            self.eq(str(layr), f'Layer (Layer): {layr.iden}')
+
+            nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            buid = nodes[0].buid
+
+            self.eq('foo', layr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), layr.getNodeValu(buid, '.seen'))
+            self.none(layr.getNodeValu(buid, 'noprop'))
+            self.none(layr.getNodeTag(buid, 'faketag'))
+
+            self.false(await layr.hasTagProp('score'))
+            nodes = await core.nodes('[test:str=bar +#test:score=100]')
+            self.true(await layr.hasTagProp('score'))

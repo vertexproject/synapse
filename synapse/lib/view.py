@@ -74,13 +74,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.permCheck = {
             'node:add': self._nodeAddConfirm,
-            'node:del': self._nodeDelConfirm,
             'prop:set': self._propSetConfirm,
-            'prop:del': self._propDelConfirm,
             'tag:add': self._tagAddConfirm,
-            'tag:del': self._tagDelConfirm,
             'tag:prop:set': self._tagPropSetConfirm,
-            'tag:prop:del': self._tagPropDelConfirm,
         }
 
         # isolate some initialization to easily override for SpawnView.
@@ -382,18 +378,6 @@ class View(s_nexus.Pusher):  # type: ignore
         perms = ('node', 'add', splice['ndef'][0])
         self.parent._confirm(user, perms)
 
-    async def _nodeDelConfirm(self, user, snap, splice):
-        buid = s_common.buid(splice['ndef'])
-        node = await snap.getNodeByBuid(buid)
-
-        if node is not None:
-            for tag in node.tags.keys():
-                perms = ('node', 'tag', 'del', *tag.split('.'))
-                self.parent._confirm(user, perms)
-
-            perms = ('node', 'del', splice['ndef'][0])
-            self.parent._confirm(user, perms)
-
     async def _propSetConfirm(self, user, snap, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
@@ -401,31 +385,14 @@ class View(s_nexus.Pusher):  # type: ignore
         perms = ('node', 'prop', 'set', full)
         self.parent._confirm(user, perms)
 
-    async def _propDelConfirm(self, user, snap, splice):
-        ndef = splice.get('ndef')
-        prop = splice.get('prop')
-        full = f'{ndef[0]}:{prop}'
-        perms = ('node', 'prop', 'del', full)
-        self.parent._confirm(user, perms)
-
     async def _tagAddConfirm(self, user, snap, splice):
         tag = splice.get('tag')
         perms = ('node', 'tag', 'add', *tag.split('.'))
         self.parent._confirm(user, perms)
 
-    async def _tagDelConfirm(self, user, snap, splice):
-        tag = splice.get('tag')
-        perms = ('node', 'tag', 'del', *tag.split('.'))
-        self.parent._confirm(user, perms)
-
     async def _tagPropSetConfirm(self, user, snap, splice):
         tag = splice.get('tag')
         perms = ('node', 'tag', 'add', *tag.split('.'))
-        self.parent._confirm(user, perms)
-
-    async def _tagPropDelConfirm(self, user, snap, splice):
-        tag = splice.get('tag')
-        perms = ('node', 'tag', 'del', *tag.split('.'))
         self.parent._confirm(user, perms)
 
     async def mergeAllowed(self, user=None):
@@ -449,13 +416,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
         CHUNKSIZE = 1000
         fromoff = (0, 0, 0)
-
         async with await self.parent.snap(user=user) as snap:
             while True:
 
                 splicecount = 0
                 async for offs, splice in fromlayr.splices(fromoff, CHUNKSIZE):
-
                     check = self.permCheck.get(splice[0])
                     if check is None:
                         raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
@@ -557,7 +522,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.trigdict.set(trig.iden, tdef)
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
-        await user.setAdmin(True, gateiden=tdef.get('iden'))
+        await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
 
         return trig.pack()
 
