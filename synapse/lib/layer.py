@@ -380,12 +380,26 @@ class StorTypeUtf8(StorType):
         yield from liftby.buidsByRange(minindx, maxindx)
 
     def _liftUtf8Regx(self, liftby, valu):
+
         regx = regex.compile(valu)
+        lastbuid = None
+
         for buid in liftby.buidsByPref():
-            storvalu = liftby.getNodeValu(buid)
-            if regx.search(storvalu) is None:
+            if buid == lastbuid:
                 continue
-            yield buid
+
+            lastbuid = buid
+            storvalu = liftby.getNodeValu(buid)
+
+            if isinstance(storvalu, (tuple, list)):
+                for sv in storvalu:
+                    if regx.search(sv) is not None:
+                        yield buid
+                        break
+            else:
+                if regx.search(storvalu) is None:
+                    continue
+                yield buid
 
     def _liftUtf8Prefix(self, liftby, valu):
         indx = self._getIndxByts(valu)
