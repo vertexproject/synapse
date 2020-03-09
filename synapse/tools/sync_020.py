@@ -18,6 +18,9 @@ import synapse.lib.queue as s_queue
 import synapse.lib.layer as s_layer
 import synapse.lib.config as s_config
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.slaboffs as s_slaboffs
 
 logger = logging.getLogger(__name__)
 
@@ -57,10 +60,10 @@ class SyncMigrator(s_cell.Cell):
             'description': 'The number of seconds to wait between calls to src for new splices.',
             'default': 60,
         },
-        'pull_size': {
+        'err_lim': {
             'type': 'integer',
-            'description': 'Max splices to pull from src in one iteration.',
-            'default': 10000,
+            'description': 'Error threshold before syncing will automatically halt.',
+            'default': 10,
         },
     }
 
@@ -71,18 +74,25 @@ class SyncMigrator(s_cell.Cell):
         self.dest = self.conf.get('dest')
         self.offsfile = self.conf.get('offsfile')
         self.poll_s = self.conf.get('poll_s')
-        self.pull_size = self.conf.get('pull_size')
+        self.err_lim = self.conf.get('err_lim')
 
         self.pull_fair_iter = 100
         self.push_fair_iter = 100
-        self.err_lim = 10
         self.q_size = 100000
 
-        self.pull_offs = await self.hive.dict(('sync:pulloffs', ))
-        self.push_offs = await self.hive.dict(('sync:pushoffs', ))
-        self.errors = await self.hive.dict(('sync:errors', ))
+        self.layers = await self.hive.dict(('sync:layer', ))  # lyridens
+
+        path = s_common.gendir(dirn, 'slabs', 'migrsync.lmdb')
+        self.slab = await s_lmdbslab.Slab.anit(path, map_async=True)
+        self.onfini(self.slab.fini)
+
+        self.pull_offs = s_slaboffs.SlabOffs(self.slab, 'pull_offs')  # key=lyriden
+        self.push_offs = s_slaboffs.SlabOffs(self.slab, 'push_offs')  # key=lyriden
+        self.errors = self.slab.initdb('errors', dupsort=False)  # key=<lyriden><offset>, val=err
 
         self.model = {}
+
+        self._pull_status = {}  # lyriden: status
 
         self._pull_tasks = {}  # lyriden: Task
         self._push_tasks = {}
@@ -100,12 +110,14 @@ class SyncMigrator(s_cell.Cell):
             (dict): Summary info with layer idens as keys
         '''
         retn = {}
-        for lyriden, pulloffs in self.pull_offs.items():
+        for lyriden, _ in self.layers.items():
+            pulloffs = self.pull_offs.get(lyriden)
+            pushoffs = self.push_offs.get(lyriden)
+
             queue = self._queues.get(lyriden)
+            queuestat = {}
             if queue is not None:
-                queuelen = len(queue.linklist)
-            else:
-                queuelen = None
+                queuestat = {'isfini': queue.isfini, 'len': len(queue.linklist)}
 
             srclaststart = self.pull_last_start.get(lyriden)
             if srclaststart is not None:
@@ -116,13 +128,15 @@ class SyncMigrator(s_cell.Cell):
                 destlaststart = s_time.repr(destlaststart)
 
             retn[lyriden] = {
+                'src:pullstatus': self._pull_status.get(lyriden),
                 'src:nextoffs': pulloffs,
-                'dest:nextoffs': await self.getLyrOffset('push', lyriden),
-                'queuelen': queuelen,
+                'dest:nextoffs': pushoffs,
+                'queue': queuestat,
                 'src:task': await self._getTaskSummary(self._pull_tasks.get(lyriden)),
                 'dest:task': await self._getTaskSummary(self._push_tasks.get(lyriden)),
                 'src:laststart': srclaststart,
                 'dest:laststart': destlaststart,
+                'errcnt': await self.getLyrErrs(lyriden),
             }
 
         return retn
@@ -141,13 +155,16 @@ class SyncMigrator(s_cell.Cell):
         if task is not None:
             done = task.done()
             retn = {'isdone': done}
-            if done:
-                retn['cancelled'] = task.cancelled()
 
-                exc = task.exception()
-                if exc is not None:
+            if done:
+                cancelled = task.cancelled()
+                retn['cancelled'] = cancelled
+
+                if not cancelled:
                     exc = task.exception()
-                retn['exc'] = exc
+                    if exc is not None:
+                        exc = s_common.excinfo(exc)
+                    retn['exc'] = exc
 
         return retn
 
@@ -161,6 +178,7 @@ class SyncMigrator(s_cell.Cell):
         lyroffs = s_common.yamlload(self.offsfile)
 
         for lyriden, info in lyroffs.items():
+            await self._resetLyrErrs(lyriden)
             nextoffs = info['nextoffs']
             logger.info(f'Starting Layer sync for {lyriden} from file offset {nextoffs}')
             await self._startLyrSync(lyriden, nextoffs)
@@ -170,9 +188,10 @@ class SyncMigrator(s_cell.Cell):
         Start sync from minimum last offset stored by push and pull.
         This can also be used to restart dead tasks.
         '''
-        for lyriden, pulloffs in self.pull_offs.items():
-            pushoffs = await self.getLyrOffset('push', lyriden)
-            if pushoffs is None:
+        for lyriden, _ in self.layers.items():
+            pulloffs = self.pull_offs.get(lyriden)
+            pushoffs = self.push_offs.get(lyriden)
+            if pushoffs == 0:
                 nextoffs = pulloffs
             else:
                 nextoffs = min(pulloffs, pushoffs)
@@ -190,7 +209,8 @@ class SyncMigrator(s_cell.Cell):
             lyriden (str): Layer iden
             nextoffs (int): The layer offset to start sync from
         '''
-        await self._setLyrOffset('pull', lyriden, nextoffs)
+        await self.layers.set(lyriden, nextoffs)
+        self.pull_offs.set(lyriden, nextoffs)
 
         await self._loadDatamodel()
 
@@ -221,48 +241,30 @@ class SyncMigrator(s_cell.Cell):
             task.cancel()
 
         for lyriden, queue in self._queues.items():
-            logger.warning(f'Stopping {lyriden} queue')
+            logger.warning(f'Fini\'ing {lyriden} queue')
             await queue.fini()
 
         logger.info('stopSync complete')
 
-    async def _setLyrOffset(self, pushorpull, lyriden, offset):
-        '''
-        Stores the next offset to be read for a given layer.
-
-        Args:
-            pushorpull (str): "pull" or "push" to define context for stored offset
-            lyriden (str): Layer iden
-            offset (int): The offset to start sync from
-        '''
-        if pushorpull == 'pull':
-            await self.pull_offs.set(lyriden, offset)
-        elif pushorpull == 'push':
-            await self.push_offs.set(lyriden, offset)
-
-    async def getLyrOffset(self, pushorpull, lyriden):
-        '''
-        Retrieve the next layer offset to be read.
-
-        Args:
-            pushorpull (str): "pull" or "push" to define context for stored offset
-            lyriden (str): Layer iden
-
-        Returns:
-            (int or None): Next offset or None if layer offset does not exist
-        '''
-        if pushorpull == 'pull':
-            return self.pull_offs.get(lyriden, default=None)
-        elif pushorpull == 'push':
-            return self.push_offs.get(lyriden, default=None)
+    async def _resetLyrErrs(self, lyriden):
+        lpref = s_common.uhex(lyriden)
+        for lkey, _ in self.slab.scanByPref(lpref, db=self.errors):
+            self.slab.pop(lkey, db=self.errors)
 
     async def _setLyrErr(self, lyriden, offset, err):
-        errs = await self.getLyrErrs(lyriden)
-        errs[offset] = err
-        await self.errors.set(lyriden, errs)
+        lkey = s_common.uhex(lyriden) + s_common.int64en(offset)
+        errb = s_msgpack.en(err)
+        return self.slab.put(lkey, errb, dupdata=False, overwrite=True, db=self.errors)
 
     async def getLyrErrs(self, lyriden):
-        return self.errors.get(lyriden, default={})
+        lpref = s_common.uhex(lyriden)
+        errs = []
+        for lkey, errb in self.slab.scanByPref(lpref, db=self.errors):
+            offset = s_common.int64un(lkey[16:])
+            err = s_msgpack.un(errb)
+            errs.append((offset, err))
+
+        return errs
 
     async def _loadDatamodel(self):
         '''
@@ -307,23 +309,30 @@ class SyncMigrator(s_cell.Cell):
                 trycnt = 0
 
                 logger.info(f'Connected to source {lyriden}')
+                self._pull_status[lyriden] = 'reading_src_initial'
+                islive = False
 
                 while not prx.isfini:
                     queue = self._queues.get(lyriden)
-                    startoffs = await self.getLyrOffset('pull', lyriden)
+                    startoffs = self.pull_offs.get(lyriden)
 
                     logger.debug(f'Pulling splices for layer {lyriden} starting from offset {startoffs}')
+                    if islive:
+                        self._pull_status[lyriden] = 'reading_src_live'
 
                     self.pull_last_start[lyriden] = s_common.now()
                     nextoffs = await self._srcIterLyrSplices(prx, startoffs, queue)
 
-                    await self._setLyrOffset('pull', lyriden, nextoffs)
+                    self.pull_offs.set(lyriden, nextoffs)
 
                     if queue.isfini:
                         logger.warning(f'Queue is finid; stopping {lyriden} src pull')
+                        self._pull_status[lyriden] = 'queue_fini'
                         return
 
                     logger.debug(f'All splices from {lyriden} have been read; offsets: {startoffs} -> {nextoffs}')
+                    self._pull_status[lyriden] = 'up_to_date'
+                    islive = True
 
                     await asyncio.sleep(poll_s)
 
@@ -331,6 +340,7 @@ class SyncMigrator(s_cell.Cell):
                 raise
             except (ConnectionError, s_exc.IsFini):
                 logger.exception(f'Source layer connection error cnt={trycnt}: {lyriden}')
+                self._pull_status[lyriden] = 'connect_err'
                 await asyncio.sleep(2 ** trycnt)
                 continue
 
@@ -348,8 +358,7 @@ class SyncMigrator(s_cell.Cell):
         '''
         curoffs = startoffs
         fair_iter = self.pull_fair_iter
-        pull_size = self.pull_size
-        async for splice in prx.splices(startoffs, pull_size):
+        async for splice in prx.splices(startoffs, -1):
             qres = await queue.put((curoffs, splice))
             if not qres:
                 return curoffs
@@ -559,7 +568,7 @@ class SyncMigrator(s_cell.Cell):
                     err, ne, meta = await self._trnNodeSplicesToNodeedit(ndef, nodesplices)
                     if err is None:
                         await prx.storNodeEditsNoLift([ne], meta)
-                        await self._setLyrOffset('push', lyriden, offs + 1)
+                        self.push_offs.set(lyriden, offs + 1)
 
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
@@ -577,7 +586,7 @@ class SyncMigrator(s_cell.Cell):
                     errs += 1
                     await self._setLyrErr(lyriden, offs, err)
                     if errs >= err_lim:
-                        raise Exception('Error limit reached')
+                        raise Exception('Error limit reached - correct or increase err_lim to continue')
 
                 nodesplices = []
                 nodespliceoffs = []

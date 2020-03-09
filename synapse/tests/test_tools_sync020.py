@@ -210,8 +210,8 @@ class SyncTest(s_t_utils.SynTest):
                 await syncprx.startSyncFromFile()
                 await asyncio.sleep(1)
 
-                self.eq(num_splices, await sync.getLyrOffset('pull', wlyr.iden))
-                self.eq(num_splices, await sync.getLyrOffset('push', wlyr.iden))
+                self.eq(num_splices, sync.pull_offs.get(wlyr.iden))
+                self.eq(num_splices, sync.push_offs.get(wlyr.iden))
 
                 await self._checkCore(core)
 
@@ -227,6 +227,8 @@ class SyncTest(s_t_utils.SynTest):
                 self.true(sync._push_tasks[wlyr.iden].done())
                 self.true(sync._queues[wlyr.iden].isfini)
 
+                await syncprx.status()
+
     async def test_startSyncFromLast(self):
         conf_sync = {
             'poll_s': 1,
@@ -239,22 +241,22 @@ class SyncTest(s_t_utils.SynTest):
                 lim = 30
                 await fkcore.setSplicelim(lim)
 
-                self.none(await sync.getLyrOffset('pull', wlyr.iden))
-                self.none(await sync.getLyrOffset('push', wlyr.iden))
+                self.eq(0, sync.pull_offs.get(wlyr.iden))
+                self.eq(0, sync.push_offs.get(wlyr.iden))
 
                 # kick off a sync
                 await sync._startLyrSync(wlyr.iden, 0)
                 await asyncio.sleep(1)
 
-                self.eq(lim + 1, await sync.getLyrOffset('pull', wlyr.iden))
-                self.eq(lim + 1, await sync.getLyrOffset('push', wlyr.iden))
+                self.eq(lim + 1, sync.pull_offs.get(wlyr.iden))
+                self.eq(lim + 1, sync.push_offs.get(wlyr.iden))
 
                 # resume sync from last
                 await syncprx.startSyncFromLast()
                 await asyncio.sleep(1)
 
-                self.eq(num_splices, await sync.getLyrOffset('pull', wlyr.iden))
-                self.eq(num_splices, await sync.getLyrOffset('push', wlyr.iden))
+                self.eq(num_splices, sync.pull_offs.get(wlyr.iden))
+                self.eq(num_splices, sync.push_offs.get(wlyr.iden))
 
                 await self._checkCore(core)
 
@@ -267,7 +269,7 @@ class SyncTest(s_t_utils.SynTest):
                 status_exp = {
                     'src:nextoffs': num_splices,
                     'dest:nextoffs': num_splices,
-                    'queuelen': 0,
+                    'queue': {'isfini': False, 'len': 0},
                     'src:task': {'isdone': False},
                     'dest:task': {'isdone': False},
                 }
@@ -291,7 +293,7 @@ class SyncTest(s_t_utils.SynTest):
                 wlyr = core.view.layers[-1]
                 num_splices = len(fkcore.splicelog[wlyr.iden]['splices'])
                 sync._queues[wlyr.iden] = queue
-                await sync._setLyrOffset('pull', wlyr.iden, 0)
+                sync.pull_offs.set(wlyr.iden, 0)
 
                 # artifically limit splices returned so we get multiple passes
                 lim = 100
@@ -380,7 +382,7 @@ class SyncTest(s_t_utils.SynTest):
                     await asyncio.sleep(1)
                     errs = await sync.getLyrErrs(wlyr.iden)
                     self.len(2, errs)
-                    self.isin(offs + 1, errs)
+                    self.eq(offs + 1, errs[1][0])
                     self.false(task.done())
 
                     # reach error limit which will kill task
@@ -389,4 +391,4 @@ class SyncTest(s_t_utils.SynTest):
                     errs = await sync.getLyrErrs(wlyr.iden)
                     self.len(10, errs)
                     self.true(task.done())
-                    self.eq('Error limit reached', str(task.exception()))
+                    self.isin('Error limit reached', str(task.exception()))
