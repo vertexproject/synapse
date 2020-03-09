@@ -78,6 +78,10 @@ class LayerTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=path01) as core01:
 
+                    # test layer/<iden> mapping
+                    async with core00.getLocalProxy(f'*/layer/{layriden}') as layrprox:
+                        self.eq(layriden, await layrprox.getIden())
+
                     url = core00.getLocalUrl('*/layer')
                     conf = {'upstream': url}
                     ldef = await core01.addLayer(ldef=conf)
