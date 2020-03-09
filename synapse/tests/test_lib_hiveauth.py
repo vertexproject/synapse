@@ -279,8 +279,11 @@ class AuthTest(s_test.SynTest):
                 self.len(0, fred.getRules(gateiden=view2.iden))
 
     async def test_hive_auth_persistence(self):
+
         with self.getTestDir() as fdir:
+
             async with self.getTestCoreAndProxy(dirn=fdir) as (core, prox):
+
                 # Set a bunch of permissions
                 await prox.addAuthUser('fred')
                 await prox.setUserPasswd('fred', 'secret')
@@ -306,3 +309,14 @@ class AuthTest(s_test.SynTest):
                     viewopts = {'view': view2.iden}
                     self.eq(2, await fredcore.count('test:int', opts=viewopts))
                     self.eq(1, await fredcore.count('test:int=11 [:loc=ru]', opts=viewopts))
+
+                await core.auth.delUser('fred')
+                await core.auth.delRole('friends')
+
+                self.none(await core.auth.getUserByName('fred'))
+                self.none(await core.auth.getRoleByName('friends'))
+
+            #restart after user/role removal and test they stayed gone
+            async with self.getTestCoreAndProxy(dirn=fdir) as (core, prox):
+                self.none(await core.auth.getUserByName('fred'))
+                self.none(await core.auth.getRoleByName('friends'))
