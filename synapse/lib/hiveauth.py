@@ -189,6 +189,10 @@ class Auth(s_nexus.Pusher):
             raise s_exc.DupUserName(name=name)
 
         user = await self.reqUser(iden)
+
+        self.usersbyname.pop(user.name, None)
+        self.usersbyname[name] = user
+
         user.name = name
         await user.node.set(name)
 
@@ -199,6 +203,10 @@ class Auth(s_nexus.Pusher):
             raise s_exc.DupRoleName(name=name)
 
         role = await self.reqRole(iden)
+
+        self.rolesbyname.pop(role.name, None)
+        self.rolesbyname[name] = role
+
         role.name = name
         await role.node.set(name)
 
@@ -340,6 +348,9 @@ class Auth(s_nexus.Pusher):
 
         path = self.node.full + ('users', user.iden)
 
+        for iden, gate in self.authgates.items():
+            await gate._delGateUser(user.iden)
+
         await user.fini()
         await self.node.hive.pop(path)
 
@@ -360,6 +371,9 @@ class Auth(s_nexus.Pusher):
 
         for user in self._getUsersInRole(role):
             await user.revoke(role.name)
+
+        for iden, gate in self.authgates.items():
+            await gate._delGateRole(role.iden)
 
         self.rolesbyiden.pop(role.iden)
         self.rolesbyname.pop(role.name)
