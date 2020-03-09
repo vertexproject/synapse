@@ -76,7 +76,7 @@ class SyncMigrator(s_cell.Cell):
         self.poll_s = self.conf.get('poll_s')
         self.err_lim = self.conf.get('err_lim')
 
-        self.pull_fair_iter = 100
+        self.pull_fair_iter = 10
         self.push_fair_iter = 100
         self.q_size = 100000
 
@@ -300,6 +300,7 @@ class SyncMigrator(s_cell.Cell):
             lyriden (str): Layer iden
         '''
         trycnt = 0
+        q_cap = self.q_size * 0.9
         poll_s = self.poll_s
         turl = self._getLayerUrl(self.src, lyriden)
         while not self.isfini:
@@ -324,6 +325,11 @@ class SyncMigrator(s_cell.Cell):
                     nextoffs = await self._srcIterLyrSplices(prx, startoffs, queue)
 
                     self.pull_offs.set(lyriden, nextoffs)
+
+                    while len(queue.linklist) > q_cap:
+                        self._pull_status[lyriden] = 'paused'
+                        await asyncio.sleep(1)
+                        continue
 
                     if queue.isfini:
                         logger.warning(f'Queue is finid; stopping {lyriden} src pull')
@@ -358,6 +364,7 @@ class SyncMigrator(s_cell.Cell):
         '''
         curoffs = startoffs
         fair_iter = self.pull_fair_iter
+        q_cap = self.q_size * 0.9
         async for splice in prx.splices(startoffs, -1):
             qres = await queue.put((curoffs, splice))
             if not qres:
@@ -367,6 +374,10 @@ class SyncMigrator(s_cell.Cell):
 
             if curoffs % fair_iter == 0:
                 await asyncio.sleep(0)
+
+            # if we are approaching the queue lim return so we can pause
+            if len(queue.linklist) > q_cap:
+                return curoffs
 
         return curoffs
 
