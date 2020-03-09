@@ -23,13 +23,10 @@ min_authgate_vers = (0, 1, 33)
 reqver = '>=0.2.0,<0.3.0'
 
 denyallow = ['deny', 'allow']
-def reprrule(rule, authgater=None):
+def reprrule(rule):
     head = denyallow[rule[0]]
     text = '.'.join(rule[1])
-    if authgater is None:
-        return f'{head}: {text}'
-
-    return f'{head}: {text} on {authgater}'
+    return f'{head}: {text}'
 
 async def printuser(user, details=False, cell=None):
 
@@ -56,9 +53,10 @@ async def printuser(user, details=False, cell=None):
         rrep = reprrule(rule)
         outp.printf(f'    {i} {rrep}')
 
-    for authgater, rules in user.get('gaterules', {}).items():
-        for rule in rules:
-            rrep = reprrule(rule, authgater=authgater)
+    for gateiden, gateinfo in user.get('authgates', {}).items():
+        outp.printf(f'  auth gate: {gateiden}')
+        for rule in gateinfo.get('rules', ()):
+            rrep = reprrule(rule)
             i += 1
             outp.printf(f'    {i} {rrep}')
 
@@ -75,6 +73,13 @@ async def printuser(user, details=False, cell=None):
                 for i, rule in enumerate(role.get('rules', ())):
                     rrep = reprrule(rule)
                     outp.printf(f'        {i} {rrep}')
+
+                for gateiden, gateinfo in role.get('authgates', {}).items():
+                    outp.printf(f'    auth gate: {gateiden}')
+                    for rule in gateinfo.get('rules', ()):
+                        rrep = reprrule(rule)
+                        i += 1
+                        outp.printf(f'      {i} {rrep}')
 
 async def handleModify(opts):
 
