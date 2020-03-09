@@ -450,9 +450,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await s_nexus.Pusher.__anit__(self, self.iden)
 
-        self.setNexsRoot(await self._initNexsRoot())
-
         await self._initCellSlab(readonly=readonly)
+
+        self.setNexsRoot(await self._initNexsRoot())
 
         self.hive = await self._initCellHive()
 
