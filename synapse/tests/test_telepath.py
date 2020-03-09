@@ -947,7 +947,7 @@ class TeleTest(s_t_utils.SynTest):
                 thost, tport = await cell.dmon.listen('tcp://127.0.0.1:0')
                 cell.addHttpApi('/v1/catalog/service/(.*)', ConsulV1Handler, {'cell': cell})
 
-                consul = f'127.0.0.1:{hport}'
+                consul = f'https://127.0.0.1:{hport}'
 
                 burl = f'tcp+consul://root:root@foobar/*?consul_nosslverify=1&consul={consul}'
                 info = s_urlhelp.chopurl(burl)

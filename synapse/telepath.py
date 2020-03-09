@@ -758,7 +758,6 @@ async def disc_consul(info):
     service = info.get('original_host')
     query = info.get('query')
     host = query.get('consul')
-    cscheme = query.get('consul_schema', 'https')
     ctag_addr = query.get('consul_tag_address')  # Prefer a taggedAddress if set
     csvc_tag_addr = query.get('consul_service_tag_address')  # Prefer a serviceTaggedAddress if set
     gkwargs = {'raise_for_status': True}
@@ -770,7 +769,7 @@ async def disc_consul(info):
         raise s_exc.BadUrl(mesg=mesg, consul_tag_address=ctag_addr,
                            consul_service_tag_address=csvc_tag_addr)
 
-    url = f'{cscheme}://{host}/v1/catalog/service/{service}'
+    url = f'{host}/v1/catalog/service/{service}'
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, **gkwargs) as resp:
