@@ -1673,7 +1673,9 @@ class Migrator(s_base.Base):
         Returns:
             (dict or None): Error dict or None if successful
         '''
-        meta = None
+        meta = {'time': s_common.now(),
+                'user': wlyr.layrinfo.get('creator'),
+                }
 
         try:
             if addmode == 'nexus':

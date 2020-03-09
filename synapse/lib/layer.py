@@ -1720,15 +1720,20 @@ class Layer(s_nexus.Pusher):
 
                 async with await s_telepath.openurl(url) as proxy:
 
+                    creator = self.layrinfo.get('creator')
+
                     iden = await proxy.getIden()
                     offs = self.offsets.get(iden)
                     logger.warning(f'upstream sync connected ({url} offset={offs})')
 
                     if offs == 0:
                         offs = await proxy.getNodeEditOffset()
+                        meta = {'time': s_common.now(),
+                                'user': creator,
+                                }
 
                         async for item in proxy.iterLayerNodeEdits():
-                            await self.storNodeEditsNoLift([item], {})
+                            await self.storNodeEditsNoLift([item], meta)
 
                         self.offsets.set(iden, offs)
 
@@ -1773,7 +1778,9 @@ class Layer(s_nexus.Pusher):
                                 items.append(nexi)
 
                             for nodeeditoffs, item in items:
-                                await self.storNodeEditsNoLift(item, {})
+                                await self.storNodeEditsNoLift(item, {'time': s_common.now(),
+                                                                      'user': creator,
+                                                                      })
                                 self.offsets.set(iden, nodeeditoffs + 1)
 
                                 waits = self.upstreamwaits[iden].pop(nodeeditoffs + 1, None)
