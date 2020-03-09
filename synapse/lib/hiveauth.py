@@ -340,6 +340,9 @@ class Auth(s_nexus.Pusher):
 
         path = self.node.full + ('users', user.iden)
 
+        for iden, gate in self.authgates.items():
+            await gate._delGateUser(user.iden)
+
         await user.fini()
         await self.node.hive.pop(path)
 
@@ -360,6 +363,9 @@ class Auth(s_nexus.Pusher):
 
         for user in self._getUsersInRole(role):
             await user.revoke(role.name)
+
+        for iden, gate in self.authgates.items():
+            await gate._delGateRole(role.iden)
 
         self.rolesbyiden.pop(role.iden)
         self.rolesbyname.pop(role.name)
