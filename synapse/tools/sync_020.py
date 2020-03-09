@@ -24,6 +24,9 @@ import synapse.lib.slaboffs as s_slaboffs
 
 logger = logging.getLogger(__name__)
 
+class SyncInvalidTelepath(s_exc.SynErr): pass
+class SyncErrLimReached(s_exc.SynErr): pass
+
 class SyncMigratorApi(s_cell.CellApi):
     '''
     A telepath/cell API for the Sync service.
@@ -65,6 +68,11 @@ class SyncMigrator(s_cell.Cell):
             'description': 'Error threshold before syncing will automatically halt.',
             'default': 10,
         },
+        'queue_size': {
+            'type': 'integer',
+            'description': 'The max size of the push/pull queue for each layer.',
+            'default': 100000,
+        },
     }
 
     async def __anit__(self, dirn, conf=None):
@@ -75,10 +83,12 @@ class SyncMigrator(s_cell.Cell):
         self.offsfile = self.conf.get('offsfile')
         self.poll_s = self.conf.get('poll_s')
         self.err_lim = self.conf.get('err_lim')
+        self.q_size = self.conf.get('queue_size')
 
         self.pull_fair_iter = 10
         self.push_fair_iter = 100
-        self.q_size = 100000
+
+        self.q_cap = int(self.q_size * 0.9)
 
         self.layers = await self.hive.dict(('sync:layer', ))  # lyridens
 
@@ -136,7 +146,7 @@ class SyncMigrator(s_cell.Cell):
                 'dest:task': await self._getTaskSummary(self._push_tasks.get(lyriden)),
                 'src:laststart': srclaststart,
                 'dest:laststart': destlaststart,
-                'errcnt': await self.getLyrErrs(lyriden),
+                'errcnt': len(await self.getLyrErrs(lyriden)),
             }
 
         return retn
@@ -161,10 +171,7 @@ class SyncMigrator(s_cell.Cell):
                 retn['cancelled'] = cancelled
 
                 if not cancelled:
-                    exc = task.exception()
-                    if exc is not None:
-                        exc = s_common.excinfo(exc)
-                    retn['exc'] = exc
+                    retn['exc'] = str(task.exception())
 
         return retn
 
@@ -289,7 +296,7 @@ class SyncMigrator(s_cell.Cell):
             return os.path.join(tbase, 'layer', lyriden)
         if tbase.startswith('tcp:'):
             return os.path.join(tbase, 'cortex', 'layer', lyriden)
-        raise Exception(f'Invalid telepath url base provided: {tbase}')
+        raise SyncInvalidTelepath(mesg=f'Invalid telepath url base provided: {tbase}')
 
     async def _srcPullLyrSplices(self, lyriden):
         '''
@@ -300,7 +307,7 @@ class SyncMigrator(s_cell.Cell):
             lyriden (str): Layer iden
         '''
         trycnt = 0
-        q_cap = self.q_size * 0.9
+        q_cap = self.q_cap
         poll_s = self.poll_s
         turl = self._getLayerUrl(self.src, lyriden)
         while not self.isfini:
@@ -327,20 +334,20 @@ class SyncMigrator(s_cell.Cell):
                     self.pull_offs.set(lyriden, nextoffs)
 
                     while len(queue.linklist) > q_cap:
-                        self._pull_status[lyriden] = 'paused'
+                        self._pull_status[lyriden] = 'read_to_qcap'
                         await asyncio.sleep(1)
-                        continue
 
                     if queue.isfini:
                         logger.warning(f'Queue is finid; stopping {lyriden} src pull')
                         self._pull_status[lyriden] = 'queue_fini'
                         return
 
-                    logger.debug(f'All splices from {lyriden} have been read; offsets: {startoffs} -> {nextoffs}')
-                    self._pull_status[lyriden] = 'up_to_date'
-                    islive = True
+                    if self._pull_status[lyriden] != 'read_to_qcap':
+                        logger.debug(f'All splices from {lyriden} have been read; offsets: {startoffs} -> {nextoffs}')
+                        self._pull_status[lyriden] = 'up_to_date'
+                        islive = True
 
-                    await asyncio.sleep(poll_s)
+                        await asyncio.sleep(poll_s)
 
             except asyncio.CancelledError:  # pragma: no cover
                 raise
@@ -348,7 +355,6 @@ class SyncMigrator(s_cell.Cell):
                 logger.exception(f'Source layer connection error cnt={trycnt}: {lyriden}')
                 self._pull_status[lyriden] = 'connect_err'
                 await asyncio.sleep(2 ** trycnt)
-                continue
 
     async def _srcIterLyrSplices(self, prx, startoffs, queue):
         '''
@@ -364,7 +370,7 @@ class SyncMigrator(s_cell.Cell):
         '''
         curoffs = startoffs
         fair_iter = self.pull_fair_iter
-        q_cap = self.q_size * 0.9
+        q_cap = self.q_cap
         async for splice in prx.splices(startoffs, -1):
             qres = await queue.put((curoffs, splice))
             if not qres:
@@ -500,10 +506,18 @@ class SyncMigrator(s_cell.Cell):
             if prop is None:
                 mtype = form
             else:
-                mtype = self.model['forms'].get(form, {})['props'].get(prop, {})['type'][0]
+                mtype = self.model['forms'].get(form, {})['props'].get(prop, {})
+                if mtype:
+                    mtype = mtype['type'][0]
+                else:
+                    return None
 
         elif tagprop is not None:
-            mtype = self.model['tagprops'].get(tagprop, {})['type'][0]
+            mtype = self.model['tagprops'].get(tagprop, {})
+            if mtype:
+                mtype = mtype['type'][0]
+            else:
+                return None
 
         return self.model['types'].get(mtype, {}).get('stortype')
 
@@ -597,7 +611,7 @@ class SyncMigrator(s_cell.Cell):
                     errs += 1
                     await self._setLyrErr(lyriden, offs, err)
                     if errs >= err_lim:
-                        raise Exception('Error limit reached - correct or increase err_lim to continue')
+                        raise SyncErrLimReached(mesg='Error limit reached - correct or increase err_lim to continue')
 
                 nodesplices = []
                 nodespliceoffs = []
@@ -609,10 +623,8 @@ class SyncMigrator(s_cell.Cell):
 
             cnt += 1
 
-            if queuelen == 0:
+            if queuelen % 10000 == 0:
                 logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
-            elif queuelen % 10000 == 0:
-                logger.info(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
 
             if queuelen == 0 or cnt % fair_iter == 0:
                 await asyncio.sleep(0)

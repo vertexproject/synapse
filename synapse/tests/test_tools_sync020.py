@@ -229,6 +229,20 @@ class SyncTest(s_t_utils.SynTest):
 
                 await syncprx.status()
 
+                # restart sync over same splices
+                sync.q_cap = 3
+                await syncprx.startSyncFromFile()
+                await asyncio.sleep(1)
+
+                self.eq('read_to_qcap', sync._pull_status[wlyr.iden])
+
+                await self._checkCore(core)
+
+                # fini the queue
+                await sync._queues[wlyr.iden].fini()
+                await asyncio.sleep(1)
+                self.eq('queue_fini', sync._pull_status[wlyr.iden])
+
     async def test_startSyncFromLast(self):
         conf_sync = {
             'poll_s': 1,
@@ -272,6 +286,7 @@ class SyncTest(s_t_utils.SynTest):
                     'queue': {'isfini': False, 'len': 0},
                     'src:task': {'isdone': False},
                     'dest:task': {'isdone': False},
+                    'src:pullstatus': 'up_to_date',
                 }
                 self.eq(status_exp, {k: v for k, v in status.get(wlyr.iden, {}).items() if k in status_exp})
 
@@ -283,6 +298,29 @@ class SyncTest(s_t_utils.SynTest):
                 self.false(sync._pull_tasks[wlyr.iden].done())
                 self.false(sync._push_tasks[wlyr.iden].done())
                 self.false(sync._queues[wlyr.iden].isfini)
+
+    async def test_sync_assvr(self):
+        with self.getTestDir() as dirn:
+            argv = [
+                dirn,
+                '--src', 'tcp://foo:123',
+                '--dest', 'tcp://bar:456',
+                '--offsfile', 'foo.yaml',
+            ]
+
+            async with await s_sync.main(argv) as sync:
+                self.eq('tcp://foo:123', sync.src)
+                self.eq('tcp://bar:456', sync.dest)
+                self.eq('foo.yaml', sync.offsfile)
+                self.eq(60, sync.poll_s)
+                self.eq(10, sync.err_lim)
+                self.eq(100000, sync.q_size)
+                self.eq(90000, sync.q_cap)
+
+                tbase = 'tcp://foo:123'
+                lyriden = '75adb79a576b31a65f0a1afad5d90665'
+                self.raises(s_sync.SyncInvalidTelepath, sync._getLayerUrl, 'baz://0.0.0.0:123', lyriden)
+                self.eq(f'{tbase}/cortex/layer/{lyriden}', sync._getLayerUrl(tbase, lyriden))
 
     async def test_sync_srcPullLyrSplices(self):
         conf_sync = {
@@ -304,8 +342,6 @@ class SyncTest(s_t_utils.SynTest):
 
                 await asyncio.sleep(1)
                 self.len(num_splices, queue.linklist)
-
-                await sync.fini()
 
     async def test_sync_srcIterLyrSplices(self):
         async with self._getSyncSvc() as (core, turl, fkcore, fkurl, sync):
@@ -352,6 +388,18 @@ class SyncTest(s_t_utils.SynTest):
             # check that the destination cortex has all of the post-splice updated data
             await self._checkCore(core)
 
+            # feed bad splices
+            ne = await sync._trnNodeSplicesToNodeedit(('inet:fqdn', 'foo.com'), [('no:way', {})])
+            self.nn(ne[0])
+
+            info = [('prop:set', {'prop': 'nah', 'valu': 0})]
+            ne = await sync._trnNodeSplicesToNodeedit(('inet:fqdn', 'foo.com'), info)
+            self.nn(ne[0])
+
+            info = [('tag:prop:set', {'prop': 'spaz', 'valu': 0})]
+            ne = await sync._trnNodeSplicesToNodeedit(('inet:fqdn', 'foo.com'), info)
+            self.nn(ne[0])
+
     async def test_sync_destIterLyrNodeedits(self):
         async with self._getSyncSvc() as (core, turl, fkcore, fkurl, sync):
             wlyr = core.view.layers[-1]
@@ -390,5 +438,8 @@ class SyncTest(s_t_utils.SynTest):
                     await asyncio.sleep(1)
                     errs = await sync.getLyrErrs(wlyr.iden)
                     self.len(10, errs)
-                    self.true(task.done())
-                    self.isin('Error limit reached', str(task.exception()))
+
+                    tasksum = await sync._getTaskSummary(task)
+                    self.true(tasksum.get('isdone'))
+                    self.false(tasksum.get('cancelled'))
+                    self.isin('Error limit reached', tasksum.get('exc'))
