@@ -761,7 +761,7 @@ async def disc_consul(info):
     cscheme = query.get('consul_schema', 'https')
     ctag_addr = query.get('consul_tag_address')  # Prefer a taggedAddress if set
     csvc_tag_addr = query.get('consul_service_tag_address')  # Prefer a serviceTaggedAddress if set
-    gkwargs = {}
+    gkwargs = {'raise_for_status': True}
     if query.get('consul_nosslverify'):
         gkwargs['ssl'] = False
 
@@ -791,10 +791,11 @@ async def disc_consul(info):
                         info['host'] = found[0]['Address']
                         info['port'] = found[0]['ServicePort']
                     return
-    except ssl.SSLCertVerificationError as e:
-        raise s_exc.BadUrl(mesg=f'SSL Error: {str(e)}') from e
-    raise s_exc.BadUrl(mesg=f'Unable to resolve service name [{service}] via consul.',
-                       name=service, consul=host)
+    except asyncio.CancelledError:  # pragma: no cover
+        raise
+    except Exception as e:
+        raise s_exc.BadUrl(mesg=f'Unknown error while resolving service name [{service}] via consul [{str(e)}].',
+                           name=service, consul=host) from e
 
 def alias(name):
     '''

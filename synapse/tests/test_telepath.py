@@ -165,8 +165,8 @@ class ConsulV1Handler(s_httpapi.Handler):
     async def get(self, servicename):
         data = self.cell.consul_data
         if servicename != data[0].get('ServiceName'):
-            self.send_error(500)
-            return
+            self.set_header('Content-Type', 'application/json')
+            return self.write(json.dumps([]))
         self.set_header('Content-Type', 'application/json')
         return self.write(json.dumps(data))
 
