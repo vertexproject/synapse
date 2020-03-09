@@ -189,6 +189,10 @@ class Auth(s_nexus.Pusher):
             raise s_exc.DupUserName(name=name)
 
         user = await self.reqUser(iden)
+
+        self.usersbyname.pop(user.name, None)
+        self.usersbyname[name] = user
+
         user.name = name
         await user.node.set(name)
 
@@ -199,6 +203,10 @@ class Auth(s_nexus.Pusher):
             raise s_exc.DupRoleName(name=name)
 
         role = await self.reqRole(iden)
+
+        self.rolesbyname.pop(role.name, None)
+        self.rolesbyname[name] = role
+
         role.name = name
         await role.node.set(name)
 

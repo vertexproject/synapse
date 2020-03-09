@@ -114,6 +114,24 @@ class AuthTest(s_test.SynTest):
                 await auth.delUser('visi@vertex.link')
                 self.false(user.allowed(('baz', 'faz')))
 
+                role = await auth.addRole('lolusers')
+                with self.raises(s_exc.DupRoleName):
+                    await role.setName('lolusers')
+
+                await role.setName('roflusers')
+
+                self.nn(await auth.getRoleByName('roflusers'))
+                self.none(await auth.getRoleByName('lolusers'))
+
+                user = await auth.addUser('user1')
+                with self.raises(s_exc.DupUserName):
+                    await user.setName('user1')
+
+                await user.setName('user2')
+
+                self.nn(await auth.getUserByName('user2'))
+                self.none(await auth.getUserByName('user1'))
+
     async def test_hive_tele_auth(self):
 
         # confirm that the primitives used by higher level APIs
