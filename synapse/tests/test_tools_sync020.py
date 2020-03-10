@@ -284,11 +284,15 @@ class SyncTest(s_t_utils.SynTest):
                     'src:nextoffs': num_splices,
                     'dest:nextoffs': num_splices,
                     'queue': {'isfini': False, 'len': 0},
-                    'src:task': {'isdone': False},
-                    'dest:task': {'isdone': False},
+                    'src:task': {'isdone': False, 'status': 'active'},
+                    'dest:task': {'isdone': False, 'status': 'active'},
                     'src:pullstatus': 'up_to_date',
                 }
+                self.none(status.get('pprint'))
                 self.eq(status_exp, {k: v for k, v in status.get(wlyr.iden, {}).items() if k in status_exp})
+
+                status = await syncprx.status(pprint=True)
+                self.nn(status.get(wlyr.iden, {}).get('pprint'))
 
                 # tasks should keep running on dropped connections
                 await fkcore.fini()

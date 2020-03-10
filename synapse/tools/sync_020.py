@@ -19,20 +19,82 @@ import synapse.lib.layer as s_layer
 import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slaboffs as s_slaboffs
+import synapse.lib.stormsvc as s_stormsvc
 
 logger = logging.getLogger(__name__)
 
 class SyncInvalidTelepath(s_exc.SynErr): pass
 class SyncErrLimReached(s_exc.SynErr): pass
 
-class SyncMigratorApi(s_cell.CellApi):
+class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
     '''
     A telepath/cell API for the Sync service.
     '''
-    async def status(self):
-        return await self.cell.status()
+
+    _storm_svc_name = 'migrsync'
+    _storm_svc_vers = s_version.version  # mirror synapse version
+    _storm_svc_pkgs = ({
+        'name': _storm_svc_name,
+        'version': _storm_svc_vers,
+        'commands': (
+            {
+                'name': f'{_storm_svc_name}.status',
+                'descr': 'Print current sync status.',
+                'cmdargs': (),
+                'cmdconf': {},
+                'storm': '''
+                    $svc = $lib.service.get($cmdconf.svciden)
+                    $retn = $svc.status(True)
+                    $lib.print("")
+                    for ($iden, $status) in $retn {
+                        $lib.print($lib.str.concat($status.pprint, "\\n"))
+                    }
+                '''
+            },
+            {
+                'name': f'{_storm_svc_name}.startfromfile',
+                'descr': 'Start 0.2.x Layer sync from last 0.1.x splice offset recorded during migration.',
+                'cmdargs': (),
+                'cmdconf': {},
+                'storm': '''
+                    $svc = $lib.service.get($cmdconf.svciden)
+                    $retn = $svc.startSyncFromFile()
+                    $lib.print("Sync started for the following (Layers, offsets):")
+                    for $info in $retn { $lib.print($info) }
+                '''
+            },
+            {
+                'name': f'{_storm_svc_name}.startfromlast',
+                'descr': 'Start 0.2.x Layer sync from last 0.1.x splice offset completed by this service.',
+                'cmdargs': (),
+                'cmdconf': {},
+                'storm': '''
+                    $svc = $lib.service.get($cmdconf.svciden)
+                    $retn = $svc.startSyncFromLast()
+                    $lib.print("Sync started for the following (Layers, offsets):")
+                    for $info in $retn { $lib.print($info) }
+                '''
+            },
+            {
+                'name': f'{_storm_svc_name}.stopsync',
+                'descr': 'Stop 0.2.x Layer sync from 0.1.x splices',
+                'cmdargs': (),
+                'cmdconf': {},
+                'storm': '''
+                    $svc = $lib.service.get($cmdconf.svciden)
+                    $retn = $svc.stopSync()
+                    $lib.print("Sync stopped for the following Layers:")
+                    for $info in $retn { $lib.print($info) }
+                '''
+            },
+        ),
+    },)
+
+    async def status(self, pprint=False):
+        return await self.cell.status(pprint)
 
     async def startSyncFromFile(self):
         return await self.cell.startSyncFromFile()
@@ -112,9 +174,12 @@ class SyncMigrator(s_cell.Cell):
 
         self._queues = {}  # lyriden: queue of splices
 
-    async def status(self):
+    async def status(self, pprint=False):
         '''
         Provide sync summary by layer
+
+        Args:
+            pprint (bool): Whether to include pretty-printed layer status string in result
 
         Returns:
             (dict): Summary info with layer idens as keys
@@ -137,17 +202,50 @@ class SyncMigrator(s_cell.Cell):
             if destlaststart is not None:
                 destlaststart = s_time.repr(destlaststart)
 
+            pullstatus = self._pull_status.get(lyriden)
+
+            srctasksum = await self._getTaskSummary(self._pull_tasks.get(lyriden))
+            desttasksum = await self._getTaskSummary(self._push_tasks.get(lyriden))
+
+            errcnt = len(await self.getLyrErrs(lyriden))
+
             retn[lyriden] = {
-                'src:pullstatus': self._pull_status.get(lyriden),
+                'src:pullstatus': pullstatus,
                 'src:nextoffs': pulloffs,
                 'dest:nextoffs': pushoffs,
                 'queue': queuestat,
-                'src:task': await self._getTaskSummary(self._pull_tasks.get(lyriden)),
-                'dest:task': await self._getTaskSummary(self._push_tasks.get(lyriden)),
+                'src:task': srctasksum,
+                'dest:task': desttasksum,
                 'src:laststart': srclaststart,
                 'dest:laststart': destlaststart,
-                'errcnt': len(await self.getLyrErrs(lyriden)),
+                'errcnt': errcnt,
             }
+
+            if pprint:
+                outp = [
+                    f'Layer: {lyriden}',
+                    (
+                        f'{"":^6}|{"last_start":^25}|{"task_status":^15}|{"offset":^15}|{"read_status":^22}|'
+                        f'{"queue_live":^15}|{"queue_len":^15}|{"err_cnt":^15}'
+                    ),
+                    '-' * (128 + 7)
+                ]
+
+                # src side
+                tasksum = desttasksum.get('status', '-')
+                outp.append((
+                    f' {"src":<5}| {srclaststart or "-":<24}| {tasksum:<14}| {pulloffs:<14,}| {pullstatus or "-":<21}|'
+                    f' {"n/a":<14}| {"n/a":<14}| {"n/a":<14}'
+                ))
+
+                # dest side
+                tasksum = desttasksum.get('status', '-')
+                outp.append((
+                    f' {"dest":<5}| {destlaststart or "-":<24}| {tasksum:<14}| {pushoffs:<14,}| {"n/a":<21}|'
+                    f' {not queuestat.get("isfini", True)!s:<14}| {queuestat.get("len", 0):<14,}| {errcnt:<14}'
+                ))
+
+                retn[lyriden]['pprint'] = '\n'.join(outp)
 
         return retn
 
@@ -165,13 +263,20 @@ class SyncMigrator(s_cell.Cell):
         if task is not None:
             done = task.done()
             retn = {'isdone': done}
+            status = 'active'
 
             if done:
                 cancelled = task.cancelled()
                 retn['cancelled'] = cancelled
+                status = 'cancelled' if cancelled else 'done'
 
                 if not cancelled:
-                    retn['exc'] = str(task.exception())
+                    exc = str(task.exception())
+                    retn['exc'] = exc
+                    if exc:
+                        status = 'exception'
+
+            retn['status'] = status
 
         return retn
 
@@ -181,20 +286,31 @@ class SyncMigrator(s_cell.Cell):
             <lyriden>
                 created: <epochms>
                 nextoffs: <int>
+
+        Returns:
+            (list): Of (<lyriden>, <offset>) tuples
         '''
         lyroffs = s_common.yamlload(self.offsfile)
 
+        retn = []
         for lyriden, info in lyroffs.items():
             await self._resetLyrErrs(lyriden)
             nextoffs = info['nextoffs']
             logger.info(f'Starting Layer sync for {lyriden} from file offset {nextoffs}')
             await self._startLyrSync(lyriden, nextoffs)
+            retn.append((lyriden, nextoffs))
+
+        return retn
 
     async def startSyncFromLast(self):
         '''
         Start sync from minimum last offset stored by push and pull.
         This can also be used to restart dead tasks.
+
+        Returns:
+            (list): Of (<lyriden>, <offset>) tuples
         '''
+        retn = []
         for lyriden, _ in self.layers.items():
             pulloffs = self.pull_offs.get(lyriden)
             pushoffs = self.push_offs.get(lyriden)
@@ -205,6 +321,9 @@ class SyncMigrator(s_cell.Cell):
 
             logger.info(f'Starting Layer sync for {lyriden} from last offset {nextoffs}')
             await self._startLyrSync(lyriden, nextoffs)
+            retn.append((lyriden, nextoffs))
+
+        return retn
 
     async def _startLyrSync(self, lyriden, nextoffs):
         '''
@@ -238,20 +357,29 @@ class SyncMigrator(s_cell.Cell):
     async def stopSync(self):
         '''
         Cancel all tasks and fini queues.
+
+        Returns:
+            (list): Of layer idens that were stopped
         '''
+        retn = set()
+
         for lyriden, task in self._pull_tasks.items():
             logger.warning(f'Cancelling {lyriden} pull task')
             task.cancel()
+            retn.add(lyriden)
 
         for lyriden, task in self._push_tasks.items():
             logger.warning(f'Cancelling {lyriden} push task')
             task.cancel()
+            retn.add(lyriden)
 
         for lyriden, queue in self._queues.items():
             logger.warning(f'Fini\'ing {lyriden} queue')
             await queue.fini()
+            retn.add(lyriden)
 
         logger.info('stopSync complete')
+        return list(retn)
 
     async def _resetLyrErrs(self, lyriden):
         lpref = s_common.uhex(lyriden)
@@ -332,8 +460,10 @@ class SyncMigrator(s_cell.Cell):
                     nextoffs = await self._srcIterLyrSplices(prx, startoffs, queue)
 
                     self.pull_offs.set(lyriden, nextoffs)
+                    islive = True
 
                     while len(queue.linklist) > q_cap:
+                        islive = False
                         self._pull_status[lyriden] = 'read_to_qcap'
                         await asyncio.sleep(1)
 
@@ -342,10 +472,9 @@ class SyncMigrator(s_cell.Cell):
                         self._pull_status[lyriden] = 'queue_fini'
                         return
 
-                    if self._pull_status[lyriden] != 'read_to_qcap':
+                    if islive:
                         logger.debug(f'All splices from {lyriden} have been read; offsets: {startoffs} -> {nextoffs}')
                         self._pull_status[lyriden] = 'up_to_date'
-                        islive = True
 
                         await asyncio.sleep(poll_s)
 
