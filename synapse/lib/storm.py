@@ -1676,114 +1676,21 @@ class ReIndexCmd(Cmd):
     '''
     Use admin privileges to re index/normalize node properties.
 
-    Example:
-
-        foo:bar | reindex --subs
-
-        reindex --type inet:ipv4
-
-    NOTE: This is mostly for model updates and migrations.
-          Use with caution and be very sure of what you are doing.
+    NOTE: Currently does nothing but is reserved for future use.
     '''
     name = 'reindex'
 
     def getArgParser(self):
-        # FIXME: does any of this still apply?
         pars = Cmd.getArgParser(self)
-        mutx = pars.add_mutually_exclusive_group(required=True)
-        mutx.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
-        mutx.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
-        mutx.add_argument('--fire-handler', default=None,
-                          help='Fire onAdd/wasSet/runTagAdd commands for a fully qualified form/property'
-                               ' or tag name on inbound nodes.')
         return pars
 
     async def execStormCmd(self, runt, genr):
+        mesg = 'reindex currently does nothing but is reserved for future use'
+        await runt.snap.warn(mesg)
 
-        snap = runt.snap
-
-        if snap.user is not None and not snap.user.isAdmin():
-            await snap.warn('reindex requires an admin')
-            return
-
-        # are we re-indexing a type?
-        if self.opts.type is not None:
-
-            # is the type also a form?
-            form = snap.model.forms.get(self.opts.type)
-
-            if form is not None:
-
-                await snap.printf(f'reindex form: {form.name}')
-
-                async for buid, norm in snap.xact.iterFormRows(form.name):
-                    await snap.stor(form.getSetOps(buid, norm))
-
-            for prop in snap.model.getPropsByType(self.opts.type):
-
-                await snap.printf(f'reindex prop: {prop.full}')
-
-                formname = prop.form.name
-
-                async for buid, norm in snap.xact.iterPropRows(formname, prop.name):
-                    await snap.stor(prop.getSetOps(buid, norm))
-
-            return
-
-        if self.opts.subs:
-
-            async for node, path in genr:
-
-                form, valu = node.ndef
-                norm, info = node.form.type.norm(valu)
-
-                subs = info.get('subs')
-                if subs is not None:
-                    for subn, subv in subs.items():
-                        if node.form.props.get(subn):
-                            await node.set(subn, subv, init=True)
-
-                yield node, path
-
-            return
-
-        if self.opts.fire_handler:
-            obj = None
-            name = None
-            tname = None
-
-            if self.opts.fire_handler.startswith('#'):
-                name, _ = runt.model.prop('syn:tag').type.norm(self.opts.fire_handler)
-                tname = '#' + name
-            else:
-                obj = runt.model.prop(self.opts.fire_handler)
-                if obj is None:
-                    raise s_exc.NoSuchProp(mesg='',
-                                           name=self.opts.fire_handler)
-
-            async for node, path in genr:
-                if hasattr(obj, 'wasAdded'):
-                    if node.form.full != obj.full:
-                        continue
-                    await obj.wasAdded(node)
-                elif hasattr(obj, 'wasSet'):
-                    if obj.form.name != node.form.name:
-                        continue
-                    valu = node.get(obj.name)
-                    if valu is None:
-                        continue
-                    await obj.wasSet(node, valu)
-                else:
-                    # We're a tag...
-                    valu = node.get(tname)
-                    if valu is None:
-                        continue
-                    await runt.snap.view.runTagAdd(node, name, valu)
-
-                yield node, path
-
-            return
-
+        # Make this a generator
+        if False:
+            yield
 
 class MoveTagCmd(Cmd):
     '''
