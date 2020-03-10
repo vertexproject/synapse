@@ -506,20 +506,14 @@ class Migrator(s_base.Base):
         if self.fairiter is None:
             self.fairiter = 100
 
-        self.safetyoff = conf.get('safetyoff')
-        if self.safetyoff is None:
-            self.safetyoff = False
+        self.safetyoff = conf.get('safetyoff', False)
 
         if self.safetyoff:
             logger.warning('Node value checking before addition has been disabled')
 
-        self.srcdedicated = conf.get('srcdedicated')
-        if self.srcdedicated is None:
-            self.srcdedicated = False
+        self.srcdedicated = conf.get('srcdedicated', False)
 
-        self.destdedicated = conf.get('destdedicated')
-        if self.destdedicated is None:
-            self.destdedicated = False
+        self.destdedicated = conf.get('destdedicated', False)
 
         self.srcslabopts = {
             'readonly': True,
@@ -1035,17 +1029,19 @@ class Migrator(s_base.Base):
         await layrinfo.pop('name')
         await layrinfo.pop('type')
 
-        # conf
-        conf = {}
+        # dedicated -> lockmemory
+        lockmemory = False
         if srcconf is not None:
             srcdedicated = srcconf.get('dedicated')
             if srcdedicated is not None:
-                conf['lockmemory'] = srcdedicated
+                lockmemory = srcdedicated
 
         # update layer info for 0.2.x
         await layrinfo.set('iden', iden)
         await layrinfo.set('creator', creator)
-        await layrinfo.set('conf', conf)
+        await layrinfo.set('readonly', False)
+        await layrinfo.set('lockmemory', lockmemory)
+        await layrinfo.set('logedits', True)
         await layrinfo.set('model:version', s_modelrev.maxvers)
 
         for name, valu in layrinfo.items():

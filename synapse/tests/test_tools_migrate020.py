@@ -15,6 +15,7 @@ import synapse.tests.utils as s_t_utils
 import synapse.lib.cell as s_cell
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.migrate_020 as s_migr
@@ -444,6 +445,21 @@ class MigrationTest(s_t_utils.SynTest):
                 # check core data
                 await self._checkCore(core, tdata)
                 await self._checkAuth(core)
+
+                # check layer config
+                lyr = core.layers[locallyrs[0]]
+                self.false(lyr.lockmemory)
+                self.false(lyr.readonly)
+                self.true(lyr.logedits)
+                self.eq(core.auth.rootuser.iden, lyr.layrinfo.get('creator'))
+                self.eq(s_modelrev.maxvers, await lyr.getModelVers())
+
+                lyr = core.layers[locallyrs[1]]
+                self.false(lyr.lockmemory)
+                self.false(lyr.readonly)
+                self.true(lyr.logedits)
+                self.eq(core.auth.rootuser.iden, lyr.layrinfo.get('creator'))
+                self.eq(s_modelrev.maxvers, await lyr.getModelVers())
 
     async def test_migr_nexusoff(self):
         conf = {
