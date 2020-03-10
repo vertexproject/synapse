@@ -222,3 +222,44 @@ class CellAuthTest(s_t_utils.SynTest):
             await s_cellauth.main(argv, outp)
 
             outp.expect(f'adding rule to {name}: {nrulerepr}')
+
+    async def test_cellauth_gates(self):
+
+        async with self.getTestCore() as core:
+
+            lurl = core.getLocalUrl()
+
+            viewiden = core.view.iden
+            layriden = core.view.layers[0].iden
+
+            visi = await core.auth.addUser('visi')
+            ninjas = await core.auth.addRole('ninjas')
+
+            outp = self.getTestOutp()
+            argv = [lurl, 'modify', '--addrule', 'node.add', '--object', layriden, 'visi']
+            await s_cellauth.main(argv, outp)
+
+            outp = self.getTestOutp()
+            argv = [lurl, 'modify', '--admin', '--object', layriden, 'visi']
+            await s_cellauth.main(argv, outp)
+
+            outp = self.getTestOutp()
+            argv = [lurl, 'modify', '--addrule', 'view.read', '--object', viewiden, 'ninjas']
+            await s_cellauth.main(argv, outp)
+
+            outp = self.getTestOutp()
+            argv = [lurl, 'list', '--detail', 'ninjas']
+            await s_cellauth.main(argv, outp)
+
+            outp.expect(f'auth gate: {viewiden}')
+            outp.expect('allow: view.read')
+
+            outp = self.getTestOutp()
+            argv = [lurl, 'list', '--detail', 'visi']
+            await s_cellauth.main(argv, outp)
+
+            outp.expect(f'auth gate: {layriden}')
+            outp.expect('allow: node.add')
+
+            outp.expect(f'auth gate: {viewiden}')
+            outp.expect('allow: view.read')
