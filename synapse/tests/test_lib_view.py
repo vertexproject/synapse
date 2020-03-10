@@ -7,6 +7,8 @@ class ViewTest(s_t_utils.SynTest):
     async def test_view_fork_merge(self):
         async with self.getTestCore() as core:
             await core.nodes('[ test:int=10 ]')
+            await core.auth.addUser('visi')
+
             nodes = await alist(core.eval('test:int=10'))
             self.len(1, nodes)
             self.eq(1, (await core.getFormCounts()).get('test:int'))
@@ -79,14 +81,16 @@ class ViewTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
             await view3.core.delView(view3.iden)
 
+            async with core.getLocalProxy(user='visi') as prox:
+                with self.raises(s_exc.AuthDeny):
+                    await prox.eval('test:int=12', opts={'view': view2.iden}).list()
+
             # Merge the child back into the parent
             await view2.merge()
 
             # Now, the node added to the child is seen in the parent
             nodes = await core.nodes('test:int=12')
             self.len(1, nodes)
-
-            # FIXME: Test perms (from proxy)
 
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
