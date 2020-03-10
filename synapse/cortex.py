@@ -2327,6 +2327,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         ldef.setdefault('creator', self.auth.rootuser.iden)
         ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
         ldef.setdefault('logedits', self.conf.get('layers:logedits'))
+        ldef.setdefault('readonly', False)
 
         s_layer.reqValidLdef(ldef)
 
