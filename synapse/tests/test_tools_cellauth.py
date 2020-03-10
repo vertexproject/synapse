@@ -1,3 +1,5 @@
+import unittest.mock as mock
+
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.cellauth as s_cellauth
@@ -19,6 +21,20 @@ class CellAuthTest(s_t_utils.SynTest):
             argv = [coreurl, 'modify', '--adduser', 'foo', '--object', 'foo:bar']
             await s_cellauth.main(argv, outp)
             outp.expect('only valid with --addrule')
+
+            def fakevers(self):
+                return (0, 0, 0)
+
+            with mock.patch('synapse.telepath.Proxy._getSynVers', fakevers):
+                argv = [coreurl, 'modify', '--adduser', 'foo']
+                outp = self.getTestOutp()
+                await s_cellauth.main(argv, outp)
+                outp.expect('Cell version 0.0.0 is outside of the cellauth supported range')
+
+                argv = [coreurl, 'list']
+                outp = self.getTestOutp()
+                await s_cellauth.main(argv, outp)
+                outp.expect('Cell version 0.0.0 is outside of the cellauth supported range')
 
     async def test_cellauth_list(self):
 
