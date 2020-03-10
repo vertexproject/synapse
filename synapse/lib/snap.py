@@ -548,24 +548,14 @@ class Snap(s_base.Base):
         nodes = await self.applyNodeEdits((edit,))
         return nodes[0]
 
-    async def issueNodeEdits(self, edits):
-        '''
-        Sends the edits to the write layer and gets back storage nodes with the edits that actually happened
-        '''
-        if self.readonly:
-            mesg = 'The snapshot is in read-only mode.'
-            raise s_exc.IsReadOnly(mesg=mesg)
-
-        meta = await self.getSnapMeta()
-        todo = s_common.todo('storNodeEdits', edits, meta)
-
-        return meta, await self.core.dyncall(self.wlyr.iden, todo)
-
     async def applyNodeEdits(self, edits):
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
-        meta, sodes = await self.issueNodeEdits(edits)
+        meta = await self.getSnapMeta()
+        todo = s_common.todo('storNodeEdits', edits, meta)
+
+        sodes = await self.core.dyncall(self.wlyr.iden, todo)
 
         wlyr = self.wlyr
         nodes = []

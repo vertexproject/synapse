@@ -618,7 +618,7 @@ class Node:
         edits = (
             (s_layer.EDIT_NODEDATA_SET, (name, valu, None)),
         )
-        await self.snap.issueNodeEdits(((self.buid, self.form.name, edits),))
+        await self.snap.applyNodeEdits(((self.buid, self.form.name, edits),))
 
     async def popData(self, name):
         retn = await self.snap.getNodeData(self.buid, name)
@@ -626,7 +626,7 @@ class Node:
         edits = (
             (s_layer.EDIT_NODEDATA_DEL, (name, None)),
         )
-        await self.snap.issueNodeEdits(((self.buid, self.form.name, edits),))
+        await self.snap.applyNodeEdits(((self.buid, self.form.name, edits),))
 
         return retn
 
