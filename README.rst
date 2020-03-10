@@ -23,7 +23,7 @@ Join the Vertex Project on |slack|_!
 ..  _circleci: https://circleci.com/gh/vertexproject/synapse/tree/01x
 
 .. |codecov| image:: https://codecov.io/gh/vertexproject/synapse/branch/01x/graph/badge.svg?branch=master
-.. _codecov: https://codecov.io/gh/vertexproject/01x
+.. _codecov: https://codecov.io/gh/vertexproject/synapse/branch/01x
 
 .. |rtd| image:: https://readthedocs.org/projects/vertexprojectsynapse/badge/?version=01x
 .. _rtd: https://vertexprojectsynapse.readthedocs.io/en/01x/
