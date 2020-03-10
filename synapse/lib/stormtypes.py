@@ -2312,8 +2312,10 @@ def fromprim(valu, path=None):
     if isinstance(valu, s_node.Path):
         return Path(valu, path=path)
 
-    if isinstance(valu, (tuple, list)):
-        # FIXME - List() has methods which are incompatible with a Python tuple.
+    if isinstance(valu, tuple):
+        return List(list(valu), path=path)
+
+    if isinstance(valu, list):
         return List(valu, path=path)
 
     if isinstance(valu, dict):
