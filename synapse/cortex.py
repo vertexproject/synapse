@@ -1735,7 +1735,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
                     logger.warning(f'mirror loop connected ({url} offset={offs})')
 
-                    # FIXME:  doesn't this spin forever if non new data in proxy?
                     while not proxy.isfini:
 
                         # gotta do this in the loop as well...
@@ -2327,6 +2326,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         ldef.setdefault('creator', self.auth.rootuser.iden)
         ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
         ldef.setdefault('logedits', self.conf.get('layers:logedits'))
+        ldef.setdefault('readonly', False)
 
         s_layer.reqValidLdef(ldef)
 
@@ -2441,7 +2441,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         # validate ddef before firing task
         s_storm.reqValidDdef(ddef)
 
-        # FIXME:  no such call
         await self.auth.reqUser(ddef['user'])
 
         # raises if parser failure
