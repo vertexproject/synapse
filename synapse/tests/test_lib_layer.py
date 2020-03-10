@@ -447,7 +447,6 @@ class LayerTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(url) as layrprox:
                 await self.agenlen(26, layrprox.splices())
 
-
     async def test_layer_stortype_float(self):
         async with self.getTestCore() as core:
 
@@ -609,7 +608,7 @@ class LayerTest(s_t_utils.SynTest):
             async for _, nodeedits in prox0.syncLayerNodeEdits(0):
                 editlist.append(nodeedits)
                 count += 1
-                if count == 7:
+                if count == 5:
                     break
 
             async with self.getTestCore() as core1:
@@ -677,6 +676,12 @@ class LayerTest(s_t_utils.SynTest):
     async def test_layer_no_extra_logging(self):
 
         async with self.getTestCore() as core:
-            self.true(await layr.hasTagProp('score'))
-            nodeedits = async for _, nodeedits in prox0.syncLayerNodeEdits(0):
-            await await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            '''
+            For a do-nothing write, don't write new log entries
+            '''
+            await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            layr = core.getLayer(None)
+            lbefore = len(await alist(layr.splices()))
+            await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            lafter = len(await alist(layr.splices()))
+            self.eq(lbefore, lafter)
