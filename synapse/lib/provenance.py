@@ -34,22 +34,27 @@ class _ProvStack:
     def __init__(self):
         # We start with a dummy frame so we don't have to special case an empty stack
         self.provs = [None]  # A stack of the provenance info
-        self.idens = [None]  # A stack of the idens for the prov stack ending in this frame
+        self.idens = [(None, True)]  # A stack of the iden/written tupls for the prov stack ending in this frame
 
     def __len__(self):
         return len(self.provs)
 
     def get(self):
+        '''
+        Returns:
+            iden, whether that iden has been written, the provstack info
+        '''
         # We add an empty dict for future expansion/info
-        return self.idens[-1], ({}, self.provs[1:])
+        iden, written = self.idens[-1]
+        return iden, written, ({}, self.provs[1:])
 
-    def setiden(self, iden):
-        self.idens[-1] = iden
+    def setiden(self, identupl):
+        self.idens[-1] = identupl
 
     def push(self, typ, **info):
         tuplinfo = tuple((k, info[k]) for k in sorted(info.keys()))
         self.provs.append((typ, tuplinfo))
-        self.idens.append(None)
+        self.idens.append((None, True))
 
     def pop(self):
         self.provs.pop()
@@ -109,12 +114,13 @@ def get():
     stack = s_task.varget('provstack')
     return stack.get()
 
-def setiden(iden):
+def setiden(iden, waswritten):
     '''
-    Sets the cached stack iden for the current provenance stack
+    Sets the cached stack iden, waswritten for the current provenance stack.  We use waswritten to cache whether we've
+    written the stack and so we can tell the snap whether to fire a prov:new event
     '''
     stack = s_task.varget('provstack')
-    stack.setiden(iden)
+    stack.setiden((iden, waswritten))
 
 def _providen(prov):
     '''
@@ -171,37 +177,45 @@ class ProvStor(s_base.Base):
                 continue
             yield (iden, stack)
 
-    def getProvIden(self, provstack):
+    def stor(self):
         '''
-        Returns the iden corresponding to a provenance stack and stores if it hasn't seen it before
+        Writes the current provenance stack to storage if it wasn't already there
+
+        Returns True if was written, False if it was already there
         '''
         if not ProvenanceEnabled:
-            return None
+            return None, None
 
-        iden = _providen(provstack)
-        misc, frames = provstack
+        iden, waswritten, provstack = get()
+        if waswritten:
+            return None, None
+
+        assert iden is not None
+
         # Convert each frame back from (k, v) tuples to a dict
+        misc, frames = provstack
         dictframes = [(typ, {k: v for (k, v) in info}) for (typ, info) in frames]
         bytz = s_msgpack.en((misc, dictframes))
+
         didwrite = self.slab.put(iden, bytz, overwrite=False, db=self.db)
         if didwrite:
             self.provseq.save([iden])
 
-        return iden
+        setiden(iden, True)
 
-    def commit(self):
+        return s_common.ehex(iden), provstack
+
+    def precommit(self):
         '''
-        Writes the current provenance stack to storage if it wasn't already there and returns it
+        Determine the iden for the current provenance stack and return it
 
-        Returns (Tuple[bool, Optional[str], List[]]):
-            Whether the stack was not cached, the iden of the prov stack, and the provstack
+        Returns the iden
         '''
         if not ProvenanceEnabled:
-            return False, None, []
+            return None
 
-        providen, provstack = get()
-        wasnew = (providen is None)
-        if wasnew:
-            providen = self.getProvIden(provstack)
-            setiden(providen)
-        return wasnew, s_common.ehex(providen), provstack
+        providen, waswritten, provstack = get()
+        if providen is None:
+            providen = _providen(provstack)
+            setiden(providen, False)
+        return s_common.ehex(providen)

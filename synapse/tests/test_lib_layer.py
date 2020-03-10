@@ -447,6 +447,7 @@ class LayerTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(url) as layrprox:
                 await self.agenlen(26, layrprox.splices())
 
+
     async def test_layer_stortype_float(self):
         async with self.getTestCore() as core:
 
@@ -672,4 +673,10 @@ class LayerTest(s_t_utils.SynTest):
 
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
+
+    async def test_layer_no_extra_logging(self):
+
+        async with self.getTestCore() as core:
             self.true(await layr.hasTagProp('score'))
+            nodeedits = async for _, nodeedits in prox0.syncLayerNodeEdits(0):
+            await await core.nodes('[test:str=foo .seen=(2015, 2016)]')

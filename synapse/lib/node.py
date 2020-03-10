@@ -228,7 +228,7 @@ class Node:
         props = {prop.name: norm}
         nodeedits = self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
 
-        await self.snap.addNodeEdits(nodeedits)
+        await self.snap.applyNodeEdits(nodeedits)
 
         return True
 
@@ -282,7 +282,7 @@ class Node:
             (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype)),
         )
 
-        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
     def repr(self, name=None):
 
@@ -431,7 +431,7 @@ class Node:
 
         nodeedit = (self.buid, self.form.name, edits)
 
-        await self.snap.addNodeEdit(nodeedit)
+        await self.snap.applyNodeEdit(nodeedit)
 
     async def delTag(self, tag, init=False):
         '''
@@ -467,7 +467,7 @@ class Node:
 
         nodeedit = (self.buid, self.form.name, edits)
 
-        await self.snap.addNodeEdit(nodeedit)
+        await self.snap.applyNodeEdit(nodeedit)
 
     def _getTagPropDel(self, tag):
 
@@ -523,7 +523,7 @@ class Node:
             (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype)),
         )
 
-        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
         self.tagprops[tagkey] = norm
 
@@ -541,7 +541,7 @@ class Node:
             (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)),
         )
 
-        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
     async def delete(self, force=False):
         '''
@@ -607,7 +607,7 @@ class Node:
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype)),
         )
 
-        await self.snap.addNodeEdit((self.buid, formname, edits))
+        await self.snap.applyNodeEdit((self.buid, formname, edits))
 
         self.snap.livenodes.pop(self.buid, None)
 

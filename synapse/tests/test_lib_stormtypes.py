@@ -220,13 +220,12 @@ class StormTypesTest(s_test.SynTest):
             $foo = "this little node had roast beef"
             $bar.exec()
             '''
-            # FIXME:  need to wire events back to streamstorm
             msgs = await core.streamstorm(q).list()
             nodes = [m for m in msgs if m[0] == 'node:add']
-            # self.len(3, nodes)
-            # self.eq(nodes[0][1]['ndef'], ('test:str', 'this little node went to market'))
-            # self.eq(nodes[1][1]['ndef'], ('test:str', 'this little node stayed home'))
-            # self.eq(nodes[2][1]['ndef'], ('test:str', 'this little node had roast beef'))
+            self.len(3, nodes)
+            self.eq(nodes[0][1]['ndef'], ('test:str', 'this little node went to market'))
+            self.eq(nodes[1][1]['ndef'], ('test:str', 'this little node stayed home'))
+            self.eq(nodes[2][1]['ndef'], ('test:str', 'this little node had roast beef'))
 
             # but that it doesn't come back up
             q = '''

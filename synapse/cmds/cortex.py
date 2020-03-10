@@ -20,6 +20,11 @@ RED = '#ff0066'
 YELLOW = '#f4e842'
 BLUE = '#6faef2'
 
+UNKNOWN_COLOR = BLUE
+NODEEDIT_COLOR = "lightblue"
+WARNING_COLOR = YELLOW
+SYNTAX_ERROR_COLOR = RED
+
 class Log(s_cli.Cmd):
     '''Add a storm log to the local command session.
 
@@ -213,6 +218,12 @@ class StormCmd(s_cli.Cmd):
         --hide-props: Do not print secondary properties.
         --hide-unknown: Do not print messages which do not have known handlers.
         --show-nodeedits:  Show full nodeedits (otherwise printed as a single .)
+        --editformat <format>: What format of edits the server shall emit.
+                Options are
+                   * nodeedits (default),
+                   * splices (similar to < 0.2.0),
+                   * count (just counts of nodeedits), or
+                   * none (no such messages emitted).
         --raw: Print the nodes in their raw format. This overrides --hide-tags and --hide-props.
         --debug: Display cmd debug information along with nodes in raw format. This overrides other display arguments.
         --path: Get path information about returned nodes.
@@ -228,10 +239,13 @@ class StormCmd(s_cli.Cmd):
     '''
 
     _cmd_name = 'storm'
+
+    editformat_enums = ('nodeedits', 'splices', 'count', 'none')
     _cmd_syntax = (
         ('--hide-tags', {}),  # type: ignore
         ('--show', {'type': 'valu'}),
         ('--show-nodeedits', {}),
+        ('--editformat', {'type': 'enum', 'defval': 'nodeedits', 'enum:vals': editformat_enums}),
         ('--file', {'type': 'valu'}),
         ('--optsfile', {'type': 'valu'}),
         ('--hide-props', {}),
@@ -253,14 +267,14 @@ class StormCmd(s_cli.Cmd):
             'print': self._onPrint,
             'warn': self._onWarn,
             'err': self._onErr,
-            'node:edits': self._onNodeEdits
+            'node:edits': self._onNodeEdits,
+            'node:edits:count': self._onNodeEditsCount
         }
 
-    def _onNodeEdits(self, mesg):
+    def _onNodeEdits(self, mesg, opts):
         edit = mesg[1]
-        opts = edit.pop('_opts', {})
         if not opts.get('show-nodeedits'):
-            self.printf('.', addnl=False, color='lightblue')
+            self.printf('.', addnl=False, color=NODEEDIT_COLOR)
             return
 
         # hexlify the buids
@@ -270,13 +284,16 @@ class StormCmd(s_cli.Cmd):
             newedits.append(newedit)
 
         edit['edits'] = tuple(newedits)
+        mesg = (mesg[0], edit)
 
-        self.printf(repr(edit), color='lightblue')
+        self.printf(repr(mesg), color=NODEEDIT_COLOR)
 
-    def _onNode(self, mesg):
+    def _onNodeEditsCount(self, mesg, opts):
+        self.printf('.', addnl=False, color=NODEEDIT_COLOR)
+
+    def _onNode(self, mesg, opts):
 
         node = mesg[1]
-        opts = node[1].pop('_opts', {})
 
         if opts.get('raw'):
             self.printf(repr(node))
@@ -314,13 +331,13 @@ class StormCmd(s_cli.Cmd):
                 if not printed:
                     self.printf(f'        #{tag}')
 
-    def _onInit(self, mesg):
+    def _onInit(self, mesg, opts):
         tick = mesg[1].get('tick')
         if tick is not None:
             tick = s_time.repr(tick)
             self.printf(f'Executing query at {tick}')
 
-    def _onFini(self, mesg):
+    def _onFini(self, mesg, opts):
         took = mesg[1].get('took')
         took = max(took, 1)
 
@@ -328,14 +345,14 @@ class StormCmd(s_cli.Cmd):
         pers = float(count) / float(took / 1000)
         self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
 
-    def _onPrint(self, mesg):
+    def _onPrint(self, mesg, opts):
         self.printf(mesg[1].get('mesg'))
 
-    def _onWarn(self, mesg):
+    def _onWarn(self, mesg, opts):
         warn = mesg[1].get('mesg')
-        self.printf(f'WARNING: {warn}', color=YELLOW)
+        self.printf(f'WARNING: {warn}', color=WARNING_COLOR)
 
-    def _onErr(self, mesg):
+    def _onErr(self, mesg, opts):
         err = mesg[1]
         if err[0] == 'BadSyntax':
             pos = err[1].get('at', None)
@@ -355,10 +372,10 @@ class StormCmd(s_cli.Cmd):
 
                 self.printf(text, color=BLUE)
                 self.printf(f'{" "*pos}^', color=BLUE)
-                self.printf(f'Syntax Error: {mesg}', color=RED)
+                self.printf(f'Syntax Error: {mesg}', color=SYNTAX_ERROR_COLOR)
                 return
 
-        self.printf(f'ERROR: {err}', color=RED)
+        self.printf(f'ERROR: {err}', color=SYNTAX_ERROR_COLOR)
 
     async def runCmdOpts(self, opts):
 
@@ -396,11 +413,10 @@ class StormCmd(s_cli.Cmd):
         showtext = opts.get('show')
         if showtext is not None:
             stormopts['show'] = showtext.split(',')
-            if opts.get('show-nodeedits'):
-                stormopts['show'].append('node:edits')
 
-        if opts.get('show-nodeedits'):
-            stormopts['show-nodeedits'] = True
+        editformat = opts['editformat']
+        if editformat != 'nodeedits':
+            stormopts['editformat'] = editformat
 
         if opts.get('spawn'):
             stormopts['spawn'] = True
@@ -418,30 +434,22 @@ class StormCmd(s_cli.Cmd):
 
                 if opts.get('debug'):
                     self.printf(pprint.pformat(mesg))
+                    continue
 
+                if mesg[0] == 'node':
+
+                    if nodesfd is not None:
+                        byts = json.dumps(mesg[1]).encode()
+                        nodesfd.write(byts + b'\n')
+
+                try:
+                    func = self.cmdmeths[mesg[0]]
+                except KeyError:
+                    if hide_unknown:
+                        continue
+                    self.printf(repr(mesg), color=UNKNOWN_COLOR)
                 else:
-
-                    if mesg[0] in 'node':
-
-                        if nodesfd is not None:
-                            byts = json.dumps(mesg[1]).encode('utf8')
-                            nodesfd.write(byts + b'\n')
-
-                        # Tuck the opts into the node dictionary since
-                        # they control node metadata display
-                        mesg[1][1]['_opts'] = opts
-
-                    elif mesg[0] == 'node:edits':
-                        mesg[1]['_opts'] = opts
-
-                    try:
-                        func = self.cmdmeths[mesg[0]]
-                    except KeyError:
-                        if hide_unknown:
-                            continue
-                        self.printf(repr(mesg))
-                    else:
-                        func(mesg)
+                    func(mesg, opts)
 
         except s_exc.SynErr as e:
 
