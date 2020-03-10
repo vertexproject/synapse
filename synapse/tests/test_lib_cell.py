@@ -414,5 +414,3 @@ class CellTest(s_t_utils.SynTest):
                 yielded, data = await asyncio.wait_for(task, 6)
                 self.false(yielded)
                 self.eq(data, [])
-
-# TODO: cell with remote hive
