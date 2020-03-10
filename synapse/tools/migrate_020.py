@@ -590,6 +590,7 @@ class Migrator(s_base.Base):
                 await self._migrNodeData(iden, wlyr)
 
         await self._dumpOffsets()
+        await self._dumpVers()
 
     async def _dumpOffsets(self):
         '''
@@ -606,6 +607,33 @@ class Migrator(s_base.Base):
         s_common.yamlsave(yamlout, path)
 
         logger.info(f'Saved layer offsets to {path}')
+
+    async def _dumpVers(self):
+        '''
+        Dump cortex and model version info to yaml file; for dest only update migrops that took place.
+        '''
+        path = os.path.join(self.dest, self.migrdir, 'migrvers.yaml')
+        if os.path.exists(path):
+            yamlout = s_common.yamlload(path)
+        else:
+            yamlout = {
+                'src:cortex': None,
+                'src:model': {},
+                'dest:cortex': {},
+            }
+
+        srcvers = [log async for log in self._migrlogGet('chkvalid', 'vers', 'src:cortex')]
+        yamlout['src:cortex'] = srcvers[0].get('val') if len(srcvers) > 0 else None
+
+        async for log in self._migrlogGet('nodes', 'vers'):
+            yamlout['src:model'][log['key']] = log['val']  # lyriden: modelvers
+
+        destvers = s_version.version
+        for migrop in self.migrops:
+            yamlout['dest:cortex'][migrop] = destvers
+
+        s_common.yamlsave(yamlout, path)
+        logger.info(f'Saved migration versions to {path}')
 
     async def dumpErrors(self):
         '''
@@ -676,6 +704,8 @@ class Migrator(s_base.Base):
         Returns:
             (bool): Whether migration can proceed
         '''
+        migrop = 'chkvalid'
+
         # remote layers
         lyrs = await self.hive.open(('cortex', 'layers'))
         for lyriden, lyrinfo in lyrs:
@@ -683,6 +713,15 @@ class Migrator(s_base.Base):
             if lyrtype is not None and lyrtype.valu == 'remote':
                 logger.error(f'{lyriden} is a remote layer - it must be unconfigured to proceed with migration')
                 return False
+
+        # check cortex version iff copied hive from src (otherwise will be 0.2.x after inplace migration)
+        # currently only storing and not halting migration
+        if 'dirn' in self.migrops:
+            vers = await self.hive.get(('cellinfo', 'cortex:version'))
+            if vers is None:
+                vers = (-1, -1, -1)
+                logger.warning(f'Unable to read src cortex version; consider upgrading before proceeding')
+            await self._migrlogAdd(migrop, 'vers', 'src:cortex', vers)
 
         return True
 
@@ -724,10 +763,12 @@ class Migrator(s_base.Base):
                 if src_tot % 10000000 == 0:  # pragma: no cover
                     logger.debug(f'...counted {src_tot} nodes so far')
 
+            await src_slab.fini()
+
             # open dest slab
             if hasdest:
                 destpath = os.path.join(self.dest, 'layers', iden, 'layer_v2.lmdb')
-                destslab = await s_lmdbslab.Slab.anit(destpath, readonly=True)
+                destslab = await s_lmdbslab.Slab.anit(destpath, lockmemory=False, readonly=True)
                 self.onfini(destslab.fini)
                 dest_fcnt = await destslab.getHotCount('count:forms')
                 dest_fcnt = dest_fcnt.pack()
@@ -1160,6 +1201,14 @@ class Migrator(s_base.Base):
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
         self.onfini(src_slab.fini)
 
+        # store model vers
+        versbyts = src_slab.get(b'layer:model:version')
+        if versbyts is None:
+            vers = (-1, -1, -1)
+        else:
+            vers = s_msgpack.un(versbyts)
+        await self._migrlogAdd(migrop, 'vers', iden, vers)
+
         # record offset
         path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')
         if os.path.exists(path):
@@ -1168,6 +1217,7 @@ class Migrator(s_base.Base):
             splicelog = s_slabseqn.SlabSeqn(spliceslab, 'splices')
             nextindx = splicelog.index()
             logger.info(f'Saved splicelog next offset {nextindx} for layer {iden}')
+            await spliceslab.fini()
         else:
             logger.warning(f'Splice slab not found for {iden}, setting sync offset to 0')
             nextindx = 0
@@ -1245,6 +1295,8 @@ class Migrator(s_base.Base):
         logger.info(f'Migrated {dtot:,} of {stot:,} nodes in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
         logger.info(f'Completed node migration for {iden}')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
+
+        await src_slab.fini()
 
         return
 
@@ -1329,6 +1381,8 @@ class Migrator(s_base.Base):
 
         logger.info(f'Completed nodedata migration for {iden}')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
+
+        await src_slab.fini()
 
         return
 
