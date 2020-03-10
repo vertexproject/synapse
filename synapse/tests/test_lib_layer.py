@@ -631,6 +631,9 @@ class LayerTest(s_t_utils.SynTest):
                     self.eq(nodelist0, nodelist1)
 
                 layr = core1.view.layers[0]
+
+                # Empty the layer to try again
+
                 await layr.truncate()
 
                 async with await s_telepath.openurl(url) as layrprox:
@@ -648,6 +651,8 @@ class LayerTest(s_t_utils.SynTest):
                     meta = {'user': s_common.guid(),
                             'time': 0,
                             }
+
+                    await layr.truncate()
 
                     for nodeedits in editlist:
                         self.none(await layrprox.storNodeEditsNoLift(nodeedits, meta=meta))
