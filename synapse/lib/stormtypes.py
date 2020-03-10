@@ -1468,6 +1468,8 @@ class Layer(Prim):
         self.runt = runt
         self.locls.update({
             'iden': ldef.get('iden'),
+            'name': ldef.get('name', 'unnamed'),
+            'readonly': ldef.get('readonly'),
             'pack': self._methLayerPack,
         })
 
@@ -1534,7 +1536,11 @@ class View(Prim):
         Prim.__init__(self, vdef, path=path)
         self.runt = runt
         self.locls.update({
+
             'iden': vdef.get('iden'),
+            'name': vdef.get('name', 'unnamed'),
+            'creator': vdef.get('creator'),
+
             'layers': [Layer(runt, ldef, path=path) for ldef in vdef.get('layers')],
             'pack': self._methViewPack,
             'fork': self._methViewFork,
