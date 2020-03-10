@@ -3,9 +3,12 @@ An RMI framework for synapse.
 '''
 
 import os
+import ssl
 import asyncio
 import logging
 import collections
+
+import aiohttp
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -750,6 +753,49 @@ class Client(s_base.Base):
         '''
         return self._t_proxy._getClasses()
 
+async def disc_consul(info):
+    info.setdefault('original_host', info.get('host'))
+    service = info.get('original_host')
+    query = info.get('query')
+    host = query.get('consul')
+    ctag_addr = query.get('consul_tag_address')  # Prefer a taggedAddress if set
+    csvc_tag_addr = query.get('consul_service_tag_address')  # Prefer a serviceTaggedAddress if set
+    gkwargs = {'raise_for_status': True}
+    if query.get('consul_nosslverify'):
+        gkwargs['ssl'] = False
+
+    if ctag_addr and csvc_tag_addr:
+        mesg = 'Cannot resolve consul values with both consul_tag_address and consul_service_tag_address'
+        raise s_exc.BadUrl(mesg=mesg, consul_tag_address=ctag_addr,
+                           consul_service_tag_address=csvc_tag_addr)
+
+    url = f'{host}/v1/catalog/service/{service}'
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, **gkwargs) as resp:
+                if resp.status == 200:
+                    found = await resp.json()
+                    # We are using the *first* entry from the found services.
+                    # Do we want to consider supporting a redir list here?
+                    if csvc_tag_addr:
+                        # Use the ServiceTaggedAddresses
+                        info['host'] = found[0]['ServiceTaggedAddresses'][csvc_tag_addr]['address']
+                        info['port'] = found[0]['ServiceTaggedAddresses'][csvc_tag_addr]['port']
+                    elif ctag_addr:
+                        # Use the TaggedAddresses values.
+                        info['host'] = found[0]['TaggedAddresses'][ctag_addr]
+                        info['port'] = found[0]['ServicePort']
+                    else:
+                        # Use the generic service address/port
+                        info['host'] = found[0]['Address']
+                        info['port'] = found[0]['ServicePort']
+                    return
+    except asyncio.CancelledError:  # pragma: no cover
+        raise
+    except Exception as e:
+        raise s_exc.BadUrl(mesg=f'Unknown error while resolving service name [{service}] via consul [{str(e)}].',
+                           name=service, consul=host) from e
+
 def alias(name):
     '''
     Resolve a telepath alias via ~/.syn/aliases.yaml
@@ -821,11 +867,24 @@ async def openurl(url, **opts):
     if url.find('://') == -1:
         newurl = alias(url)
         if newurl is None:
-            raise s_exc.BadUrl(f':// not found in [{url}] and no alias found!')
+            raise s_exc.BadUrl(mesg=f':// not found in [{url}] and no alias found!',
+                               url=url)
         url = newurl
 
     info = s_urlhelp.chopurl(url)
     info.update(opts)
+
+    scheme = info.get('scheme')
+
+    if '+' in scheme:
+        scheme, disc = scheme.split('+', 1)
+        # Discovery protocols modify info dict inband?
+        if disc == 'consul':
+            await disc_consul(info)
+
+        else:
+            raise s_exc.BadUrl(mesg=f'Unknown discovery protocol [{disc}].',
+                               disc=disc)
 
     host = info.get('host')
     port = info.get('port')
@@ -836,8 +895,6 @@ async def openurl(url, **opts):
     if user is not None:
         passwd = info.get('passwd')
         auth = (user, {'passwd': passwd})
-
-    scheme = info.get('scheme')
 
     if scheme == 'cell':
         # cell:///path/to/celldir:share
