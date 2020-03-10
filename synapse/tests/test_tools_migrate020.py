@@ -436,7 +436,7 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.fini()
 
             # startup 0.2.0 core
-            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+            async with await s_cortex.Cortex.anit(dest, conf={'logchanges': True}) as core:
                 # check that nexus root has offsets from migration
                 self.gt(await core.getNexusOffs(), 1)
 
@@ -565,27 +565,22 @@ class MigrationTest(s_t_utils.SynTest):
                     await self._checkCore(core, tdata)
                     await self._checkAuth(core)
 
-    async def test_migr_assvr(self):
+    async def test_migr_assvr_defaults(self):
         '''
-        Test that migration service is being properly initialized from cmdline args.
+        Test that migration service is being properly initialized from default cmdline args.
         '''
         with self.getRegrDir('cortexes', REGR_VER) as src:
             # sneak in test for missing splice slab - no impact to migration
-            for root, dirs, files in os.walk(src, topdown=True):
-                for dir in dirs:
-                    if dir == 'splices.lmdb':
-                        shutil.rmtree(os.path.join(root, dir))
+            for root, dirs, _ in os.walk(src, topdown=True):
+                for dname in dirs:
+                    if dname == 'splices.lmdb':
+                        shutil.rmtree(os.path.join(root, dname))
 
-            with self.getTestDir() as destp:
-                dest = os.path.join(destp, 'woot')  # verify svc is creating dir if it doesn't exist
-
+            # check defaults
+            with self.getTestDir() as dest:
                 argv = [
                     '--src', src,
                     '--dest', dest,
-                    '--nodelim', '1000',
-                    '--fair-iter', '5',
-                    '--src-dedicated', 'true',
-                    '--safety-off',
                 ]
 
                 async with await s_migr.main(argv) as migr:
@@ -594,10 +589,11 @@ class MigrationTest(s_t_utils.SynTest):
                     self.sorteq(migr.migrops, s_migr.ALL_MIGROPS)
                     self.eq(migr.addmode, 'nexus')
                     self.eq(migr.editbatchsize, 100)
-                    self.eq(migr.fairiter, 5)
-                    self.eq(migr.nodelim, 1000)
-                    self.true(migr.safetyoff)
-                    self.true(migr.srcdedicated)
+                    self.eq(migr.fairiter, 100)
+                    self.none(migr.nodelim)
+                    self.false(migr.safetyoff)
+                    self.false(migr.srcdedicated)
+                    self.false(migr.destdedicated)
 
                     # check the saved file
                     offsyaml = s_common.yamlload(dest, 'migration', 'lyroffs.yaml')
@@ -609,6 +605,40 @@ class MigrationTest(s_t_utils.SynTest):
                     self.len(1, nodes)
                     nodes = await core.nodes('[inet:ipv4=9.9.9.9]')
                     self.len(1, nodes)
+
+    async def test_migr_assvr_opts(self):
+        '''
+        Test that migration service is being properly initialized from user cmdline args.
+        '''
+        with self.getRegrDir('cortexes', REGR_VER) as src:
+            # check user opts
+            with self.getTestDir() as destp:
+                dest = os.path.join(destp, 'woot')  # verify svc is creating dir if it doesn't exist
+
+                argv = [
+                    '--src', src,
+                    '--dest', dest,
+                    '--add-mode', 'editor',
+                    '--nodelim', '1000',
+                    '--edit-batchsize', '1000',
+                    '--fair-iter', '5',
+                    '--src-dedicated',
+                    '--dest-dedicated',
+                    '--safety-off',
+                    '--migr-ops', 'dirn', 'dmodel', 'cell',
+                ]
+
+                async with await s_migr.main(argv) as migr:
+                    self.eq(migr.src, src)
+                    self.eq(migr.dest, dest)
+                    self.sorteq(migr.migrops, ['dirn', 'dmodel', 'cell'])
+                    self.eq(migr.addmode, 'editor')
+                    self.eq(migr.editbatchsize, 1000)
+                    self.eq(migr.fairiter, 5)
+                    self.eq(migr.nodelim, 1000)
+                    self.true(migr.safetyoff)
+                    self.true(migr.srcdedicated)
+                    self.true(migr.destdedicated)
 
     async def test_migr_errconf(self):
         with self.getRegrDir('cortexes', REGR_VER) as src:

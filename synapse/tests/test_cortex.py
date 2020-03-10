@@ -95,6 +95,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('#foo.bar:score*range=(10, 30)'))
 
                 self.len(1, await core.nodes('#blah:user^=vi'))
+                self.len(1, await core.nodes('#blah:user~=si'))
 
                 self.len(1, await core.nodes('test:int#foo.bar:score'))
                 self.len(1, await core.nodes('test:int#foo.bar:score=20'))
@@ -326,6 +327,10 @@ class CortexTest(s_t_utils.SynTest):
 
             ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
+
+            # test iterFormRows as well
+            rows = await alist(layr.iterFormRows('inet:ipv4'))
+            self.eq((0x01020304, 0x05050505), tuple(sorted([row[1] for row in rows])))
 
     async def test_cortex_lift_regex(self):
         async with self.getTestReadWriteCores() as (core, wcore):
@@ -2506,6 +2511,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
             await self.agenlen(2, core.eval('test:str'))
 
+            layr = core.getLayer()
+            await self.agenlen(0, layr.splices())
+            await self.agenlen(0, layr.splicesBack())
+            await self.agenlen(0, layr.syncNodeEdits(0))
+            self.eq(0, layr.getNodeEditOffset())
+
     async def test_feed_syn_nodes(self):
         async with self.getTestCore() as core0:
             q = '[test:int=1 test:int=2 test:int=3]'
@@ -3361,11 +3372,23 @@ class CortexBasicTest(s_t_utils.SynTest):
                 url = core00.getLocalUrl()
 
                 async with await s_cortex.Cortex.anit(dirn=path01) as core01:
+                    # Mirroring without logchanges doesn't work
+                    with self.raises(s_exc.BadConfValu):
+                        await core01.initCoreMirror(url)
+
+                    evnt = core01.getNexusOffsEvent(0)
+                    self.true(await s_coro.event_wait(evnt, timeout=0.1))
+
+                core01conf = {'logchanges': True}
+                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                    await core01.initCoreMirror(url)
+
+                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
                     offs = await core00.getNexusOffs() - 1
                     mirroffs = await core01.getNexusOffs() - 1
                     self.gt(offs, mirroffs)
 
-                    evnt = await core01.getNexusOffsEvent(offs)
+                    evnt = core01.getNexusOffsEvent(offs)
 
                     await core01.initCoreMirror(url)
 
@@ -3376,7 +3399,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core00.nodes('queue.add visi')
 
                     offs = await core00.getNexusOffs() - 1
-                    evnt = await core01.getNexusOffsEvent(offs)
+                    evnt = core01.getNexusOffsEvent(offs)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
@@ -3393,7 +3416,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
-                async with await s_cortex.Cortex.anit(dirn=path01) as core01:
+                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
                     offs = await core00.getNexusOffs() - 1
                     mirroffs = await core01.getNexusOffs() - 1
                     self.ge(offs, mirroffs)
@@ -3401,34 +3424,34 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     await core00.nodes('[ inet:fqdn=woot.com ]')
 
-                    evnt = await core01.getNexusOffsEvent(offs)
+                    evnt = core01.getNexusOffsEvent(offs)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     q = 'for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
                     self.len(2, await core01.nodes(q))
 
             # now lets start up in the opposite order...
-            async with await s_cortex.Cortex.anit(dirn=path01) as core01:
+            async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
 
                 await core01.initCoreMirror(url)
 
-                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                async with await s_cortex.Cortex.anit(dirn=path00, conf=core01conf) as core00:
 
                     self.len(1, await core00.nodes('[ inet:ipv4=6.6.6.6 ]'))
 
                     offs = await core00.getNexusOffs() - 1
-                    evnt = await core01.getNexusOffsEvent(offs)
+                    evnt = core01.getNexusOffsEvent(offs)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
 
                 # what happens if *he* goes down and comes back up again?
-                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                async with await s_cortex.Cortex.anit(dirn=path00, conf=core01conf) as core00:
 
                     await core00.nodes('[ inet:ipv4=7.7.7.7 ]')
 
                     offs = await core00.getNexusOffs() - 1
-                    evnt = await core01.getNexusOffsEvent(offs)
+                    evnt = core01.getNexusOffsEvent(offs)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
