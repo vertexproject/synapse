@@ -406,10 +406,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
             'type': 'string'
         },
-        'hive': {
-            'description': 'Set to a Hive telepath URL.',
-            'type': 'string'
-        },
         'logchanges': {
             'default': False,
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
@@ -426,7 +422,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.auth = None
         self.sessions = {}
         self.inaugural = False
-        self.remote_hive = False
 
         # each cell has a guid
         path = s_common.genpath(dirn, 'cell.guid')
@@ -473,10 +468,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         auth_passwd = self.conf.get('auth:passwd')
         if auth_passwd is not None:
-            if self.remote_hive:
-                # This is a invalid configuration - bail
-                raise s_exc.BadConfValu(mesg='Cannot set root password on a cell configured to use a remote hive.',
-                                        name='auth:passwd')
             user = await self.auth.getUserByName('root')
             await user.setPasswd(auth_passwd)
 
@@ -676,12 +667,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(self.dmon.fini)
 
     async def _initCellHive(self):
-
-        hurl = self.conf.get('hive')
-        if hurl is not None:
-            self.remote_hive = True
-            return await s_hive.openurl(hurl)
-
         isnew = not self.slab.dbexists('hive')
 
         db = self.slab.initdb('hive')
