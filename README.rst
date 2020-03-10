@@ -19,14 +19,14 @@ Chat
 
 Join the Vertex Project on |slack|_!
 
-.. |circleci| image:: https://circleci.com/gh/vertexproject/synapse/tree/master.svg?style=svg
-..  _circleci: https://circleci.com/gh/vertexproject/synapse/tree/master
+.. |circleci| image:: https://circleci.com/gh/vertexproject/synapse/tree/01x.svg?style=svg
+..  _circleci: https://circleci.com/gh/vertexproject/synapse/tree/01x
 
-.. |codecov| image:: https://codecov.io/gh/vertexproject/synapse/branch/master/graph/badge.svg?branch=master
-.. _codecov: https://codecov.io/gh/vertexproject/synapse
+.. |codecov| image:: https://codecov.io/gh/vertexproject/synapse/branch/01x/graph/badge.svg?branch=master
+.. _codecov: https://codecov.io/gh/vertexproject/synapse/branch/01x
 
-.. |rtd| image:: https://readthedocs.org/projects/vertexprojectsynapse/badge/?version=latest
-.. _rtd: https://vertexprojectsynapse.readthedocs.io
+.. |rtd| image:: https://readthedocs.org/projects/vertexprojectsynapse/badge/?version=01x
+.. _rtd: https://vertexprojectsynapse.readthedocs.io/en/01x/
 
 .. |dockerhub| image:: https://img.shields.io/docker/build/vertexproject/synapse.svg?branch=master
 .. _dockerhub: https://hub.docker.com/r/vertexproject/synapse/
