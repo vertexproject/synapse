@@ -639,12 +639,9 @@ def getParser():
 
     return pars
 
-async def cb(cell, opts, outp):
-    await s_config.common_cb(cell, opts, outp)
-
 async def main(argv, outp=s_output.stdout):
     pars = getParser()
-    cell = await s_config.main(SyncMigrator, argv, pars=pars, cb=cb, outp=outp)
+    cell = await s_config.main(SyncMigrator, argv, pars=pars, cb=s_config.common_cb, outp=outp)
     return cell
 
 if __name__ == '__main__':  # pragma: no cover
