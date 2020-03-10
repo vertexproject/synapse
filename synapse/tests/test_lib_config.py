@@ -268,6 +268,42 @@ class ConfTest(s_test.SynTest):
                     pass
             self.eq(cm.exception.get('key'), 'apikey')
 
+    def test_hideconf(self):
+        hide_schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "additionalProperties": False,
+            "properties": {
+                'key:string': {
+                    'description': 'Key String. I have a defval!',
+                    'type': 'string',
+                    'default': 'Default string!'
+                },
+                'key:integer': {
+                    'description': 'Key Integer',
+                    'type': 'integer',
+                    'hideconf': True,
+                },
+            }
+        }
+        conf = s_config.Config(hide_schema)
+        pars = argparse.ArgumentParser('synapse.tests.test_lib_config.test_hideconf')
+        conf.getArgumentParser(pars=pars)
+
+        hmsg = pars.format_help()
+        self.isin('--key-string', hmsg)
+        self.notin('--key-integer', hmsg)
+
+        s1 = yaml.safe_dump('We all float down here')
+        i1 = yaml.safe_dump(8675309)
+        # Load data from envars next - this shows precedence as well
+        # where data already set won't be set again via this method.
+        with self.setTstEnvars(KEY_STRING=s1,
+                               KEY_INTEGER=i1,
+                               ):
+            conf.setConfFromEnvs()
+        self.eq(conf.get('key:string'), 'We all float down here')
+        self.none(conf.get('key:integer'))
+
     async def test_main_helpers(self):
 
         data = {}
