@@ -152,27 +152,31 @@ class Config(c_abc.MutableMapping):
 
         Notes:
             Configuration data is placed in the argument group called ``config``.
+            Configuration values which have the ``hideconf`` value set to True are not added to the argparser instance.
 
         Returns:
             argparse.ArgumentParser: Either a new or the existing ArgumentParser.
         '''
         if pars is None:
             pars = argparse.ArgumentParser()
-        agrp = pars.add_argument_group('config', 'Configuration arguments.')
-        self._addArgparseArguments(agrp)
+        self._addArgparseArguments(pars)
         return pars
 
-    def _addArgparseArguments(self, pgrp):
+    def _addArgparseArguments(self, pars):
         '''
         Do the work for adding arguments from the schema to an argumentgroup.
 
         Args:
-            pgrp (argparse._ArgumentGroup): The argumentgroup which arguments are added to.
+            pars (argparse.ArgumentParser): The argparser to augment with configuration arguments.
 
         Returns:
             None: Returns None.
         '''
+        argdata = []
+
         for (name, conf) in self.json_schema.get('properties').items():
+            if conf.get('hideconf'):
+                continue
             atyp = jsonschematype2argparse.get(conf.get('type'))
             if atyp is None:
                 continue
@@ -201,7 +205,12 @@ class Config(c_abc.MutableMapping):
             replace_name = name.replace(':', '_')
             self._argparse_conf_names[replace_name] = name
             argname = '--' + parsed_name
-            pgrp.add_argument(argname, **akwargs)
+            argdata.append((argname, akwargs))
+
+        if argdata:
+            pgrp = pars.add_argument_group('config', 'Configuration arguments.')
+            for (argname, akwargs) in argdata:
+                pgrp.add_argument(argname, **akwargs)
 
     def setConfFromOpts(self, opts):
         '''
@@ -238,6 +247,9 @@ class Config(c_abc.MutableMapping):
             - If the environment variable is set, set the config value to the results of ``yaml.yaml_safeload()``
               on the value.
 
+            Configuration values which have the ``hideconf`` value set to True are not resolved from environment
+            variables.
+
         Examples:
 
             For the configuration value ``auth:passwd``, the environment variable is resolved as ``AUTH_PASSWD``.
@@ -246,7 +258,9 @@ class Config(c_abc.MutableMapping):
         Returns:
             None: Returns None.
         '''
-        for name, _ in self.json_schema.get('properties', {}).items():
+        for name, conf in self.json_schema.get('properties', {}).items():
+            if conf.get('hideconf'):
+                continue
             envar = make_envar_name(name, prefix=self.envar_prefix)
             envv = os.getenv(envar)
             if envv is not None:
