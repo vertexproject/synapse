@@ -910,8 +910,6 @@ class Layer(s_nexus.Pusher):
         ]
 
         self.canrev = True
-        self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
-
         self.windows = []
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
@@ -926,12 +924,7 @@ class Layer(s_nexus.Pusher):
         self.onfini(self._onLayrFini)
 
     def pack(self):
-        return {
-            'iden': self.iden,
-            'dirn': self.dirn,
-            'readonly': self.readonly,
-            'ctor': self.ctorname,
-        }
+        return self.layrinfo.pack()
 
     async def truncate(self):
 
@@ -988,6 +981,18 @@ class Layer(s_nexus.Pusher):
 
     def getSpawnInfo(self):
         return self.pack()
+
+    @s_nexus.Pusher.onPushAuto('layer:set')
+    async def setLayerInfo(self, name, valu):
+        '''
+        Set a mutable layer property.
+        '''
+        if name not in ('name',):
+            mesg = f'{name} is not a valid layer info key'
+            raise s_exc.BadOptValu(mesg=mesg)
+        #TODO when we can set more props, we may need to parse values.
+        await self.layrinfo.set(name, valu)
+        return valu
 
     async def stat(self):
         return {

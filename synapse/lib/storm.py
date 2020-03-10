@@ -329,10 +329,27 @@ stormcmds = (
                             'action': 'store_true'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': int}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
+            ('--name', {'help': 'The name of the layer.'}),
         ),
         'storm': '''
-            $layer = $lib.layer.add($cmdopts)
-            $lib.print("Layer added: {iden}", iden=$layer.iden)
+            $layr = $lib.layer.add($cmdopts)
+            $lib.print($layr.repr())
+            $lib.print("Layer added.")
+        ''',
+    },
+    {
+        'name': 'layer.set',
+        'descr': 'Set a layer option.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the layer to modify.'}),
+            ('name', {'help': 'The name of the layer property to set.'}),
+            ('valu', {'help': 'The value to set the layer property to.'}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.iden)
+            $layr.set($cmdopts.name, $cmdopts.valu)
+            $lib.print($layr.repr())
+            $lib.print('Layer updated.')
         ''',
     },
     {
@@ -355,9 +372,7 @@ stormcmds = (
         ),
         'storm': '''
             $layr = $lib.layer.get($cmdopts.iden)
-            $lib.print("Layer {iden} readonly: {readonly}",
-                       iden=$layr.iden,
-                       readonly=$layr.readonly)
+            $lib.print($layr.repr())
         ''',
     },
     {
@@ -367,9 +382,7 @@ stormcmds = (
         'storm': '''
             $lib.print('Layers:')
             for $layr in $lib.layer.list() {
-                $lib.print("  {iden} readonly: {readonly}",
-                           iden=$layr.iden,
-                           readonly=$layr.readonly)
+                $lib.print($layr.repr())
             }
         ''',
     },
@@ -429,11 +442,13 @@ stormcmds = (
         'name': 'view.add',
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
+            ('--name', {'default': None, 'help': 'The name of the new view.'}),
             ('--layers', {'default': [], 'nargs': '*', 'help': 'Layers for the view.'}),
         ),
         'storm': '''
-            $view = $lib.view.add($cmdopts.layers)
-            $lib.print("View added: {iden}", iden=$view.pack().iden)
+            $view = $lib.view.add($cmdopts.layers, name=$cmdopts.name)
+            $lib.print($view.repr())
+            $lib.print("View added.")
         ''',
     },
     {
@@ -448,16 +463,31 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'view.set',
+        'descr': 'Set a view option.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to modify.'}),
+            ('name', {'help': 'The name of the view property to set.'}),
+            ('valu', {'help': 'The value to set the view property to.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.get($cmdopts.iden)
+            $view.set($cmdopts.name, $cmdopts.valu)
+            $lib.print($view.repr())
+            $lib.print("View updated.")
+        ''',
+    },
+    {
         'name': 'view.fork',
         'descr': 'Fork a view in the cortex.',
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to fork.'}),
+            ('--name', {'default': None, 'help': 'Name for the newly forked view.'}),
         ),
         'storm': '''
-            $forkview = $lib.view.get($cmdopts.iden).fork()
-            $lib.print("View {iden} forked to new view: {forkiden}",
-                        iden=$cmdopts.iden,
-                        forkiden=$forkview.pack().iden)
+            $forkview = $lib.view.get($cmdopts.iden).fork(name=$cmdopts.name)
+            $lib.print($forkview.repr())
+            $lib.print("View {iden} forked to new view: {forkiden}", iden=$cmdopts.iden, forkiden=$forkview.iden)
         ''',
     },
     {
@@ -469,14 +499,7 @@ stormcmds = (
         ),
         'storm': '''
             $view = $lib.view.get($cmdopts.iden)
-
-            $lib.print("View {iden} created by {creator}", iden=$view.iden, creator=$view.creator)
-            $lib.print("Layers:")
-            for $layer in $view.layers {
-                $lib.print("  {iden} readonly: {readonly}",
-                           iden=$layer.iden,
-                           readonly=$layer.readonly)
-            }
+            $lib.print($view.repr())
         ''',
     },
     {
@@ -486,14 +509,7 @@ stormcmds = (
         'storm': '''
             $lib.print("")
             for $view in $lib.view.list() {
-
-                $lib.print("View {iden} created by {creator}", iden=$view.iden, creator=$view.creator)
-                $lib.print("Layers:")
-                for $layer in $view.layers {
-                    $lib.print("  {iden} readonly: {readonly}",
-                               iden=$layer.iden,
-                               readonly=$layer.readonly)
-                }
+                $lib.print($view.repr())
                 $lib.print("")
             }
         ''',
