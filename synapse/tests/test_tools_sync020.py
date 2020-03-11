@@ -306,6 +306,8 @@ class SyncTest(s_t_utils.SynTest):
                 '--src', 'tcp://foo:123',
                 '--dest', 'tcp://bar:456',
                 '--offsfile', 'foo.yaml',
+                '--telepath', 'tcp://127.0.0.1:0',
+                '--https', 0,
             ]
 
             async with await s_sync.main(argv) as sync:
