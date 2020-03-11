@@ -194,6 +194,60 @@ class SyncTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
             self.len(2, await core.nodes('inet:dns:a:ipv4=1.2.3.4'))
 
+    async def test_sync_stormsvc(self):
+        conf_sync = {
+            'poll_s': 1,
+        }
+        async with self._getSyncSvc(conf_sync) as (core, turl, fkcore, fkurl, sync):
+            # add sync stormsvc
+            sync.dmon.share('migrsync', sync)
+            root = await sync.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            info = await sync.dmon.listen('tcp://127.0.0.1:0/')
+            sync.dmon.test_addr = info
+            host, port = info
+
+            surl = f'tcp://root:root@127.0.0.1:{port}/migrsync'
+            await core.nodes(f'service.add migrsync {surl}')
+            await core.nodes(f'$lib.service.wait(migrsync)')
+
+            self.nn(core.getStormCmd('migrsync.status'))
+            self.nn(core.getStormCmd('migrsync.startfromfile'))
+            self.nn(core.getStormCmd('migrsync.startfromlast'))
+            self.nn(core.getStormCmd('migrsync.stopsync'))
+
+            # run svc operations
+            lyridens = list(core.layers.keys())
+
+            mesgs = await core.streamstorm(f'migrsync.status').list()
+            self.eq('', ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']))
+            # empty
+
+            mesgs = await core.streamstorm(f'migrsync.startfromfile').list()
+            self.stormIsInPrint('Sync started', mesgs)
+            self.stormIsInPrint(lyridens[0], mesgs)
+            self.stormIsInPrint(lyridens[1], mesgs)
+
+            mesgs = await core.streamstorm(f'migrsync.status').list()
+            self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
+
+            mesgs = await core.streamstorm(f'migrsync.stopsync').list()
+            self.stormIsInPrint('Sync stopped', mesgs)
+            self.stormIsInPrint(lyridens[0], mesgs)
+            self.stormIsInPrint(lyridens[1], mesgs)
+
+            mesgs = await core.streamstorm(f'migrsync.status').list()
+            self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('cancelled'))
+
+            mesgs = await core.streamstorm(f'migrsync.startfromlast').list()
+            self.stormIsInPrint('Sync started', mesgs)
+            self.stormIsInPrint(lyridens[0], mesgs)
+            self.stormIsInPrint(lyridens[1], mesgs)
+
+            mesgs = await core.streamstorm(f'migrsync.status').list()
+            self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
+
     async def test_startSyncFromFile(self):
         conf_sync = {
             'poll_s': 1,
