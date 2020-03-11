@@ -607,7 +607,7 @@ class MigrationTest(s_t_utils.SynTest):
                         shutil.rmtree(os.path.join(root, dname))
 
             # check defaults
-            with self.getTestDir() as dest:
+            with self.getTestDir() as dest, self.withSetLoggingMock():
                 argv = [
                     '--src', src,
                     '--dest', dest,
@@ -642,7 +642,7 @@ class MigrationTest(s_t_utils.SynTest):
         '''
         with self.getRegrDir('cortexes', REGR_VER) as src:
             # check user opts
-            with self.getTestDir() as destp:
+            with self.getTestDir() as destp, self.withSetLoggingMock():
                 dest = os.path.join(destp, 'woot')  # verify svc is creating dir if it doesn't exist
 
                 argv = [
