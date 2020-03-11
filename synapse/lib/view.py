@@ -240,6 +240,10 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = await chan.get()
             kind = mesg[0]
 
+            if kind == 'node':
+                yield mesg
+                continue
+
             if kind == 'node:edits':
                 if editformat == 'nodeedits':
                     yield mesg

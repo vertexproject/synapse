@@ -107,6 +107,18 @@ class ProvenanceTest(s_t_utils.SynTest):
             self.eq(frame[1].get('name'), 'syn.nodes')
             self.isin('user', frame[1])
 
+    async def test_prov_no_extra(self):
+        '''
+        No more than 1 prov:new event with the same data shall be fired for the same query
+        '''
+        self.skip('Pending provenance cache')
+        async with self.getTestCore() as core:
+            mesgs = await core.streamstorm('[test:str=foo :hehe=bar]', opts={'editformat': 'nodeedits'}).list()
+            provs = [m for m in mesgs if m[0] == 'prov:new']
+
+            # No duplicate prov:new
+            self.len(1, provs)
+
     async def test_prov_disabled(self):
         '''
         Test that things still work with provenance disabled

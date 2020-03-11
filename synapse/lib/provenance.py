@@ -181,7 +181,7 @@ class ProvStor(s_base.Base):
         '''
         Writes the current provenance stack to storage if it wasn't already there
 
-        Returns True if was written, False if it was already there
+        Returns (iden, provstack) if was written, (None, None) if it was already there
         '''
         if not ProvenanceEnabled:
             return None, None
