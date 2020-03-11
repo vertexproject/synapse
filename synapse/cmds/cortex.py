@@ -40,8 +40,8 @@ Examples:
     # Disable logging and close the current file
     log --off
 
-    # Enable logging, but only log splices. Log them as jsonl instead of mpk.
-    log --on --splices-only --format jsonl
+    # Enable logging, but only log edits. Log them as jsonl instead of mpk.
+    log --on --edits-only --format jsonl
 
     # Enable logging, but log to a custom path:
     log --on --path /my/aweome/log/directory/storm20010203.mpk
@@ -78,12 +78,10 @@ Examples:
         parser.add_argument('--path', type=str, default=None,
                             help='The path to the log file.  This will append messages to a existing file.')
         optmux = parser.add_mutually_exclusive_group()
-        optmux.add_argument('--splices-only', action='store_true', default=False,
-                            help='Only records splices. Does not record any other messages.')
+        optmux.add_argument('--edits-only', action='store_true', default=False,
+                            help='Only records edits. Does not record any other messages.')
         optmux.add_argument('--nodes-only', action='store_true', default=False,
                             help='Only record the packed nodes returned by storm.')
-        optmux.add_argument('--show-nodeedits', action='store_true', default=False,
-                            help='Show the nodeedits themselves instead of dots.')
         return parser
 
     def __init__(self, cli, **opts):
@@ -108,10 +106,10 @@ Examples:
 
     def save(self, mesg):
         fd = self.locs.get('log:fd')
-        spliceonly = self.locs.get('log:splicesonly')
+        editsonly = self.locs.get('log:editsonly')
         nodesonly = self.locs.get('log:nodesonly')
         if fd and not fd.closed:
-            if spliceonly and mesg[0] not in self.splicetypes:
+            if editsonly and mesg[0] not in (*self.splicetypes, 'node:edits'):
                 return
             if nodesonly:
                 if mesg[0] != 'node':
@@ -169,7 +167,7 @@ Examples:
         fmt = opts.format
         path = opts.path
         nodes_only = opts.nodes_only
-        splice_only = opts.splices_only
+        edits_only = opts.edits_only
         if not path:
             ts = s_time.repr(s_common.now(), True)
             fn = f'storm_{ts}.{fmt}'
@@ -185,7 +183,7 @@ Examples:
         self.locs['log:queue'] = q
         self.locs['log:thr'] = self.queueLoop()
         self.locs['log:nodesonly'] = nodes_only
-        self.locs['log:splicesonly'] = splice_only
+        self.locs['log:editsonly'] = edits_only
         self._cmd_cli.on('storm:mesg', self.onStormMesg)
 
     async def runCmdOpts(self, opts):
@@ -292,7 +290,6 @@ class StormCmd(s_cli.Cmd):
         self.printf('.', addnl=False, color=NODEEDIT_COLOR)
 
     def _onNode(self, mesg, opts):
-
         node = mesg[1]
 
         if opts.get('raw'):

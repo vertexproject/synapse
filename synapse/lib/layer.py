@@ -840,9 +840,7 @@ class Layer(s_nexus.Pusher):
 
         self.lockmemory = self.layrinfo.get('lockmemory')
         self.growsize = self.layrinfo.get('growsize')
-        # self.logedits = self.layrinfo.get('logedits')
-        # Nic tmp
-        self.logedits = True
+        self.logedits = self.layrinfo.get('logedits')
 
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
 

@@ -181,10 +181,6 @@ class View(s_nexus.Pusher):  # type: ignore
         if editformat not in ('nodeedits', 'splices', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
 
-        # splices=true
-        # v1 interface defaults splices=True, does not show nodeedits
-        # editformat=(nodeedits (def), splices, None, count)
-
         async def runStorm():
             cancelled = False
             tick = s_common.now()
@@ -264,9 +260,13 @@ class View(s_nexus.Pusher):  # type: ignore
                 for _, splice in self.layers[0].makeSplices(0, [nodeedits], None):
                     if not show or splice[0] in show:
                         yield splice
+                continue
 
             if kind == 'fini':
+                yield mesg
                 break
+
+            yield mesg
 
     async def iterStormPodes(self, text, opts=None, user=None):
         if user is None:

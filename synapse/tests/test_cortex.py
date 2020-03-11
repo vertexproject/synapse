@@ -2660,7 +2660,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async for _, nodeedits in prox0.syncLayerNodeEdits(0):
                 editlist.append(nodeedits)
                 count += 1
-                if count == 7:
+                if count == 6:
                     break
 
             async with self.getTestCoreAndProxy() as (core1, prox1):

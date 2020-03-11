@@ -244,7 +244,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --format jsonl')
                 fp = cmdr.locs.get('log:fp')
-                await cmdr.runCmdLine('storm [test:str=hi :tick=2018 +#haha.hehe]')
+                await cmdr.runCmdLine('storm --editformat splices [test:str=hi :tick=2018 +#haha.hehe]')
 
                 # Try calling on a second time - this has no effect on the
                 # state of cmdr, but prints a warning
@@ -270,7 +270,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 # Our default format is mpk
                 fp = os.path.join(dirn, 'loggyMcLogFace.mpk')
-                await cmdr.runCmdLine(f'log --on --splices-only --path {fp}')
+                await cmdr.runCmdLine(f'log --on --edits-only --path {fp}')
                 fp = cmdr.locs.get('log:fp')
                 await cmdr.runCmdLine('storm [test:str="I am a message!" :tick=1999 +#oh.my] ')
                 await cmdr.runCmdLine('log --off')
@@ -313,9 +313,9 @@ class CmdCoreTest(s_t_utils.SynTest):
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-                await cmdr.runCmdLine('log --on --splices-only --nodes-only')
+                await cmdr.runCmdLine('log --on --edits-only --nodes-only')
                 await cmdr.fini()
-                e = 'log: error: argument --nodes-only: not allowed with argument --splices-only'
+                e = 'log: error: argument --nodes-only: not allowed with argument --edits-only'
                 self.true(outp.expect(e))
 
                 # Bad internal state

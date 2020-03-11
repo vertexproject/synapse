@@ -293,8 +293,11 @@ class StormV1(Handler):
             return
 
         # dont allow a user to be specified
-        opts = body.get('opts')
+        opts = body.get('opts', {})
         query = body.get('query')
+
+        # Maintain backwards compatibility with 0.1.x output
+        opts['editformat'] = 'splices'
 
         await self.cell.boss.promote('storm', user=user, info={'query': query})
 
