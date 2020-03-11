@@ -220,7 +220,8 @@ class StormTypesTest(s_test.SynTest):
             $foo = "this little node had roast beef"
             $bar.exec()
             '''
-            msgs = await core.streamstorm(q).list()
+            opts = {'editformat': 'splices'}
+            msgs = await core.streamstorm(q, opts=opts).list()
             nodes = [m for m in msgs if m[0] == 'node:add']
             self.len(3, nodes)
             self.eq(nodes[0][1]['ndef'], ('test:str', 'this little node went to market'))
