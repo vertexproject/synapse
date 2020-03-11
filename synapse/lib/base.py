@@ -141,7 +141,13 @@ class Base:
         self._active_tasks = set()  # the free running tasks associated with me
 
     async def enter_context(self, item):
+        '''
+        Modeled on Python's contextlib.ExitStack.enter_context.  Enters a new context manager and adds its __exit__()
+        and __aexist__ method to its onfini handlers.
 
+        Returns:
+            The result of item’s own __aenter__ or __enter__() method.
+        '''
         async def fini():
             meth = getattr(item, '__aexit__', None)
             if meth is not None:
@@ -161,11 +167,12 @@ class Base:
             return await entr()
 
         entr = getattr(item, '__enter__', None)
-        if entr is not None:
-            async def fini():
-                item.__exit__(None, None, None)
-            self.onfini(fini)
-            return entr()
+        assert entr is not None
+
+        async def fini():
+            item.__exit__(None, None, None)
+        self.onfini(fini)
+        return entr()
 
     def onfini(self, func):
         '''
