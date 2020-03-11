@@ -607,7 +607,7 @@ class MigrationTest(s_t_utils.SynTest):
                         shutil.rmtree(os.path.join(root, dname))
 
             # check defaults
-            with self.getTestDir() as dest:
+            with self.getTestDir() as dest, self.withSetLoggingMock():
                 argv = [
                     '--src', src,
                     '--dest', dest,
