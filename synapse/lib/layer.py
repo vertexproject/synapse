@@ -910,6 +910,8 @@ class Layer(s_nexus.Pusher):
         ]
 
         self.canrev = True
+        self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
+
         self.windows = []
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
@@ -980,7 +982,10 @@ class Layer(s_nexus.Pusher):
             self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
     def getSpawnInfo(self):
-        return self.pack()
+        info = self.pack()
+        info['dirn'] = self.dirn
+        info['ctor'] = self.ctorname
+        return info
 
     @s_nexus.Pusher.onPushAuto('layer:set')
     async def setLayerInfo(self, name, valu):
