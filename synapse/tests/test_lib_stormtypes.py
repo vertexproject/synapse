@@ -1570,6 +1570,8 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
+            root = await core.auth.getUserByName('root')
+
             await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
             await core.nodes('[test:int=12 +#tag.test +#tag.proptest:risk=20]')
 
@@ -1689,6 +1691,8 @@ class StormTypesTest(s_test.SynTest):
             q = f'view.get {mainiden}'
             mesgs = await core.streamstorm(q).list()
             self.stormIsInPrint(mainiden, mesgs)
+            self.stormIsInPrint('readonly: False', mesgs)
+            self.stormIsInPrint(core.view.layers[0].iden, mesgs)
 
             # Fork the main view
             q = f'view.fork {mainiden}'
@@ -1716,6 +1720,8 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.streamstorm(q).list()
 
             for viden, v in core.views.items():
+                self.stormIsInPrint(f'created by {root.iden}', mesgs)
+                self.stormIsInPrint(f'readonly: False', mesgs)
                 self.stormIsInPrint(viden, mesgs)
                 for layer in v.layers:
                     self.stormIsInPrint(layer.iden, mesgs)

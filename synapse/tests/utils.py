@@ -461,20 +461,20 @@ class TstEnv:
             raise AttributeError(prop)
         return item
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, cls, exc, tb):
-        self.fini()
+    async def __aexit__(self, cls, exc, tb):
+        await self.fini()
 
     def add(self, name, item, fini=False):
         self.items[name] = item
         if fini:
             self.tofini.append(item)
 
-    def fini(self):
-        for bus in self.tofini:
-            bus.fini()
+    async def fini(self):
+        for base in self.tofini:
+            await base.fini()
 
 class TstOutPut(s_output.OutPutStr):
 

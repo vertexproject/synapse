@@ -78,6 +78,10 @@ class LayerTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=path01) as core01:
 
+                    # test layer/<iden> mapping
+                    async with core00.getLocalProxy(f'*/layer/{layriden}') as layrprox:
+                        self.eq(layriden, await layrprox.getIden())
+
                     url = core00.getLocalUrl('*/layer')
                     conf = {'upstream': url}
                     ldef = await core01.addLayer(ldef=conf)
@@ -130,6 +134,17 @@ class LayerTest(s_t_utils.SynTest):
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:ipv4=5.6.7.8'))
+
+                    # make sure time and user are set on the downstream splices
+                    root = await core01.auth.getUserByName('root')
+
+                    splices = await alist(layr.splicesBack(size=1))
+                    self.len(1, splices)
+
+                    splice = splices[0][1][1]
+                    self.nn(splice.get('time'))
+                    self.eq(splice.get('user'), root.iden)
+                    self.none(splice.get('prov'))
 
     async def test_layer_multi_upstream(self):
 

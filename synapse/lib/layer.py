@@ -380,12 +380,26 @@ class StorTypeUtf8(StorType):
         yield from liftby.buidsByRange(minindx, maxindx)
 
     def _liftUtf8Regx(self, liftby, valu):
+
         regx = regex.compile(valu)
+        lastbuid = None
+
         for buid in liftby.buidsByPref():
-            storvalu = liftby.getNodeValu(buid)
-            if regx.search(storvalu) is None:
+            if buid == lastbuid:
                 continue
-            yield buid
+
+            lastbuid = buid
+            storvalu = liftby.getNodeValu(buid)
+
+            if isinstance(storvalu, (tuple, list)):
+                for sv in storvalu:
+                    if regx.search(sv) is not None:
+                        yield buid
+                        break
+            else:
+                if regx.search(storvalu) is None:
+                    continue
+                yield buid
 
     def _liftUtf8Prefix(self, liftby, valu):
         indx = self._getIndxByts(valu)
@@ -1718,15 +1732,20 @@ class Layer(s_nexus.Pusher):
 
                 async with await s_telepath.openurl(url) as proxy:
 
+                    creator = self.layrinfo.get('creator')
+
                     iden = await proxy.getIden()
                     offs = self.offsets.get(iden)
                     logger.warning(f'upstream sync connected ({url} offset={offs})')
 
                     if offs == 0:
                         offs = await proxy.getNodeEditOffset()
+                        meta = {'time': s_common.now(),
+                                'user': creator,
+                                }
 
                         async for item in proxy.iterLayerNodeEdits():
-                            await self.storNodeEditsNoLift([item], {})
+                            await self.storNodeEditsNoLift([item], meta)
 
                         self.offsets.set(iden, offs)
 
@@ -1771,7 +1790,9 @@ class Layer(s_nexus.Pusher):
                                 items.append(nexi)
 
                             for nodeeditoffs, item in items:
-                                await self.storNodeEditsNoLift(item, {})
+                                await self.storNodeEditsNoLift(item, {'time': s_common.now(),
+                                                                      'user': creator,
+                                                                      })
                                 self.offsets.set(iden, nodeeditoffs + 1)
 
                                 waits = self.upstreamwaits[iden].pop(nodeeditoffs + 1, None)

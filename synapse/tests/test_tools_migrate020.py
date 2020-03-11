@@ -14,6 +14,8 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.cell as s_cell
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.migrate_020 as s_migr
@@ -436,13 +438,28 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.fini()
 
             # startup 0.2.0 core
-            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+            async with await s_cortex.Cortex.anit(dest, conf={'logchanges': True}) as core:
                 # check that nexus root has offsets from migration
                 self.gt(await core.getNexusOffs(), 1)
 
                 # check core data
                 await self._checkCore(core, tdata)
                 await self._checkAuth(core)
+
+                # check layer config
+                lyr = core.layers[locallyrs[0]]
+                self.false(lyr.lockmemory)
+                self.false(lyr.readonly)
+                self.true(lyr.logedits)
+                self.eq(core.auth.rootuser.iden, lyr.layrinfo.get('creator'))
+                self.eq(s_modelrev.maxvers, await lyr.getModelVers())
+
+                lyr = core.layers[locallyrs[1]]
+                self.false(lyr.lockmemory)
+                self.false(lyr.readonly)
+                self.true(lyr.logedits)
+                self.eq(core.auth.rootuser.iden, lyr.layrinfo.get('creator'))
+                self.eq(s_modelrev.maxvers, await lyr.getModelVers())
 
     async def test_migr_nexusoff(self):
         conf = {
@@ -516,10 +533,17 @@ class MigrationTest(s_t_utils.SynTest):
             self.gt(offslogs0[0]['val'][0], 0)
             self.gt(offslogs0[1]['val'][0], 0)
 
-            # check the saved file
+            # check the saved offset file
             offsyaml = s_common.yamlload(dest0, 'migration', 'lyroffs.yaml')
             offslogdict = {x['key']: {'nextoffs': x['val'][0], 'created': x['val'][1]} for x in offslogs0}
             self.eq(offsyaml, offslogdict)
+
+            # check the saved version file
+            # note that forked view layer does not have model vers set in 0.1.x
+            versyaml = s_common.yamlload(dest0, 'migration', 'migrvers.yaml')
+            self.sorteq([(-1, -1, -1), (0, 1, 2)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
+            self.eq((-1, -1, -1), versyaml.get('src:cortex'))  # unknown with regr repo at 0.1.51
+            self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr0.migrops})
 
             await migr0.fini()
 
@@ -553,9 +577,15 @@ class MigrationTest(s_t_utils.SynTest):
                 self.gt(offslogs[0]['val'][1], offslogs0[0]['val'][1])  # timestamp should be updated
                 self.gt(offslogs[1]['val'][1], offslogs0[1]['val'][1])
 
-                # check the saved file
+                # check the saved offset file
                 offsyaml = s_common.yamlload(dest, 'migration', 'lyroffs.yaml')
                 self.eq(offsyaml, {x['key']: {'nextoffs': x['val'][0], 'created': x['val'][1]} for x in offslogs})
+
+                # check the saved version file
+                versyaml = s_common.yamlload(dest, 'migration', 'migrvers.yaml')
+                self.sorteq([(-1, -1, -1), (0, 1, 2)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
+                self.eq((-1, -1, -1), versyaml.get('src:cortex'))  # unknown with regr repo at 0.1.51
+                self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr.migrops})
 
                 await migr.fini()
 
@@ -571,7 +601,7 @@ class MigrationTest(s_t_utils.SynTest):
         '''
         with self.getRegrDir('cortexes', REGR_VER) as src:
             # sneak in test for missing splice slab - no impact to migration
-            for root, dirs, files in os.walk(src, topdown=True):
+            for root, dirs, _ in os.walk(src, topdown=True):
                 for dname in dirs:
                     if dname == 'splices.lmdb':
                         shutil.rmtree(os.path.join(root, dname))
@@ -595,7 +625,7 @@ class MigrationTest(s_t_utils.SynTest):
                     self.false(migr.srcdedicated)
                     self.false(migr.destdedicated)
 
-                    # check the saved file
+                    # check the saved offset file
                     offsyaml = s_common.yamlload(dest, 'migration', 'lyroffs.yaml')
                     self.true(all(v['nextoffs'] == 0 for v in offsyaml.values()))
 

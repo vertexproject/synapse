@@ -371,6 +371,25 @@ class AgendaTest(s_t_utils.SynTest):
                         'incvals': 1}
                 await agenda.add(cdef)
 
+                # Add an appt with an invalid query
+                cdef = {'useriden': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
+                        'reqs': {s_tu.HOUR: (7, 8)},
+                        'incunit': s_agenda.TimeUnit.MONTH,
+                        'incvals': 1}
+                adef = await agenda.add(cdef)
+                badguid1 = adef.get('iden')
+
+                # Add an appt with a bad version in storage
+                cdef = {'useriden': 'visi', 'iden': 'BAD2', 'storm': '[test:str=foo]',
+                        'reqs': {s_tu.HOUR: (7, 8)},
+                        'incunit': s_agenda.TimeUnit.MONTH,
+                        'incvals': 1}
+                adef = await agenda.add(cdef)
+                badguid2 = adef.get('iden')
+
+                adef['ver'] = 1337
+                await agenda._hivedict.set(badguid2, adef)
+
                 xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2099}
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2099}
 
@@ -385,10 +404,17 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.mod(guid3, '#bahhumbug')
 
             async with self.getTestCore(dirn=fdir) as core:
+                agenda = core.agenda
+
                 appts = agenda.list()
-                self.len(2, appts)
+                self.len(3, appts)
                 last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
                 self.eq(last_appt.query, '#bahhumbug')
+
+                bad_appt = [appt for (iden, appt) in appts if iden == badguid1][0]
+                self.false(bad_appt.enabled)
+
+                self.len(0, [appt for (iden, appt) in appts if iden == badguid2])
 
     async def test_cron_perms(self):
 

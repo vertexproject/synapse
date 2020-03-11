@@ -1115,3 +1115,6 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:witharray:fqdns*[=hehe.com]')
             self.len(1, nodes)
+
+            nodes = await core.nodes('test:witharray:fqdns*[~=ehe]')
+            self.len(1, nodes)

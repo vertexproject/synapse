@@ -24,6 +24,7 @@ import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 
@@ -388,6 +389,11 @@ class CellApi(s_base.Base):
     async def saveHiveTree(self, path=()):
         return await self.cell.saveHiveTree(path=path)
 
+    @adminapi
+    async def getNexusChanges(self, offs):
+        async for item in self.cell.getNexusChanges(offs):
+            yield item
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -400,13 +406,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
             'type': 'string'
         },
-        'hive': {
-            'description': 'Set to a Hive telepath URL.',
-            'type': 'string'
-        },
         'logchanges': {
             'default': False,
-            'description': 'Record all changes to the cell.  Required for mirroring.',
+            'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
             'type': 'boolean'
         },
     }
@@ -418,8 +420,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.dirn = s_common.gendir(dirn)
 
         self.auth = None
+        self.sessions = {}
         self.inaugural = False
-        self.remote_hive = False
 
         # each cell has a guid
         path = s_common.genpath(dirn, 'cell.guid')
@@ -438,17 +440,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             conf = {}
 
         self.conf = self._initCellConf(conf)
-        self.dologging = self.conf.get('layers:logedits')
+
+        self.donexslog = self.conf.get('logchanges')
 
         await s_nexus.Pusher.__anit__(self, self.iden)
-
-        await self._initCellDmon()
-
-        self.cmds = {}
-        self.sessions = {}
-
-        self.boss = await s_boss.Boss.anit()
-        self.onfini(self.boss)
 
         await self._initCellSlab(readonly=readonly)
 
@@ -465,20 +460,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.cellinfo.set('synapse:version', s_version.version)
 
         synvers = self.cellinfo.get('synapse:version')
-        if synvers is None or synvers < s_version.version:
-            await self.cellinfo.set('synapse:version', s_version.version)
 
-        self.auth = await self._initCellAuth()
-
-        # self.cellinfo, a HiveDict for general purpose persistent storage
-        node = await self.hive.open(('cellinfo',))
-        self.cellinfo = await node.dict()
-        self.onfini(node)
-
-        if self.inaugural:
-            await self.cellinfo.set('synapse:version', s_version.version)
-
-        synvers = self.cellinfo.get('synapse:version')
         if synvers is None or synvers < s_version.version:
             await self.cellinfo.set('synapse:version', s_version.version)
 
@@ -486,12 +468,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         auth_passwd = self.conf.get('auth:passwd')
         if auth_passwd is not None:
-            if self.remote_hive:
-                # This is a invalid configuration - bail
-                raise s_exc.BadConfValu(mesg='Cannot set root password on a cell configured to use a remote hive.',
-                                        name='auth:passwd')
             user = await self.auth.getUserByName('root')
             await user.setPasswd(auth_passwd)
+
+        await self._initCellDmon()
+
+        self.boss = await s_boss.Boss.anit()
+        self.onfini(self.boss)
 
         await self._initCellHttp()
 
@@ -509,9 +492,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
     async def _initNexsRoot(self):
-        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.dologging)
+        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.donexslog)
         self.onfini(nexsroot.fini)
         return nexsroot
+
+    async def getNexusChanges(self, offs):
+        async for item in self.nexsroot.iter(offs):
+            yield item
+
+    async def getNexusOffs(self):
+        return self.nexsroot.getOffset()
+
+    def getNexusOffsEvent(self, offs):
+        return self.nexsroot.getOffsetEvent(offs)
 
     async def dyniter(self, iden, todo, gatekeys=()):
 
@@ -674,12 +667,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(self.dmon.fini)
 
     async def _initCellHive(self):
-
-        hurl = self.conf.get('hive')
-        if hurl is not None:
-            self.remote_hive = True
-            return await s_hive.openurl(hurl)
-
         isnew = not self.slab.dbexists('hive')
 
         db = self.slab.initdb('hive')
@@ -689,8 +676,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if isnew:
             path = os.path.join(self.dirn, 'hiveboot.yaml')
             if os.path.isfile(path):
+                logger.debug(f'Loading cell hive from {path}')
                 tree = s_common.yamlload(path)
                 if tree is not None:
+                    # Pack and unpack the tree to avoid tuple/list issues
+                    # for in-memory structures.
+                    tree = s_msgpack.un(s_msgpack.en(tree))
                     await hive.loadHiveTree(tree)
 
         return hive
@@ -711,7 +702,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellAuth(self):
         node = await self.hive.open(('auth',))
-        auth = await s_hiveauth.Auth.anit(node)
+        auth = await s_hiveauth.Auth.anit(node, nexsroot=self.nexsroot)
 
         self.onfini(auth.fini)
         return auth
