@@ -1272,6 +1272,7 @@ class Migrator(s_base.Base):
                 logger.warning(f'Stopping node migration due to reaching nodelim {stot}')
                 # checkpoint is the next node to add
                 await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
+                stot -= 1  # for stats on last node to migrate
                 break
 
             if stot % savechkpnt == 0:
@@ -1306,6 +1307,10 @@ class Migrator(s_base.Base):
                 for ne in nodeedits:
                     logger.debug(f'error nodeedit group item: {ne}')
                     await self._migrlogAdd(migrop, 'error', buid, err)
+
+        # checkpoint on completion if not already created due to a nodelim
+        if nodelim is None:
+            await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
 
         t_end = s_common.now()
         t_dur = t_end - t_strt

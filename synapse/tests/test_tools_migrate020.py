@@ -529,10 +529,11 @@ class MigrationTest(s_t_utils.SynTest):
             logs = [log async for log in migr0._migrlogGet('nodes', 'chkpnt')]
             self.len(1, logs)
             self.eq(25, logs[0]['val'][1])  # last chkpnt was at nodelim
+            lyriden = logs[0]['key']
 
-            logs = [log async for log in migr0._migrlogGet('nodes', 'stat', f'{logs[0]["key"]}:totnodes')]
+            logs = [log async for log in migr0._migrlogGet('nodes', 'stat', f'{lyriden}:totnodes')]
             self.len(1, logs)
-            self.eq(25, logs[0]['val'][0])
+            self.eq(24, logs[0]['val'][0])
             self.ge(24, logs[0]['val'][1])  # -1 for error node
 
             await migr0.fini()
@@ -543,6 +544,9 @@ class MigrationTest(s_t_utils.SynTest):
 
             async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
                 await migr.migrate()
+
+                log = await migr._migrlogGetOne('nodes', 'chkpnt', lyriden)
+                self.eq(len(tdata['podes']), log['val'][1] - 1)  # chkpnt is the val to start resume from
 
                 await self._checkStats(tdata, migr, locallyrs)
 
