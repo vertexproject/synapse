@@ -127,14 +127,12 @@ class LibPkg(Lib):
         })
 
     async def _libPkgAdd(self, pkgdef):
-        todo = s_common.todo('addStormPkg', pkgdef)
-        gatekeys = ((self.runt.user.iden, ('pkgs', 'add'), None),)
-        await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.user.confirm(('pkgs', 'add'), None)
+        await self.runt.snap.core.addStormPkg(pkgdef)
 
     async def _libPkgDel(self, name):
-        todo = s_common.todo('delStormPkg', name)
-        gatekeys = ((self.runt.user.iden, ('pkgs', 'add'), None),)
-        await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        self.runt.user.confirm(('pkgs', 'del'), None)
+        await self.runt.snap.core.delStormPkg(name)
 
     async def _libPkgList(self):
         return await self.runt.snap.core.getStormPkgs()
