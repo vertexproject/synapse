@@ -407,7 +407,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string'
         },
         'logchanges': {
-            'default': False,
+            'default': True,
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
             'type': 'boolean'
         },
