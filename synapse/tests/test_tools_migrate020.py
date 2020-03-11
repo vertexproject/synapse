@@ -716,6 +716,26 @@ class MigrationTest(s_t_utils.SynTest):
                     self.true(migr.srcdedicated)
                     self.true(migr.destdedicated)
 
+                argv = [
+                    '--src', src,
+                    '--dest', dest,
+                    '--form-counts',
+                ]
+
+                outp = self.getTestOutp()
+                async with await s_migr.main(argv, outp=outp) as migr:
+                    self.true(outp.expect('Form counts for layer', throw=False))
+
+                argv = [
+                    '--src', src,
+                    '--dest', dest,
+                    '--dump-errors',
+                ]
+
+                outp = self.getTestOutp()
+                async with await s_migr.main(argv, outp=outp) as migr:
+                    self.true(outp.expect('Dump file located at', throw=False))
+
     async def test_migr_errconf(self):
         with self.getRegrDir('cortexes', REGR_VER) as src:
             with self.getTestDir() as dest:

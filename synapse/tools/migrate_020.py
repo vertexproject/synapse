@@ -1894,12 +1894,9 @@ async def main(argv, outp=s_output.stdout):
 
         return migr
 
-    except Exception:
+    except Exception:  # pragma: no cover
         await migr.fini()
         raise
-
-    finally:
-        await migr.fini()
 
 if __name__ == '__main__':  # pragma: no cover
     asyncio.run(s_base.main(main(sys.argv[1:])))
