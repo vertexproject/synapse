@@ -22,11 +22,11 @@ class Share(s_base.Base):
         sess = link.get('sess')
 
         async def fini():
+            sess.popSessItem(self.iden)
+
             mesg = ('share:fini', {'share': self.iden})
             if not self.link.isfini:
                 await self.link.tx(mesg)
-
-            sess.popSessItem(self.iden)
 
         self.onfini(fini)
 

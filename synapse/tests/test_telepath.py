@@ -301,6 +301,7 @@ class TeleTest(s_t_utils.SynTest):
             dmon.share('foo', foo)
 
             prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1])
+            prox.sess = None
 
             self.eq((10, 20, 30), list(prox.genr()))
 
