@@ -292,6 +292,23 @@ class TeleTest(s_t_utils.SynTest):
         finally:
             s_glob.sync(acm.__aexit__(None, None, None))
 
+    def test_telepath_sync_iter(self):
+
+        try:
+            foo = Foo()
+            acm = self.getTestDmon()
+            dmon = s_glob.sync(acm.__aenter__())
+            dmon.share('foo', foo)
+
+            prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1])
+
+            self.eq((10, 20, 30), list(prox.genr()))
+
+            self.genraises(s_exc.SynErr, prox.genrboom)
+
+        finally:
+            s_glob.sync(acm.__aexit__(None, None, None))
+
     async def test_telepath_no_sess(self):
 
         foo = Foo()
@@ -323,6 +340,9 @@ class TeleTest(s_t_utils.SynTest):
                 # check an async generator return channel
                 genr = prox.corogenr(3)
                 self.eq((0, 1, 2), await alist(genr))
+
+                # call a remote method by name
+                self.eq(30, await prox.call('bar', 10, 20))
 
                 await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
 
