@@ -175,6 +175,9 @@ class SyncMigrator(s_cell.Cell):
         self.pull_last_start = {}  # lyriden: epoch
         self.push_last_start = {}
 
+        self._pull_evnts = {}  # lyriden: event (set when up-to-date)
+        self._push_evnts = {}  # lyriden: event (set when queue is empty)
+
         self._queues = {}  # lyriden: queue of splices
 
     async def status(self, pprint=False):
@@ -352,10 +355,12 @@ class SyncMigrator(s_cell.Cell):
         pulltask = self._pull_tasks.get(lyriden)
         if pulltask is None or pulltask.done():
             self._pull_tasks[lyriden] = self.schedCoro(self._srcPullLyrSplices(lyriden))
+            self._pull_evnts[lyriden] = asyncio.Event()
 
         pushtask = self._push_tasks.get(lyriden)
         if pushtask is None or pushtask.done():
             self._push_tasks[lyriden] = self.schedCoro(self._destPushLyrNodeedits(lyriden))
+            self._push_evnts[lyriden] = asyncio.Event()
 
     async def stopSync(self):
         '''
@@ -460,6 +465,8 @@ class SyncMigrator(s_cell.Cell):
                     else:
                         self._pull_status[lyriden] = 'reading_catchup'
 
+                    self._pull_evnts[lyriden].clear()
+
                     self.pull_last_start[lyriden] = s_common.now()
                     nextoffs, islive = await self._srcIterLyrSplices(prx, startoffs, queue)
 
@@ -477,6 +484,7 @@ class SyncMigrator(s_cell.Cell):
                         if nextoffs == startoffs:
                             logger.debug(f'All splices from {lyriden} have been read')
                             self._pull_status[lyriden] = 'up_to_date'
+                            self._pull_evnts[lyriden].set()
 
                         await asyncio.sleep(poll_s)
 
@@ -702,6 +710,7 @@ class SyncMigrator(s_cell.Cell):
         '''
         fair_iter = self.push_fair_iter
         err_lim = self.err_lim
+        evnt = self._push_evnts[lyriden]
 
         ndef = None
         prov = None
@@ -711,6 +720,7 @@ class SyncMigrator(s_cell.Cell):
         cnt = 0
         errs = 0
         async for offs, splice in queue:
+            evnt.clear()
             queuelen = len(queue.linklist)
             next_ndef = splice[1]['ndef']
             next_prov = splice[1].get('prov')
@@ -757,7 +767,11 @@ class SyncMigrator(s_cell.Cell):
             if queuelen % 10000 == 0:
                 logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
 
-            if queuelen == 0 or cnt % fair_iter == 0:
+            if queuelen == 0:
+                evnt.set()
+                await asyncio.sleep(0)
+
+            elif cnt % fair_iter == 0:
                 await asyncio.sleep(0)
 
 def getParser():
