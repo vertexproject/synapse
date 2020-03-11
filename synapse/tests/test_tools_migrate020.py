@@ -642,7 +642,7 @@ class MigrationTest(s_t_utils.SynTest):
         '''
         with self.getRegrDir('cortexes', REGR_VER) as src:
             # check user opts
-            with self.getTestDir() as destp:
+            with self.getTestDir() as destp, self.withSetLoggingMock():
                 dest = os.path.join(destp, 'woot')  # verify svc is creating dir if it doesn't exist
 
                 argv = [
