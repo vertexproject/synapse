@@ -445,7 +445,6 @@ class SyncMigrator(s_cell.Cell):
                 trycnt = 0
 
                 logger.info(f'Connected to source {lyriden}')
-                self._pull_status[lyriden] = 'reading_src_initial'
                 islive = False
 
                 while not prx.isfini:
@@ -454,17 +453,17 @@ class SyncMigrator(s_cell.Cell):
 
                     logger.debug(f'Pulling splices for layer {lyriden} starting from offset {startoffs}')
                     if islive:
-                        self._pull_status[lyriden] = 'reading_src_live'
+                        self._pull_status[lyriden] = 'reading_at_live'
+                    else:
+                        self._pull_status[lyriden] = 'reading_catchup'
 
                     self.pull_last_start[lyriden] = s_common.now()
-                    nextoffs = await self._srcIterLyrSplices(prx, startoffs, queue)
+                    nextoffs, islive = await self._srcIterLyrSplices(prx, startoffs, queue)
 
                     self.pull_offs.set(lyriden, nextoffs)
-                    islive = True
 
-                    while len(queue.linklist) > q_cap:
-                        islive = False
-                        self._pull_status[lyriden] = 'read_to_qcap'
+                    while not islive and len(queue.linklist) > q_cap:
+                        self._pull_status[lyriden] = 'waiting_on_queue'
                         await asyncio.sleep(1)
 
                     if queue.isfini:
@@ -473,8 +472,9 @@ class SyncMigrator(s_cell.Cell):
                         return
 
                     if islive:
-                        logger.debug(f'All splices from {lyriden} have been read; offsets: {startoffs} -> {nextoffs}')
-                        self._pull_status[lyriden] = 'up_to_date'
+                        if nextoffs == startoffs:
+                            logger.debug(f'All splices from {lyriden} have been read')
+                            self._pull_status[lyriden] = 'up_to_date'
 
                         await asyncio.sleep(poll_s)
 
@@ -495,7 +495,7 @@ class SyncMigrator(s_cell.Cell):
             queue (s_queue.Window): Layer queue for splices
 
         Returns:
-            (int): Next offset to start from when all splices have been read
+            (int), (bool): Next offset to start from and whether splices were exhausted
         '''
         curoffs = startoffs
         fair_iter = self.pull_fair_iter
@@ -503,7 +503,7 @@ class SyncMigrator(s_cell.Cell):
         async for splice in prx.splices(startoffs, -1):
             qres = await queue.put((curoffs, splice))
             if not qres:
-                return curoffs
+                return curoffs, False
 
             curoffs += 1
 
@@ -512,9 +512,9 @@ class SyncMigrator(s_cell.Cell):
 
             # if we are approaching the queue lim return so we can pause
             if len(queue.linklist) > q_cap:
-                return curoffs
+                return curoffs, False
 
-        return curoffs
+        return curoffs, True
 
     async def _trnNodeSplicesToNodeedit(self, ndef, splices):
         '''

@@ -208,10 +208,13 @@ class SyncTest(s_t_utils.SynTest):
                 # but the splices from the wlyr will be incorrectly pushed to both
                 # due to fakecore handling so just check the wlyr
                 await syncprx.startSyncFromFile()
-                await asyncio.sleep(1)
+                await asyncio.sleep(1.25)
 
                 self.eq(num_splices, sync.pull_offs.get(wlyr.iden))
                 self.eq(num_splices, sync.push_offs.get(wlyr.iden))
+
+                status = await syncprx.status(True)
+                self.eq({'up_to_date'}, {v.get('src:pullstatus') for v in status.values()})
 
                 await self._checkCore(core)
 
@@ -227,14 +230,17 @@ class SyncTest(s_t_utils.SynTest):
                 self.true(sync._push_tasks[wlyr.iden].done())
                 self.true(sync._queues[wlyr.iden].isfini)
 
-                await syncprx.status()
+                status = await syncprx.status(pprint=True)
+                statusp = ' '.join([v.get('pprint') for v in status.values()])
+                self.eq(4, statusp.count('cancelled'))
 
                 # restart sync over same splices
                 sync.q_cap = 3
                 await syncprx.startSyncFromFile()
-                await asyncio.sleep(1)
+                await asyncio.sleep(1.25)
 
-                self.eq('read_to_qcap', sync._pull_status[wlyr.iden])
+                status = await syncprx.status()
+                self.eq({'waiting_on_queue'}, {v.get('src:pullstatus') for v in status.values()})
 
                 await self._checkCore(core)
 
@@ -353,10 +359,10 @@ class SyncTest(s_t_utils.SynTest):
 
             async with await s_telepath.openurl(os.path.join(fkurl, 'cortex', 'layer', wlyr)) as prx:
                 async with await s_queue.Window.anit(maxsize=None) as queue:
-                    nextoffs_exp = len(fkcore.splicelog[wlyr]['splices'])
+                    nextoffs_exp = (len(fkcore.splicelog[wlyr]['splices']), True)
                     nextoffs = await sync._srcIterLyrSplices(prx, 0, queue)
                     self.eq(nextoffs, nextoffs_exp)
-                    self.len(nextoffs, queue.linklist)
+                    self.len(nextoffs[0], queue.linklist)
 
     async def test_sync_trnNodeSplicesToNodeedits(self):
         async with self._getSyncSvc() as (core, turl, fkcore, fkurl, sync):
