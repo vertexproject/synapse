@@ -78,6 +78,11 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm --editformat count [test:int=43]')
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags test:str=abcd')
             outp.expect(':tick = 2015/01/01 00:00:00.000')
             self.false(outp.expect('#cool', throw=False))

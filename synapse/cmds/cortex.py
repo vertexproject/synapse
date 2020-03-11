@@ -454,8 +454,6 @@ class StormCmd(s_cli.Cmd):
                 self.printf('query canceled.')
                 return
 
-            raise
-
         finally:
 
             if nodesfd is not None:
