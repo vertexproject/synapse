@@ -294,7 +294,7 @@ class SyncTest(s_t_utils.SynTest):
                 await asyncio.sleep(1.25)
 
                 status = await syncprx.status()
-                self.eq({'waiting_on_queue'}, {v.get('src:pullstatus') for v in status.values()})
+                self.eq({'reading_catchup'}, {v.get('src:pullstatus') for v in status.values()})
 
                 await self._checkCore(core)
 

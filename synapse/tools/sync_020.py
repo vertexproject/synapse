@@ -62,8 +62,9 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
                 'storm': '''
                     $svc = $lib.service.get($cmdconf.svciden)
                     $retn = $svc.startSyncFromFile()
-                    $lib.print("Sync started for the following (Layers, offsets):")
-                    for $info in $retn { $lib.print($info) }
+                    $lib.print("\\nSync started for the following (Layers, offsets):")
+                    for $info in $retn { $lib.print($lib.str.concat("    ", $info)) }
+                    $lib.print("")
                 '''
             },
             {
@@ -74,8 +75,9 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
                 'storm': '''
                     $svc = $lib.service.get($cmdconf.svciden)
                     $retn = $svc.startSyncFromLast()
-                    $lib.print("Sync started for the following (Layers, offsets):")
-                    for $info in $retn { $lib.print($info) }
+                    $lib.print("\\nSync started for the following (Layers, offsets):")
+                    for $info in $retn { $lib.print($lib.str.concat("    ", $info)) }
+                    $lib.print("")
                 '''
             },
             {
@@ -86,8 +88,9 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
                 'storm': '''
                     $svc = $lib.service.get($cmdconf.svciden)
                     $retn = $svc.stopSync()
-                    $lib.print("Sync stopped for the following Layers:")
-                    for $info in $retn { $lib.print($info) }
+                    $lib.print("\\nSync stopped for the following Layers:")
+                    for $info in $retn { $lib.print($lib.str.concat("    ", $info)) }
+                    $lib.print("")
                 '''
             },
         ),
@@ -463,7 +466,6 @@ class SyncMigrator(s_cell.Cell):
                     self.pull_offs.set(lyriden, nextoffs)
 
                     while not islive and len(queue.linklist) > q_cap:
-                        self._pull_status[lyriden] = 'waiting_on_queue'
                         await asyncio.sleep(1)
 
                     if queue.isfini:
