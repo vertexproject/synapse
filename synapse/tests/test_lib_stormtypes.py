@@ -1690,6 +1690,16 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.streamstorm(q).list()
             self.stormIsInPrint(mainiden, mesgs)
 
+            with self.raises(s_exc.BadOptValu):
+                await core.nodes('$lib.view.get().set(hehe, haha)')
+
+            with self.raises(s_exc.BadOptValu):
+                await core.nodes('$lib.layer.get().set(hehe, haha)')
+
+            async with core.getLocalProxy() as prox:
+                self.eq(core.view.iden, await prox.callStorm('return ($lib.view.get().get(iden))'))
+                self.eq(core.view.layers[0].iden, await prox.callStorm('return ($lib.view.get().layers.index(0).get(iden))'))
+
             q = f'view.get {mainiden}'
             mesgs = await core.streamstorm(q).list()
             self.stormIsInPrint(mainiden, mesgs)
@@ -1697,12 +1707,11 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(core.view.layers[0].iden, mesgs)
 
             # Fork the main view
-            q = f'view.fork {mainiden}'
+            views = set(core.views.keys())
+            q = f'view.fork {mainiden} --name lulz'
             mesgs = await core.streamstorm(q).list()
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    helperfork = mesg[1]['mesg'].split(' ')[-1]
-
+            self.stormIsInPrint('(name: lulz)', mesgs)
+            helperfork = list(set(core.views.keys()) - views)[0]
             self.isin(helperfork, core.views)
 
             # Add a view
