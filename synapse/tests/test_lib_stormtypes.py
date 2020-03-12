@@ -1519,12 +1519,11 @@ class StormTypesTest(s_test.SynTest):
 
                 await prox.addAuthRule('visi', (True, ('layer', 'add')))
 
-                q = 'layer.add'
+                layers = set(core.layers.keys())
+                q = 'layer.add --name "hehe haha"'
                 mesgs = await core.streamstorm(q).list()
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        visilayr = mesg[1]['mesg'].split(' ')[-1]
-
+                visilayr = list(set(core.layers.keys()) - layers)[0]
+                self.stormIsInPrint('(name: hehe haha)', mesgs)
                 self.isin(visilayr, core.layers)
 
                 # Del requires 'del' permission
@@ -1538,11 +1537,10 @@ class StormTypesTest(s_test.SynTest):
                 self.notin(visilayr, core.layers)
 
                 # Test add layer opts
+                layers = set(core.layers.keys())
                 q = f'layer.add --lockmemory --growsize 5000'
                 mesgs = await core.streamstorm(q).list()
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        locklayr = mesg[1]['mesg'].split(' ')[-1]
+                locklayr = list(set(core.layers.keys()) - layers)[0]
 
                 layr = core.getLayer(locklayr)
                 self.true(layr.lockmemory)
@@ -1556,11 +1554,14 @@ class StormTypesTest(s_test.SynTest):
                 layriden = core2.view.layers[0].iden
                 offs = core2.view.layers[0].getNodeEditOffset()
 
+                layers = set(core.layers.keys())
                 q = f'layer.add --upstream {url}'
                 mesgs = await core.streamstorm(q).list()
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        uplayr = mesg[1]['mesg'].split(' ')[-1]
+                uplayr = list(set(core.layers.keys()) - layers)[0]
+
+                q = f'layer.set {uplayr} name "woot woot"'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint('(name: woot woot)', mesgs)
 
                 layr = core.getLayer(uplayr)
 
@@ -1689,6 +1690,16 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.streamstorm(q).list()
             self.stormIsInPrint(mainiden, mesgs)
 
+            with self.raises(s_exc.BadOptValu):
+                await core.nodes('$lib.view.get().set(hehe, haha)')
+
+            with self.raises(s_exc.BadOptValu):
+                await core.nodes('$lib.layer.get().set(hehe, haha)')
+
+            async with core.getLocalProxy() as prox:
+                self.eq(core.view.iden, await prox.callStorm('return ($lib.view.get().get(iden))'))
+                self.eq(core.view.layers[0].iden, await prox.callStorm('return ($lib.view.get().layers.index(0).get(iden))'))
+
             q = f'view.get {mainiden}'
             mesgs = await core.streamstorm(q).list()
             self.stormIsInPrint(mainiden, mesgs)
@@ -1696,33 +1707,33 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(core.view.layers[0].iden, mesgs)
 
             # Fork the main view
-            q = f'view.fork {mainiden}'
+            views = set(core.views.keys())
+            q = f'view.fork {mainiden} --name lulz'
             mesgs = await core.streamstorm(q).list()
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    helperfork = mesg[1]['mesg'].split(' ')[-1]
-
+            self.stormIsInPrint('(name: lulz)', mesgs)
+            helperfork = list(set(core.views.keys()) - views)[0]
             self.isin(helperfork, core.views)
 
             # Add a view
             ldef = await core.addLayer()
             newlayer2 = core.getLayer(ldef.get('iden'))
 
-            q = f'view.add --layers {newlayer.iden} {newlayer2.iden}'
-            mesgs = await core.streamstorm(q).list()
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    helperadd = mesg[1]['mesg'].split(' ')[-1]
+            views = set(core.views.keys())
 
-            self.isin(helperadd, core.views)
+            q = f'view.add --name "foo bar" --layers {newlayer.iden} {newlayer2.iden}'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('(name: foo bar)', mesgs)
+
+            helperadd = list(set(core.views.keys()) - views)[0]
 
             # List the views in the cortex
             q = 'view.list'
             mesgs = await core.streamstorm(q).list()
 
+            self.stormIsInPrint(f'Creator: {root.iden}', mesgs)
+            self.stormIsInPrint(f'readonly: False', mesgs)
+
             for viden, v in core.views.items():
-                self.stormIsInPrint(f'created by {root.iden}', mesgs)
-                self.stormIsInPrint(f'readonly: False', mesgs)
                 self.stormIsInPrint(viden, mesgs)
                 for layer in v.layers:
                     self.stormIsInPrint(layer.iden, mesgs)
@@ -1826,12 +1837,16 @@ class StormTypesTest(s_test.SynTest):
                 self.notin(forkediden, core.views)
 
                 # Make some views not owned by the user
+                views = set(core.views.keys())
                 q = f'view.add --layers {newlayer.iden}'
                 mesgs = await core.streamstorm(q).list()
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        rootadd = mesg[1]['mesg'].split(' ')[-1]
+                self.stormIsInPrint('(name: unnamed)', mesgs)
+                rootadd = list(set(core.views.keys()) - views)[0]
                 self.isin(rootadd, core.views)
+
+                q = f'view.set {rootadd} name "lol lol"'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint('(name: lol lol)', mesgs)
 
                 q = f'view.fork {mainiden}'
                 mesgs = await core.streamstorm(q).list()

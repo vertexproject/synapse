@@ -381,26 +381,6 @@ class SpawnCore(s_base.Base):
 
             self.views[iden] = view
 
-        # initialize pass-through methods from the telepath proxy
-        # Lift
-        # self.runRuntLift = self.prox.runRuntLift
-        # # StormType Queue APIs
-        # self.addCoreQueue = self.prox.addCoreQueue
-        # self.hasCoreQueue = self.prox.hasCoreQueue
-        # self.delCoreQueue = self.prox.delCoreQueue
-        # self.getCoreQueue = self.prox.getCoreQueue
-        # self.getCoreQueues = self.prox.getCoreQueues
-        # self.getsCoreQueue = self.prox.getsCoreQueue
-        # self.putCoreQueue = self.prox.putCoreQueue
-        # self.putsCoreQueue = self.prox.putsCoreQueue
-        # self.cullCoreQueue = self.prox.cullCoreQueue
-        # # Feedfunc support
-        # self.getFeedFuncs = self.prox.getFeedFuncs
-        # # storm pkgfuncs
-        # self.addStormPkg = self.prox.addStormPkg
-        # self.delStormPkg = self.prox.delStormPkg
-        # self.getStormPkgs = self.prox.getStormPkgs
-
         self.addStormDmon = self.prox.addStormDmon
         self.delStormDmon = self.prox.delStormDmon
         self.getStormDmon = self.prox.getStormDmon
@@ -437,10 +417,9 @@ class SpawnCore(s_base.Base):
         todo = s_common.todo('delStormPkg', name)
         await self.dyncall('cortex', todo)
 
-        pkgdef = await self.pkghive.pop(name, None)
+        pkgdef = self.stormpkgs.get(name)
         if pkgdef is None:
-            mesg = f'No storm package: {name}.'
-            raise s_exc.NoSuchPkg(mesg=mesg)
+            return
 
         await self._dropStormPkg(pkgdef)
 

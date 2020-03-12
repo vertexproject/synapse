@@ -927,12 +927,7 @@ class Layer(s_nexus.Pusher):
         self.onfini(self._onLayrFini)
 
     def pack(self):
-        return {
-            'iden': self.iden,
-            'dirn': self.dirn,
-            'readonly': self.readonly,
-            'ctor': self.ctorname,
-        }
+        return self.layrinfo.pack()
 
     async def truncate(self):
 
@@ -988,7 +983,22 @@ class Layer(s_nexus.Pusher):
             self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
     def getSpawnInfo(self):
-        return self.pack()
+        info = self.pack()
+        info['dirn'] = self.dirn
+        info['ctor'] = self.ctorname
+        return info
+
+    @s_nexus.Pusher.onPushAuto('layer:set')
+    async def setLayerInfo(self, name, valu):
+        '''
+        Set a mutable layer property.
+        '''
+        if name not in ('name',):
+            mesg = f'{name} is not a valid layer info key'
+            raise s_exc.BadOptValu(mesg=mesg)
+        #TODO when we can set more props, we may need to parse values.
+        await self.layrinfo.set(name, valu)
+        return valu
 
     async def stat(self):
         return {
