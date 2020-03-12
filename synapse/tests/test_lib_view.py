@@ -167,6 +167,8 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(2, count['node:edits:count'])
             self.eq(0, count['node:edits'])
             self.eq(0, count['node:add'])
+            cmsgs = [m[1] for m in mesgs if m[0] == 'node:edits:count']
+            self.eq([{'count': 2}, {'count': 1}], cmsgs)
 
             mesgs = await core.streamstorm('[test:str=foo3 :hehe=bar]', opts={'editformat': 'none'}).list()
             count = collections.Counter(m[0] for m in mesgs)

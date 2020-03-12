@@ -232,7 +232,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await synt.worker(runStorm())
 
-        necount = 0
         editformat = opts.get('editformat', 'nodeedits')
 
         while True:
@@ -253,15 +252,15 @@ class View(s_nexus.Pusher):  # type: ignore
                     continue
 
                 if editformat == 'count':
-                    necount += 1
-                    mesg = ('node:edits:count', {'count': necount})
+                    count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
+                    mesg = ('node:edits:count', {'count': count})
                     yield mesg
                     continue
 
                 assert editformat == 'splices'
 
-                nodeedits = mesg[1].get('edits', [()])[0]
-                for _, splice in self.layers[0].makeSplices(0, [nodeedits], None):
+                nodeedits = mesg[1].get('edits', [()])
+                for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
                     if not show or splice[0] in show:
                         yield splice
                 continue

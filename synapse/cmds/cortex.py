@@ -215,7 +215,7 @@ class StormCmd(s_cli.Cmd):
         --hide-tags: Do not print tags.
         --hide-props: Do not print secondary properties.
         --hide-unknown: Do not print messages which do not have known handlers.
-        --show-nodeedits:  Show full nodeedits (otherwise printed as a single .)
+        --show-nodeedits:  Show full nodeedits (otherwise printed as a single . per edit)
         --editformat <format>: What format of edits the server shall emit.
                 Options are
                    * nodeedits (default),
@@ -272,7 +272,8 @@ class StormCmd(s_cli.Cmd):
     def _onNodeEdits(self, mesg, opts):
         edit = mesg[1]
         if not opts.get('show-nodeedits'):
-            self.printf('.', addnl=False, color=NODEEDIT_COLOR)
+            count = sum(len(e[2]) for e in edit.get('edits', ()))
+            self.printf('.' * count, addnl=False, color=NODEEDIT_COLOR)
             return
 
         # hexlify the buids
@@ -287,7 +288,8 @@ class StormCmd(s_cli.Cmd):
         self.printf(repr(mesg), color=NODEEDIT_COLOR)
 
     def _onNodeEditsCount(self, mesg, opts):
-        self.printf('.', addnl=False, color=NODEEDIT_COLOR)
+        count = mesg[1].get('count', 1)
+        self.printf('.' * count, addnl=False, color=NODEEDIT_COLOR)
 
     def _onNode(self, mesg, opts):
         node = mesg[1]
