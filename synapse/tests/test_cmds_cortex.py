@@ -257,6 +257,8 @@ class CmdCoreTest(s_t_utils.SynTest):
                 fp = cmdr.locs.get('log:fp')
                 await cmdr.runCmdLine('storm --editformat splices [test:str=hi :tick=2018 +#haha.hehe]')
 
+                await cmdr.runCmdLine('storm --editformat nodeedits [test:str=hi2 :tick=2018 +#haha.hehe]')
+
                 # Try calling on a second time - this has no effect on the
                 # state of cmdr, but prints a warning
                 await cmdr.runCmdLine('log --on --format jsonl')
@@ -276,6 +278,9 @@ class CmdCoreTest(s_t_utils.SynTest):
                     genr = s_encoding.iterdata(fd, close_fd=False, format='jsonl')
                     objs = list(genr)
                 self.eq(objs[0][0], 'init')
+
+                nodeedits = [m for m in objs if m[0] == 'node:edits']
+                self.ge(len(nodeedits), 2)
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
