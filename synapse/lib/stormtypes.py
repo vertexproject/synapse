@@ -1406,6 +1406,7 @@ class LibLayer(Lib):
         '''
         if ldef is None:
             ldef = {}
+
         ldef['creator'] = self.runt.user.iden
 
         useriden = self.runt.user.iden
@@ -1466,13 +1467,32 @@ class Layer(Prim):
         self.runt = runt
         self.locls.update({
             'iden': ldef.get('iden'),
-            'name': ldef.get('name', 'unnamed'),
-            'readonly': ldef.get('readonly'),
+            'set': self._methLayerSet,
+            'get': self._methLayerGet,
             'pack': self._methLayerPack,
+            'repr': self._methLayerRepr,
         })
+
+    async def _methLayerGet(self, name, defv=None):
+        return self.valu.get(name, defv)
+
+    async def _methLayerSet(self, name, valu):
+        useriden = self.runt.user.iden
+        layriden = self.valu.get('iden')
+        gatekeys = ((useriden, ('layer', 'set', name), layriden),)
+        todo = s_common.todo('setLayerInfo', name, valu)
+        valu = await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        self.valu[name] = valu
 
     async def _methLayerPack(self):
         return self.valu
+
+    async def _methLayerRepr(self):
+        iden = self.valu.get('iden')
+        name = self.valu.get('name', 'unnamed')
+        creator = self.valu.get('creator')
+        readonly = self.valu.get('readonly')
+        return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
 
 class LibView(Lib):
 
@@ -1484,7 +1504,7 @@ class LibView(Lib):
             'list': self._methViewList,
         })
 
-    async def _methViewAdd(self, layers):
+    async def _methViewAdd(self, layers, name=None):
         '''
         Add a view to the cortex.
         '''
@@ -1494,6 +1514,9 @@ class LibView(Lib):
             'creator': self.runt.user.iden,
             'layers': layers
         }
+
+        if name is not None:
+            vdef['name'] = name
 
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('view', 'add'), None),)
@@ -1536,19 +1559,50 @@ class View(Prim):
         self.locls.update({
 
             'iden': vdef.get('iden'),
-            'name': vdef.get('name', 'unnamed'),
-            'creator': vdef.get('creator'),
-
             'layers': [Layer(runt, ldef, path=path) for ldef in vdef.get('layers')],
-            'pack': self._methViewPack,
+            'set': self._methViewSet,
+            'get': self._methViewGet,
             'fork': self._methViewFork,
+            'pack': self._methViewPack,
+            'repr': self._methViewRepr,
             'merge': self._methViewMerge,
         })
+
+    async def _methViewGet(self, name, defv=None):
+        return self.valu.get(name, defv)
+
+    async def _methViewSet(self, name, valu):
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        gatekeys = ((useriden, ('view', 'set', name), viewiden),)
+        todo = s_common.todo('setViewInfo', name, valu)
+        valu = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        self.valu[name] = valu
+
+    async def _methViewRepr(self):
+
+        iden = self.valu.get('iden')
+        name = self.valu.get('name', 'unnamed')
+        creator = self.valu.get('creator')
+
+        lines = [
+            f'View: {iden} (name: {name})',
+            f'  Creator: {creator}',
+            '  Layers:',
+        ]
+        for layr in self.valu.get('layers', ()):
+            layriden = layr.get('iden')
+            readonly = layr.get('readonly')
+            layrname = layr.get('name', 'unnamed')
+
+            lines.append(f'    {layriden}: {layrname} readonly: {readonly}')
+
+        return '\n'.join(lines)
 
     async def _methViewPack(self):
         return self.valu
 
-    async def _methViewFork(self):
+    async def _methViewFork(self, name=None):
         '''
         Fork a view in the cortex.
         '''
@@ -1559,6 +1613,9 @@ class View(Prim):
 
         ldef = {'creator': self.runt.user.iden}
         vdef = {'creator': self.runt.user.iden}
+
+        if name is not None:
+            vdef['name'] = name
 
         todo = s_common.todo('fork', ldef=ldef, vdef=vdef)
 

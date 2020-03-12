@@ -18,6 +18,7 @@ reqValidVdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
         'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
     },
@@ -256,6 +257,18 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.NoSuchLayer(iden=self.invalid)
 
         return await self.snapctor(self, user)
+
+    @s_nexus.Pusher.onPushAuto('view:set')
+    async def setViewInfo(self, name, valu):
+        '''
+        Set a mutable view property.
+        '''
+        if name not in ('name',):
+            mesg = f'{name} is not a valid view info key'
+            raise s_exc.BadOptValu(mesg=mesg)
+        #TODO when we can set more props, we may need to parse values.
+        await self.info.set(name, valu)
+        return valu
 
     @s_nexus.Pusher.onPushAuto('view:addlayer')
     async def addLayer(self, layriden, indx=None):

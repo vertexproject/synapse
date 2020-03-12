@@ -3371,7 +3371,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                async with await s_cortex.Cortex.anit(dirn=path01) as core01:
+                core01conf = {'logchanges': False}
+                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
                     # Mirroring without logchanges doesn't work
                     with self.raises(s_exc.BadConfValu):
                         await core01.initCoreMirror(url)
@@ -3379,11 +3380,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     evnt = core01.getNexusOffsEvent(0)
                     self.true(await s_coro.event_wait(evnt, timeout=0.1))
 
-                core01conf = {'logchanges': True}
-                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                async with await s_cortex.Cortex.anit(dirn=path01) as core01:
                     await core01.initCoreMirror(url)
 
-                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                async with await s_cortex.Cortex.anit(dirn=path01) as core01:
                     offs = await core00.getNexusOffs() - 1
                     mirroffs = await core01.getNexusOffs() - 1
                     self.gt(offs, mirroffs)
@@ -3416,7 +3416,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
-                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                async with await s_cortex.Cortex.anit(dirn=path01) as core01:
                     offs = await core00.getNexusOffs() - 1
                     mirroffs = await core01.getNexusOffs() - 1
                     self.ge(offs, mirroffs)
@@ -3431,11 +3431,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(2, await core01.nodes(q))
 
             # now lets start up in the opposite order...
-            async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+            async with await s_cortex.Cortex.anit(dirn=path01) as core01:
 
                 await core01.initCoreMirror(url)
 
-                async with await s_cortex.Cortex.anit(dirn=path00, conf=core01conf) as core00:
+                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
 
                     self.len(1, await core00.nodes('[ inet:ipv4=6.6.6.6 ]'))
 
@@ -3446,7 +3446,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
 
                 # what happens if *he* goes down and comes back up again?
-                async with await s_cortex.Cortex.anit(dirn=path00, conf=core01conf) as core00:
+                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
 
                     await core00.nodes('[ inet:ipv4=7.7.7.7 ]')
 

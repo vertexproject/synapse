@@ -2,6 +2,7 @@ import os
 import sys
 import signal
 import asyncio
+import contextlib
 import multiprocessing
 
 import synapse.exc as s_exc
@@ -71,6 +72,35 @@ class BaseTest(s_t_utils.SynTest):
         self.true(f.isfini)
         self.true(event.is_set())
         self.false(f._isExitExc())
+
+    async def test_enter_context(self):
+        state = None
+
+        @contextlib.contextmanager
+        def ctxtest():
+            nonlocal state
+            state = "before"
+            yield state
+            state = "after"
+
+        @contextlib.asynccontextmanager
+        async def actxtest():
+            nonlocal state
+            state = "before2"
+            yield state
+            state = "after2"
+
+        async with await s_base.Base.anit() as base:
+            await base.enter_context(ctxtest())
+            self.eq("before", state)
+
+        self.eq("after", state)
+
+        async with await s_base.Base.anit() as base:
+            await base.enter_context(actxtest())
+            self.eq("before2", state)
+
+        self.eq("after2", state)
 
     async def test_base_link(self):
 
