@@ -143,7 +143,7 @@ class Base:
     async def enter_context(self, item):
         '''
         Modeled on Python's contextlib.ExitStack.enter_context.  Enters a new context manager and adds its __exit__()
-        and __aexist__ method to its onfini handlers.
+        and __aexit__ method to its onfini handlers.
 
         Returns:
             The result of item’s own __aenter__ or __enter__() method.
