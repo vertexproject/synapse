@@ -15,6 +15,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
 import synapse.lib.hive as s_hive
+import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
@@ -511,6 +512,9 @@ class Migrator(s_base.Base):
         if self.safetyoff:
             logger.warning('Node value checking before addition has been disabled')
 
+        self.fromlast = conf.get('fromlast', False)
+        self.savechkpnt = 100000  # save a restart marker every this many nodes
+
         self.srcdedicated = conf.get('srcdedicated', False)
 
         self.destdedicated = conf.get('destdedicated', False)
@@ -616,8 +620,8 @@ class Migrator(s_base.Base):
                 'dest:cortex': {},
             }
 
-        srcvers = [log async for log in self._migrlogGet('chkvalid', 'vers', 'src:cortex')]
-        yamlout['src:cortex'] = srcvers[0].get('val') if len(srcvers) > 0 else None
+        srcvers = await self._migrlogGetOne('chkvalid', 'vers', 'src:cortex')
+        yamlout['src:cortex'] = srcvers.get('val') if srcvers is not None else None
 
         async for log in self._migrlogGet('nodes', 'vers'):
             yamlout['src:model'][log['key']] = log['val']  # lyriden: modelvers
@@ -773,14 +777,16 @@ class Migrator(s_base.Base):
 
         return outs
 
-    async def _getFormCountsPrnt(self, iden, src_fcnt, dest_fcnt, addlog=None):
+    async def _getFormCountsPrnt(self, iden, src_fcnt, dest_fcnt, addlog=None, resumed=False):
         '''
+        Create pretty-printed form counts table and optionally save as log entries.
 
         Args:
             iden (str): Layer identifier for counts
             src_fcnt (dict): Dictionary of form name : source counts
             dest_fcnt (dict):  Dictionary of form name : dest counts
             addlog (str or None): Optionally add form count logs for a migrop
+            resumed (bool): Whether stats are incremental from a resume and need to be added to existing on save
 
         Returns:
             (str): Pretty print-able form count comparison table
@@ -805,7 +811,11 @@ class Migrator(s_base.Base):
 
             rprt.append(f'{form:<35}{scnt:<15}{dcnt:<15}{diff:<15}')
             if addlog is not None:
-                await self._migrlogAdd(addlog, 'stat', f'{iden}:form:{form}', (scnt, dcnt))
+                log = await self._migrlogGetOne(addlog, 'stat', f'{iden}:form:{form}')
+                scnt_prev, dcnt_prev = log['val'] if (log is not None and resumed) else (0, 0)
+
+                # dest cnts don't get incremented since they are full layer hot counts
+                await self._migrlogAdd(addlog, 'stat', f'{iden}:form:{form}', (scnt + scnt_prev, dcnt))
 
         rprt.append(f'{"TOTAL":<35}{src_tot:<15}{dest_tot:<15}{diff_tot:<15}')
         rprt.append('\n')
@@ -1188,8 +1198,21 @@ class Migrator(s_base.Base):
         editchnks = self.editbatchsize
         fairiter = self.fairiter
         chknodes = not self.safetyoff
+        fromlast = self.fromlast
+        savechkpnt = self.savechkpnt
         addmode = self.addmode
         model = self.model
+
+        # see if there is a checkpoint to start from
+        startfrom = 0
+        if fromlast:
+            log = await self._migrlogGetOne(migrop, 'chkpnt', iden)
+            if log is None:
+                logger.warning(f'Start from checkpoint was specified but no log found for layer {iden}')
+            else:
+                startfrom = log['val'][1]
+                savetime = s_time.repr(log['val'][2])
+                logger.info(f'Resuming migration from {startfrom} saved on {savetime} for layer {iden}')
 
         # open storage
         path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
@@ -1225,23 +1248,35 @@ class Migrator(s_base.Base):
         nodeedits = []
         t_strt = s_common.now()
         stot = 0
+        fastfwd = fromlast  # so we can stop the comparison once caught up
         async for node in self._srcIterNodes(src_slab, src_bybuid):
-            buid = node[0]
-            form = node[1]['ndef'][0].replace('*', '')
-            src_fcnt[form] += 1
-
             stot += 1
-            if nodelim is not None and stot >= nodelim:
-                logger.warning(f'Stopping node migration due to reaching nodelim {stot}')
-                # checkpoint is the next node to add
-                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
-                break
 
             if stot % 1000000 == 0:  # pragma: no cover
                 logger.info(f'...on node {stot:,} for layer {iden}')
 
             if stot % fairiter == 0:
                 await asyncio.sleep(0)
+
+            if fastfwd:
+                if stot < startfrom:
+                    continue
+                else:
+                    fastfwd = False
+
+            buid = node[0]
+            form = node[1]['ndef'][0].replace('*', '')
+            src_fcnt[form] += 1
+
+            if nodelim is not None and stot >= nodelim:
+                logger.warning(f'Stopping node migration due to reaching nodelim {stot}')
+                # checkpoint is the next node to add
+                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
+                stot -= 1  # for stats on last node to migrate
+                break
+
+            if stot % savechkpnt == 0:
+                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
 
             err, nodeedit = await self._trnNodeToNodeedit(node, model, chknodes)
             if err is not None:
@@ -1273,6 +1308,10 @@ class Migrator(s_base.Base):
                     logger.debug(f'error nodeedit group item: {ne}')
                     await self._migrlogAdd(migrop, 'error', buid, err)
 
+        # checkpoint on completion if not already created due to a nodelim
+        if nodelim is None:
+            await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
+
         t_end = s_common.now()
         t_dur = t_end - t_strt
         t_dur_s = int(t_dur / 1000) + 1
@@ -1282,13 +1321,25 @@ class Migrator(s_base.Base):
         dtot = sum(dest_fcnt.values())
 
         # store and log creation stats
-        prprt = await self._getFormCountsPrnt(iden, src_fcnt, dest_fcnt, addlog=migrop)
+        prprt = await self._getFormCountsPrnt(iden, src_fcnt, dest_fcnt, addlog=migrop, resumed=startfrom)
         logger.debug(prprt)
 
-        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
-        await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
+        if startfrom:
+            # modify stats save for resume
+            log = await self._migrlogGetOne(migrop, 'stat', f'{iden}:totnodes')
+            stot_prev, dtot_prev = log['val'] if log is not None else (0, 0)
 
-        logger.info(f'Migrated {dtot:,} of {stot:,} nodes in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
+            stot_inc = stot - startfrom
+            dtot_inc = dtot - dtot_prev
+        else:
+            stot_inc = stot
+            dtot_inc = dtot
+
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot_inc, t_dur))
+
+        rate = round(stot_inc / t_dur_s)
+        logger.info(f'Migrated {dtot_inc:,} of {stot_inc:,} nodes in {t_dur_s} seconds ({rate} nodes/s avg)')
         logger.info(f'Completed node migration for {iden}')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
@@ -1445,6 +1496,11 @@ class Migrator(s_base.Base):
                 'key': skey,
                 'val': s_msgpack.un(lval),
             }
+
+    async def _migrlogGetOne(self, migrop=None, logtyp=None, key=None):
+        async for log in self._migrlogGet(migrop, logtyp, key):
+            return log
+        return None
 
     #############################################################
     # Source (0.1.x) operations
@@ -1790,6 +1846,8 @@ async def main(argv, outp=s_output.stdout):
                       help='Yield loop after so many node iters')
     pars.add_argument('--safety-off', required=False, action='store_true',
                       help='Do not check node values before adding')
+    pars.add_argument('--from-last', required=False, action='store_true',
+                      help='Start migration from the last node migrated (by count).')
     pars.add_argument('--src-dedicated', required=False, action='store_true',
                       help='Open source layer slab as dedicated (lockmemory=True).')
     pars.add_argument('--dest-dedicated', required=False, action='store_true',
@@ -1818,6 +1876,7 @@ async def main(argv, outp=s_output.stdout):
         'editbatchsize': opts.edit_batchsize,
         'fairiter': opts.fair_iter,
         'safetyoff': opts.safety_off,
+        'fromlast': opts.from_last,
         'srcdedicated': opts.src_dedicated,
         'destdedicated': opts.dest_dedicated,
         'formcounts': formcounts,
@@ -1840,12 +1899,9 @@ async def main(argv, outp=s_output.stdout):
 
         return migr
 
-    except Exception:
+    except Exception:  # pragma: no cover
         await migr.fini()
         raise
-
-    finally:
-        await migr.fini()
 
 if __name__ == '__main__':  # pragma: no cover
     asyncio.run(s_base.main(main(sys.argv[1:])))

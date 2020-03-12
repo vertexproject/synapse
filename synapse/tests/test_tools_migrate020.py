@@ -511,6 +511,53 @@ class MigrationTest(s_t_utils.SynTest):
                 await self._checkCore(core, tdata)
                 await self._checkAuth(core)
 
+    async def test_migr_chkpnt(self):
+        conf = {
+            'src': None,
+            'dest': None,
+            'addmode': 'nexus',
+            'fromlast': True,
+            'nodelim': 25,
+            'migrops': None,
+            'fairiter': 1,
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata0, dest0, locallyrs0, migr0):
+            migr0.savechkpnt = 7
+            await migr0.migrate()
+
+            logs = [log async for log in migr0._migrlogGet('nodes', 'chkpnt')]
+            self.len(1, logs)
+            self.eq(25, logs[0]['val'][1])  # last chkpnt was at nodelim
+            lyriden = logs[0]['key']
+
+            logs = [log async for log in migr0._migrlogGet('nodes', 'stat', f'{lyriden}:totnodes')]
+            self.len(1, logs)
+            self.eq(24, logs[0]['val'][0])
+            self.ge(24, logs[0]['val'][1])  # -1 for error node
+
+            await migr0.fini()
+
+            # finish the migration
+            conf['dest'] = dest0
+            conf['nodelim'] = None
+
+            async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+                await migr.migrate()
+
+                log = await migr._migrlogGetOne('nodes', 'chkpnt', lyriden)
+                self.eq(len(tdata['podes']), log['val'][1] - 1)  # chkpnt is the val to start resume from
+
+                await self._checkStats(tdata, migr, locallyrs)
+
+                await migr.fini()
+
+                # startup 0.2.0 core
+                async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                    # check core data
+                    await self._checkCore(core, tdata)
+                    await self._checkAuth(core)
+
     async def test_migr_restart(self):
         conf = {
             'src': None,
@@ -622,6 +669,7 @@ class MigrationTest(s_t_utils.SynTest):
                     self.eq(migr.fairiter, 100)
                     self.none(migr.nodelim)
                     self.false(migr.safetyoff)
+                    self.false(migr.fromlast)
                     self.false(migr.srcdedicated)
                     self.false(migr.destdedicated)
 
@@ -654,6 +702,7 @@ class MigrationTest(s_t_utils.SynTest):
                     '--fair-iter', '5',
                     '--src-dedicated',
                     '--dest-dedicated',
+                    '--from-last',
                     '--safety-off',
                     '--migr-ops', 'dirn', 'dmodel', 'cell',
                 ]
@@ -667,8 +716,29 @@ class MigrationTest(s_t_utils.SynTest):
                     self.eq(migr.fairiter, 5)
                     self.eq(migr.nodelim, 1000)
                     self.true(migr.safetyoff)
+                    self.true(migr.fromlast)
                     self.true(migr.srcdedicated)
                     self.true(migr.destdedicated)
+
+                argv = [
+                    '--src', src,
+                    '--dest', dest,
+                    '--form-counts',
+                ]
+
+                outp = self.getTestOutp()
+                async with await s_migr.main(argv, outp=outp) as migr:
+                    self.true(outp.expect('Form counts for layer', throw=False))
+
+                argv = [
+                    '--src', src,
+                    '--dest', dest,
+                    '--dump-errors',
+                ]
+
+                outp = self.getTestOutp()
+                async with await s_migr.main(argv, outp=outp) as migr:
+                    self.true(outp.expect('Dump file located at', throw=False))
 
     async def test_migr_errconf(self):
         with self.getRegrDir('cortexes', REGR_VER) as src:
