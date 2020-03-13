@@ -960,7 +960,7 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq(info.get('port'), 5000)
                 self.eq(info.get('original_host'), 'foobar')
 
-                # Support tags and service tags
+                # Support tag_address and service_tag_address
                 url = burl + '&consul_tag_address=wan'
                 info = s_urlhelp.chopurl(url)
                 await s_telepath.disc_consul(info)
@@ -970,10 +970,17 @@ class TeleTest(s_t_utils.SynTest):
 
                 url = burl + '&consul_service_tag_address=wan'
                 info = s_urlhelp.chopurl(url)
-                # Discovery functions update info dict in place.
                 await s_telepath.disc_consul(info)
                 self.eq(info.get('host'), '198.18.0.1')
                 self.eq(info.get('port'), 512)
+                self.eq(info.get('original_host'), 'foobar')
+
+                # Support servicetag based port finding
+                url = burl + '&consul_tag=tacos'
+                info = s_urlhelp.chopurl(url)
+                await s_telepath.disc_consul(info)
+                self.eq(info.get('host'), '192.168.10.10')
+                self.eq(info.get('port'), 5000)
                 self.eq(info.get('original_host'), 'foobar')
 
                 # Punch in our host/port info into consul_data so we can do a end to end test
@@ -1002,3 +1009,13 @@ class TeleTest(s_t_utils.SynTest):
                     await s_telepath.disc_consul(s_urlhelp.chopurl(url))
                 self.isin('certificate verify failed', cm.exception.get('mesg'))
                 self.isinstance(cm.exception.__context__, ssl.SSLCertVerificationError)
+
+                # Sad path - iterating through results and having a
+                # non-existent consul_tag value.
+                new_data = consul_data[0].copy()
+                new_data['ServiceTags'] = []
+                cell.consul_data.insert(0, new_data)
+                with self.raises(s_exc.BadUrl) as cm:
+                    url = burl + '&consul_tag=burritos'
+                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                self.eq('burritos', cm.exception.get('tag'))
