@@ -341,7 +341,7 @@ jobs:
     docker:
       - image: docker:18.05.0-ce
     steps:
-      - deploy_docker_01x
+      - deploy_docker_02x
 
 workflows:
   version: 2
@@ -398,7 +398,7 @@ workflows:
             branches:
               ignore: /.*/
 
-      - docker_tags_01x:
+      - docker_tags_02x:
           requires:
             - doctests
             - python37
