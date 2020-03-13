@@ -1033,6 +1033,52 @@ class SynTest(unittest.TestCase):
                 with mock.patch('synapse.lib.certdir.defdir', certdir):
                     yield dmon
 
+    @contextlib.asynccontextmanager
+    async def getTestSvc(self, ssvc, conf=None, dirn=None):
+        '''
+        Get a service cell.
+        '''
+        if conf is None:
+            conf = {}
+
+        conf = copy.deepcopy(conf)
+
+        if dirn is not None:
+
+            async with await ssvc.anit(dirn, conf=conf) as testsvc:
+                yield testsvc
+
+            return
+
+        with self.getTestDir() as dirn:
+            async with await ssvc.anit(dirn, conf=conf) as testsvc:
+                yield testsvc
+
+    @contextlib.asynccontextmanager
+    async def getTestCoreProx(self, ssvc, ssvc_conf=None, core_conf=None):
+        '''
+        Get a test Cortex, the Telepath Proxy to it, and a test Svc instance.
+        Returns:
+            (s_cortex.Cortex, s_cortex.CoreApi, testsvc): The Cortex, Proxy, and service instance.
+        '''
+        async with self.getTestCoreAndProxy(core_conf) as (core, prox):
+            async with self.getTestSvc(ssvc, ssvc_conf) as testsvc:
+
+                testsvc.dmon.share('testsvc', testsvc)
+
+                root = testsvc.auth.getUserByName('root')
+                await root.setPasswd('root')
+
+                info = await testsvc.dmon.listen('tcp://127.0.0.1:0/')
+                testsvc.dmon.test_addr = info
+                host, port = info
+
+                surl = f'tcp://root:root@127.0.0.1:{port}/testsvc'
+                await core.nodes(f'service.add testsvc {surl}')
+                await core.nodes('$lib.service.wait(testsvc)')
+
+                yield core, prox, testsvc
+
     def getTestUrl(self, dmon, name, **opts):
 
         host, port = dmon.addr
