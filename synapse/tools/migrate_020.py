@@ -733,10 +733,22 @@ class Migrator(s_base.Base):
         fairiter = self.fairiter
         srclyrs = os.listdir(os.path.join(self.src, 'layers'))
 
+        destlyrs = []
         if self.dest is not None:
-            destlyrs = os.listdir(os.path.join(self.dest, 'layers'))
-        else:
-            destlyrs = []
+            path = os.path.join(self.dest, 'layers')
+            for iden in os.listdir(path):
+                if os.path.exists(os.path.join(path, iden, 'layer_v2.lmdb')):
+                    destlyrs.append(iden)
+
+            try:
+                await self._initStors(migr=False, nexus=False, cell=True)
+                await self._migrDatamodel()
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+            except Exception as e:
+                logger.exception(f'Unable to load datamodel from destination')
+
+        model = self.model
 
         outs = []
         for iden in srclyrs:
@@ -766,14 +778,27 @@ class Migrator(s_base.Base):
             # open dest slab
             if hasdest:
                 destpath = os.path.join(self.dest, 'layers', iden, 'layer_v2.lmdb')
-                destslab = await s_lmdbslab.Slab.anit(destpath, lockmemory=False, readonly=True)
-                self.onfini(destslab.fini)
-                dest_fcnt = await destslab.getHotCount('count:forms')
+                dest_slab = await s_lmdbslab.Slab.anit(destpath, lockmemory=False, readonly=True)
+                self.onfini(dest_slab.fini)
+                dest_fcnt = await dest_slab.getHotCount('count:forms')
                 dest_fcnt = dest_fcnt.pack()
             else:
                 dest_fcnt = {}
 
             outs.append(await self._getFormCountsPrnt(iden, src_fcnt, dest_fcnt))
+
+            # optional missing form counts
+            if model is not None:
+                outchk = [
+                    f'Forms that do not exist in the datamodel for layer {iden}:',
+                    f'{"FORM":<35}{"SRC_CNT":<15}',
+                ]
+                for form, cnt in src_fcnt.items():
+                    if form not in model.forms:
+                        outchk.append(f'{form:<35}{cnt:<15}')
+
+                outchk.append('\n')
+                outs.append('\n'.join(outchk))
 
         return outs
 

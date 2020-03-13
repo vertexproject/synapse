@@ -600,14 +600,24 @@ class MigrationTest(s_t_utils.SynTest):
             async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
                 # check form counts
                 fcntprnt = await migr.formCounts()
-                self.len(2, fcntprnt)
+                self.len(4, fcntprnt)
+
+                chks = ' '.join([fcntprnt[1], fcntprnt[3]])  # missing form counts
+                self.isin('migr:test', chks)
+                self.isin('test:int', chks)
+
                 fnum = len([x for x in tdata['podes'] if x[0][0] == 'inet:fqdn'])
-                self.isin(f'inet:fqdn{fnum}{fnum}0', '_'.join(fcntprnt).replace(' ', ''))
+                self.isin(f'inet:fqdn{fnum}{fnum}0', '_'.join([fcntprnt[0], fcntprnt[2]]).replace(' ', ''))
 
                 # check that destination is populated before starting migration
                 iden = locallyrs[0]
                 lyrslab = os.path.join(dest, 'layers', iden, 'layer_v2.lmdb')
                 self.true(os.path.exists(lyrslab))
+
+                # fini what got opened for form counts before starting migration
+                await migr.cellslab.fini()
+                migr.cellslab = None
+                migr.hive = None
 
                 await migr.migrate()
 
