@@ -757,10 +757,32 @@ class Client(s_base.Base):
         return self._t_proxy._getClasses()
 
 async def disc_consul(info):
+    '''
+    Support for updating a URL info dictionary which came from a protocol+consul:// URL.
+
+    Notes:
+        This updates the info-dictionary in place, placing the ``host`` value into
+        an ``original_host`` key, and updating ``host`` and ``port``.
+
+        By default we pull the ``host`` value from the catalog ``Address`` value,
+        and the ``port`` from the ``ServicePort`` value.
+
+        The following HTTP parameters are supported:
+
+        - consul: This is the consul host (schema, fqdn and port) to connect too.
+        - consul_tag: If set, iterate through the catalog results until a result
+          is found which matches the tag value. This is a case sensitive match.
+        - consul_tag_address: If set, prefer the ``TaggedAddresses`` from the catalog.
+        - consul_service_tag_address: If set, prefer the associated value from the
+          ``ServiceTaggedAddresses`` field.
+        - consul_nosslverify: If set, disables SSL verification.
+
+    '''
     info.setdefault('original_host', info.get('host'))
     service = info.get('original_host')
     query = info.get('query')
     host = query.get('consul')
+    tag = query.get('consul_tag')  # iterate through entries until a match for tag is present.
     ctag_addr = query.get('consul_tag_address')  # Prefer a taggedAddress if set
     csvc_tag_addr = query.get('consul_service_tag_address')  # Prefer a serviceTaggedAddress if set
     gkwargs = {'raise_for_status': True}
@@ -778,26 +800,36 @@ async def disc_consul(info):
             async with session.get(url, **gkwargs) as resp:
                 if resp.status == 200:
                     found = await resp.json()
-                    # We are using the *first* entry from the found services.
-                    # Do we want to consider supporting a redir list here?
-                    if csvc_tag_addr:
-                        # Use the ServiceTaggedAddresses
-                        info['host'] = found[0]['ServiceTaggedAddresses'][csvc_tag_addr]['address']
-                        info['port'] = found[0]['ServiceTaggedAddresses'][csvc_tag_addr]['port']
-                    elif ctag_addr:
-                        # Use the TaggedAddresses values.
-                        info['host'] = found[0]['TaggedAddresses'][ctag_addr]
-                        info['port'] = found[0]['ServicePort']
-                    else:
-                        # Use the generic service address/port
-                        info['host'] = found[0]['Address']
-                        info['port'] = found[0]['ServicePort']
-                    return
+                    for entry in found:
+
+                        # If the consul_tag parameter is passed, we will iterate over
+                        # the Consul results until we find the service which matches
+                        # our requested tag. Otherwise, we will grab data from the
+                        # first record from the service catalog.
+                        if tag and tag not in entry.get('ServiceTags'):
+                            continue
+
+                        if csvc_tag_addr:
+                            # Use the ServiceTaggedAddresses
+                            info['host'] = entry['ServiceTaggedAddresses'][csvc_tag_addr]['address']
+                            info['port'] = entry['ServiceTaggedAddresses'][csvc_tag_addr]['port']
+                        elif ctag_addr:
+                            # Use the TaggedAddresses values.
+                            info['host'] = entry['TaggedAddresses'][ctag_addr]
+                            info['port'] = entry['ServicePort']
+                        else:
+                            # Use the generic service address/port
+                            info['host'] = entry['Address']
+                            info['port'] = entry['ServicePort']
+                        return
+
     except asyncio.CancelledError:  # pragma: no cover
         raise
     except Exception as e:
         raise s_exc.BadUrl(mesg=f'Unknown error while resolving service name [{service}] via consul [{str(e)}].',
                            name=service, consul=host) from e
+    raise s_exc.BadUrl(mesg=f'Unable to resolve service information from consul for [{service}].',
+                       name=service, consul=host, tag=tag)
 
 def alias(name):
     '''
