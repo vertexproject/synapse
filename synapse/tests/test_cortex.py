@@ -1731,12 +1731,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.true(await stream.wait(4))
             # Bad syntax
             mesgs = await alist(core.storm(' | | | '))
-            self.len(0, [mesg for mesg in mesgs if mesg[0] == 'init'])
+            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
-            mesgs = [mesg for mesg in mesgs if mesg[0] == 'err']
-            self.len(1, mesgs)
-            enfo = mesgs[0][1]
-            self.eq(enfo[0], 'BadSyntax')
+            # Lark sensitive test
+            self.stormIsInErr("No terminal defined for '|'", mesgs)
+            errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
+            self.eq(errs[0][0], 'BadSyntax')
 
     async def test_strict(self):
 
