@@ -52,7 +52,11 @@ Backward Compatibility Breaks
 
 - Removed cortex offset storage
 
-- Removed splices to cryotank, pushing splices, feed loop
+- Removed splices to cryotank
+
+- Removed pushing splices
+
+- Removed feeds, feed loop
 
 - Consolidated datamodel APIs
 
@@ -61,6 +65,16 @@ Backward Compatibility Breaks
 - Removed #:score tagprop lift
 
 - Removed insecure mode
+
+- snap.model is now accessible at snap.core.model
+
+- no default values anymore
+
+- snap methods nodesby are now different
+
+- auth.getUserByName now async (why?)
+
+- user.admin -> user.isAdmin()
 
 v0.1.X Changelog
 ================
