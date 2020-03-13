@@ -195,7 +195,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 # runtime in the snap, so catch and pass the `err` message
                 self.core.getStormQuery(text)
 
-                shownode = (show is None or 'node' in show)
+                shownode = (not show or 'node' in show)
 
                 async with await self.snap(user=user) as snap:
 
@@ -247,7 +247,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
             if kind == 'node:edits':
                 if editformat == 'nodeedits':
+
+                    nodeedits = s_common.jsonsafe_nodeedits(mesg[1]['edits'])
+                    mesg[1]['edits'] = nodeedits
                     yield mesg
+
                     continue
 
                 if editformat == 'none':

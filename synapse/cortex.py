@@ -2640,6 +2640,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _addSynNodeEdits(self, snap, items):
 
         for item in items:
+            item = s_common.unjsonsafe_nodeedits(item)
             await snap.applyNodeEdits(item)
 
     def getCoreMod(self, name):

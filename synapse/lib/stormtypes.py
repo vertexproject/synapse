@@ -336,6 +336,7 @@ class LibBase(Lib):
         # TODO: return Dict(kwargs)
 
     async def _fire(self, name, **info):
+        s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
 class LibStr(Lib):
@@ -1149,6 +1150,7 @@ class NodeData(Prim):
 
     async def _setNodeData(self, name, valu):
         self._reqAllowed(('node', 'data', 'set', name))
+        s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):

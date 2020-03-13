@@ -2675,6 +2675,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodelist1 = [node.pack() for node in nodelist1]
                 self.eq(nodelist0, nodelist1)
 
+                # Try a nodeedits we might get from cmdr
+                cmdrnodeedits = s_common.jsonsafe_nodeedits(editlist[0])
+                await prox1.addFeedData('syn.nodeedits', [cmdrnodeedits])
+
     async def test_stat(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):

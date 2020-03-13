@@ -1233,6 +1233,7 @@ class Data(Type):
     stortype = s_layer.STOR_TYPE_MSGP
 
     def norm(self, valu):
+        s_common.reqjsonsafe(valu)
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
 

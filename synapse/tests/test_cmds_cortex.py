@@ -258,6 +258,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('storm --editformat splices [test:str=hi :tick=2018 +#haha.hehe]')
 
                 await cmdr.runCmdLine('storm --editformat nodeedits [test:str=hi2 :tick=2018 +#haha.hehe]')
+                await cmdr.runCmdLine('storm [test:comp=(42, bar)]')
 
                 # Try calling on a second time - this has no effect on the
                 # state of cmdr, but prints a warning

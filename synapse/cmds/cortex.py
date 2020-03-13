@@ -127,8 +127,6 @@ Examples:
 
         fmt = self.locs.get('log:fmt')
         if fmt == 'jsonl':
-            if mesg[0] == 'node:edits':
-                mesg = jsonify_nodeedits(mesg)
             s = json.dumps(mesg, sort_keys=True) + '\n'
             buf = s.encode()
             return buf
@@ -202,19 +200,6 @@ Examples:
 
         if opts.off:
             return self.closeLogFd()
-
-def jsonify_nodeedits(editmesg):
-    kind, payload = editmesg
-
-    newedits = []
-    for nodeedit in payload.get('edits', ()):
-        newedit = (s_common.ehex(nodeedit[0]), *nodeedit[1:])
-        newedits.append(newedit)
-
-    newpayload = {k: v for k, v in payload.items() if k != 'edits'}
-    newpayload['edits'] = newedits
-
-    return (kind, newpayload)
 
 class StormCmd(s_cli.Cmd):
     '''
@@ -290,8 +275,6 @@ class StormCmd(s_cli.Cmd):
             count = sum(len(e[2]) for e in edit.get('edits', ()))
             self.printf('.' * count, addnl=False, color=NODEEDIT_COLOR)
             return
-
-        mesg = jsonify_nodeedits(mesg)
 
         self.printf(repr(mesg), color=NODEEDIT_COLOR)
 

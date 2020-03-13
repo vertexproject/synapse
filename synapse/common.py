@@ -648,3 +648,35 @@ def config(conf, confdefs):
 def deprecated(name):
     mesg = f'"{name}" is deprecated in 0.2.0.'
     warnings.warn(mesg, DeprecationWarning)
+
+def reqjsonsafe(item):
+    '''
+    Returns None if item is json serializable, otherwise raises an exception
+    '''
+    try:
+        json.dumps(item)
+    except TypeError as e:
+        raise s_exc.MustBeJsonSafe(mesg={str(e)}) from None
+
+def jsonsafe_nodeedits(nodeedits):
+    '''
+    Hexlify the buid of each node:edits
+    '''
+    retn = []
+    for nodeedit in nodeedits:
+        newedit = (ehex(nodeedit[0]), *nodeedit[1:])
+        retn.append(newedit)
+
+    return retn
+
+def unjsonsafe_nodeedits(nodeedits):
+    retn = []
+    for nodeedit in nodeedits:
+        buid = nodeedit[0]
+        if isinstance(buid[0], str):
+            newedit = (uhex(nodeedit[0]), *nodeedit[1:])
+        else:
+            newedit = nodeedit
+        retn.append(newedit)
+
+    return retn
