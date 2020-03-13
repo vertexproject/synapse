@@ -183,12 +183,13 @@ class View(s_nexus.Pusher):  # type: ignore
             tick = s_common.now()
             count = 0
             try:
-                # First, try text parsing. If this fails, we won't be able to get
-                # a storm runtime in the snap, so catch and pass the `err` message
-                # before handing a `fini` message along.
-                self.core.getStormQuery(text)
 
+                # Always start with an init message.
                 await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
+
+                # Try text parsing. If this fails, we won't be able to get a storm
+                # runtime in the snap, so catch and pass the `err` message
+                self.core.getStormQuery(text)
 
                 shownode = (show is None or 'node' in show)
                 async with await self.snap(user=user) as snap:
