@@ -142,6 +142,15 @@ What you need to do
 Removed Default Values From Model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+What changed
+    Model properties may no longer have default values.
+
+Why make the change
+    The root reason for this change is a complex cascade of requirements which hinge on the simple concept of populating a default value.  In Synapse ``0.2.x``, nodes may be created and edited without lifting them.  This means that ingest speeds can be significantly increased by taking an "upsert" approach.  However, it also has the side effect of making it very difficult to know if a given node already has a value specified in another layer without lifting and fusing the node from all the properties in all the layers within the view.  Ultimately, by removing the expectation of default values for a given property, we have been able to allow the Cortex to create nodes without needing to lift them, creating a large performance benefit.
+
+What you need to do
+    If you have custom model elements that have default values, they will no longer be populated by default.  As a work around, you may create a trigger which populates the property when the node is added, but use caution when merging properties from multiple layers when populating defaults.
+
 Additional Changes
 ------------------
 
