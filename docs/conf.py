@@ -194,6 +194,7 @@ def run_apidoc(_):
     main(args)
 
 def run_modeldoc(_):
+    return
     import synapse
     import subprocess
     abssynf = os.path.abspath(synapse.__file__)
@@ -204,6 +205,7 @@ def run_modeldoc(_):
     subprocess.run(args, cwd=synpd)
 
 def convert_ipynb(_):
+    return
     import synapse.common as s_common
     import nbconvert.nbconvertapp as nba
     cwd = os.getcwd()
