@@ -866,4 +866,3 @@ class Snap(s_base.Base):
                 yield item
             if some:
                 return
-
