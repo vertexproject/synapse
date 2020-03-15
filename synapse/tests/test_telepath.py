@@ -1019,3 +1019,30 @@ class TeleTest(s_t_utils.SynTest):
                     url = burl + '&consul_tag=burritos'
                     await s_telepath.disc_consul(s_urlhelp.chopurl(url))
                 self.eq('burritos', cm.exception.get('tag'))
+
+    async def test_telepath_pipeline(self):
+
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+
+            dmon.share('foo', foo)
+
+            async def genr():
+                yield s_common.todo('bar', 10, 30)
+                yield s_common.todo('bar', 20, 30)
+                yield s_common.todo('bar', 30, 30)
+
+            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+            async with await s_telepath.openurl(url) as proxy:
+
+                self.eq(20, await proxy.bar(10, 10))
+                self.eq(1, len(proxy.links))
+
+                vals = []
+                async for retn in proxy.getPipeLine(genr()):
+                    vals.append(s_common.result(retn))
+
+                self.eq(vals, (40, 50, 60))
+
+                self.eq(1, len(proxy.links))
+                self.eq(160, await proxy.bar(80, 80))

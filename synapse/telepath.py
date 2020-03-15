@@ -214,6 +214,70 @@ class GenrMethod(Method):
         todo = (self.name, args, kwargs)
         return GenrIter(self.proxy, todo, self.share)
 
+class PipeLine(s_base.Base):
+
+    async def __anit__(self, proxy, genr, name=None):
+
+        await s_base.Base.__anit__(self)
+
+        self.genr = genr
+        self.name = name
+        self.proxy = proxy
+
+        self.count = 0
+        self.genrdone = False
+        self.mustraise = None
+
+        self.link = await proxy.getPoolLink()
+        self.task = self.schedCoro(self._runGenrLoop())
+
+    async def _runGenrLoop(self):
+
+        async for todo in self.genr:
+
+            mesg = ('t2:init', {
+                    'todo': todo,
+                    'name': self.name,
+                    'sess': self.proxy.sess})
+
+            try:
+
+                await self.link.tx(mesg)
+                self.count += 1
+
+            except asyncio.CancelledError as e:
+                return
+
+            except Exception as e:
+                self.mustraise = s_common.err(e)
+                return
+
+        self.genrdone = True
+
+    async def __aiter__(self):
+
+        while not self.isfini:
+
+            if self.mustraise is not None:
+                s_common.result(self.mustraise)
+
+            if self.genrdone and self.count == 0:
+                if not self.link.isfini:
+                    await self.proxy._putPoolLink(self.link)
+                return
+
+            mesg = await self.link.rx()
+            if mesg is None:
+                await self.fini()
+                return
+
+            if mesg[0] == 't2:fini':
+                self.count -= 1
+                yield mesg[1].get('retn')
+                continue
+
+            logger.warning('PipeLine got unhandled message: {mesg!r}.')
+
 class Proxy(s_base.Base):
     '''
     A telepath Proxy is used to call remote APIs on a shared object.
@@ -324,6 +388,23 @@ class Proxy(s_base.Base):
 
         # we need a new one...
         return await self._initPoolLink()
+
+    async def getPipeLine(self, genr, name=None):
+        '''
+        Construct a proxy API call pipeline.
+
+        Example:
+
+            def genr():
+                yield s_common.todo('getFooByBar', 10)
+                yield s_common.todo('getFooByBar', 20)
+
+            for retn in proxy.getPipeLine(genr()):
+                valu = s_common.result(retn)
+        '''
+        async with await PipeLine.anit(self, genr, name=name) as pipe:
+            async for retn in pipe:
+                yield retn
 
     async def _initPoolLink(self):
 
