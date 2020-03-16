@@ -10,7 +10,7 @@ Features and Enhancements
 
 - Refactored Layer Storage Format
 
-This release includes significant storage optimizations for both performance and size.  However, the `0.2.0` migration contains no *model* migrations and is strictly limited to the internal LMDB layer storage format.  The new format provides performance enhancements that significantly improve data ingest performance and reduce the memory footprint of the layer.  See :ref:`devops` for details on migrating your `0.1.x` Cortex to `0.2.0`.
+This release includes significant storage optimizations for both performance and size.  However, the `0.2.0` migration contains no *model* migrations and is strictly limited to the internal LMDB layer storage format.  The new format provides performance enhancements that significantly improve data ingest performance and reduce the memory footprint of the layer.  See :ref:`020_migration` for details on migrating your `0.1.x` Cortex to `0.2.0`.
 
 - View/Layer Management
 
@@ -48,8 +48,8 @@ What changed
     node:del       node.del
     prop:set       node.prop.set
     prop:del       node.prop.del
-    tag:add        node.tag.add
-    tag:del        node.tag.del
+    \tag:add       node.tag.add
+    \tag:del       node.tag.del
     ============== ==============
 
 Why make the change
