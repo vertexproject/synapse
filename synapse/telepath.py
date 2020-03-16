@@ -214,7 +214,7 @@ class GenrMethod(Method):
         todo = (self.name, args, kwargs)
         return GenrIter(self.proxy, todo, self.share)
 
-class PipeLine(s_base.Base):
+class Pipeline(s_base.Base):
 
     async def __anit__(self, proxy, genr, name=None):
 
@@ -225,8 +225,6 @@ class PipeLine(s_base.Base):
         self.proxy = proxy
 
         self.count = 0
-        self.genrdone = False
-        self.mustraise = None
 
         self.link = await proxy.getPoolLink()
         self.task = self.schedCoro(self._runGenrLoop())
@@ -240,30 +238,22 @@ class PipeLine(s_base.Base):
                     'name': self.name,
                     'sess': self.proxy.sess})
 
-            try:
-
-                await self.link.tx(mesg)
-                self.count += 1
-
-            except asyncio.CancelledError as e:
-                return
-
-            except Exception as e:
-                self.mustraise = s_common.err(e)
-                return
-
-        self.genrdone = True
+            await self.link.tx(mesg)
+            self.count += 1
 
     async def __aiter__(self):
 
+        taskdone = False
         while not self.isfini:
 
-            if self.mustraise is not None:
-                s_common.result(self.mustraise)
+            if not taskdone and self.task.done():
+                taskdone = True
+                self.task.result()
 
-            if self.genrdone and self.count == 0:
+            if taskdone and self.count == 0:
                 if not self.link.isfini:
                     await self.proxy._putPoolLink(self.link)
+                await self.fini()
                 return
 
             mesg = await self.link.rx()
@@ -276,7 +266,7 @@ class PipeLine(s_base.Base):
                 yield mesg[1].get('retn')
                 continue
 
-            logger.warning('PipeLine got unhandled message: {mesg!r}.')
+            logger.warning('Pipeline got unhandled message: {mesg!r}.')
 
 class Proxy(s_base.Base):
     '''
@@ -389,7 +379,7 @@ class Proxy(s_base.Base):
         # we need a new one...
         return await self._initPoolLink()
 
-    async def getPipeLine(self, genr, name=None):
+    async def getPipeline(self, genr, name=None):
         '''
         Construct a proxy API call pipeline.
 
@@ -399,10 +389,10 @@ class Proxy(s_base.Base):
                 yield s_common.todo('getFooByBar', 10)
                 yield s_common.todo('getFooByBar', 20)
 
-            for retn in proxy.getPipeLine(genr()):
+            for retn in proxy.getPipeline(genr()):
                 valu = s_common.result(retn)
         '''
-        async with await PipeLine.anit(self, genr, name=name) as pipe:
+        async with await Pipeline.anit(self, genr, name=name) as pipe:
             async for retn in pipe:
                 yield retn
 

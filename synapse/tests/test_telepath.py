@@ -1039,7 +1039,7 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq(1, len(proxy.links))
 
                 vals = []
-                async for retn in proxy.getPipeLine(genr()):
+                async for retn in proxy.getPipeline(genr()):
                     vals.append(s_common.result(retn))
 
                 self.eq(vals, (40, 50, 60))
