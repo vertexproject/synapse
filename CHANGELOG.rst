@@ -151,6 +151,18 @@ Why make the change
 What you need to do
     If you have custom model elements that have default values, they will no longer be populated by default.  As a work around, you may create a trigger which populates the property when the node is added, but use caution when merging properties from multiple layers when populating defaults.
 
+Node Data Fields Must Be JSON Compatible
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+What changed
+    Node properties of type ``data`` as well as untyped ``node data`` must be JSON serializable.
+
+Why make the change
+    Node properties of type ``data`` are stored using msgpack serialization, however many of our externally facing APIs use JSON serialization.  By adding the requirement that these fields are JSON compatible, we prevent issues which would preclude nodes from being returned via HTTP APIs.
+
+What you need to do
+    If you're using ``data`` fields or ``node data`` to store raw bytes or other data structures that are incompatible with JSON serialization, you will need to migrate these values to JSON compatible structures prior to running your ``0.2.0`` migration.
+
 Additional Changes
 ------------------
 
