@@ -827,6 +827,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()
 
+        s_common.setlogging(logger, defval=opts.log_level)
+
         cell = await cls.anit(opts.dirn, conf=conf)
 
         try:
@@ -840,8 +842,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if outp is not None:
                 outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
                 outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
-
-            s_common.setlogging(logger, defval=opts.log_level)
+                if opts.name is not None:
+                    outp.printf(f'...{cell.getCellType()} API (telepath name): %s' % (opts.name,))
 
         except Exception:
             await cell.fini()
