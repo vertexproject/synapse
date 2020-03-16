@@ -162,6 +162,8 @@ Additional Changes
 - SYNDEV_OMIT_FINI_WARNS was added to silence tear down warnings
 - Provenance is disabled by default. Enable by setting ``provenance:en: True`` in ``cell.yaml``.
 
+- node data and 'data' type must be json-serializable
+
 v0.1.X Changelog
 ================
 

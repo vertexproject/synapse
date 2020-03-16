@@ -681,6 +681,7 @@ class HttpApiTest(s_tests.SynTest):
                         if mesg[0] == 'node':
                             node = mesg[1]
 
+                    self.nn(node)
                     self.eq(0x01020304, node[0][1])
 
                 async with sess.post(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
