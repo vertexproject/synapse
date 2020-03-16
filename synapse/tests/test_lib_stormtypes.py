@@ -314,7 +314,6 @@ class StormTypesTest(s_test.SynTest):
                 hstr = 'ohhai'
                 ghstr = base64.urlsafe_b64encode((gzip.compress(hstr.encode()))).decode()
                 mstr = 'ohgood'
-                ggstr = base64.urlsafe_b64encode((gzip.compress(mstr.encode()))).decode()
                 n2 = s_common.guid()
                 n3 = s_common.guid()
 
@@ -350,7 +349,7 @@ class StormTypesTest(s_test.SynTest):
                 opts = {'vars': {'iden': n3}}
                 nodes = await snap.nodes('graph:node=$iden', opts=opts)
                 self.len(1, nodes)
-                self.eq(ggstr, nodes[0].props['data'])
+                self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].props['data'])))
 
     async def test_storm_lib_bytes_bzip(self):
         async with self.getTestCore() as core:
