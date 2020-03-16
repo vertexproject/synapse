@@ -151,6 +151,7 @@ class NoCertKey(SynErr):
     pass
 
 class ModAlreadyLoaded(SynErr): pass
+class MustBeJsonSafe(SynErr): pass
 
 class NoSuchAct(SynErr): pass
 class NoSuchAuthGate(SynErr): pass

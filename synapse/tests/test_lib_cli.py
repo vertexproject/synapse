@@ -130,6 +130,28 @@ class CliTest(s_t_utils.SynTest):
             self.eq(opts.get('bar'), True)
             self.eq(tuple(opts.get('haha')), ('hoho', 'haha', 'hehe hehe'))
 
+    async def test_cli_opts_enum(self):
+        async with await s_cli.Cli.anit(None) as cli:
+
+            quit = cli.getCmdByName('quit')
+
+            quit._cmd_syntax = (
+                ('--enum', {'type': 'enum', 'enum:vals': ('foo', 'bar', 'baz'), 'defval': 'def'}),
+            )
+            opts = quit.getCmdOpts('quit')
+            self.eq(opts.get('enum'), 'def')
+
+            opts = quit.getCmdOpts('quit --enum foo')
+            self.eq(opts.get('enum'), 'foo')
+
+            opts = quit.getCmdOpts('quit --enum bar')
+            self.eq(opts.get('enum'), 'bar')
+
+            opts = quit.getCmdOpts('quit --enum baz')
+            self.eq(opts.get('enum'), 'baz')
+
+            self.raises(s_exc.BadSyntax, quit.getCmdOpts, 'quit --enum newp')
+
     async def test_cli_opts_glob(self):
 
         async with await s_cli.Cli.anit(None) as cli:

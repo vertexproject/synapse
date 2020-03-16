@@ -176,7 +176,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
         synt = await self.core.boss.promote('storm', user=user, info=info)
 
-        show = opts.get('show')
+        show = opts.get('show', set())
+
+        editformat = opts.get('editformat', 'nodeedits')
+        if editformat not in ('nodeedits', 'splices', 'count', 'none'):
+            raise s_exc.BadConfValu(mesg='editformat')
 
         async def runStorm():
             cancelled = False
@@ -191,10 +195,11 @@ class View(s_nexus.Pusher):  # type: ignore
                 # runtime in the snap, so catch and pass the `err` message
                 self.core.getStormQuery(text)
 
-                shownode = (show is None or 'node' in show)
+                shownode = (not show or 'node' in show)
+
                 async with await self.snap(user=user) as snap:
 
-                    if show is None:
+                    if not show:
                         snap.link(chan.put)
 
                     else:
@@ -229,14 +234,48 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await synt.worker(runStorm())
 
+        editformat = opts.get('editformat', 'nodeedits')
+
         while True:
 
             mesg = await chan.get()
+            kind = mesg[0]
+
+            if kind == 'node':
+                yield mesg
+                continue
+
+            if kind == 'node:edits':
+                if editformat == 'nodeedits':
+
+                    nodeedits = s_common.jsonsafe_nodeedits(mesg[1]['edits'])
+                    mesg[1]['edits'] = nodeedits
+                    yield mesg
+
+                    continue
+
+                if editformat == 'none':
+                    continue
+
+                if editformat == 'count':
+                    count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
+                    mesg = ('node:edits:count', {'count': count})
+                    yield mesg
+                    continue
+
+                assert editformat == 'splices'
+
+                nodeedits = mesg[1].get('edits', [()])
+                for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
+                    if not show or splice[0] in show:
+                        yield splice
+                continue
+
+            if kind == 'fini':
+                yield mesg
+                break
 
             yield mesg
-
-            if mesg[0] == 'fini':
-                break
 
     async def iterStormPodes(self, text, opts=None, user=None):
         if user is None:

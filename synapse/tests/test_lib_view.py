@@ -1,3 +1,5 @@
+import collections
+
 import synapse.exc as s_exc
 
 import synapse.tests.utils as s_t_utils
@@ -137,3 +139,45 @@ class ViewTest(s_t_utils.SynTest):
 
             await view2.fini()
             await view2.delete()
+
+    async def test_streamstorm_editformat(self):
+        async with self.getTestCore() as core:
+            mesgs = await core.streamstorm('[test:str=foo1 :hehe=bar]', opts={'editformat': 'nodeedits'}).list()
+            count = collections.Counter(m[0] for m in mesgs)
+            self.eq(1, count['init'])
+            self.eq(1, count['fini'])
+            self.eq(1, count['node'])
+            self.eq(2, count['node:edits'])
+            self.eq(0, count['node:add'])
+
+            mesgs = await core.streamstorm('[test:str=foo2 :hehe=bar]', opts={'editformat': 'splices'}).list()
+            count = collections.Counter(m[0] for m in mesgs)
+            self.eq(1, count['init'])
+            self.eq(1, count['node:add'])
+            self.eq(2, count['prop:set'])  # .created and .hehe
+            self.eq(0, count['node:edits'])
+            self.eq(1, count['node'])
+            self.eq(1, count['fini'])
+
+            mesgs = await core.streamstorm('[test:str=foo3 :hehe=bar]', opts={'editformat': 'count'}).list()
+            count = collections.Counter(m[0] for m in mesgs)
+            self.eq(1, count['init'])
+            self.eq(1, count['node'])
+            self.eq(1, count['fini'])
+            self.eq(2, count['node:edits:count'])
+            self.eq(0, count['node:edits'])
+            self.eq(0, count['node:add'])
+            cmsgs = [m[1] for m in mesgs if m[0] == 'node:edits:count']
+            self.eq([{'count': 2}, {'count': 1}], cmsgs)
+
+            mesgs = await core.streamstorm('[test:str=foo3 :hehe=bar]', opts={'editformat': 'none'}).list()
+            count = collections.Counter(m[0] for m in mesgs)
+            self.eq(1, count['init'])
+            self.eq(0, count['node:edits:count'])
+            self.eq(0, count['node:edits'])
+            self.eq(0, count['node:add'])
+            self.eq(1, count['node'])
+            self.eq(1, count['fini'])
+
+            await self.agenraises(s_exc.BadConfValu,
+                                  core.streamstorm('[test:str=foo3 :hehe=bar]', opts={'editformat': 'jsonl'}))
