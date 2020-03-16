@@ -68,7 +68,7 @@ What changed
     editformat Storm runtime behavior
     ========== =========================================================
     nodeedits  Provide new ``node:edits`` events.
-    splices    Provide ``0.1.x`` backward-compatible splice events.
+    splices    Provide ``0.1.x`` backward compatible splice events.
     count      Provide ``node:edits:count`` events with simple counts.
     none       Do not transmit any representation for node edits.
     ========== =========================================================
