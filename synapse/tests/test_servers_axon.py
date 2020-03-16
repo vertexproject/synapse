@@ -1,7 +1,6 @@
 import hashlib
 
 import synapse.axon as s_axon
-#import synapse.servers.axon as s_s_axon
 
 import synapse.tests.utils as s_t_utils
 
@@ -29,7 +28,6 @@ class AxonServerTest(s_t_utils.SynTest):
                 self.true(axon.dmon.shared.get('teleaxon') is axon)
 
             # And data persists...
-            #async with await s_s_axon.main(argv, outp=outp) as axon:
             async with await s_axon.Axon.initFromArgv(argv, outp=outp) as axon:
                 async with axon.getLocalProxy() as proxy:
                     self.true(await proxy.has(asdfhash))
