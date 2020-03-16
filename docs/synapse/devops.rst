@@ -17,22 +17,16 @@ Docker Deployment
 Configuring A Mirror
 --------------------
 
-Axon
-====
-
-Cryotank
-========
-
-Migration
-=========
+0.1.x to 0.2.x Migration
+------------------------
 
 Two tools have been created to execute migration of an ``0.1.x`` Cortex to ``0.2.x``:
 
 * ``migrate_020`` migrates all data from the source to a new destination ``0.2.x`` Cortex.
-* ``sync_020`` is an optional service that synchronizes a running ``0.2.x`` Cortex with post-migration changes from a running ``0.1.x`` Cortex.
+* ``sync_020`` allows for a backup to be migrated and then synchronized with a running Cortex to facilitate minimal downtime.
 
 Migration Quickstart
---------------------
+********************
 
 .. note::
 
@@ -79,7 +73,7 @@ During node migration the following errors may occur, all of which indicate that
 * Is likely due to a node that was not properly re-normalized after a prior Synapse update.
 
 Post-migration Synchronization
-------------------------------
+******************************
 
 If the source ``0.1.x`` Cortex was online during migration, the ``sync_020`` service can be used to push
 the post-migration changes to the migrated ``0.2.x`` Cortex, and keep it updated until cut-over. ``sync_020`` uses
@@ -95,5 +89,11 @@ and monitor synchronization, ``sync_020`` can be added as a Storm service.
         --src <01x_telepath_url> --dest <02x_telepath_url>
 
 #. Add the Storm service to the Cortex and use the available commands to start synchronization.
+
+Axon
+====
+
+Cryotank
+========
 
 .. _index:              ../index.html
