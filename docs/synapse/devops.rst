@@ -75,10 +75,9 @@ During node migration the following errors may occur, all of which indicate that
 Post-migration Synchronization
 ******************************
 
-If the source ``0.1.x`` Cortex was online during migration, the ``sync_020`` service can be used to push
-the post-migration changes to the migrated ``0.2.x`` Cortex, and keep it updated until cut-over. ``sync_020`` uses
-splices to translate the changes, and therefore they must be enabled on the source Cortex. In order to control
-and monitor synchronization, ``sync_020`` can be added as a Storm service.
+After migration, the ``sync_020`` service can be used to push post-backup changes to the migrated ``0.2.x`` Cortex,
+and keep it updated until cut-over. ``sync_020`` uses splices to translate the changes, and therefore they must
+be enabled on the source Cortex. In order to control and monitor synchronization, ``sync_020`` can be added as a Storm service.
 
 #. Complete migration, including starting up the ``0.2.x`` Cortex.
 #. Locate the saved splice offset file from migration at ``<new_02x_dirn>/migration/lyroffs.yaml``.
