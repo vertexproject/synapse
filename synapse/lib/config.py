@@ -158,27 +158,18 @@ class Config(c_abc.MutableMapping):
             akwargs = {'help': conf.get('description', ''),
                        'action': 'store',
                        'type': atyp,
-                       'default': s_common.novalu
                        }
 
             if atyp is bool:
-
-                akwargs.pop('type')
 
                 default = conf.get('default')
                 if default is None:
                     logger.debug(f'Boolean type is missing default information. Will not form argparse for [{name}]')
                     continue
-
                 default = bool(default)
-
-                # Do not use the default value!
-                if default:
-                    akwargs['action'] = 'store_false'
-                    akwargs['help'] = akwargs['help'] + ' Set this option to disable this option.'
-                else:
-                    akwargs['action'] = 'store_true'
-                    akwargs['help'] = akwargs['help'] + ' Set this option to enable this option.'
+                akwargs['type'] = yaml.safe_load
+                akwargs['choices'] = [True, False]
+                akwargs['help'] = akwargs['help'] + f' This option defaults to {default}.'
 
             parsed_name = name.replace(':', '-')
             replace_name = name.replace(':', '_')
@@ -201,7 +192,7 @@ class Config(c_abc.MutableMapping):
         '''
         opts_data = vars(opts)
         for k, v in opts_data.items():
-            if v is s_common.novalu:
+            if v is None:
                 continue
             nname = self._argparse_conf_names.get(k)
             if nname is None:
