@@ -266,7 +266,7 @@ class StormCmd(s_cli.Cmd):
             'warn': self._onWarn,
             'err': self._onErr,
             'node:edits': self._onNodeEdits,
-            'node:edits:count': self._onNodeEditsCount
+            'node:edits:count': self._onNodeEditsCount,
         }
 
     def _onNodeEdits(self, mesg, opts):
@@ -446,6 +446,8 @@ class StormCmd(s_cli.Cmd):
             if e.errinfo.get('errx') == 'CancelledError':
                 self.printf('query canceled.')
                 return
+
+            raise
 
         finally:
 

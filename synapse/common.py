@@ -103,7 +103,7 @@ def buid(valu=None):
 
 def ehex(byts):
     '''
-    Encode a bytes to a string using binascii.hexlify.
+    Encode a bytes variable to a string using binascii.hexlify.
 
     Args:
         byts (bytes): Bytes to encode.
@@ -673,8 +673,8 @@ def unjsonsafe_nodeedits(nodeedits):
     retn = []
     for nodeedit in nodeedits:
         buid = nodeedit[0]
-        if isinstance(buid[0], str):
-            newedit = (uhex(nodeedit[0]), *nodeedit[1:])
+        if isinstance(buid, str):
+            newedit = (uhex(buid), *nodeedit[1:])
         else:
             newedit = nodeedit
         retn.append(newedit)
