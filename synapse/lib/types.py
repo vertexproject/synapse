@@ -3,7 +3,6 @@ import logging
 import collections
 
 import regex
-import xxhash
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -1233,7 +1232,10 @@ class Data(Type):
     stortype = s_layer.STOR_TYPE_MSGP
 
     def norm(self, valu):
-        s_common.reqjsonsafe(valu)
+        try:
+            s_common.reqjsonsafe(valu)
+        except s_exc.MustBeJsonSafe as e:
+            raise s_exc.BadTypeValu() from e
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
 

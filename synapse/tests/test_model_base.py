@@ -79,7 +79,10 @@ class BaseTest(s_t_utils.SynTest):
 
                 # Raise on non-json-safe values
                 props['data'] = {(1, 2): 'foo'}
-                await self.asyncraises(s_exc.MustBeJsonSafe, snap.addNode('graph:event', iden, props=props))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('graph:event', iden, props=props))
+
+                props['data'] = b'bindata'
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('graph:event', iden, props=props))
 
     async def test_model_base_edge(self):
 

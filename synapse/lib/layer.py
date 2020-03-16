@@ -1217,9 +1217,9 @@ class Layer(s_nexus.Pusher):
         Execute a series of storage operations for the given node.
 
         Args:
-            node
+            nodeedit
 
-        Returns a (buid, form, edits) tuple.  edits contains the actual changes
+        Returns a (buid, form, edits) tuple.  edits contains the actual changes.
         '''
         buid, form, edits = nodeedit
 
