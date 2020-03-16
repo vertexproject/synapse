@@ -77,6 +77,13 @@ class BaseTest(s_t_utils.SynTest):
                 self.eq(node.get('data'), ('some', 'data', 'here'))
                 self.eq(node.get('name'), 'Magic Pony')
 
+                # Raise on non-json-safe values
+                props['data'] = {(1, 2): 'foo'}
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('graph:event', iden, props=props))
+
+                props['data'] = b'bindata'
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('graph:event', iden, props=props))
+
     async def test_model_base_edge(self):
 
         async with self.getTestCore() as core:
@@ -114,7 +121,8 @@ class BaseTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('ps:person=$pers -> edge:has -> inet:ipv4', opts=opts))
 
             await self.agenlen(1, core.eval('ps:person=$pers -> edge:wentto -> *', opts=opts))
-            await self.agenlen(1, core.eval('ps:person=$pers -> edge:wentto +:time@=(2014,2017) -> geo:place', opts=opts))
+            q = 'ps:person=$pers -> edge:wentto +:time@=(2014,2017) -> geo:place'
+            await self.agenlen(1, core.eval(q, opts=opts))
             await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto -> inet:ipv4', opts=opts))
 
             opts = {'vars': {'place': plac}}

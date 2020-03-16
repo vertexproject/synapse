@@ -220,13 +220,13 @@ class StormTypesTest(s_test.SynTest):
             $foo = "this little node had roast beef"
             $bar.exec()
             '''
-            # FIXME:  need to wire events back to streamstorm
-            msgs = await core.streamstorm(q).list()
+            opts = {'editformat': 'splices'}
+            msgs = await core.streamstorm(q, opts=opts).list()
             nodes = [m for m in msgs if m[0] == 'node:add']
-            # self.len(3, nodes)
-            # self.eq(nodes[0][1]['ndef'], ('test:str', 'this little node went to market'))
-            # self.eq(nodes[1][1]['ndef'], ('test:str', 'this little node stayed home'))
-            # self.eq(nodes[2][1]['ndef'], ('test:str', 'this little node had roast beef'))
+            self.len(3, nodes)
+            self.eq(nodes[0][1]['ndef'], ('test:str', 'this little node went to market'))
+            self.eq(nodes[1][1]['ndef'], ('test:str', 'this little node stayed home'))
+            self.eq(nodes[2][1]['ndef'], ('test:str', 'this little node had roast beef'))
 
             # but that it doesn't come back up
             q = '''
@@ -311,10 +311,9 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                hstr = b'ohhai'
-                ghstr = gzip.compress(hstr)
-                mstr = b'ohgood'
-                ggstr = gzip.compress(mstr)
+                hstr = 'ohhai'
+                ghstr = base64.urlsafe_b64encode((gzip.compress(hstr.encode()))).decode()
+                mstr = 'ohgood'
                 n2 = s_common.guid()
                 n3 = s_common.guid()
 
@@ -324,10 +323,10 @@ class StormTypesTest(s_test.SynTest):
                 text = f'''
                     graph:node={node1.ndef[1]}
                     $gzthing = :data
-                    $foo = $gzthing.gunzip()
+                    $foo = $lib.base64.decode($gzthing).gunzip()
                     $lib.print($foo)
 
-                    [ graph:node={n2} :data=$foo ]
+                    [ graph:node={n2} :data=$foo.decode() ]
                 '''
 
                 await core.streamstorm(text).list()
@@ -335,29 +334,30 @@ class StormTypesTest(s_test.SynTest):
                 # make sure we gunzip correctly
                 opts = {'vars': {'iden': n2}}
                 nodes = await snap.nodes('graph:node=$iden', opts=opts)
+                self.len(1, nodes)
                 self.eq(hstr, nodes[0].get('data'))
 
                 # gzip
                 text = f'''
                     graph:node={node2.ndef[1]}
                     $bar = :data
-                    [ graph:node={n3} :data=$bar.gzip() ]
+                    [ graph:node={n3} :data=$lib.base64.encode($bar.encode().gzip()) ]
                 '''
                 await core.streamstorm(text).list()
 
                 # make sure we gzip correctly
                 opts = {'vars': {'iden': n3}}
                 nodes = await snap.nodes('graph:node=$iden', opts=opts)
-                self.eq(gzip.decompress(ggstr),
-                        gzip.decompress(nodes[0].get('data')))
+                self.len(1, nodes)
+                self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].props['data'])))
 
     async def test_storm_lib_bytes_bzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                hstr = b'ohhai'
-                ghstr = bz2.compress(hstr)
-                mstr = b'ohgood'
-                ggstr = bz2.compress(mstr)
+                hstr = 'ohhai'
+                ghstr = base64.urlsafe_b64encode((bz2.compress(hstr.encode()))).decode()
+                mstr = 'ohgood'
+                ggstr = base64.urlsafe_b64encode((bz2.compress(mstr.encode()))).decode()
                 n2 = s_common.guid()
                 n3 = s_common.guid()
 
@@ -367,10 +367,10 @@ class StormTypesTest(s_test.SynTest):
                 text = '''
                     graph:node={valu}
                     $bzthing = :data
-                    $foo = $bzthing.bunzip()
+                    $foo = $lib.base64.decode($bzthing).bunzip()
                     $lib.print($foo)
 
-                    [ graph:node={n2} :data=$foo ]
+                    [ graph:node={n2} :data=$foo.decode() ]
                 '''
                 text = text.format(valu=node1.ndef[1], n2=n2)
                 await core.streamstorm(text).list()
@@ -378,13 +378,14 @@ class StormTypesTest(s_test.SynTest):
                 # make sure we bunzip correctly
                 opts = {'vars': {'iden': n2}}
                 nodes = await snap.nodes('graph:node=$iden', opts=opts)
+                self.len(1, nodes)
                 self.eq(hstr, nodes[0].props['data'])
 
                 # bzip
                 text = '''
                     graph:node={valu}
                     $bar = :data
-                    [ graph:node={n3} :data=$bar.bzip() ]
+                    [ graph:node={n3} :data=$lib.base64.encode($bar.encode().bzip()) ]
                 '''
                 text = text.format(valu=node2.ndef[1], n3=n3)
                 await core.streamstorm(text).list()
@@ -392,13 +393,14 @@ class StormTypesTest(s_test.SynTest):
                 # make sure we bzip correctly
                 opts = {'vars': {'iden': n3}}
                 nodes = await snap.nodes('graph:node=$iden', opts=opts)
+                self.len(1, nodes)
                 self.eq(ggstr, nodes[0].props['data'])
 
     async def test_storm_lib_bytes_json(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 foo = {'a': 'ohhai'}
-                ghstr = bytes(json.dumps(foo), 'utf8')
+                ghstr = json.dumps(foo)
                 n2 = s_common.guid()
 
                 node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
@@ -406,7 +408,7 @@ class StormTypesTest(s_test.SynTest):
                 text = '''
                     graph:node={valu}
                     $jzthing = :data
-                    $foo = $jzthing.json()
+                    $foo = $jzthing.encode().json()
 
                     [ graph:node={n2} :data=$foo ]
                 '''
@@ -416,6 +418,7 @@ class StormTypesTest(s_test.SynTest):
                 # make sure we json loaded correctly
                 opts = {'vars': {'iden': n2}}
                 nodes = await snap.nodes('graph:node=$iden', opts=opts)
+                self.len(1, nodes)
                 self.eq(foo, nodes[0].props['data'])
 
     async def test_storm_lib_list(self):
@@ -1482,15 +1485,15 @@ class StormTypesTest(s_test.SynTest):
 
             q = f'$lib.layer.get(foo)'
             with self.raises(s_exc.NoSuchIden):
-                nodes = await core.nodes(q)
+                await core.nodes(q)
 
             q = f'$lib.layer.del(foo)'
             with self.raises(s_exc.NoSuchIden):
-                nodes = await core.nodes(q)
+                await core.nodes(q)
 
             q = f'$lib.layer.del({mainlayr})'
             with self.raises(s_exc.LayerInUse):
-                nodes = await core.nodes(q)
+                await core.nodes(q)
 
             # Test permissions
 
@@ -1698,7 +1701,8 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy() as prox:
                 self.eq(core.view.iden, await prox.callStorm('return ($lib.view.get().get(iden))'))
-                self.eq(core.view.layers[0].iden, await prox.callStorm('return ($lib.view.get().layers.index(0).get(iden))'))
+                q = 'return ($lib.view.get().layers.index(0).get(iden))'
+                self.eq(core.view.layers[0].iden, await prox.callStorm(q))
 
             q = f'view.get {mainiden}'
             mesgs = await core.streamstorm(q).list()

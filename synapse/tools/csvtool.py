@@ -106,6 +106,7 @@ async def main(argv, outp=s_output.stdout):
 
             stormopts = {
                 'vars': {'rows': rows},
+                'editformat': 'splices',
             }
 
             async for mesg in core.storm(text, opts=stormopts):
