@@ -785,6 +785,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the Python logging log level.', type=str.upper)
 
+        pars.add_argument('--name', help=f'The (optional) additional name to share the {name} as.')
         pars.add_argument('--https', default=4443, type=int, help='The port to bind for the HTTPS/REST API.')
         pars.add_argument('--telepath', default='tcp://0.0.0.0:27492', help='The telepath URL to listen on.')
 
@@ -810,10 +811,25 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         cell = await cls.anit(opts.dirn, conf=conf)
 
-        await cell.addHttpsPort(opts.https)
-        await cell.dmon.listen(opts.telepath)
+        try:
 
-        return opts, cell
+            await cell.addHttpsPort(opts.https)
+            await cell.dmon.listen(opts.telepath)
+
+            if opts.name is not None:
+                cell.dmon.share(opts.name, cell)
+
+            if outp is not None:
+                outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
+                outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
+
+            s_common.setlogging(logger, defval=opts.log_level)
+
+        except Exception:
+            await cell.fini()
+            raise
+
+        return cell
 
     @classmethod
     async def execmain(cls, argv, outp=None):
@@ -821,10 +837,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if outp is None:
             outp = s_output.stdout
 
-        opts, cell = await cls.initFromArgv(argv, outp=outp)
-
-        outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
-        outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
+        cell = await cls.initFromArgv(argv, outp=outp)
 
         await cell.main()
 
