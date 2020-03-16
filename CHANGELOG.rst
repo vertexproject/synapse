@@ -68,7 +68,7 @@ What changed
     editformat Storm runtime behavior
     ========== =========================================================
     nodeedits  Provide new ``node:edits`` events.
-    splices    Provide ``0.1.x`` backward compatible splice events.
+    splices    Provide ``0.1.x`` backward-compatible splice events.
     count      Provide ``node:edits:count`` events with simple counts.
     none       Do not transmit any representation for node edits.
     ========== =========================================================
@@ -77,7 +77,7 @@ Why make the change
     The splice format was originally designed to facilitate a single atomic edit per-splice.  As such, it required the potentially large primary property value to be embedded in each splice.  When making multiple edits, this representation is inefficient and causes the retransmission, and potential storage, of duplicate data.  Additionally, the key-value structure of the splice format provided unnecessary extensibility at the cost of transmission/storage size.
 
 What you need to do
-    Update any code that consumes/indexes the various splice events to handle the new ``node:edits`` format.  Additionally, callers may specify ``editformat: "splices"`` within their storm runtime options to enable backward compatible splice generation.
+    Update any code that consumes/indexes the various splice events to handle the new ``node:edits`` format.  Additionally, callers may specify ``editformat: "splices"`` within their storm runtime options to enable backward-compatible splice generation.
 
 Removed Remote Layers
 ~~~~~~~~~~~~~~~~~~~~~
