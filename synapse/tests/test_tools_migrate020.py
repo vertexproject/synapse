@@ -20,7 +20,7 @@ import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.migrate_020 as s_migr
 
-REGR_VER = '0.1.51-migr'
+REGR_VER = '0.1.53-migr'
 
 # Nodes that are expected to be unmigratable
 NOMIGR_NDEF = [
@@ -588,8 +588,8 @@ class MigrationTest(s_t_utils.SynTest):
             # check the saved version file
             # note that forked view layer does not have model vers set in 0.1.x
             versyaml = s_common.yamlload(dest0, 'migration', 'migrvers.yaml')
-            self.sorteq([(-1, -1, -1), (0, 1, 2)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
-            self.eq((-1, -1, -1), versyaml.get('src:cortex'))  # unknown with regr repo at 0.1.51
+            self.sorteq([(-1, -1, -1), (0, 1, 3)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
+            self.eq((0, 1, 53), versyaml.get('src:cortex'))
             self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr0.migrops})
 
             await migr0.fini()
@@ -630,8 +630,8 @@ class MigrationTest(s_t_utils.SynTest):
 
                 # check the saved version file
                 versyaml = s_common.yamlload(dest, 'migration', 'migrvers.yaml')
-                self.sorteq([(-1, -1, -1), (0, 1, 2)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
-                self.eq((-1, -1, -1), versyaml.get('src:cortex'))  # unknown with regr repo at 0.1.51
+                self.sorteq([(-1, -1, -1), (0, 1, 3)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
+                self.eq((0, 1, 53), versyaml.get('src:cortex'))
                 self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr.migrops})
 
                 await migr.fini()
