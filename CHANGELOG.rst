@@ -68,7 +68,7 @@ What changed
     editformat Storm runtime behavior
     ========== =========================================================
     nodeedits  Provide new ``node:edits`` events.
-    splices    Provide backward compatible splice events.
+    splices    Provide ``0.1.x`` backward-compatible splice events.
     count      Provide ``node:edits:count`` events with simple counts.
     none       Do not transmit any representation for node edits.
     ========== =========================================================
@@ -134,7 +134,7 @@ What changed
     The "insecure" option in cell.yaml has been removed.
 
 Why make the change
-    Insecure mode of operation was a vestigial option originally designed to aid in bootstrapping and setting up initial admin users.  Telepath now allows for ``cell://`` and ``unix://`` connection schemes that can bypass authentication for local users making insecure mode unnecessary.
+    Insecure mode of operation was a vestigial option originally designed to aid in bootstrapping and setting up initial admin users.  Telepath now allows for ``cell://`` and ``unix://`` connection schemes that can bypass authentication for local users making insecure mode unnecessary.  Additionally, it is currently possible to bootstrap a root password directly using command line arguments, environment variables, or configuration files.
 
 What you need to do
     If you have services deployed in insecure mode, they will need to be transitioned to using proper authentication.
@@ -155,7 +155,7 @@ Additional Changes
 ------------------
 
 - map_async is now enabled by default for all slabs
-- Synapse tools may not be used across minor versions.
+- Synapse tools may not be used to connect to services of a different minor version.
 - Deprecated annotations added to APIs that will be removed in ``0.3.0``
 - Removed sudo cmd
 - Removed cortex offset storage
