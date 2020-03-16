@@ -17,6 +17,8 @@ Docker Deployment
 Configuring A Mirror
 --------------------
 
+.. _020_migration:
+
 0.1.x to 0.2.x Migration
 ------------------------
 
