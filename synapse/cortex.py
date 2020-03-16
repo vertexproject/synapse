@@ -656,6 +656,14 @@ class CoreApi(s_cell.CellApi):
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
+    @s_cell.adminapi
+    async def enableMigrationMode(self):
+        await self.cell._enableMigrationMode()
+
+    @s_cell.adminapi
+    async def disableMigrationMode(self):
+        await self.cell._disableMigrationMode()
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -834,6 +842,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self._initStormDmons()
+
+        self.trigson = True
 
         # Initialize free-running tasks.
         # self._initCryoLoop()
@@ -3115,6 +3125,22 @@ class Cortex(s_cell.Cell):  # type: ignore
             crons.append(info)
 
         return crons
+
+    async def _enableMigrationMode(self):
+        '''
+        Prevents cron jobs and triggers from running
+        '''
+        self.agenda.enabled = False
+        self.trigson = False
+
+    async def _disableMigrationMode(self):
+        '''
+        Allows cron jobs and triggers to run
+        '''
+        if self.conf.get('cron:enable'):
+            self.agenda.enabled = True
+
+        self.trigson = True
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
