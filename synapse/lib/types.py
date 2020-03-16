@@ -1235,7 +1235,7 @@ class Data(Type):
         try:
             s_common.reqjsonsafe(valu)
         except s_exc.MustBeJsonSafe as e:
-            raise s_exc.BadTypeValu() from e
+            raise s_exc.BadTypeValu(valu=valu, mesg=str(e)) from None
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
 
