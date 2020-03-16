@@ -52,6 +52,8 @@ ADD_MODES = (
     'editor',   # Layer.editors[<op>]() w/o nexus
 )
 
+MAX_01X_VERS = (0, 1, 3)
+
 class MigrAuth:
     '''
     Loads the Hive auth tree from 0.1.x and translates it to 0.2.x.
@@ -1220,13 +1222,18 @@ class Migrator(s_base.Base):
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
         self.onfini(src_slab.fini)
 
-        # store model vers
+        # check and store model vers
         versbyts = src_slab.get(b'layer:model:version')
         if versbyts is None:
             vers = (-1, -1, -1)
         else:
             vers = s_msgpack.un(versbyts)
         await self._migrlogAdd(migrop, 'vers', iden, vers)
+
+        # even after a partial migration this vers should not be updated to 020 since
+        # layer:model:version is no longer used
+        if vers != MAX_01X_VERS:
+            raise Exception(f'Layer {iden} model version must be at latest 01x vers: {vers} != {MAX_01X_VERS}')
 
         # record offset
         path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')
