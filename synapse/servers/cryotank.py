@@ -1,3 +1,4 @@
+# pragma: no cover
 import sys
 import asyncio
 
