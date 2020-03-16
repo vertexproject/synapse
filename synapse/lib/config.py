@@ -162,6 +162,52 @@ class Config(c_abc.MutableMapping):
         self._addArgparseArguments(pars)
         return pars
 
+    def getArgParseArgs(self):
+
+        argdata = []
+
+        for (name, conf) in self.json_schema.get('properties').items():
+
+            if conf.get('hideconf'):
+                continue
+
+            atyp = jsonschematype2argparse.get(conf.get('type'))
+            if atyp is None:
+                continue
+
+            akwargs = {'help': conf.get('description', ''),
+                       'action': 'store',
+                       'type': atyp,
+                       'default': s_common.novalu
+                       }
+
+            if atyp is bool:
+
+                akwargs.pop('type')
+
+                default = conf.get('default')
+                if default is None:
+                    logger.debug(f'Boolean type is missing default information. Will not form argparse for [{name}]')
+                    continue
+
+                default = bool(default)
+
+                # Do not use the default value!
+                if default:
+                    akwargs['action'] = 'store_false'
+                    akwargs['help'] = akwargs['help'] + ' Set this option to disable this option.'
+                else:
+                    akwargs['action'] = 'store_true'
+                    akwargs['help'] = akwargs['help'] + ' Set this option to enable this option.'
+
+            parsed_name = name.replace(':', '-')
+            replace_name = name.replace(':', '_')
+            self._argparse_conf_names[replace_name] = name
+            argname = '--' + parsed_name
+            argdata.append((argname, akwargs))
+
+        return argdata
+
     def _addArgparseArguments(self, pars):
         '''
         Do the work for adding arguments from the schema to an argumentgroup.
@@ -187,12 +233,15 @@ class Config(c_abc.MutableMapping):
                        }
 
             if atyp is bool:
+
                 akwargs.pop('type')
                 default = conf.get('default')
                 if default is None:
                     logger.debug(f'Boolean type is missing default information. Will not form argparse for [{name}]')
                     continue
+
                 default = bool(default)
+
                 # Do not use the default value!
                 if default:
                     akwargs['action'] = 'store_false'
@@ -261,6 +310,7 @@ class Config(c_abc.MutableMapping):
         for name, conf in self.json_schema.get('properties', {}).items():
             if conf.get('hideconf'):
                 continue
+
             envar = make_envar_name(name, prefix=self.envar_prefix)
             envv = os.getenv(envar)
             if envv is not None:

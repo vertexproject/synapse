@@ -670,6 +670,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote axon.',
             'type': 'string'
         },
+        'mirror': {
+            'description': 'Run a mirror of the cortex at the given telepath URL. (we must be a backup!)',
+            'type': 'string'
+        },
         'cron:enable': {
             'default': True,
             'description': 'Enable cron jobs running.',
@@ -835,11 +839,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.agenda.start()
         await self._initStormDmons()
 
-        # Initialize free-running tasks.
-        # self._initCryoLoop()
-        # self._initPushLoop()
-        # self._initFeedLoops()
-
         import synapse.lib.spawn as s_spawn  # get around circular dependency
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
@@ -853,6 +852,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+        mirror = self.conf.get('mirror')
+
+        if mirror is not None:
+            await self.initCoreMirror(mirror)
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()

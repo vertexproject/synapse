@@ -3,6 +3,7 @@ import ssl
 import socket
 import asyncio
 import logging
+import argparse
 import functools
 import contextlib
 
@@ -22,6 +23,7 @@ import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.health as s_health
+import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -759,8 +761,72 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def getCellType(cls):
         return cls.__name__.lower()
 
+    @classmethod
+    def getEnvPrefix(cls):
+        return f'SYN_{cls.__name__.upper()}'
+
     def getCellIden(self):
         return self.iden
+
+    @classmethod
+    def initCellConf(cls):
+        prefix = cls.getEnvPrefix()
+        schema = s_config.getJsSchema(cls.confbase, cls.confdefs)
+        return s_config.Config(schema, envar_prefix=prefix)
+
+    @classmethod
+    def getArgParser(cls, conf=None, outp=None):
+
+        name = cls.getCellType()
+
+        pars = argparse.ArgumentParser(prog=name)
+        pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
+
+        pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
+                      help='Specify the Python logging log level.', type=str.upper)
+
+        pars.add_argument('--https', default=4443, type=int, help='The port to bind for the HTTPS/REST API.')
+        pars.add_argument('--telepath', default='tcp://0.0.0.0:27492', help='The telepath URL to listen on.')
+
+        if conf is not None:
+            args = conf.getArgParseArgs()
+            if args:
+                pgrp = pars.add_argument_group('config', 'Configuration arguments.')
+                for (argname, arginfo) in args:
+                    pgrp.add_argument(argname, **arginfo)
+
+        return pars
+
+    @classmethod
+    async def initFromArgv(cls, argv, outp=None):
+
+        conf = cls.initCellConf()
+        pars = cls.getArgParser(conf=conf, outp=outp)
+
+        opts = pars.parse_args(argv)
+
+        conf.setConfFromOpts(opts)
+        conf.setConfFromEnvs()
+
+        cell = await cls.anit(opts.dirn, conf=conf)
+
+        await cell.addHttpsPort(opts.https)
+        await cell.dmon.listen(opts.telepath)
+
+        return opts, cell
+
+    @classmethod
+    async def execmain(cls, argv, outp=None):
+
+        if outp is None:
+            outp = s_output.stdout
+
+        opts, cell = await cls.initFromArgv(argv, outp=outp)
+
+        outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
+        outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
+
+        await cell.main()
 
     async def _getCellUser(self, mesg):
 
