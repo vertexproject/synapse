@@ -116,15 +116,15 @@ class ConfTest(s_test.SynTest):
         # This differs from the default argparse case of defaults being
         # set to None, and allows us to defer the injection of default
         # values to the jsonschema validation phase.
-        args = ['--key-number', '1234.5678', '--key-bool-defvaltrue']
+        args = ['--key-number', '1234.5678', '--key-bool-defvaltrue', 'false']
         opts = pars.parse_args(args)
         vopts = vars(opts)
         edata = {
-            'key_bool_defvalfalse': s_common.novalu,
+            'key_bool_defvalfalse': None,
             'key_bool_defvaltrue': False,
-            'key_integer': s_common.novalu,
+            'key_integer': None,
             'key_number': 1234.5678,
-            'key_string': s_common.novalu,
+            'key_string': None,
             'beep': 'beep.sys'
         }
         self.eq(edata, vopts)

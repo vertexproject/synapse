@@ -48,17 +48,17 @@ A Cortex produces a stream of potentially reversible changes called **splices** 
 What's New?
 ===========
 
-The release of Synapse 0.1.0 represents a huge leap forward from the previous Synapse releases.  Rather than attempt to list them here, please see the :ref:`userguide` for details!
-
-Moving forward, subsequent ``0.1.x`` releases will be documented in the :ref:`changelog`.
+The release of Synapse 0.2.0 represents a large leap forward in performance and scalability.  Please see the :ref:`changelog` for a full accounting of changes and the reasons behind them.
 
 FAQ
 ===
 
-What's the state of interface stability for 0.1.x?
+What's the state of interface stability for 0.2.x?
 --------------------------------------------------
 
-With the release of Synapse 0.1.0, we are committed to maintaining a stable and backward-compatible release process.  Public-facing interfaces such as Storm, the HTTPS API, and the **Telepath** API will not be changed in any way that will break existing deployments.  The data model will only be updated with additions which do not change existing property names or relationships.
+Within Synapse, backward-incompatible changes are made at minor release numbers.  For example, the newly released ``0.2.0`` version of Synapse does contain some backward incompatible changes.  However, these types of changes are not made lightly and are only undertaken for tangible benefits to performance, scalability, and data modeling.  See :ref:`changelog` for a detailed breakdown of backward incompatible changes and the reasoning behind each.  Where possible, interfaces will be marked as deprecated in the previous minor release to provide situational awareness to developers.  Additionally, any backward incompatible changes to the Synapse data model will only occur at a minor release.  As such, minor releases may require Synapse components, such as a Cortex, to undergo a migration process.
+
+Within the Synapse 0.2.x release line, we are committed to maintaining a stable and backward-compatible release process.  Public-facing interfaces such as Storm, the HTTPS API, and the **Telepath** API will not be changed in any way that will break existing deployments.  The data model will only be updated with additions which do not change existing property names or relationships.
 
 Performance, big-data, scalability, and best use?
 -------------------------------------------------
