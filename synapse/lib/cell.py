@@ -778,6 +778,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def getArgParser(cls, conf=None, outp=None):
 
         name = cls.getCellType()
+        prefix = cls.getEnvPrefix()
 
         pars = argparse.ArgumentParser(prog=name)
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
@@ -785,9 +786,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the Python logging log level.', type=str.upper)
 
-        pars.add_argument('--name', help=f'The (optional) additional name to share the {name} as.')
-        pars.add_argument('--https', default=4443, type=int, help='The port to bind for the HTTPS/REST API.')
-        pars.add_argument('--telepath', default='tcp://0.0.0.0:27492', help='The telepath URL to listen on.')
+        telendef = None
+        telepdef = 'tcp://0.0.0.0:27492'
+        httpsdef = 4443
+        telenvar = '_'.join((prefix, 'NAME'))
+        telepvar = '_'.join((prefix, 'TELEPATH'))
+        httpsvar = '_'.join((prefix, 'HTTPS'))
+        telen = os.getenv(telenvar, telendef)
+        telep = os.getenv(telepvar, telepdef)
+        https = os.getenv(httpsvar, httpsdef)
+
+        pars.add_argument('--telepath', default=telep, type=str,
+                          help=f'The telepath URL to listen on. This defaults to {telepdef}, and may be '
+                               f'also be overridden by the {telepvar} environment variable.')
+        pars.add_argument('--https', default=https, type=int,
+                          help=f'The port to bind for the HTTPS/REST API. This defaults to {httpsdef}, '
+                               f'and may be also be overridden by the {httpsvar} environment variable.')
+        pars.add_argument('--name', type=str, default=telen,
+                          help=f'The (optional) additional name to share the {name} as. This defaults to '
+                               f'{telendef}, and may be also be overridden by the {telenvar} environment'
+                               f' variable.')
 
         if conf is not None:
             args = conf.getArgParseArgs()

@@ -268,6 +268,10 @@ class CryoCell(s_cell.Cell):
 
             self.tanks.put(name, tank)
 
+    @classmethod
+    def getCellType(cls):
+        return 'cryotank'
+
     async def getCellApi(self, link, user, path):
 
         if not path:
