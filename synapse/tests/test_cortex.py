@@ -2660,7 +2660,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async for _, nodeedits in prox0.syncLayerNodeEdits(0):
                 editlist.append(nodeedits)
                 count += 1
-                if count == 7:
+                if count == 6:
                     break
 
             async with self.getTestCoreAndProxy() as (core1, prox1):
@@ -2674,6 +2674,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodelist0 = [node.pack() for node in nodelist0]
                 nodelist1 = [node.pack() for node in nodelist1]
                 self.eq(nodelist0, nodelist1)
+
+                # Try a nodeedits we might get from cmdr
+                cmdrnodeedits = s_common.jsonsafe_nodeedits(editlist[1])
+                await core0.nodes('test:str=foo | delnode')
+
+                await prox1.addFeedData('syn.nodeedits', [cmdrnodeedits])
+                self.len(1, await core1.nodes('test:str'))
 
     async def test_stat(self):
 
