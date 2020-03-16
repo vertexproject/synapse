@@ -384,7 +384,7 @@ class SyncTest(s_t_utils.SynTest):
                 '--https', 0,
             ]
 
-            async with await s_sync.main(argv) as sync:
+            async with await s_sync.SyncMigrator.initFromArgv(argv) as sync:
                 self.eq('tcp://foo:123', sync.src)
                 self.eq('tcp://bar:456', sync.dest)
                 self.eq('foo.yaml', sync.offsfile)
