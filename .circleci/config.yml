@@ -231,8 +231,8 @@ commands:
             docker push vertexproject/synapse-cortex:${CIRCLE_TAG}
             docker push vertexproject/synapse-cryotank:${CIRCLE_TAG}
 
-  deploy_docker_01x:
-    description: "Deploy current tag to docker as v0.1.x"
+  deploy_docker_02x:
+    description: "Deploy current release tag to docker as v0.2.x"
     steps:
       - checkout
       - setup_remote_docker
@@ -240,17 +240,17 @@ commands:
       - run:
           name: build image
           command: |
-            docker build -t vertexproject/synapse:v0.1.x -f Dockerfile .
-            docker build -t vertexproject/synapse-axon:v0.1.x -f docker/images/axon/Dockerfile .
-            docker build -t vertexproject/synapse-cortex:v0.1.x -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:v0.1.x -f docker/images/cryotank/Dockerfile .
+            docker build -t vertexproject/synapse:v0.2.x -f Dockerfile .
+            docker build -t vertexproject/synapse-axon:v0.2.x -f docker/images/axon/Dockerfile .
+            docker build -t vertexproject/synapse-cortex:v0.2.x -f docker/images/cortex/Dockerfile .
+            docker build -t vertexproject/synapse-cryotank:v0.2.x -f docker/images/cryotank/Dockerfile .
       - run:
           name: tag and push container
           command: |
-            docker push vertexproject/synapse:v0.1.x
-            docker push vertexproject/synapse-axon:v0.1.x
-            docker push vertexproject/synapse-cortex:v0.1.x
-            docker push vertexproject/synapse-cryotank:v0.1.x
+            docker push vertexproject/synapse:v0.2.x
+            docker push vertexproject/synapse-axon:v0.2.x
+            docker push vertexproject/synapse-cortex:v0.2.x
+            docker push vertexproject/synapse-cryotank:v0.2.x
 
   deploy_docker_branches:
     description: "Deploy current branch images to docker"
@@ -337,11 +337,11 @@ jobs:
     steps:
       - deploy_docker_branches
 
-  docker_tags_01x:
+  docker_tags_02x:
     docker:
       - image: docker:18.05.0-ce
     steps:
-      - deploy_docker_01x
+      - deploy_docker_02x
 
 workflows:
   version: 2
@@ -375,7 +375,7 @@ workflows:
             - python37
           filters:
             tags:
-              only: /^v(0\.1\.[0-9]+)$/
+              only: /^v0\.2\.[0-9]+((a|b|rc)[0-9])?$/
             branches:
               ignore: /.*/
 
@@ -394,17 +394,17 @@ workflows:
             - python37
           filters:
             tags:
-              only: /^v(0\.1\.[0-9]+)$/
+              only: /^v0\.2\.[0-9]+((a|b|rc)[0-9])?$/
             branches:
               ignore: /.*/
 
-      - docker_tags_01x:
+      - docker_tags_02x:
           requires:
             - doctests
             - python37
           filters:
             tags:
-              only: /^v0\.1\.[0-9.]+$/
+              only: /^v0\.2\.[0-9]+$/
             branches:
               ignore: /.*/
 
