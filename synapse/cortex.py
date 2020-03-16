@@ -2644,7 +2644,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _addSynNodeEdits(self, snap, items):
 
         for item in items:
-            await snap.addNodeEdits(item)
+            item = s_common.unjsonsafe_nodeedits(item)
+            await snap.applyNodeEdits(item)
 
     def getCoreMod(self, name):
         return self.modules.get(name)
@@ -2914,15 +2915,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _initCoreMods(self):
 
-        for ctor, modu in list(self.modules.items()):
+        with s_provenance.claim('init', meth='_initCoreMods'):
+            for ctor, modu in list(self.modules.items()):
 
-            try:
-                await s_coro.ornot(modu.initCoreModule)
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-            except Exception:
-                logger.exception(f'module initCoreModule failed: {ctor}')
-                self.modules.pop(ctor, None)
+                try:
+                    await s_coro.ornot(modu.initCoreModule)
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+                except Exception:
+                    logger.exception(f'module initCoreModule failed: {ctor}')
+                    self.modules.pop(ctor, None)
 
     def _loadCoreModule(self, ctor, conf=None):
 

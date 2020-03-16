@@ -620,10 +620,13 @@ class LayerTest(s_t_utils.SynTest):
 
             count = 0
             editlist = []
+
+            layr = core0.getLayer(None)
+            necount = layr.nodeeditlog.index()
             async for _, nodeedits in prox0.syncLayerNodeEdits(0):
                 editlist.append(nodeedits)
                 count += 1
-                if count == 7:
+                if count == necount:
                     break
 
             async with self.getTestCore() as core1:
@@ -643,6 +646,9 @@ class LayerTest(s_t_utils.SynTest):
                     self.eq(nodelist0, nodelist1)
 
                 layr = core1.view.layers[0]
+
+                # Empty the layer to try again
+
                 await layr.truncate()
 
                 async with await s_telepath.openurl(url) as layrprox:
@@ -660,6 +666,8 @@ class LayerTest(s_t_utils.SynTest):
                     meta = {'user': s_common.guid(),
                             'time': 0,
                             }
+
+                    await layr.truncate()
 
                     for nodeedits in editlist:
                         self.none(await layrprox.storNodeEditsNoLift(nodeedits, meta=meta))
@@ -687,4 +695,16 @@ class LayerTest(s_t_utils.SynTest):
 
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
-            self.true(await layr.hasTagProp('score'))
+
+    async def test_layer_no_extra_logging(self):
+
+        async with self.getTestCore() as core:
+            '''
+            For a do-nothing write, don't write new log entries
+            '''
+            await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            layr = core.getLayer(None)
+            lbefore = len(await alist(layr.splices()))
+            await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            lafter = len(await alist(layr.splices()))
+            self.eq(lbefore, lafter)
