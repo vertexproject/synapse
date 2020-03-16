@@ -76,6 +76,8 @@ Backward Compatibility Breaks
 
 - user.admin -> user.isAdmin()
 
+- node data and 'data' type must be json-serializable
+
 v0.1.X Changelog
 ================
 

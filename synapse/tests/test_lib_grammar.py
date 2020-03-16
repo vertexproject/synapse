@@ -1191,7 +1191,7 @@ def gen_parse_list():
     '''
     retn = []
     for i, query in enumerate(_Queries):
-        parser = s_grammar.Parser(query)
+        parser = s_parser.Parser(query)
         tree = parser.query()
         retn.append(str(tree))
     return retn
