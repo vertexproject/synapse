@@ -7,17 +7,17 @@ Github Milestone Management
 ---------------------------
 
 The current milestone and the next milestone should be created in github.  For example, if the current release is
-v0.1.1, we should have a v0.1.2 and v0.1.3 milestones created. When PRs are created or issues are addressed (via PR),
+v0.2.1, we should have a v0.2.2 and v0.2.3 milestones created. When PRs are created or issues are addressed (via PR),
 they should be added to the milestone.  This allows us to easily pull stories and PRs for release note generation.
 
 Release Notes Format
 --------------------
 
 Release notes should be compiled from the issues and PRs assigned to the milestone being released. These can all be
-obtained via a issue search in github.  For example, if we're releasing v0.1.2, we can pull all the stories via the
+obtained via a issue search in github.  For example, if we're releasing v0.2.2, we can pull all the stories via the
 following query in github::
 
-    milestone:v0.1.2
+    milestone:v0.2.2
 
 Release notes should break things out by the following categories:
 
