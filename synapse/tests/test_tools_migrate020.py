@@ -661,6 +661,7 @@ class MigrationTest(s_t_utils.SynTest):
                 ]
 
                 async with await s_migr.main(argv) as migr:
+                    self.true(migr.isfini)
                     self.eq(migr.src, src)
                     self.eq(migr.dest, dest)
                     self.sorteq(migr.migrops, s_migr.ALL_MIGROPS)
