@@ -350,6 +350,33 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appt.isrunning, False)
                 self.eq(appt.lastresult, 'raised exception test exception')
 
+                # Test setting the global enable/disable flag
+                await agenda.delete(guid)
+                lastquery = None
+                self.len(0, agenda.apptheap)
+
+                cdef = {'useriden': rootiden, 'iden': 'IDEN2', 'storm': '[test:str=bar]',
+                        'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                        'incunit': s_agenda.TimeUnit.DAYOFWEEK,
+                        'incvals': (2, 4)}
+                adef = await agenda.add(cdef)
+                guid = adef.get('iden')
+
+                self.len(1, agenda.apptheap)
+
+                agenda.enabled = False
+
+                await asyncio.sleep(0)
+                unixtime = datetime.datetime(year=2019, month=2, day=6, hour=10, minute=16, tzinfo=tz.utc).timestamp()
+                self.none(lastquery)
+
+                agenda.enabled = True
+
+                unixtime = datetime.datetime(year=2019, month=2, day=13, hour=10, minute=16, tzinfo=tz.utc).timestamp()
+                await sync.wait()
+                sync.clear()
+                self.eq(lastquery, '[test:str=bar]')
+
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:

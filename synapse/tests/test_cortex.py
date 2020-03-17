@@ -4023,12 +4023,49 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with await core.snap() as snap:
                     self.true(snap.trigson)
 
+                # add triggers
+                # node:add case
+                tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:int=1 ]'}
+                await core.view.addTrigger(tdef)
+                await core.nodes('[ test:str=foo ]')
+                self.len(1, await core.nodes('test:int'))
+
+                # node:del case
+                tdef = {'cond': 'node:del', 'storm': '[ test:int=2 ]', 'form': 'test:str'}
+                await core.view.addTrigger(tdef)
+                await core.nodes('test:str=foo | delnode')
+                self.len(2, await core.nodes('test:int'))
+
+                # tag:add case
+                tdef = {'cond': 'tag:add', 'storm': '[ test:int=3 ]', 'tag': 'footag'}
+                await core.view.addTrigger(tdef)
+                await core.nodes('[ test:str=foo +#footag ]')
+                self.len(3, await core.nodes('test:int'))
+
+                # enable migration mode
                 await prox.enableMigrationMode()
 
                 self.false(core.agenda.enabled)
                 self.false(core.trigson)
                 async with await core.snap() as snap:
                     self.false(snap.trigson)
+
+                # check that triggers don't fire
+                await core.nodes('test:int | delnode')
+                await core.nodes('[test:str=foo] [+#footag] | delnode')
+                self.len(0, await core.nodes('test:int'))
+
+                # disable migration mode
+                await prox.disableMigrationMode()
+
+                self.true(core.agenda.enabled)
+                self.true(core.trigson)
+                async with await core.snap() as snap:
+                    self.true(snap.trigson)
+
+                # check that triggers fire
+                await core.nodes('[test:str=foo] [+#footag] | delnode')
+                self.len(3, await core.nodes('test:int'))
 
             async with core.getLocalProxy(user='fred') as prox:
                 # non-admin cannot enable/disable migration mode

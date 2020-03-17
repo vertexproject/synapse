@@ -683,6 +683,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable cron jobs running.',
             'type': 'boolean'
         },
+        'triggers:enable': {
+            'default': True,
+            'description': 'Enable triggers running.',
+            'type': 'boolean'
+        },
         'layer:lmdb:map_async': {
             'default': True,
             'description': 'Set the default lmdb:map_async value in LMDB layers.',
@@ -843,7 +848,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.agenda.start()
         await self._initStormDmons()
 
-        self.trigson = True
+        self.trigson = self.conf.get('triggers:enable')
 
         # Initialize free-running tasks.
         # self._initCryoLoop()
@@ -3140,7 +3145,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.conf.get('cron:enable'):
             self.agenda.enabled = True
 
-        self.trigson = True
+        if self.conf.get('triggers:enable'):
+            self.trigson = True
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
