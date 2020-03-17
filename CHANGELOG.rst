@@ -9,7 +9,7 @@ Features and Enhancements
 -------------------------
 
 - Add provisional support to Telepath to allow it to do discovery of service information via Hasicorp Consul. The
- semantics of how this works is subject to change in the future.
+  semantics of how this works is subject to change in the future.
   (`#1574 <https://github.com/vertexproject/synapse/pull/1574>`_)
   (`#1610 <https://github.com/vertexproject/synapse/pull/1610>`_)
 
