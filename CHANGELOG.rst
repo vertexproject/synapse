@@ -169,7 +169,7 @@ Additional Changes
 - map_async is now enabled by default for all slabs
 - Synapse tools may not be used to connect to services of a different minor version.
 - Deprecated annotations added to APIs that will be removed in ``0.3.0``
-- Removed sudo cmd
+- The ``sudo`` command has been deprecated and does nothing.
 - Removed cortex offset storage
 - SYNDEV_OMIT_FINI_WARNS was added to silence tear down warnings
 - Provenance is disabled by default. Enable by setting ``provenance:en: True`` in ``cell.yaml``.
