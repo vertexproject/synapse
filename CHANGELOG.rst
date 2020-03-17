@@ -2,6 +2,22 @@
 Synapse Changelog
 *****************
 
+v0.1.54 - 2019-03-17
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add provisional support to Telepath to allow it to do discovery of service information via Hasicorp Consul. The
+ semantics of how this works is subject to change in the future.
+  (`#1574 <https://github.com/vertexproject/synapse/pull/1574>`_)
+  (`#1610 <https://github.com/vertexproject/synapse/pull/1610>`_)
+
+Improved Documentation
+----------------------
+- Add an Storm ``graph`` command example to the userguid.
+  (`#1538 <https://github.com/vertexproject/synapse/pull/1538>`_)
+
 
 v0.1.53 - 2019-03-02
 ====================
