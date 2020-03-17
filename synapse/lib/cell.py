@@ -770,12 +770,35 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @classmethod
     def initCellConf(cls):
+        '''
+        Create a Config object for the Cell.
+
+        Notes:
+            The Config object has a ``envar_prefix`` set according to the results of ``cls.getEnvPrefix()``.
+
+        Returns:
+            s_config.Config: A Config helper object.
+        '''
         prefix = cls.getEnvPrefix()
         schema = s_config.getJsSchema(cls.confbase, cls.confdefs)
         return s_config.Config(schema, envar_prefix=prefix)
 
     @classmethod
-    def getArgParser(cls, conf=None, outp=None):
+    def getArgParser(cls, conf=None):
+        '''
+        Get an ``argparse.ArgumentParser`` for the Cell.
+
+        Args:
+            conf (s_config.Config): Optional, a Config object which
+
+        Notes:
+            Boot time configuration data is placed in the argument group called ``config``.
+            This adds default ``dirn``, ``--telepath``, ``--https`` and ``--name`` arguements to the argparser instance.
+            Configuration values which have the ``hideconf`` value set to True are not added to the argparser instance.
+
+        Returns:
+            argparse.ArgumentParser: A ArgumentParser for the Cell.
+        '''
 
         name = cls.getCellType()
         prefix = cls.getEnvPrefix()
@@ -784,7 +807,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
         pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
-                      help='Specify the Python logging log level.', type=str.upper)
+                          help='Specify the Python logging log level.', type=str.upper)
 
         telendef = None
         telepdef = 'tcp://0.0.0.0:27492'
@@ -818,9 +841,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @classmethod
     async def initFromArgv(cls, argv, outp=None):
+        '''
+        Cell launcher which does automatic argument parsing, environment variable resolution and Cell creation.
+
+        Args:
+            argv (list): A list of command line arguments to launch the Cell with.
+            outp (s_ouput.OutPut): Optional, an output object.
+
+        Notes:
+            This does the following items:
+                - Create a Config object from the Cell class.
+                - Creates an Argument Parser from the Cell class and Config object.
+                - Parses the provided arguments.
+                - Loads configuration data from the parsed options and environment variables.
+                - Sets logging for the process.
+                - Creates the Cell from the Cell Ctor.
+                - Adds a Telepath listener, HTTPs port listeners and Telepath share names.
+                - Returns the Cell.
+
+        Returns:
+            Cell: This returns an instance of the Cell.
+        '''
 
         conf = cls.initCellConf()
-        pars = cls.getArgParser(conf=conf, outp=outp)
+        pars = cls.getArgParser(conf=conf)
 
         opts = pars.parse_args(argv)
 
@@ -853,6 +897,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @classmethod
     async def execmain(cls, argv, outp=None):
+        '''
+        The main entry point for running the Cell as an application.
+
+        Args:
+            argv (list): A list of command line arguments to launch the Cell with.
+            outp (s_ouput.OutPut): Optional, an output object.
+
+        Notes:
+            This coroutine waits until the Cell is fini'd or a SIGINT/SIGTERM signal is sent to the process.
+
+        Returns:
+            None.
+        '''
 
         if outp is None:
             outp = s_output.stdout
