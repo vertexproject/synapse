@@ -722,6 +722,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     }
 
     cellapi = CoreApi
+
+    viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
 
     async def __anit__(self, dirn, conf=None):
@@ -2111,7 +2113,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _loadView(self, node):
 
-        view = await s_view.View.anit(self, node)
+        view = await self.viewctor(self, node)
 
         self.views[view.iden] = view
         self.dynitems[view.iden] = view
