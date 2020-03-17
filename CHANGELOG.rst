@@ -2,6 +2,16 @@
 Synapse Changelog
 *****************
 
+v0.1.55 - 2019-03-17
+====================
+
+Bugfixes
+--------
+
+- Packaging only release.  The ``readme-renderer`` library had a incompatible version which prohibited CI builds from
+  completing to publish ``v0.1.54``.
+
+
 v0.1.54 - 2019-03-17
 ====================
 
@@ -28,7 +38,7 @@ Features and Enhancements
 - Add support for loading YAML files when using the ``--optsfile`` argument to the Cmdr CLI to execute a Storm query.
   (`#1554 <https://github.com/vertexproject/synapse/pull/1554>`_)
 
-Bugfix
+Bugfixes
 --------
 
 - Make the Agenda subsystem respect leap years properly.
