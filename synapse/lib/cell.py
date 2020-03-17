@@ -788,7 +788,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Get an ``argparse.ArgumentParser`` for the Cell.
 
-
         Args:
             conf (s_config.Config): Optional, a Config object which
 
@@ -808,7 +807,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
         pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
-                      help='Specify the Python logging log level.', type=str.upper)
+                          help='Specify the Python logging log level.', type=str.upper)
 
         telendef = None
         telepdef = 'tcp://0.0.0.0:27492'
@@ -865,7 +864,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
 
         conf = cls.initCellConf()
-        pars = cls.getArgParser(conf=conf, outp=outp)
+        pars = cls.getArgParser(conf=conf)
 
         opts = pars.parse_args(argv)
 
