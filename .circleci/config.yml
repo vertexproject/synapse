@@ -167,7 +167,7 @@ commands:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -U wheel pip twine
+            python3 -m pip install -U wheel pip "readme-renderer<25.0" twine
             python3 -m pip install -U -r requirements_dev.txt
 
       - save_cache:
