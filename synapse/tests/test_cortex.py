@@ -3417,8 +3417,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     msgs = await core01.streamstorm('queue.list').list()
                     self.stormIsInPrint('visi', msgs)
 
-                    # Make sure that the mirror can't mutate
-                    await self.asyncraises(s_exc.IsReadOnly, core01.nodes('$lib.queue.add(newp)'))
+                    # Validate that mirrors can still write
+                    await core01.nodes('queue.add visi2')
+                    msgs = await core01.streamstorm('queue.list').list()
+                    self.stormIsInPrint('visi2', msgs)
+
+                    # FIXME:  this is broken
+                    await core01.nodes('[ inet:fqdn=www.vertex.link ]')
+                    self.len(1, core01.nodes('inet:fqdn=www.vertex.link'))
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
@@ -3435,7 +3441,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     q = 'for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
-                    self.len(2, await core01.nodes(q))
+                    self.len(3, await core01.nodes(q))
 
             # now lets start up in the opposite order...
             async with await s_cortex.Cortex.anit(dirn=path01) as core01:

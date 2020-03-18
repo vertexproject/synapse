@@ -200,6 +200,10 @@ class CellApi(s_base.Base):
             yield item
 
     @adminapi
+    async def issue(self, nexsiden: str, event: str, args, kwargs):
+        return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs)
+
+    @adminapi
     async def delAuthUser(self, name):
         await self.cell.auth.delUser(name)
         await self.cell.fire('user:mod', act='deluser', name=name)
