@@ -774,20 +774,5 @@ class SyncMigrator(s_cell.Cell):
             elif cnt % fair_iter == 0:
                 await asyncio.sleep(0)
 
-def getParser():
-    https = os.getenv('SYN_UNIV_HTTPS', '4443')
-    telep = os.getenv('SYN_UNIV_TELEPATH', 'tcp://0.0.0.0:27492/')
-    telen = os.getenv('SYN_UNIV_NAME', None)
-
-    pars = argparse.ArgumentParser(prog='synapse.tools.sync_020')
-    s_config.common_argparse(pars, https=https, telep=telep, telen=telen)
-
-    return pars
-
-async def main(argv, outp=s_output.stdout):
-    pars = getParser()
-    cell = await s_config.main(SyncMigrator, argv, pars=pars, cb=s_config.common_cb, outp=outp)
-    return cell
-
 if __name__ == '__main__':  # pragma: no cover
-    asyncio.run(s_base.main(main(sys.argv[1:])))
+    asyncio.run(SyncMigrator.execmain(sys.argv[1:]))

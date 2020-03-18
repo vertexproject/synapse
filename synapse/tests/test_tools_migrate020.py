@@ -20,7 +20,8 @@ import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.migrate_020 as s_migr
 
-REGR_VER = '0.1.51-migr'
+REGR_VER = '0.1.53-migr'
+REGR_VER_OLD = '0.1.51-migr'
 
 # Nodes that are expected to be unmigratable
 NOMIGR_NDEF = [
@@ -586,10 +587,9 @@ class MigrationTest(s_t_utils.SynTest):
             self.eq(offsyaml, offslogdict)
 
             # check the saved version file
-            # note that forked view layer does not have model vers set in 0.1.x
             versyaml = s_common.yamlload(dest0, 'migration', 'migrvers.yaml')
-            self.sorteq([(-1, -1, -1), (0, 1, 2)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
-            self.eq((-1, -1, -1), versyaml.get('src:cortex'))  # unknown with regr repo at 0.1.51
+            self.eq([(0, 1, 3), (0, 1, 3)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
+            self.eq((0, 1, 53), versyaml.get('src:cortex'))
             self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr0.migrops})
 
             await migr0.fini()
@@ -630,8 +630,8 @@ class MigrationTest(s_t_utils.SynTest):
 
                 # check the saved version file
                 versyaml = s_common.yamlload(dest, 'migration', 'migrvers.yaml')
-                self.sorteq([(-1, -1, -1), (0, 1, 2)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
-                self.eq((-1, -1, -1), versyaml.get('src:cortex'))  # unknown with regr repo at 0.1.51
+                self.eq([(0, 1, 3), (0, 1, 3)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
+                self.eq((0, 1, 53), versyaml.get('src:cortex'))
                 self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr.migrops})
 
                 await migr.fini()
@@ -661,6 +661,7 @@ class MigrationTest(s_t_utils.SynTest):
                 ]
 
                 async with await s_migr.main(argv) as migr:
+                    self.true(migr.isfini)
                     self.eq(migr.src, src)
                     self.eq(migr.dest, dest)
                     self.sorteq(migr.migrops, s_migr.ALL_MIGROPS)
@@ -916,6 +917,17 @@ class MigrationTest(s_t_utils.SynTest):
             # An error will be generated and migration halted
             # so we can check that the cortex is not startable as 020
             await self.asyncraises(s_exc.BadStorageVersion, s_cortex.Cortex.anit(dest, conf=None))
+
+    async def test_migr_badmodelvers(self):
+        with self.getRegrDir('cortexes', REGR_VER_OLD) as src:
+            with self.getTestDir() as dest:
+                conf = {
+                    'src': src,
+                    'dest': dest,
+                }
+
+                async with await s_migr.Migrator.anit(conf) as migr:
+                    await self.asyncraises(Exception, migr.migrate())
 
     async def test_migr_cell(self):
         conf = {

@@ -678,6 +678,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote axon.',
             'type': 'string'
         },
+        'mirror': {
+            'description': 'Run a mirror of the cortex at the given telepath URL. (we must be a backup!)',
+            'type': 'string'
+        },
         'cron:enable': {
             'default': True,
             'description': 'Enable cron jobs running.',
@@ -731,6 +735,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     }
 
     cellapi = CoreApi
+
+    viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
 
     async def __anit__(self, dirn, conf=None):
@@ -850,11 +856,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.trigson = self.conf.get('triggers:enable')
 
-        # Initialize free-running tasks.
-        # self._initCryoLoop()
-        # self._initPushLoop()
-        # self._initFeedLoops()
-
         import synapse.lib.spawn as s_spawn  # get around circular dependency
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
@@ -868,6 +869,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+        mirror = self.conf.get('mirror')
+
+        if mirror is not None:
+            await self.initCoreMirror(mirror)
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
@@ -1838,6 +1844,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)
+        self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.CountCmd)
         self.addStormCmd(s_storm.GraphCmd)
@@ -2121,7 +2128,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _loadView(self, node):
 
-        view = await s_view.View.anit(self, node)
+        view = await self.viewctor(self, node)
 
         self.views[view.iden] = view
         self.dynitems[view.iden] = view
@@ -3130,23 +3137,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             crons.append(info)
 
         return crons
-
-    async def _enableMigrationMode(self):
-        '''
-        Prevents cron jobs and triggers from running
-        '''
-        self.agenda.enabled = False
-        self.trigson = False
-
-    async def _disableMigrationMode(self):
-        '''
-        Allows cron jobs and triggers to run
-        '''
-        if self.conf.get('cron:enable'):
-            self.agenda.enabled = True
-
-        if self.conf.get('triggers:enable'):
-            self.trigson = True
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

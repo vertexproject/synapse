@@ -16,7 +16,7 @@ import synapse.tests.utils as s_t_utils
 import synapse.tools.sync_020 as s_sync
 import synapse.tools.migrate_020 as s_migr
 
-REGR_VER = '0.1.51-migr'
+REGR_VER = '0.1.53-migr'
 
 # Nodes that are expected to be unmigratable
 NOMIGR_NDEF = [
@@ -384,7 +384,7 @@ class SyncTest(s_t_utils.SynTest):
                 '--https', 0,
             ]
 
-            async with await s_sync.main(argv) as sync:
+            async with await s_sync.SyncMigrator.initFromArgv(argv) as sync:
                 self.eq('tcp://foo:123', sync.src)
                 self.eq('tcp://bar:456', sync.dest)
                 self.eq('foo.yaml', sync.offsfile)

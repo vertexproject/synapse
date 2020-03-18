@@ -1,10 +1,9 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.tools.backup as s_tools_backup
-
-import synapse.servers.cortex as s_s_cortex
 
 import synapse.tests.utils as s_t_utils
 
@@ -20,17 +19,19 @@ class CortexServerTest(s_t_utils.SynTest):
                     '--telepath', 'tcp://127.0.0.1:0/',
                     '--https', '0',
                     '--name', 'telecore']
-            async with await s_s_cortex.main(argv, outp=outp) as core:
+            async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core:
 
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     # Make a node with the cortex
                     podes = await s_t_utils.alist(proxy.eval(f'[ou:org={guid}]'))
                     self.len(1, podes)
 
+                self.true(core.dmon.shared.get('*') is core)
+                self.true(core.dmon.shared.get('cortex') is core)
                 self.true(core.dmon.shared.get('telecore') is core)
 
             # And data persists...
-            async with await s_s_cortex.main(argv, outp=outp) as core:
+            async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     podes = await s_t_utils.alist(proxy.eval(f'ou:org={guid}'))
                     self.len(1, podes)
@@ -63,7 +64,7 @@ class CortexServerTest(s_t_utils.SynTest):
 
                 s_common.yamlsave({'logchanges': True}, path01, 'cell.yaml')
 
-                async with await s_s_cortex.main(argv, outp=outp) as core01:
+                async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core01:
 
                     # TODO functionalize this API on the cortex (cell?)
                     await core01.nexsroot.waitForOffset(offs - 1)
@@ -91,7 +92,7 @@ class CortexServerTest(s_t_utils.SynTest):
                      path00,
                      ]
             out0 = self.getTestOutp()
-            async with await s_s_cortex.main(argv0, outp=out0) as core00:
+            async with await s_cortex.Cortex.initFromArgv(argv0, outp=out0) as core00:
 
                 out1 = self.getTestOutp()
                 argv1 = ['--telepath', 'tcp://127.0.0.1:0/',
@@ -102,6 +103,6 @@ class CortexServerTest(s_t_utils.SynTest):
 
                 s_common.yamlsave({'logchanges': True}, path01, 'cell.yaml')
 
-                async with await s_s_cortex.main(argv1, outp=out1) as core01:
+                async with await s_cortex.Cortex.initFromArgv(argv1, outp=out1) as core01:
                     await core01.waitfini(6)
                     self.true(core01.isfini)
