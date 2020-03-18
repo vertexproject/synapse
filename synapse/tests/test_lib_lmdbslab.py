@@ -228,14 +228,14 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
 
                 byts = b'\x00' * 256
-                for i in range(100):
+                for i in range(10):
                     slab.put(multikey, s_common.int64en(i), dupdata=True, db=foo)
                     slab.put(s_common.int64en(i), byts, db=foo2)
 
                 iter = slab.scanByDups(multikey, db=foo)
                 iter2 = slab.scanByFull(db=foo2)
 
-                for i in range(60):
+                for i in range(6):
                     next(iter)
                     next(iter2)
 
@@ -245,24 +245,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 iterback2 = slab.scanByFullBack(db=foo2)
                 next(iterback2)
 
-                mapsize = slab.mapsize
-                count = 100
-
-                # Write until we grow
-                while mapsize == slab.mapsize:
-                    slab.put(multikey, s_common.int64en(count), dupdata=True, db=foo)
-                    slab.put(s_common.int64en(count), byts, db=foo2)
-                    count += 1
-
                 # Delete keys to cause set_range in iternext to fail
-                for i in range(count - 50):
-                    slab.delete(multikey, s_common.int64en(i + 50), db=foo)
-                    slab.delete(s_common.int64en(i + 50), db=foo2)
+                for i in range(5):
+                    slab.delete(multikey, s_common.int64en(i + 5), db=foo)
+                    slab.delete(s_common.int64en(i + 5), db=foo2)
+
+                slab.forcecommit()
 
                 self.raises(StopIteration, next, iter)
                 self.raises(StopIteration, next, iter2)
-                self.eq(50, sum(1 for _ in iterback))
-                self.eq(50, sum(1 for _ in iterback2))
+                self.eq(5, sum(1 for _ in iterback))
+                self.eq(5, sum(1 for _ in iterback2))
 
     async def test_lmdbslab_grow(self):
 
