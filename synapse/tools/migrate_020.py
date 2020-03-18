@@ -1260,11 +1260,13 @@ class Migrator(s_base.Base):
         buid = None
         t_strt = s_common.now()
         stot = 0
+        dtot = 0
         async for node in self._srcIterNodes(src_slab, src_bybuid, lmin):
             stot += 1
 
-            if stot % 1000000 == 0:  # pragma: no cover
-                logger.info(f'...on node {stot:,} for layer {iden}')
+            stot_inc = lastcnt + stot
+            if stot_inc % 1000000 == 0:  # pragma: no cover
+                logger.info(f'...on node {stot_inc:,} for layer {iden}')
 
             if stot % fairiter == 0:
                 await asyncio.sleep(0)
@@ -1276,12 +1278,12 @@ class Migrator(s_base.Base):
             if nodelim is not None and stot >= nodelim:
                 logger.warning(f'Stopping node migration due to reaching nodelim {stot}')
                 # checkpoint is the next node to add (not adding current node)
-                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, lastcnt + stot, s_common.now()))
+                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot_inc, s_common.now()))
                 stot -= 1  # for stats on last node to migrate
                 break
 
             if stot % savechkpnt == 0:
-                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, lastcnt + stot + 1, s_common.now()))
+                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot_inc + 1, s_common.now()))
 
             err, nodeedit = await self._trnNodeToNodeedit(node, model, chknodes)
             if err is not None:
@@ -1303,6 +1305,8 @@ class Migrator(s_base.Base):
 
                 nodeedits = []
 
+            dtot += 1
+
         # add last edit chunk if needed
         if len(nodeedits) > 0:
             err = await self._destAddNodes(wlyr, nodeedits, addmode)
@@ -1323,26 +1327,17 @@ class Migrator(s_base.Base):
 
         # collect final destination form count stats
         dest_fcnt = await wlyr.getFormCounts()
-        dtot = sum(dest_fcnt.values())
+        dtot_all = sum(dest_fcnt.values())
 
         # store and log creation stats
         prprt = await self._getFormCountsPrnt(iden, src_fcnt, dest_fcnt, addlog=migrop, resumed=fromlast)
         logger.debug(prprt)
 
-        if fromlast:
-            # modify stats save for resume
-            log = await self._migrlogGetOne(migrop, 'stat', f'{iden}:totnodes')
-            stot_prev, dtot_prev = log['val'] if log is not None else (0, 0)
-
-            dtot_inc = dtot - dtot_prev
-        else:
-            dtot_inc = dtot
-
-        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot + lastcnt, dtot))
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot + lastcnt, dtot_all))
         await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
 
         rate = round(stot / t_dur_s)
-        logger.info(f'Migrated {dtot_inc:,} of {stot:,} nodes in {t_dur_s} seconds ({rate} nodes/s avg)')
+        logger.info(f'Migrated {dtot:,} of {stot:,} nodes in {t_dur_s} seconds ({rate} nodes/s avg)')
         logger.info(f'Completed node migration for {iden}')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
