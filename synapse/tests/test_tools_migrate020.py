@@ -535,7 +535,7 @@ class MigrationTest(s_t_utils.SynTest):
             logs = [log async for log in migr0._migrlogGet('nodes', 'stat', f'{lyriden}:totnodes')]
             self.len(1, logs)
             self.eq(24, logs[0]['val'][0])
-            self.ge(24, logs[0]['val'][1])  # -1 for error node
+            self.ge(24, logs[0]['val'][1])
 
             await migr0.fini()
 
@@ -547,7 +547,7 @@ class MigrationTest(s_t_utils.SynTest):
                 await migr.migrate()
 
                 log = await migr._migrlogGetOne('nodes', 'chkpnt', lyriden)
-                self.eq(len(tdata['podes']), log['val'][1] - 1)  # chkpnt is the val to start resume from
+                self.eq(len(tdata['podes']), log['val'][1] - 2)  # -1 since next node, -1 for err not in tdata
 
                 await self._checkStats(tdata, migr, locallyrs)
 
