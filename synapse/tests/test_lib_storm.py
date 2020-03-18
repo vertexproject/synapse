@@ -124,12 +124,15 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('[ test:str=foo test:str=bar ] | spin'))
             await self.agenlen(2, core.eval('test:str=foo test:str=bar'))
 
-    async def test_storm_reindex(self):
+    async def test_storm_reindex_sudo(self):
 
         async with self.getTestCore() as core:
 
             mesgs = await core.streamstorm('reindex').list()
             self.stormIsInWarn('reindex currently does nothing', mesgs)
+
+            msgs = await core.streamstorm('.created | sudo').list()
+            self.stormIsInWarn('Sudo is deprecated and does nothing', msgs)
 
     async def test_storm_count(self):
 

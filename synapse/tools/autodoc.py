@@ -192,7 +192,7 @@ def processTypes(rst, dochelp, types):
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
 
-def processFormsProps(rst, dochelp, forms):
+def processFormsProps(rst, dochelp, forms, univ_names):
 
     rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
     rst.addLines('',
@@ -219,6 +219,9 @@ def processFormsProps(rst, dochelp, forms):
             rst.addLines('Properties:',
                          )
         for pname, (ptname, ptopts), popts in props:
+
+            if pname in univ_names:
+                continue
 
             hpname = pname
             if ':' in pname:
@@ -280,7 +283,7 @@ def processUnivs(rst, dochelp, univs):
         if ':' in name:
             hname = name.replace(':', raw_back_slash_colon)
 
-        rst.addHead('.' + hname, lvl=2, link=f'.. _dm-univ-{name.replace(":", "-")}:')
+        rst.addHead(hname, lvl=2, link=f'.. _dm-univ-{name.replace(":", "-")}:')
 
         rst.addLines('',
                      doc,
@@ -323,6 +326,7 @@ async def docModel(outp,
     univs = sorted(univs, key=lambda x: x[0])
     types = sorted(types, key=lambda x: x[0])
     forms = sorted(forms, key=lambda x: x[0])
+    univ_names = {univ[0] for univ in univs}
 
     for fname, fnfo, fprops in forms:
         for prop in fprops:
@@ -341,7 +345,7 @@ async def docModel(outp,
     rst2 = RstHelp()
     rst2.addHead('Synapse Data Model - Forms', lvl=0)
 
-    processFormsProps(rst2, dochelp, forms)
+    processFormsProps(rst2, dochelp, forms, univ_names)
     processUnivs(rst2, dochelp, univs)
 
     # outp.printf(rst.getRstText())
