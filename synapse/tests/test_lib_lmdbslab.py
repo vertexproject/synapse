@@ -214,6 +214,54 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(my_maxsize, newdb.mapsize)
                 self.eq(my_maxsize, newdb.maxsize)
 
+    async def test_lmdbslab_scanbump(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+
+                foo = slab.initdb('foo', dupsort=True)
+                foo2 = slab.initdb('foo2', dupsort=False)
+
+                multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
+
+                byts = b'\x00' * 256
+                for i in range(100):
+                    slab.put(multikey, s_common.int64en(i), dupdata=True, db=foo)
+                    slab.put(s_common.int64en(i), byts, db=foo2)
+
+                iter = slab.scanByDups(multikey, db=foo)
+                iter2 = slab.scanByFull(db=foo2)
+
+                for i in range(60):
+                    next(iter)
+                    next(iter2)
+
+                iterback = slab.scanByDupsBack(multikey, db=foo)
+                next(iterback)
+
+                iterback2 = slab.scanByFullBack(db=foo2)
+                next(iterback2)
+
+                mapsize = slab.mapsize
+                count = 100
+
+                # Write until we grow
+                while mapsize == slab.mapsize:
+                    slab.put(multikey, s_common.int64en(count), dupdata=True, db=foo)
+                    slab.put(s_common.int64en(count), byts, db=foo2)
+                    count += 1
+
+                # Delete keys to cause set_range in iternext to fail
+                for i in range(count - 50):
+                    slab.delete(multikey, s_common.int64en(i + 50), db=foo)
+                    slab.delete(s_common.int64en(i + 50), db=foo2)
+
+                self.eq(50, sum(1 for _ in iterback))
+                self.eq(50, sum(1 for _ in iterback2))
+
     async def test_lmdbslab_grow(self):
 
         with self.getTestDir() as dirn:
