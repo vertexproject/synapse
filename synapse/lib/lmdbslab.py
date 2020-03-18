@@ -1236,9 +1236,11 @@ class Scan:
 
                     self.curs = self.slab.xact.cursor(db=self.db)
                     if self.dupsort:
-                        self.curs.set_range_dup(*self.atitem)
+                        ret = self.curs.set_range_dup(*self.atitem)
                     else:
-                        self.curs.set_range(self.atitem[0])
+                        ret = self.curs.set_range(self.atitem[0])
+                    if ret is False:
+                        raise StopIteration
 
                     self.genr = self.iterfunc(self.curs)
 
