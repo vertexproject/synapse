@@ -259,6 +259,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     slab.delete(multikey, s_common.int64en(i + 50), db=foo)
                     slab.delete(s_common.int64en(i + 50), db=foo2)
 
+                self.raises(StopIteration, next, iter)
+                self.raises(StopIteration, next, iter2)
                 self.eq(50, sum(1 for _ in iterback))
                 self.eq(50, sum(1 for _ in iterback2))
 
