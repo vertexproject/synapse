@@ -31,6 +31,12 @@ class CortexTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
 
+    async def test_cortex_callstorm(self):
+        async with self.getTestCore() as core:
+            self.eq('asdf', await core.callStorm('return (asdf)'))
+            async with core.getLocalProxy() as proxy:
+                self.eq('qwer', await proxy.callStorm('return (qwer)'))
+
     async def test_cortex_prop_deref(self):
 
         async with self.getTestCore() as core:
