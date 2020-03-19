@@ -131,8 +131,8 @@ class NexsRoot(s_base.Base):
     async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
                     meta: Optional[Dict] = None) -> Any:
         '''
-        If I'm not a follower, mutate, otherwise, ask the leader to make the change and return the offset with the
-        change to wait for
+        If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
+        to hand me the result through a future.
         '''
         if not self._ldrurl:
             return await self.eat(nexsiden, event, args, kwargs, meta)
