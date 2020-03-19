@@ -3418,6 +3418,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core01.nodes('[ inet:fqdn=www.vertex.link ]')
                     self.len(1, await core01.nodes('inet:fqdn=www.vertex.link'))
 
+                    # Exceptions should work
+                    await self.asyncraises(s_exc.NoSuchView, core01.delView('xxx'))
+
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
