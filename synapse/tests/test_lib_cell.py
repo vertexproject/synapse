@@ -380,7 +380,7 @@ class CellTest(s_t_utils.SynTest):
                 yielded = False
                 async for offset, data in prox.getNexusChanges(offs):
                     yielded = True
-                    nexsiden, act, args, kwargs = data
+                    nexsiden, act, args, kwargs, meta = data
                     if nexsiden == 'auth:auth' and act == 'user:add':
                         retn.append(args)
                     if len(retn) >= 2:

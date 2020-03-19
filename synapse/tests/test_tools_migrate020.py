@@ -441,7 +441,7 @@ class MigrationTest(s_t_utils.SynTest):
             # startup 0.2.0 core
             async with await s_cortex.Cortex.anit(dest, conf={'logchanges': True}) as core:
                 # check that nexus root has offsets from migration
-                self.gt(await core.getNexusOffs(), 1)
+                self.gt(core.nexsroot._nexuslog.index(), 1)
 
                 # check core data
                 await self._checkCore(core, tdata)
@@ -481,7 +481,7 @@ class MigrationTest(s_t_utils.SynTest):
             # startup 0.2.0 core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check that nexus root has *no* offsets from migration
-                self.eq(await core.getNexusOffs(), 0)
+                self.eq(core.nexsroot._nexuslog.index(), 0)
 
                 # check core data
                 await self._checkCore(core, tdata)
@@ -506,7 +506,7 @@ class MigrationTest(s_t_utils.SynTest):
             # startup 0.2.0 core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check that nexus root has *no* offsets from migration
-                self.eq(await core.getNexusOffs(), 0)
+                self.eq(core.nexsroot._nexuslog.index(), 0)
 
                 # check core data
                 await self._checkCore(core, tdata)

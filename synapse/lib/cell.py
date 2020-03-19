@@ -200,8 +200,8 @@ class CellApi(s_base.Base):
             yield item
 
     @adminapi
-    async def issue(self, nexsiden: str, event: str, args, kwargs):
-        return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs)
+    async def issue(self, nexsiden: str, event: str, args, kwargs, meta=None):
+        return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
 
     @adminapi
     async def delAuthUser(self, name):
@@ -505,12 +505,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getNexusChanges(self, offs):
         async for item in self.nexsroot.iter(offs):
             yield item
-
-    async def getNexusOffs(self):
-        return self.nexsroot.getOffset()
-
-    def getNexusOffsEvent(self, offs):
-        return self.nexsroot.getOffsetEvent(offs)
 
     async def dyniter(self, iden, todo, gatekeys=()):
 
@@ -942,3 +936,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPush('hive:loadtree')
     async def _onLoadHiveTree(self, tree, path, trim):
         return await self.hive.loadHiveTree(tree, path=path, trim=trim)
+
+    @s_nexus.Pusher.onPushAuto('sync')
+    async def sync(self):
+        '''
+        no-op mutable for testing purposes.  If I am follower, when this returns, I have received and applied all
+        the writes that occurred on the leader before this call.
+        '''
+        return

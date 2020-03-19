@@ -20,7 +20,7 @@ FOLLOWER_START_WAIT_S = 10.0
 # As a mirror follower, amount of time before giving up on a write request
 FOLLOWER_WRITE_WAIT_S = 30.0
 
-NexusLogEntryT = Tuple[str, str, List[Any], Dict[str, Any]] # (nexsiden, event, args, kwargs)
+NexusLogEntryT = Tuple[str, str, List[Any], Dict[str, Any], Dict] # (nexsiden, event, args, kwargs, meta)
 
 
 class RegMethType(type):
@@ -86,103 +86,100 @@ class NexsRoot(s_base.Base):
         self.dirn = dirn
         self._nexskids: Dict[str, 'Pusher'] = {}
 
-        self.mirrors: List[ChangeDist] = []
+        self._mirrors: List[ChangeDist] = []
         self.dologging = dologging
 
         # These are used when this cell is a mirror.
-        self.ldrurl: Optional[str] = None
-        self.ldr: Optional[s_telepath.Proxy] = None  # only set by looptask
-        self.looptask: Optional[asyncio.Task] = None
-        self.ldrready = asyncio.Event()
+        self._ldrurl: Optional[str] = None
+        self._ldr: Optional[s_telepath.Proxy] = None  # only set by looptask
+        self._looptask: Optional[asyncio.Task] = None
+        self._ldrready = asyncio.Event()
+
+        # Used to match pending follower write requests with the responses arriving on the log
+        self._futures: Dict[str, asyncio.Future] = {}
 
         if self.dologging:
             path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
-            self.nexusslab = await s_lmdbslab.Slab.anit(path, map_async=False)
-            self.nexuslog = s_slabseqn.SlabSeqn(self.nexusslab, 'nexuslog')
+            self._nexusslab = await s_lmdbslab.Slab.anit(path, map_async=False)
+            self._nexuslog = s_slabseqn.SlabSeqn(self._nexusslab, 'nexuslog')
 
         async def fini():
-            if self.looptask:
-                self.looptask.cancel()
+            if self._looptask:
+                self._looptask.cancel()
 
-            if self.ldr:
-                self.ldrready.clear()
-                await self.ldr.fini()
+            if self._ldr:
+                self._ldrready.clear()
+                await self._ldr.fini()
 
             if self.dologging:
-                await self.nexusslab.fini()
+                await self._nexusslab.fini()
 
-            [(await dist.fini()) for dist in self.mirrors]
+            [(await dist.fini()) for dist in self._mirrors]
 
         self.onfini(fini)
 
-    async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]) -> Any:
+    @contextlib.contextmanager
+    def _getResponseFuture(self):
+
+        iden = s_common.guid()
+        futu = self.loop.create_future()
+
+        self._futures[iden] = futu
+        try:
+            yield iden, futu
+        finally:
+            futu.cancel()
+            self._futures.pop(iden, None)
+
+    async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
+                    meta: Optional[Dict] = None) -> Any:
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and return the offset with the
         change to wait for
         '''
-        if not self.ldrurl:
-            return await self.eat(nexsiden, event, args, kwargs)
+        if not self._ldrurl:
+            return await self.eat(nexsiden, event, args, kwargs, meta)
 
-        live = await s_coro.event_wait(self.ldrready, FOLLOWER_WRITE_WAIT_S)
+        live = await s_coro.event_wait(self._ldrready, FOLLOWER_WRITE_WAIT_S)
         if not live:
             raise s_exc.LinkErr(mesg='Mirror cannot reach leader for write request')
 
-        assert self.ldr is not None
+        assert self._ldr is not None
 
-        return await self.ldr.issue(nexsiden, event, args, kwargs)
+        with self._getResponseFuture() as (iden, futu):
+            if meta is None:
+                meta = {}
+            meta['resp'] = iden
 
-    async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]) -> Any:
+            await self._ldr.issue(nexsiden, event, args, kwargs, meta)
+            return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
+
+    async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
+                  meta: Optional[Dict] = None) -> Any:
         '''
         Actually mutate for the given nexsiden instance.
         '''
-        item: NexusLogEntryT = (nexsiden, event, args, kwargs)
+        if meta is None:
+            meta = {}
+
+        item: NexusLogEntryT = (nexsiden, event, args, kwargs, meta)
 
         if self.dologging:
-            indx = self.nexuslog.add(item)
+            indx = self._nexuslog.add(item)
         else:
             indx = 0
 
-        [dist.update() for dist in tuple(self.mirrors)]
+        [dist.update() for dist in tuple(self._mirrors)]
 
         return await self._apply(indx, item)
 
     async def _apply(self, indx, item):
-        nexsiden, event, args, kwargs = item
+        nexsiden, event, args, kwargs, _ = item
 
         nexus = self._nexskids[nexsiden]
         func = nexus._nexshands[event]
 
-        return indx, await func(nexus, *args, **kwargs)
-
-    def getOffset(self) -> int:
-        '''
-        Returns the next offset that would be written.
-        '''
-        if not self.dologging:
-            return 0
-
-        return self.nexuslog.index()
-
-    async def waitForOffset(self, offs: int, timeout=None) -> None:
-        '''
-        Pends current asyncio task until either the entry at offset offs is written or the timeout occurs.
-        '''
-        if not self.dologging:
-            return
-
-        return await self.nexuslog.waitForOffset(offs, timeout=timeout)
-
-    def getOffsetEvent(self, offs: int) -> asyncio.Event:
-        '''
-        Returns an asyncio.Event that is set when the offset is written.  The returned event will already be set if
-        the offset has already been written.
-        '''
-        if not self.dologging:
-            evnt = asyncio.Event()
-            evnt.set()
-            return evnt
-
-        return self.nexuslog.getOffsetEvent(offs)
+        return await func(nexus, *args, **kwargs)
 
     async def iter(self, offs: int) -> AsyncIterator[Any]:
         '''
@@ -193,7 +190,7 @@ class NexsRoot(s_base.Base):
 
         maxoffs = offs
 
-        for item in self.nexuslog.iter(offs):
+        for item in self._nexuslog.iter(offs):
             maxoffs = item[0] + 1
             yield item
 
@@ -204,70 +201,65 @@ class NexsRoot(s_base.Base):
     @contextlib.asynccontextmanager
     async def getChangeDist(self, offs: int) -> AsyncIterator[ChangeDist]:
 
-        async with await ChangeDist.anit(self.nexuslog, offs) as dist:
+        async with await ChangeDist.anit(self._nexuslog, offs) as dist:
 
             async def fini():
-                self.mirrors.remove(dist)
+                self._mirrors.remove(dist)
 
             dist.onfini(fini)
 
-            self.mirrors.append(dist)
+            self._mirrors.append(dist)
 
             yield dist
 
     async def setLeader(self, url: Optional[str], iden: str) -> None:
         '''
         Args:
-            url:  if None, sets this nexsroot as leader, otherwise the telepath URL of the leader
+            url:  if None, sets this nexsroot as leader, otherwise the telepath URL of the leader (must be a Cell)
             iden: iden of the leader.  Should be the same as my containing cell's iden
         '''
         if url is not None and not self.dologging:
             raise s_exc.BadConfValu(mesg='Mirroring incompatible without logchanges')
 
-        if self.ldrurl == url:
+        if self._ldrurl == url:
             return
 
-        self.ldrurl = url
+        self._ldrurl = url
 
-        if self.looptask is not None:
-            self.looptask.cancel()
-            self.looptask = None
-            self.ldrready.clear()
-            if self.ldr is not None:
-                await self.ldr.fini()
-            self.ldr = None
+        if self._looptask is not None:
+            self._looptask.cancel()
+            self._looptask = None
+            self._ldrready.clear()
+            if self._ldr is not None:
+                await self._ldr.fini()
+            self._ldr = None
 
-        if self.ldrurl is None:
+        if self._ldrurl is None:
             return
 
-        self.looptask = self.schedCoro(self._followerLoop(iden))
-        connected = await s_coro.event_wait(self.ldrready, FOLLOWER_START_WAIT_S)
-        if not connected:
-            logger.warning('Failed to connect to mirror leader {s}.  Continuing to retry.', self.ldrurl)
+        self._looptask = self.schedCoro(self._followerLoop(iden))
 
     async def _followerLoop(self, iden) -> None:
 
         while not self.isfini:
 
             try:
-                self.ldrready.clear()
-                self.ldr = None
 
-                async with await s_telepath.openurl(self.ldrurl) as proxy:
-                    self.ldr = proxy
-                    self.ldrready.set()
+                async with await s_telepath.openurl(self._ldrurl) as proxy:
+                    self._ldr = proxy
+                    self._ldrready.set()
 
                     # if we really are a mirror/follower, we have the same iden.
                     if iden != await proxy.getCellIden():
-                        logger.error('remote cortex has different iden! (aborting follower, shutting down cortex.).')
+                        logger.error('remote cortex has different iden!  Aborting mirror sync')
                         await self.fini()
                         return
 
-                    logger.warning(f'mirror loop ready ({self.ldrurl} offset={self.getOffset()})')
+                    logger.warning(f'mirror loop ready ({self._ldrurl}')
 
                     while not proxy.isfini:
 
-                        offs = self.getOffset()
+                        offs = self._nexuslog.index()
 
                         genr = proxy.getNexusChanges(offs)
 
@@ -277,8 +269,27 @@ class NexsRoot(s_base.Base):
                                 break
 
                             offs, args = item
-                            assert offs == self.nexuslog.index()
-                            await self.eat(*args)
+                            assert offs == self._nexuslog.index()
+
+                            meta = args[-1]
+                            respiden = meta.get('resp')
+                            respfutu = self._futures.get(respiden)
+
+                            try:
+                                retn = await self.eat(*args)
+
+                            except asyncio.CancelledError:
+                                raise
+
+                            except Exception as e:
+                                if respfutu is not None:
+                                    respfutu.set_exception(e)
+
+                            else:
+                                if respfutu is not None:
+                                    respfutu.set_result(retn)
+
+                            # TODO:  persist applied offset
 
             except asyncio.CancelledError: # pragma: no cover
                 return
@@ -286,6 +297,8 @@ class NexsRoot(s_base.Base):
             except Exception:
                 logger.exception('error in initCoreMirror loop')
 
+            self._ldr = None
+            self._ldrready.clear()
             await self.waitfini(1)
 
 class Pusher(s_base.Base, metaclass=RegMethType):
@@ -359,9 +372,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         nexsiden = self.nexsiden
 
         if self.nexsroot is not None:  # Distribute through the change root
-            offs, retn = await self.nexsroot.issue(nexsiden, event, args, kwargs)
-            await self.nexsroot.waitForOffset(offs)
-            return retn
+            return await self.nexsroot.issue(nexsiden, event, args, kwargs, None)
 
         # There's no change distribution, so directly execute
         return await self._nexshands[event](self, *args, **kwargs)
