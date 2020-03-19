@@ -155,7 +155,7 @@ class View(s_nexus.Pusher):  # type: ignore
         try:
 
             async for item in self.storm(text, opts=opts, user=user):
-                await asyncio.sleep(0)
+                await asyncio.sleep(0)  # pragma: no cover
 
         except s_ast.StormReturn as e:
 
