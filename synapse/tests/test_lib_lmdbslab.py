@@ -246,10 +246,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 next(iterback2)
 
                 iterback3 = slab.scanByDupsBack(multikey, db=foo)
-                next(iterback3)
-
                 iterback4 = slab.scanByFullBack(db=foo2)
-                next(iterback4)
+
+                for i in range(8):
+                    next(iterback3)
+                    next(iterback4)
+
+                iterback5 = slab.scanByDupsBack(multikey, db=foo)
+                next(iterback5)
+
+                iterback6 = slab.scanByFullBack(db=foo2)
+                next(iterback6)
 
                 # Delete keys to cause set_range in iternext to fail
                 for i in range(5):
@@ -263,13 +270,20 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(5, sum(1 for _ in iterback))
                 self.eq(5, sum(1 for _ in iterback2))
 
-                # Delete remaining keys so curs.last fails
-                for i in range(5):
+                # Delete all the keys in front of a backwards scan
+                for i in range(4):
                     slab.delete(multikey, s_common.int64en(i), db=foo)
                     slab.delete(s_common.int64en(i), db=foo2)
 
                 self.raises(StopIteration, next, iterback3)
                 self.raises(StopIteration, next, iterback4)
+
+                # Delete remaining keys so curs.last fails
+                slab.delete(multikey, s_common.int64en(4), db=foo)
+                slab.delete(s_common.int64en(4), db=foo2)
+
+                self.raises(StopIteration, next, iterback5)
+                self.raises(StopIteration, next, iterback6)
 
     async def test_lmdbslab_grow(self):
 
