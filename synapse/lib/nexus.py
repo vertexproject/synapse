@@ -269,41 +269,16 @@ class NexsRoot(s_base.Base):
 
                         offs = self.getOffset()
 
-                        # pump them into a queue so we can consume them in chunks
-                        q: asyncio.Queue[Tuple[int, NexusLogEntryT]] = asyncio.Queue(maxsize=1000)
+                        genr = proxy.getNexusChanges(offs)
 
-                        async def consume(x):
-                            try:
-                                async for item in proxy.getNexusChanges(x):
-                                    await q.put(item)
-                            finally:
-                                await q.put(None)
+                        async for item in s_base.schedGenr(genr):
 
-                        proxy.schedCoro(consume(offs))
-
-                        done = False
-                        while not done:
-
-                            # get the next item so we maybe block...
-                            item = await q.get()
-                            if item is None:
+                            if proxy.isfini:
                                 break
 
-                            items = [item]
-
-                            # check if there are more we can eat
-                            for _ in range(q.qsize()):
-
-                                nexi = await q.get()
-                                if nexi is None:
-                                    done = True
-                                    break
-
-                                items.append(nexi)
-
-                            for offs, args in items:
-                                assert offs == self.nexuslog.index()
-                                await self.eat(*args)
+                            offs, args = item
+                            assert offs == self.nexuslog.index()
+                            await self.eat(*args)
 
             except asyncio.CancelledError: # pragma: no cover
                 return
