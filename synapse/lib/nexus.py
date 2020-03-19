@@ -144,6 +144,9 @@ class NexsRoot(s_base.Base):
 
         [dist.update() for dist in tuple(self.mirrors)]
 
+        return await self._apply(indx, item)
+
+    async def _apply(self, indx, item):
         nexsiden, event, args, kwargs = item
 
         nexus = self._nexskids[nexsiden]
