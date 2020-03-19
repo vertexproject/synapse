@@ -2617,5 +2617,10 @@ class StormTypesTest(s_test.SynTest):
             self.eq('rofl', nodes[0].nodedata['lulz'])
             self.eq('rofl', nodes[0].pack()[1]['nodedata']['lulz'])
 
+            # Since the nodedata is loaded right away, getting the data shortcuts the layer
+            q = 'yield $lib.lift.byNodeData(hehe) $lib.print($node.data.get(hehe))'
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('haha', msgs)
+
             nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(hehe)')
             self.len(0, await core.nodes('yield $lib.lift.byNodeData(hehe)'))
