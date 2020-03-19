@@ -1331,11 +1331,16 @@ class ScanBack(Scan):
                     if self.dupsort:
                         ret = self.curs.set_range_dup(*self.atitem)
                         if ret is False:
-                            self.curs.last_dup()
+                            if not self.curs.set_key(self.atitem[0]):
+                                raise StopIteration
+
+                            if not self.curs.last_dup():
+                                raise StopIteration
                     else:
                         ret = self.curs.set_range(self.atitem[0])
                         if ret is False:
-                            self.curs.last()
+                            if not self.curs.last():
+                                raise StopIteration
 
                     self.genr = self.iterfunc(self.curs)
                     if ret is not False:
