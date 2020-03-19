@@ -3452,6 +3452,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
 
+                # remove the mirrorness from the cortex
+                await core01.nexsroot.setLeader(None, None)
+                self.len(1, await core01.nodes('[inet:ipv4=8.8.8.8]'))
+
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
             # getPropNorm base tests

@@ -14,9 +14,6 @@ import synapse.lib.coro as s_coro
 
 logger = logging.getLogger(__name__)
 
-# As a mirror follower, amount of time to wait at startup for connection to leader
-FOLLOWER_START_WAIT_S = 10.0
-
 # As a mirror follower, amount of time before giving up on a write request
 FOLLOWER_WRITE_WAIT_S = 30.0
 
