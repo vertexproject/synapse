@@ -14,7 +14,6 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
-import synapse.lib.ast as s_ast
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
@@ -102,18 +101,7 @@ class CoreApi(s_cell.CellApi):
         Return the value expressed in a return() statement within storm.
         '''
         view = self.cell._viewFromOpts(opts, self.user)
-        try:
-
-            async for pode in view.iterStormPodes(text, opts=opts, user=self.user):
-                asyncio.sleep(0)
-
-        except s_ast.StormReturn as e:
-
-            retn = e.item
-            if isinstance(retn, s_stormtypes.Prim):
-                retn = retn.value()
-
-            return retn
+        return await view.callStorm(text, opts=opts, user=self.user)
 
     async def addCronJob(self, cdef):
         '''
@@ -2694,6 +2682,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         async for mesg in view.storm(text, opts, user):
             yield mesg
+
+    async def callStorm(self, text, opts=None, user=None):
+        view = self._viewFromOpts(opts, user)
+        return await view.callStorm(text, opts=opts, user=user)
 
     async def nodes(self, text, opts=None, user=None):
         '''
