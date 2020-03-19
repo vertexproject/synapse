@@ -6,11 +6,13 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.trigger as s_trigger
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +150,20 @@ class View(s_nexus.Pusher):  # type: ignore
         async with await self.snap(user=user) as snap:
             async for mesg in snap.storm(text, opts=opts, user=user):
                 yield mesg
+
+    async def callStorm(self, text, opts=None, user=None):
+        try:
+
+            async for item in self.storm(text, opts=opts, user=user):
+                await asyncio.sleep(0)
+
+        except s_ast.StormReturn as e:
+
+            retn = e.item
+            if isinstance(retn, s_stormtypes.Prim):
+                retn = retn.value()
+
+            return retn
 
     async def nodes(self, text, opts=None, user=None):
         '''
