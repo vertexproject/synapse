@@ -196,10 +196,11 @@ class MigrationTest(s_t_utils.SynTest):
         tpodes = tdata['podes']
         tnodedata = tdata['nodedata']
 
-        # check all nodes
+        # check all nodes (removing empty nodedata key)
         nodes = await core.nodes('.created -meta:source:name=test')
 
         podes = [n.pack(dorepr=True) for n in nodes]
+        podes = [(p[0], {k: v for k, v in p[1].items() if k != 'nodedata'}) for p in podes]
         self.gt(len(podes), 0)
 
         try:

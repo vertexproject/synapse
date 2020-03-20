@@ -1798,6 +1798,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('cron',), s_stormtypes.LibCron)
         self.addStormLib(('dmon',), s_stormtypes.LibDmon)
         self.addStormLib(('feed',), s_stormtypes.LibFeed)
+        self.addStormLib(('lift',), s_stormtypes.LibLift)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)

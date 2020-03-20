@@ -2601,3 +2601,26 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy(user='root') as prox:
                 self.len(0, await prox.eval('inet:ipv4=1.2.3.4').list())
+
+    async def test_storm_lib_lift(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:ipv4=5.5.5.5 ]')
+            await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(hehe, haha) $node.data.set(lulz, rofl)')
+
+            nodes = await core.nodes('yield $lib.lift.byNodeData(hehe) $node.data.load(lulz)')
+            self.len(1, nodes)
+            self.eq(('inet:ipv4', 0x01020304), nodes[0].ndef)
+            self.eq('haha', nodes[0].nodedata['hehe'])
+            self.eq('haha', nodes[0].pack()[1]['nodedata']['hehe'])
+            self.eq('rofl', nodes[0].nodedata['lulz'])
+            self.eq('rofl', nodes[0].pack()[1]['nodedata']['lulz'])
+
+            # Since the nodedata is loaded right away, getting the data shortcuts the layer
+            q = 'yield $lib.lift.byNodeData(hehe) $lib.print($node.data.get(hehe))'
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('haha', msgs)
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(hehe)')
+            self.len(0, await core.nodes('yield $lib.lift.byNodeData(hehe)'))
