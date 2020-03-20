@@ -1206,15 +1206,19 @@ class Migrator(s_base.Base):
         model = self.model
 
         # see if there is a checkpoint to start from
-        startfrom = 0
+        lastcnt = 0
+        lmin = None
         if fromlast:
             log = await self._migrlogGetOne(migrop, 'chkpnt', iden)
             if log is None:
                 logger.warning(f'Start from checkpoint was specified but no log found for layer {iden}')
+                fromlast = False
             else:
+                lmin = log['val'][0]
                 startfrom = log['val'][1]
                 savetime = s_time.repr(log['val'][2])
                 logger.info(f'Resuming migration from {startfrom} saved on {savetime} for layer {iden}')
+                lastcnt = startfrom - 1 if startfrom > 0 else 0
 
         # open storage
         path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
@@ -1253,23 +1257,19 @@ class Migrator(s_base.Base):
         # migrate data
         src_fcnt = collections.defaultdict(int)
         nodeedits = []
+        buid = None
         t_strt = s_common.now()
         stot = 0
-        fastfwd = fromlast  # so we can stop the comparison once caught up
-        async for node in self._srcIterNodes(src_slab, src_bybuid):
+        dtot = 0
+        async for node in self._srcIterNodes(src_slab, src_bybuid, lmin):
             stot += 1
 
-            if stot % 1000000 == 0:  # pragma: no cover
-                logger.info(f'...on node {stot:,} for layer {iden}')
+            stot_inc = lastcnt + stot
+            if stot_inc % 1000000 == 0:  # pragma: no cover
+                logger.info(f'...on node {stot_inc:,} for layer {iden}')
 
             if stot % fairiter == 0:
                 await asyncio.sleep(0)
-
-            if fastfwd:
-                if stot < startfrom:
-                    continue
-                else:
-                    fastfwd = False
 
             buid = node[0]
             form = node[1]['ndef'][0].replace('*', '')
@@ -1277,13 +1277,13 @@ class Migrator(s_base.Base):
 
             if nodelim is not None and stot >= nodelim:
                 logger.warning(f'Stopping node migration due to reaching nodelim {stot}')
-                # checkpoint is the next node to add
-                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
+                # checkpoint is the next node to add (not adding current node)
+                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot_inc, s_common.now()))
                 stot -= 1  # for stats on last node to migrate
                 break
 
             if stot % savechkpnt == 0:
-                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
+                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot_inc + 1, s_common.now()))
 
             err, nodeedit = await self._trnNodeToNodeedit(node, model, chknodes)
             if err is not None:
@@ -1305,6 +1305,8 @@ class Migrator(s_base.Base):
 
                 nodeedits = []
 
+            dtot += 1
+
         # add last edit chunk if needed
         if len(nodeedits) > 0:
             err = await self._destAddNodes(wlyr, nodeedits, addmode)
@@ -1317,7 +1319,7 @@ class Migrator(s_base.Base):
 
         # checkpoint on completion if not already created due to a nodelim
         if nodelim is None:
-            await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
+            await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, lastcnt + stot + 1, s_common.now()))
 
         t_end = s_common.now()
         t_dur = t_end - t_strt
@@ -1325,28 +1327,17 @@ class Migrator(s_base.Base):
 
         # collect final destination form count stats
         dest_fcnt = await wlyr.getFormCounts()
-        dtot = sum(dest_fcnt.values())
+        dtot_all = sum(dest_fcnt.values())
 
         # store and log creation stats
-        prprt = await self._getFormCountsPrnt(iden, src_fcnt, dest_fcnt, addlog=migrop, resumed=startfrom)
+        prprt = await self._getFormCountsPrnt(iden, src_fcnt, dest_fcnt, addlog=migrop, resumed=fromlast)
         logger.debug(prprt)
 
-        if startfrom:
-            # modify stats save for resume
-            log = await self._migrlogGetOne(migrop, 'stat', f'{iden}:totnodes')
-            stot_prev, dtot_prev = log['val'] if log is not None else (0, 0)
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot + lastcnt, dtot_all))
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
 
-            stot_inc = stot - startfrom
-            dtot_inc = dtot - dtot_prev
-        else:
-            stot_inc = stot
-            dtot_inc = dtot
-
-        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
-        await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot_inc, t_dur))
-
-        rate = round(stot_inc / t_dur_s)
-        logger.info(f'Migrated {dtot_inc:,} of {stot_inc:,} nodes in {t_dur_s} seconds ({rate} nodes/s avg)')
+        rate = round(stot / t_dur_s)
+        logger.info(f'Migrated {dtot:,} of {stot:,} nodes in {t_dur_s} seconds ({rate} nodes/s avg)')
         logger.info(f'Completed node migration for {iden}')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
@@ -1536,9 +1527,14 @@ class Migrator(s_base.Base):
             if prop[0] == '*':
                 yield prop[1:]
 
-    async def _srcIterNodes(self, buidslab, buiddb):
+    async def _srcIterNodes(self, buidslab, buiddb, lmin=None):
         '''
         Yield node information directly from the 0.1.x source slab.
+
+        Args:
+            buidslab (lmdbslab.Slab): Source slab to iterate over
+            buiddb (str): Source slab db name
+            lmin (bytes or None): If specified, scansByRange starting at lmin, otherwise scanByFull
 
         Yields:
             (tuple):
@@ -1552,12 +1548,17 @@ class Migrator(s_base.Base):
                     }
                 )
         '''
+        if lmin is not None:
+            scan = buidslab.scanByRange(lmin=lmin, db=buiddb)
+        else:
+            scan = buidslab.scanByFull(db=buiddb)
+
         buid = None
         ndef = None
         props = {}
         tags = {}
         tagprops = collections.defaultdict(dict)
-        for lkey, lval in buidslab.scanByFull(db=buiddb):
+        for lkey, lval in scan:
             rowbuid = lkey[0:32]
             prop = lkey[32:].decode('utf8')
             valu, indx = s_msgpack.un(lval)  # throwing away indx
