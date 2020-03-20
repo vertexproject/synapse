@@ -248,7 +248,7 @@ class NexsRoot(s_base.Base):
 
                     # if we really are a mirror/follower, we have the same iden.
                     if iden != await proxy.getCellIden():
-                        logger.error('remote cortex has different iden!  Aborting mirror sync')
+                        logger.error('remote cell has different iden!  Aborting mirror sync')
                         await self.fini()
                         return
 

@@ -500,6 +500,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _initNexsRoot(self):
         nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.donexslog)
         self.onfini(nexsroot.fini)
+        nexsroot.onfini(self)
         return nexsroot
 
     async def getNexusChanges(self, offs):
