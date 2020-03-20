@@ -569,6 +569,9 @@ class MigrationTest(s_t_utils.SynTest):
         }
 
         async with self._getTestMigrCore(conf) as (tdata0, dest0, locallyrs0, migr0):
+            # add a boot.yaml file
+            s_common.yamlsave({'auth:admin': 'root:root'}, migr0.src, 'boot.yaml')
+
             await migr0.migrate()
 
             await self._checkStats(tdata0, migr0, locallyrs0)
@@ -610,6 +613,9 @@ class MigrationTest(s_t_utils.SynTest):
                 lyrslab = os.path.join(dest, 'layers', iden, 'layer_v2.lmdb')
                 self.true(os.path.exists(lyrslab))
 
+                # add a boot.yaml file
+                s_common.yamlsave({'auth:admin': 'root:root'}, migr0.src, 'boot.yaml')
+
                 await migr.migrate()
 
                 await self._checkStats(tdata, migr, locallyrs)
@@ -634,6 +640,11 @@ class MigrationTest(s_t_utils.SynTest):
                 self.eq([(0, 1, 3), (0, 1, 3)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
                 self.eq((0, 1, 53), versyaml.get('src:cortex'))
                 self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr.migrops})
+
+                # check the boot.yaml
+                self.false(os.path.exists(os.path.join(dest, 'boot.yaml')))
+                self.true(os.path.exists(os.path.join(dest, 'migration', 'boot.yaml')))
+                self.len(1, [log async for log in migr._migrlogGet('cell', 'error')])
 
                 await migr.fini()
 
@@ -840,11 +851,12 @@ class MigrationTest(s_t_utils.SynTest):
 
                 mods = {'modules': ['synapse.tests.utils.TestModule']}
                 s_common.yamlsave(mods, src, 'cell.yaml')
+                s_common.yamlsave({}, src, 'boot.yaml')  # empty, but will still move
 
                 conf = {
                     'src': src,
                     'dest': dest,
-                    'migrops': ['dmodel', 'hivelyr', 'nodes'],
+                    'migrops': ['dmodel', 'hivelyr', 'cell', 'nodes'],
                     'editbatchsize': 1,
                     'nodelim': 2,
                 }
@@ -863,6 +875,9 @@ class MigrationTest(s_t_utils.SynTest):
                         stats.extend([log async for log in migr._migrlogGet('nodes', 'stat', statkey)])
 
                     self.eq((1, 1), stats[0]['val'])
+
+                    self.false(os.path.exists(os.path.join(dest, 'boot.yaml')))
+                    self.true(os.path.exists(os.path.join(dest, 'migration', 'boot.yaml')))
 
     async def test_migr_stormsvc(self):
         conf = {

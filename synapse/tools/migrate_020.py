@@ -920,6 +920,17 @@ class Migrator(s_base.Base):
         # Set cortex:version to latest
         await self.hive.set(('cellinfo', 'cortex:version'), s_version.version)
 
+        # check/warn for boot.yaml with credentials
+        bootpath = os.path.join(self.dest, 'boot.yaml')
+        if os.path.exists(bootpath):
+            conf = s_common.yamlload(bootpath)
+            if 'auth:admin' in conf:
+                logger.warning(f'boot.yaml is deprecated; to keep auth move password to auth:passwd in cell.yaml')
+                await self._migrlogAdd(migrop, 'error', 'bootyaml_authadmin', s_common.now())
+
+            # move to migration dir as backup
+            shutil.move(bootpath, os.path.join(self.dest, self.migrdir))
+
         # confdefs
         validconfs = s_cortex.Cortex.confdefs
         yamlpath = os.path.join(self.dest, 'cell.yaml')
