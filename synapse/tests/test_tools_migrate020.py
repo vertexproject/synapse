@@ -416,6 +416,7 @@ class MigrationTest(s_t_utils.SynTest):
         conf = {
             'src': None,
             'dest': None,
+            'addmode': 'nexus',
             'migrops': None,
         }
 
@@ -467,7 +468,6 @@ class MigrationTest(s_t_utils.SynTest):
         conf = {
             'src': None,
             'dest': None,
-            'addmode': 'nonexus',
             'safetyoff': True,
             'migrops': None,
         }
@@ -666,7 +666,7 @@ class MigrationTest(s_t_utils.SynTest):
                     self.eq(migr.src, src)
                     self.eq(migr.dest, dest)
                     self.sorteq(migr.migrops, s_migr.ALL_MIGROPS)
-                    self.eq(migr.addmode, 'nexus')
+                    self.eq(migr.addmode, 'nonexus')
                     self.eq(migr.editbatchsize, 100)
                     self.eq(migr.fairiter, 100)
                     self.none(migr.nodelim)
@@ -963,6 +963,7 @@ class MigrationTest(s_t_utils.SynTest):
                 conf = {
                     'src': src,
                     'dest': dest,
+                    'addmode': 'nexus',
                 }
 
                 async with await s_migr.Migrator.anit(conf) as migr:

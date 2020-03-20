@@ -493,7 +493,7 @@ class Migrator(s_base.Base):
 
         self.addmode = conf.get('addmode')
         if self.addmode is None:
-            self.addmode = 'nexus'
+            self.addmode = 'nonexus'
 
         if self.addmode not in ADD_MODES:
             raise Exception(f'addmode {self.addmode} is not valid')
@@ -1768,6 +1768,7 @@ class Migrator(s_base.Base):
         '''
         await migrlyrinfo.set('lockmemory', self.destdedicated)
         await migrlyrinfo.set('readonly', False)
+        await migrlyrinfo.set('logedits', False)  # only matters if addmode=nexus, but we never want to store edits
 
         path = os.path.join(dirn, 'layers', iden)
         wlyr = await s_layer.Layer.anit(migrlyrinfo, path, nexsroot=self.nexusroot)
@@ -1787,12 +1788,12 @@ class Migrator(s_base.Base):
         Returns:
             (dict or None): Error dict or None if successful
         '''
-        meta = {'time': s_common.now(),
-                'user': wlyr.layrinfo.get('creator'),
-                }
-
         try:
             if addmode == 'nexus':
+                meta = {
+                    'time': s_common.now(),
+                    'user': wlyr.layrinfo.get('creator'),
+                }
                 await wlyr.storNodeEditsNoLift(nodeedits, meta)
 
             elif addmode == 'nonexus':
@@ -1846,7 +1847,7 @@ async def main(argv, outp=s_output.stdout):
                       help='Limit migration operations to run.')
     pars.add_argument('--nodelim', required=False, type=int,
                       help="Stop after migrating nodelim nodes")
-    pars.add_argument('--add-mode', required=False, type=str.lower, default='nexus', choices=ADD_MODES,
+    pars.add_argument('--add-mode', required=False, type=str.lower, default='nonexus', choices=ADD_MODES,
                       help='Method to use for adding nodes.')
     pars.add_argument('--edit-batchsize', required=False, type=int, default=100,
                       help='Batch size for writing new nodeedits')
