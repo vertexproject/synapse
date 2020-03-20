@@ -170,10 +170,11 @@ class SyncTest(s_t_utils.SynTest):
             podesj = [p for p in podesj if p[0] not in NOMIGR_NDEF]
             tpodes = tupleize(podesj)
 
-            # check all nodes
+            # check all nodes (removing empty nodedata key)
             nodes = await core.nodes('.created -meta:source:name=test')
 
             podes = [n.pack(dorepr=True) for n in nodes]
+            podes = [(p[0], {k: v for k, v in p[1].items() if k != 'nodedata'}) for p in podes]
             self.gt(len(podes), 0)
 
             # handle the case where a tag with tagprops was deleted but tag:prop:del splices aren't generated

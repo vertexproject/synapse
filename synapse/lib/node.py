@@ -43,6 +43,10 @@ class Node:
         if self.tagprops is None:
             self.tagprops = {}
 
+        self.nodedata = sode[1].get('nodedata')
+        if self.nodedata is None:
+            self.nodedata = {}
+
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
@@ -107,6 +111,7 @@ class Node:
             'tags': self.tags,
             'props': self.props,
             'tagprops': tagprops,
+            'nodedata': self.nodedata,
         })
 
         if dorepr:
@@ -612,6 +617,9 @@ class Node:
         self.snap.livenodes.pop(self.buid, None)
 
     async def getData(self, name):
+        valu = self.nodedata.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
         return await self.snap.getNodeData(self.buid, name)
 
     async def setData(self, name, valu):
