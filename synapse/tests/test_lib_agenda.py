@@ -350,6 +350,47 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appt.isrunning, False)
                 self.eq(appt.lastresult, 'raised exception test exception')
 
+                # Test setting the global enable/disable flag
+                # reset
+                await agenda.delete(guid)
+                lastquery = None
+                self.len(0, agenda.apptheap)
+                agenda._schedtask.cancel()
+                agenda._schedtask = agenda.schedCoro(agenda._scheduleLoop())
+
+                # schedule a query to run every Wednesday and Friday at 10:15am
+                cdef = {'useriden': rootiden, 'iden': 'IDEN6', 'storm': '[test:str=bar]',
+                        'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                        'incunit': s_agenda.TimeUnit.DAYOFWEEK,
+                        'incvals': (2, 4)}
+                adef = await agenda.add(cdef)
+                guid = adef.get('iden')
+
+                self.len(1, agenda.apptheap)
+
+                # disable crons and advance time
+                agenda.enabled = False
+
+                unixtime = datetime.datetime(year=2019, month=2, day=6, hour=10, minute=16, tzinfo=tz.utc).timestamp()
+                nexttime = datetime.datetime(year=2019, month=2, day=8, hour=10, minute=15, tzinfo=tz.utc).timestamp()
+
+                await asyncio.sleep(0)
+                self.none(lastquery)
+
+                appt = await agenda.get(guid)
+                self.eq(nexttime, appt.nexttime)
+                self.true(appt.enabled)
+                self.eq(0, appt.startcount)
+
+                # enable crons and advance time
+                agenda.enabled = True
+
+                unixtime = datetime.datetime(year=2019, month=2, day=13, hour=10, minute=16, tzinfo=tz.utc).timestamp()
+                await sync.wait()
+                sync.clear()
+                self.eq(lastquery, '[test:str=bar]')
+                self.eq(1, appt.startcount)
+
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:
