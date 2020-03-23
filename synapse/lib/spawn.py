@@ -317,6 +317,8 @@ class SpawnCore(s_base.Base):
         self.iden = spawninfo.get('iden')
         self.dirn = spawninfo.get('dirn')
 
+        self.trigson = self.conf.get('trigger:enable')
+
         self.stormcmds = {}
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
@@ -348,8 +350,6 @@ class SpawnCore(s_base.Base):
 
         self.hive = await s_hive.openurl(f'cell://{self.dirn}', name='*/hive')
         self.onfini(self.hive)
-
-        self.trigson = self.conf.get('trigger:enable')
 
         # TODO cortex configured for remote auth...
         node = await self.hive.open(('auth',))

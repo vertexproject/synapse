@@ -824,6 +824,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
+        self.trigson = self.conf.get('trigger:enable')
+
         await self._initRuntFuncs()
 
         cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
@@ -841,8 +843,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self._initStormDmons()
-
-        self.trigson = self.conf.get('trigger:enable')
 
         import synapse.lib.spawn as s_spawn  # get around circular dependency
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
