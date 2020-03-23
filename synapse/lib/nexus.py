@@ -1,13 +1,24 @@
 import asyncio
+import logging
 import functools
 import contextlib
 
-from typing import List, Dict, Any, Callable, Tuple
+from typing import List, Dict, Any, Callable, Tuple, Optional, AsyncIterator
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
+
+logger = logging.getLogger(__name__)
+
+# As a mirror follower, amount of time before giving up on a write request
+FOLLOWER_WRITE_WAIT_S = 30.0
+
+NexusLogEntryT = Tuple[str, str, List[Any], Dict[str, Any], Dict] # (nexsiden, event, args, kwargs, meta)
+
 
 class RegMethType(type):
     '''
@@ -26,13 +37,16 @@ class RegMethType(type):
                 cls._regclstupls.append(prop)
 
 class ChangeDist(s_base.Base):
-    async def __anit__(self, nexuslog, offs):
+    '''
+    A utility class to distribute new change entries to mirrors/followers
+    '''
+    async def __anit__(self, nexuslog: Any, offs: int):  # type: ignore
         await s_base.Base.__anit__(self)
         self.event = asyncio.Event()
         self.nexuslog = nexuslog
         self.offs = offs
 
-        async def fini():
+        async def fini() -> None:
             self.event.set()
 
         self.onfini(fini)
@@ -51,7 +65,7 @@ class ChangeDist(s_base.Base):
             self.event.clear()
             await self.event.wait()
 
-    def update(self):
+    def update(self) -> bool:
         if self.isfini:
             return False
 
@@ -60,112 +74,250 @@ class ChangeDist(s_base.Base):
 
 class NexsRoot(s_base.Base):
 
-    async def __anit__(self, dirn: str, dologging: bool = True):  # type: ignore
+    async def __anit__(self, dirn: str, donexslog: bool = True):  # type: ignore
         await s_base.Base.__anit__(self)
 
         import synapse.lib.lmdbslab as s_lmdbslab  # avoid import cycle
         import synapse.lib.slabseqn as s_slabseqn  # avoid import cycle
 
         self.dirn = dirn
-        self.readonly = False
         self._nexskids: Dict[str, 'Pusher'] = {}
 
-        self.mirrors: List[ChangeDist] = []
-        self.dologging = dologging
+        self._mirrors: List[ChangeDist] = []
+        self.donexslog = donexslog
 
-        if self.dologging:
+        # These are used when this cell is a mirror.
+        self._ldrurl: Optional[str] = None
+        self._ldr: Optional[s_telepath.Proxy] = None  # only set by looptask
+        self._looptask: Optional[asyncio.Task] = None
+        self._ldrready = asyncio.Event()
+
+        # Used to match pending follower write requests with the responses arriving on the log
+        self._futures: Dict[str, asyncio.Future] = {}
+
+        if self.donexslog:
             path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
-            self.nexusslab = await s_lmdbslab.Slab.anit(path, map_async=False)
-            self.nexuslog = s_slabseqn.SlabSeqn(self.nexusslab, 'nexuslog')
+            self._nexusslab = await s_lmdbslab.Slab.anit(path, map_async=False)
+            self._nexuslog = s_slabseqn.SlabSeqn(self._nexusslab, 'nexuslog')
 
         async def fini():
-            if self.dologging:
-                await self.nexusslab.fini()
-            [(await dist.fini()) for dist in self.mirrors]
+            if self._looptask:
+                self._looptask.cancel()
+                try:
+                    await self._looptask
+                except Exception:
+                    pass
+
+            for futu in self._futures.values():
+                futu.cancel()
+
+            if self._ldr:
+                self._ldrready.clear()
+                await self._ldr.fini()
+
+            if self.donexslog:
+                await self._nexusslab.fini()
+
+            [(await dist.fini()) for dist in self._mirrors]
 
         self.onfini(fini)
 
-    async def issue(self, nexsiden: str, event: str, args: Any, kwargs: Any) -> Any:
-        '''
-        Issue a change event for the given nexsiden instance.
-        '''
-        item = (nexsiden, event, args, kwargs)
+    @contextlib.contextmanager
+    def _getResponseFuture(self):
 
-        if self.dologging:
-            indx = self.nexuslog.add(item)
+        iden = s_common.guid()
+        futu = self.loop.create_future()
+
+        self._futures[iden] = futu
+
+        try:
+            yield iden, futu
+
+        finally:
+            self._futures.pop(iden, None)
+
+    async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
+                    meta: Optional[Dict] = None) -> Any:
+        '''
+        If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
+        to hand me the result through a future.
+        '''
+        if not self._ldrurl:
+            return await self.eat(nexsiden, event, args, kwargs, meta)
+
+        live = await s_coro.event_wait(self._ldrready, FOLLOWER_WRITE_WAIT_S)
+        if not live:
+            raise s_exc.LinkErr(mesg='Mirror cannot reach leader for write request')
+
+        assert self._ldr is not None
+
+        with self._getResponseFuture() as (iden, futu):
+            if meta is None:
+                meta = {}
+            meta['resp'] = iden
+
+            await self._ldr.issue(nexsiden, event, args, kwargs, meta)
+            return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
+
+    async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
+                  meta: Optional[Dict] = None) -> Any:
+        '''
+        Actually mutate for the given nexsiden instance.
+        '''
+        if meta is None:
+            meta = {}
+
+        item: NexusLogEntryT = (nexsiden, event, args, kwargs, meta)
+
+        if self.donexslog:
+            indx = self._nexuslog.add(item)
         else:
             indx = 0
 
-        [dist.update() for dist in tuple(self.mirrors)]
+        [dist.update() for dist in tuple(self._mirrors)]
 
         return await self._apply(indx, item)
 
     async def _apply(self, indx, item):
-
-        nexsiden, event, args, kwargs = item
+        nexsiden, event, args, kwargs, _ = item
 
         nexus = self._nexskids[nexsiden]
         func = nexus._nexshands[event]
 
-        return indx, await func(nexus, *args, **kwargs)
+        return await func(nexus, *args, **kwargs)
 
-    async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]) -> Any:
+    async def iter(self, offs: int) -> AsyncIterator[Any]:
         '''
-        Called from an external API
+        Returns an iterator of change entries in the log
         '''
-        nexus = self._nexskids[nexsiden]
-        return await nexus._push(event, *args, **kwargs)
-
-    def getOffset(self):
-        '''
-        Returns the next offset that would be written
-        '''
-        if not self.dologging:
-            return 0
-
-        return self.nexuslog.index()
-
-    async def waitForOffset(self, offs, timeout=None):
-        if not self.dologging:
+        if not self.donexslog:
             return
 
-        return await self.nexuslog.waitForOffset(offs, timeout=timeout)
-
-    def getOffsetEvent(self, offs):
-        if not self.dologging:
-            evnt = asyncio.Event()
-            evnt.set()
-            return evnt
-
-        return self.nexuslog.getOffsetEvent(offs)
-
-    async def iter(self, offs: int):
-        if not self.dologging:
-            return
+        if self.isfini:
+            raise s_exc.IsFini()
 
         maxoffs = offs
 
-        for item in self.nexuslog.iter(offs):
+        for item in self._nexuslog.iter(offs):
+            if self.isfini:
+                raise s_exc.IsFini()
             maxoffs = item[0] + 1
             yield item
 
         async with self.getChangeDist(maxoffs) as dist:
             async for item in dist:
+                if self.isfini:
+                    raise s_exc.IsFini()
                 yield item
 
     @contextlib.asynccontextmanager
-    async def getChangeDist(self, offs):
+    async def getChangeDist(self, offs: int) -> AsyncIterator[ChangeDist]:
 
-        async with await ChangeDist.anit(self.nexuslog, offs) as dist:
+        async with await ChangeDist.anit(self._nexuslog, offs) as dist:
 
             async def fini():
-                self.mirrors.remove(dist)
+                self._mirrors.remove(dist)
 
             dist.onfini(fini)
 
-            self.mirrors.append(dist)
+            self._mirrors.append(dist)
 
             yield dist
+
+    async def setLeader(self, url: Optional[str], iden: str) -> None:
+        '''
+        Args:
+            url:  if None, sets this nexsroot as leader, otherwise the telepath URL of the leader (must be a Cell)
+            iden: iden of the leader.  Should be the same as my containing cell's iden
+        '''
+        if url is not None and not self.donexslog:
+            raise s_exc.BadConfValu(mesg='Mirroring incompatible without nexslog:en')
+
+        if self._ldrurl == url:
+            return
+
+        self._ldrurl = url
+
+        if self._looptask is not None:
+            self._looptask.cancel()
+            self._looptask = None
+            self._ldrready.clear()
+            if self._ldr is not None:
+                await self._ldr.fini()
+            self._ldr = None
+
+        if self._ldrurl is None:
+            return
+
+        self._looptask = self.schedCoro(self._followerLoop(iden))
+
+    async def _followerLoop(self, iden) -> None:
+
+        while not self.isfini:
+
+            try:
+                if self._ldr is not None:
+                    await self._ldr.fini()
+
+                proxy = await s_telepath.openurl(self._ldrurl)
+                self._ldr = proxy
+                self._ldrready.set()
+
+                # if we really are a mirror/follower, we have the same iden.
+                if iden != await proxy.getCellIden():
+                    logger.error('remote cell has different iden!  Aborting mirror sync')
+                    await self.fini()
+                    return
+
+                logger.warning(f'mirror loop ready ({self._ldrurl}')
+
+                while not proxy.isfini:
+
+                    offs = self._nexuslog.index()
+
+                    genr = proxy.getNexusChanges(offs)
+                    async for item in genr:
+
+                        if proxy.isfini:
+                            break
+
+                        offs, args = item
+                        if offs != self._nexuslog.index():  # pragma: nocover
+                            logger.error('mirror desync')
+                            await self.fini()
+                            return
+
+                        meta = args[-1]
+                        respiden = meta.get('resp')
+                        respfutu = self._futures.get(respiden)
+
+                        try:
+                            retn = await self.eat(*args)
+
+                        except asyncio.CancelledError:
+                            raise
+
+                        except Exception as e:
+                            if respfutu is not None:
+                                assert not respfutu.done()
+                                respfutu.set_exception(e)
+                            else:
+                                logger.exception(e)
+
+                        else:
+                            if respfutu is not None:
+                                respfutu.set_result(retn)
+
+                        # TODO:  persist applied offset
+
+            except asyncio.CancelledError: # pragma: no cover
+                return
+
+            except Exception:
+                logger.exception('error in initCoreMirror loop')
+
+            self._ldrready.clear()
+            await self.waitfini(1)
 
 class Pusher(s_base.Base, metaclass=RegMethType):
     '''
@@ -228,7 +380,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         return decorator
 
-    async def _push(self, event: str, *args: List[Any], **kwargs: Dict[str, Any]) -> Any:
+    async def _push(self, event: str, *args: Any, **kwargs: Any) -> Any:
         '''
         Execute the change handler for the mesg
 
@@ -236,13 +388,9 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
         nexsiden = self.nexsiden
-        if self.nexsroot is not None:  # Distribute through the change root
-            if self.nexsroot.readonly:
-                raise s_exc.IsReadOnly()
 
-            offs, retn = await self.nexsroot.issue(nexsiden, event, args, kwargs)
-            await self.nexsroot.waitForOffset(offs)
-            return retn
+        if self.nexsroot is not None:  # Distribute through the change root
+            return await self.nexsroot.issue(nexsiden, event, args, kwargs, None)
 
         # There's no change distribution, so directly execute
         return await self._nexshands[event](self, *args, **kwargs)

@@ -706,7 +706,7 @@ class Agenda(s_base.Base):
                 if appt.nexttime:
                     heapq.heappush(self.apptheap, appt)
 
-                if not appt.enabled:
+                if not appt.enabled or not self.enabled:
                     continue
 
                 if self.core.mirror:
