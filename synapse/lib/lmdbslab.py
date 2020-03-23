@@ -1236,9 +1236,11 @@ class Scan:
 
                     self.curs = self.slab.xact.cursor(db=self.db)
                     if self.dupsort:
-                        self.curs.set_range_dup(*self.atitem)
+                        ret = self.curs.set_range_dup(*self.atitem)
                     else:
-                        self.curs.set_range(self.atitem[0])
+                        ret = self.curs.set_range(self.atitem[0])
+                    if ret is False:
+                        raise StopIteration
 
                     self.genr = self.iterfunc(self.curs)
 
@@ -1327,12 +1329,19 @@ class ScanBack(Scan):
 
                     self.curs = self.slab.xact.cursor(db=self.db)
                     if self.dupsort:
-                        self.curs.set_range_dup(*self.atitem)
+                        ret = self.curs.set_range_dup(*self.atitem)
+                        if ret is False:
+                            if not self.curs.last():
+                                raise StopIteration
                     else:
-                        self.curs.set_range(self.atitem[0])
+                        ret = self.curs.set_range(self.atitem[0])
+                        if ret is False:
+                            if not self.curs.last():
+                                raise StopIteration
 
                     self.genr = self.iterfunc(self.curs)
-                    next(self.genr)
+                    if ret is not False:
+                        next(self.genr)
 
                 self.atitem = next(self.genr)
 
