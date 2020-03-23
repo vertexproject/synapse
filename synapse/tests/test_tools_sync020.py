@@ -260,11 +260,17 @@ class SyncTest(s_t_utils.SynTest):
                 seclyr = [v for k, v in core.layers.items() if k != wlyr.iden][0]
                 num_splices = len(fkcore.splicelog[wlyr.iden]['splices'])
 
+                self.true(core.trigson)
+                self.true(core.agenda.enabled)
+
                 # kick off a sync
                 # note that both layers will sync since they are in the migration offs file
                 # but the splices from the wlyr will be incorrectly pushed to both
                 # due to fakecore handling so just check the wlyr
                 await syncprx.startSyncFromFile()
+
+                self.false(core.trigson)
+                self.false(core.agenda.enabled)
 
                 self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=8))
                 self.true(await s_coro.event_wait(sync._pull_evnts[seclyr.iden], timeout=4))
@@ -290,6 +296,9 @@ class SyncTest(s_t_utils.SynTest):
                 await syncprx.stopSync()
                 await asyncio.sleep(0)
 
+                self.true(core.trigson)
+                self.true(core.agenda.enabled)
+
                 self.true(sync._pull_tasks[wlyr.iden].done())
                 self.true(sync._push_tasks[wlyr.iden].done())
                 self.true(sync._queues[wlyr.iden].isfini)
@@ -301,6 +310,9 @@ class SyncTest(s_t_utils.SynTest):
                 # restart sync over same splices with queue cap less than total splices
                 sync.q_cap = 100
                 await syncprx.startSyncFromFile()
+
+                self.false(core.trigson)
+                self.false(core.agenda.enabled)
 
                 self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=5))
                 self.true(await s_coro.event_wait(sync._push_evnts[wlyr.iden], timeout=5))
@@ -326,6 +338,9 @@ class SyncTest(s_t_utils.SynTest):
                 wlyr = core.view.layers[-1]
                 num_splices = len(fkcore.splicelog[wlyr.iden]['splices'])
 
+                self.true(core.trigson)
+                self.true(core.agenda.enabled)
+
                 lim = 100
                 await fkcore.setSplicelim(lim)
 
@@ -334,10 +349,21 @@ class SyncTest(s_t_utils.SynTest):
 
                 # kick off a sync and then stop it so we can resume
                 await sync._startLyrSync(wlyr.iden, 0)
+
+                self.false(core.trigson)
+                self.false(core.agenda.enabled)
+
                 await sync.stopSync()
+
+                self.true(core.trigson)
+                self.true(core.agenda.enabled)
 
                 # resume sync from last
                 await syncprx.startSyncFromLast()
+
+                self.false(core.trigson)
+                self.false(core.agenda.enabled)
+
                 self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=10))
                 self.true(await s_coro.event_wait(sync._push_evnts[wlyr.iden], timeout=5))
 
@@ -462,7 +488,7 @@ class SyncTest(s_t_utils.SynTest):
 
             async with await s_telepath.openurl(os.path.join(turl, 'layer', wlyr.iden)) as prx:
                 async with await s_queue.Window.anit(maxsize=None) as queue:
-                    await sync._loadDatamodel()
+                    sync.model.update(await core.getModelDict())
                     sync._push_evnts[wlyr.iden] = asyncio.Event()
 
                     # test that queue can be empty when task starts
