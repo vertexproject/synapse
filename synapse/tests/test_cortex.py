@@ -1,4 +1,5 @@
 import copy
+import mock
 import time
 import shutil
 import asyncio
@@ -3455,9 +3456,23 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
 
+                # Try a write with the leader down
+                with mock.patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
+                    await self.asyncraises(s_exc.LinkErr, core01.nodes('[inet:ipv4=7.7.7.8]'))
+
+                # Bring the leader back up and try again
+                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                    self.len(1, await core00.nodes('[ inet:ipv4=7.7.7.8 ]'))
+
                 # remove the mirrorness from the cortex
                 await core01.nexsroot.setLeader(None, None)
-                self.len(1, await core01.nodes('[inet:ipv4=8.8.8.8]'))
+                core01.mirror = False
+
+                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                    self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
+                    # add it back
+                    await core01.initCoreMirror(url)
+                    self.len(1, await core01.nodes('[inet:ipv4=9.9.9.9]'))
 
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):

@@ -193,14 +193,21 @@ class NexsRoot(s_base.Base):
         if not self.donexslog:
             return
 
+        if self.isfini:
+            raise s_exc.IsFini()
+
         maxoffs = offs
 
         for item in self._nexuslog.iter(offs):
+            if self.isfini:
+                raise s_exc.IsFini()
             maxoffs = item[0] + 1
             yield item
 
         async with self.getChangeDist(maxoffs) as dist:
             async for item in dist:
+                if self.isfini:
+                    raise s_exc.IsFini()
                 yield item
 
     @contextlib.asynccontextmanager
@@ -275,8 +282,8 @@ class NexsRoot(s_base.Base):
                             break
 
                         offs, args = item
-                        if offs != self._nexuslog.index():
-                            logger.error('FATAL ERROR: mirror desync.')
+                        if offs != self._nexuslog.index():  # pragma: nocover
+                            logger.error('mirror desync')
                             await self.fini()
                             return
 

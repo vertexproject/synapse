@@ -484,7 +484,8 @@ class Base:
         def taskDone(task):
             self._active_tasks.remove(task)
             try:
-                task.result()
+                if not task.done():
+                    task.result()
             except asyncio.CancelledError:
                 pass
             except Exception:
