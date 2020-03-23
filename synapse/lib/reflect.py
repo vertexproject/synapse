@@ -6,7 +6,11 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-clsskip = set([object])
+import synapse.lib.base as s_base
+
+clsskip = set([object,
+               s_base.Base,
+               ])
 unwraps = {'adminapi',
            }
 
@@ -85,14 +89,18 @@ def getShareInfo(item):
         attr = getattr(item, name, None)
         if not callable(attr):
             continue
-
         # We know we can cleanly unwrap these functions
         # for asyncgenerator inspection.
         print(attr)
+        _dirs = dir(attr)
+        _dirs = [n for n in _dirs if 'syn' in n.lower()]
+        if _dirs:
+            print(_dirs)
         wrapped = getattr(attr, '__syn_wrapped__', None)
         if wrapped in unwraps:
             real = inspect.unwrap(attr)
             if inspect.isasyncgenfunction(real):
+                print('unrapped ')
                 meths[name] = {'genr': True}
                 continue
 
