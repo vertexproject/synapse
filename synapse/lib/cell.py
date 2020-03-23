@@ -40,36 +40,49 @@ SLAB_MAP_SIZE = 128 * s_const.mebibyte
 Base classes for the synapse "cell" microservice architecture.
 '''
 
-def adminapi(*args, **kwargs):
-
-    func = None
-    if len(args) == 1 and callable(args[0]):
-        func = args[0]
-
-    if func:
-        # Set defaults
-        log = True
-    else:
-        # Extract keyword arguments
-        log = kwargs.get('log')
-
-    def decrfunc(func):
-        @functools.wraps(func)
-        def wrapped(*args, **kwargs):
-            if args[0].user is not None and not args[0].user.isAdmin():
-                raise s_exc.AuthDeny(mesg='User is not an admin.',
-                                     user=args[0].user.name)
-
-            if log:
-                logger.info('Executing [%s] as [%s] with args [%s][%s]',
-                            func.__qualname__, args[0].user.name, args[1:], kwargs)
-            result = func(*args, **kwargs)
-            return result
-        return wrapped
-
-    decrfunc.__syn_wrapped__ = 'adminapi'
-
-    return decrfunc(func) if func else decrfunc
+# def adminapi(log=True):
+#
+#     # func = None
+#     # if len(args) == 1 and callable(args[0]):
+#     #     func = args[0]
+#     #
+#     # if func:
+#     #     # Set defaults
+#     #     log = True
+#     # else:
+#     #     # Extract keyword arguments
+#     #     log = kwargs.get('log')
+#
+#     def decrfunc(func):
+#         @functools.wraps(func)
+#         def wrapped(*args, **kwargs):
+#             if args[0].user is not None and not args[0].user.isAdmin():
+#                 raise s_exc.AuthDeny(mesg='User is not an admin.',
+#                                      user=args[0].user.name)
+#
+#             if log:
+#                 logger.info('Executing [%s] as [%s] with args [%s][%s]',
+#                             func.__qualname__, args[0].user.name, args[1:], kwargs)
+#             result = func(*args, **kwargs)
+#             return result
+#
+#         print(func, wrapped)
+#         return wrapped
+#
+#     decrfunc.__syn_wrapped__ = 'adminapi'
+#     print(decrfunc)
+#     return decrfunc
+#
+#     # print(func)
+#     # if func:
+#     #     rfunc = decrfunc(func)
+#     #     rfunc.__syn_wrapped__ = 'adminapi'
+#     #     return rfunc
+#     # else:
+#     #     decrfunc.__syn_wrapped__ = 'adminapi'
+#     #     return decrfunc
+#
+#     # return decrfunc(func) if func else decrfunc
 
 def adminapi(f):
 

@@ -88,6 +88,7 @@ def getShareInfo(item):
 
         # We know we can cleanly unwrap these functions
         # for asyncgenerator inspection.
+        print(attr)
         wrapped = getattr(attr, '__syn_wrapped__', None)
         if wrapped in unwraps:
             real = inspect.unwrap(attr)
