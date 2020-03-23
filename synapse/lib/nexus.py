@@ -277,6 +277,8 @@ class NexsRoot(s_base.Base):
                         offs, args = item
                         if offs != self._nexuslog.index():
                             logger.error('FATAL ERROR: mirror desync.')
+                            await self.fini()
+                            return
 
                         meta = args[-1]
                         respiden = meta.get('resp')
