@@ -316,8 +316,9 @@ Git Hook & Syntax Checking
 --------------------------
 
 A set of helper scripts are available for doing python syntax checking.
-These include a script to do generic syntax checking of all synapse files;
-a git pre-commit hook; and a script to run autopep8 on staged git files.
+Basic syntax checking can be run with the ``pycodestyle`` tool; while a
+a git pre-commit hook; and a script to run autopep8 on staged git files
+also exist to make life easier.
 
 The pre-commit hook does syntax checking on .py files which contain invalid
 syntax. The hook will **ALSO** run nbstripout on .ipynb files to remove output
@@ -327,9 +328,7 @@ data from cells. This results in cleaner diffs for .ipynb files over time.
 
    ::
 
-      ~/git/synapse$ ./scripts/syntax_check.py
-      PEP8 style violations have been detected.
-
+      ~/git/synapse$ python -m pycodestyle
       ./synapse/tests/test_lib_types.py:397: [E226] missing whitespace around arithmetic operator
       ./synapse/tests/test_lib_types.py:398: [E226] missing whitespace around arithmetic operator
 
@@ -353,7 +352,7 @@ data from cells. This results in cleaner diffs for .ipynb files over time.
       ./synapse/tests/test_lib_types.py:397: [E226] missing whitespace around arithmetic operator
       ./synapse/tests/test_lib_types.py:398: [E226] missing whitespace around arithmetic operator
 
-#. This may be automatically fixed for you using the `pep8_staged_files.py` script.
+#. This may be automatically fixed for you using the ``pep8_staged_files.py`` script.
    Note that **most**, but not **all** syntax errors may be fixed with the helper script.
 
    ::
