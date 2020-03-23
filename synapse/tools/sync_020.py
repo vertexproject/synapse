@@ -334,7 +334,7 @@ class SyncMigrator(s_cell.Cell):
     async def _startLyrSync(self, lyriden, nextoffs):
         '''
         Starts up the sync process for a given layer and starting offset.
-        Always retrieves a fresh datamodel.
+        Always retrieves a fresh datamodel and sets migration mode.
         Creates layer queue and fires layer push/pull tasks if they do not already exist.
 
         Args:
@@ -344,7 +344,10 @@ class SyncMigrator(s_cell.Cell):
         await self.layers.set(lyriden, nextoffs)
         self.pull_offs.set(lyriden, nextoffs)
 
-        await self._loadDatamodel()
+        async with await s_telepath.openurl(self.dest) as prx:
+            model = await prx.getModelDict()
+            self.model.update(model)
+            await prx.enableMigrationMode()
 
         queue = self._queues.get(lyriden)
         if queue is None or queue.isfini:
@@ -364,7 +367,7 @@ class SyncMigrator(s_cell.Cell):
 
     async def stopSync(self):
         '''
-        Cancel all tasks and fini queues.
+        Cancel all tasks and fini queues. Also disable migration mode on dest cortex.
 
         Returns:
             (list): Of layer idens that were stopped
@@ -385,6 +388,15 @@ class SyncMigrator(s_cell.Cell):
             logger.warning(f'Fini\'ing {lyriden} queue')
             await queue.fini()
             retn.add(lyriden)
+
+        try:
+            async with await s_telepath.openurl(self.dest) as prx:
+                await prx.disableMigrationMode()
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            logger.exception(f'Unable to disable migration mode on dest cortex: {e}')
+            pass
 
         logger.info('stopSync complete')
         return list(retn)
@@ -408,14 +420,6 @@ class SyncMigrator(s_cell.Cell):
             errs.append((offset, err))
 
         return errs
-
-    async def _loadDatamodel(self):
-        '''
-        Retrieve the datamodel (with stortypes) from the destination cortex.
-        '''
-        async with await s_telepath.openurl(self.dest) as prx:
-            model = await prx.getModelDict()
-            self.model.update(model)
 
     def _getLayerUrl(self, tbase, lyriden):
         '''
