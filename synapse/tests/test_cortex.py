@@ -1,9 +1,10 @@
 import copy
-import mock
 import time
 import shutil
 import asyncio
 import fastjsonschema
+
+from unittest.mock import patch
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -3457,7 +3458,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
 
                 # Try a write with the leader down
-                with mock.patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
+                with patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
                     await self.asyncraises(s_exc.LinkErr, core01.nodes('[inet:ipv4=7.7.7.8]'))
 
                 # Bring the leader back up and try again
