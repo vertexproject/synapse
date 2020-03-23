@@ -8,9 +8,7 @@ logger = logging.getLogger(__name__)
 
 import synapse.lib.base as s_base
 
-clsskip = set([object,
-               s_base.Base,
-               ])
+clsskip = set([object])
 unwraps = {'adminapi',
            }
 
