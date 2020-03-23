@@ -267,7 +267,7 @@ class SyncTest(s_t_utils.SynTest):
                 await syncprx.startSyncFromFile()
 
                 self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=8))
-                self.true(await s_coro.event_wait(sync._pull_evnts[seclyr.iden], timeout=2))
+                self.true(await s_coro.event_wait(sync._pull_evnts[seclyr.iden], timeout=4))
 
                 self.true(await s_coro.event_wait(sync._push_evnts[wlyr.iden], timeout=2))
                 self.true(await s_coro.event_wait(sync._push_evnts[seclyr.iden], timeout=2))
