@@ -209,7 +209,6 @@ class AgendaTest(s_t_utils.SynTest):
                 await asyncio.sleep(0)  # give the scheduler a shot to wait
                 unixtime += 61
                 await sync.wait()  # wait for the query to run
-                print('woot')
                 sync.clear()
                 self.eq(lastquery, '[test:str=foo]')
                 core.reset_mock()
