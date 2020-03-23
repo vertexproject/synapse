@@ -71,6 +71,24 @@ def adminapi(*args, **kwargs):
 
     return decrfunc(func) if func else decrfunc
 
+def adminapi(f):
+
+    @functools.wraps(f)
+    def func(*args, **kwargs):
+
+        if args[0].user is not None and not args[0].user.isAdmin():
+            raise s_exc.AuthDeny(mesg='User is not an admin.',
+                                 user=args[0].user.name)
+
+        logger.info('Executing [%s] as [%s] with args [%s][%s]',
+                    f.__qualname__, args[0].user.name, args[1:], kwargs)
+
+        return f(*args, **kwargs)
+
+    func.__syn_wrapped__ = 'adminapi'
+
+    return func
+
 
 class CellApi(s_base.Base):
 
@@ -205,11 +223,11 @@ class CellApi(s_base.Base):
         await self.cell.fire('user:mod', act='adduser', name=name)
         return user.pack()
 
-    @adminapi(log=False)
+    # @adminapi(log=False)
     async def dyncall(self, iden, todo, gatekeys=()):
         return await self.cell.dyncall(iden, todo, gatekeys=gatekeys)
 
-    @adminapi(log=False)
+    # @adminapi(log=False)
     async def dyniter(self, iden, todo, gatekeys=()):
         async for item in self.cell.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
@@ -406,7 +424,7 @@ class CellApi(s_base.Base):
     async def saveHiveTree(self, path=()):
         return await self.cell.saveHiveTree(path=path)
 
-    @adminapi(log=False)
+    # @adminapi(log=False)
     async def getNexusChanges(self, offs):
         async for item in self.cell.getNexusChanges(offs):
             yield item

@@ -1,4 +1,5 @@
 import synapse.lib.base as s_base
+import synapse.lib.cell as s_cell
 import synapse.lib.reflect as s_reflect
 import synapse.lib.version as s_version
 
@@ -46,3 +47,22 @@ class ReflectTest(s_t_utils.SynTest):
             self.eq(sharinfo.get('syn:version'), s_version.version)
             self.eq(sharinfo.get('classes'),
                     ['synapse.tests.test_lib_reflect.Echo', 'synapse.lib.base.Base'])
+
+        # Check attribute information for a Cell / CellApi wrapper
+        # which sets the __syn_wrapped__ attribute on a few functions
+        # of the CellApi class.
+        with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn) as cell:
+                async with cell.getLocalProxy() as prox:
+
+                    print(cell)
+                    print(prox)
+                    print(dir(s_cell.CellApi))
+
+                    key = '_syn_sharinfo_synapse.lib.cell_CellApi'
+                    valu = getattr(s_cell.CellApi, key)
+                    print(valu)
+
+                    meths = valu.get('meths')
+                    self.isin('dyniter', meths)
+                    self.isin('getNexusChanges', meths)
