@@ -6,8 +6,6 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-import synapse.lib.base as s_base
-
 clsskip = set([object])
 unwraps = {'adminapi',
            }
@@ -87,6 +85,7 @@ def getShareInfo(item):
         attr = getattr(item, name, None)
         if not callable(attr):
             continue
+
         # We know we can cleanly unwrap these functions
         # for asyncgenerator inspection.
         wrapped = getattr(attr, '__syn_wrapped__', None)
