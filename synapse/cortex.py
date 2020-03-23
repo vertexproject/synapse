@@ -675,7 +675,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable cron jobs running.',
             'type': 'boolean'
         },
-        'triggers:enable': {
+        'trigger:enable': {
             'default': True,
             'description': 'Enable triggers running.',
             'type': 'boolean'
@@ -842,7 +842,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.agenda.start()
         await self._initStormDmons()
 
-        self.trigson = self.conf.get('triggers:enable')
+        self.trigson = self.conf.get('trigger:enable')
 
         import synapse.lib.spawn as s_spawn  # get around circular dependency
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
@@ -940,6 +940,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             'conf': {
                 'storm:log': self.conf.get('storm:log', False),
                 'storm:log:level': self.conf.get('storm:log:level', logging.INFO),
+                'trigger:enable': self.conf.get('trigger:enable', True),
             },
             'loglevel': logger.getEffectiveLevel(),
             'views': [v.getSpawnInfo() for v in self.views.values()],
@@ -3130,6 +3131,23 @@ class Cortex(s_cell.Cell):  # type: ignore
             crons.append(info)
 
         return crons
+
+    async def _enableMigrationMode(self):
+        '''
+        Prevents cron jobs and triggers from running
+        '''
+        self.agenda.enabled = False
+        self.trigson = False
+
+    async def _disableMigrationMode(self):
+        '''
+        Allows cron jobs and triggers to run
+        '''
+        if self.conf.get('cron:enable'):
+            self.agenda.enabled = True
+
+        if self.conf.get('trigger:enable'):
+            self.trigson = True
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
