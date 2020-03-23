@@ -211,3 +211,21 @@ class TestUtils(s_t_utils.SynTest):
 
             mesgs = await core.streamstorm('[test:str=').list()
             self.stormIsInErr('Unexpected end', mesgs)
+
+    async def test_stable_uids(self):
+        with self.withStableUids():
+            guid = s_common.guid()
+            self.eq('000000', guid[:6])
+            guid2 = s_common.guid()
+            self.ne(guid, guid2)
+
+            guid = s_common.guid(42)
+            self.ne('000000', guid[:6])
+
+            buid = s_common.buid()
+            self.eq(b'\00\00\00\00\00\00', buid[:6])
+            buid2 = s_common.buid()
+            self.ne(buid, buid2)
+
+            buid = s_common.buid(42)
+            self.ne(b'\00\00\00\00\00\00', buid[:6])

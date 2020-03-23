@@ -3,7 +3,6 @@ An RMI framework for synapse.
 '''
 
 import os
-import ssl
 import asyncio
 import logging
 import collections

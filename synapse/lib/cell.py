@@ -200,6 +200,19 @@ class CellApi(s_base.Base):
             yield item
 
     @adminapi
+    async def issue(self, nexsiden: str, event: str, args, kwargs, meta=None):
+        '''
+        Note:  this swallows exceptions and return values.  It is expected that the nexus _followerLoop would be the
+        return path
+        '''
+        try:
+            await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
+
+    @adminapi
     async def delAuthUser(self, name):
         await self.cell.auth.delUser(name)
         await self.cell.fire('user:mod', act='deluser', name=name)
@@ -408,7 +421,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
             'type': 'string'
         },
-        'logchanges': {
+        'nexslog:en': {
             'default': True,
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
             'type': 'boolean'
@@ -443,7 +456,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.conf = self._initCellConf(conf)
 
-        self.donexslog = self.conf.get('logchanges')
+        self.donexslog = self.conf.get('nexslog:en')
 
         await s_nexus.Pusher.__anit__(self, self.iden)
 
@@ -494,19 +507,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
     async def _initNexsRoot(self):
-        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.donexslog)
+        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
         self.onfini(nexsroot.fini)
+        nexsroot.onfini(self)
         return nexsroot
 
     async def getNexusChanges(self, offs):
         async for item in self.nexsroot.iter(offs):
             yield item
-
-    async def getNexusOffs(self):
-        return self.nexsroot.getOffset()
-
-    def getNexusOffsEvent(self, offs):
-        return self.nexsroot.getOffsetEvent(offs)
 
     async def dyniter(self, iden, todo, gatekeys=()):
 
@@ -995,3 +1003,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPush('hive:loadtree')
     async def _onLoadHiveTree(self, tree, path, trim):
         return await self.hive.loadHiveTree(tree, path=path, trim=trim)
+
+    @s_nexus.Pusher.onPushAuto('sync')
+    async def sync(self):
+        '''
+        no-op mutable for testing purposes.  If I am follower, when this returns, I have received and applied all
+        the writes that occurred on the leader before this call.
+        '''
+        return

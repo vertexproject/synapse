@@ -4,11 +4,12 @@ import shutil
 import asyncio
 import fastjsonschema
 
+from unittest.mock import patch
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.version as s_version
 
@@ -2489,13 +2490,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
             await self.agenlen(2, core.eval('test:str'))
 
-    async def test_cortex_logchanges_off(self):
+    async def test_cortex_nexslogen_off(self):
         '''
         Everything still works when no nexus log is kept
         '''
         conf = {'layer:lmdb:map_async': True,
                 'provenance:en': True,
-                'logchanges': False,
+                'nexslog:en': False,
                 'layers:logedits': True,
                 }
         async with self.getTestCore(conf=conf) as core:
@@ -2509,7 +2510,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         conf = {'layer:lmdb:map_async': True,
                 'provenance:en': True,
-                'logchanges': True,
+                'nexslog:en': True,
                 'layers:logedits': False,
                 }
         async with self.getTestCore(conf=conf) as core:
@@ -3384,36 +3385,24 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                core01conf = {'logchanges': False}
+                core01conf = {'nexslog:en': False}
                 async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
-                    # Mirroring without logchanges doesn't work
+                    # Mirroring without nexslog:en doesn't work
                     with self.raises(s_exc.BadConfValu):
                         await core01.initCoreMirror(url)
 
-                    evnt = core01.getNexusOffsEvent(0)
-                    self.true(await s_coro.event_wait(evnt, timeout=0.1))
-
                 async with await s_cortex.Cortex.anit(dirn=path01) as core01:
                     await core01.initCoreMirror(url)
 
                 async with await s_cortex.Cortex.anit(dirn=path01) as core01:
-                    offs = await core00.getNexusOffs() - 1
-                    mirroffs = await core01.getNexusOffs() - 1
-                    self.gt(offs, mirroffs)
-
-                    evnt = core01.getNexusOffsEvent(offs)
-
                     await core01.initCoreMirror(url)
 
                     self.true(core01.mirror)
-                    self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
                     await core00.nodes('queue.add visi')
 
-                    offs = await core00.getNexusOffs() - 1
-                    evnt = core01.getNexusOffsEvent(offs)
-                    self.true(await s_coro.event_wait(evnt, timeout=2.0))
+                    await core01.sync()
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
@@ -3423,25 +3412,28 @@ class CortexBasicTest(s_t_utils.SynTest):
                     msgs = await core01.streamstorm('queue.list').list()
                     self.stormIsInPrint('visi', msgs)
 
-                    # Make sure that the mirror can't mutate
-                    await self.asyncraises(s_exc.IsReadOnly, core01.nodes('$lib.queue.add(newp)'))
+                    # Validate that mirrors can still write
+                    await core01.nodes('queue.add visi2')
+                    msgs = await core01.streamstorm('queue.list').list()
+                    self.stormIsInPrint('visi2', msgs)
+
+                    await core01.nodes('[ inet:fqdn=www.vertex.link ]')
+                    self.len(1, await core01.nodes('inet:fqdn=www.vertex.link'))
+
+                    # Exceptions shall raise from the followerLoop
+                    await self.asyncraises(s_exc.NoSuchView, core01.delView('xxx'))
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
                 async with await s_cortex.Cortex.anit(dirn=path01) as core01:
-                    offs = await core00.getNexusOffs() - 1
-                    mirroffs = await core01.getNexusOffs() - 1
-                    self.ge(offs, mirroffs)
                     await core01.initCoreMirror(url)
 
                     await core00.nodes('[ inet:fqdn=woot.com ]')
-
-                    evnt = core01.getNexusOffsEvent(offs)
-                    self.true(await s_coro.event_wait(evnt, timeout=2.0))
+                    await core01.sync()
 
                     q = 'for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
-                    self.len(2, await core01.nodes(q))
+                    self.len(5, await core01.nodes(q))
 
             # now lets start up in the opposite order...
             async with await s_cortex.Cortex.anit(dirn=path01) as core01:
@@ -3452,9 +3444,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.len(1, await core00.nodes('[ inet:ipv4=6.6.6.6 ]'))
 
-                    offs = await core00.getNexusOffs() - 1
-                    evnt = core01.getNexusOffsEvent(offs)
-                    self.true(await s_coro.event_wait(evnt, timeout=2.0))
+                    await core01.sync()
 
                     self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
 
@@ -3463,11 +3453,27 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     await core00.nodes('[ inet:ipv4=7.7.7.7 ]')
 
-                    offs = await core00.getNexusOffs() - 1
-                    evnt = core01.getNexusOffsEvent(offs)
-                    self.true(await s_coro.event_wait(evnt, timeout=2.0))
+                    await core01.sync()
 
                     self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
+
+                # Try a write with the leader down
+                with patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
+                    await self.asyncraises(s_exc.LinkErr, core01.nodes('[inet:ipv4=7.7.7.8]'))
+
+                # Bring the leader back up and try again
+                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                    self.len(1, await core00.nodes('[ inet:ipv4=7.7.7.8 ]'))
+
+                # remove the mirrorness from the cortex
+                await core01.nexsroot.setLeader(None, None)
+                core01.mirror = False
+
+                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                    self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
+                    # add it back
+                    await core01.initCoreMirror(url)
+                    self.len(1, await core01.nodes('[inet:ipv4=9.9.9.9]'))
 
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
