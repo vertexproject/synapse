@@ -74,7 +74,7 @@ class ChangeDist(s_base.Base):
 
 class NexsRoot(s_base.Base):
 
-    async def __anit__(self, dirn: str, dologging: bool = True):  # type: ignore
+    async def __anit__(self, dirn: str, donexslog: bool = True):  # type: ignore
         await s_base.Base.__anit__(self)
 
         import synapse.lib.lmdbslab as s_lmdbslab  # avoid import cycle
@@ -84,7 +84,7 @@ class NexsRoot(s_base.Base):
         self._nexskids: Dict[str, 'Pusher'] = {}
 
         self._mirrors: List[ChangeDist] = []
-        self.dologging = dologging
+        self.donexslog = donexslog
 
         # These are used when this cell is a mirror.
         self._ldrurl: Optional[str] = None
@@ -95,7 +95,7 @@ class NexsRoot(s_base.Base):
         # Used to match pending follower write requests with the responses arriving on the log
         self._futures: Dict[str, asyncio.Future] = {}
 
-        if self.dologging:
+        if self.donexslog:
             path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
             self._nexusslab = await s_lmdbslab.Slab.anit(path, map_async=False)
             self._nexuslog = s_slabseqn.SlabSeqn(self._nexusslab, 'nexuslog')
@@ -103,12 +103,19 @@ class NexsRoot(s_base.Base):
         async def fini():
             if self._looptask:
                 self._looptask.cancel()
+                try:
+                    await self._looptask
+                except Exception:
+                    pass
+
+            for futu in self._futures.values():
+                futu.cancel()
 
             if self._ldr:
                 self._ldrready.clear()
                 await self._ldr.fini()
 
-            if self.dologging:
+            if self.donexslog:
                 await self._nexusslab.fini()
 
             [(await dist.fini()) for dist in self._mirrors]
@@ -122,10 +129,11 @@ class NexsRoot(s_base.Base):
         futu = self.loop.create_future()
 
         self._futures[iden] = futu
+
         try:
             yield iden, futu
+
         finally:
-            futu.cancel()
             self._futures.pop(iden, None)
 
     async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
@@ -161,7 +169,7 @@ class NexsRoot(s_base.Base):
 
         item: NexusLogEntryT = (nexsiden, event, args, kwargs, meta)
 
-        if self.dologging:
+        if self.donexslog:
             indx = self._nexuslog.add(item)
         else:
             indx = 0
@@ -182,7 +190,7 @@ class NexsRoot(s_base.Base):
         '''
         Returns an iterator of change entries in the log
         '''
-        if not self.dologging:
+        if not self.donexslog:
             return
 
         maxoffs = offs
@@ -215,8 +223,8 @@ class NexsRoot(s_base.Base):
             url:  if None, sets this nexsroot as leader, otherwise the telepath URL of the leader (must be a Cell)
             iden: iden of the leader.  Should be the same as my containing cell's iden
         '''
-        if url is not None and not self.dologging:
-            raise s_exc.BadConfValu(mesg='Mirroring incompatible without logchanges')
+        if url is not None and not self.donexslog:
+            raise s_exc.BadConfValu(mesg='Mirroring incompatible without nexslog:en')
 
         if self._ldrurl == url:
             return
@@ -241,52 +249,57 @@ class NexsRoot(s_base.Base):
         while not self.isfini:
 
             try:
+                if self._ldr is not None:
+                    await self._ldr.fini()
 
-                async with await s_telepath.openurl(self._ldrurl) as proxy:
-                    self._ldr = proxy
-                    self._ldrready.set()
+                proxy = await s_telepath.openurl(self._ldrurl)
+                self._ldr = proxy
+                self._ldrready.set()
 
-                    # if we really are a mirror/follower, we have the same iden.
-                    if iden != await proxy.getCellIden():
-                        logger.error('remote cell has different iden!  Aborting mirror sync')
-                        await self.fini()
-                        return
+                # if we really are a mirror/follower, we have the same iden.
+                if iden != await proxy.getCellIden():
+                    logger.error('remote cell has different iden!  Aborting mirror sync')
+                    await self.fini()
+                    return
 
-                    logger.warning(f'mirror loop ready ({self._ldrurl}')
+                logger.warning(f'mirror loop ready ({self._ldrurl}')
 
-                    while not proxy.isfini:
+                while not proxy.isfini:
 
-                        offs = self._nexuslog.index()
+                    offs = self._nexuslog.index()
 
-                        genr = proxy.getNexusChanges(offs)
+                    genr = proxy.getNexusChanges(offs)
+                    async for item in genr:
 
-                        async for item in s_base.schedGenr(genr):
+                        if proxy.isfini:
+                            break
 
-                            if proxy.isfini:
-                                break
+                        offs, args = item
+                        if offs != self._nexuslog.index():
+                            logger.error('FATAL ERROR: mirror desync.')
 
-                            offs, args = item
-                            assert offs == self._nexuslog.index()
+                        meta = args[-1]
+                        respiden = meta.get('resp')
+                        respfutu = self._futures.get(respiden)
 
-                            meta = args[-1]
-                            respiden = meta.get('resp')
-                            respfutu = self._futures.get(respiden)
+                        try:
+                            retn = await self.eat(*args)
 
-                            try:
-                                retn = await self.eat(*args)
+                        except asyncio.CancelledError:
+                            raise
 
-                            except asyncio.CancelledError:
-                                raise
-
-                            except Exception as e:
-                                if respfutu is not None:
-                                    respfutu.set_exception(e)
-
+                        except Exception as e:
+                            if respfutu is not None:
+                                assert not respfutu.done()
+                                respfutu.set_exception(e)
                             else:
-                                if respfutu is not None:
-                                    respfutu.set_result(retn)
+                                logger.exception(e)
 
-                            # TODO:  persist applied offset
+                        else:
+                            if respfutu is not None:
+                                respfutu.set_result(retn)
+
+                        # TODO:  persist applied offset
 
             except asyncio.CancelledError: # pragma: no cover
                 return
@@ -294,7 +307,6 @@ class NexsRoot(s_base.Base):
             except Exception:
                 logger.exception('error in initCoreMirror loop')
 
-            self._ldr = None
             self._ldrready.clear()
             await self.waitfini(1)
 

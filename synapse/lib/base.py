@@ -488,7 +488,7 @@ class Base:
             except asyncio.CancelledError:
                 pass
             except Exception:
-                logger.exception('Task scheduled through Base.schedCoro raised exception')
+                logger.exception('Task %s scheduled through Base.schedCoro raised exception', task)
 
         self._active_tasks.add(task)
         task.add_done_callback(taskDone)
@@ -765,7 +765,7 @@ async def schedGenr(genr, maxsize=100):
 
         base.schedCoro(genrtask(base))
 
-        while True:
+        while not base.isfini:
 
             ok, retn = await q.get()
 

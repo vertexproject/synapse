@@ -440,7 +440,7 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.fini()
 
             # startup 0.2.0 core
-            async with await s_cortex.Cortex.anit(dest, conf={'logchanges': True}) as core:
+            async with await s_cortex.Cortex.anit(dest, conf={'nexslog:en': True}) as core:
                 # check that nexus root has offsets from migration
                 self.gt(core.nexsroot._nexuslog.index(), 1)
 

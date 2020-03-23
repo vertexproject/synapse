@@ -201,7 +201,16 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def issue(self, nexsiden: str, event: str, args, kwargs, meta=None):
-        return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
+        '''
+        Note:  this swallows exceptions and return values.  It is expected that the nexus _followerLoop would be the
+        return path
+        '''
+        try:
+            await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
 
     @adminapi
     async def delAuthUser(self, name):
@@ -412,7 +421,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
             'type': 'string'
         },
-        'logchanges': {
+        'nexslog:en': {
             'default': True,
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
             'type': 'boolean'
@@ -447,7 +456,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.conf = self._initCellConf(conf)
 
-        self.donexslog = self.conf.get('logchanges')
+        self.donexslog = self.conf.get('nexslog:en')
 
         await s_nexus.Pusher.__anit__(self, self.iden)
 
@@ -498,7 +507,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
     async def _initNexsRoot(self):
-        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.donexslog)
+        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
         self.onfini(nexsroot.fini)
         nexsroot.onfini(self)
         return nexsroot

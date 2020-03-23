@@ -71,11 +71,11 @@ class NexusTest(s_t_utils.SynTest):
 
     async def test_nexus_no_logging(self):
         '''
-        Pushers/NexsRoot works with dologging=False
+        Pushers/NexsRoot works with donexslog=False
         '''
         with self.getTestDir() as dirn:
             async with await SampleNexus.anit(1) as nexus1, \
-                    await s_nexus.NexsRoot.anit(dirn, dologging=False) as nexsroot:
+                    await s_nexus.NexsRoot.anit(dirn, donexslog=False) as nexsroot:
                 eventdict = {'specialpush': 0}
                 self.eq('foo', await nexus1.doathing(eventdict))
                 self.eq(1, eventdict.get('happened'))

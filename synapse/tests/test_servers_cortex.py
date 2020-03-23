@@ -61,7 +61,7 @@ class CortexServerTest(s_t_utils.SynTest):
                 # add a node for core01 to sync before window
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
-                s_common.yamlsave({'logchanges': True}, path01, 'cell.yaml')
+                s_common.yamlsave({'nexslog:en': True}, path01, 'cell.yaml')
 
                 async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core01:
 
@@ -98,7 +98,7 @@ class CortexServerTest(s_t_utils.SynTest):
                          path01,
                          ]
 
-                s_common.yamlsave({'logchanges': True}, path01, 'cell.yaml')
+                s_common.yamlsave({'nexslog:en': True}, path01, 'cell.yaml')
 
                 with self.getAsyncLoggerStream('synapse.lib.nexus',
                                                'has different iden') as stream:

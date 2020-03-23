@@ -387,11 +387,11 @@ class CellTest(s_t_utils.SynTest):
                         break
                 return yielded, retn
 
-            conf = {'logchanges': True}
+            conf = {'nexslog:en': True}
             async with await s_cell.Cell.anit(dir0, conf=conf) as cell00, \
                     cell00.getLocalProxy() as prox00:
 
-                self.true(cell00.nexsroot.dologging)
+                self.true(cell00.nexsroot.donexslog)
 
                 await prox00.addAuthUser('test')
 
@@ -403,10 +403,10 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(usernames, ['root', 'test'])
 
             # Disable change logging for this cell.
-            conf = {'logchanges': False}
+            conf = {'nexslog:en': False}
             async with await s_cell.Cell.anit(dir1, conf=conf) as cell01, \
                     cell01.getLocalProxy() as prox01:
-                self.false(cell01.nexsroot.dologging)
+                self.false(cell01.nexsroot.donexslog)
 
                 await prox01.addAuthUser('test')
 

@@ -2488,13 +2488,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
             await self.agenlen(2, core.eval('test:str'))
 
-    async def test_cortex_logchanges_off(self):
+    async def test_cortex_nexslogen_off(self):
         '''
         Everything still works when no nexus log is kept
         '''
         conf = {'layer:lmdb:map_async': True,
                 'provenance:en': True,
-                'logchanges': False,
+                'nexslog:en': False,
                 'layers:logedits': True,
                 }
         async with self.getTestCore(conf=conf) as core:
@@ -2508,7 +2508,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         conf = {'layer:lmdb:map_async': True,
                 'provenance:en': True,
-                'logchanges': True,
+                'nexslog:en': True,
                 'layers:logedits': False,
                 }
         async with self.getTestCore(conf=conf) as core:
@@ -3383,9 +3383,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                core01conf = {'logchanges': False}
+                core01conf = {'nexslog:en': False}
                 async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
-                    # Mirroring without logchanges doesn't work
+                    # Mirroring without nexslog:en doesn't work
                     with self.raises(s_exc.BadConfValu):
                         await core01.initCoreMirror(url)
 
@@ -3418,7 +3418,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core01.nodes('[ inet:fqdn=www.vertex.link ]')
                     self.len(1, await core01.nodes('inet:fqdn=www.vertex.link'))
 
-                    # Exceptions should work
+                    # Exceptions shall raise from the followerLoop
                     await self.asyncraises(s_exc.NoSuchView, core01.delView('xxx'))
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
