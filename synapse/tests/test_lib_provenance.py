@@ -113,7 +113,7 @@ class ProvenanceTest(s_t_utils.SynTest):
         '''
         self.skip('Pending provenance cache')
         async with self.getTestCore() as core:
-            mesgs = await core.streamstorm('[test:str=foo :hehe=bar]', opts={'editformat': 'nodeedits'}).list()
+            mesgs = await core.stormlist('[test:str=foo :hehe=bar]', opts={'editformat': 'nodeedits'})
             provs = [m for m in mesgs if m[0] == 'prov:new']
 
             # No duplicate prov:new

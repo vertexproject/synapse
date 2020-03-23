@@ -82,13 +82,13 @@ class SynModelTest(s_t_utils.SynTest):
 
             # Ensure that we can lift by syn:type + prop + valu,
             # and expected props are present.
-            nodes = await core.eval('syn:type').list()
+            nodes = await core.nodes('syn:type')
             self.gt(len(nodes), 1)
 
-            nodes = await core.eval('syn:type:ctor').list()
+            nodes = await core.nodes('syn:type:ctor')
             self.gt(len(nodes), 1)
 
-            nodes = await core.eval('syn:type=comp').list()
+            nodes = await core.nodes('syn:type=comp')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:type', 'comp'), node.ndef)
@@ -97,7 +97,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq('synapse.lib.types.Comp', node.get('ctor'))
             self.eq('The base type for compound node fields.', node.get('doc'))
 
-            nodes = await core.eval('syn:type=test:comp').list()
+            nodes = await core.nodes('syn:type=test:comp')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:type', 'test:comp'), node.ndef)
@@ -107,18 +107,18 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq('synapse.lib.types.Comp', node.get('ctor'))
             self.eq('A fake comp type.', node.get('doc'))
 
-            nodes = await core.eval('syn:type:ctor="synapse.lib.types.Int"').list()
+            nodes = await core.nodes('syn:type:ctor="synapse.lib.types.Int"')
             self.gt(len(nodes), 1)
 
             # Ensure that we can lift by syn:form + prop + valu,
             # and expected props are present.
-            nodes = await core.eval('syn:form').list()
+            nodes = await core.nodes('syn:form')
             self.gt(len(nodes), 1)
 
-            nodes = await core.eval('syn:form:type').list()
+            nodes = await core.nodes('syn:form:type')
             self.gt(len(nodes), 1)
 
-            nodes = await core.eval('syn:form=test:comp').list()
+            nodes = await core.nodes('syn:form=test:comp')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:form', 'test:comp'), node.ndef)
@@ -127,7 +127,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq('test:comp', node.get('type'))
             self.eq('A fake comp type.', node.get('doc'))
 
-            nodes = await core.eval('syn:form=syn:form').list()
+            nodes = await core.nodes('syn:form=syn:form')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:form', 'syn:form'), node.ndef)
@@ -137,20 +137,20 @@ class SynModelTest(s_t_utils.SynTest):
                     node.get('doc'))
 
             # We can even inspect which forms are runtime-online forms
-            nodes = await core.eval('syn:form:runt=1').list()
+            nodes = await core.nodes('syn:form:runt=1')
             self.ge(len(nodes), 3)
             pprops = {n.ndef[1] for n in nodes}
             self.true(pprops.issuperset({'syn:form', 'syn:prop', 'syn:type'}))
 
             # Ensure that we can lift by syn:prop + prop + valu
             # and expected props are present.
-            nodes = await core.eval('syn:prop').list()
+            nodes = await core.nodes('syn:prop')
             self.gt(len(nodes), 1)
 
-            nodes = await core.eval('syn:prop:ro').list()
+            nodes = await core.nodes('syn:prop:ro')
             self.gt(len(nodes), 1)
 
-            nodes = await core.eval('syn:prop="test:type10:intprop"').list()
+            nodes = await core.nodes('syn:prop="test:type10:intprop"')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:type10:intprop'), node.ndef)
@@ -166,13 +166,13 @@ class SynModelTest(s_t_utils.SynTest):
             self.false(node.get('extmodel'))
 
             # Ensure that extmodel formprops are seen
-            nodes = await core.eval('syn:prop="test:str:_twiddle"').list()
+            nodes = await core.nodes('syn:prop="test:str:_twiddle"')
             self.len(1, nodes)
             node = nodes[0]
             self.true(node.get('extmodel'))
 
             # A deeper nested prop will have different base and relname values
-            nodes = await core.eval('syn:prop="test:edge:n1:form"').list()
+            nodes = await core.nodes('syn:prop="test:edge:n1:form"')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:edge:n1:form'), node.ndef)
@@ -181,7 +181,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq('n1:form', node.get('relname'))
 
             # forms are also props but have some slightly different keys populated
-            nodes = await core.eval('syn:prop="test:type10"').list()
+            nodes = await core.nodes('syn:prop="test:type10"')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:type10'), node.ndef)
@@ -192,14 +192,14 @@ class SynModelTest(s_t_utils.SynTest):
             self.none(node.get('relname'))
 
             # Including universal props
-            nodes = await core.eval('syn:prop=".created"').list()
+            nodes = await core.nodes('syn:prop=".created"')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', '.created'), node.ndef)
             self.true(node.get('univ'))
             self.false(node.get('extmodel'))
 
-            nodes = await core.eval('syn:prop="test:comp.created"').list()
+            nodes = await core.nodes('syn:prop="test:comp.created"')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:comp.created'), node.ndef)
@@ -207,18 +207,18 @@ class SynModelTest(s_t_utils.SynTest):
             # Bound universal props don't actually show up as univ
             self.false(node.get('univ'))
 
-            nodes = await core.eval('syn:prop:univ=1').list()
+            nodes = await core.nodes('syn:prop:univ=1')
             self.ge(len(nodes), 2)
 
             # extmodel univs are represented
-            nodes = await core.eval('syn:prop="._sneaky"').list()
+            nodes = await core.nodes('syn:prop="._sneaky"')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', '._sneaky'), node.ndef)
             self.true(node.get('univ'))
             self.true(node.get('extmodel'))
 
-            nodes = await core.eval('syn:prop="test:comp._sneaky"').list()
+            nodes = await core.nodes('syn:prop="test:comp._sneaky"')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:comp._sneaky'), node.ndef)
@@ -228,7 +228,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.false(node.get('univ'))
 
             # Tag prop data is also represented
-            nodes = await core.eval('syn:tagprop=beep').list()
+            nodes = await core.nodes('syn:tagprop=beep')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:tagprop', 'beep'), node.ndef)
@@ -236,7 +236,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(node.get('type'), 'int')
 
             # Ensure that we can filter / pivot across the model nodes
-            nodes = await core.eval('syn:form=test:comp -> syn:prop:form').list()
+            nodes = await core.nodes('syn:form=test:comp -> syn:prop:form')
             # form is a prop, two universal properties (+2 test univ) and two model secondary properties.
             self.ge(len(nodes), 7)
 
@@ -247,11 +247,11 @@ class SynModelTest(s_t_utils.SynTest):
 
             # Go from a syn:type to a syn:form to a syn:prop with a filter
             q = 'syn:type:subof=comp +syn:type:doc~=".*fake.*" -> syn:form:type -> syn:prop:form'
-            nodes = await core.eval(q).list()
+            nodes = await core.nodes(q)
             self.ge(len(nodes), 7)
 
             # Some forms inherit from a single type
-            nodes = await core.eval('syn:type="inet:addr" -> syn:type:subof').list()
+            nodes = await core.nodes('syn:type="inet:addr" -> syn:type:subof')
             self.ge(len(nodes), 2)
             pprops = {n.ndef[1] for n in nodes}
             self.isin('inet:server', pprops)
@@ -261,12 +261,12 @@ class SynModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode('test:edge', (('test:int', 1234), ('test:str', '1234')))
 
-            nodes = await core.eval('syn:form=test:int -> test:edge:n1:form').list()
+            nodes = await core.nodes('syn:form=test:int -> test:edge:n1:form')
             self.len(1, nodes)
             self.eq('test:edge', nodes[0].ndef[0])
 
             # Test a cmpr that isn't '='
-            nodes = await core.eval('syn:form~="test:type"').list()
+            nodes = await core.nodes('syn:form~="test:type"')
             self.len(2, nodes)
 
             # Syn:splice uses a null lift handler
@@ -280,34 +280,34 @@ class SynModelTest(s_t_utils.SynTest):
             async with await s_cortex.Cortex.anit(dirn) as core:
 
                 # Lift nodes
-                nodes = await core.eval('syn:form=syn:tag').list()
+                nodes = await core.nodes('syn:form=syn:tag')
                 self.len(1, nodes)
 
-                nodes = await core.eval('syn:form=test:runt').list()
+                nodes = await core.nodes('syn:form=test:runt')
                 self.len(0, nodes)
 
                 await core.loadCoreModule('synapse.tests.utils.TestModule')
 
-                nodes = await core.eval('syn:form=test:runt').list()
+                nodes = await core.nodes('syn:form=test:runt')
                 self.len(1, nodes)
 
-                nodes = await core.eval('syn:prop:form="test:str" +:extmodel=True').list()
+                nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(0, nodes)
-                nodes = await core.eval('syn:tagprop').list()
+                nodes = await core.nodes('syn:tagprop')
                 self.len(0, nodes)
 
                 await addExtModelConfigs(core)
 
-                nodes = await core.eval('syn:prop:form="test:str" +:extmodel=True').list()
+                nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(2, nodes)
-                nodes = await core.eval('syn:tagprop').list()
+                nodes = await core.nodes('syn:tagprop')
                 self.len(1, nodes)
 
                 await delExtModelConfigs(core)
 
-                nodes = await core.eval('syn:prop:form="test:str" +:extmodel=True').list()
+                nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(0, nodes)
-                nodes = await core.eval('syn:tagprop').list()
+                nodes = await core.nodes('syn:tagprop')
                 self.len(0, nodes)
 
     async def test_syn_trigger_runts(self):

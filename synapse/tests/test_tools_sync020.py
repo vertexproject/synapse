@@ -222,32 +222,32 @@ class SyncTest(s_t_utils.SynTest):
             # run svc operations
             lyridens = list(core.layers.keys())
 
-            mesgs = await core.streamstorm(f'migrsync.status').list()
+            mesgs = await core.stormlist(f'migrsync.status')
             self.eq('', ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']))
             # empty
 
-            mesgs = await core.streamstorm(f'migrsync.startfromfile').list()
+            mesgs = await core.stormlist(f'migrsync.startfromfile')
             self.stormIsInPrint('Sync started', mesgs)
             self.stormIsInPrint(lyridens[0], mesgs)
             self.stormIsInPrint(lyridens[1], mesgs)
 
-            mesgs = await core.streamstorm(f'migrsync.status').list()
+            mesgs = await core.stormlist(f'migrsync.status')
             self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
 
-            mesgs = await core.streamstorm(f'migrsync.stopsync').list()
+            mesgs = await core.stormlist(f'migrsync.stopsync')
             self.stormIsInPrint('Sync stopped', mesgs)
             self.stormIsInPrint(lyridens[0], mesgs)
             self.stormIsInPrint(lyridens[1], mesgs)
 
-            mesgs = await core.streamstorm(f'migrsync.status').list()
+            mesgs = await core.stormlist(f'migrsync.status')
             self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('cancelled'))
 
-            mesgs = await core.streamstorm(f'migrsync.startfromlast').list()
+            mesgs = await core.stormlist(f'migrsync.startfromlast')
             self.stormIsInPrint('Sync started', mesgs)
             self.stormIsInPrint(lyridens[0], mesgs)
             self.stormIsInPrint(lyridens[1], mesgs)
 
-            mesgs = await core.streamstorm(f'migrsync.status').list()
+            mesgs = await core.stormlist(f'migrsync.status')
             self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
 
     async def test_startSyncFromFile(self):

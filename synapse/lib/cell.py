@@ -184,11 +184,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def addAuthUser(self, name):
-
-        # Note:  change handling is implemented inside auth
-        user = await self.cell.auth.addUser(name)
-        await self.cell.fire('user:mod', act='adduser', name=name)
-        return user.pack()
+        return await self.cell.addAuthUser(name)
 
     @adminapi
     async def dyncall(self, iden, todo, gatekeys=()):
@@ -363,6 +359,14 @@ class CellApi(s_base.Base):
         mesg = 'getRoleInfo denied for non-admin and non-member'
         raise s_exc.AuthDeny(mesg=mesg)
 
+    @adminapi
+    async def isUserAllowed(self, iden, perm, gateiden=None):
+        return self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
+
+    @adminapi
+    async def tryUserPasswd(self, iden, passwd):
+        return self.cell.tryUserPasswd(iden, passwd)
+
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
         return await self.cell.getHealthCheck()
@@ -507,6 +511,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def getNexusOffsEvent(self, offs):
         return self.nexsroot.getOffsetEvent(offs)
+
+    async def isUserAllowed(self, iden, perm, gateiden=None):
+        user = self.auth.user(iden)
+        if user is None:
+            return False
+
+        return user.allowed(perm, gateiden=gateiden)
+
+    async def tryUserPasswd(self, iden, passwd):
+        user = self.auth.user(name)
+        if user is None:
+            return None
+
+        if not user.tryPasswd(passwd):
+            return None
+
+        return user.pack()
+
+    async def addAuthUser(self, name):
+        # Note:  change handling is implemented inside auth
+        user = await self.auth.addUser(name)
+        await self.fire('user:mod', act='adduser', name=name)
+        return user.pack()
 
     async def dyniter(self, iden, todo, gatekeys=()):
 

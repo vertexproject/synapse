@@ -659,14 +659,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             rule = s_common.guid()
             opts = {'vars': {'rule': rule}}
 
-            nodes = await core.eval('[ it:app:yara:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts).list()
+            nodes = await core.nodes('[ it:app:yara:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts)
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
             self.eq(0x10000200003, nodes[0].get('version'))
 
-            nodes = await core.eval('[ it:app:yara:match=($rule, "*") :version=1.2.3 ]', opts=opts).list()
+            nodes = await core.nodes('[ it:app:yara:match=($rule, "*") :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
             self.eq(rule, nodes[0].get('rule'))
@@ -682,14 +682,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             host = s_common.guid()
             opts = {'vars': {'rule': rule, 'flow': flow, 'host': host, 'hit': hit}}
 
-            nodes = await core.eval('[ it:app:snort:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts).list()
+            nodes = await core.nodes('[ it:app:snort:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts)
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
             self.eq(0x10000200003, nodes[0].get('version'))
 
-            nodes = await core.eval('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts).list()
+            nodes = await core.nodes('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)
             self.eq(rule, nodes[0].get('rule'))
             self.eq(flow, nodes[0].get('flow'))
@@ -720,8 +720,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             vstr = 'VertexBrandArtisanalBinaries'
             sopt = {'vars': {'func': fopt['vars']['func'],
                              'string': vstr}}
-            fnode = await core.eval('[it:reveng:filefunc=($file, $func) :va=$fva]', opts=fopt).list()
-            snode = await core.eval('[it:reveng:funcstr=($func, $string)]', opts=sopt).list()
+            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva]', opts=fopt)
+            snode = await core.nodes('[it:reveng:funcstr=($func, $string)]', opts=sopt)
             self.len(1, fnode)
             self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
             self.eq(fva, fnode[0].get('va'))
@@ -730,11 +730,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(fnode[0].get('function'), snode[0].get('function'))
             self.eq(vstr, snode[0].get('string'))
 
-            funcnode = await core.eval('it:reveng:function [ :name="FunkyFunction" :description="Test Function" ]').list()
+            funcnode = await core.nodes('it:reveng:function [ :name="FunkyFunction" :description="Test Function" ]')
             self.len(1, funcnode)
             self.eq("FunkyFunction", funcnode[0].get('name'))
             self.eq("Test Function", funcnode[0].get('description'))
 
-            nodes = await core.eval(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function').list()
+            nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function')
             self.len(1, nodes)
             self.eq(vstr, nodes[0].get('string'))

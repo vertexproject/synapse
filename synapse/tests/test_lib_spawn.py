@@ -267,7 +267,7 @@ class CoreSpawnTest(s_test.SynTest):
                 # Test launching a bunch of spawn queries at the same time
                 donecount = 0
 
-                await prox.storm('[test:int=1]').list()
+                await core.nodes('[test:int=1]')
                 # wait for commit
                 await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
 
@@ -305,12 +305,11 @@ class CoreSpawnTest(s_test.SynTest):
                 self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
                 tasks = await prox.ps()
                 new_idens = [task.get('iden') for task in tasks]
-                self.len(1, new_idens)
-                await prox.kill(new_idens[0])
+                await prox.kill(new_idens[-1])
 
                 # Ensure that opts were passed into the task data without spawn: True set
                 task = [task for task in tasks if task.get('iden') == new_idens[0]][0]
-                self.eq(task.get('info').get('opts'), {'vars': {'hehe': 'haha'}})
+                self.none(task.get('info').get('opts').get('spawn'))
 
                 # Ensure the task cancellation tore down the spawnproc
                 self.true(await victimproc.waitfini(6))
@@ -464,7 +463,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                     # Ensure that the data was put into the queue by the spawnproc
                     q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=False, cull=False))'
-                    msgs = await core.streamstorm(q).list()
+                    msgs = await core.stormlist(q)
                     self.stormIsInPrint("(0, 'bar')", msgs)
 
                 async with core.getLocalProxy(user='wootuser') as prox:

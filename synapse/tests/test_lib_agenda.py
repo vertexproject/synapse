@@ -166,7 +166,7 @@ class AgendaTest(s_t_utils.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        async def myeval(query, user=None):
+        async def myeval(query, opts=None):
             nonlocal lastquery
             lastquery = query
             sync.set()
@@ -209,6 +209,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await asyncio.sleep(0)  # give the scheduler a shot to wait
                 unixtime += 61
                 await sync.wait()  # wait for the query to run
+                print('woot')
                 sync.clear()
                 self.eq(lastquery, '[test:str=foo]')
                 core.reset_mock()
