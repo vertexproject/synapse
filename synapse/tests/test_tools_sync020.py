@@ -266,8 +266,8 @@ class SyncTest(s_t_utils.SynTest):
                 # due to fakecore handling so just check the wlyr
                 await syncprx.startSyncFromFile()
 
-                self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=2))
-                self.true(await s_coro.event_wait(sync._pull_evnts[seclyr.iden], timeout=2))
+                self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=8))
+                self.true(await s_coro.event_wait(sync._pull_evnts[seclyr.iden], timeout=4))
 
                 self.true(await s_coro.event_wait(sync._push_evnts[wlyr.iden], timeout=2))
                 self.true(await s_coro.event_wait(sync._push_evnts[seclyr.iden], timeout=2))
@@ -313,7 +313,7 @@ class SyncTest(s_t_utils.SynTest):
                 # fini the queue
                 await sync._queues[wlyr.iden].fini()
 
-                await asyncio.wait_for(sync._pull_tasks[wlyr.iden], timeout=2)
+                await asyncio.wait_for(sync._pull_tasks[wlyr.iden], timeout=4)
 
                 self.eq('queue_fini', sync._pull_status[wlyr.iden])
 
@@ -338,7 +338,7 @@ class SyncTest(s_t_utils.SynTest):
 
                 # resume sync from last
                 await syncprx.startSyncFromLast()
-                self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=5))
+                self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=10))
                 self.true(await s_coro.event_wait(sync._push_evnts[wlyr.iden], timeout=5))
 
                 self.eq(num_splices, sync.pull_offs.get(wlyr.iden))

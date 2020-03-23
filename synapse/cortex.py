@@ -867,7 +867,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.auth.addAuthGate('cortex', 'cortex')
 
         mirror = self.conf.get('mirror')
-
         if mirror is not None:
             await self.initCoreMirror(mirror)
 
@@ -1723,82 +1722,13 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def initCoreMirror(self, url):
         '''
-        Initialize this cortex as a down-stream mirror from a telepath url.
+        Initialize this cortex as a down-stream/follower mirror from a telepath url.
 
         Note:
             This cortex *must* be initialized from a backup of the target cortex!
         '''
-        if not self.donexslog:
-            raise s_exc.BadConfValu(mesg='Mirroring incompatible without logchanges')
+        await self.nexsroot.setLeader(url, self.iden)
         self.mirror = True
-        self.nexsroot.readonly = True
-        self.schedCoro(self._initCoreMirror(url))
-
-    async def _initCoreMirror(self, url):
-
-        while not self.isfini:
-
-            try:
-
-                async with await s_telepath.openurl(url) as proxy:
-
-                    # if we really are a backup mirror, we have the same iden.
-                    if self.iden != await proxy.getCellIden():
-                        logger.error('remote cortex has different iden! (aborting mirror, shutting down cortex.).')
-                        await self.fini()
-                        return
-
-                    offs = self.nexsroot.getOffset()
-
-                    logger.warning(f'mirror loop connected ({url} offset={offs})')
-
-                    while not proxy.isfini:
-
-                        # gotta do this in the loop as well...
-                        offs = self.nexsroot.getOffset()
-
-                        # pump them into a queue so we can consume them in chunks
-                        q = asyncio.Queue(maxsize=1000)
-
-                        async def consume(x):
-                            try:
-                                async for item in proxy.getNexusChanges(x):
-                                    await q.put(item)
-                            finally:
-                                await q.put(None)
-
-                        proxy.schedCoro(consume(offs))
-
-                        done = False
-                        while not done:
-
-                            # get the next item so we maybe block...
-                            item = await q.get()
-                            if item is None:
-                                break
-
-                            items = [item]
-
-                            # check if there are more we can eat
-                            for _ in range(q.qsize()):
-
-                                nexi = await q.get()
-                                if nexi is None:
-                                    done = True
-                                    break
-
-                                items.append(nexi)
-
-                            for _, args in items:
-                                await self.nexsroot.issue(*args)
-
-            except asyncio.CancelledError: # pragma: no cover
-                return
-
-            except Exception:
-                logger.exception('error in initCoreMirror loop')
-
-            await self.waitfini(1)
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))

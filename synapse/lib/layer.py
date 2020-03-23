@@ -81,7 +81,6 @@ import synapse.lib.slabseqn as s_slabseqn
 logger = logging.getLogger(__name__)
 
 FAIR_ITERS = 10  # every this many rows, yield CPU to other tasks
-BUID_CACHE_SIZE = 10000
 
 import synapse.lib.msgpack as s_msgpack
 
@@ -1206,7 +1205,7 @@ class Layer(s_nexus.Pusher):
 
         return retn
 
-    @s_nexus.Pusher.onPushAuto('edits')
+    @s_nexus.Pusher.onPush('edits')
     async def _storNodeEdits(self, nodeedits, meta):
         '''
         Execute a series of node edit operations, returning the updated nodes.
