@@ -978,6 +978,7 @@ class Layer(s_nexus.Pusher):
 
         self.countdb = self.layrslab.initdb('counters')
         self.nodedata = self.dataslab.initdb('nodedata')
+        self.dataname = self.dataslab.initdb('dataname', dupsort=True)
 
         if self.logedits:
             self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
@@ -1177,6 +1178,20 @@ class Layer(s_nexus.Pusher):
         for cmpr, valu, kind in cmprvals:
             for buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
+
+    async def liftByDataName(self, name):
+
+        abrv = self.getPropAbrv(name, None)
+        for abrv, buid in self.dataslab.scanByDups(abrv, db=self.dataname):
+
+            sode = await self.getStorNode(buid)
+
+            byts = self.dataslab.get(buid + abrv, db=self.nodedata)
+            if byts is not None:
+                item = s_msgpack.un(byts)
+                sode[1]['nodedata'] = {name: item}
+
+            yield sode
 
     async def storNodeEdits(self, nodeedits, meta):
 
@@ -1553,6 +1568,8 @@ class Layer(s_nexus.Pusher):
             if oldv == valu:
                 return None
 
+        self.dataslab.put(abrv, buid, db=self.dataname)
+
         return (
             (EDIT_NODEDATA_SET, (name, valu, oldv)),
         )
@@ -1567,6 +1584,7 @@ class Layer(s_nexus.Pusher):
             return None
 
         oldv = s_msgpack.un(oldb)
+        self.dataslab.delete(abrv, buid, db=self.dataname)
 
         return (
             (EDIT_NODEDATA_DEL, (name, oldv)),
