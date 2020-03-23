@@ -78,4 +78,4 @@ class ReflectTest(s_t_utils.SynTest):
                     self.isin('giggles', meths)
                     self.isin('wrapped_giggles', meths)
                     self.isin('dyniter', meths)
-                    self.isin('getNexusChanges', meths)
+                    # self.isin('getNexusChanges', meths)

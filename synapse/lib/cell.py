@@ -236,211 +236,211 @@ class CellApi(s_base.Base):
         await self.cell.fire('user:mod', act='adduser', name=name)
         return user.pack()
 
-    # @adminapi(log=False)
+    @adminapi
     async def dyncall(self, iden, todo, gatekeys=()):
         return await self.cell.dyncall(iden, todo, gatekeys=gatekeys)
 
-    # @adminapi(log=False)
+    @adminapi
     async def dyniter(self, iden, todo, gatekeys=()):
         async for item in self.cell.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
-
-    @adminapi
-    async def delAuthUser(self, name):
-        await self.cell.auth.delUser(name)
-        await self.cell.fire('user:mod', act='deluser', name=name)
-
-    @adminapi
-    async def addAuthRole(self, name):
-        role = await self.cell.auth.addRole(name)
-        await self.cell.fire('user:mod', act='addrole', name=name)
-        return role.pack()
-
-    @adminapi
-    async def delAuthRole(self, name):
-        await self.cell.auth.delRole(name)
-        await self.cell.fire('user:mod', act='delrole', name=name)
-
-    @adminapi
-    async def getAuthUsers(self, archived=False):
-        '''
-        Args:
-            archived (bool):  If true, list all users, else list non-archived users
-        '''
-        return [u.name for u in self.cell.auth.users() if archived or not u.info.get('archived')]
-
-    @adminapi
-    async def getAuthRoles(self):
-        return [r.name for r in self.cell.auth.roles()]
-
-    @adminapi
-    async def addUserRule(self, name, rule, indx=None, gateiden=None):
-        user = await self.cell.auth.reqUserByName(name)
-        retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
-        return retn
-
-    @adminapi
-    async def addRoleRule(self, name, rule, indx=None, gateiden=None):
-        role = await self.cell.auth.reqRoleByName(name)
-        retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
-        return retn
-
-    @adminapi
-    async def delUserRule(self, name, rule, gateiden=None):
-        user = await self.cell.auth.reqUserByName(name)
-        return await user.delRule(rule, gateiden=gateiden)
-
-    @adminapi
-    async def delRoleRule(self, name, rule, gateiden=None):
-        role = await self.cell.auth.reqRoleByName(name)
-        return await role.delRule(rule, gateiden=gateiden)
-
-    @adminapi
-    async def setUserAdmin(self, name, admin, gateiden=None):
-        user = await self.cell.auth.reqUserByName(name)
-        await user.setAdmin(admin, gateiden=gateiden)
-
-    @adminapi
-    async def setRoleAdmin(self, name, admin, gateiden=None):
-        role = await self.cell.auth.reqRoleByName(name)
-        await role.setAdmin(admin, gateiden=gateiden)
-
-    @adminapi
-    async def getAuthInfo(self, name):
-        s_common.deprecated('getAuthInfo')
-        user = await self.cell.auth.getUserByName(name)
-        if user is not None:
-            info = user.pack()
-            info['roles'] = [self.cell.auth.role(r).name for r in info['roles']]
-            return info
-
-        role = await self.cell.auth.getRoleByName(name)
-        if role is not None:
-            return role.pack()
-
-        raise s_exc.NoSuchName(name=name)
-
-    @adminapi
-    async def addAuthRule(self, name, rule, indx=None, gateiden=None):
-        s_common.deprecated('addAuthRule')
-        item = await self.cell.auth.getUserByName(name)
-        if item is None:
-            item = await self.cell.auth.getRoleByName(name)
-        await item.addRule(rule, indx=indx, gateiden=gateiden)
-
-    @adminapi
-    async def delAuthRule(self, name, rule, gateiden=None):
-        s_common.deprecated('delAuthRule')
-        item = await self.cell.auth.getUserByName(name)
-        if item is None:
-            item = await self.cell.auth.getRoleByName(name)
-        await item.delRule(rule, gateiden=gateiden)
-
-    @adminapi
-    async def setAuthAdmin(self, name, isadmin):
-        s_common.deprecated('setAuthAdmin')
-        item = await self.cell.auth.getUserByName(name)
-        if item is None:
-            item = await self.cell.auth.getRoleByName(name)
-        await item.setAdmin(isadmin)
-
-    async def setUserPasswd(self, name, passwd):
-        user = await self.cell.auth.getUserByName(name)
-        if user is None:
-            raise s_exc.NoSuchUser(user=name)
-        if not (self.user.isAdmin() or self.user.iden == user.iden):
-            raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
-
-        await user.setPasswd(passwd)
-        await self.cell.fire('user:mod', act='setpasswd', name=name)
-
-    @adminapi
-    async def setUserLocked(self, name, locked):
-        user = await self.cell.auth.getUserByName(name)
-        if user is None:
-            raise s_exc.NoSuchUser(user=name)
-
-        await user.setLocked(locked)
-        await self.cell.fire('user:mod', act='locked', name=name, locked=locked)
-
-    @adminapi
-    async def setUserArchived(self, name, archived):
-        user = await self.cell.auth.getUserByName(name)
-        if user is None:
-            raise s_exc.NoSuchUser(user=name)
-
-        await user.setArchived(archived)
-        await self.cell.fire('user:mod', act='archived', name=name, archived=archived)
-
-    @adminapi
-    async def addUserRole(self, username, rolename):
-        user = await self.cell.auth.getUserByName(username)
-        if user is None:
-            raise s_exc.NoSuchUser(user=username)
-
-        await user.grant(rolename)
-        await self.cell.fire('user:mod', act='grant', name=username, role=rolename)
-
-    @adminapi
-    async def delUserRole(self, username, rolename):
-
-        user = await self.cell.auth.getUserByName(username)
-        if user is None:
-            raise s_exc.NoSuchUser(user=username)
-
-        await user.revoke(rolename)
-        await self.cell.fire('user:mod', act='revoke', name=username, role=rolename)
-
-    async def getUserInfo(self, name):
-        user = await self.cell.auth.reqUserByName(name)
-        if self.user.isAdmin() or self.user.iden == user.iden:
-            info = user.pack()
-            info['roles'] = [self.cell.auth.role(r).name for r in info['roles']]
-            return info
-
-        mesg = 'getUserInfo denied for non-admin and non-self'
-        raise s_exc.AuthDeny(mesg=mesg)
-
-    async def getRoleInfo(self, name):
-        role = await self.cell.auth.reqRoleByName(name)
-        if self.user.isAdmin() or role.iden in self.user.info.get('roles', ()):
-            return role.pack()
-
-        mesg = 'getRoleInfo denied for non-admin and non-member'
-        raise s_exc.AuthDeny(mesg=mesg)
-
-    async def getHealthCheck(self):
-        await self._reqUserAllowed(('health',))
-        return await self.cell.getHealthCheck()
-
-    @adminapi
-    async def getDmonSessions(self):
-        return await self.cell.getDmonSessions()
-
-    @adminapi
-    async def listHiveKey(self, path=None):
-        return await self.cell.listHiveKey(path=path)
-
-    @adminapi
-    async def getHiveKey(self, path):
-        return await self.cell.getHiveKey(path)
-
-    @adminapi
-    async def setHiveKey(self, path, valu):
-        return await self.cell.setHiveKey(path, valu)
-
-    @adminapi
-    async def popHiveKey(self, path):
-        return await self.cell.popHiveKey(path)
-
-    @adminapi
-    async def saveHiveTree(self, path=()):
-        return await self.cell.saveHiveTree(path=path)
-
-    # @adminapi(log=False)
-    async def getNexusChanges(self, offs):
-        async for item in self.cell.getNexusChanges(offs):
-            yield item
+    #
+    # @adminapi
+    # async def delAuthUser(self, name):
+    #     await self.cell.auth.delUser(name)
+    #     await self.cell.fire('user:mod', act='deluser', name=name)
+    #
+    # @adminapi
+    # async def addAuthRole(self, name):
+    #     role = await self.cell.auth.addRole(name)
+    #     await self.cell.fire('user:mod', act='addrole', name=name)
+    #     return role.pack()
+    #
+    # @adminapi
+    # async def delAuthRole(self, name):
+    #     await self.cell.auth.delRole(name)
+    #     await self.cell.fire('user:mod', act='delrole', name=name)
+    #
+    # @adminapi
+    # async def getAuthUsers(self, archived=False):
+    #     '''
+    #     Args:
+    #         archived (bool):  If true, list all users, else list non-archived users
+    #     '''
+    #     return [u.name for u in self.cell.auth.users() if archived or not u.info.get('archived')]
+    #
+    # @adminapi
+    # async def getAuthRoles(self):
+    #     return [r.name for r in self.cell.auth.roles()]
+    #
+    # @adminapi
+    # async def addUserRule(self, name, rule, indx=None, gateiden=None):
+    #     user = await self.cell.auth.reqUserByName(name)
+    #     retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
+    #     return retn
+    #
+    # @adminapi
+    # async def addRoleRule(self, name, rule, indx=None, gateiden=None):
+    #     role = await self.cell.auth.reqRoleByName(name)
+    #     retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
+    #     return retn
+    #
+    # @adminapi
+    # async def delUserRule(self, name, rule, gateiden=None):
+    #     user = await self.cell.auth.reqUserByName(name)
+    #     return await user.delRule(rule, gateiden=gateiden)
+    #
+    # @adminapi
+    # async def delRoleRule(self, name, rule, gateiden=None):
+    #     role = await self.cell.auth.reqRoleByName(name)
+    #     return await role.delRule(rule, gateiden=gateiden)
+    #
+    # @adminapi
+    # async def setUserAdmin(self, name, admin, gateiden=None):
+    #     user = await self.cell.auth.reqUserByName(name)
+    #     await user.setAdmin(admin, gateiden=gateiden)
+    #
+    # @adminapi
+    # async def setRoleAdmin(self, name, admin, gateiden=None):
+    #     role = await self.cell.auth.reqRoleByName(name)
+    #     await role.setAdmin(admin, gateiden=gateiden)
+    #
+    # @adminapi
+    # async def getAuthInfo(self, name):
+    #     s_common.deprecated('getAuthInfo')
+    #     user = await self.cell.auth.getUserByName(name)
+    #     if user is not None:
+    #         info = user.pack()
+    #         info['roles'] = [self.cell.auth.role(r).name for r in info['roles']]
+    #         return info
+    #
+    #     role = await self.cell.auth.getRoleByName(name)
+    #     if role is not None:
+    #         return role.pack()
+    #
+    #     raise s_exc.NoSuchName(name=name)
+    #
+    # @adminapi
+    # async def addAuthRule(self, name, rule, indx=None, gateiden=None):
+    #     s_common.deprecated('addAuthRule')
+    #     item = await self.cell.auth.getUserByName(name)
+    #     if item is None:
+    #         item = await self.cell.auth.getRoleByName(name)
+    #     await item.addRule(rule, indx=indx, gateiden=gateiden)
+    #
+    # @adminapi
+    # async def delAuthRule(self, name, rule, gateiden=None):
+    #     s_common.deprecated('delAuthRule')
+    #     item = await self.cell.auth.getUserByName(name)
+    #     if item is None:
+    #         item = await self.cell.auth.getRoleByName(name)
+    #     await item.delRule(rule, gateiden=gateiden)
+    #
+    # @adminapi
+    # async def setAuthAdmin(self, name, isadmin):
+    #     s_common.deprecated('setAuthAdmin')
+    #     item = await self.cell.auth.getUserByName(name)
+    #     if item is None:
+    #         item = await self.cell.auth.getRoleByName(name)
+    #     await item.setAdmin(isadmin)
+    #
+    # async def setUserPasswd(self, name, passwd):
+    #     user = await self.cell.auth.getUserByName(name)
+    #     if user is None:
+    #         raise s_exc.NoSuchUser(user=name)
+    #     if not (self.user.isAdmin() or self.user.iden == user.iden):
+    #         raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
+    #
+    #     await user.setPasswd(passwd)
+    #     await self.cell.fire('user:mod', act='setpasswd', name=name)
+    #
+    # @adminapi
+    # async def setUserLocked(self, name, locked):
+    #     user = await self.cell.auth.getUserByName(name)
+    #     if user is None:
+    #         raise s_exc.NoSuchUser(user=name)
+    #
+    #     await user.setLocked(locked)
+    #     await self.cell.fire('user:mod', act='locked', name=name, locked=locked)
+    #
+    # @adminapi
+    # async def setUserArchived(self, name, archived):
+    #     user = await self.cell.auth.getUserByName(name)
+    #     if user is None:
+    #         raise s_exc.NoSuchUser(user=name)
+    #
+    #     await user.setArchived(archived)
+    #     await self.cell.fire('user:mod', act='archived', name=name, archived=archived)
+    #
+    # @adminapi
+    # async def addUserRole(self, username, rolename):
+    #     user = await self.cell.auth.getUserByName(username)
+    #     if user is None:
+    #         raise s_exc.NoSuchUser(user=username)
+    #
+    #     await user.grant(rolename)
+    #     await self.cell.fire('user:mod', act='grant', name=username, role=rolename)
+    #
+    # @adminapi
+    # async def delUserRole(self, username, rolename):
+    #
+    #     user = await self.cell.auth.getUserByName(username)
+    #     if user is None:
+    #         raise s_exc.NoSuchUser(user=username)
+    #
+    #     await user.revoke(rolename)
+    #     await self.cell.fire('user:mod', act='revoke', name=username, role=rolename)
+    #
+    # async def getUserInfo(self, name):
+    #     user = await self.cell.auth.reqUserByName(name)
+    #     if self.user.isAdmin() or self.user.iden == user.iden:
+    #         info = user.pack()
+    #         info['roles'] = [self.cell.auth.role(r).name for r in info['roles']]
+    #         return info
+    #
+    #     mesg = 'getUserInfo denied for non-admin and non-self'
+    #     raise s_exc.AuthDeny(mesg=mesg)
+    #
+    # async def getRoleInfo(self, name):
+    #     role = await self.cell.auth.reqRoleByName(name)
+    #     if self.user.isAdmin() or role.iden in self.user.info.get('roles', ()):
+    #         return role.pack()
+    #
+    #     mesg = 'getRoleInfo denied for non-admin and non-member'
+    #     raise s_exc.AuthDeny(mesg=mesg)
+    #
+    # async def getHealthCheck(self):
+    #     await self._reqUserAllowed(('health',))
+    #     return await self.cell.getHealthCheck()
+    #
+    # @adminapi
+    # async def getDmonSessions(self):
+    #     return await self.cell.getDmonSessions()
+    #
+    # @adminapi
+    # async def listHiveKey(self, path=None):
+    #     return await self.cell.listHiveKey(path=path)
+    #
+    # @adminapi
+    # async def getHiveKey(self, path):
+    #     return await self.cell.getHiveKey(path)
+    #
+    # @adminapi
+    # async def setHiveKey(self, path, valu):
+    #     return await self.cell.setHiveKey(path, valu)
+    #
+    # @adminapi
+    # async def popHiveKey(self, path):
+    #     return await self.cell.popHiveKey(path)
+    #
+    # @adminapi
+    # async def saveHiveTree(self, path=()):
+    #     return await self.cell.saveHiveTree(path=path)
+    #
+    # # @adminapi(log=False)
+    # async def getNexusChanges(self, offs):
+    #     async for item in self.cell.getNexusChanges(offs):
+    #         yield item
 
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
