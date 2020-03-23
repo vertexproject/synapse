@@ -317,6 +317,8 @@ class SpawnCore(s_base.Base):
         self.iden = spawninfo.get('iden')
         self.dirn = spawninfo.get('dirn')
 
+        self.trigson = self.conf.get('trigger:enable')
+
         self.stormcmds = {}
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
