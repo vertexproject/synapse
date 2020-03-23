@@ -27,7 +27,7 @@ class TstCellApi(s_cell.CellApi):
     async def giggles(self):
         yield 'giggles'
 
-    @s_cell.adminapi
+    @s_cell.adminapi(log=False)
     async def wrapped_giggles(self):
         yield 'giggles'
 
@@ -43,39 +43,33 @@ class ReflectTest(s_t_utils.SynTest):
         self.isin('synapse.tests.test_lib_reflect.Foo', names)
 
     async def test_telemeth(self):
-        # self.none(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None))
-        # async with self.getTestDmon() as dmon:
-        #     echo = await Echo.anit()
-        #     dmon.share('echo', echo)
-        #     self.none(getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None))
-        #     self.none(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None))
-        #     async with await self.getTestProxy(dmon, 'echo') as proxy:
-        #         pass
-        #     self.isinstance(getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None), dict)
-        #     self.isinstance(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None), dict)
-        #
-        #     sharinfo = getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo')
-        #     self.eq(sharinfo.get('syn:version'), s_version.version)
-        #     self.eq(sharinfo.get('classes'),
-        #             ['synapse.tests.test_lib_reflect.Echo', 'synapse.lib.base.Base'])
+        self.none(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None))
+        async with self.getTestDmon() as dmon:
+            echo = await Echo.anit()
+            dmon.share('echo', echo)
+            self.none(getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None))
+            self.none(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None))
+            async with await self.getTestProxy(dmon, 'echo') as proxy:
+                pass
+            self.isinstance(getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None), dict)
+            self.isinstance(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None), dict)
 
-        # Check attribute information for a Cell / CellApi wrapper
-        # which sets the __syn_wrapped__ attribute on a few functions
-        # of the CellApi class.
+            sharinfo = getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo')
+            self.eq(sharinfo.get('syn:version'), s_version.version)
+            self.eq(sharinfo.get('classes'),
+                    ['synapse.tests.test_lib_reflect.Echo', 'synapse.lib.base.Base'])
+
+        # Check attribute information for a Cell / CellApi wrapper which sets
+        # the __syn_wrapped__ attribute on a few functions of the CellApi
+        # class. This also tests unwrapped async generator detection.
         with self.getTestDir() as dirn:
             async with await TstCell.anit(dirn) as cell:
                 async with cell.getLocalProxy() as prox:
-
-                    print(cell)
-                    print(prox)
-                    print(dir(TstCellApi))
-
                     key = '_syn_sharinfo_synapse.tests.test_lib_reflect_TstCellApi'
                     valu = getattr(TstCellApi, key)
-                    print(valu)
+                    self.nn(valu)
 
                     meths = valu.get('meths')
                     self.isin('giggles', meths)
                     self.isin('wrapped_giggles', meths)
                     self.isin('dyniter', meths)
-                    # self.isin('getNexusChanges', meths)
