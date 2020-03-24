@@ -2657,12 +2657,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         if useriden is None:
             return self.auth.rootuser
 
-        user = self.auth.user(useriden)
-        if user is None:
-            mesg = f'No user found with iden: {opts.get("user")}'
-            raise s_exc.NoSuchUser(mesg)
-
-        return user
+        return self.auth.reqUser(useriden)
 
     async def count(self, text, opts=None):
 
