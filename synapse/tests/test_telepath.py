@@ -905,7 +905,7 @@ class TeleTest(s_t_utils.SynTest):
                 return retn
 
             task = dmon.schedCoro(doit())
-            await s_coro.event_wait(foo.simplesleep_evt, 2)
+            self.true(await s_coro.event_wait(foo.simplesleep_evt, 2))
             await prox.fini()
 
             await self.asyncraises(s_exc.LinkShutDown, task)
