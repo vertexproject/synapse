@@ -726,7 +726,7 @@ class SyncMigrator(s_cell.Cell):
         Yields:
             (str, str, dict or None): Cron action plus info to run against destination
         '''
-        cronsd_src = {cron['iden']: cron for cron in crons_src}
+        cronsd_src = {cron[0]: cron[1] for cron in crons_src}  # differing formats for 01x vs 02x
         cronsd_dest = {cron['iden']: cron for cron in crons_dest}
 
         for iden, cron_src in cronsd_src.items():

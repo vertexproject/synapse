@@ -149,7 +149,7 @@ class FakeCore(s_cell.Cell):
         Returns one modified and one new job. The other cron job is not returned and therefore should be deleted.
         '''
         return (
-            {
+            ('34af1bdc58aeb80c5a78d8931cc9e5c9', {
                 'ver': 1,
                 'doc': '',
                 'name': '',
@@ -167,8 +167,8 @@ class FakeCore(s_cell.Cell):
                 'lastfinishtime': 1585069760.9455853,
                 'lastresult': 'finished successfully with 3 nodes',
                 'username': 'bobo'
-            },
-            {
+            }),
+            ('12c8003255c523b26cea3b8a44adc278', {
                 'ver': 1,
                 'doc': '',
                 'name': '',
@@ -186,7 +186,7 @@ class FakeCore(s_cell.Cell):
                 'lastfinishtime': None,
                 'lastresult': None,
                 'username': 'root'
-            },
+            }),
         )
 
 class SyncTest(s_t_utils.SynTest):
