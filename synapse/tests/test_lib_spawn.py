@@ -166,7 +166,7 @@ class CoreSpawnTest(s_test.SynTest):
                 ),
             }
 
-            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ] -> inet:ipv4 [ :asn=0 ]')
+            await self.runCoreNodes(core, '[ inet:dns:a=(vertex.link, 1.2.3.4) ] -> inet:ipv4 [ :asn=0 ]')
 
             async with core.getLocalProxy() as prox:
 
@@ -267,7 +267,7 @@ class CoreSpawnTest(s_test.SynTest):
                 # Test launching a bunch of spawn queries at the same time
                 donecount = 0
 
-                await core.nodes('[test:int=1]')
+                await self.runCoreNodes(core, '[test:int=1]')
                 # wait for commit
                 await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
 
@@ -305,7 +305,8 @@ class CoreSpawnTest(s_test.SynTest):
                 self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
                 tasks = await prox.ps()
                 new_idens = [task.get('iden') for task in tasks]
-                await prox.kill(new_idens[-1])
+                self.len(1, new_idens)
+                await prox.kill(new_idens[0])
 
                 # Ensure that opts were passed into the task data without spawn: True set
                 task = [task for task in tasks if task.get('iden') == new_idens[0]][0]
