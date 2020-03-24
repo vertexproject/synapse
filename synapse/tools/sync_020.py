@@ -733,6 +733,9 @@ class SyncMigrator(s_cell.Cell):
             cron_dest = cronsd_dest.get(iden)
 
             recs = cron_src['recs']
+            if not recs:
+                continue  # skip one-time crons
+
             cdef = {
                 'storm': cron_src['query'],
                 'reqs': recs[0][0],
