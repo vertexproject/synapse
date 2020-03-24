@@ -50,6 +50,13 @@ class FakeCoreApi(s_cell.CellApi):
         async for splice in self.cell.splices(offs, size):
             yield splice
 
+    async def eval(self, text):
+        async for pode in self.cell.eval(text):
+            yield pode
+
+    async def listCronJobs(self):
+        return await self.cell.listCronJobs()
+
 class FakeCore(s_cell.Cell):
     cellapi = FakeCoreApi
     confdefs = {
@@ -100,6 +107,87 @@ class FakeCore(s_cell.Cell):
 
             if i == imax or i == self.splicelim:
                 return
+
+    async def eval(self, text):
+        '''
+        Yields one modified trigger and one new trigger. The other in the regr repo is not yielded
+        and therefore should be deleted.
+        '''
+        if text == 'syn:trigger':
+            yield (('syn:trigger', '7048bd9292f5c1372a5846aed6d74e4c'),
+              {'iden': 'e7bc6cc1126c5aef324b0bb7a62f824c0f1bd41593bdac9a741b92f6b4f3e43d',
+               'tags': {},
+               'props': {'doc': '',
+                         'name': '',
+                         'vers': 1,
+                         'cond': 'tag:add',
+                         'storm': '[ inet:ipv4=5.5.5.9 ]',
+                         'enabled': 0,
+                         'user': '0e08c8d0b51b8fd594a2028a75cd12c1',
+                         'tag': 'foo.*.baz'},
+               'tagprops': {},
+               'nodedata': {},
+               'path': {}})
+
+            yield (('syn:trigger', 'a620be1dd85655b390313d66272bf4a1'),
+              {'iden': '8e918ad19c46d3fff4a84ad43d4a218add297f7e5a34b60460e7fc173dbee62d',
+               'tags': {},
+               'props': {'doc': '',
+                         'name': '',
+                         'vers': 1,
+                         'cond': 'node:add',
+                         'storm': '[ +#newtrg ]',
+                         'enabled': 1,
+                         'user': '0e08c8d0b51b8fd594a2028a75cd12c1',
+                         'form': 'file:bytes'},
+               'tagprops': {},
+               'nodedata': {},
+               'path': {}})
+
+    async def listCronJobs(self):
+        '''
+        Returns one modified and one new job. The other cron job is not returned and therefore should be deleted.
+        '''
+        return (
+            {
+                'ver': 1,
+                'doc': '',
+                'name': '',
+                'enabled': False,
+                'recur': False,
+                'iden': '34af1bdc58aeb80c5a78d8931cc9e5c9',
+                'indx': 1,
+                'query': 'file:bytes',
+                'creator': '54658901bf1281ab8e122f38ee43f017',
+                'recs': (({'hour': 2}, None, None),),
+                'nexttime': 1585101840.644682,
+                'startcount': 1,
+                'isrunning': False,
+                'laststarttime': 1585069760.943465,
+                'lastfinishtime': 1585069760.9455853,
+                'lastresult': 'finished successfully with 3 nodes',
+                'username': 'bobo'
+            },
+            {
+                'ver': 1,
+                'doc': '',
+                'name': '',
+                'enabled': True,
+                'recur': True,
+                'iden': '12c8003255c523b26cea3b8a44adc278',
+                'indx': 3,
+                'query': '#foo',
+                'creator': '0e08c8d0b51b8fd594a2028a75cd12c1',
+                'recs': (({'hour': 3, 'minute': 0, 'dayofmonth': -1}, 'month', 1),),
+                'nexttime': 1585623600.880714,
+                'startcount': 0,
+                'isrunning': False,
+                'laststarttime': None,
+                'lastfinishtime': None,
+                'lastresult': None,
+                'username': 'root'
+            },
+        )
 
 class SyncTest(s_t_utils.SynTest):
     @contextlib.asynccontextmanager
@@ -164,7 +252,7 @@ class SyncTest(s_t_utils.SynTest):
                 async with await s_sync.SyncMigrator.anit(dirn, conf) as sync:
                     yield core, turl, fkcore, fkurl, sync
 
-    async def _checkCore(self, core):
+    async def _checkCore(self, core, coresync):
         with self.getRegrDir('assets', REGR_VER) as assetdir:
             podesj = getAssetJson(assetdir, 'splicepodes.json')
             podesj = [p for p in podesj if p[0] not in NOMIGR_NDEF]
@@ -196,6 +284,23 @@ class SyncTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
             self.len(2, await core.nodes('inet:dns:a:ipv4=1.2.3.4'))
 
+            # check sync'd crons and triggers
+            if coresync:
+                crons = await core.listCronJobs()
+                trigs = await core.nodes('syn:trigger')
+
+                self.len(2, crons)
+                self.false(crons[0]['enabled'])
+                self.eq('file:bytes', crons[0]['query'])
+                self.true(crons[1]['enabled'])
+                self.eq('#foo', crons[1]['query'])
+
+                self.len(2, trigs)
+                self.eq(0, trigs[0].get('enabled'))
+                self.eq('[ inet:ipv4=5.5.5.9 ]', trigs[0].get('storm').strip('{}'))
+                self.eq(1, trigs[1].get('enabled'))
+                self.eq('[ +#newtrg ]', trigs[1].get('storm').strip('{}'))
+
     async def test_sync_stormsvc(self):
         conf_sync = {
             'poll_s': 1,
@@ -223,8 +328,9 @@ class SyncTest(s_t_utils.SynTest):
             lyridens = list(core.layers.keys())
 
             mesgs = await core.streamstorm(f'migrsync.status').list()
-            self.eq('', ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']))
-            # empty
+            mesgcat = ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print'])
+            self.isin('Cortex', mesgcat)
+            self.notin('Layer', mesgcat)
 
             mesgs = await core.streamstorm(f'migrsync.startfromfile').list()
             self.stormIsInPrint('Sync started', mesgs)
@@ -232,7 +338,7 @@ class SyncTest(s_t_utils.SynTest):
             self.stormIsInPrint(lyridens[1], mesgs)
 
             mesgs = await core.streamstorm(f'migrsync.status').list()
-            self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
+            self.eq(6, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
 
             mesgs = await core.streamstorm(f'migrsync.stopsync').list()
             self.stormIsInPrint('Sync stopped', mesgs)
@@ -240,7 +346,7 @@ class SyncTest(s_t_utils.SynTest):
             self.stormIsInPrint(lyridens[1], mesgs)
 
             mesgs = await core.streamstorm(f'migrsync.status').list()
-            self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('cancelled'))
+            self.eq(6, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('cancelled'))
 
             mesgs = await core.streamstorm(f'migrsync.startfromlast').list()
             self.stormIsInPrint('Sync started', mesgs)
@@ -248,7 +354,7 @@ class SyncTest(s_t_utils.SynTest):
             self.stormIsInPrint(lyridens[1], mesgs)
 
             mesgs = await core.streamstorm(f'migrsync.status').list()
-            self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
+            self.eq(6, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
 
     async def test_startSyncFromFile(self):
         conf_sync = {
@@ -281,11 +387,14 @@ class SyncTest(s_t_utils.SynTest):
                 self.eq(num_splices, sync.pull_offs.get(wlyr.iden))
                 self.eq(num_splices, sync.push_offs.get(wlyr.iden))
 
+                self.true(await s_coro.event_wait(sync._core_evnts['triggers'], timeout=5))
+                self.true(await s_coro.event_wait(sync._core_evnts['crons'], timeout=5))
+
                 # we have read all the splices but the status is dependent on where the loop is
                 status = await syncprx.status(True)
                 self.true(status[wlyr.iden]['src:pullstatus'] in ('up_to_date', 'reading_at_live'))
 
-                await self._checkCore(core)
+                await self._checkCore(core, coresync=True)
 
                 # make sure tasks are still running
                 self.false(sync._pull_tasks[wlyr.iden].done())
@@ -305,7 +414,7 @@ class SyncTest(s_t_utils.SynTest):
 
                 status = await syncprx.status(pprint=True)
                 statusp = ' '.join([v.get('pprint') for v in status.values()])
-                self.eq(4, statusp.count('cancelled'))
+                self.eq(6, statusp.count('cancelled'))
 
                 # restart sync over same splices with queue cap less than total splices
                 sync.q_cap = 100
@@ -317,10 +426,13 @@ class SyncTest(s_t_utils.SynTest):
                 self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=5))
                 self.true(await s_coro.event_wait(sync._push_evnts[wlyr.iden], timeout=5))
 
+                self.true(await s_coro.event_wait(sync._core_evnts['crons'], timeout=5))
+                self.true(await s_coro.event_wait(sync._core_evnts['triggers'], timeout=5))
+
                 status = await syncprx.status()
                 self.true(status[wlyr.iden]['src:pullstatus'] in ('up_to_date', 'reading_at_live'))
 
-                await self._checkCore(core)
+                await self._checkCore(core, coresync=True)
 
                 # fini the queue
                 await sync._queues[wlyr.iden].fini()
@@ -348,6 +460,7 @@ class SyncTest(s_t_utils.SynTest):
                 self.eq(0, sync.push_offs.get(wlyr.iden))
 
                 # kick off a sync and then stop it so we can resume
+                await sync._startCoreSync()
                 await sync._startLyrSync(wlyr.iden, 0)
 
                 self.false(core.trigson)
@@ -370,7 +483,10 @@ class SyncTest(s_t_utils.SynTest):
                 self.eq(num_splices, sync.pull_offs.get(wlyr.iden))
                 self.eq(num_splices, sync.push_offs.get(wlyr.iden))
 
-                await self._checkCore(core)
+                self.true(await s_coro.event_wait(sync._core_evnts['crons'], timeout=5))
+                self.true(await s_coro.event_wait(sync._core_evnts['triggers'], timeout=5))
+
+                await self._checkCore(core, coresync=True)
 
                 # make sure tasks are still running
                 self.false(sync._pull_tasks[wlyr.iden].done())
@@ -468,7 +584,7 @@ class SyncTest(s_t_utils.SynTest):
             self.eq(len(nodeedits), len(sodes))
 
             # check that the destination cortex has all of the post-splice updated data
-            await self._checkCore(core)
+            await self._checkCore(core, coresync=False)
 
             # feed bad splices
             ne = await sync._trnNodeSplicesToNodeedit(('inet:fqdn', 'foo.com'), [('no:way', {})])
@@ -502,7 +618,7 @@ class SyncTest(s_t_utils.SynTest):
 
                     self.true(await s_coro.event_wait(sync._push_evnts[wlyr.iden], timeout=5))
                     self.eq(0, len(queue.linklist))
-                    await self._checkCore(core)
+                    await self._checkCore(core, coresync=False)
 
                     # put untranslatable splices into the queue
                     # make sure task stays running

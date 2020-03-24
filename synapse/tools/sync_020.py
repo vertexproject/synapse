@@ -5,6 +5,7 @@ import os
 import sys
 import asyncio
 import logging
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -150,6 +151,7 @@ class SyncMigrator(s_cell.Cell):
         self.push_fair_iter = 100
 
         self.q_cap = int(self.q_size * 0.9)
+        self.task_timeout = 30  # seconds
 
         self.layers = await self.hive.dict(('sync:layer', ))  # lyridens
 
@@ -164,15 +166,22 @@ class SyncMigrator(s_cell.Cell):
         self.model = {}
 
         self._pull_status = {}  # lyriden: status
+        self._core_status = {
+            'triggers': collections.defaultdict(int),
+            'crons': collections.defaultdict(int),
+        }
 
         self._pull_tasks = {}  # lyriden: Task
         self._push_tasks = {}
+        self._core_task = None
 
         self.pull_last_start = {}  # lyriden: epoch
         self.push_last_start = {}
+        self.core_last_start = {}  # { crons: status, triggers: status, ... }
 
         self._pull_evnts = {}  # lyriden: event (set when up-to-date)
         self._push_evnts = {}  # lyriden: event (set when queue is empty)
+        self._core_evnts = {}  # { crons: status, triggers: status, ... }
 
         self._queues = {}  # lyriden: queue of splices
 
@@ -186,7 +195,46 @@ class SyncMigrator(s_cell.Cell):
         Returns:
             (dict): Summary info with layer idens as keys
         '''
-        retn = {}
+        retn = {
+            'cortex': {},
+        }
+
+        # core status
+        outp = [
+            f'Cortex',
+            (
+                f'{"":^10}|{"last_start":^25}|{"task_status":^15}|'
+                f'{"add":^10}|{"update":^10}|{"enable":^10}|{"disable":^10}|{"delete":^10}'
+            ),
+            '-' * (100 + 7)
+        ]
+
+        coretasksum = await self._getTaskSummary(self._core_task)
+        coretaskstatus = coretasksum.get('status', '-')
+        for item, status in self._core_status.items():
+            laststart = status['last']
+            if laststart:
+                laststart = s_time.repr(laststart)
+
+            retn['cortex'][item] = {
+                'last_start': laststart,
+                'task_status': coretasksum,
+                'add_cnt': status['add'],
+                'update_cnt': status['update'],
+                'enable_cnt': status['enable'],
+                'disable_cnt': status['disable'],
+                'delete_cnt': status['delete'],
+            }
+
+            outp.append((
+                f' {item:<9}| {laststart or "-":<24}| {coretaskstatus:<14}|'
+                f' {status["add"]!s:<9}| {status["update"]!s:<9}| {status["enable"]!s:<9}|'
+                f' {status["disable"]!s:<9}| {status["delete"]!s:<9}'
+            ))
+
+        retn['cortex']['pprint'] = '\n'.join(outp)
+
+        # layer status
         for lyriden, _ in self.layers.items():
             pulloffs = self.pull_offs.get(lyriden)
             pushoffs = self.push_offs.get(lyriden)
@@ -292,6 +340,8 @@ class SyncMigrator(s_cell.Cell):
         Returns:
             (list): Of (<lyriden>, <offset>) tuples
         '''
+        await self._startCoreSync()
+
         lyroffs = s_common.yamlload(self.offsfile)
 
         retn = []
@@ -312,6 +362,8 @@ class SyncMigrator(s_cell.Cell):
         Returns:
             (list): Of (<lyriden>, <offset>) tuples
         '''
+        await self._startCoreSync()
+
         retn = []
         for lyriden, _ in self.layers.items():
             pulloffs = self.pull_offs.get(lyriden)
@@ -327,6 +379,22 @@ class SyncMigrator(s_cell.Cell):
 
         return retn
 
+    async def _startCoreSync(self):
+        '''
+        Schedules the task Core sync status and waits on model and migrmode events to be set
+        since they are needed to start layer sync.
+        '''
+        coretask = self._core_task
+        if coretask is None or coretask.done():
+            self._core_evnts['model'] = asyncio.Event()
+            self._core_evnts['migrmode'] = asyncio.Event()
+            self._core_task = self.schedCoro(self._syncCore())
+
+            await asyncio.wait_for(self._core_evnts['model'].wait(), self.task_timeout)
+            await asyncio.wait_for(self._core_evnts['migrmode'].wait(), self.task_timeout)
+
+        logger.info(f'Core sync started')
+
     async def _startLyrSync(self, lyriden, nextoffs):
         '''
         Starts up the sync process for a given layer and starting offset.
@@ -337,13 +405,12 @@ class SyncMigrator(s_cell.Cell):
             lyriden (str): Layer iden
             nextoffs (int): The layer offset to start sync from
         '''
+        if not self.model:
+            logger.error(f'Model is not configured - unable to start sync for {lyriden}')
+            return
+
         await self.layers.set(lyriden, nextoffs)
         self.pull_offs.set(lyriden, nextoffs)
-
-        async with await s_telepath.openurl(self.dest) as prx:
-            model = await prx.getModelDict()
-            self.model.update(model)
-            await prx.enableMigrationMode()
 
         queue = self._queues.get(lyriden)
         if queue is None or queue.isfini:
@@ -353,13 +420,13 @@ class SyncMigrator(s_cell.Cell):
 
         pulltask = self._pull_tasks.get(lyriden)
         if pulltask is None or pulltask.done():
-            self._pull_tasks[lyriden] = self.schedCoro(self._srcPullLyrSplices(lyriden))
             self._pull_evnts[lyriden] = asyncio.Event()
+            self._pull_tasks[lyriden] = self.schedCoro(self._srcPullLyrSplices(lyriden))
 
         pushtask = self._push_tasks.get(lyriden)
         if pushtask is None or pushtask.done():
-            self._push_tasks[lyriden] = self.schedCoro(self._destPushLyrNodeedits(lyriden))
             self._push_evnts[lyriden] = asyncio.Event()
+            self._push_tasks[lyriden] = self.schedCoro(self._destPushLyrNodeedits(lyriden))
 
     async def stopSync(self):
         '''
@@ -388,14 +455,83 @@ class SyncMigrator(s_cell.Cell):
         try:
             async with await s_telepath.openurl(self.dest) as prx:
                 await prx.disableMigrationMode()
+                self._core_evnts['migrmode'].clear()
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
             logger.exception(f'Unable to disable migration mode on dest cortex: {e}')
             pass
 
+        if self._core_task is not None:
+            self._core_task.cancel()
+
         logger.info('stopSync complete')
         return list(retn)
+
+    async def _syncCore(self):
+        '''
+        Synchronizes triggers and crons from source Cortex to destination.
+        On initial start-up also refreshes datamodel and ensures migration mode is set.
+        '''
+        poll_s = self.poll_s
+
+        while not self.isfini:
+            # set in startCoreSync so waitable before starting layer sync
+            self._core_evnts['model'].clear()
+            self._core_evnts['migrmode'].clear()
+
+            self._core_evnts['crons'] = asyncio.Event()
+            self._core_evnts['triggers'] = asyncio.Event()
+
+            # cortex proxy
+            prx_src = await s_telepath.openurl(self.src)
+            prx_dest = await s_telepath.openurl(self.dest)
+
+            # startup activities
+            model = await prx_dest.getModelDict()
+            self.model.update(model)
+            self._core_evnts['model'].set()
+
+            await prx_dest.enableMigrationMode()
+            self._core_evnts['migrmode'].set()
+
+            while not prx_src.isfini and not prx_dest.isfini:
+                self._core_evnts['crons'].clear()
+                self._core_evnts['triggers'].clear()
+
+                trigs_src = await prx_src.eval('syn:trigger').list()
+                trigs_dest = await prx_dest.eval('syn:trigger').list()
+
+                async for action, scmd in self._trnTriggers(trigs_src, trigs_dest):
+                    await prx_dest.count(scmd)
+                    self._core_status['triggers'][action] += 1
+                    await asyncio.sleep(0)
+
+                self._core_status['triggers']['last'] = s_common.now()
+                self._core_evnts['triggers'].set()
+
+                crons_src = await prx_src.listCronJobs()
+                crons_dest = await prx_dest.listCronJobs()
+
+                async for action, iden, cdef in self._trnCrons(crons_src, crons_dest):
+                    if action == 'enable':
+                        await prx_dest.enableCronJob(iden)
+                    elif action == 'disable':
+                        await prx_dest.disableCronJob(iden)
+                    elif action == 'delete':
+                        await prx_dest.delCronJob(iden)
+                    elif action == 'add':
+                        await prx_dest.addCronJob(cdef)
+                    elif action == 'update':
+                        await prx_dest.updateCronJob(iden, cdef['storm'])
+
+                    self._core_status['crons'][action] += 1
+                    await asyncio.sleep(0)
+
+                self._core_status['crons']['last'] = s_common.now()
+                self._core_evnts['crons'].set()
+
+                await asyncio.sleep(poll_s)
 
     async def _resetLyrErrs(self, lyriden):
         lpref = s_common.uhex(lyriden)
@@ -525,6 +661,101 @@ class SyncMigrator(s_cell.Cell):
                 return curoffs, False
 
         return curoffs, True
+
+    async def _trnTriggers(self, trigs_src, trigs_dest):
+        '''
+        Generates storm commands to run against destination to synchronize triggers.
+
+        Args:
+            trigs_src (list): Packed syn:trigger nodes
+            trigs_dest (list): Packed syn:trigger nodes
+
+        Yields:
+            (str, str): Action and storm command
+        '''
+        trigsd_src = {trig[0][1]: trig[1] for trig in trigs_src}
+        trigsd_dest = {trig[0][1]: trig[1] for trig in trigs_dest}
+
+        for iden, trig in trigsd_src.items():
+            trig_dest = trigsd_dest.get(iden)
+
+            enabled = trig['props']['enabled']
+            cond = trig['props']['cond']
+            storm = trig['props']['storm']
+            tag = trig['props'].get('tag')
+            form = trig['props'].get('form')
+
+            if trig_dest is None:
+                scmd = ['trigger.add', cond]
+
+                if form is not None:
+                    scmd.append(f'--form {form}')
+                elif tag is not None:
+                    scmd.append(f'--tag {tag}')
+                else:
+                    logger.warning(f'Neither form nor tag defined for trigger.add: {trig}')
+
+                scmd.append(f'--query {{{storm}}}')
+
+                yield 'add', ' '.join(scmd)
+
+            else:
+                if trig_dest['props']['storm'] != storm:
+                    yield 'update', f'trigger.mod {iden} {{{storm}}}'
+
+                if trig_dest['props']['enabled'] != enabled:
+                    if enabled:
+                        yield 'enable', f'trigger.enable {iden}'
+                    else:
+                        yield 'disable', f'trigger.disable {iden}'
+
+        for iden in trigsd_dest.keys():
+            if iden not in trigsd_src:
+                yield 'delete', f'trigger.del {iden}'
+
+        return
+
+    async def _trnCrons(self, crons_src, crons_dest):
+        '''
+        Generates cron actions to run against destination to synchronize triggers.
+
+        Args:
+            crons_src (list): Packed cron info
+            crons_dest (list): Packed cron info
+
+        Yields:
+            (str, str, dict or None): Cron action plus info to run against destination
+        '''
+        cronsd_src = {cron['iden']: cron for cron in crons_src}
+        cronsd_dest = {cron['iden']: cron for cron in crons_dest}
+
+        for iden, cron_src in cronsd_src.items():
+            cron_dest = cronsd_dest.get(iden)
+
+            recs = cron_src['recs']
+            cdef = {
+                'storm': cron_src['query'],
+                'reqs': recs[0][0],
+                'incunit': recs[0][1],
+                'incvals': recs[0][2],
+            }
+
+            if cron_dest is None:
+                yield 'add', iden, cdef
+
+            else:
+                if cron_dest['query'] != cron_src['query']:
+                    yield 'update', iden, cdef
+
+                if cron_dest['enabled'] != cron_src['enabled']:
+                    if cron_src['enabled']:
+                        yield 'enable', iden, None
+                    else:
+                        yield 'disable', iden, None
+
+        for iden, cron_dest in cronsd_dest.items():
+            if iden not in cronsd_src:
+                yield 'delete', iden, None
 
     async def _trnNodeSplicesToNodeedit(self, ndef, splices):
         '''
