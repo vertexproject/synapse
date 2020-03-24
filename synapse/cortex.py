@@ -414,7 +414,7 @@ class CoreApi(s_cell.CellApi):
         '''
         opts = self._reqValidStormOpts(opts)
 
-        if opts is not None and opts.get('spawn'):
+        if opts.get('spawn'):
             await self._execSpawnStorm(text, opts)
             return
 
