@@ -5,19 +5,15 @@ import os
 import sys
 import asyncio
 import logging
-import argparse
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
-import synapse.lib.base as s_base
 import synapse.lib.time as s_time
 import synapse.lib.queue as s_queue
 import synapse.lib.layer as s_layer
-import synapse.lib.config as s_config
-import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
