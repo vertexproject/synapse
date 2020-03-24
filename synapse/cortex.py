@@ -2692,6 +2692,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         A simple non-streaming way to return a list of nodes.
         '''
+        if self.isfini:
+            raise s_exc.IsFini()
+
         opts = self._initStormOpts(opts)
 
         view = self._viewFromOpts(opts)
