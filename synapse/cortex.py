@@ -808,6 +808,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Initialize our storage and views
         await self._initCoreAxon()
 
+        mirror = self.conf.get('mirror')
+        if mirror is not None:
+            self.mirror = True
+
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
@@ -858,7 +862,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
-        mirror = self.conf.get('mirror')
         if mirror is not None:
             await self.initCoreMirror(mirror)
 
@@ -1721,7 +1724,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             This cortex *must* be initialized from a backup of the target cortex!
         '''
         await self.nexsroot.setLeader(url, self.iden)
-        self.mirror = True
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
@@ -2319,7 +2321,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         iden = layrinfo.get('iden')
         path = s_common.gendir(self.dirn, 'layers', iden)
-        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot)
+        # In case that we're a mirror follower and we have a downstream layer, disable upstream sync
+        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot, allow_upstream=not self.mirror)
 
     async def _initCoreLayers(self):
 
