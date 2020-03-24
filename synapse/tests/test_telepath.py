@@ -54,6 +54,7 @@ class Foo:
 
     def __init__(self):
         self.sleepg_evt = asyncio.Event()
+        self.simplesleep_evt = asyncio.Event()
 
     def bar(self, x, y):
         return x + y
@@ -78,7 +79,8 @@ class Foo:
         yield ('fini', {})
 
     async def simplesleep(self):
-        await asyncio.sleep(5)
+        self.simplesleep_evt.set()
+        await asyncio.sleep(10)
         return 42
 
     def genr(self):
@@ -903,7 +905,7 @@ class TeleTest(s_t_utils.SynTest):
                 return retn
 
             task = dmon.schedCoro(doit())
-            await asyncio.sleep(1)
+            await s_coro.event_wait(foo.simplesleep_evt, 2)
             await prox.fini()
 
             await self.asyncraises(s_exc.LinkShutDown, task)
