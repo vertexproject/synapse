@@ -430,7 +430,7 @@ class Proxy(s_base.Base):
 
         mesg = await link.rx()
         if mesg is None:
-            return
+            raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
 
         if mesg[0] == 't2:fini':
             await self._putPoolLink(link)
