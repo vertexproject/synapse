@@ -62,6 +62,13 @@ class CortexTest(s_t_utils.SynTest):
                 opts = {'user': core.auth.rootuser.iden}
                 self.len(1, await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list())
 
+    async def test_nodes(self):
+
+        async with self.getTestCore() as core:
+            await core.fini()
+            with self.raises(s_exc.IsFini):
+                await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+
     async def test_cortex_prop_deref(self):
 
         async with self.getTestCore() as core:

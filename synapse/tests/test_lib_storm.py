@@ -307,7 +307,7 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:guid | min test:newp')
 
-            # Ensure that max nodesuates ival properties as the upper bound.
+            # Ensure that max evaluates ival properties as the upper bound.
             async with await core.snap() as snap:
                 node = await snap.addNode('test:guid', '*', {'tick': '2015',
                                                              '.seen': (minval, maxval)})
