@@ -166,7 +166,7 @@ class AgendaTest(s_t_utils.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        async def myeval(query, user=None):
+        async def myeval(query, opts=None):
             nonlocal lastquery
             lastquery = query
             sync.set()

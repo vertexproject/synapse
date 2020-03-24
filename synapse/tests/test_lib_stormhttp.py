@@ -37,7 +37,7 @@ class StormHttpTest(s_test.SynTest):
                 [ test:str=$post ]
             '''
             opts = {'vars': {'port': port, 'name': 'foo', 'passwd': 'bar'}}
-            nodes = await core.storm(adduser, opts=opts).list()
+            nodes = await core.nodes(adduser, opts=opts)
             self.len(1, nodes)
             self.assertIn('foo', [u.name for u in core.auth.users()])
 
@@ -49,7 +49,7 @@ class StormHttpTest(s_test.SynTest):
                 [ test:str=$post ]
             '''
             opts = {'vars': {'port': port, 'name': 'vertex', 'passwd': 'project'}}
-            nodes = await core.storm(adduser, opts=opts).list()
+            nodes = await core.nodes(adduser, opts=opts)
             self.len(1, nodes)
             self.assertIn('vertex', [u.name for u in core.auth.users()])
 
@@ -67,7 +67,7 @@ class StormHttpTest(s_test.SynTest):
             $bytez = $lib.inet.http.post($url, json=$json, ssl_verify=$(0))
             '''
             opts = {'vars': {'port': port}}
-            nodes = await core.storm(text, opts=opts).list()
+            nodes = await core.nodes(text, opts=opts)
             nodes = await core.nodes('test:str')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'e1b683e26a3aad218df6aa63afe9cf57fdb5dfaf5eb20cddac14305d67f48a02'))
@@ -82,7 +82,7 @@ class StormHttpTest(s_test.SynTest):
             $body = $json
             $json=$lib.inet.http.post($url, json=$json, body=$body, ssl_verify=$(0))
             '''
-            mesgs = await s_test.alist(core.streamstorm(text, opts=opts))
+            mesgs = await core.stormlist(text, opts=opts)
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
             err = errs[0]
