@@ -313,8 +313,8 @@ class StormV1(Handler):
         query = body.get('query')
 
         # Maintain backwards compatibility with 0.1.x output
+        opts = await self._reqValidOpts(opts)
         opts['editformat'] = 'splices'
-        opts['user'] = user.iden
 
         await self.cell.boss.promote('storm', user=user, info={'query': query})
 

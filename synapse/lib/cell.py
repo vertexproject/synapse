@@ -374,11 +374,23 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def isUserAllowed(self, iden, perm, gateiden=None):
-        return self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
+        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
 
     @adminapi
-    async def tryUserPasswd(self, iden, passwd):
-        return self.cell.tryUserPasswd(iden, passwd)
+    async def tryUserPasswd(self, name, passwd):
+        return await self.cell.tryUserPasswd(name, passwd)
+
+    @adminapi
+    async def getUserProfile(self, iden):
+        return await self.cell.getUserProfile(iden)
+
+    @adminapi
+    async def getUserProfInfo(self, iden, name):
+        return await self.cell.getUserProfInfo(iden, name)
+
+    @adminapi
+    async def setUserProfInfo(self, iden, name, valu):
+        return await self.cell.setUserProfInfo(iden, name, valu)
 
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
@@ -527,8 +539,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return user.allowed(perm, gateiden=gateiden)
 
-    async def tryUserPasswd(self, iden, passwd):
-        user = self.auth.user(name)
+    async def tryUserPasswd(self, name, passwd):
+        user = await self.auth.getUserByName(name)
         if user is None:
             return None
 
@@ -536,6 +548,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return None
 
         return user.pack()
+
+    async def getUserProfile(self, iden):
+        user = await self.auth.reqUser(iden)
+        return user.profile.pack()
+
+    async def getUserProfInfo(self, iden, name):
+        user = await self.auth.reqUser(iden)
+        return user.profile.get(name)
+
+    async def setUserProfInfo(self, iden, name, valu):
+        user = await self.auth.reqUser(iden)
+        return await user.profile.set(name, valu)
 
     async def addAuthUser(self, name):
         # Note:  change handling is implemented inside auth

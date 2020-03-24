@@ -39,6 +39,29 @@ class CortexTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
 
+    async def test_storm_impersonate(self):
+
+        async with self.getTestCore() as core:
+
+            self.eq(core._userFromOpts(None), core.auth.rootuser)
+            self.eq(core._userFromOpts({'user': None}), core.auth.rootuser)
+
+            with self.raises(s_exc.NoSuchUser):
+                opts = {'user': 'newp'}
+                await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=opts)
+
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as proxy:
+
+                with self.raises(s_exc.AuthDeny):
+                    opts = {'user': core.auth.rootuser.iden}
+                    await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list()
+
+                await visi.addRule((True, ('storm', 'impersonate')))
+
+                opts = {'user': core.auth.rootuser.iden}
+                self.len(1, await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list())
+
     async def test_cortex_prop_deref(self):
 
         async with self.getTestCore() as core:

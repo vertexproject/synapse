@@ -2637,7 +2637,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
         # TODO:  due to our migration policy, remove in 0.3.x
-        if viewiden == self.iden:
+        if viewiden == self.iden: # pragma: no cover
             viewiden = self.view.iden
 
         view = self.views.get(viewiden)
@@ -2692,7 +2692,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        if self.isfini:
+        if self.isfini: # pragma: no cover
             raise s_exc.IsFini()
 
         opts = self._initStormOpts(opts)
