@@ -3419,7 +3419,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     # Validate that mirrors can still write
                     await core01.nodes('queue.add visi2')
-                    msgs = await core01.streamstorm('queue.list').list()
+                    msgs = await core01.stormlist('queue.list')
                     self.stormIsInPrint('visi2', msgs)
 
                     await core01.nodes('[ inet:fqdn=www.vertex.link ]')
