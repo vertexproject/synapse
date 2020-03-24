@@ -94,7 +94,7 @@ stopped or when the Cortex is restarted.
         --src <01x_telepath_url> --dest <02x_telepath_url>
 
 #. Add the Storm service to the Cortex and use the available commands to start synchronization.
-#. When ready to cutover, and the synchronization status is up-to-date, stop the service.
+#. When ready to cut-over, and the read status is up-to-date, stop the synchronization using the ``stopsync`` command.
 
 Axon
 ====
