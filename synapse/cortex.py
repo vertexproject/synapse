@@ -69,7 +69,7 @@ class CoreApi(s_cell.CellApi):
         })
 
     '''
-    @s_cell.adminapi
+    @s_cell.adminapi()
     def getCoreMods(self):
         return self.cell.getCoreMods()
 
@@ -500,7 +500,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs):
             yield item
 
-    @s_cell.adminapi
+    @s_cell.adminapi()
     async def splices(self, offs=None, size=None, layriden=None):
         '''
         Return the list of splices at the given offset.
@@ -513,7 +513,7 @@ class CoreApi(s_cell.CellApi):
                 await asyncio.sleep(0)
             yield mesg
 
-    @s_cell.adminapi
+    @s_cell.adminapi()
     async def splicesBack(self, offs=None, size=None):
         '''
         Return the list of splices backwards from the given offset.
@@ -534,7 +534,7 @@ class CoreApi(s_cell.CellApi):
         async for splice in self.cell.spliceHistory(self.user):
             yield splice
 
-    @s_cell.adminapi
+    @s_cell.adminapi()
     async def provStacks(self, offs, size):
         '''
         Return stream of (iden, provenance stack) tuples at the given offset.
@@ -546,7 +546,7 @@ class CoreApi(s_cell.CellApi):
                 await asyncio.sleep(0)
             yield s_common.ehex(iden), stack
 
-    @s_cell.adminapi
+    @s_cell.adminapi()
     async def getProvStack(self, iden: str):
         '''
         Return the provenance stack associated with the given iden.
@@ -667,11 +667,11 @@ class CoreApi(s_cell.CellApi):
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
-    @s_cell.adminapi
+    @s_cell.adminapi(log=True)
     async def enableMigrationMode(self):
         await self.cell._enableMigrationMode()
 
-    @s_cell.adminapi
+    @s_cell.adminapi(log=True)
     async def disableMigrationMode(self):
         await self.cell._disableMigrationMode()
 
