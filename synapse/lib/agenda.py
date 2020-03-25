@@ -550,6 +550,28 @@ class Agenda(s_base.Base):
     def list(self):
         return list(self.appts.items())
 
+    async def addFromPackedAppt(self, pappt):
+        '''
+        Add a new appointment from a packed _Appt.
+
+        Args:
+            pappt (dict): Packed appointment
+
+        Returns:
+            (dict): Stored packed appointment
+        '''
+        appt = _Appt.unpack(self, pappt)
+
+        indx = self._next_indx
+        self._next_indx += 1
+        appt.indx = indx
+
+        self._addappt(appt.iden, appt)
+
+        await self._storeAppt(appt)
+
+        return (await self.get(appt.iden)).pack()
+
     async def add(self, cdef):
         '''
         Persistently adds an appointment

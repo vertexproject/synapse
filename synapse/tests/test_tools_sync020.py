@@ -4,6 +4,7 @@ import asyncio
 import itertools
 import contextlib
 
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
@@ -551,6 +552,66 @@ class SyncTest(s_t_utils.SynTest):
                     nextoffs = await sync._srcIterLyrSplices(prx, 0, queue)
                     self.eq(nextoffs, nextoffs_exp)
                     self.len(nextoffs[0], queue.linklist)
+
+    async def test_sync_trnCrons(self):
+        async with self._getSyncSvc() as (core, turl, fkcore, fkurl, sync):
+            chkkeys = ('enabled', 'iden', 'query', 'creator', 'recs')
+
+            # add new cron from src
+            crons_src = await fkcore.listCronJobs()
+            crons_dest = await core.listCronJobs()
+
+            cron_src_add = [cron for cron in crons_src if cron[0] == '12c8003255c523b26cea3b8a44adc278']
+            cron_dest_add = [cron for cron in crons_dest if cron['iden'] == '12c8003255c523b26cea3b8a44adc278']
+            self.len(1, cron_src_add)
+            self.len(0, cron_dest_add)
+
+            trns = [trn async for trn in sync._trnCrons(cron_src_add, cron_dest_add)]
+            self.len(1, trns)
+            todo = s_common.todo('addFromPackedAppt', trns[0][2])
+            retn = await core.dyncall('cron', todo)
+            chk = [cron_src_add[0][1][k] == (tuple(v) if isinstance(v, list) else v)
+                   for k, v in retn.items() if k in chkkeys]
+            self.true(all(chk))
+
+            # new cron should appear in dest, and no change on translation
+            crons_dest = await core.listCronJobs()
+
+            cron_dest_add = [cron for cron in crons_dest if cron['iden'] == '12c8003255c523b26cea3b8a44adc278']
+            self.len(1, cron_dest_add)
+            trns = [trn async for trn in sync._trnCrons(cron_src_add, cron_dest_add)]
+            self.len(0, trns)
+
+            # update an existing cron
+            crons_src = await fkcore.listCronJobs()
+            crons_dest = await core.listCronJobs()
+
+            cron_src_mod = [cron for cron in crons_src if cron[0] == '34af1bdc58aeb80c5a78d8931cc9e5c9']
+            cron_dest_mod = [cron for cron in crons_dest if cron['iden'] == '34af1bdc58aeb80c5a78d8931cc9e5c9']
+            self.len(1, cron_src_mod)
+            self.len(1, cron_dest_mod)
+
+            chk = [cron_src_mod[0][1][k] == (tuple(v) if isinstance(v, list) else v)
+                   for k, v in  cron_dest_mod[0].items() if k in chkkeys]
+            self.false(all(chk))
+
+            trns = [trn async for trn in sync._trnCrons(cron_src_mod, cron_dest_mod)]
+            self.len(2, trns)  # mod query and disable
+
+            await core.updateCronJob(trns[0][1], trns[0][2]['query'])  # mod query
+            await core.disableCronJob(trns[1][1])  # disable
+
+            crons_dest = await core.listCronJobs()
+            cron_dest_mod = [cron for cron in crons_dest if cron['iden'] == '34af1bdc58aeb80c5a78d8931cc9e5c9']
+            self.len(1, cron_dest_mod)
+
+            chk = [cron_src_mod[0][1][k] == (tuple(v) if isinstance(v, list) else v)
+                   for k, v in  cron_dest_mod[0].items() if k in chkkeys]
+            self.true(all(chk))
+
+            # rerun update, no change on translation
+            trns = [trn async for trn in sync._trnCrons(cron_src_mod, cron_dest_mod)]
+            self.len(0, trns)
 
     async def test_sync_trnNodeSplicesToNodeedits(self):
         async with self._getSyncSvc() as (core, turl, fkcore, fkurl, sync):

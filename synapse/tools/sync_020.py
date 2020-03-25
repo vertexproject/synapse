@@ -503,6 +503,7 @@ class SyncMigrator(s_cell.Cell):
                 trigs_dest = await prx_dest.eval('syn:trigger').list()
 
                 async for action, scmd in self._trnTriggers(trigs_src, trigs_dest):
+                    logger.info(f'Exceuting trigger sync: {scmd}')
                     await prx_dest.count(scmd)
                     self._core_status['triggers'][action] += 1
                     await asyncio.sleep(0)
@@ -513,7 +514,8 @@ class SyncMigrator(s_cell.Cell):
                 crons_src = await prx_src.listCronJobs()
                 crons_dest = await prx_dest.listCronJobs()
 
-                async for action, iden, cdef in self._trnCrons(crons_src, crons_dest):
+                async for action, iden, pappt in self._trnCrons(crons_src, crons_dest):
+                    logger.info(f'Executing cron sync: {action}, {iden}, {pappt}')
                     if action == 'enable':
                         await prx_dest.enableCronJob(iden)
                     elif action == 'disable':
@@ -521,9 +523,10 @@ class SyncMigrator(s_cell.Cell):
                     elif action == 'delete':
                         await prx_dest.delCronJob(iden)
                     elif action == 'add':
-                        await prx_dest.addCronJob(cdef)
+                        todo = s_common.todo('addFromPackedAppt', pappt)
+                        await prx_dest.dyncall('cron', todo)
                     elif action == 'update':
-                        await prx_dest.updateCronJob(iden, cdef['storm'])
+                        await prx_dest.updateCronJob(iden, pappt['query'])
 
                     self._core_status['crons'][action] += 1
                     await asyncio.sleep(0)
@@ -717,14 +720,14 @@ class SyncMigrator(s_cell.Cell):
 
     async def _trnCrons(self, crons_src, crons_dest):
         '''
-        Generates cron actions to run against destination to synchronize triggers.
+        Generates cron actions to run against destination to synchronize cron jobs.
 
         Args:
             crons_src (list): Packed cron info
             crons_dest (list): Packed cron info
 
         Yields:
-            (str, str, dict or None): Cron action plus info to run against destination
+            (str, str, dict or None): Cron action plus packed appt to run against destination
         '''
         cronsd_src = {cron[0]: cron[1] for cron in crons_src}  # differing formats for 01x vs 02x
         cronsd_dest = {cron['iden']: cron for cron in crons_dest}
@@ -732,23 +735,15 @@ class SyncMigrator(s_cell.Cell):
         for iden, cron_src in cronsd_src.items():
             cron_dest = cronsd_dest.get(iden)
 
-            recs = cron_src['recs']
-            if not recs:
+            if not cron_src.get('recs'):
                 continue  # skip one-time crons
 
-            cdef = {
-                'storm': cron_src['query'],
-                'reqs': recs[0][0],
-                'incunit': recs[0][1],
-                'incvals': recs[0][2],
-            }
-
             if cron_dest is None:
-                yield 'add', iden, cdef
+                yield 'add', iden, cron_src
 
             else:
                 if cron_dest['query'] != cron_src['query']:
-                    yield 'update', iden, cdef
+                    yield 'update', iden, cron_src
 
                 if cron_dest['enabled'] != cron_src['enabled']:
                     if cron_src['enabled']:
