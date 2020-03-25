@@ -168,7 +168,9 @@ Additional Changes
 
 - ``map_async`` is now enabled by default for all slabs.
 - Synapse tools may not be used to connect to services of a different minor version.
-- Deprecated annotations added to APIs that will be removed in ``0.3.0``.
+- Storm API methods now support user-impersonation by providing a user iden in the ``opts`` dictionary. This ability is
+  permission enforced.
+- Deprecated annotations added to APIs that will be removed in ``0.3.0``.  This includes the Cortex ``.eval()`` API.
 - The ``sudo`` command has been deprecated and does nothing.
 - Removed cortex offset storage.
 - SYNDEV_OMIT_FINI_WARNS was added to silence tear down warnings.
