@@ -9,6 +9,8 @@ import synapse.telepath as s_telepath
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 
+import synapse.tools.backup as s_tools_backup
+
 import synapse.tests.utils as s_t_utils
 
 from synapse.tests.utils import alist
@@ -145,6 +147,54 @@ class LayerTest(s_t_utils.SynTest):
                     self.nn(splice.get('time'))
                     self.eq(splice.get('user'), root.iden)
                     self.none(splice.get('prov'))
+
+    async def test_layer_upstream_with_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')  # layer upstream
+            path01 = s_common.gendir(dirn, 'core01')  # layer downstream, mirror leader
+            path02 = s_common.gendir(dirn, 'core02')  # layer downstream, mirror follower
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                layriden = core00.view.layers[0].iden
+
+                await core00.nodes('[test:str=foobar +#hehe.haha]')
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.addTagProp('score', ('int', {}), {})
+
+                async with self.getTestCore(dirn=path01) as core01:
+                    url = core00.getLocalUrl('*/layer')
+                    conf = {'upstream': url}
+                    ldef = await core01.addLayer(ldef=conf)
+                    layr = core01.getLayer(ldef.get('iden'))
+                    await core01.view.addLayer(layr.iden)
+
+                s_tools_backup.backup(path01, path02)
+
+                async with self.getTestCore(dirn=path01) as core01:
+                    layr = core01.getLayer(ldef.get('iden'))
+
+                    # Sync core01 with core00
+                    offs = core00.getView().layers[0].getNodeEditOffset()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=8.0)
+
+                    self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+
+                    url = core01.getLocalUrl()
+
+                    async with self.getTestCore(dirn=path02, conf={'mirror': url}) as core02:
+                        await core02.sync()
+
+                        layr = core01.getLayer(ldef.get('iden'))
+                        self.true(layr.allow_upstream)
+
+                        layr = core02.getLayer(ldef.get('iden'))
+                        self.false(layr.allow_upstream)
+
+                        self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
 
     async def test_layer_multi_upstream(self):
 
@@ -620,10 +670,13 @@ class LayerTest(s_t_utils.SynTest):
 
             count = 0
             editlist = []
+
+            layr = core0.getLayer(None)
+            necount = layr.nodeeditlog.index()
             async for _, nodeedits in prox0.syncLayerNodeEdits(0):
                 editlist.append(nodeedits)
                 count += 1
-                if count == 7:
+                if count == necount:
                     break
 
             async with self.getTestCore() as core1:
@@ -643,6 +696,9 @@ class LayerTest(s_t_utils.SynTest):
                     self.eq(nodelist0, nodelist1)
 
                 layr = core1.view.layers[0]
+
+                # Empty the layer to try again
+
                 await layr.truncate()
 
                 async with await s_telepath.openurl(url) as layrprox:
@@ -660,6 +716,8 @@ class LayerTest(s_t_utils.SynTest):
                     meta = {'user': s_common.guid(),
                             'time': 0,
                             }
+
+                    await layr.truncate()
 
                     for nodeedits in editlist:
                         self.none(await layrprox.storNodeEditsNoLift(nodeedits, meta=meta))
@@ -687,4 +745,16 @@ class LayerTest(s_t_utils.SynTest):
 
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
-            self.true(await layr.hasTagProp('score'))
+
+    async def test_layer_no_extra_logging(self):
+
+        async with self.getTestCore() as core:
+            '''
+            For a do-nothing write, don't write new log entries
+            '''
+            await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            layr = core.getLayer(None)
+            lbefore = len(await alist(layr.splices()))
+            await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            lafter = len(await alist(layr.splices()))
+            self.eq(lbefore, lafter)

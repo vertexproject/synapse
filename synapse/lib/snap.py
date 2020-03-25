@@ -76,7 +76,7 @@ class Snap(s_base.Base):
         self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
-        self.trigson = True
+        self.trigson = self.core.trigson
 
     def disableTriggers(self):
         self.trigson = False
@@ -90,12 +90,8 @@ class Snap(s_base.Base):
             'user': self.user.iden
         }
 
-        if self.core.provstor.enabled:
-            wasnew, providen, provstack = self.core.provstor.commit()
-
-            if wasnew:
-                await self.fire('prov:new', time=meta['time'], user=meta['user'], prov=providen, provstack=provstack)
-
+        providen = self.core.provstor.precommit()
+        if providen is not None:
             meta['prov'] = providen
 
         return meta
@@ -244,6 +240,7 @@ class Snap(s_base.Base):
 
         tags = {}
         props = {}
+        nodedata = {}
         tagprops = {}
 
         bylayer = {
@@ -281,6 +278,10 @@ class Snap(s_base.Base):
                 tagprops.update(stortagprops)
                 bylayer['tagprops'].update({p: layr for p in stortagprops.keys()})
 
+            stordata = info.get('nodedata')
+            if stordata is not None:
+                nodedata.update(stordata)
+
         if ndef is None:
             return None
 
@@ -288,6 +289,7 @@ class Snap(s_base.Base):
             'ndef': ndef,
             'tags': tags,
             'props': props,
+            'nodedata': nodedata,
             'tagprops': tagprops,
         })
 
@@ -302,6 +304,12 @@ class Snap(s_base.Base):
         async for sode in genr:
             cache[layr.iden] = sode
             yield await self._joinStorNode(sode[0], cache)
+
+    async def nodesByDataName(self, name):
+        for layr in self.layers:
+            genr = layr.liftByDataName(name)
+            async for node in self._joinStorGenr(layr, genr):
+                yield node
 
     async def nodesByProp(self, full):
 
@@ -548,17 +556,13 @@ class Snap(s_base.Base):
 
         return list(recurse(form, valu, props, doadd=addnode))
 
-    async def addNodeEdit(self, edit):
-        nodes = await self.addNodeEdits((edit,))
+    async def applyNodeEdit(self, edit):
+        nodes = await self.applyNodeEdits((edit,))
         return nodes[0]
 
-    async def issueNodeEdits(self, edits):
+    async def applyNodeEdits(self, edits):
         '''
-        Sends the edits to the write layer and gets back storage nodes
-
-        Note:
-           Pretty much only useful for node data actions
-
+        Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
         if self.readonly:
             mesg = 'The snapshot is in read-only mode.'
@@ -566,17 +570,13 @@ class Snap(s_base.Base):
 
         meta = await self.getSnapMeta()
         todo = s_common.todo('storNodeEdits', edits, meta)
-        return await self.core.dyncall(self.wlyr.iden, todo)
 
-    async def addNodeEdits(self, edits):
-        '''
-        Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
-        '''
-        sodes = await self.issueNodeEdits(edits)
+        sodes = await self.core.dyncall(self.wlyr.iden, todo)
 
         wlyr = self.wlyr
         nodes = []
         callbacks = []
+        actualedits = []  # List[Tuple[buid, form, edits]]
 
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is
@@ -590,7 +590,12 @@ class Snap(s_base.Base):
 
             nodes.append(node)
 
-            for edit in sode[1].get('edits', ()):
+            edits = sode[1].get('edits', ())
+
+            if edits:
+                actualedits.append((sode[0], sode[1]['form'], edits))
+
+            for edit in edits:
 
                 if edit[0] == s_layer.EDIT_NODE_ADD:
                     node.bylayer['ndef'] = wlyr
@@ -609,7 +614,7 @@ class Snap(s_base.Base):
 
                     prop = node.form.props.get(name)
                     if prop is None: # pragma: no cover
-                        logger.warning(f'addNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form}')
+                        logger.warning(f'applyNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form}')
                         continue
 
                     node.props[name] = valu
@@ -625,7 +630,7 @@ class Snap(s_base.Base):
 
                     prop = node.form.props.get(name)
                     if prop is None: # pragma: no cover
-                        logger.warning(f'addNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form}')
+                        logger.warning(f'applyNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form}')
                         continue
 
                     node.props.pop(name, None)
@@ -671,6 +676,12 @@ class Snap(s_base.Base):
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
+        if actualedits:
+            providen, provstack = self.core.provstor.stor()
+            if providen is not None:
+                await self.fire('prov:new', time=meta['time'], user=meta['user'], prov=providen, provstack=provstack)
+            await self.fire('node:edits', edits=actualedits)
+
         return nodes
 
     async def addNode(self, name, valu, props=None):
@@ -708,7 +719,7 @@ class Snap(s_base.Base):
             raise
 
         # depth first, so the last one is our added node
-        nodes = await self.addNodeEdits(adds)
+        nodes = await self.applyNodeEdits(adds)
 
         return nodes[-1]
 

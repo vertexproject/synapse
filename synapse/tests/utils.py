@@ -24,6 +24,7 @@ import copy
 import types
 import shutil
 import asyncio
+import hashlib
 import inspect
 import logging
 import tempfile
@@ -56,6 +57,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_slab
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
@@ -676,6 +678,9 @@ class SynTest(unittest.TestCase):
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
+        self._NextBuid = 0
+        self._NextGuid = 0
+
         for s in dir(self):
             attr = getattr(self, s, None)
             # If s is an instance method and starts with 'test_', synchelp wrap it
@@ -957,7 +962,7 @@ class SynTest(unittest.TestCase):
         if conf is None:
             conf = {'layer:lmdb:map_async': True,
                     'provenance:en': True,
-                    'logchanges': True,
+                    'nexslog:en': True,
                     'layers:logedits': True,
                     }
 
@@ -1715,3 +1720,44 @@ class SynTest(unittest.TestCase):
             async with await s_hive.openurl(turl) as hive:
 
                 yield hive
+
+    def stablebuid(self, valu=None):
+        '''
+        A stable buid generation for testing purposes
+        '''
+        if valu is None:
+            retn = self._NextBuid.to_bytes(32, 'big')
+            self._NextBuid += 1
+            return retn
+
+        byts = s_msgpack.en(valu)
+        return hashlib.sha256(byts).digest()
+
+    def stableguid(self, valu=None):
+        '''
+        A stable guid generation for testing purposes
+        '''
+        if valu is None:
+            retn = s_common.ehex(self._NextGuid.to_bytes(16, 'big'))
+            self._NextGuid += 1
+            return retn
+
+        byts = s_msgpack.en(valu)
+        return hashlib.md5(byts).hexdigest()
+
+    @contextlib.contextmanager
+    def withStableUids(self):
+        '''
+        A context manager that generates guids and buids in sequence so that successive test runs use the same
+        data
+        '''
+        with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
+            yield
+
+    async def runCoreNodes(self, core, query, opts=None):
+        '''
+        Run a storm query through a Cortex as a SchedCoro and return the results.
+        '''
+        async def coro():
+            return await core.nodes(query, opts)
+        return await core.schedCoro(coro())

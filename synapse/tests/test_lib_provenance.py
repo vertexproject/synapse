@@ -50,8 +50,8 @@ class ProvenanceTest(s_t_utils.SynTest):
 
             provs = [await core.getProvStack(iden) for iden in idens]
 
-            # The source splices
-            self.eq(({}, ()), provs[0])
+            # The meta:source splices
+            self.eq(({}, (('init', {'meth': '_initCoreMods'}),)), provs[0])
 
             # The test:str splices
             prov = provs[3][1]
@@ -78,7 +78,7 @@ class ProvenanceTest(s_t_utils.SynTest):
 
             # Test the streaming API
             provstacks = await alist(core.provStacks(0, 1000))
-            correct = [(idens[0], provs[0]), (idens[3], provs[3]), (idens[5], provs[5]), (idens[7], provs[7])]
+            correct = [(idens[0], provs[0]), (idens[5], provs[5]), (idens[3], provs[3]), (idens[7], provs[7])]
             self.eq(provstacks, correct)
 
             # Force recursion exception to be thrown
@@ -107,6 +107,18 @@ class ProvenanceTest(s_t_utils.SynTest):
             self.eq(frame[1].get('name'), 'syn.nodes')
             self.isin('user', frame[1])
 
+    async def test_prov_no_extra(self):
+        '''
+        No more than 1 prov:new event with the same data shall be fired for the same query
+        '''
+        self.skip('Pending provenance cache')
+        async with self.getTestCore() as core:
+            mesgs = await core.stormlist('[test:str=foo :hehe=bar]', opts={'editformat': 'nodeedits'})
+            provs = [m for m in mesgs if m[0] == 'prov:new']
+
+            # No duplicate prov:new
+            self.len(1, provs)
+
     async def test_prov_disabled(self):
         '''
         Test that things still work with provenance disabled
@@ -118,5 +130,7 @@ class ProvenanceTest(s_t_utils.SynTest):
 
             self.none(await prox.getProvStack('abcd'))
 
-            retn = core.provstor.commit()
-            self.false(retn[0])
+            self.none(core.provstor.precommit())
+
+            retn = core.provstor.stor()
+            self.eq((None, None), retn)

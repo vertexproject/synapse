@@ -272,6 +272,28 @@ class CellTest(s_t_utils.SynTest):
         root = await echo.auth.getUserByName('root')
         self.true(root.isfini)
 
+    async def test_cell_userapi(self):
+
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+            await visi.addRule((True, ('foo', 'bar')))
+
+            async with core.getLocalProxy() as proxy:
+
+                self.none(await proxy.tryUserPasswd('newpnewp', 'newp'))
+                self.none(await proxy.tryUserPasswd('visi', 'newp'))
+                udef = await proxy.tryUserPasswd('visi', 'secret')
+                self.eq(visi.iden, udef['iden'])
+
+                self.true(await proxy.isUserAllowed(visi.iden, ('foo', 'bar')))
+                self.false(await proxy.isUserAllowed(visi.iden, ('hehe', 'haha')))
+                self.false(await proxy.isUserAllowed('newpnewp', ('hehe', 'haha')))
+
+                await proxy.setUserProfInfo(visi.iden, 'hehe', 'haha')
+                self.eq('haha', await proxy.getUserProfInfo(visi.iden, 'hehe'))
+                self.eq('haha', (await proxy.getUserProfile(visi.iden))['hehe'])
+
     async def test_longpath(self):
         # This is similar to the DaemonTest::test_unixsock_longpath
         # but exercises the long-path failure inside of the cell's daemon
@@ -380,18 +402,18 @@ class CellTest(s_t_utils.SynTest):
                 yielded = False
                 async for offset, data in prox.getNexusChanges(offs):
                     yielded = True
-                    nexsiden, act, args, kwargs = data
+                    nexsiden, act, args, kwargs, meta = data
                     if nexsiden == 'auth:auth' and act == 'user:add':
                         retn.append(args)
                     if len(retn) >= 2:
                         break
                 return yielded, retn
 
-            conf = {'logchanges': True}
+            conf = {'nexslog:en': True}
             async with await s_cell.Cell.anit(dir0, conf=conf) as cell00, \
                     cell00.getLocalProxy() as prox00:
 
-                self.true(cell00.nexsroot.dologging)
+                self.true(cell00.nexsroot.donexslog)
 
                 await prox00.addAuthUser('test')
 
@@ -403,10 +425,10 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(usernames, ['root', 'test'])
 
             # Disable change logging for this cell.
-            conf = {'logchanges': False}
+            conf = {'nexslog:en': False}
             async with await s_cell.Cell.anit(dir1, conf=conf) as cell01, \
                     cell01.getLocalProxy() as prox01:
-                self.false(cell01.nexsroot.dologging)
+                self.false(cell01.nexsroot.donexslog)
 
                 await prox01.addAuthUser('test')
 

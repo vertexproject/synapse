@@ -336,6 +336,7 @@ class LibBase(Lib):
         # TODO: return Dict(kwargs)
 
     async def _fire(self, name, **info):
+        s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
 class LibStr(Lib):
@@ -382,6 +383,17 @@ class LibBytes(Lib):
         size, sha2 = await self.dyncall('axon', todo)
 
         return (size, s_common.ehex(sha2))
+
+class LibLift(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'byNodeData': self.byNodeData,
+        })
+
+    async def byNodeData(self, name):
+        async for node in self.runt.snap.nodesByDataName(name):
+            yield node
 
 class LibTime(Lib):
 
@@ -1135,6 +1147,7 @@ class NodeData(Prim):
             'set': self._setNodeData,
             'pop': self._popNodeData,
             'list': self._listNodeData,
+            'load': self._loadNodeData,
         })
 
     def _reqAllowed(self, perm):
@@ -1149,6 +1162,7 @@ class NodeData(Prim):
 
     async def _setNodeData(self, name, valu):
         self._reqAllowed(('node', 'data', 'set', name))
+        s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
@@ -1158,6 +1172,12 @@ class NodeData(Prim):
     async def _listNodeData(self):
         self._reqAllowed(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
+
+    async def _loadNodeData(self, name):
+        self._reqAllowed(('node', 'data', 'get', name))
+        valu = await self.valu.getData(name)
+        # set the data value into the nodedata dict so it gets sent
+        self.valu.nodedata[name] = valu
 
 class Node(Prim):
     '''

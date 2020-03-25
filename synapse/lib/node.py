@@ -43,6 +43,10 @@ class Node:
         if self.tagprops is None:
             self.tagprops = {}
 
+        self.nodedata = sode[1].get('nodedata')
+        if self.nodedata is None:
+            self.nodedata = {}
+
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
@@ -107,6 +111,7 @@ class Node:
             'tags': self.tags,
             'props': self.props,
             'tagprops': tagprops,
+            'nodedata': self.nodedata,
         })
 
         if dorepr:
@@ -228,7 +233,7 @@ class Node:
         props = {prop.name: norm}
         nodeedits = self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
 
-        await self.snap.addNodeEdits(nodeedits)
+        await self.snap.applyNodeEdits(nodeedits)
 
         return True
 
@@ -282,7 +287,7 @@ class Node:
             (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype)),
         )
 
-        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
     def repr(self, name=None):
 
@@ -431,7 +436,7 @@ class Node:
 
         nodeedit = (self.buid, self.form.name, edits)
 
-        await self.snap.addNodeEdit(nodeedit)
+        await self.snap.applyNodeEdit(nodeedit)
 
     async def delTag(self, tag, init=False):
         '''
@@ -467,7 +472,7 @@ class Node:
 
         nodeedit = (self.buid, self.form.name, edits)
 
-        await self.snap.addNodeEdit(nodeedit)
+        await self.snap.applyNodeEdit(nodeedit)
 
     def _getTagPropDel(self, tag):
 
@@ -523,7 +528,7 @@ class Node:
             (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype)),
         )
 
-        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
         self.tagprops[tagkey] = norm
 
@@ -541,7 +546,7 @@ class Node:
             (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)),
         )
 
-        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
     async def delete(self, force=False):
         '''
@@ -607,18 +612,21 @@ class Node:
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype)),
         )
 
-        await self.snap.addNodeEdit((self.buid, formname, edits))
+        await self.snap.applyNodeEdit((self.buid, formname, edits))
 
         self.snap.livenodes.pop(self.buid, None)
 
     async def getData(self, name):
+        valu = self.nodedata.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
         return await self.snap.getNodeData(self.buid, name)
 
     async def setData(self, name, valu):
         edits = (
             (s_layer.EDIT_NODEDATA_SET, (name, valu, None)),
         )
-        await self.snap.issueNodeEdits(((self.buid, self.form.name, edits),))
+        await self.snap.applyNodeEdits(((self.buid, self.form.name, edits),))
 
     async def popData(self, name):
         retn = await self.snap.getNodeData(self.buid, name)
@@ -626,7 +634,7 @@ class Node:
         edits = (
             (s_layer.EDIT_NODEDATA_DEL, (name, None)),
         )
-        await self.snap.issueNodeEdits(((self.buid, self.form.name, edits),))
+        await self.snap.applyNodeEdits(((self.buid, self.form.name, edits),))
 
         return retn
 

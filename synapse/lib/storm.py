@@ -1708,6 +1708,24 @@ class ReIndexCmd(Cmd):
         if False:
             yield
 
+class SudoCmd(Cmd):
+    '''
+    Deprecated sudo command.
+
+    Left in for 0.2.x so that Storm command with it are still valid to execute.
+    '''
+    name = 'sudo'
+
+    async def execStormCmd(self, runt, genr):
+        s_common.deprecated('stormcmd:sudo')
+
+        mesg = 'Sudo is deprecated and does nothing in ' \
+               '0.2.x and will be removed in 0.3.0.'
+
+        await runt.snap.warn(mesg)
+        async for node, path in genr:
+            yield node, path
+
 class MoveTagCmd(Cmd):
     '''
     Rename an entire tag tree and preserve time intervals.

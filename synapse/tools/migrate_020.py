@@ -52,6 +52,8 @@ ADD_MODES = (
     'editor',   # Layer.editors[<op>]() w/o nexus
 )
 
+MAX_01X_VERS = (0, 1, 3)
+
 class MigrAuth:
     '''
     Loads the Hive auth tree from 0.1.x and translates it to 0.2.x.
@@ -491,13 +493,10 @@ class Migrator(s_base.Base):
 
         self.addmode = conf.get('addmode')
         if self.addmode is None:
-            self.addmode = 'nexus'
+            self.addmode = 'nonexus'
 
         if self.addmode not in ADD_MODES:
             raise Exception(f'addmode {self.addmode} is not valid')
-
-        if self.addmode != 'nexus':
-            logger.warning('Add mode is bypassing nexus - no migration splices will exist in 0.2.x cortex')
 
         self.editbatchsize = conf.get('editbatchsize')
         if self.editbatchsize is None:
@@ -918,6 +917,17 @@ class Migrator(s_base.Base):
         # Set cortex:version to latest
         await self.hive.set(('cellinfo', 'cortex:version'), s_version.version)
 
+        # check/warn for boot.yaml with credentials
+        bootpath = os.path.join(self.dest, 'boot.yaml')
+        if os.path.exists(bootpath):
+            conf = s_common.yamlload(bootpath)
+            if 'auth:admin' in conf:
+                logger.warning(f'boot.yaml is deprecated; to keep auth move password to auth:passwd in cell.yaml')
+                await self._migrlogAdd(migrop, 'error', 'bootyaml_authadmin', s_common.now())
+
+            # move to migration dir as backup
+            shutil.move(bootpath, os.path.join(self.dest, self.migrdir))
+
         # confdefs
         validconfs = s_cortex.Cortex.confdefs
         yamlpath = os.path.join(self.dest, 'cell.yaml')
@@ -1204,15 +1214,19 @@ class Migrator(s_base.Base):
         model = self.model
 
         # see if there is a checkpoint to start from
-        startfrom = 0
+        lastcnt = 0
+        lmin = None
         if fromlast:
             log = await self._migrlogGetOne(migrop, 'chkpnt', iden)
             if log is None:
                 logger.warning(f'Start from checkpoint was specified but no log found for layer {iden}')
+                fromlast = False
             else:
+                lmin = log['val'][0]
                 startfrom = log['val'][1]
                 savetime = s_time.repr(log['val'][2])
                 logger.info(f'Resuming migration from {startfrom} saved on {savetime} for layer {iden}')
+                lastcnt = startfrom - 1 if startfrom > 0 else 0
 
         # open storage
         path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
@@ -1220,13 +1234,18 @@ class Migrator(s_base.Base):
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
         self.onfini(src_slab.fini)
 
-        # store model vers
+        # check and store model vers
         versbyts = src_slab.get(b'layer:model:version')
         if versbyts is None:
             vers = (-1, -1, -1)
         else:
             vers = s_msgpack.un(versbyts)
         await self._migrlogAdd(migrop, 'vers', iden, vers)
+
+        # even after a partial migration this vers should not be updated to 020 since
+        # layer:model:version is no longer used
+        if vers != MAX_01X_VERS:
+            raise Exception(f'Layer {iden} model version must be at latest 01x vers: {vers} != {MAX_01X_VERS}')
 
         # record offset
         path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')
@@ -1246,23 +1265,19 @@ class Migrator(s_base.Base):
         # migrate data
         src_fcnt = collections.defaultdict(int)
         nodeedits = []
+        buid = None
         t_strt = s_common.now()
         stot = 0
-        fastfwd = fromlast  # so we can stop the comparison once caught up
-        async for node in self._srcIterNodes(src_slab, src_bybuid):
+        dtot = 0
+        async for node in self._srcIterNodes(src_slab, src_bybuid, lmin):
             stot += 1
 
-            if stot % 1000000 == 0:  # pragma: no cover
-                logger.info(f'...on node {stot:,} for layer {iden}')
+            stot_inc = lastcnt + stot
+            if stot_inc % 1000000 == 0:  # pragma: no cover
+                logger.info(f'...on node {stot_inc:,} for layer {iden}')
 
             if stot % fairiter == 0:
                 await asyncio.sleep(0)
-
-            if fastfwd:
-                if stot < startfrom:
-                    continue
-                else:
-                    fastfwd = False
 
             buid = node[0]
             form = node[1]['ndef'][0].replace('*', '')
@@ -1270,13 +1285,13 @@ class Migrator(s_base.Base):
 
             if nodelim is not None and stot >= nodelim:
                 logger.warning(f'Stopping node migration due to reaching nodelim {stot}')
-                # checkpoint is the next node to add
-                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
+                # checkpoint is the next node to add (not adding current node)
+                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot_inc, s_common.now()))
                 stot -= 1  # for stats on last node to migrate
                 break
 
             if stot % savechkpnt == 0:
-                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
+                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot_inc + 1, s_common.now()))
 
             err, nodeedit = await self._trnNodeToNodeedit(node, model, chknodes)
             if err is not None:
@@ -1298,6 +1313,8 @@ class Migrator(s_base.Base):
 
                 nodeedits = []
 
+            dtot += 1
+
         # add last edit chunk if needed
         if len(nodeedits) > 0:
             err = await self._destAddNodes(wlyr, nodeedits, addmode)
@@ -1310,7 +1327,7 @@ class Migrator(s_base.Base):
 
         # checkpoint on completion if not already created due to a nodelim
         if nodelim is None:
-            await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
+            await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, lastcnt + stot + 1, s_common.now()))
 
         t_end = s_common.now()
         t_dur = t_end - t_strt
@@ -1318,28 +1335,17 @@ class Migrator(s_base.Base):
 
         # collect final destination form count stats
         dest_fcnt = await wlyr.getFormCounts()
-        dtot = sum(dest_fcnt.values())
+        dtot_all = sum(dest_fcnt.values())
 
         # store and log creation stats
-        prprt = await self._getFormCountsPrnt(iden, src_fcnt, dest_fcnt, addlog=migrop, resumed=startfrom)
+        prprt = await self._getFormCountsPrnt(iden, src_fcnt, dest_fcnt, addlog=migrop, resumed=fromlast)
         logger.debug(prprt)
 
-        if startfrom:
-            # modify stats save for resume
-            log = await self._migrlogGetOne(migrop, 'stat', f'{iden}:totnodes')
-            stot_prev, dtot_prev = log['val'] if log is not None else (0, 0)
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot + lastcnt, dtot_all))
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
 
-            stot_inc = stot - startfrom
-            dtot_inc = dtot - dtot_prev
-        else:
-            stot_inc = stot
-            dtot_inc = dtot
-
-        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
-        await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot_inc, t_dur))
-
-        rate = round(stot_inc / t_dur_s)
-        logger.info(f'Migrated {dtot_inc:,} of {stot_inc:,} nodes in {t_dur_s} seconds ({rate} nodes/s avg)')
+        rate = round(stot / t_dur_s)
+        logger.info(f'Migrated {dtot:,} of {stot:,} nodes in {t_dur_s} seconds ({rate} nodes/s avg)')
         logger.info(f'Completed node migration for {iden}')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
@@ -1529,9 +1535,14 @@ class Migrator(s_base.Base):
             if prop[0] == '*':
                 yield prop[1:]
 
-    async def _srcIterNodes(self, buidslab, buiddb):
+    async def _srcIterNodes(self, buidslab, buiddb, lmin=None):
         '''
         Yield node information directly from the 0.1.x source slab.
+
+        Args:
+            buidslab (lmdbslab.Slab): Source slab to iterate over
+            buiddb (str): Source slab db name
+            lmin (bytes or None): If specified, scansByRange starting at lmin, otherwise scanByFull
 
         Yields:
             (tuple):
@@ -1545,12 +1556,17 @@ class Migrator(s_base.Base):
                     }
                 )
         '''
+        if lmin is not None:
+            scan = buidslab.scanByRange(lmin=lmin, db=buiddb)
+        else:
+            scan = buidslab.scanByFull(db=buiddb)
+
         buid = None
         ndef = None
         props = {}
         tags = {}
         tagprops = collections.defaultdict(dict)
-        for lkey, lval in buidslab.scanByFull(db=buiddb):
+        for lkey, lval in scan:
             rowbuid = lkey[0:32]
             prop = lkey[32:].decode('utf8')
             valu, indx = s_msgpack.un(lval)  # throwing away indx
@@ -1760,6 +1776,7 @@ class Migrator(s_base.Base):
         '''
         await migrlyrinfo.set('lockmemory', self.destdedicated)
         await migrlyrinfo.set('readonly', False)
+        await migrlyrinfo.set('logedits', False)  # only matters if addmode=nexus, but we never want to store edits
 
         path = os.path.join(dirn, 'layers', iden)
         wlyr = await s_layer.Layer.anit(migrlyrinfo, path, nexsroot=self.nexusroot)
@@ -1779,12 +1796,12 @@ class Migrator(s_base.Base):
         Returns:
             (dict or None): Error dict or None if successful
         '''
-        meta = {'time': s_common.now(),
-                'user': wlyr.layrinfo.get('creator'),
-                }
-
         try:
             if addmode == 'nexus':
+                meta = {
+                    'time': s_common.now(),
+                    'user': wlyr.layrinfo.get('creator'),
+                }
                 await wlyr.storNodeEditsNoLift(nodeedits, meta)
 
             elif addmode == 'nonexus':
@@ -1838,7 +1855,7 @@ async def main(argv, outp=s_output.stdout):
                       help='Limit migration operations to run.')
     pars.add_argument('--nodelim', required=False, type=int,
                       help="Stop after migrating nodelim nodes")
-    pars.add_argument('--add-mode', required=False, type=str.lower, default='nexus', choices=ADD_MODES,
+    pars.add_argument('--add-mode', required=False, type=str.lower, default='nonexus', choices=ADD_MODES,
                       help='Method to use for adding nodes.')
     pars.add_argument('--edit-batchsize', required=False, type=int, default=100,
                       help='Batch size for writing new nodeedits')
@@ -1899,9 +1916,8 @@ async def main(argv, outp=s_output.stdout):
 
         return migr
 
-    except Exception:  # pragma: no cover
+    finally:
         await migr.fini()
-        raise
 
 if __name__ == '__main__':  # pragma: no cover
     asyncio.run(s_base.main(main(sys.argv[1:])))

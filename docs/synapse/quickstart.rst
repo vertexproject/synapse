@@ -69,7 +69,7 @@ The following docker-compose.yml file can be used to deploy a Cortex server usin
 
         core00:
 
-            image: vertexproject/synapse-cortex:v0.1.x
+            image: vertexproject/synapse-cortex:v0.2.x
 
             volumes:
                 - /path/to/storage:/vertex/storage

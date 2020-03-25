@@ -214,6 +214,77 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(my_maxsize, newdb.mapsize)
                 self.eq(my_maxsize, newdb.maxsize)
 
+    async def test_lmdbslab_scanbump(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+
+                foo = slab.initdb('foo', dupsort=True)
+                foo2 = slab.initdb('foo2', dupsort=False)
+
+                multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
+
+                byts = b'\x00' * 256
+                for i in range(10):
+                    slab.put(multikey, s_common.int64en(i), dupdata=True, db=foo)
+                    slab.put(s_common.int64en(i), byts, db=foo2)
+
+                iter = slab.scanByDups(multikey, db=foo)
+                iter2 = slab.scanByFull(db=foo2)
+
+                for i in range(6):
+                    next(iter)
+                    next(iter2)
+
+                iterback = slab.scanByDupsBack(multikey, db=foo)
+                next(iterback)
+
+                iterback2 = slab.scanByFullBack(db=foo2)
+                next(iterback2)
+
+                iterback3 = slab.scanByDupsBack(multikey, db=foo)
+                iterback4 = slab.scanByFullBack(db=foo2)
+
+                for i in range(8):
+                    next(iterback3)
+                    next(iterback4)
+
+                iterback5 = slab.scanByDupsBack(multikey, db=foo)
+                next(iterback5)
+
+                iterback6 = slab.scanByFullBack(db=foo2)
+                next(iterback6)
+
+                # Delete keys to cause set_range in iternext to fail
+                for i in range(5):
+                    slab.delete(multikey, s_common.int64en(i + 5), db=foo)
+                    slab.delete(s_common.int64en(i + 5), db=foo2)
+
+                slab.forcecommit()
+
+                self.raises(StopIteration, next, iter)
+                self.raises(StopIteration, next, iter2)
+                self.eq(5, sum(1 for _ in iterback))
+                self.eq(5, sum(1 for _ in iterback2))
+
+                # Delete all the keys in front of a backwards scan
+                for i in range(4):
+                    slab.delete(multikey, s_common.int64en(i), db=foo)
+                    slab.delete(s_common.int64en(i), db=foo2)
+
+                self.raises(StopIteration, next, iterback3)
+                self.raises(StopIteration, next, iterback4)
+
+                # Delete remaining keys so curs.last fails
+                slab.delete(multikey, s_common.int64en(4), db=foo)
+                slab.delete(s_common.int64en(4), db=foo2)
+
+                self.raises(StopIteration, next, iterback5)
+                self.raises(StopIteration, next, iterback6)
+
     async def test_lmdbslab_grow(self):
 
         with self.getTestDir() as dirn:

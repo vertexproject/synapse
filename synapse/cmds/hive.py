@@ -66,8 +66,8 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 '''
     _cmd_name = 'hive'
 
-    _cmd_syntax = (  # type: ignore
-        ('line', {'type': 'glob'}),
+    _cmd_syntax = (
+        ('line', {'type': 'glob'}),  # type: ignore
     )
 
     def _make_argparser(self):

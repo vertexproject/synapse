@@ -3,7 +3,6 @@ An RMI framework for synapse.
 '''
 
 import os
-import ssl
 import asyncio
 import logging
 import collections
@@ -429,7 +428,7 @@ class Proxy(s_base.Base):
 
         mesg = await link.rx()
         if mesg is None:
-            return
+            raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
 
         if mesg[0] == 't2:fini':
             await self._putPoolLink(link)

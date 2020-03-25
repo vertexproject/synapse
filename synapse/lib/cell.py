@@ -3,6 +3,7 @@ import ssl
 import socket
 import asyncio
 import logging
+import argparse
 import functools
 import contextlib
 
@@ -22,6 +23,7 @@ import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.health as s_health
+import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -182,11 +184,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def addAuthUser(self, name):
-
-        # Note:  change handling is implemented inside auth
-        user = await self.cell.auth.addUser(name)
-        await self.cell.fire('user:mod', act='adduser', name=name)
-        return user.pack()
+        return await self.cell.addAuthUser(name)
 
     @adminapi
     async def dyncall(self, iden, todo, gatekeys=()):
@@ -196,6 +194,19 @@ class CellApi(s_base.Base):
     async def dyniter(self, iden, todo, gatekeys=()):
         async for item in self.cell.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
+
+    @adminapi
+    async def issue(self, nexsiden: str, event: str, args, kwargs, meta=None):
+        '''
+        Note:  this swallows exceptions and return values.  It is expected that the nexus _followerLoop would be the
+        return path
+        '''
+        try:
+            await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
 
     @adminapi
     async def delAuthUser(self, name):
@@ -361,6 +372,26 @@ class CellApi(s_base.Base):
         mesg = 'getRoleInfo denied for non-admin and non-member'
         raise s_exc.AuthDeny(mesg=mesg)
 
+    @adminapi
+    async def isUserAllowed(self, iden, perm, gateiden=None):
+        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
+
+    @adminapi
+    async def tryUserPasswd(self, name, passwd):
+        return await self.cell.tryUserPasswd(name, passwd)
+
+    @adminapi
+    async def getUserProfile(self, iden):
+        return await self.cell.getUserProfile(iden)
+
+    @adminapi
+    async def getUserProfInfo(self, iden, name):
+        return await self.cell.getUserProfInfo(iden, name)
+
+    @adminapi
+    async def setUserProfInfo(self, iden, name, valu):
+        return await self.cell.setUserProfInfo(iden, name, valu)
+
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
         return await self.cell.getHealthCheck()
@@ -406,7 +437,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
             'type': 'string'
         },
-        'logchanges': {
+        'nexslog:en': {
             'default': True,
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
             'type': 'boolean'
@@ -441,7 +472,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.conf = self._initCellConf(conf)
 
-        self.donexslog = self.conf.get('logchanges')
+        self.donexslog = self.conf.get('nexslog:en')
 
         await s_nexus.Pusher.__anit__(self, self.iden)
 
@@ -492,19 +523,49 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
     async def _initNexsRoot(self):
-        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, dologging=self.donexslog)
+        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
         self.onfini(nexsroot.fini)
+        nexsroot.onfini(self)
         return nexsroot
 
     async def getNexusChanges(self, offs):
         async for item in self.nexsroot.iter(offs):
             yield item
 
-    async def getNexusOffs(self):
-        return self.nexsroot.getOffset()
+    async def isUserAllowed(self, iden, perm, gateiden=None):
+        user = self.auth.user(iden)
+        if user is None:
+            return False
 
-    def getNexusOffsEvent(self, offs):
-        return self.nexsroot.getOffsetEvent(offs)
+        return user.allowed(perm, gateiden=gateiden)
+
+    async def tryUserPasswd(self, name, passwd):
+        user = await self.auth.getUserByName(name)
+        if user is None:
+            return None
+
+        if not user.tryPasswd(passwd):
+            return None
+
+        return user.pack()
+
+    async def getUserProfile(self, iden):
+        user = await self.auth.reqUser(iden)
+        return user.profile.pack()
+
+    async def getUserProfInfo(self, iden, name):
+        user = await self.auth.reqUser(iden)
+        return user.profile.get(name)
+
+    async def setUserProfInfo(self, iden, name, valu):
+        user = await self.auth.reqUser(iden)
+        return await user.profile.set(name, valu)
+
+    async def addAuthUser(self, name):
+        # Note:  change handling is implemented inside auth
+        user = await self.auth.addUser(name)
+        await self.fire('user:mod', act='adduser', name=name)
+        return user.pack()
 
     async def dyniter(self, iden, todo, gatekeys=()):
 
@@ -759,8 +820,162 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def getCellType(cls):
         return cls.__name__.lower()
 
+    @classmethod
+    def getEnvPrefix(cls):
+        return f'SYN_{cls.__name__.upper()}'
+
     def getCellIden(self):
         return self.iden
+
+    @classmethod
+    def initCellConf(cls):
+        '''
+        Create a Config object for the Cell.
+
+        Notes:
+            The Config object has a ``envar_prefix`` set according to the results of ``cls.getEnvPrefix()``.
+
+        Returns:
+            s_config.Config: A Config helper object.
+        '''
+        prefix = cls.getEnvPrefix()
+        schema = s_config.getJsSchema(cls.confbase, cls.confdefs)
+        return s_config.Config(schema, envar_prefix=prefix)
+
+    @classmethod
+    def getArgParser(cls, conf=None):
+        '''
+        Get an ``argparse.ArgumentParser`` for the Cell.
+
+        Args:
+            conf (s_config.Config): Optional, a Config object which
+
+        Notes:
+            Boot time configuration data is placed in the argument group called ``config``.
+            This adds default ``dirn``, ``--telepath``, ``--https`` and ``--name`` arguements to the argparser instance.
+            Configuration values which have the ``hideconf`` value set to True are not added to the argparser instance.
+
+        Returns:
+            argparse.ArgumentParser: A ArgumentParser for the Cell.
+        '''
+
+        name = cls.getCellType()
+        prefix = cls.getEnvPrefix()
+
+        pars = argparse.ArgumentParser(prog=name)
+        pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
+
+        pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
+                          help='Specify the Python logging log level.', type=str.upper)
+
+        telendef = None
+        telepdef = 'tcp://0.0.0.0:27492'
+        httpsdef = 4443
+        telenvar = '_'.join((prefix, 'NAME'))
+        telepvar = '_'.join((prefix, 'TELEPATH'))
+        httpsvar = '_'.join((prefix, 'HTTPS'))
+        telen = os.getenv(telenvar, telendef)
+        telep = os.getenv(telepvar, telepdef)
+        https = os.getenv(httpsvar, httpsdef)
+
+        pars.add_argument('--telepath', default=telep, type=str,
+                          help=f'The telepath URL to listen on. This defaults to {telepdef}, and may be '
+                               f'also be overridden by the {telepvar} environment variable.')
+        pars.add_argument('--https', default=https, type=int,
+                          help=f'The port to bind for the HTTPS/REST API. This defaults to {httpsdef}, '
+                               f'and may be also be overridden by the {httpsvar} environment variable.')
+        pars.add_argument('--name', type=str, default=telen,
+                          help=f'The (optional) additional name to share the {name} as. This defaults to '
+                               f'{telendef}, and may be also be overridden by the {telenvar} environment'
+                               f' variable.')
+
+        if conf is not None:
+            args = conf.getArgParseArgs()
+            if args:
+                pgrp = pars.add_argument_group('config', 'Configuration arguments.')
+                for (argname, arginfo) in args:
+                    pgrp.add_argument(argname, **arginfo)
+
+        return pars
+
+    @classmethod
+    async def initFromArgv(cls, argv, outp=None):
+        '''
+        Cell launcher which does automatic argument parsing, environment variable resolution and Cell creation.
+
+        Args:
+            argv (list): A list of command line arguments to launch the Cell with.
+            outp (s_ouput.OutPut): Optional, an output object.
+
+        Notes:
+            This does the following items:
+                - Create a Config object from the Cell class.
+                - Creates an Argument Parser from the Cell class and Config object.
+                - Parses the provided arguments.
+                - Loads configuration data from the parsed options and environment variables.
+                - Sets logging for the process.
+                - Creates the Cell from the Cell Ctor.
+                - Adds a Telepath listener, HTTPs port listeners and Telepath share names.
+                - Returns the Cell.
+
+        Returns:
+            Cell: This returns an instance of the Cell.
+        '''
+
+        conf = cls.initCellConf()
+        pars = cls.getArgParser(conf=conf)
+
+        opts = pars.parse_args(argv)
+
+        conf.setConfFromOpts(opts)
+        conf.setConfFromEnvs()
+
+        s_common.setlogging(logger, defval=opts.log_level)
+
+        cell = await cls.anit(opts.dirn, conf=conf)
+
+        try:
+
+            await cell.addHttpsPort(opts.https)
+            await cell.dmon.listen(opts.telepath)
+
+            if opts.name is not None:
+                cell.dmon.share(opts.name, cell)
+
+            if outp is not None:
+                outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
+                outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
+                if opts.name is not None:
+                    outp.printf(f'...{cell.getCellType()} API (telepath name): %s' % (opts.name,))
+
+        except Exception:
+            await cell.fini()
+            raise
+
+        return cell
+
+    @classmethod
+    async def execmain(cls, argv, outp=None):
+        '''
+        The main entry point for running the Cell as an application.
+
+        Args:
+            argv (list): A list of command line arguments to launch the Cell with.
+            outp (s_ouput.OutPut): Optional, an output object.
+
+        Notes:
+            This coroutine waits until the Cell is fini'd or a SIGINT/SIGTERM signal is sent to the process.
+
+        Returns:
+            None.
+        '''
+
+        if outp is None:
+            outp = s_output.stdout
+
+        cell = await cls.initFromArgv(argv, outp=outp)
+
+        await cell.main()
 
     async def _getCellUser(self, mesg):
 
@@ -839,3 +1054,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPush('hive:loadtree')
     async def _onLoadHiveTree(self, tree, path, trim):
         return await self.hive.loadHiveTree(tree, path=path, trim=trim)
+
+    @s_nexus.Pusher.onPushAuto('sync')
+    async def sync(self):
+        '''
+        no-op mutable for testing purposes.  If I am follower, when this returns, I have received and applied all
+        the writes that occurred on the leader before this call.
+        '''
+        return
