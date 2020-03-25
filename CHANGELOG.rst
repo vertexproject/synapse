@@ -166,15 +166,16 @@ What you need to do
 Additional Changes
 ------------------
 
-- map_async is now enabled by default for all slabs
+- ``map_async`` is now enabled by default for all slabs.
 - Synapse tools may not be used to connect to services of a different minor version.
-- Deprecated annotations added to APIs that will be removed in ``0.3.0``
+- Deprecated annotations added to APIs that will be removed in ``0.3.0``.
 - The ``sudo`` command has been deprecated and does nothing.
-- Removed cortex offset storage
-- SYNDEV_OMIT_FINI_WARNS was added to silence tear down warnings
+- Removed cortex offset storage.
+- SYNDEV_OMIT_FINI_WARNS was added to silence tear down warnings.
 - Provenance is disabled by default. Enable by setting ``provenance:en: True`` in ``cell.yaml``.
+- nodedata and ``data`` type must now be json-serializable.  Previously, these accepted binary data.
+- The CellApi ``@adminapi`` decorator now must be called as a function, ``@adminapi()``.
 
-- node data and 'data' type must be json-serializable
 
 v0.1.X Changelog
 ================
