@@ -302,7 +302,7 @@ class CellTest(s_t_utils.SynTest):
             extrapath = 108 * 'A'
             longdirn = s_common.genpath(dirn, extrapath)
             with self.getAsyncLoggerStream('synapse.lib.cell', 'LOCAL UNIX SOCKET WILL BE UNAVAILABLE') as stream:
-                async with await s_cell.Cell.anit(longdirn) as cell:
+                async with self.getTestCell(s_cell.Cell, dirn=longdirn) as cell:
                     self.none(cell.dmon.addr)
                 self.true(await stream.wait(1))
 
