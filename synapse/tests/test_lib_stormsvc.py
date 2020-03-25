@@ -276,24 +276,24 @@ class StormSvcTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            msgs = await core.streamstorm('service.add --help').list()
+            msgs = await core.stormlist('service.add --help')
             self.stormIsInPrint(f'Add a storm service to the cortex.', msgs)
 
-            msgs = await core.streamstorm('service.del --help').list()
+            msgs = await core.stormlist('service.del --help')
             self.stormIsInPrint(f'Remove a storm service from the cortex.', msgs)
 
-            msgs = await core.streamstorm('service.list --help').list()
+            msgs = await core.stormlist('service.list --help')
             self.stormIsInPrint(f'List the storm services configured in the cortex.', msgs)
 
-            msgs = await core.streamstorm('service.add fake tcp://localhost:3333/foo').list()
+            msgs = await core.stormlist('service.add fake tcp://localhost:3333/foo')
             iden = core.getStormSvcs()[0].iden
             self.stormIsInPrint(f'added {iden} (fake): tcp://localhost:3333/foo', msgs)
 
-            msgs = await core.streamstorm('service.list').list()
+            msgs = await core.stormlist('service.list')
             self.stormIsInPrint('Storm service list (iden, ready, name, url):', msgs)
             self.stormIsInPrint(f'    {iden} False (fake): tcp://localhost:3333/foo', msgs)
 
-            msgs = await core.streamstorm(f'service.del {iden[:4]}').list()
+            msgs = await core.stormlist(f'service.del {iden[:4]}')
             self.stormIsInPrint(f'removed {iden} (fake): tcp://localhost:3333/foo', msgs)
 
     async def test_storm_svcs_bads(self):
@@ -416,7 +416,7 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes('$lib.service.wait(lift)')
 
                     # check that new commands are displayed properly in help
-                    msgs = await core.streamstorm('help').list()
+                    msgs = await core.stormlist('help')
                     self.stormIsInPrint('service: fake', msgs)
                     self.stormIsInPrint('package: foo', msgs)
                     self.stormIsInPrint('foobar', msgs)
@@ -495,7 +495,7 @@ class StormSvcTest(s_test.SynTest):
 
                     # specifically call teardown
                     for svc in core.getStormSvcs():
-                        mesgs = await s_test.alist(core.streamstorm(f'service.del {svc.iden}'))
+                        mesgs = await core.stormlist(f'service.del {svc.iden}')
                         mesgs = [m[1].get('mesg') for m in mesgs if m[0] == 'print']
                         self.len(1, mesgs)
                         self.isin(f'removed {svc.iden} ({svc.name})', mesgs[0])
@@ -624,14 +624,14 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]')
 
                     scmd = f'inet:ipv4=1.2.3.4 $foo=$node.repr() | magic --stormvar foo'
-                    msgs = await core.streamstorm(scmd).list()
+                    msgs = await core.stormlist(scmd)
                     self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
 
                     scmd = f'inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 $foo=$node.repr() | magic --stormvar foo'
-                    msgs = await core.streamstorm(scmd).list()
+                    msgs = await core.stormlist(scmd)
                     self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
                     self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
 
                     scmd = f'$foo="8.8.8.8" | magic --stormvar foo'
-                    msgs = await core.streamstorm(scmd).list()
+                    msgs = await core.stormlist(scmd)
                     self.stormIsInPrint('my foo var is 8.8.8.8', msgs)

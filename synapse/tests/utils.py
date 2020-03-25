@@ -1702,3 +1702,11 @@ class SynTest(unittest.TestCase):
         '''
         with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
             yield
+
+    async def runCoreNodes(self, core, query, opts=None):
+        '''
+        Run a storm query through a Cortex as a SchedCoro and return the results.
+        '''
+        async def coro():
+            return await core.nodes(query, opts)
+        return await core.schedCoro(coro())

@@ -114,47 +114,24 @@ class View(s_nexus.Pusher):  # type: ignore
 
             self.layers.append(layr)
 
-    async def eval(self, text, opts=None, user=None):
+    async def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        if user is None:
-            user = await self.core.auth.getUserByName('root')
+        opts = self.core._initStormOpts(opts)
+        user = self.core._userFromOpts(opts)
 
-        info = {'query': text}
-        if opts is not None:
-            info['opts'] = opts
-
+        info = {'query': text, 'opts': opts}
         await self.core.boss.promote('storm', user=user, info=info)
 
         async with await self.snap(user=user) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
                 yield node
 
-    async def storm(self, text, opts=None, user=None):
-        '''
-        Evaluate a storm query and yield (node, path) tuples.
-
-        Yields:
-            (Node, Path) tuples
-        '''
-        if user is None:
-            user = await self.core.auth.getUserByName('root')
-
-        info = {'query': text}
-        if opts is not None:
-            info['opts'] = opts
-
-        await self.core.boss.promote('storm', user=user, info=info)
-
-        async with await self.snap(user=user) as snap:
-            async for mesg in snap.storm(text, opts=opts, user=user):
-                yield mesg
-
-    async def callStorm(self, text, opts=None, user=None):
+    async def callStorm(self, text, opts=None):
         try:
 
-            async for item in self.storm(text, opts=opts, user=user):
+            async for item in self.eval(text, opts=opts):
                 await asyncio.sleep(0)  # pragma: no cover
 
         except s_ast.StormReturn as e:
@@ -165,31 +142,26 @@ class View(s_nexus.Pusher):  # type: ignore
 
             return retn
 
-    async def nodes(self, text, opts=None, user=None):
+    async def nodes(self, text, opts=None):
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        return [n async for n in self.eval(text, opts=opts, user=user)]
+        return [n async for n in self.eval(text, opts=opts)]
 
-    async def streamstorm(self, text, opts=None, user=None):
+    async def storm(self, text, opts=None):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
             ((str,dict)): Storm messages.
         '''
-        info = {'query': text}
-        if opts is not None:
-            info['opts'] = opts
+        opts = self.core._initStormOpts(opts)
 
-        if opts is None:
-            opts = {}
+        user = self.core._userFromOpts(opts)
 
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
-        if user is None:
-            user = await self.core.auth.getUserByName('root')
-
+        info = {'query': text, 'opts': opts}
         synt = await self.core.boss.promote('storm', user=user, info=info)
 
         show = opts.get('show', set())
@@ -293,14 +265,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
             yield mesg
 
-    async def iterStormPodes(self, text, opts=None, user=None):
-        if user is None:
-            user = await self.core.auth.getUserByName('root')
-
-        info = {'query': text}
-        if opts is not None:
-            info['opts'] = opts
-
+    async def iterStormPodes(self, text, opts=None):
+        opts = self.core._initStormOpts(opts)
+        user = self.core._userFromOpts(opts)
+        info = {'query': text, 'opts': opts}
         await self.core.boss.promote('storm', user=user, info=info)
 
         async with await self.snap(user=user) as snap:

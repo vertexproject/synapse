@@ -1560,7 +1560,7 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
-            nodes = await core.eval('inet:whois:email').list()
+            nodes = await core.nodes('inet:whois:email')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:whois:email', ('woot.com', 'pennywise@vertex.link')))
 
@@ -1678,7 +1678,7 @@ class InetModelTest(s_t_utils.SynTest):
 
                 # check regid pivot
                 scmd = f'inet:whois:iprec={rec_ipv4} :parentid -> inet:whois:iprec:id'
-                nodes = await core.eval(scmd).list()
+                nodes = await core.nodes(scmd)
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('inet:whois:iprec', rec_ipv6))
 
@@ -1714,7 +1714,7 @@ class InetModelTest(s_t_utils.SynTest):
                 iprec_guid = s_common.guid()
                 await snap.addNode(f'inet:whois:iprec', iprec_guid, props={'id': props['id']})
                 scmd = f'inet:whois:ipcontact={contact} :id -> inet:whois:iprec:id'
-                nodes = await core.eval(scmd).list()
+                nodes = await core.nodes(scmd)
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('inet:whois:iprec', iprec_guid))
 
@@ -1817,16 +1817,16 @@ class InetModelTest(s_t_utils.SynTest):
 
             {[ edge:has=($node, ('inet:email:header', ('to', 'Visi Kensho <visi@vertex.link>'))) ]}
             '''
-            nodes = await core.eval(q).list()
+            nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            self.len(1, await core.eval('inet:email:message:to=woot@woot.com').list())
-            self.len(1, await core.eval('inet:email:message:date=2015').list())
-            self.len(1, await core.eval('inet:email:message:body="there are mad sploitz here!"').list())
-            self.len(1, await core.eval('inet:email:message:subject="hi there"').list())
-            self.len(1, await core.eval('inet:email:message:replyto=root@root.com').list())
+            self.len(1, await core.nodes('inet:email:message:to=woot@woot.com'))
+            self.len(1, await core.nodes('inet:email:message:date=2015'))
+            self.len(1, await core.nodes('inet:email:message:body="there are mad sploitz here!"'))
+            self.len(1, await core.nodes('inet:email:message:subject="hi there"'))
+            self.len(1, await core.nodes('inet:email:message:replyto=root@root.com'))
 
-            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> edge:has -> inet:email:header +:name=to +:value="Visi Kensho <visi@vertex.link>"').list())
-            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> inet:email:message:link -> inet:url +inet:url=https://www.vertex.link').list())
-            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes').list())
-            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> file:bytes').list())
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> edge:has -> inet:email:header +:name=to +:value="Visi Kensho <visi@vertex.link>"'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link -> inet:url +inet:url=https://www.vertex.link'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))

@@ -755,7 +755,8 @@ class Agenda(s_base.Base):
             logger.info('Agenda executing for iden=%s, user=%s, query={%s}', appt.iden, user.name, appt.query)
             starttime = time.time()
             try:
-                async for _ in self.core.eval(appt.query, user=user):  # NOQA
+                opts = {'user': user.iden}
+                async for _ in self.core.eval(appt.query, opts=opts):
                     count += 1
             except asyncio.CancelledError:
                 result = 'cancelled'
