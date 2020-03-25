@@ -236,7 +236,7 @@ class CellApi(s_base.Base):
         await self.cell.auth.delRole(name)
         await self.cell.fire('user:mod', act='delrole', name=name)
 
-    @adminapi(log=True)
+    @adminapi()
     async def getAuthUsers(self, archived=False):
         '''
         Args:
@@ -244,7 +244,7 @@ class CellApi(s_base.Base):
         '''
         return [u.name for u in self.cell.auth.users() if archived or not u.info.get('archived')]
 
-    @adminapi(log=True)
+    @adminapi()
     async def getAuthRoles(self):
         return [r.name for r in self.cell.auth.roles()]
 
@@ -280,7 +280,7 @@ class CellApi(s_base.Base):
         role = await self.cell.auth.reqRoleByName(name)
         await role.setAdmin(admin, gateiden=gateiden)
 
-    @adminapi(log=True)
+    @adminapi()
     async def getAuthInfo(self, name):
         s_common.deprecated('getAuthInfo')
         user = await self.cell.auth.getUserByName(name)
