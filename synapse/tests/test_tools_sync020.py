@@ -526,3 +526,22 @@ class SyncTest(s_t_utils.SynTest):
                     self.true(tasksum.get('isdone'))
                     self.false(tasksum.get('cancelled'))
                     self.isin('Error limit reached', tasksum.get('exc'))
+
+            async with await s_telepath.openurl(os.path.join(turl, 'layer', wlyr.iden)) as prx:
+                async with await s_queue.Window.anit(maxsize=None) as queue:
+                    sync.err_lim += 10
+                    sync.model.update(await core.getModelDict())
+                    sync._push_evnts[wlyr.iden] = asyncio.Event()
+
+                    # fill up the queue with splices
+                    offs = 0
+                    async for splice in fkcore.splices(0, -1):
+                        await queue.put((offs, splice))
+                        offs += 1
+
+                    # start with a fini'd proxy
+                    await prx.fini()
+                    task = sync.schedCoro(sync._destIterLyrNodeedits(prx, queue, wlyr.iden))
+                    await asyncio.sleep(0)
+                    self.true(task.done())
+                    self.eq(offs, len(queue.linklist))  # pulled splices should be put back in queue
