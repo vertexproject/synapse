@@ -3397,8 +3397,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn=path01) as core01:
                     await core01.initCoreMirror(url)
 
-                    self.true(core01.mirror)
-
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
                     await core00.nodes('queue.add visi')
 
