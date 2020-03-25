@@ -1079,6 +1079,9 @@ class SynTest(unittest.TestCase):
                 yield core, prox, testsvc
 
     async def addSvcToCore(self, svc, core, svcname='svc'):
+        '''
+        Add a service to a Cortex using telepath over tcp.
+        '''
         svc.dmon.share('svc', svc)
         root = await svc.auth.getUserByName('root')
         await root.setPasswd('root')
@@ -1086,8 +1089,8 @@ class SynTest(unittest.TestCase):
         svc.dmon.test_addr = info
         host, port = info
         surl = f'tcp://root:root@127.0.0.1:{port}/svc'
-        await core.nodes(f'service.add {svcname} {surl}')
-        await core.nodes(f'$lib.service.wait({svcname})')
+        await self.runCoreNodes(core, f'service.add {svcname} {surl}')
+        await self.runCoreNodes(core, f'$lib.service.wait({svcname})')
 
     def getTestUrl(self, dmon, name, **opts):
 
