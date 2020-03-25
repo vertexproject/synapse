@@ -644,11 +644,11 @@ class CoreApi(s_cell.CellApi):
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
-    @s_cell.adminapi
+    @s_cell.adminapi(log=True)
     async def enableMigrationMode(self):
         await self.cell._enableMigrationMode()
 
-    @s_cell.adminapi
+    @s_cell.adminapi(log=True)
     async def disableMigrationMode(self):
         await self.cell._disableMigrationMode()
 
