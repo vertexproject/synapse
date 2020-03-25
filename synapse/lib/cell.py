@@ -384,23 +384,23 @@ class CellApi(s_base.Base):
         mesg = 'getRoleInfo denied for non-admin and non-member'
         raise s_exc.AuthDeny(mesg=mesg)
 
-    @adminapi
+    @adminapi()
     async def isUserAllowed(self, iden, perm, gateiden=None):
         return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
 
-    @adminapi
+    @adminapi()
     async def tryUserPasswd(self, name, passwd):
         return await self.cell.tryUserPasswd(name, passwd)
 
-    @adminapi
+    @adminapi()
     async def getUserProfile(self, iden):
         return await self.cell.getUserProfile(iden)
 
-    @adminapi
+    @adminapi()
     async def getUserProfInfo(self, iden, name):
         return await self.cell.getUserProfInfo(iden, name)
 
-    @adminapi
+    @adminapi()
     async def setUserProfInfo(self, iden, name, valu):
         return await self.cell.setUserProfInfo(iden, name, valu)
 
