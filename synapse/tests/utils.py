@@ -1034,9 +1034,9 @@ class SynTest(unittest.TestCase):
                     yield dmon
 
     @contextlib.asynccontextmanager
-    async def getTestSvc(self, ssvc, conf=None, dirn=None):
+    async def getTestCell(self, ctor, conf=None, dirn=None):
         '''
-        Get a service cell.
+        Get a test Cell.
         '''
         if conf is None:
             conf = {}
@@ -1045,39 +1045,44 @@ class SynTest(unittest.TestCase):
 
         if dirn is not None:
 
-            async with await ssvc.anit(dirn, conf=conf) as testsvc:
-                yield testsvc
+            async with await ctor.anit(dirn, conf=conf) as cell:
+                yield cell
 
             return
 
         with self.getTestDir() as dirn:
-            async with await ssvc.anit(dirn, conf=conf) as testsvc:
-                yield testsvc
+            async with await ctor.anit(dirn, conf=conf) as cell:
+                yield cell
 
     @contextlib.asynccontextmanager
-    async def getTestCoreProx(self, ssvc, ssvc_conf=None, core_conf=None):
+    async def getTestCoreProxSvc(self, ssvc, ssvc_conf=None, core_conf=None):
         '''
-        Get a test Cortex, the Telepath Proxy to it, and a test Svc instance.
+        Get a test Cortex, the Telepath Proxy to it, and a test service instance.
+
+        Args:
+            ssvc: Ctor to the Test Service.
+            ssvc_conf: Service configuration.
+            core_conf: Cortex configuration.
+
         Returns:
             (s_cortex.Cortex, s_cortex.CoreApi, testsvc): The Cortex, Proxy, and service instance.
         '''
         async with self.getTestCoreAndProxy(core_conf) as (core, prox):
-            async with self.getTestSvc(ssvc, ssvc_conf) as testsvc:
-
-                testsvc.dmon.share('testsvc', testsvc)
-
-                root = testsvc.auth.getUserByName('root')
-                await root.setPasswd('root')
-
-                info = await testsvc.dmon.listen('tcp://127.0.0.1:0/')
-                testsvc.dmon.test_addr = info
-                host, port = info
-
-                surl = f'tcp://root:root@127.0.0.1:{port}/testsvc'
-                await core.nodes(f'service.add testsvc {surl}')
-                await core.nodes('$lib.service.wait(testsvc)')
+            async with self.getTestCell(ssvc, ssvc_conf) as testsvc:
+                await self.addSvcToCore(testsvc, core)
 
                 yield core, prox, testsvc
+
+    async def addSvcToCore(self, svc, core, svcname='svc'):
+        svc.dmon.share('svc', svc)
+        root = await svc.auth.getUserByName('root')
+        await root.setPasswd('root')
+        info = await svc.dmon.listen('tcp://127.0.0.1:0/')
+        svc.dmon.test_addr = info
+        host, port = info
+        surl = f'tcp://root:root@127.0.0.1:{port}/svc'
+        await core.nodes(f'service.add {svcname} {surl}')
+        await core.nodes(f'$lib.service.wait({svcname})')
 
     def getTestUrl(self, dmon, name, **opts):
 
