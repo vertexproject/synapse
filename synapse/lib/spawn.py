@@ -355,7 +355,6 @@ class SpawnCore(s_base.Base):
         self.hive = await s_hive.openurl(f'cell://{self.dirn}', name='*/hive')
         self.onfini(self.hive)
 
-        # TODO cortex configured for remote auth...
         node = await self.hive.open(('auth',))
         self.auth = await s_hiveauth.Auth.anit(node)
         self.onfini(self.auth.fini)

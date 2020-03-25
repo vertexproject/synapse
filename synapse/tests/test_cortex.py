@@ -10,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
+import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.version as s_version
 
@@ -3791,14 +3792,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('dmon.list')
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
+            dmon = list(core.stormdmons.values())[0]
+
             # make the dmon blow up
             await core.nodes('''
                 $lib.queue.get(boom).put(hehe)
                 for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
             ''')
 
-            # TODO figure out a way to fix this
-            await asyncio.sleep(0.1)
+            self.true(await s_coro.event_wait(dmon.err_evnt, 6))
 
             msgs = await core.stormlist('dmon.list')
             self.stormIsInPrint('(wootdmon            ): error', msgs)
@@ -3844,13 +3846,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadPropDef):
                     await core.addUnivProp('woot', ('str', {'lower': True}), {})
-
-                # blowup for defvals
-                with self.raises(s_exc.BadPropDef):
-                    await core.addFormProp('inet:ipv4', '_visi', ('int', {}), {'defval': 20})
-
-                with self.raises(s_exc.BadPropDef):
-                    await core.addUnivProp('_woot', ('str', {'lower': True}), {'defval': 'asdf'})
 
                 with self.raises(s_exc.NoSuchForm):
                     await core.addFormProp('inet:newp', '_visi', ('int', {}), {})

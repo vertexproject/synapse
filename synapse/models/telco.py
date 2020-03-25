@@ -195,7 +195,6 @@ class TelcoModule(s_module.CoreModule):
                 ('tel:phone', {}, (
                     ('loc', ('loc', {}), {
                         'doc': 'The location associated with the number.',
-                        'defval': '??',
                     }),
                 )),
                 ('tel:call', {}, (
@@ -250,15 +249,12 @@ class TelcoModule(s_module.CoreModule):
                     }),
                     ('manu', ('str', {'lower': 1}), {
                         'doc': 'The TAC manufacturer name',
-                        'defval': '??',
                     }),
                     ('model', ('str', {'lower': 1}), {
                         'doc': 'The TAC model name',
-                        'defval': '??',
                     }),
                     ('internal', ('str', {'lower': 1}), {
                         'doc': 'The TAC internal model name',
-                        'defval': '??',
                     }),
                 )),
                 ('tel:mob:imei', {}, (
