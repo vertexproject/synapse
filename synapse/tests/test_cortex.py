@@ -3847,13 +3847,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadPropDef):
                     await core.addUnivProp('woot', ('str', {'lower': True}), {})
 
-                # blowup for defvals
-                with self.raises(s_exc.BadPropDef):
-                    await core.addFormProp('inet:ipv4', '_visi', ('int', {}), {'defval': 20})
-
-                with self.raises(s_exc.BadPropDef):
-                    await core.addUnivProp('_woot', ('str', {'lower': True}), {'defval': 'asdf'})
-
                 with self.raises(s_exc.NoSuchForm):
                     await core.addFormProp('inet:newp', '_visi', ('int', {}), {})
 

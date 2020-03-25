@@ -141,14 +141,12 @@ class SynModule(s_module.CoreModule):
                     ('isnow', ('syn:tag', {}), {
                         'doc': 'Set to an updated tag if the tag has been renamed.'}),
 
-                    ('doc', ('str', {}), {'defval': '',
-                        'doc': 'A short definition for the tag.'}),
+                    ('doc', ('str', {}), {'doc': 'A short definition for the tag.'}),
 
                     ('depth', ('int', {}), {'ro': 1,
                         'doc': 'How deep the tag is in the hierarchy.'}),
 
-                    ('title', ('str', {}), {'defval': '',
-                        'doc': 'A display title for the tag.'}),
+                    ('title', ('str', {}), {'doc': 'A display title for the tag.'}),
 
                     ('base', ('str', {}), {'ro': 1,
                         'doc': 'The tag base name. Eg baz for foo.bar.baz'}),
