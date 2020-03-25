@@ -840,10 +840,11 @@ class Layer(s_nexus.Pusher):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, nexsroot=None):
+    async def __anit__(self, layrinfo, dirn, nexsroot=None, allow_upstream=True):
 
         self.nexsroot = nexsroot
         self.layrinfo = layrinfo
+        self.allow_upstream = allow_upstream
 
         self.iden = layrinfo.get('iden')
         await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
@@ -916,7 +917,7 @@ class Layer(s_nexus.Pusher):
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
         uplayr = layrinfo.get('upstream')
-        if uplayr is not None:
+        if uplayr is not None and allow_upstream:
             if isinstance(uplayr, (tuple, list)):
                 for layr in uplayr:
                     await self.initUpstreamSync(layr)
@@ -1752,6 +1753,9 @@ class Layer(s_nexus.Pusher):
         self.schedCoro(self._initUpstreamSync(url))
 
     async def _initUpstreamSync(self, url):
+        '''
+        We're a downstream layer, receiving a stream of edits from an upstream layer telepath proxy at url
+        '''
 
         while not self.isfini:
 

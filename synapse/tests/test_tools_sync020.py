@@ -328,33 +328,33 @@ class SyncTest(s_t_utils.SynTest):
             # run svc operations
             lyridens = list(core.layers.keys())
 
-            mesgs = await core.streamstorm(f'migrsync.status').list()
+            mesgs = await core.stormlist(f'migrsync.status')
             mesgcat = ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print'])
             self.isin('Cortex', mesgcat)
             self.notin('Layer', mesgcat)
 
-            mesgs = await core.streamstorm(f'migrsync.startfromfile').list()
+            mesgs = await core.stormlist(f'migrsync.startfromfile')
             self.stormIsInPrint('Sync started', mesgs)
             self.stormIsInPrint(lyridens[0], mesgs)
             self.stormIsInPrint(lyridens[1], mesgs)
 
-            mesgs = await core.streamstorm(f'migrsync.status').list()
+            mesgs = await core.stormlist(f'migrsync.status')
             self.eq(6, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
 
-            mesgs = await core.streamstorm(f'migrsync.stopsync').list()
+            mesgs = await core.stormlist(f'migrsync.stopsync')
             self.stormIsInPrint('Sync stopped', mesgs)
             self.stormIsInPrint(lyridens[0], mesgs)
             self.stormIsInPrint(lyridens[1], mesgs)
 
-            mesgs = await core.streamstorm(f'migrsync.status').list()
+            mesgs = await core.stormlist(f'migrsync.status')
             self.eq(6, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('cancelled'))
 
-            mesgs = await core.streamstorm(f'migrsync.startfromlast').list()
+            mesgs = await core.stormlist(f'migrsync.startfromlast')
             self.stormIsInPrint('Sync started', mesgs)
             self.stormIsInPrint(lyridens[0], mesgs)
             self.stormIsInPrint(lyridens[1], mesgs)
 
-            mesgs = await core.streamstorm(f'migrsync.status').list()
+            mesgs = await core.stormlist(f'migrsync.status')
             self.eq(6, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
 
     async def test_startSyncFromFile(self):
@@ -441,6 +441,11 @@ class SyncTest(s_t_utils.SynTest):
                 await asyncio.wait_for(sync._pull_tasks[wlyr.iden], timeout=4)
 
                 self.eq('queue_fini', sync._pull_status[wlyr.iden])
+
+                # run stopsync with a prx exception
+                sync.dest = 'foobar'
+                stopres = await syncprx.stopSync()
+                self.len(2, stopres)  # returns the two layers stopped
 
     async def test_startSyncFromLast(self):
         conf_sync = {
@@ -703,3 +708,22 @@ class SyncTest(s_t_utils.SynTest):
                     self.true(tasksum.get('isdone'))
                     self.false(tasksum.get('cancelled'))
                     self.isin('Error limit reached', tasksum.get('exc'))
+
+            async with await s_telepath.openurl(os.path.join(turl, 'layer', wlyr.iden)) as prx:
+                async with await s_queue.Window.anit(maxsize=None) as queue:
+                    sync.err_lim += 10
+                    sync.model.update(await core.getModelDict())
+                    sync._push_evnts[wlyr.iden] = asyncio.Event()
+
+                    # fill up the queue with splices
+                    offs = 0
+                    async for splice in fkcore.splices(0, -1):
+                        await queue.put((offs, splice))
+                        offs += 1
+
+                    # start with a fini'd proxy
+                    await prx.fini()
+                    task = sync.schedCoro(sync._destIterLyrNodeedits(prx, queue, wlyr.iden))
+                    await asyncio.sleep(0)
+                    self.true(task.done())
+                    self.eq(offs, len(queue.linklist))  # pulled splices should be put back in queue

@@ -272,6 +272,28 @@ class CellTest(s_t_utils.SynTest):
         root = await echo.auth.getUserByName('root')
         self.true(root.isfini)
 
+    async def test_cell_userapi(self):
+
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+            await visi.addRule((True, ('foo', 'bar')))
+
+            async with core.getLocalProxy() as proxy:
+
+                self.none(await proxy.tryUserPasswd('newpnewp', 'newp'))
+                self.none(await proxy.tryUserPasswd('visi', 'newp'))
+                udef = await proxy.tryUserPasswd('visi', 'secret')
+                self.eq(visi.iden, udef['iden'])
+
+                self.true(await proxy.isUserAllowed(visi.iden, ('foo', 'bar')))
+                self.false(await proxy.isUserAllowed(visi.iden, ('hehe', 'haha')))
+                self.false(await proxy.isUserAllowed('newpnewp', ('hehe', 'haha')))
+
+                await proxy.setUserProfInfo(visi.iden, 'hehe', 'haha')
+                self.eq('haha', await proxy.getUserProfInfo(visi.iden, 'hehe'))
+                self.eq('haha', (await proxy.getUserProfile(visi.iden))['hehe'])
+
     async def test_longpath(self):
         # This is similar to the DaemonTest::test_unixsock_longpath
         # but exercises the long-path failure inside of the cell's daemon
@@ -280,7 +302,7 @@ class CellTest(s_t_utils.SynTest):
             extrapath = 108 * 'A'
             longdirn = s_common.genpath(dirn, extrapath)
             with self.getAsyncLoggerStream('synapse.lib.cell', 'LOCAL UNIX SOCKET WILL BE UNAVAILABLE') as stream:
-                async with await s_cell.Cell.anit(longdirn) as cell:
+                async with self.getTestCell(s_cell.Cell, dirn=longdirn) as cell:
                     self.none(cell.dmon.addr)
                 self.true(await stream.wait(1))
 

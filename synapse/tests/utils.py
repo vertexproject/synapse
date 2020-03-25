@@ -1038,6 +1038,60 @@ class SynTest(unittest.TestCase):
                 with mock.patch('synapse.lib.certdir.defdir', certdir):
                     yield dmon
 
+    @contextlib.asynccontextmanager
+    async def getTestCell(self, ctor, conf=None, dirn=None):
+        '''
+        Get a test Cell.
+        '''
+        if conf is None:
+            conf = {}
+
+        conf = copy.deepcopy(conf)
+
+        if dirn is not None:
+
+            async with await ctor.anit(dirn, conf=conf) as cell:
+                yield cell
+
+            return
+
+        with self.getTestDir() as dirn:
+            async with await ctor.anit(dirn, conf=conf) as cell:
+                yield cell
+
+    @contextlib.asynccontextmanager
+    async def getTestCoreProxSvc(self, ssvc, ssvc_conf=None, core_conf=None):
+        '''
+        Get a test Cortex, the Telepath Proxy to it, and a test service instance.
+
+        Args:
+            ssvc: Ctor to the Test Service.
+            ssvc_conf: Service configuration.
+            core_conf: Cortex configuration.
+
+        Returns:
+            (s_cortex.Cortex, s_cortex.CoreApi, testsvc): The Cortex, Proxy, and service instance.
+        '''
+        async with self.getTestCoreAndProxy(core_conf) as (core, prox):
+            async with self.getTestCell(ssvc, ssvc_conf) as testsvc:
+                await self.addSvcToCore(testsvc, core)
+
+                yield core, prox, testsvc
+
+    async def addSvcToCore(self, svc, core, svcname='svc'):
+        '''
+        Add a service to a Cortex using telepath over tcp.
+        '''
+        svc.dmon.share('svc', svc)
+        root = await svc.auth.getUserByName('root')
+        await root.setPasswd('root')
+        info = await svc.dmon.listen('tcp://127.0.0.1:0/')
+        svc.dmon.test_addr = info
+        host, port = info
+        surl = f'tcp://root:root@127.0.0.1:{port}/svc'
+        await self.runCoreNodes(core, f'service.add {svcname} {surl}')
+        await self.runCoreNodes(core, f'$lib.service.wait({svcname})')
+
     def getTestUrl(self, dmon, name, **opts):
 
         host, port = dmon.addr
@@ -1702,3 +1756,11 @@ class SynTest(unittest.TestCase):
         '''
         with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
             yield
+
+    async def runCoreNodes(self, core, query, opts=None):
+        '''
+        Run a storm query through a Cortex as a SchedCoro and return the results.
+        '''
+        async def coro():
+            return await core.nodes(query, opts)
+        return await core.schedCoro(coro())

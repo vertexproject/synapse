@@ -33,7 +33,7 @@ class FeedTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             self.eq(await s_feed.main(argv, outp=outp), 0)
 
-            nodes = await core.eval('test:str=foo').list()
+            nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
 
     async def test_synnodes_remote(self):
@@ -63,7 +63,7 @@ class FeedTest(s_t_utils.SynTest):
                 outp = self.getTestOutp()
                 self.eq(await s_feed.main(argv, outp=outp), 0)
 
-            nodes = await core.eval('test:int').list()
+            nodes = await core.nodes('test:int')
             self.len(20, nodes)
 
     async def test_synnodes_offset(self):
@@ -99,5 +99,5 @@ class FeedTest(s_t_utils.SynTest):
                 self.eq(await s_feed.main(argv, outp=outp), 1)
                 self.true(outp.expect('Cannot start from a arbitrary offset for more than 1 file.'))
 
-            nodes = await core.eval('test:int').list()
+            nodes = await core.nodes('test:int')
             self.len(8, nodes)

@@ -96,12 +96,23 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.getCoreInfo()
 
+    def _reqValidStormOpts(self, opts):
+
+        if opts is None:
+            opts = {}
+
+        opts.setdefault('user', self.user.iden)
+        if opts.get('user') != self.user.iden:
+            self.user.confirm(('storm', 'impersonate'))
+
+        return opts
+
     async def callStorm(self, text, opts=None):
         '''
         Return the value expressed in a return() statement within storm.
         '''
-        view = self.cell._viewFromOpts(opts, self.user)
-        return await view.callStorm(text, opts=opts, user=self.user)
+        opts = self._reqValidStormOpts(opts)
+        return await self.cell.callStorm(text, opts=opts)
 
     async def addCronJob(self, cdef):
         '''
@@ -379,21 +390,19 @@ class CoreApi(s_cell.CellApi):
         Returns:
             (int): The number of nodes resulting from the query.
         '''
-        view = self.cell._viewFromOpts(opts, self.user)
-
-        i = 0
-        async for _ in view.eval(text, opts=opts, user=self.user):
-            i += 1
-        return i
+        opts = self._reqValidStormOpts(opts)
+        return await self.cell.count(text, opts=opts)
 
     async def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield packed nodes.
+
+        NOTE: This API is deprecated as of 0.2.0 and will be removed in 0.3.0
         '''
-
-        view = self.cell._viewFromOpts(opts, self.user)
-
-        async for pode in view.iterStormPodes(text, opts=opts, user=self.user):
+        s_common.deprecated('eval')
+        opts = self._reqValidStormOpts(opts)
+        view = self.cell._viewFromOpts(opts)
+        async for pode in view.iterStormPodes(text, opts=opts):
             yield pode
 
     async def storm(self, text, opts=None):
@@ -403,48 +412,62 @@ class CoreApi(s_cell.CellApi):
         Yields:
             ((str,dict)): Storm messages.
         '''
-        view = self.cell._viewFromOpts(opts, self.user)
+        opts = self._reqValidStormOpts(opts)
 
-        if opts is not None and opts.get('spawn'):
+        if opts.get('spawn'):
+            await self._execSpawnStorm(text, opts)
+            return
 
-            link = s_scope.get('link')
-
-            opts.pop('spawn', None)
-            info = {
-                'link': link.getSpawnInfo(),
-                'view': view.iden,
-                'user': self.user.iden,
-                'storm': {
-                    'opts': opts,
-                    'query': text,
-                }
-            }
-
-            tnfo = {'query': text}
-            if opts:
-                tnfo['opts'] = opts
-            await self.cell.boss.promote('storm:spawn',
-                                         user=self.user,
-                                         info=tnfo)
-            proc = None
-            mesg = 'Spawn complete'
-            try:
-                async with self.cell.spawnpool.get() as proc:
-                    if await proc.xact(info):
-                        await link.fini()
-            except Exception as e:
-                if not isinstance(e, asyncio.CancelledError):
-                    logger.exception('Error during spawned Storm execution.')
-                if not self.cell.isfini:
-                    if proc:
-                        await proc.fini()
-                mesg = repr(e)
-                raise
-            finally:
-                raise s_exc.DmonSpawn(mesg=mesg)
-
-        async for mesg in view.streamstorm(text, opts, user=self.user):
+        async for mesg in self.cell.storm(text, opts=opts):
             yield mesg
+
+    async def _execSpawnStorm(self, text, opts):
+
+        view = self.cell._viewFromOpts(opts)
+
+        link = s_scope.get('link')
+
+        opts.pop('spawn', None)
+        info = {
+            'link': link.getSpawnInfo(),
+            'view': view.iden,
+            'user': self.user.iden,
+            'storm': {
+                'opts': opts,
+                'query': text,
+            }
+        }
+
+        tnfo = {'query': text}
+        if opts:
+            tnfo['opts'] = opts
+
+        await self.cell.boss.promote('storm:spawn',
+                                     user=self.user,
+                                     info=tnfo)
+        proc = None
+        mesg = 'Spawn complete'
+
+        try:
+
+            async with self.cell.spawnpool.get() as proc:
+                if await proc.xact(info):
+                    await link.fini()
+
+        except Exception as e:
+
+            if not isinstance(e, asyncio.CancelledError):
+                logger.exception('Error during spawned Storm execution.')
+
+            if not self.cell.isfini:
+                if proc:
+                    await proc.fini()
+
+            mesg = repr(e)
+            raise
+
+        finally:
+            raise s_exc.DmonSpawn(mesg=mesg)
 
     async def watch(self, wdef):
         '''
@@ -808,6 +831,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Initialize our storage and views
         await self._initCoreAxon()
 
+        mirror = self.conf.get('mirror')
+        if mirror is not None:
+            self.mirror = True
+
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
@@ -858,7 +885,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
-        mirror = self.conf.get('mirror')
         if mirror is not None:
             await self.initCoreMirror(mirror)
 
@@ -1721,7 +1747,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             This cortex *must* be initialized from a backup of the target cortex!
         '''
         await self.nexsroot.setLeader(url, self.iden)
-        self.mirror = True
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
@@ -2319,7 +2344,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         iden = layrinfo.get('iden')
         path = s_common.gendir(self.dirn, 'layers', iden)
-        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot)
+        # In case that we're a mirror follower and we have a downstream layer, disable upstream sync
+        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot, allow_upstream=not self.mirror)
 
     async def _initCoreLayers(self):
 
@@ -2594,82 +2620,103 @@ class Cortex(s_cell.Cell):  # type: ignore
             ret.append((modname, mod.conf))
         return ret
 
-    def _viewFromOpts(self, opts, user):
-
+    def _initStormOpts(self, opts):
         if opts is None:
             opts = {}
 
-        viewiden = opts.get('view')
+        opts.setdefault('user', self.auth.rootuser.iden)
+        return opts
 
-        view = self.getView(iden=viewiden, user=user)
+    def _viewFromOpts(self, opts):
+
+        user = self._userFromOpts(opts)
+
+        viewiden = opts.get('view')
+        if viewiden is None:
+            viewiden = user.profile.get('cortex:view')
+
+        if viewiden is None:
+            viewiden = self.view.iden
+
+        # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
+        # TODO:  due to our migration policy, remove in 0.3.x
+        if viewiden == self.iden: # pragma: no cover
+            viewiden = self.view.iden
+
+        view = self.views.get(viewiden)
         if view is None:
             raise s_exc.NoSuchView(iden=viewiden)
 
+        user.confirm(('view', 'read'), gateiden=viewiden)
+
         return view
 
-    @s_coro.genrhelp
-    async def eval(self, text, opts=None, user=None):
-        '''
-        Evaluate a storm query and yield Nodes only.
-        '''
-        view = self._viewFromOpts(opts, user)
+    def _userFromOpts(self, opts):
 
-        async for node in view.eval(text, opts, user):
-            yield node
+        if opts is None:
+            return self.auth.rootuser
 
-    @s_coro.genrhelp
-    async def storm(self, text, opts=None, user=None):
-        '''
-        Evaluate a storm query and yield (node, path) tuples.
-        Yields:
-            (Node, Path) tuples
-        '''
-        view = self._viewFromOpts(opts, user)
+        useriden = opts.get('user')
+        if useriden is None:
+            return self.auth.rootuser
 
-        async for mesg in view.storm(text, opts, user):
+        user = self.auth.user(useriden)
+        if user is None:
+            mesg = f'No user found with iden: {useriden}'
+            raise s_exc.NoSuchUser(mesg, iden=useriden)
+
+        return user
+
+    async def count(self, text, opts=None):
+
+        view = self._viewFromOpts(opts)
+
+        i = 0
+        async for _ in view.eval(text, opts=opts):
+            i += 1
+
+        return i
+
+    async def storm(self, text, opts=None):
+        '''
+        '''
+        opts = self._initStormOpts(opts)
+
+        view = self._viewFromOpts(opts)
+        async for mesg in view.storm(text, opts=opts):
             yield mesg
 
-    async def callStorm(self, text, opts=None, user=None):
-        view = self._viewFromOpts(opts, user)
-        return await view.callStorm(text, opts=opts, user=user)
+    async def callStorm(self, text, opts=None):
+        opts = self._initStormOpts(opts)
+        view = self._viewFromOpts(opts)
+        return await view.callStorm(text, opts=opts)
 
-    async def nodes(self, text, opts=None, user=None):
+    async def nodes(self, text, opts=None):
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        async def nodes():
-            return [n async for n in self.eval(text, opts=opts, user=user)]
-        task = self.schedCoro(nodes())
-        return await task
+        if self.isfini: # pragma: no cover
+            raise s_exc.IsFini()
 
-    @s_coro.genrhelp
-    async def streamstorm(self, text, opts=None, user=None):
+        opts = self._initStormOpts(opts)
+
+        view = self._viewFromOpts(opts)
+        return await view.nodes(text, opts=opts)
+
+    async def eval(self, text, opts=None):
         '''
-        Evaluate a storm query and yield result messages.
+        Evaluate a storm query and yield packed nodes.
 
-        Yields:
-            ((str,dict)): Storm messages.
+        NOTE: This API is deprecated as of 0.2.0 and will be removed in 0.3.0
         '''
-        view = self._viewFromOpts(opts, user)
+        s_common.deprecated('eval')
+        opts = self._initStormOpts(opts)
+        view = self._viewFromOpts(opts)
+        async for node in view.eval(text, opts=opts):
+            yield node
 
-        async for mesg in view.streamstorm(text, opts, user):
-            yield mesg
-
-    @s_coro.genrhelp
-    async def iterStormPodes(self, text, opts=None, user=None):
-        if user is None:
-            user = await self.auth.getUserByName('root')
-
-        view = self._viewFromOpts(opts, user)
-
-        info = {'query': text}
-        if opts is not None:
-            info['opts'] = opts
-
-        await self.boss.promote('storm', user=user, info=info)
-        async with await self.snap(user=user, view=view) as snap:
-            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                yield pode
+    async def stormlist(self, text, opts=None):
+        return [m async for m in self.storm(text, opts=opts)]
 
     @s_cache.memoize(size=10000)
     def getStormQuery(self, text):

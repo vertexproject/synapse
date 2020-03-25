@@ -203,13 +203,14 @@ class TestUtils(s_t_utils.SynTest):
     async def test_storm_mesgs(self):
 
         async with self.getTestCore() as core:
-            mesgs = await core.streamstorm('[test:str=1234] | count').list()
+
+            mesgs = await core.stormlist('[test:str=1234] | count')
             self.stormIsInPrint('Counted 1 nodes.', mesgs)
 
-            mesgs = await core.streamstorm('iden newp').list()
+            mesgs = await core.stormlist('iden newp')
             self.stormIsInWarn('Failed to decode iden', mesgs)
 
-            mesgs = await core.streamstorm('[test:str=').list()
+            mesgs = await core.stormlist('[test:str=')
             self.stormIsInErr('Unexpected end', mesgs)
 
     async def test_stable_uids(self):

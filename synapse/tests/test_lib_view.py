@@ -140,9 +140,9 @@ class ViewTest(s_t_utils.SynTest):
             await view2.fini()
             await view2.delete()
 
-    async def test_streamstorm_editformat(self):
+    async def test_storm_editformat(self):
         async with self.getTestCore() as core:
-            mesgs = await core.streamstorm('[test:str=foo1 :hehe=bar]', opts={'editformat': 'nodeedits'}).list()
+            mesgs = await core.stormlist('[test:str=foo1 :hehe=bar]', opts={'editformat': 'nodeedits'})
             count = collections.Counter(m[0] for m in mesgs)
             self.eq(1, count['init'])
             self.eq(1, count['fini'])
@@ -150,7 +150,7 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(2, count['node:edits'])
             self.eq(0, count['node:add'])
 
-            mesgs = await core.streamstorm('[test:str=foo2 :hehe=bar]', opts={'editformat': 'splices'}).list()
+            mesgs = await core.stormlist('[test:str=foo2 :hehe=bar]', opts={'editformat': 'splices'})
             count = collections.Counter(m[0] for m in mesgs)
             self.eq(1, count['init'])
             self.eq(1, count['node:add'])
@@ -159,7 +159,7 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(1, count['node'])
             self.eq(1, count['fini'])
 
-            mesgs = await core.streamstorm('[test:str=foo3 :hehe=bar]', opts={'editformat': 'count'}).list()
+            mesgs = await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'count'})
             count = collections.Counter(m[0] for m in mesgs)
             self.eq(1, count['init'])
             self.eq(1, count['node'])
@@ -170,7 +170,7 @@ class ViewTest(s_t_utils.SynTest):
             cmsgs = [m[1] for m in mesgs if m[0] == 'node:edits:count']
             self.eq([{'count': 2}, {'count': 1}], cmsgs)
 
-            mesgs = await core.streamstorm('[test:str=foo3 :hehe=bar]', opts={'editformat': 'none'}).list()
+            mesgs = await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'none'})
             count = collections.Counter(m[0] for m in mesgs)
             self.eq(1, count['init'])
             self.eq(0, count['node:edits:count'])
@@ -179,5 +179,5 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(1, count['node'])
             self.eq(1, count['fini'])
 
-            await self.agenraises(s_exc.BadConfValu,
-                                  core.streamstorm('[test:str=foo3 :hehe=bar]', opts={'editformat': 'jsonl'}))
+            with self.raises(s_exc.BadConfValu):
+                await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'jsonl'})

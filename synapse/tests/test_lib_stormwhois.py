@@ -77,7 +77,7 @@ class StormWhoisTest(s_test.SynTest):
                     :fqdn=$props.fqdn)]
             '''
             opts = {'vars': {'props': props}}
-            mesgs = await core.streamstorm(stormcmd, opts=opts).list()
+            mesgs = await core.stormlist(stormcmd, opts=opts)
             warn = [m[1]['mesg'] for m in mesgs if m[0] == 'warn']
             self.isin('Insufficient guid vals identified, using random guid:', warn[0])
             self.len(1, await core.nodes(f'inet:whois:ipquery:fqdn={props["fqdn"]}'))
@@ -90,7 +90,7 @@ class StormWhoisTest(s_test.SynTest):
                     :asn=$props.asn)]
             '''
             opts = {'vars': {'props': props}}
-            mesgs = await core.streamstorm(stormcmd, opts=opts).list()
+            mesgs = await core.stormlist(stormcmd, opts=opts)
             warn = [m[1]['mesg'] for m in mesgs if m[0] == 'warn']
             self.isin('Insufficient guid vals identified, using random guid:', warn[0])
             self.len(1, await core.nodes(f'inet:whois:ipcontact:asn={props["asn"]}'))
