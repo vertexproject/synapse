@@ -1,4 +1,5 @@
 import synapse.lib.base as s_base
+import synapse.lib.cell as s_cell
 import synapse.lib.reflect as s_reflect
 import synapse.lib.version as s_version
 
@@ -21,6 +22,17 @@ class Echo(s_base.Base):
     async def mygenr(self, n):
         for i in range(n):
             yield i
+
+class TstCellApi(s_cell.CellApi):
+    async def giggles(self):
+        yield 'giggles'
+
+    @s_cell.adminapi(log=False)
+    async def wrapped_giggles(self):
+        yield 'giggles'
+
+class TstCell(s_cell.Cell):
+    cellapi = TstCellApi
 
 class ReflectTest(s_t_utils.SynTest):
 
@@ -46,3 +58,18 @@ class ReflectTest(s_t_utils.SynTest):
             self.eq(sharinfo.get('syn:version'), s_version.version)
             self.eq(sharinfo.get('classes'),
                     ['synapse.tests.test_lib_reflect.Echo', 'synapse.lib.base.Base'])
+
+        # Check attribute information for a Cell / CellApi wrapper which sets
+        # the __syn_wrapped__ attribute on a few functions of the CellApi
+        # class. This also tests unwrapped async generator detection.
+        with self.getTestDir() as dirn:
+            async with await TstCell.anit(dirn) as cell:
+                async with cell.getLocalProxy() as prox:
+                    key = '_syn_sharinfo_synapse.tests.test_lib_reflect_TstCellApi'
+                    valu = getattr(TstCellApi, key)
+                    self.nn(valu)
+
+                    meths = valu.get('meths')
+                    self.isin('giggles', meths)
+                    self.isin('wrapped_giggles', meths)
+                    self.isin('dyniter', meths)
