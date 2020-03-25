@@ -184,11 +184,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def addAuthUser(self, name):
-
-        # Note:  change handling is implemented inside auth
-        user = await self.cell.auth.addUser(name)
-        await self.cell.fire('user:mod', act='adduser', name=name)
-        return user.pack()
+        return await self.cell.addAuthUser(name)
 
     @adminapi
     async def dyncall(self, iden, todo, gatekeys=()):
@@ -376,6 +372,26 @@ class CellApi(s_base.Base):
         mesg = 'getRoleInfo denied for non-admin and non-member'
         raise s_exc.AuthDeny(mesg=mesg)
 
+    @adminapi
+    async def isUserAllowed(self, iden, perm, gateiden=None):
+        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
+
+    @adminapi
+    async def tryUserPasswd(self, name, passwd):
+        return await self.cell.tryUserPasswd(name, passwd)
+
+    @adminapi
+    async def getUserProfile(self, iden):
+        return await self.cell.getUserProfile(iden)
+
+    @adminapi
+    async def getUserProfInfo(self, iden, name):
+        return await self.cell.getUserProfInfo(iden, name)
+
+    @adminapi
+    async def setUserProfInfo(self, iden, name, valu):
+        return await self.cell.setUserProfInfo(iden, name, valu)
+
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
         return await self.cell.getHealthCheck()
@@ -515,6 +531,41 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getNexusChanges(self, offs):
         async for item in self.nexsroot.iter(offs):
             yield item
+
+    async def isUserAllowed(self, iden, perm, gateiden=None):
+        user = self.auth.user(iden)
+        if user is None:
+            return False
+
+        return user.allowed(perm, gateiden=gateiden)
+
+    async def tryUserPasswd(self, name, passwd):
+        user = await self.auth.getUserByName(name)
+        if user is None:
+            return None
+
+        if not user.tryPasswd(passwd):
+            return None
+
+        return user.pack()
+
+    async def getUserProfile(self, iden):
+        user = await self.auth.reqUser(iden)
+        return user.profile.pack()
+
+    async def getUserProfInfo(self, iden, name):
+        user = await self.auth.reqUser(iden)
+        return user.profile.get(name)
+
+    async def setUserProfInfo(self, iden, name, valu):
+        user = await self.auth.reqUser(iden)
+        return await user.profile.set(name, valu)
+
+    async def addAuthUser(self, name):
+        # Note:  change handling is implemented inside auth
+        user = await self.auth.addUser(name)
+        await self.fire('user:mod', act='adduser', name=name)
+        return user.pack()
 
     async def dyniter(self, iden, todo, gatekeys=()):
 

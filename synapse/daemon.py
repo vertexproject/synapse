@@ -313,10 +313,6 @@ class Daemon(s_base.Base):
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
 
-        for _, share in self.shared.items():
-            if isinstance(share, s_base.Base):
-                await share.fini()
-
         finis = [sess.fini() for sess in self.sessions.values()]
         if finis:
             await asyncio.wait(finis)
@@ -324,6 +320,10 @@ class Daemon(s_base.Base):
         finis = [link.fini() for link in self.connectedlinks]
         if finis:
             await asyncio.wait(finis)
+
+        for _, share in self.shared.items():
+            if isinstance(share, s_base.Base):
+                await share.fini()
 
     async def _onLinkInit(self, link):
 
