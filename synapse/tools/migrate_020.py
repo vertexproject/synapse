@@ -498,9 +498,6 @@ class Migrator(s_base.Base):
         if self.addmode not in ADD_MODES:
             raise Exception(f'addmode {self.addmode} is not valid')
 
-        if self.addmode != 'nexus':
-            logger.warning('Add mode is bypassing nexus - no migration splices will exist in 0.2.x cortex')
-
         self.editbatchsize = conf.get('editbatchsize')
         if self.editbatchsize is None:
             self.editbatchsize = 100

@@ -81,6 +81,10 @@ After migration, the ``sync_020`` service can be used to push post-backup change
 and keep it updated until cut-over. ``sync_020`` uses splices to translate the changes, and therefore they must
 be enabled on the source Cortex. In order to control and monitor synchronization, ``sync_020`` can be added as a Storm service.
 
+When synchronization is started the service will enable "migration mode" on the destination ``0.2.x`` Cortex, which
+prevents cron jobs and triggers from running.  Migration mode will then be disabled when the synchronization is
+stopped or when the Cortex is restarted.
+
 #. Complete migration, including starting up the ``0.2.x`` Cortex.
 #. Locate the saved splice offset file from migration at ``<new_02x_dirn>/migration/lyroffs.yaml``.
 #. Start the ``sync_020`` service (shown with the optional ``--auth-passwd`` to bootstrap the root user)::
@@ -90,6 +94,7 @@ be enabled on the source Cortex. In order to control and monitor synchronization
         --src <01x_telepath_url> --dest <02x_telepath_url>
 
 #. Add the Storm service to the Cortex and use the available commands to start synchronization.
+#. When ready to cut-over, and the read status is up-to-date, stop the synchronization using the ``stopsync`` command.
 
 Axon
 ====
