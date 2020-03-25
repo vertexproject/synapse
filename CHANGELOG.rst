@@ -2,6 +2,15 @@
 Synapse Changelog
 *****************
 
+Unreleased - TBD
+================
+
+Bugfixes
+--------
+
+- Fix a Telepath Proxy call issue which could return an errant ``None``. This was cerry-picked from master.
+  (`#1536 <https://github.com/vertexproject/synapse/pull/1536>`_)
+
 v0.1.55 - 2019-03-17
 ====================
 
