@@ -472,6 +472,8 @@ class SyncMigrator(s_cell.Cell):
         '''
         Synchronizes triggers and crons from source Cortex to destination.
         On initial start-up also refreshes datamodel and ensures migration mode is set.
+
+        TODO: Fix trigger add so that it maintains iden (and check iden after mod)
         '''
         poll_s = self.poll_s
 
