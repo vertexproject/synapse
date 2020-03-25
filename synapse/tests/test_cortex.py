@@ -2439,11 +2439,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.eq(await alist(prox.spliceHistory()), [s[1] for s in splicelist])
 
-                await prox.addAuthUser('visi')
-                await prox.setUserPasswd('visi', 'secret')
+                visi = await prox.addUser('visi')
+                await prox.setUserPasswd(visi['iden'], 'secret')
 
-                await prox.addAuthRule('visi', (True, ('node', 'add')))
-                await prox.addAuthRule('visi', (True, ('prop', 'set')))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('prop', 'set')))
 
                 async with core.getLocalProxy(user='visi') as asvisi:
 
@@ -2455,7 +2455,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await self.agenlen(2, asvisi.spliceHistory())
 
                     # should get all splices now as an admin
-                    await prox.setUserAdmin('visi', True)
+                    await prox.setUserAdmin(visi['iden'], True)
                     await self.agenlen(splicecount + 2, asvisi.spliceHistory())
 
     async def test_node_repr(self):
@@ -4031,8 +4031,8 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_cronjob_perms(self):
         async with self.getTestCore() as realcore:
             async with realcore.getLocalProxy() as core:
-                await core.addAuthUser('fred')
-                await core.setUserPasswd('fred', 'secret')
+                fred = await core.addUser('fred')
+                await core.setUserPasswd(fred['iden'], 'secret')
                 cdef = {'storm': '[test:str=foo]', 'reqs': {'dayofmonth': 1},
                         'incunit': None, 'incvals': None}
                 adef = await core.addCronJob(cdef)
@@ -4060,8 +4060,8 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_migrationmode(self):
         async with self.getTestCore() as core:
             async with core.getLocalProxy(user='root') as prox:
-                await prox.addAuthUser('fred')
-                await prox.setUserPasswd('fred', 'secret')
+
+                fred = await prox.addUser('fred', passwd='secret')
 
                 self.true(core.agenda.enabled)
                 self.true(core.trigson)

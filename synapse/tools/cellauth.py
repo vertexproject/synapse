@@ -91,37 +91,46 @@ async def handleModify(opts):
 
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
+
+            async def useriden(name):
+                udef = await cell.getUserDefByName(name)
+                return udef['iden']
+
+            async def roleiden(name):
+                rdef = await cell.getRoleDefByName(name)
+                return rdef['iden']
+
             s_version.reqVersion(cell._getSynVers(), reqver)
             if cell._getSynVers() >= min_authgate_vers:
                 cell_supports_authgate = True
 
             if opts.adduser:
                 outp.printf(f'adding user: {opts.name}')
-                user = await cell.addAuthUser(opts.name)
+                user = await cell.addUser(opts.name)
 
             if opts.deluser:
                 outp.printf(f'deleting user: {opts.name}')
-                await cell.delAuthUser(opts.name)
+                await cell.delUser(await useriden(opts.name))
 
             if opts.addrole:
                 outp.printf(f'adding role: {opts.name}')
-                user = await cell.addAuthRole(opts.name)
+                user = await cell.addRole(opts.name)
 
             if opts.delrole:
                 outp.printf(f'deleting role: {opts.name}')
-                await cell.delAuthRole(opts.name)
+                await cell.delRole(await roleiden(opts.name))
 
             if opts.passwd:
                 outp.printf(f'setting passwd for: {opts.name}')
-                await cell.setUserPasswd(opts.name, opts.passwd)
+                await cell.setUserPasswd(await useriden(opts.name), opts.passwd)
 
             if opts.grant:
                 outp.printf(f'granting {opts.grant} to: {opts.name}')
-                await cell.addUserRole(opts.name, opts.grant)
+                await cell.addUserRole(await useriden(opts.name), await roleiden(opts.grant))
 
             if opts.revoke:
                 outp.printf(f'revoking {opts.revoke} from: {opts.name}')
-                await cell.delUserRole(opts.name, opts.revoke)
+                await cell.delUserRole(await useriden(opts.name), await roleiden(opts.revoke))
 
             if opts.admin:
                 outp.printf(f'granting admin status: {opts.name}')
@@ -133,11 +142,11 @@ async def handleModify(opts):
 
             if opts.lock:
                 outp.printf(f'locking user: {opts.name}')
-                await cell.setUserLocked(opts.name, True)
+                await cell.setUserLocked(await useriden(opts.name), True)
 
             if opts.unlock:
                 outp.printf(f'unlocking user: {opts.name}')
-                await cell.setUserLocked(opts.name, False)
+                await cell.setUserLocked(await useriden(opts.name), False)
 
             if opts.addrule:
 

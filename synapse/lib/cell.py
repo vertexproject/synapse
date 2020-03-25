@@ -183,8 +183,16 @@ class CellApi(s_base.Base):
                              task=iden, user=str(self.user), perm=perm)
 
     @adminapi
-    async def addAuthUser(self, name):
-        return await self.cell.addAuthUser(name)
+    async def addUser(self, name, passwd=None, email=None):
+        return await self.cell.addUser(name, passwd=passwd, email=email)
+
+    @adminapi
+    async def addRole(self, name):
+        return await self.cell.addRole(name)
+
+    @adminapi
+    async def delRole(self, iden):
+        return await self.cell.delRole(iden)
 
     @adminapi
     async def dyncall(self, iden, todo, gatekeys=()):
@@ -230,43 +238,43 @@ class CellApi(s_base.Base):
         Args:
             archived (bool):  If true, list all users, else list non-archived users
         '''
-        return [u.name for u in self.cell.auth.users() if archived or not u.info.get('archived')]
+        return await self.cell.getAuthUsers(archived=archived)
 
     @adminapi
     async def getAuthRoles(self):
-        return [r.name for r in self.cell.auth.roles()]
+        return await self.cell.getAuthRoles()
 
     @adminapi
-    async def addUserRule(self, name, rule, indx=None, gateiden=None):
-        user = await self.cell.auth.reqUserByName(name)
-        retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
-        return retn
+    async def addUserRule(self, iden, rule, indx=None, gateiden=None):
+        return await self.cell.addUserRule(iden, rule, indx=indx, gateiden=gateiden)
 
     @adminapi
-    async def addRoleRule(self, name, rule, indx=None, gateiden=None):
-        role = await self.cell.auth.reqRoleByName(name)
-        retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
-        return retn
+    async def setUserRules(self, iden, rules, gateiden=None):
+        return await self.cell.setUserRules(iden, rules, gateiden=gateiden)
 
     @adminapi
-    async def delUserRule(self, name, rule, gateiden=None):
-        user = await self.cell.auth.reqUserByName(name)
-        return await user.delRule(rule, gateiden=gateiden)
+    async def setRoleRules(self, iden, rules, gateiden=None):
+        return await self.cell.setRoleRules(iden, rules, gateiden=gateiden)
 
     @adminapi
-    async def delRoleRule(self, name, rule, gateiden=None):
-        role = await self.cell.auth.reqRoleByName(name)
-        return await role.delRule(rule, gateiden=gateiden)
+    async def addRoleRule(self, iden, rule, indx=None, gateiden=None):
+        return await self.cell.addRoleRule(iden, rule, indx=indx, gateiden=gateiden)
 
     @adminapi
-    async def setUserAdmin(self, name, admin, gateiden=None):
-        user = await self.cell.auth.reqUserByName(name)
-        await user.setAdmin(admin, gateiden=gateiden)
+    async def delUserRule(self, iden, rule, gateiden=None):
+        return await self.cell.delUserRule(iden, rule, gateiden=gateiden)
 
     @adminapi
-    async def setRoleAdmin(self, name, admin, gateiden=None):
-        role = await self.cell.auth.reqRoleByName(name)
-        await role.setAdmin(admin, gateiden=gateiden)
+    async def delRoleRule(self, iden, rule, gateiden=None):
+        return await self.cell.delRoleRule(iden, rule, gateiden=gateiden)
+
+    @adminapi
+    async def setUserAdmin(self, iden, admin, gateiden=None):
+        return await self.cell.setUserAdmin(iden, admin, gateiden=gateiden)
+
+    @adminapi
+    async def setRoleAdmin(self, iden, admin, gateiden=None):
+        return await self.cell.setRoleAdmin(iden, admin, gateiden=gateiden)
 
     @adminapi
     async def getAuthInfo(self, name):
@@ -307,52 +315,35 @@ class CellApi(s_base.Base):
             item = await self.cell.auth.getRoleByName(name)
         await item.setAdmin(isadmin)
 
-    async def setUserPasswd(self, name, passwd):
-        user = await self.cell.auth.getUserByName(name)
-        if user is None:
-            raise s_exc.NoSuchUser(user=name)
-        if not (self.user.isAdmin() or self.user.iden == user.iden):
-            raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
+    async def setUserPasswd(self, iden, passwd):
 
-        await user.setPasswd(passwd)
-        await self.cell.fire('user:mod', act='setpasswd', name=name)
+        await self.cell.auth.reqUser(iden)
 
-    @adminapi
-    async def setUserLocked(self, name, locked):
-        user = await self.cell.auth.getUserByName(name)
-        if user is None:
-            raise s_exc.NoSuchUser(user=name)
+        if self.user.iden == iden:
+            return await self.cell.setUserPasswd(iden, passwd)
 
-        await user.setLocked(locked)
-        await self.cell.fire('user:mod', act='locked', name=name, locked=locked)
+        self.user.confirm(('auth', 'user', 'set', 'passwd'))
+        return await self.cell.setUserPasswd(iden, passwd)
 
     @adminapi
-    async def setUserArchived(self, name, archived):
-        user = await self.cell.auth.getUserByName(name)
-        if user is None:
-            raise s_exc.NoSuchUser(user=name)
-
-        await user.setArchived(archived)
-        await self.cell.fire('user:mod', act='archived', name=name, archived=archived)
+    async def setUserLocked(self, useriden, locked):
+        return await self.cell.setUserLocked(useriden, locked)
 
     @adminapi
-    async def addUserRole(self, username, rolename):
-        user = await self.cell.auth.getUserByName(username)
-        if user is None:
-            raise s_exc.NoSuchUser(user=username)
-
-        await user.grant(rolename)
-        await self.cell.fire('user:mod', act='grant', name=username, role=rolename)
+    async def setUserArchived(self, useriden, archived):
+        return await self.cell.setUserArchived(useriden, archived)
 
     @adminapi
-    async def delUserRole(self, username, rolename):
+    async def setUserEmail(self, useriden, email):
+        return await self.cell.setUserEmail(useriden, email)
 
-        user = await self.cell.auth.getUserByName(username)
-        if user is None:
-            raise s_exc.NoSuchUser(user=username)
+    @adminapi
+    async def addUserRole(self, useriden, roleiden):
+        return await self.cell.addUserRole(useriden, roleiden)
 
-        await user.revoke(rolename)
-        await self.cell.fire('user:mod', act='revoke', name=username, role=rolename)
+    @adminapi
+    async def delUserRole(self, useriden, roleiden):
+        return await self.cell.delUserRole(useriden, roleiden)
 
     async def getUserInfo(self, name):
         user = await self.cell.auth.reqUserByName(name)
@@ -371,6 +362,30 @@ class CellApi(s_base.Base):
 
         mesg = 'getRoleInfo denied for non-admin and non-member'
         raise s_exc.AuthDeny(mesg=mesg)
+
+    @adminapi
+    async def getUserDef(self, iden):
+        return await self.cell.getUserDef(iden)
+
+    @adminapi
+    async def getRoleDef(self, iden):
+        return await self.cell.getRoleDef(iden)
+
+    @adminapi
+    async def getUserDefByName(self, name):
+        return await self.cell.getUserDefByName(name)
+
+    @adminapi
+    async def getRoleDefByName(self, name):
+        return await self.cell.getRoleDefByName(name)
+
+    @adminapi
+    async def getUserDefs(self):
+        return await self.cell.getUserDefs()
+
+    @adminapi
+    async def getRoleDefs(self):
+        return await self.cell.getRoleDefs()
 
     @adminapi
     async def isUserAllowed(self, iden, perm, gateiden=None):
@@ -561,11 +576,112 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(iden)
         return await user.profile.set(name, valu)
 
-    async def addAuthUser(self, name):
-        # Note:  change handling is implemented inside auth
-        user = await self.auth.addUser(name)
+    async def addUserRule(self, iden, rule, indx=None, gateiden=None):
+        user = await self.auth.reqUser(iden)
+        retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
+        return retn
+
+    async def addRoleRule(self, iden, rule, indx=None, gateiden=None):
+        role = await self.auth.reqRole(iden)
+        retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
+        return retn
+
+    async def delUserRule(self, iden, rule, gateiden=None):
+        user = await self.auth.reqUser(iden)
+        return await user.delRule(rule, gateiden=gateiden)
+
+    async def delRoleRule(self, iden, rule, gateiden=None):
+        role = await self.auth.reqRole(iden)
+        return await role.delRule(rule, gateiden=gateiden)
+
+    async def setUserRules(self, iden, rules, gateiden=None):
+        user = self.auth.reqUser(iden)
+        await user.setRules(rules, gateiden=gateiden)
+
+    async def setRoleRules(self, iden, rules, gateiden=None):
+        role = self.auth.reqRole(iden)
+        await role.setRules(rules, gateiden=gateiden)
+
+    async def setUserAdmin(self, iden, admin, gateiden=None):
+        user = await self.auth.reqUser(iden)
+        await user.setAdmin(admin, gateiden=gateiden)
+
+    async def setRoleAdmin(self, iden, admin, gateiden=None):
+        role = await self.auth.reqRole(iden)
+        await role.setAdmin(admin, gateiden=gateiden)
+
+    async def addUserRole(self, useriden, roleiden):
+        user = await self.auth.reqUser(useriden)
+        await user.grant(roleiden)
+        await self.fire('user:mod', act='grant', user=useriden, role=roleiden)
+
+    async def delUserRole(self, useriden, roleiden):
+        user = await self.auth.reqUser(useriden)
+        await user.revoke(roleiden)
+
+        await self.fire('user:mod', act='revoke', user=useriden, role=roleiden)
+
+    async def addUser(self, name, passwd=None, email=None):
+        user = await self.auth.addUser(name, passwd=passwd, email=email)
         await self.fire('user:mod', act='adduser', name=name)
-        return user.pack()
+        return user.pack(packroles=True)
+
+    async def delUser(self, iden):
+        await self.auth.delUser(iden)
+        await self.fire('user:mod', act='deluser', name=user.name)
+
+    async def addRole(self, name):
+        role = await self.auth.addRole(name)
+        return role.pack()
+
+    async def delRole(self, iden):
+        await self.auth.delRole(iden)
+
+    async def setUserEmail(self, useriden, email):
+        await self.auth.setUserInfo(useriden, 'email', email)
+
+    async def setUserPasswd(self, iden, passwd):
+        user = await self.auth.reqUser(iden)
+        await user.setPasswd(passwd)
+        await self.fire('user:mod', act='setpasswd', user=iden)
+
+    async def setUserLocked(self, iden, locked):
+        user = await self.auth.reqUser(iden)
+        await user.setLocked(locked)
+        await self.fire('user:mod', act='locked', user=iden, locked=locked)
+
+    async def setUserArchived(self, iden, archived):
+        user = await self.auth.reqUser(iden)
+        await user.setArchived(archived)
+        await self.fire('user:mod', act='archived', user=iden, archived=archived)
+
+    async def getUserDef(self, iden):
+        user = await self.auth.reqUser(iden)
+        return user.pack(packroles=True)
+
+    async def getRoleDef(self, iden):
+        role = await self.auth.reqRole(iden)
+        return role.pack()
+
+    async def getUserDefByName(self, name):
+        user = await self.auth.reqUserByName(name)
+        return user.pack(packroles=True)
+
+    async def getRoleDefByName(self, name):
+        role = await self.auth.reqRoleByName(name)
+        return role.pack()
+
+    async def getUserDefs(self):
+        return [u.pack(packroles=True) for u in self.auth.users()]
+
+    async def getRoleDefs(self):
+        return [r.pack() for u in self.auth.roles()]
+
+    async def getAuthUsers(self, archived=False):
+        return [u.pack() for u in self.auth.users() if archived or not u.info.get('archived')]
+
+    async def getAuthRoles(self):
+        return [r.pack() for r in self.auth.roles()]
 
     async def dyniter(self, iden, todo, gatekeys=()):
 

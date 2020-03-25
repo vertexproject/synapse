@@ -731,12 +731,13 @@ class StormTypesTest(s_test.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
                 async with core.getLocalProxy() as prox:
                     # User setup for $lib.user.vars() tests
-                    ret1 = await prox.addAuthUser('user1')
+
+                    ret1 = await prox.addUser('user1', passwd='secret')
                     iden1 = ret1.get('iden')
-                    await prox.setUserPasswd('user1', 'secret')
-                    await prox.addUserRule('user1', (True, ('node', 'add')))
-                    await prox.addUserRule('user1', (True, ('node', 'prop', 'set')))
-                    await prox.addUserRule('user1', (True, ('globals', 'get', 'userkey',)))
+
+                    await prox.addUserRule(iden1, (True, ('node', 'add')))
+                    await prox.addUserRule(iden1, (True, ('node', 'prop', 'set')))
+                    await prox.addUserRule(iden1, (True, ('globals', 'get', 'userkey',)))
 
                     # Basic tests as root for $lib.globals
 
@@ -1134,8 +1135,8 @@ class StormTypesTest(s_test.SynTest):
             # test other users who have access to this queue can do things to it
             async with core.getLocalProxy() as root:
                 # add users
-                await root.addAuthUser('synapse')
-                await root.addAuthUser('wootuser')
+                await root.addUser('synapse')
+                await root.addUser('wootuser')
 
                 synu = await core.auth.getUserByName('synapse')
                 woot = await core.auth.getUserByName('wootuser')
@@ -1146,13 +1147,13 @@ class StormTypesTest(s_test.SynTest):
                     await core.nodes('queue.add synq', opts=opts)
 
                 rule = (True, ('queue', 'add'))
-                await root.addUserRule('synapse', rule, indx=None)
+                await root.addUserRule(synu.iden, rule, indx=None)
                 opts = {'user': synu.iden}
                 msgs = await core.stormlist('queue.add synq', opts=opts)
                 self.stormIsInPrint('queue added: synq', msgs)
 
                 rule = (True, ('queue', 'synq', 'put'))
-                await root.addUserRule('synapse', rule, indx=None)
+                await root.addUserRule(synu.iden, rule, indx=None)
 
                 opts = {'user': synu.iden}
                 await core.nodes('$q = $lib.queue.get(synq) $q.puts((bar, baz))', opts=opts)
@@ -1163,7 +1164,7 @@ class StormTypesTest(s_test.SynTest):
                     await core.nodes('$lib.queue.get(synq).get()', opts=opts)
 
                 rule = (True, ('queue', 'synq', 'get'))
-                await root.addUserRule('wootuser', rule, indx=None)
+                await root.addUserRule(woot.iden, rule, indx=None)
 
                 msgs = await core.stormlist('$lib.print($lib.queue.get(synq).get(wait=False))')
                 self.stormIsInPrint("(0, 'bar')", msgs)
@@ -1173,7 +1174,7 @@ class StormTypesTest(s_test.SynTest):
                     await core.nodes('$lib.queue.del(synq)', opts=opts)
 
                 rule = (True, ('queue', 'del'))
-                await root.addUserRule('wootuser', rule, indx=None, gateiden='queue:synq')
+                await root.addUserRule(woot.iden, rule, indx=None, gateiden='queue:synq')
 
                 opts = {'user': woot.iden}
                 await core.nodes('$lib.queue.del(synq)', opts=opts)
@@ -1505,8 +1506,8 @@ class StormTypesTest(s_test.SynTest):
 
             # Test permissions
 
-            await prox.addAuthUser('visi')
-            await prox.setUserPasswd('visi', 'secret')
+            visi = await prox.addUser('visi')
+            await prox.setUserPasswd(visi['iden'], 'secret')
 
             async with core.getLocalProxy(user='visi') as asvisi:
 
@@ -1528,7 +1529,7 @@ class StormTypesTest(s_test.SynTest):
                 # Add requires 'add' permission
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.layer.add()'))
 
-                await prox.addAuthRule('visi', (True, ('layer', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('layer', 'add')))
 
                 layers = set(core.layers.keys())
                 q = 'layer.add --name "hehe haha"'
@@ -1540,7 +1541,7 @@ class StormTypesTest(s_test.SynTest):
                 # Del requires 'del' permission
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.layer.del({visilayr})'))
 
-                await prox.addAuthRule('visi', (True, ('layer', 'del')))
+                await prox.addUserRule(visi['iden'], (True, ('layer', 'del')))
 
                 q = f'layer.del {visilayr}'
                 mesgs = await asvisi.storm(q).list()
@@ -1764,8 +1765,7 @@ class StormTypesTest(s_test.SynTest):
 
             # Test permissions
 
-            await prox.addAuthUser('visi')
-            await prox.setUserPasswd('visi', 'secret')
+            visi = await prox.addUser('visi', passwd='secret')
 
             async with core.getLocalProxy(user='visi') as asvisi:
 
@@ -1776,7 +1776,7 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.add(({newlayer.iden},))'))
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.get({mainiden}).fork()'))
 
-                await prox.addUserRule('visi', (True, ('view', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('view', 'add')))
 
                 q = f'''
                     $newview=$lib.view.add(({newlayer.iden},))
@@ -1829,12 +1829,12 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asvisi.storm(q).list()
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'add',)))
-                await prox.addUserRule('visi', (True, ('node', 'del',)))
-                await prox.addUserRule('visi', (True, ('node', 'prop', 'set',)))
-                await prox.addUserRule('visi', (True, ('node', 'prop', 'del',)))
-                await prox.addUserRule('visi', (True, ('node', 'tag', 'add',)))
-                await prox.addUserRule('visi', (True, ('node', 'tag', 'del',)))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'add',)))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'del',)))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set',)))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'del',)))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add',)))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'del',)))
 
                 q = f'''
                     $view = $lib.view.get({forkediden})
@@ -1869,7 +1869,7 @@ class StormTypesTest(s_test.SynTest):
 
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.del({rootadd})'))
 
-                await prox.addUserRule('visi', (True, ('view', 'del')))
+                await prox.addUserRule(visi['iden'], (True, ('view', 'del')))
 
                 # Delete a view not owned by the user
                 q = f'$lib.view.del({rootadd})'
@@ -2006,7 +2006,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, await core.nodes('test:int=99'))
 
             # Test manipulating triggers as another user
-            await core.auth.addUser('bond')
+            bond = await core.auth.addUser('bond')
 
             async with core.getLocalProxy(user='bond') as asbond:
 
@@ -2036,20 +2036,20 @@ class StormTypesTest(s_test.SynTest):
 
                 # Give explicit perm
 
-                await prox.addAuthRule('bond', (True, ('trigger', 'add')))
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'add')))
                 mesgs = await asbond.storm(q).list()
 
                 q = 'trigger.list'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInPrint('bond', mesgs)
 
-                await prox.addAuthRule('bond', (True, ('trigger', 'get')))
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'get')))
 
                 mesgs = await asbond.storm('trigger.list').list()
                 self.stormIsInPrint('user', mesgs)
                 self.stormIsInPrint('root', mesgs)
 
-                await prox.addAuthRule('bond', (True, ('trigger', 'set')))
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'set')))
 
                 mesgs = await asbond.storm(f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}').list()
                 self.stormIsInPrint('Modified trigger', mesgs)
@@ -2633,3 +2633,67 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(hehe)')
             self.len(0, await core.nodes('yield $lib.lift.byNodeData(hehe)'))
+
+    async def test_stormtypes_auth(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+
+            self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
+            self.nn(await core.callStorm('return($lib.auth.users.byname(visi))'))
+
+            with self.raises(s_exc.NoSuchUser):
+                await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}})
+
+            with self.raises(s_exc.NoSuchUser):
+                await core.callStorm('return($lib.auth.users.byname(newp))')
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$user = $lib.auth.users.byname(visi) $lib.auth.users.del($user.iden)', opts=asvisi)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$user = $lib.auth.users.add(newp)', opts=asvisi)
+
+            udef = await core.callStorm('return($lib.auth.users.add(hehe, passwd=haha, email=visi@vertex.link))')
+
+            self.eq('hehe', udef['name'])
+            self.eq('visi@vertex.link', udef['email'])
+
+            self.nn(await core.tryUserPasswd('hehe', 'haha'))
+
+            self.eq((True, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText(foo.bar))'))
+            self.eq((False, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText("!foo.bar"))'))
+
+            rdef = await core.callStorm('return($lib.auth.roles.add(admins))')
+            opts = {'vars': {'roleiden': rdef.get('iden')}}
+
+            self.nn(rdef['iden'])
+            self.eq('admins', rdef['name'])
+
+            await core.callStorm('''
+                $role = $lib.auth.roles.byname(admins)
+                $role.addRule($lib.auth.ruleFromText(foo.bar))
+            ''')
+
+            self.false(await core.callStorm('''
+                return($lib.auth.users.byname(visi).allowed(foo.bar))
+            '''))
+
+            await core.callStorm('''
+                $role = $lib.auth.roles.byname(admins)
+                $lib.auth.users.byname(visi).grant($role.iden)
+            ''', opts=opts)
+
+            self.true(await core.callStorm('''
+                return($lib.auth.users.byname(visi).allowed(foo.bar))
+            '''))
+
+            await core.callStorm('''
+                $role = $lib.auth.roles.byname(admins)
+                $lib.auth.users.byname(visi).revoke($role.iden)
+            ''', opts=opts)
+
+            opts = {'vars': {'roleiden': rdef.get('iden')}}
+            await core.callStorm('return($lib.auth.roles.del($roleiden))', opts=opts)

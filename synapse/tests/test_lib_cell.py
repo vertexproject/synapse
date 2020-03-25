@@ -76,12 +76,12 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(info.get('user').get('name'), 'root')
                     self.eq(info.get('user').get('iden'), root.iden)
 
-                user = await echo.auth.addUser('visi')
-                await user.setPasswd('foo')
-                await user.addRule((True, ('foo', 'bar')))
+                visi = await echo.auth.addUser('visi')
+                await visi.setPasswd('foo')
+                await visi.addRule((True, ('foo', 'bar')))
                 testrole = await echo.auth.addRole('testrole')
                 await echo.auth.addRole('privrole')
-                await user.grant('testrole')
+                await visi.grant(testrole.iden)
 
                 visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
@@ -92,7 +92,7 @@ class CellTest(s_t_utils.SynTest):
                     # User can get authinfo data for themselves and their roles
                     uatm = await proxy.getUserInfo('visi')
                     self.eq(uatm.get('name'), 'visi')
-                    self.eq(uatm.get('iden'), user.iden)
+                    self.eq(uatm.get('iden'), visi.iden)
                     self.eq(uatm.get('roles'), ('all', 'testrole'))
                     self.eq(uatm.get('rules'), ((True, ('foo', 'bar')),))
                     ratm = await proxy.getRoleInfo('testrole')
@@ -109,9 +109,9 @@ class CellTest(s_t_utils.SynTest):
                     await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
 
                     # happy path perms
-                    await user.addRule((True, ('hive:set', 'foo', 'bar')))
-                    await user.addRule((True, ('hive:get', 'foo', 'bar')))
-                    await user.addRule((True, ('hive:pop', 'foo', 'bar')))
+                    await visi.addRule((True, ('hive:set', 'foo', 'bar')))
+                    await visi.addRule((True, ('hive:get', 'foo', 'bar')))
+                    await visi.addRule((True, ('hive:pop', 'foo', 'bar')))
 
                     val = await echo.setHiveKey(('foo', 'bar'), 'thefirstval')
                     self.eq(None, val)
@@ -133,10 +133,10 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(('baz', 'faz', 'haz'), val)
 
                     # visi user can change visi user pass
-                    await proxy.setUserPasswd('visi', 'foobar')
+                    await proxy.setUserPasswd(visi.iden, 'foobar')
                     # non admin visi user cannot change root user pass
                     with self.raises(s_exc.AuthDeny):
-                        await proxy.setUserPasswd('root', 'coolstorybro')
+                        await proxy.setUserPasswd(echo.auth.rootuser.iden, 'coolstorybro')
                     # cannot change a password for a non existent user
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.setUserPasswd('newp', 'new[')
@@ -150,16 +150,16 @@ class CellTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
 
                     # root user can change visi user pass
-                    await proxy.setUserPasswd('visi', 'foo')
+                    await proxy.setUserPasswd(visi.iden, 'foo')
                     visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
 
-                    await proxy.setUserLocked('visi', True)
+                    await proxy.setUserLocked(visi.iden, True)
                     info = await proxy.getUserInfo('visi')
                     self.true(info.get('locked'))
                     await self.asyncraises(s_exc.AuthDeny,
                                            s_telepath.openurl(visi_url))
 
-                    await proxy.setUserLocked('visi', False)
+                    await proxy.setUserLocked(visi.iden, False)
                     info = await proxy.getUserInfo('visi')
                     self.false(info.get('locked'))
                     async with await s_telepath.openurl(visi_url) as visi_proxy:
@@ -169,7 +169,7 @@ class CellTest(s_t_utils.SynTest):
 
                     await self.asyncraises(s_exc.NoSuchUser,
                                            proxy.setUserArchived('newp', True))
-                    await proxy.setUserArchived('visi', True)
+                    await proxy.setUserArchived(visi.iden, True)
                     info = await proxy.getUserInfo('visi')
                     self.true(info.get('archived'))
                     self.true(info.get('locked'))
@@ -180,7 +180,7 @@ class CellTest(s_t_utils.SynTest):
                     await self.asyncraises(s_exc.AuthDeny,
                                            s_telepath.openurl(visi_url))
 
-                    await proxy.setUserArchived('visi', False)
+                    await proxy.setUserArchived(visi.iden, False)
                     info = await proxy.getUserInfo('visi')
                     self.false(info.get('archived'))
                     self.true(info.get('locked'))
@@ -200,16 +200,16 @@ class CellTest(s_t_utils.SynTest):
                 # Ensure we can delete a rule by its item and index position
                 async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
                     rule = (True, ('hive:set', 'foo', 'bar'))
-                    self.isin(rule, user.info.get('rules'))
-                    await proxy.delUserRule('visi', rule)
-                    self.notin(rule, user.info.get('rules'))
+                    self.isin(rule, visi.info.get('rules'))
+                    await proxy.delUserRule(visi.iden, rule)
+                    self.notin(rule, visi.info.get('rules'))
                     # Removing a non-existing rule by *rule* has no consequence
-                    await proxy.delUserRule('visi', rule)
+                    await proxy.delUserRule(visi.iden, rule)
 
-                    rule = user.info.get('rules')[0]
-                    self.isin(rule, user.info.get('rules'))
-                    await proxy.delUserRule('visi', rule)
-                    self.notin(rule, user.info.get('rules'))
+                    rule = visi.info.get('rules')[0]
+                    self.isin(rule, visi.info.get('rules'))
+                    await proxy.delUserRule(visi.iden, rule)
+                    self.notin(rule, visi.info.get('rules'))
 
     async def test_cell_unix_sock(self):
 
@@ -322,9 +322,9 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchUser):
                         await prox.setCellUser(s_common.guid())
 
-                    user = await prox.addAuthUser('visi')
+                    visi = await prox.addUser('visi')
 
-                    self.true(await prox.setCellUser(user['iden']))
+                    self.true(await prox.setCellUser(visi['iden']))
                     self.eq('visi', (await prox.getCellUser())['name'])
 
                     # setCellUser propagates his change to the Daemon Sess object.
@@ -415,7 +415,7 @@ class CellTest(s_t_utils.SynTest):
 
                 self.true(cell00.nexsroot.donexslog)
 
-                await prox00.addAuthUser('test')
+                testuser = await prox00.addUser('test')
 
                 # We should have a set of auth:auth changes to find
                 task = cell00.schedCoro(coro(prox00, 0))
@@ -430,7 +430,7 @@ class CellTest(s_t_utils.SynTest):
                     cell01.getLocalProxy() as prox01:
                 self.false(cell01.nexsroot.donexslog)
 
-                await prox01.addAuthUser('test')
+                testuser01 = await prox01.addUser('test')
 
                 task = cell01.schedCoro(coro(prox01, 0))
                 yielded, data = await asyncio.wait_for(task, 6)

@@ -1626,11 +1626,11 @@ class SynTest(unittest.TestCase):
         ))
 
         iadd = await core.auth.addUser('icanadd')
-        await iadd.grant('creator')
+        await iadd.grant(creator.iden)
         await iadd.setPasswd('secret')
 
         idel = await core.auth.addUser('icandel')
-        await idel.grant('deleter')
+        await idel.grant(deleter.iden)
         await idel.setPasswd('secret')
 
     @contextlib.asynccontextmanager
