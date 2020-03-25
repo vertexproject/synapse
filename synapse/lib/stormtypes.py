@@ -958,7 +958,7 @@ class List(Prim):
         '''
         Return the length of the list.
         '''
-        # TODO - Remove this v0.3.0
+        s_common.deprecated('StormType List.length()')
         return len(self)
 
     async def _methListSize(self):

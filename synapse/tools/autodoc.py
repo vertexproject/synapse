@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 poptsToWords = {
         'ex': 'Example',
         'ro': 'Read Only',
-        'defval': 'Default Value',
     }
 
 raw_back_slash_colon = r'\:'
@@ -244,8 +243,6 @@ def processFormsProps(rst, dochelp, forms, univ_names):
                              ''
                              )
                 for k, v in popts.items():
-                    if k == 'defval' and v == '':
-                        v = "''"
                     k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
                     rst.addLines('  ' + f'* {k}: ``{v}``')
 
@@ -294,8 +291,6 @@ def processUnivs(rst, dochelp, univs):
                          ''
                          )
             for k, v in info.items():
-                if k == 'defval' and v == '':
-                    v = "''"
                 k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
                 rst.addLines('  ' + f'* {k}: ``{v}``')
 
