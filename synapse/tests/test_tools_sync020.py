@@ -329,6 +329,11 @@ class SyncTest(s_t_utils.SynTest):
 
                 self.eq('queue_fini', sync._pull_status[wlyr.iden])
 
+                # run stopsync with a prx exception
+                sync.dest = 'foobar'
+                stopres = await syncprx.stopSync()
+                self.len(2, stopres)  # returns the two layers stopped
+
     async def test_startSyncFromLast(self):
         conf_sync = {
             'poll_s': 1,
