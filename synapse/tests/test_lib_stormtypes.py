@@ -2686,6 +2686,8 @@ class StormTypesTest(s_test.SynTest):
                 $role.addRule($lib.auth.ruleFromText(foo.bar))
             ''')
 
+            await core.callStorm('$lib.auth.users.byname(visi).setPasswd(haha)')
+
             await core.callStorm('''
                 $lib.auth.users.byname(visi).setPasswd(hehe)
             ''', opts=asvisi)
@@ -2722,6 +2724,14 @@ class StormTypesTest(s_test.SynTest):
             ''')
 
             self.eq('hehe@haha.com', visi['email'])
+
+            visi = await core.callStorm('''
+                $visi = $lib.auth.users.byname(visi)
+                $visi.setEmail(giggles@clowntown.net)
+                return($lib.auth.users.byname(visi))
+            ''', asvisi)
+
+            self.eq('giggles@clowntown.net', visi['email'])
 
             # test user rules APIs
 
