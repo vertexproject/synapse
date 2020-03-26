@@ -176,7 +176,6 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:edge:n1:form'), node.ndef)
-            self.none(node.get('defval'))
             self.eq('form', node.get('base'))
             self.eq('n1:form', node.get('relname'))
 

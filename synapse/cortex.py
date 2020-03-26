@@ -1557,10 +1557,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
-        if info.get('defval', s_common.novalu) is not s_common.novalu:
-            mesg = 'Ext univ may not (yet) have a default value.'
-            raise s_exc.BadPropDef(name=name, mesg=mesg)
-
         self.model.addUnivProp(name, tdef, info)
 
         await self.extunivs.set(name, (name, tdef, info))
@@ -1570,10 +1566,6 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def addFormProp(self, form, prop, tdef, info):
         if not prop.startswith('_'):
             mesg = 'ext prop must begin with "_"'
-            raise s_exc.BadPropDef(prop=prop, mesg=mesg)
-
-        if info.get('defval', s_common.novalu) is not s_common.novalu:
-            mesg = 'Ext prop may not (yet) have a default value.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
         self.model.addFormProp(form, prop, tdef, info)

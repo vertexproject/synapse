@@ -270,7 +270,6 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The best known base name for the file.'}),
 
                     ('mime', ('file:mime', {}), {
-                        'defval': '??',
                         'doc': 'The "best" mime type name for the file.'}),
 
                     ('mime:x509:cn', ('str', {}), {
