@@ -297,13 +297,19 @@ class Auth(s_nexus.Pusher):
             raise s_exc.NoSuchAuthGate(iden=iden, mesg=mesg)
         return gate
 
-    async def addUser(self, name):
+    async def addUser(self, name, passwd=None, email=None):
 
         iden = s_common.guid()
         user = await self._push('user:add', iden, name)
 
+        if passwd is not None:
+            await user.setPasswd(passwd)
+
+        if email is not None:
+            await self.setUserInfo(user.iden, 'email', email)
+
         # Everyone's a member of 'all'
-        await user.grant('all')
+        await user.grant(self.allrole.iden)
 
         return user
 
@@ -334,14 +340,13 @@ class Auth(s_nexus.Pusher):
         return await self._addRoleNode(node)
 
     @s_nexus.Pusher.onPushAuto('user:del')
-    async def delUser(self, name):
+    async def delUser(self, iden):
 
-        if name == 'root':
-            raise s_exc.CantDelRootUser(mesg='user "root" may not be deleted')
+        if iden == self.rootuser.iden:
+            mesg = 'User "root" may not be deleted.'
+            raise s_exc.BadArg(mesg=mesg)
 
-        user = await self.getUserByName(name)
-        if user is None:
-            raise s_exc.NoSuchUser(name=name)
+        user = await self.reqUser(iden)
 
         self.usersbyiden.pop(user.iden)
         self.usersbyname.pop(user.name)
@@ -360,17 +365,16 @@ class Auth(s_nexus.Pusher):
                 yield user
 
     @s_nexus.Pusher.onPushAuto('role:del')
-    async def delRole(self, name):
+    async def delRole(self, iden):
 
-        if name == 'all':
-            raise s_exc.CantDelAllRole(mesg='role "all" may not be deleted')
+        if iden == self.allrole.iden:
+            mesg = 'Role "all" may not be deleted.'
+            raise s_exc.BadArg(mesg=mesg)
 
-        role = self.rolesbyname.get(name)
-        if role is None:
-            raise s_exc.NoSuchRole(name=name)
+        role = await self.reqRole(iden)
 
         for user in self._getUsersInRole(role):
-            await user.revoke(role.name)
+            await user.revoke(role.iden)
 
         for gate in self.authgates.values():
             await gate._delGateRole(role.iden)
@@ -583,13 +587,18 @@ class HiveUser(HiveRuler):
 
         self.permcache = s_cache.FixedCache(self._allowed)
 
-    def pack(self):
+    def pack(self, packroles=False):
+
+        roles = self.info.get('roles', ())
+        if packroles:
+            roles = [self.auth.role(r).pack() for r in roles]
+
         return {
             'type': 'user',
             'iden': self.iden,
             'name': self.name,
             'rules': self.info.get('rules', ()),
-            'roles': self.info.get('roles', ()),
+            'roles': roles,
             'admin': self.info.get('admin', ()),
             'email': self.info.get('email'),
             'locked': self.info.get('locked'),
@@ -691,11 +700,9 @@ class HiveUser(HiveRuler):
     def hasRole(self, iden):
         return iden in self.info.get('roles', ())
 
-    async def grant(self, name, indx=None):
+    async def grant(self, roleiden, indx=None):
 
-        role = self.auth.rolesbyname.get(name)
-        if role is None:
-            raise s_exc.NoSuchRole(name=name)
+        role = await self.auth.reqRole(roleiden)
 
         roles = list(self.info.get('roles'))
         if role.iden in roles:
@@ -708,14 +715,13 @@ class HiveUser(HiveRuler):
 
         await self.auth.setUserInfo(self.iden, 'roles', roles)
 
-    async def revoke(self, name):
+    async def revoke(self, iden):
 
-        role = self.auth.rolesbyname.get(name)
-        if role is None:
-            raise s_exc.NoSuchRole(name=name)
+        role = await self.auth.reqRole(iden)
 
         if role.name == 'all':
-            raise s_exc.CantRevokeAllRole(mesg='role "all" may not be revoked')
+            mesg = 'Role "all" may not be revoked.'
+            raise s_exc.BadArg(mesg=mesg)
 
         roles = list(self.info.get('roles'))
         if role.iden not in roles:
@@ -780,4 +786,4 @@ class HiveUser(HiveRuler):
             raise s_exc.BadArg(mesg='Password must be a string')
         salt = s_common.guid()
         hashed = s_common.guid((salt, passwd))
-        await self.info.set('passwd', (salt, hashed))
+        await self.auth.setUserInfo(self.iden, 'passwd', (salt, hashed))

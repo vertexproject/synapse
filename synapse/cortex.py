@@ -1850,6 +1850,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('inet', 'whois'), s_stormwhois.LibWhois)
         self.addStormLib(('base64',), s_stormtypes.LibBase64)
 
+        self.addStormLib(('auth', ), s_stormtypes.LibAuth)
+        self.addStormLib(('auth', 'users'), s_stormtypes.LibUsers)
+        self.addStormLib(('auth', 'roles'), s_stormtypes.LibRoles)
+
     def _initSplicers(self):
         '''
         Registration for splice handlers.

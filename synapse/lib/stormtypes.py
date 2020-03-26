@@ -1852,6 +1852,209 @@ class Trigger(StormType):
     async def pack(self):
         return self.tdef.copy()
 
+def ruleFromText(text):
+
+    allow = True
+    if text.startswith('!'):
+        text = text[1:]
+        allow = False
+
+    return (allow, tuple(text.split('.')))
+
+class LibAuth(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'ruleFromText': ruleFromText,
+        })
+
+class LibUsers(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._methUsersAdd,
+            'del': self._methUsersDel,
+            'list': self._methUsersList,
+            'get': self._methUsersGet,
+            'byname': self._methUsersByName,
+        })
+
+    async def _methUsersList(self):
+        return [User(self.runt, udef) for udef in await self.runt.snap.core.getUserDefs()]
+
+    async def _methUsersGet(self, iden):
+        udef = await self.runt.snap.core.getUserDef(iden)
+        return User(self.runt, udef)
+
+    async def _methUsersByName(self, name):
+        udef = await self.runt.snap.core.getUserDefByName(name)
+        return User(self.runt, udef)
+
+    async def _methUsersAdd(self, name, passwd=None, email=None):
+        self.runt.user.confirm(('auth', 'user', 'add'))
+        udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email)
+        return User(self.runt, udef)
+
+    async def _methUsersDel(self, iden):
+        self.runt.user.confirm(('auth', 'user', 'del'))
+        await self.runt.snap.core.delUser(iden)
+
+class LibRoles(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._methRolesAdd,
+            'del': self._methRolesDel,
+            'list': self._methRolesList,
+            'get': self._methRolesGet,
+            'byname': self._methRolesByName,
+        })
+
+    async def _methRolesList(self):
+        return [Role(self.runt, rdef) for rdef in await self.runt.snap.core.getRoleDefs()]
+
+    async def _methRolesGet(self, iden):
+        udef = await self.runt.snap.core.getRoleDef(iden)
+        return Role(self.runt, udef)
+
+    async def _methRolesByName(self, name):
+        udef = await self.runt.snap.core.getRoleDefByName(name)
+        return Role(self.runt, udef)
+
+    async def _methRolesAdd(self, name):
+        self.runt.user.confirm(('auth', 'role', 'add'))
+        udef = await self.runt.snap.core.addRole(name)
+        return Role(self.runt, udef)
+
+    async def _methRolesDel(self, iden):
+        self.runt.user.confirm(('auth', 'role', 'del'))
+        await self.runt.snap.core.delRole(iden)
+
+class User(Prim):
+
+    def __init__(self, runt, udef, path=None):
+
+        Prim.__init__(self, udef, path=path)
+        self.runt = runt
+
+        self.locls.update({
+            'iden': udef.get('iden'),
+            'name': udef.get('name'),
+            'get': self._methUserGet,
+            'roles': self._methUserRoles,
+            'allowed': self._methUserAllowed,
+            'grant': self._methUserGrant,
+            'revoke': self._methUserRevoke,
+
+            'addRule': self._methUserAddRule,
+            'delRule': self._methUserDelRule,
+            'setRules': self._methUserSetRules,
+            'setAdmin': self._methUserSetAdmin,
+            'setEmail': self._methUserSetEmail,
+            'setPasswd': self._methUserSetPasswd,
+        })
+
+    async def _methUserGet(self, name):
+        return self.valu.get(name)
+
+    async def _methUserRoles(self):
+        return [Role(self.runt, rdef) for rdef in self.valu.get('roles')]
+
+    async def _methUserAllowed(self, permname):
+        perm = tuple(permname.split('.'))
+        useriden = self.valu.get('iden')
+        return await self.runt.snap.core.isUserAllowed(useriden, perm)
+
+    async def _methUserGrant(self, iden):
+        self.runt.user.confirm(('auth', 'user', 'grant'))
+
+        useriden = self.valu.get('iden')
+        return await self.runt.snap.core.addUserRole(useriden, iden)
+
+    async def _methUserRevoke(self, iden):
+        self.runt.user.confirm(('auth', 'user', 'revoke'))
+
+        useriden = self.valu.get('iden')
+        return await self.runt.snap.core.delUserRole(useriden, iden)
+
+    async def _methUserSetRules(self, rules, gateiden=None):
+        self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
+
+        useriden = self.valu.get('iden')
+        return await self.runt.snap.core.setUserRules(useriden, rules, gateiden=gateiden)
+
+    async def _methUserAddRule(self, rule, gateiden=None):
+        self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
+
+        useriden = self.valu.get('iden')
+        return await self.runt.snap.core.addUserRule(useriden, rule, gateiden=gateiden)
+
+    async def _methUserDelRule(self, rule, gateiden=None):
+        self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
+
+        useriden = self.valu.get('iden')
+        return await self.runt.snap.core.delUserRule(useriden, rule, gateiden=gateiden)
+
+    async def _methUserSetEmail(self, email):
+
+        useriden = self.valu.get('iden')
+        if self.runt.user.iden == useriden:
+            return await self.runt.snap.core.setUserEmail(useriden, email)
+
+        self.runt.user.confirm(('auth', 'user', 'set', 'email'))
+        return await self.runt.snap.core.setUserEmail(useriden, email)
+
+    async def _methUserSetAdmin(self, admin, gateiden=None):
+        self.runt.user.confirm(('auth', 'user', 'set', 'admin'))
+        admin = bool(intify(admin))
+        useriden = self.valu.get('iden')
+        return await self.runt.snap.core.setUserAdmin(useriden, admin, gateiden=gateiden)
+
+    async def _methUserSetPasswd(self, passwd):
+        useriden = self.valu.get('iden')
+        if self.runt.user.iden == useriden:
+            return await self.runt.snap.core.setUserPasswd(useriden, passwd)
+        self.runt.user.confirm(('auth', 'user', 'set', 'passwd'))
+        return await self.runt.snap.core.setUserPasswd(useriden, passwd)
+
+class Role(Prim):
+
+    def __init__(self, runt, rdef, path=None):
+
+        Prim.__init__(self, rdef, path=path)
+        self.runt = runt
+
+        self.locls.update({
+            'iden': rdef.get('iden'),
+            'name': rdef.get('name'),
+            'get': self._methRoleGet,
+
+            'addRule': self._methRoleAddRule,
+            'delRule': self._methRoleDelRule,
+            'setRules': self._methRoleSetRules,
+        })
+
+    async def _methRoleGet(self, name):
+        return self.valu.get(name)
+
+    async def _methRoleSetRules(self, rules, gateiden=None):
+        self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
+
+        roleiden = self.valu.get('iden')
+        return await self.runt.snap.core.setRoleRules(roleiden, rules, gateiden=gateiden)
+
+    async def _methRoleAddRule(self, rule, gateiden=None):
+        self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
+
+        roleiden = self.valu.get('iden')
+        return await self.runt.snap.core.addRoleRule(roleiden, rule, gateiden=gateiden)
+
+    async def _methRoleDelRule(self, rule, gateiden=None):
+        self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
+
+        roleiden = self.valu.get('iden')
+        return await self.runt.snap.core.delRoleRule(roleiden, rule, gateiden=gateiden)
+
 class LibCron(Lib):
 
     def addLibFuncs(self):

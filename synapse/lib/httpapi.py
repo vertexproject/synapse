@@ -561,7 +561,7 @@ class AuthGrantV1(Handler):
             self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
             return
 
-        await user.grant(role.name)
+        await user.grant(role.iden)
 
         self.sendRestRetn(user.pack())
 
@@ -595,7 +595,7 @@ class AuthRevokeV1(Handler):
             self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
             return
 
-        await user.revoke(role.name)
+        await user.revoke(role.iden)
         self.sendRestRetn(user.pack())
 
         return
@@ -690,7 +690,7 @@ class AuthDelRoleV1(Handler):
         if role is None:
             return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!')
 
-        await self.cell.auth.delRole(name)
+        await self.cell.auth.delRole(role.iden)
 
         self.sendRestRetn(None)
         return
