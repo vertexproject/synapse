@@ -210,10 +210,6 @@ class CellApi(s_base.Base):
     async def delRole(self, iden):
         return await self.cell.delRole(iden)
 
-    @adminapi(log=True)
-    async def addAuthUser(self, name):
-        return await self.cell.addAuthUser(name)
-
     @adminapi()
     async def dyncall(self, iden, todo, gatekeys=()):
         return await self.cell.dyncall(iden, todo, gatekeys=gatekeys)
