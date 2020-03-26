@@ -235,7 +235,8 @@ Additional Changes
 - SYNDEV_OMIT_FINI_WARNS was added to silence tear down warnings.
 - Provenance is disabled by default. Enable by setting ``provenance:en: True`` in ``cell.yaml``.
 - The CellApi ``@adminapi`` decorator now must be called as a function, ``@adminapi()``.
-
+- The CellApi's used for managing users and roles have been updated to be iden oriented, as opposed to being name
+  oriented. User and Role management APIs have also been exposed via Storm.
 
 v0.1.X Changelog
 ================
