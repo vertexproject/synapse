@@ -292,10 +292,6 @@ class CellApi(s_base.Base):
     async def setUserAdmin(self, iden, admin, gateiden=None):
         return await self.cell.setUserAdmin(iden, admin, gateiden=gateiden)
 
-    @adminapi(log=True)
-    async def setRoleAdmin(self, iden, admin, gateiden=None):
-        return await self.cell.setRoleAdmin(iden, admin, gateiden=gateiden)
-
     @adminapi()
     async def getAuthInfo(self, name):
         s_common.deprecated('getAuthInfo')
@@ -625,10 +621,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
-
-    async def setRoleAdmin(self, iden, admin, gateiden=None):
-        role = await self.auth.reqRole(iden)
-        await role.setAdmin(admin, gateiden=gateiden)
 
     async def addUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)

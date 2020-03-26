@@ -446,6 +446,12 @@ class CellTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy() as proxy:
 
+                self.len(2, await proxy.getUserDefs())
+                self.len(2, await proxy.getRoleDefs())
+
+                self.nn(await proxy.getUserDef(visi['iden']))
+                self.nn(await proxy.getRoleDef(ninjas['iden']))
+
                 with self.raises(s_exc.BadArg):
                     await proxy.delUserRole(visi['iden'], core.auth.allrole.iden)
 

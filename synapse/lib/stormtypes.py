@@ -1951,6 +1951,7 @@ class User(Prim):
             'setRules': self._methUserSetRules,
             'setAdmin': self._methUserSetAdmin,
             'setEmail': self._methUserSetEmail,
+            'setPasswd': self._methUserSetPasswd,
         })
 
     async def _methUserGet(self, name):
@@ -2004,9 +2005,17 @@ class User(Prim):
         return await self.runt.snap.core.setUserEmail(useriden, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
-        admin = bool(intify(admin))
         self.runt.user.confirm(('auth', 'user', 'set', 'admin'))
+        admin = bool(intify(admin))
+        useriden = self.valu.get('iden')
         return await self.runt.snap.core.setUserAdmin(useriden, admin, gateiden=gateiden)
+
+    async def _methUserSetPasswd(self, passwd):
+        useriden = self.valu.get('iden')
+        if self.runt.user.iden == useriden:
+            return await self.runt.snap.core.setUserPasswd(useriden, passwd)
+        self.runt.user.confirm(('auth', 'user', 'set', 'passwd'))
+        return await self.runt.snap.core.setUserPasswd(useriden, passwd)
 
 class Role(Prim):
 

@@ -2663,6 +2663,15 @@ class StormTypesTest(s_test.SynTest):
 
             self.nn(await core.tryUserPasswd('hehe', 'haha'))
 
+            self.nn(await core.callStorm('''
+                $visi = $lib.auth.users.byname(visi)
+                for $role in $visi.roles() {
+                    if $("all" = $role.name) {
+                        return($role)
+                    }
+                }
+            '''))
+
             self.eq((True, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText(foo.bar))'))
             self.eq((False, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText("!foo.bar"))'))
 
@@ -2676,6 +2685,10 @@ class StormTypesTest(s_test.SynTest):
                 $role = $lib.auth.roles.byname(admins)
                 $role.addRule($lib.auth.ruleFromText(foo.bar))
             ''')
+
+            await core.callStorm('''
+                $lib.auth.users.byname(visi).setPasswd(hehe)
+            ''', opts=asvisi)
 
             self.false(await core.callStorm('''
                 return($lib.auth.users.byname(visi).allowed(foo.bar))
@@ -2744,7 +2757,10 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.eq(((True, ('hehe', 'haha')),), visi['rules'])
 
+            self.nn(await core.callStorm('return($lib.auth.roles.byname(all).get(rules))'))
+
             # test role rules APIs
+
             self.nn(await core.callStorm('''
                 return($lib.auth.roles.add(ninjas))
             '''))
@@ -2781,6 +2797,17 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
 
+            # test admin API
+            self.false(await core.callStorm('''
+                return($lib.auth.users.byname(visi).get(admin))
+            '''))
+
+            self.true(await core.callStorm('''
+                $lib.auth.users.byname(visi).setAdmin(true)
+                return($lib.auth.users.byname(visi).get(admin))
+            '''))
+
+            # test deleting users / roles
             await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 $lib.auth.users.del($visi.iden)
