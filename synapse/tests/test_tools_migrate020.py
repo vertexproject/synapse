@@ -945,6 +945,38 @@ class MigrationTest(s_t_utils.SynTest):
                 async with await s_migr.Migrator.anit(conf) as migr:
                     await self.asyncraises(Exception, migr.migrate())
 
+    async def test_migr_splices(self):
+        conf = {
+            'src': None,
+            'dest': None,
+            'migrops': [op for op in s_migr.ALL_MIGROPS if op not in ('nodes', 'splices')],
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            await migr.migrate()
+
+            migr.migrsplices = await s_migr.MigrSplices.anit(os.path.join(migr.dest, migr.migrdir, 'splices'), conf={})
+            migr.migrsplices.model.update(migr.model.getModelDict())
+            await migr._migrSplices('9f3e63d5242cf60779a7f46be2e86a4f')
+
+            await migr.fini()
+
+            # startup 0.2.0 core
+            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                # we should be able to iterate over the nodeedits, store them,
+                # and bring the cortex to the same state as a node migration
+                self.len(0, await core.nodes('.created -meta:source:name=test'))
+
+                lyr0 = core.layers[locallyrs[0]]
+                nes0 = []
+                for offs, nodeedits in lyr0.nodeeditlog.iter(0):
+                    nes0.append(nodeedits)
+
+                for nes in nes0:
+                    await lyr0.storNodeEdits(nes[0], None)  # generates a duplicate set of nodeedits
+
+                await self._checkCore(core, tdata)
+
     async def test_migr_cell(self):
         conf = {
             'src': None,

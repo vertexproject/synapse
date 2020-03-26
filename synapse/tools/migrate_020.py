@@ -20,6 +20,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
+import synapse.lib.queue as s_queue
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.modules as s_modules
@@ -30,6 +31,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 
 import synapse.tools.backup as s_backup
+import synapse.tools.sync_020 as s_sync
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ ALL_MIGROPS = (
     'nodedata',
     'cron',
     'triggers',
+    # 'splices',
 )
 
 ADD_MODES = (
@@ -53,6 +56,73 @@ ADD_MODES = (
 )
 
 MAX_01X_VERS = (0, 1, 3)
+
+class MigrSplices(s_sync.SyncMigrator):
+    '''
+    Migrate splices to nodeedits across local storage as one-time activity.
+    '''
+    async def __anit__(self, dirn, conf=None):
+        await s_sync.SyncMigrator.__anit__(self, dirn, conf=conf)
+        self.targetoffs = {}
+        self.src_genrs = {}
+        self.dest_writers = {}
+
+    async def _loadDatamodel(self):
+        pass
+
+    async def _disableMigrationMode(self):
+        pass
+
+    async def _srcPullLyrSplices(self, lyriden):
+        '''
+
+        Args:
+            lyriden:
+            src_genr:
+            targetoffs:
+
+        Returns:
+
+        '''
+        genr = self.src_genrs.get(lyriden)
+        startoffs = self.pull_offs.get(lyriden)
+        queue = self._queues[lyriden]
+        while not self.isfini:
+            try:
+                nextoffs, islive = await self._srcIterLyrSplices(genr, startoffs, queue)
+                if islive:
+                    break
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+            except Exception as e:
+                raise
+
+        # fini the queue; writer should continue until the queue is empty
+        await queue.fini()
+
+    async def _destPushLyrNodeedits(self, lyriden):
+        '''
+
+        Args:
+            lyriden:
+            dest_genr:
+            targetoffs:
+
+        Returns:
+
+        '''
+        writer = self.dest_writers.get(lyriden)
+        queue = self._queues.get(lyriden)
+        isdone = False
+        while not self.isfini and not isdone:
+            try:
+                if queue.isfini:
+                    isdone = True  # one last pass to empty the queue
+                await self._destIterLyrNodeedits(writer, queue, lyriden)
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+            except Exception as e:
+                raise
 
 class MigrAuth:
     '''
@@ -438,6 +508,7 @@ class MigrAuth:
             for uiden, uvals in avals['usersbyiden'].items():
                 uname = uname_lookup.get(uiden)
                 if uname is None:
+                    # FIXME: Should be halting err otherwise injects unloadable None
                     logger.warning(f'Unable to match user iden to name: {uiden}')
                 ausers['kids'][uiden] = {
                     'kids': {k: {'value': v} for k, v in uvals.items()},
@@ -525,6 +596,8 @@ class Migrator(s_base.Base):
             'lockmemory': self.srcdedicated,
         }
 
+        self.migrsplices = None
+
         # data model
         self.model = None
 
@@ -575,6 +648,10 @@ class Migrator(s_base.Base):
         if 'hiveauth' in self.migrops:
             await self._migrHiveAuth()
 
+        # prepare splice sync for layers
+        if 'splices' in self.migrops:
+            self.migrsplices = await MigrSplices.anit(os.path.join(self.dest, self.migrdir, 'splices'), conf={})
+
         # full layer data migration
         for iden, migrlyrinfo in lyrs.items():
             logger.info(f'Starting migration for layer {iden}')
@@ -585,6 +662,11 @@ class Migrator(s_base.Base):
 
             if 'nodedata' in self.migrops:
                 await self._migrNodeData(iden, wlyr)
+
+            await wlyr.fini()  # close layer slab before opening splice slabs
+
+            if 'splices' in self.migrops:
+                await self._migrSplices(iden)
 
         await self._dumpOffsets()
         await self._dumpVers()
@@ -1219,13 +1301,13 @@ class Migrator(s_base.Base):
         if fromlast:
             log = await self._migrlogGetOne(migrop, 'chkpnt', iden)
             if log is None:
-                logger.warning(f'Start from checkpoint was specified but no log found for layer {iden}')
+                logger.warning(f'Start from checkpoint was specified but no {migrop} log found for layer {iden}')
                 fromlast = False
             else:
                 lmin = log['val'][0]
                 startfrom = log['val'][1]
                 savetime = s_time.repr(log['val'][2])
-                logger.info(f'Resuming migration from {startfrom} saved on {savetime} for layer {iden}')
+                logger.info(f'Resuming {migrop} migration from {startfrom} saved on {savetime} for layer {iden}')
                 lastcnt = startfrom - 1 if startfrom > 0 else 0
 
         # open storage
@@ -1438,6 +1520,71 @@ class Migrator(s_base.Base):
         await src_slab.fini()
 
         return
+
+    async def _migrSplices(self, iden):
+        '''
+
+        Args:
+            iden:
+
+        Returns:
+
+        '''
+        migrop = 'splices'
+        fromlast = self.fromlast
+
+        # Open src slab, return if it doesn't exist
+        path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')
+        if os.path.exists(path):
+            spliceslab = await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False)
+            self.onfini(spliceslab.fini)
+            splicelog = s_slabseqn.SlabSeqn(spliceslab, 'splices')
+        else:
+            await self._migrlogAdd(migrop, 'error', iden, 'noexist')
+            logger.warning(f'Splice slab not found for {iden}, unable to migrate')
+            return
+
+        # Open dest slab
+        path = s_common.genpath(self.dest, 'layers', iden, 'nodeedits.lmdb')
+        nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=False, map_async=True, lockmemory=False)
+        self.onfini(nodeeditslab.fini)
+        nodeeditlog = s_slabseqn.SlabSeqn(nodeeditslab, 'nodeedits')
+
+        # See if there is a checkpoint to restart from
+        # FIXME: Use sync checkpoints; clear if *not* from last
+        src_nextoffs = 0
+        # dest_nextoffs = 0
+        if fromlast:
+            log = await self._migrlogGetOne(migrop, 'chkpnt', iden)
+            if log is None:
+                logger.warning(f'Start from checkpoint was specified but no {migrop} log found for layer {iden}')
+                # fromlast = False
+            else:
+                src_nextoffs = log['val'][0]
+                dest_lastoffs = log['val'][1]
+                savetime = s_time.repr(log['val'][2])
+                logger.info(f'Resuming {migrop} migration from {src_nextoffs} saved on {savetime} for layer {iden}')
+
+        # set dest indx to offs to start adding from
+        # nodeeditlog.indx = dest_nextoffs
+
+        # create the source genr to use in splice sync
+        async def genr(offs):
+            for indx, valu in splicelog.iter(offs):
+                yield valu
+
+        # create the dest writer to use in splice sync
+        # assumes that every nodeedit is a change
+        async def writer(nodeedits, meta):
+            nodeeditlog.add((nodeedits, meta))
+
+        self.migrsplices.src_genrs[iden] = genr
+        self.migrsplices.dest_writers[iden] = writer
+
+        await self.migrsplices.startLyrSync(iden, 0)
+        await asyncio.sleep(0)
+        await asyncio.wait_for(self.migrsplices.pull_tasks[iden], timeout=60)  # FIXME: timeout
+        await asyncio.wait_for(self.migrsplices.push_tasks[iden], timeout=60)
 
     #############################################################
     # Migration logging / record keeping
