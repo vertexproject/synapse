@@ -288,8 +288,8 @@ class SyncTest(s_t_utils.SynTest):
                 await self._checkCore(core)
 
                 # make sure tasks are still running
-                self.false(sync._pull_tasks[wlyr.iden].done())
-                self.false(sync._push_tasks[wlyr.iden].done())
+                self.false(sync.pull_tasks[wlyr.iden].done())
+                self.false(sync.push_tasks[wlyr.iden].done())
                 self.false(sync._queues[wlyr.iden].isfini)
 
                 # stop sync
@@ -299,8 +299,8 @@ class SyncTest(s_t_utils.SynTest):
                 self.true(core.trigson)
                 self.true(core.agenda.enabled)
 
-                self.true(sync._pull_tasks[wlyr.iden].done())
-                self.true(sync._push_tasks[wlyr.iden].done())
+                self.true(sync.pull_tasks[wlyr.iden].done())
+                self.true(sync.push_tasks[wlyr.iden].done())
                 self.true(sync._queues[wlyr.iden].isfini)
 
                 status = await syncprx.status(pprint=True)
@@ -325,7 +325,7 @@ class SyncTest(s_t_utils.SynTest):
                 # fini the queue
                 await sync._queues[wlyr.iden].fini()
 
-                await asyncio.wait_for(sync._pull_tasks[wlyr.iden], timeout=4)
+                await asyncio.wait_for(sync.pull_tasks[wlyr.iden], timeout=4)
 
                 self.eq('queue_fini', sync._pull_status[wlyr.iden])
 
@@ -353,7 +353,7 @@ class SyncTest(s_t_utils.SynTest):
                 self.eq(0, sync.push_offs.get(wlyr.iden))
 
                 # kick off a sync and then stop it so we can resume
-                await sync._startLyrSync(wlyr.iden, 0)
+                await sync.startLyrSync(wlyr.iden, 0)
 
                 self.false(core.trigson)
                 self.false(core.agenda.enabled)
@@ -378,8 +378,8 @@ class SyncTest(s_t_utils.SynTest):
                 await self._checkCore(core)
 
                 # make sure tasks are still running
-                self.false(sync._pull_tasks[wlyr.iden].done())
-                self.false(sync._push_tasks[wlyr.iden].done())
+                self.false(sync.pull_tasks[wlyr.iden].done())
+                self.false(sync.push_tasks[wlyr.iden].done())
                 self.false(sync._queues[wlyr.iden].isfini)
 
                 status = await syncprx.status()
@@ -401,8 +401,8 @@ class SyncTest(s_t_utils.SynTest):
                 await fkcore.fini()
                 await core.fini()
 
-                self.false(sync._pull_tasks[wlyr.iden].done())
-                self.false(sync._push_tasks[wlyr.iden].done())
+                self.false(sync.pull_tasks[wlyr.iden].done())
+                self.false(sync.push_tasks[wlyr.iden].done())
                 self.false(sync._queues[wlyr.iden].isfini)
 
     async def test_sync_assvr(self):
@@ -437,7 +437,12 @@ class SyncTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(os.path.join(fkurl, 'cortex', 'layer', wlyr)) as prx:
                 async with await s_queue.Window.anit(maxsize=None) as queue:
                     nextoffs_exp = (len(fkcore.splicelog[wlyr]['splices']), True)
-                    nextoffs = await sync._srcIterLyrSplices(prx, 0, queue)
+
+                    async def genr(offs):
+                        async for splice in prx.splices(offs, -1):  # -1 to avoid max
+                            yield splice
+
+                    nextoffs = await sync._srcIterLyrSplices(genr, 0, queue)
                     self.eq(nextoffs, nextoffs_exp)
                     self.len(nextoffs[0], queue.linklist)
 
@@ -496,8 +501,10 @@ class SyncTest(s_t_utils.SynTest):
                     sync.model.update(await core.getModelDict())
                     sync._push_evnts[wlyr.iden] = asyncio.Event()
 
+                    writer = prx.storNodeEditsNoLift
+
                     # test that queue can be empty when task starts
-                    task = sync.schedCoro(sync._destIterLyrNodeedits(prx, queue, wlyr.iden))
+                    task = sync.schedCoro(sync._destIterLyrNodeedits(writer, queue, wlyr.iden))
 
                     # fill up the queue with splices
                     offs = 0
@@ -538,6 +545,8 @@ class SyncTest(s_t_utils.SynTest):
                     sync.model.update(await core.getModelDict())
                     sync._push_evnts[wlyr.iden] = asyncio.Event()
 
+                    writer = prx.storNodeEditsNoLift
+
                     # fill up the queue with splices
                     offs = 0
                     async for splice in fkcore.splices(0, -1):
@@ -546,7 +555,7 @@ class SyncTest(s_t_utils.SynTest):
 
                     # start with a fini'd proxy
                     await prx.fini()
-                    task = sync.schedCoro(sync._destIterLyrNodeedits(prx, queue, wlyr.iden))
+                    task = sync.schedCoro(sync._destIterLyrNodeedits(writer, queue, wlyr.iden))
                     await asyncio.sleep(0)
                     self.true(task.done())
                     self.eq(offs, len(queue.linklist))  # pulled splices should be put back in queue

@@ -165,8 +165,8 @@ class SyncMigrator(s_cell.Cell):
 
         self._pull_status = {}  # lyriden: status
 
-        self._pull_tasks = {}  # lyriden: Task
-        self._push_tasks = {}
+        self.pull_tasks = {}  # lyriden: Task
+        self.push_tasks = {}
 
         self.pull_last_start = {}  # lyriden: epoch
         self.push_last_start = {}
@@ -206,8 +206,8 @@ class SyncMigrator(s_cell.Cell):
 
             pullstatus = self._pull_status.get(lyriden)
 
-            srctasksum = await self._getTaskSummary(self._pull_tasks.get(lyriden))
-            desttasksum = await self._getTaskSummary(self._push_tasks.get(lyriden))
+            srctasksum = await self._getTaskSummary(self.pull_tasks.get(lyriden))
+            desttasksum = await self._getTaskSummary(self.push_tasks.get(lyriden))
 
             errcnt = len(await self.getLyrErrs(lyriden))
 
@@ -299,7 +299,7 @@ class SyncMigrator(s_cell.Cell):
             await self._resetLyrErrs(lyriden)
             nextoffs = info['nextoffs']
             logger.info(f'Starting Layer sync for {lyriden} from file offset {nextoffs}')
-            await self._startLyrSync(lyriden, nextoffs)
+            await self.startLyrSync(lyriden, nextoffs)
             retn.append((lyriden, nextoffs))
 
         return retn
@@ -322,12 +322,12 @@ class SyncMigrator(s_cell.Cell):
                 nextoffs = min(pulloffs, pushoffs)
 
             logger.info(f'Starting Layer sync for {lyriden} from last offset {nextoffs}')
-            await self._startLyrSync(lyriden, nextoffs)
+            await self.startLyrSync(lyriden, nextoffs)
             retn.append((lyriden, nextoffs))
 
         return retn
 
-    async def _startLyrSync(self, lyriden, nextoffs):
+    async def startLyrSync(self, lyriden, nextoffs):
         '''
         Starts up the sync process for a given layer and starting offset.
         Always retrieves a fresh datamodel and sets migration mode.
@@ -340,10 +340,7 @@ class SyncMigrator(s_cell.Cell):
         await self.layers.set(lyriden, nextoffs)
         self.pull_offs.set(lyriden, nextoffs)
 
-        async with await s_telepath.openurl(self.dest) as prx:
-            model = await prx.getModelDict()
-            self.model.update(model)
-            await prx.enableMigrationMode()
+        await self._loadDatamodel()
 
         queue = self._queues.get(lyriden)
         if queue is None or queue.isfini:
@@ -351,15 +348,21 @@ class SyncMigrator(s_cell.Cell):
             self.onfini(queue.fini)
             self._queues[lyriden] = queue
 
-        pulltask = self._pull_tasks.get(lyriden)
+        pulltask = self.pull_tasks.get(lyriden)
         if pulltask is None or pulltask.done():
-            self._pull_tasks[lyriden] = self.schedCoro(self._srcPullLyrSplices(lyriden))
             self._pull_evnts[lyriden] = asyncio.Event()
+            self.pull_tasks[lyriden] = self.schedCoro(self._srcPullLyrSplices(lyriden))
 
-        pushtask = self._push_tasks.get(lyriden)
+        pushtask = self.push_tasks.get(lyriden)
         if pushtask is None or pushtask.done():
-            self._push_tasks[lyriden] = self.schedCoro(self._destPushLyrNodeedits(lyriden))
             self._push_evnts[lyriden] = asyncio.Event()
+            self.push_tasks[lyriden] = self.schedCoro(self._destPushLyrNodeedits(lyriden))
+
+    async def _loadDatamodel(self):
+        async with await s_telepath.openurl(self.dest) as prx:
+            model = await prx.getModelDict()
+            self.model.update(model)
+            await prx.enableMigrationMode()
 
     async def stopSync(self):
         '''
@@ -370,12 +373,12 @@ class SyncMigrator(s_cell.Cell):
         '''
         retn = set()
 
-        for lyriden, task in self._pull_tasks.items():
+        for lyriden, task in self.pull_tasks.items():
             logger.warning(f'Cancelling {lyriden} pull task')
             task.cancel()
             retn.add(lyriden)
 
-        for lyriden, task in self._push_tasks.items():
+        for lyriden, task in self.push_tasks.items():
             logger.warning(f'Cancelling {lyriden} push task')
             task.cancel()
             retn.add(lyriden)
@@ -385,6 +388,12 @@ class SyncMigrator(s_cell.Cell):
             await queue.fini()
             retn.add(lyriden)
 
+        await self._disableMigrationMode()
+
+        logger.info('stopSync complete')
+        return list(retn)
+
+    async def _disableMigrationMode(self):
         try:
             async with await s_telepath.openurl(self.dest) as prx:
                 await prx.disableMigrationMode()
@@ -393,9 +402,6 @@ class SyncMigrator(s_cell.Cell):
         except Exception as e:
             logger.exception(f'Unable to disable migration mode on dest cortex: {e}')
             pass
-
-        logger.info('stopSync complete')
-        return list(retn)
 
     async def _resetLyrErrs(self, lyriden):
         lpref = s_common.uhex(lyriden)
@@ -455,6 +461,10 @@ class SyncMigrator(s_cell.Cell):
                 logger.info(f'Connected to source {lyriden}')
                 islive = False
 
+                async def genr(offs):
+                    async for splice in prx.splices(offs, -1):  # -1 to avoid max
+                        yield splice
+
                 while not prx.isfini:
                     queue = self._queues.get(lyriden)
                     startoffs = self.pull_offs.get(lyriden)
@@ -468,7 +478,7 @@ class SyncMigrator(s_cell.Cell):
                     self._pull_evnts[lyriden].clear()
 
                     self.pull_last_start[lyriden] = s_common.now()
-                    nextoffs, islive = await self._srcIterLyrSplices(prx, startoffs, queue)
+                    nextoffs, islive = await self._srcIterLyrSplices(genr, startoffs, queue)
 
                     self.pull_offs.set(lyriden, nextoffs)
 
@@ -495,12 +505,12 @@ class SyncMigrator(s_cell.Cell):
                 self._pull_status[lyriden] = 'connect_err'
                 await asyncio.sleep(2 ** trycnt)
 
-    async def _srcIterLyrSplices(self, prx, startoffs, queue):
+    async def _srcIterLyrSplices(self, genr, startoffs, queue):
         '''
-        Iterate over available splices for a given source layer proxy, and push into queue
+        Iterate over available splices for a given source generator, and push into queue
 
         Args:
-            prx (s_telepath.Proxy): Proxy to source layer
+            genr (async_generator): Generator that takes an offset and yields splices
             startoffs (int): Offset to start iterating from
             queue (s_queue.Window): Layer queue for splices
 
@@ -510,7 +520,7 @@ class SyncMigrator(s_cell.Cell):
         curoffs = startoffs
         fair_iter = self.pull_fair_iter
         q_cap = self.q_cap
-        async for splice in prx.splices(startoffs, -1):
+        async for splice in genr(startoffs):
             qres = await queue.put((curoffs, splice))
             if not qres:
                 return curoffs, False
@@ -679,10 +689,9 @@ class SyncMigrator(s_cell.Cell):
 
                 queue = self._queues.get(lyriden)
 
-                logger.debug(f'Starting {lyriden} splice queue reader')
-
                 self.push_last_start[lyriden] = s_common.now()
-                await self._destIterLyrNodeedits(prx, queue, lyriden)
+                writer = prx.storNodeEditsNoLift
+                await self._destIterLyrNodeedits(writer, queue, lyriden)
 
                 logger.warning(f'{lyriden} splice queue reader has stopped')
 
@@ -697,14 +706,14 @@ class SyncMigrator(s_cell.Cell):
                 await asyncio.sleep(2 ** trycnt)
                 continue
 
-    async def _destIterLyrNodeedits(self, prx, queue, lyriden):
+    async def _destIterLyrNodeedits(self, writer, queue, lyriden):
         '''
         Batch available source splices in a queue as nodeedits and push to the destination layer proxy.
         Nodeedit boundaries are defined by the ndef and prov iden.
         Will run as long as queue is not fini'd.
 
         Args:
-            prx (s_telepath.Proxy): Proxy to destination layer
+            writer (function): Async function that takes (nodeedits, meta) as input
             queue (s_queue.Window): Layer queue for splices
             lyriden (str): Layer iden
         '''
@@ -733,7 +742,7 @@ class SyncMigrator(s_cell.Cell):
                 try:
                     err, ne, meta = await self._trnNodeSplicesToNodeedit(ndef, nodesplices)
                     if err is None:
-                        await prx.storNodeEditsNoLift([ne], meta)
+                        await writer([ne], meta)
                         self.push_offs.set(lyriden, offs + 1)
 
                 except asyncio.CancelledError:  # pragma: no cover
