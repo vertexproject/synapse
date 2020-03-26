@@ -305,7 +305,6 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def addAuthRule(self, name, rule, indx=None, gateiden=None):
-
         s_common.deprecated('addAuthRule')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
