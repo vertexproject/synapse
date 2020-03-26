@@ -343,7 +343,8 @@ class Auth(s_nexus.Pusher):
     async def delUser(self, iden):
 
         if iden == self.rootuser.iden:
-            raise s_exc.CantDelRootUser(mesg='user "root" may not be deleted')
+            mesg = 'User "root" may not be deleted.'
+            raise s_exc.BadArg(mesg=mesg)
 
         user = await self.reqUser(iden)
 
@@ -367,7 +368,8 @@ class Auth(s_nexus.Pusher):
     async def delRole(self, iden):
 
         if iden == self.allrole.iden:
-            raise s_exc.CantDelAllRole(mesg='role "all" may not be deleted')
+            mesg = 'Role "all" may not be deleted.'
+            raise s_exc.BadArg(mesg=mesg)
 
         role = await self.reqRole(iden)
 
@@ -718,7 +720,8 @@ class HiveUser(HiveRuler):
         role = await self.auth.reqRole(iden)
 
         if role.name == 'all':
-            raise s_exc.CantRevokeAllRole(mesg='role "all" may not be revoked')
+            mesg = 'Role "all" may not be revoked.'
+            raise s_exc.BadArg(mesg=mesg)
 
         roles = list(self.info.get('roles'))
         if role.iden not in roles:

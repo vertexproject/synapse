@@ -199,6 +199,10 @@ class CellApi(s_base.Base):
         return await self.cell.addUser(name, passwd=passwd, email=email)
 
     @adminapi(log=True)
+    async def delUser(self, iden):
+        return await self.cell.delUser(iden)
+
+    @adminapi(log=True)
     async def addRole(self, name):
         return await self.cell.addRole(name)
 
@@ -611,11 +615,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return await role.delRule(rule, gateiden=gateiden)
 
     async def setUserRules(self, iden, rules, gateiden=None):
-        user = self.auth.reqUser(iden)
+        user = await self.auth.reqUser(iden)
         await user.setRules(rules, gateiden=gateiden)
 
     async def setRoleRules(self, iden, rules, gateiden=None):
-        role = self.auth.reqRole(iden)
+        role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
 
     async def setUserAdmin(self, iden, admin, gateiden=None):
@@ -644,7 +648,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def delUser(self, iden):
         await self.auth.delUser(iden)
-        await self.fire('user:mod', act='deluser', name=user.name)
+        await self.fire('user:mod', act='deluser', user=iden)
 
     async def addRole(self, name):
         role = await self.auth.addRole(name)
@@ -691,7 +695,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return [u.pack(packroles=True) for u in self.auth.users()]
 
     async def getRoleDefs(self):
-        return [r.pack() for u in self.auth.roles()]
+        return [r.pack() for r in self.auth.roles()]
 
     async def getAuthUsers(self, archived=False):
         return [u.pack() for u in self.auth.users() if archived or not u.info.get('archived')]

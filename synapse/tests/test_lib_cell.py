@@ -436,3 +436,24 @@ class CellTest(s_t_utils.SynTest):
                 yielded, data = await asyncio.wait_for(task, 6)
                 self.false(yielded)
                 self.eq(data, [])
+
+    async def test_cell_authv2(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.addUser('visi')
+            ninjas = await core.addRole('ninjas')
+
+            async with core.getLocalProxy() as proxy:
+
+                with self.raises(s_exc.BadArg):
+                    await proxy.delUserRole(visi['iden'], core.auth.allrole.iden)
+
+                with self.raises(s_exc.BadArg):
+                    await proxy.delRole(core.auth.allrole.iden)
+
+                with self.raises(s_exc.BadArg):
+                    await proxy.delUser(core.auth.rootuser.iden)
+
+                await proxy.delUser(visi['iden'])
+                await proxy.delRole(ninjas['iden'])

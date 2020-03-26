@@ -1877,8 +1877,6 @@ class LibUsers(Lib):
             'list': self._methUsersList,
             'get': self._methUsersGet,
             'byname': self._methUsersByName,
-            #'del': self._methUsersDel,
-            #'role': self._methCronGet,
         })
 
     async def _methUsersList(self):
@@ -1901,8 +1899,6 @@ class LibUsers(Lib):
         self.runt.user.confirm(('auth', 'user', 'del'))
         await self.runt.snap.core.delUser(iden)
 
-    #async def _methAuthRole(self, iden):
-
 class LibRoles(Lib):
 
     def addLibFuncs(self):
@@ -1915,7 +1911,7 @@ class LibRoles(Lib):
         })
 
     async def _methRolesList(self):
-        return [Role(self.runt, udef) for udef in await self.runt.snap.core.getRoleDefs()]
+        return [Role(self.runt, rdef) for rdef in await self.runt.snap.core.getRoleDefs()]
 
     async def _methRolesGet(self, iden):
         udef = await self.runt.snap.core.getRoleDef(iden)
@@ -1994,12 +1990,18 @@ class User(Prim):
 
     async def _methUserDelRule(self, rule, gateiden=None):
         self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
+
+        useriden = self.valu.get('iden')
         return await self.runt.snap.core.delUserRule(useriden, rule, gateiden=gateiden)
 
     async def _methUserSetEmail(self, email):
+
         useriden = self.valu.get('iden')
-        if self.runt.user.iden == useriden or self.runt.user.confirm(('auth', 'user', 'set', 'email')):
+        if self.runt.user.iden == useriden:
             return await self.runt.snap.core.setUserEmail(useriden, email)
+
+        self.runt.user.confirm(('auth', 'user', 'set', 'email'))
+        return await self.runt.snap.core.setUserEmail(useriden, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
         admin = bool(intify(admin))

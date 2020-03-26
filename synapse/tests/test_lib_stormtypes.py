@@ -2693,7 +2693,102 @@ class StormTypesTest(s_test.SynTest):
             await core.callStorm('''
                 $role = $lib.auth.roles.byname(admins)
                 $lib.auth.users.byname(visi).revoke($role.iden)
-            ''', opts=opts)
+            ''')
 
-            opts = {'vars': {'roleiden': rdef.get('iden')}}
-            await core.callStorm('return($lib.auth.roles.del($roleiden))', opts=opts)
+            self.nn(await core.callStorm('for $user in $lib.auth.users.list() { if $($user.get(email) = "visi@vertex.link") { return($user) } }'))
+            self.nn(await core.callStorm('for $role in $lib.auth.roles.list() { if $( $role.name = "all") { return($role) } }'))
+            self.nn(await core.callStorm('return($lib.auth.roles.byname(all))'))
+
+            self.nn(await core.callStorm(f'return($lib.auth.roles.get({core.auth.allrole.iden}))'))
+            self.nn(await core.callStorm(f'return($lib.auth.users.get({core.auth.rootuser.iden}))'))
+
+            visi = await core.callStorm('''
+                $visi = $lib.auth.users.byname(visi)
+                $visi.setEmail(hehe@haha.com)
+                return($lib.auth.users.byname(visi))
+            ''')
+
+            self.eq('hehe@haha.com', visi['email'])
+
+            # test user rules APIs
+
+            visi = await core.callStorm('''
+                $visi = $lib.auth.users.byname(visi)
+                $visi.setRules(())
+                return($lib.auth.users.byname(visi))
+            ''')
+
+            self.eq((), visi['rules'])
+
+            visi = await core.callStorm('''
+                $rule = $lib.auth.ruleFromText(hehe.haha)
+                $visi = $lib.auth.users.byname(visi)
+                $visi.setRules(($rule))
+                return($lib.auth.users.byname(visi))
+            ''')
+            self.eq(((True, ('hehe', 'haha')),), visi['rules'])
+
+            visi = await core.callStorm('''
+                $rule = $lib.auth.ruleFromText(foo.bar)
+                $visi = $lib.auth.users.byname(visi)
+                $visi.addRule($rule)
+                return($lib.auth.users.byname(visi))
+            ''')
+            self.eq(((True, ('hehe', 'haha')), (True, ('foo', 'bar'))), visi['rules'])
+
+            visi = await core.callStorm('''
+                $rule = $lib.auth.ruleFromText(foo.bar)
+                $visi = $lib.auth.users.byname(visi)
+                $visi.delRule($rule)
+                return($lib.auth.users.byname(visi))
+            ''')
+            self.eq(((True, ('hehe', 'haha')),), visi['rules'])
+
+            # test role rules APIs
+            self.nn(await core.callStorm('''
+                return($lib.auth.roles.add(ninjas))
+            '''))
+
+            ninjas = await core.callStorm('''
+                $ninjas = $lib.auth.roles.byname(ninjas)
+                $ninjas.setRules(())
+                return($lib.auth.roles.byname(ninjas))
+            ''')
+
+            self.eq((), ninjas['rules'])
+
+            ninjas = await core.callStorm('''
+                $rule = $lib.auth.ruleFromText(hehe.haha)
+                $ninjas = $lib.auth.roles.byname(ninjas)
+                $ninjas.setRules(($rule))
+                return($lib.auth.roles.byname(ninjas))
+            ''')
+            self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
+
+            ninjas = await core.callStorm('''
+                $rule = $lib.auth.ruleFromText(foo.bar)
+                $ninjas = $lib.auth.roles.byname(ninjas)
+                $ninjas.addRule($rule)
+                return($lib.auth.roles.byname(ninjas))
+            ''')
+            self.eq(((True, ('hehe', 'haha')), (True, ('foo', 'bar'))), ninjas['rules'])
+
+            ninjas = await core.callStorm('''
+                $rule = $lib.auth.ruleFromText(foo.bar)
+                $ninjas = $lib.auth.roles.byname(ninjas)
+                $ninjas.delRule($rule)
+                return($lib.auth.roles.byname(ninjas))
+            ''')
+            self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
+
+            await core.callStorm('''
+                $visi = $lib.auth.users.byname(visi)
+                $lib.auth.users.del($visi.iden)
+            ''')
+            self.none(await core.auth.getUserByName('visi'))
+
+            await core.callStorm('''
+                $role = $lib.auth.roles.byname(ninjas)
+                $lib.auth.roles.del($role.iden)
+            ''')
+            self.none(await core.auth.getRoleByName('ninjas'))
