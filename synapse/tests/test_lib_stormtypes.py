@@ -2717,6 +2717,8 @@ class StormTypesTest(s_test.SynTest):
             self.nn(await core.callStorm(f'return($lib.auth.roles.get({core.auth.allrole.iden}))'))
             self.nn(await core.callStorm(f'return($lib.auth.users.get({core.auth.rootuser.iden}))'))
 
+            self.len(3, await core.callStorm(f'return($lib.auth.users.list())'))
+
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 $visi.setEmail(hehe@haha.com)
@@ -2829,3 +2831,28 @@ class StormTypesTest(s_test.SynTest):
                 $lib.auth.roles.del($role.iden)
             ''')
             self.none(await core.auth.getRoleByName('ninjas'))
+
+    async def test_stormtypes_node(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
+            self.eq(20, await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.get(asn))'))
+            self.isin(('asn', 20), await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.list())'))
+
+            props = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props)')
+            self.eq(20, props['asn'])
+
+            self.eq(0x01020304, await core.callStorm('inet:ipv4=1.2.3.4 return($node)'))
+
+    async def test_stormtypes_toprim(self):
+
+        async with self.getTestCore() as core:
+
+            orig = {'hehe': 20, 'haha': (1, 2, 3), 'none': None, 'bool': True}
+            valu = await core.callStorm('return($valu)', opts={'vars': {'valu': orig}})
+
+            self.eq(valu['hehe'], 20)
+            self.eq(valu['haha'], (1, 2, 3))
+            self.eq(valu['none'], None)
+        self.eq(valu['bool'], True)

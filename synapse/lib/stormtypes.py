@@ -1136,6 +1136,25 @@ class Query(StormType):
             if not cancelled:
                 await self.runt.propBackGlobals(subrunt)
 
+class NodeProps(Prim):
+
+    def __init__(self, node, path=None):
+        Prim.__init__(self, node, path=path)
+        self.locls.update({
+            'get': self.get,
+            'list': self.list,
+            # TODO implement set()
+        })
+
+    async def get(self, name, defv=None):
+        return self.valu.get(name)
+
+    async def list(self):
+        return list(self.valu.props.items())
+
+    def value(self):
+        return dict(self.valu.props)
+
 class NodeData(Prim):
 
     def __init__(self, node, path=None):
@@ -1198,10 +1217,14 @@ class Node(Prim):
             'isform': self._methNodeIsForm,
         })
 
-        def ctordata(path=None):
-            return NodeData(node, path=path)
+        self.ctors['data'] = self._ctorNodeData
+        self.ctors['props'] = self._ctorNodeProps
 
-        self.ctors['data'] = ctordata
+    def _ctorNodeData(self, path=None):
+        return NodeData(self.valu, path=path)
+
+    def _ctorNodeProps(self, path=None):
+        return NodeProps(self.valu, path=path)
 
     async def _methNodePack(self, dorepr=False):
         '''
@@ -1817,40 +1840,35 @@ class LibTrigger(Lib):
 
         return iden
 
-class Trigger(StormType):
+class Trigger(Prim):
 
     def __init__(self, runt, tdef):
 
-        StormType.__init__(self)
+        Prim.__init__(self, tdef)
         self.runt = runt
-        self.tdef = tdef
-        self.iden = self.tdef['iden']
 
         self.locls.update({
-            # 'get': self.tdef.get,
             'set': self.set,
-            'pack': self.pack,
+            'iden': tdef['iden'],
         })
 
     async def deref(self, name):
-        valu = self.tdef.get(name, s_common.novalu)
+        valu = self.valu.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
 
         return self.locls.get(name)
 
     async def set(self, name, valu):
+        trigiden = self.valu.get('iden')
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
         gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
-        todo = ('setTriggerInfo', (self.iden, name, valu), {})
+        todo = ('setTriggerInfo', (trigiden, name, valu), {})
         await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
-        self.tdef[name] = valu
-
-    async def pack(self):
-        return self.tdef.copy()
+        self.valu[name] = valu
 
 def ruleFromText(text):
 
@@ -2572,8 +2590,14 @@ class ModelType(Prim):
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
 
-    if isinstance(valu, (str, tuple, list, dict, int, bool)) or valu is None:
+    if isinstance(valu, (str, int, bool)) or valu is None:
         return valu
+
+    if isinstance(valu, (tuple, list)):
+        return tuple([toprim(v) for v in valu])
+
+    if isinstance(valu, dict):
+        return {toprim(k): toprim(v) for (k, v) in valu.items()}
 
     if isinstance(valu, Prim):
         return valu.value()
