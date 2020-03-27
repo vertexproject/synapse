@@ -5,6 +5,7 @@ try:
     import tqdm
     DoProgress = True
 except ModuleNotFoundError:
+    print('tqdm module not found.  Install it to see progress.')
     DoProgress = False
 
 import random
@@ -376,4 +377,4 @@ if __name__ == '__main__':
     opts = parser.parse_args()
 
     asyncio.run(benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir,
-                             jsondir=opts.jsondir, jsonprefix=opts.jsonprefix))
+                             jsondir=opts.jsondir, jsonprefix=opts.jsonprefix, niters=opts.niters))
