@@ -1152,7 +1152,7 @@ class NodeProps(Prim):
     async def list(self):
         return list(self.valu.props.items())
 
-    async def value(self):
+    def value(self):
         return dict(self.valu.props)
 
 class NodeData(Prim):
@@ -1303,9 +1303,6 @@ class Node(Prim):
 
     async def _methNodeIden(self):
         return self.valu.iden()
-
-    def value(self):
-        return self.valu.pack()
 
 class PathVars(Prim):
     '''
