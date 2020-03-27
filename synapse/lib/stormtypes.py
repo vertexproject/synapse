@@ -1817,23 +1817,20 @@ class LibTrigger(Lib):
 
         return iden
 
-class Trigger(StormType):
+class Trigger(Prim):
 
     def __init__(self, runt, tdef):
 
-        StormType.__init__(self)
+        Prim.__init__(self, tdef)
         self.runt = runt
-        self.tdef = tdef
-        self.iden = self.tdef['iden']
 
         self.locls.update({
-            # 'get': self.tdef.get,
             'set': self.set,
-            'pack': self.pack,
+            'iden': tdef['iden'],
         })
 
     async def deref(self, name):
-        valu = self.tdef.get(name, s_common.novalu)
+        valu = self.valu.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
 
@@ -1847,10 +1844,7 @@ class Trigger(StormType):
         todo = ('setTriggerInfo', (self.iden, name, valu), {})
         await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
-        self.tdef[name] = valu
-
-    async def pack(self):
-        return self.tdef.copy()
+        self.valu[name] = valu
 
 def ruleFromText(text):
 
@@ -2572,14 +2566,17 @@ class ModelType(Prim):
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
 
-    if isinstance(valu, (str, tuple, list, dict, int, bool)) or valu is None:
+    if isinstance(valu, (str, int, bool)) or valu is None:
         return valu
+
+    if isinstance(valu, (tuple, list)):
+        return tuple([toprim(v) for v in valu])
+
+    if isinstance(valu, dict):
+        return {toprim(k): toprim(v) for (k, v) in valu.items()}
 
     if isinstance(valu, Prim):
         return valu.value()
-
-    if isinstance(valu, s_node.Node):
-        return valu.ndef[1]
 
     mesg = 'Unable to convert object to Storm primitive.'
     raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)

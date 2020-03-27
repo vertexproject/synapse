@@ -2717,6 +2717,8 @@ class StormTypesTest(s_test.SynTest):
             self.nn(await core.callStorm(f'return($lib.auth.roles.get({core.auth.allrole.iden}))'))
             self.nn(await core.callStorm(f'return($lib.auth.users.get({core.auth.rootuser.iden}))'))
 
+            self.len(3, await core.callStorm(f'return($lib.auth.users.list())'))
+
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 $visi.setEmail(hehe@haha.com)
