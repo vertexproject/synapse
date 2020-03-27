@@ -2831,3 +2831,11 @@ class StormTypesTest(s_test.SynTest):
                 $lib.auth.roles.del($role.iden)
             ''')
             self.none(await core.auth.getRoleByName('ninjas'))
+
+    async def test_stormlib_node(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
+            self.eq(20, await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.get(asn))'))
+            self.isin(('asn', 20), await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.list())'))

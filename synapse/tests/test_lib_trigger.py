@@ -277,12 +277,12 @@ class TrigTest(s_t_utils.SynTest):
 
                 tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[ +#foo ]'}
                 opts = {'vars': {'tdef': tdef}}
-                trig = await proxy.callStorm('return ($lib.trigger.add($tdef).pack())', opts=opts)
+                trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=opts)
                 iden0 = trig['iden']
 
                 tdef = {'cond': 'node:add', 'form': 'inet:ipv6', 'storm': '[ +#foo ]'}
                 opts = {'vars': {'tdef': tdef}}
-                trig = await proxy.callStorm('return ($lib.trigger.add($tdef).pack())', opts=opts)
+                trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=opts)
                 iden1 = trig['iden']
 
                 nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')

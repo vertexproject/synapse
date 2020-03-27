@@ -1136,6 +1136,25 @@ class Query(StormType):
             if not cancelled:
                 await self.runt.propBackGlobals(subrunt)
 
+class NodeProps(Prim):
+
+    def __init__(self, node, path=None):
+        Prim.__init__(self, node, path=path)
+        self.locls.update({
+            'get': self.get,
+            'list': self.list,
+            # TODO implement set()
+        })
+
+    async def get(self, name, defv=None):
+        return self.valu.get(name)
+
+    async def list(self):
+        return list(self.valu.props.items())
+
+    async def value(self):
+        return dict(self.valu.props)
+
 class NodeData(Prim):
 
     def __init__(self, node, path=None):
@@ -1198,10 +1217,14 @@ class Node(Prim):
             'isform': self._methNodeIsForm,
         })
 
-        def ctordata(path=None):
-            return NodeData(node, path=path)
+        self.ctors['data'] = self._ctorNodeData
+        self.ctors['props'] = self._ctorNodeProps
 
-        self.ctors['data'] = ctordata
+    def _ctorNodeData(self, path=None):
+        return NodeData(self.valu, path=path)
+
+    def _ctorNodeProps(self, path=None):
+        return NodeProps(self.valu, path=path)
 
     async def _methNodePack(self, dorepr=False):
         '''
@@ -1280,6 +1303,9 @@ class Node(Prim):
 
     async def _methNodeIden(self):
         return self.valu.iden()
+
+    def value(self):
+        return self.valu.pack()
 
 class PathVars(Prim):
     '''
@@ -1837,11 +1863,12 @@ class Trigger(Prim):
         return self.locls.get(name)
 
     async def set(self, name, valu):
+        trigiden = self.valu.get('iden')
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
         gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
-        todo = ('setTriggerInfo', (self.iden, name, valu), {})
+        todo = ('setTriggerInfo', (trigiden, name, valu), {})
         await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         self.valu[name] = valu
@@ -2577,6 +2604,9 @@ def toprim(valu, path=None):
 
     if isinstance(valu, Prim):
         return valu.value()
+
+    if isinstance(valu, s_node.Node):
+        return valu.ndef[1]
 
     mesg = 'Unable to convert object to Storm primitive.'
     raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)
