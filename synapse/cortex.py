@@ -2665,6 +2665,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def count(self, text, opts=None):
 
+        opts = self._initStormOpts(opts)
+
         view = self._viewFromOpts(opts)
 
         i = 0
