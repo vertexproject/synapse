@@ -1,13 +1,7 @@
 import os
 import gc
+import sys
 import time
-try:
-    import tqdm
-    DoProgress = True
-except ModuleNotFoundError:
-    print('tqdm module not found.  Install it to see progress.')
-    DoProgress = False
-
 import random
 import asyncio
 import logging
@@ -16,6 +10,19 @@ import contextlib
 import statistics
 import collections
 from typing import List, Dict, AsyncIterator, Tuple, Any, Callable
+
+try:
+    import tqdm
+    DoProgress = True
+except ModuleNotFoundError:
+    print('"tqdm" module not found.  Install it to see progress.')
+    DoProgress = False
+
+try:
+    import yappi
+    YappiHere = True
+except ModuleNotFoundError:
+    YappiHere = False
 
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -168,7 +175,7 @@ class Benchmarker:
                 yield core, prox
 
     @isatrial
-    async def do00EmptyQuery(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do00EmptyQuery(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         for _ in range(self.workfactor // 10):
             count = await acount(prox.eval(''))
 
@@ -176,102 +183,104 @@ class Benchmarker:
         return self.workfactor // 10
 
     @isatrial
-    async def do01SimpleCount(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do01SimpleCount(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4 | count | spin'))
         assert count == 0
         return self.workfactor
 
     @isatrial
-    async def do02Lift(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do02Lift(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4'))
         assert count == self.workfactor
         return count
 
     @isatrial
-    async def do02LiftFilterAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do02LiftFilterAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4 | +#newp'))
         assert count == 0
         return 1
 
     @isatrial
-    async def do02LiftFilterPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do02LiftFilterPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4 | +#all'))
         assert count == self.workfactor
         return count
 
     @isatrial
-    async def do03LiftBySecondaryAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do03LiftBySecondaryAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:dns:a:fqdn=newp'))
         assert count == 0
         return 1
 
     @isatrial
-    async def do03LiftBySecondaryPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do03LiftBySecondaryPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:dns:a:fqdn=blackhole.website'))
         assert count == self.workfactor // 10
         return count
 
     @isatrial
-    async def do04LiftByTagAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do04LiftByTagAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4#newp'))
         assert count == 0
         return 1
 
     @isatrial
-    async def do04LiftByTagPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do04LiftByTagPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4#even'))
         assert count == self.workfactor // 2
         return count
 
     @isatrial
-    async def do05PivotAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do05PivotAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4#odd -> inet:dns:a'))
         assert count == 0
         return self.workfactor // 2
 
     @isatrial
-    async def do06PivotPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do06PivotPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4#even -> inet:dns:a'))
         assert count == self.workfactor // 2 + self.workfactor // 10
         return count
 
     @isatrial
-    async def do07AddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do07AddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.addNodes(self.testdata.asns2))
         assert count == self.workfactor
         return count
 
     @isatrial
-    async def do07AddNodesPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do07AddNodesPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.addNodes(self.testdata.ips))
         assert count == self.workfactor
         return count
 
     @isatrial
-    async def do08LocalAddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do08LocalAddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(core.addNodes(self.testdata.asns))
         assert count == self.workfactor
         return count
 
     @isatrial
-    async def do09DelNodes(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+    async def do09DelNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:url | delnode'))
         assert count == 0
         return self.workfactor
 
-    async def run(self, name: str, testdirn: str, coro) -> None:
+    async def run(self, name: str, testdirn: str, coro, do_profiling=False) -> None:
         for _ in range(self.num_iters):
             # We set up the cortex each time to avoid intra-cortex caching
             # (there's still a substantial amount of OS caching)
             async with self.getCortexAndProxy() as (core, prox):
                 gc.collect()
 
+                if do_profiling:
+                    yappi.start()
                 start = time.time()
                 count = await coro(core, prox)
                 self.measurements[name].append((time.time() - start, count))
+                if do_profiling:
+                    yappi.stop()
             renderProgress()
-
-        # yappi.get_func_stats().print_all()
 
     def _getTrialFuncs(self):
         funcs: List[Tuple[str, Callable]] = []
@@ -286,14 +295,14 @@ class Benchmarker:
             funcs.append((funcname, func))
         return funcs
 
-    async def runSuite(self, numprocs: int, tmpdir: str = None):
+    async def runSuite(self, numprocs: int, tmpdir: str = None, do_profiling=False):
         assert numprocs == 1
         if tmpdir is not None:
             tmpdir = os.path.abspath(tmpdir)
         with syntest.getTestDir(tmpdir) as dirn:
             logger.info('Loading test data complete.  Starting benchmarks')
             for funcname, func in self._getTrialFuncs():
-                await self.run(funcname, dirn, func)
+                await self.run(funcname, dirn, func, do_profiling=do_profiling)
 
 Configs: Dict[str, Dict] = {
     'simple': {'layers:lockmemory': False, 'layer:lmdb:map_async': False},
@@ -331,6 +340,7 @@ async def benchmarkAll(confignames: List = None,
                        jsonprefix: str = None,
                        niters: int = 4,
                        bench=None,
+                       do_profiling=False,
                        ) -> None:
 
     if jsondir:
@@ -348,8 +358,12 @@ async def benchmarkAll(confignames: List = None,
             print(f'{num_procs}-process benchmarking: {configname}')
             initProgress(niters * len(bench._getTrialFuncs()))
             try:
-                await bench.runSuite(num_procs)
+                await bench.runSuite(num_procs, do_profiling=do_profiling)
                 endProgress()
+
+                if do_profiling:
+                    yappi.get_func_stats().print_all()
+
                 bench.printreport(configname)
 
                 if jsondir:
@@ -381,6 +395,7 @@ def getParser():
                         help='Prefix to append to the autogenerated filename for json output.')
     parser.add_argument('--bench', '-b', nargs='*', default=None,
                         help='Prefixes of which benchmarks to run (defaults to run all)')
+    parser.add_argument('--do-profiling', action='store_true')
     return parser
 
 if __name__ == '__main__':
@@ -388,6 +403,10 @@ if __name__ == '__main__':
     parser = getParser()
     opts = parser.parse_args()
 
+    if opts.do_profiling and not YappiHere:
+        print('Error: module "yappi" must be installed to use --do-profiling')
+        sys.exit(1)
+
     asyncio.run(benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir,
                              jsondir=opts.jsondir, jsonprefix=opts.jsonprefix,
-                             niters=opts.niters, bench=opts.bench))
+                             niters=opts.niters, bench=opts.bench, do_profiling=opts.do_profiling))
