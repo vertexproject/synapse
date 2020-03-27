@@ -212,5 +212,5 @@ def reqVersion(valu, reqver,
 ##############################################################################
 # The following are touched during the release process by bumpversion.
 # Do not modify these directly.
-version = (0, 1, 55)
+version = (0, 1, 56)
 verstring = '.'.join([str(x) for x in version])
