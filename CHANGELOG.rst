@@ -5,6 +5,12 @@ Synapse Changelog
 v0.1.56 - 2019-03-27
 ====================
 
+Features and Enhancements
+-------------------------
+
+- Unify syntax checking into setup.cfg. This was cherry-picked from master.
+  (`#1632 <https://github.com/vertexproject/synapse/pull/1632>`_)
+
 Bugfixes
 --------
 
