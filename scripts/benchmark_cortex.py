@@ -156,9 +156,13 @@ class Benchmarker:
             s_tools_backup.backup(self.testdata.dirn, dirn, compact=False)
             async with syntest.getTestCore(conf=self.coreconfig, dirn=dirn) as core:
                 assert not core.inaugural
-                await core.view.layers[0].layrinfo.set('lockmemory', self.coreconfig.get('layers:lockmemory', False))
+                lockmemory = self.coreconfig.get('layers:lockmemory', False)
+                await core.view.layers[0].layrinfo.set('lockmemory', lockmemory)
 
             async with syntest.getTestCoreAndProxy(conf=self.coreconfig, dirn=dirn) as (core, prox):
+                if lockmemory:
+                    await core.view.layers[0].layrslab.lockdoneevent.wait()
+
                 yield core, prox
 
     @isatrial
