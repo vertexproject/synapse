@@ -1,6 +1,13 @@
 import os
 import gc
 import time
+try:
+    import tqdm
+    DoProgress = True
+except ModuleNotFoundError:
+    print('tqdm module not found.  Install it to see progress.')
+    DoProgress = False
+
 import random
 import asyncio
 import logging
@@ -14,7 +21,10 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.base as s_base
 import synapse.lib.time as s_time
+
+import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 
@@ -41,16 +51,19 @@ async def acount(genr):
         count += 1
     return count
 
-class TestData:
+syntest = s_t_utils.SynTest()
+
+class TestData(s_base.Base):
     '''
     Pregenerates a bunch of data for future test runs
     '''
-    def __init__(self, num_records):
+    async def __anit__(self, num_records, dirn):
         '''
         # inet:ipv4 -> inet:dns:a -> inet:fqdn
         # For each even ipv4 record, make an inet:dns:a record that points to <ipaddress>.website, if it is
         # divisible by ten also make a inet:dns:a that points to blackhole.website
         '''
+        await s_base.Base.__anit__(self)
         self.nrecs = num_records
         random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
         ips = list(range(num_records))
@@ -73,7 +86,13 @@ class TestData:
         self.urls = [(('inet:url', f'http://{hex(n)}.ninja'), {}) for n in range(num_records)]
         random.shuffle(self.urls)
 
-syntest = s_t_utils.SynTest()
+        tstdirctx = syntest.getTestDir(startdir=dirn)
+        self.dirn = await self.enter_context(tstdirctx)
+
+        async with syntest.getTestCore(dirn=self.dirn) as core:
+            await s_common.aspin(core.addNodes(self.ips))
+            await s_common.aspin(core.addNodes(self.dnsas))
+            await s_common.aspin(core.addNodes(self.urls))
 
 def isatrial(meth):
     '''
@@ -83,7 +102,8 @@ def isatrial(meth):
     return meth
 
 class Benchmarker:
-    def __init__(self, config: Dict[Any, Any], testdata: TestData, workfactor: int, num_iters=4):
+
+    def __init__(self, config: Dict[Any, Any], testdata: TestData, workfactor: int, num_iters=4, tmpdir=None):
         '''
         Args:
             config: the cortex config
@@ -99,6 +119,7 @@ class Benchmarker:
         self.coreconfig = config
         self.workfactor = workfactor
         self.testdata = testdata
+        self.tmpdir = tmpdir
 
     def printreport(self, configname: str):
         print(f'Config {configname}: {self.coreconfig}, Num Iters: {self.num_iters} Debug: {__debug__}')
@@ -129,20 +150,21 @@ class Benchmarker:
                                 'count': count}))
         return retn
 
-    async def _loadtestdata(self, core):
-        await s_common.aspin(core.addNodes(self.testdata.ips))
-        await s_common.aspin(core.addNodes(self.testdata.dnsas))
-        await s_common.aspin(core.addNodes(self.testdata.urls))
-
     @contextlib.asynccontextmanager
-    async def getCortexAndProxy(self, dirn: str) -> AsyncIterator[Tuple[Any, Any]]:
-        async with syntest.getTestCoreAndProxy(conf=self.coreconfig, dirn=dirn) as (core, prox):
-            yield core, prox
+    async def getCortexAndProxy(self) -> AsyncIterator[Tuple[Any, Any]]:
+        with syntest.getTestDir(startdir=self.tmpdir) as dirn:
+            s_tools_backup.backup(self.testdata.dirn, dirn, compact=False)
+            async with syntest.getTestCore(conf=self.coreconfig, dirn=dirn) as core:
+                assert not core.inaugural
+
+            async with syntest.getTestCoreAndProxy(conf=self.coreconfig, dirn=dirn) as (core, prox):
+                yield core, prox
 
     @isatrial
     async def do00EmptyQuery(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         for _ in range(self.workfactor // 10):
             count = await acount(prox.eval(''))
+
         assert count == 0
         return self.workfactor // 10
 
@@ -230,17 +252,19 @@ class Benchmarker:
         assert count == 0
         return self.workfactor
 
-    async def run(self, core: s_cortex.Cortex, name: str, dirn: str, coro) -> None:
-        for i in range(self.num_iters):
+    async def run(self, name: str, testdirn: str, coro) -> None:
+        for _ in range(self.num_iters):
             # We set up the cortex each time to avoid intra-cortex caching
             # (there's still a substantial amount of OS caching)
-            async with self.getCortexAndProxy(dirn) as (core, prox):
+            async with self.getCortexAndProxy() as (core, prox):
                 gc.collect()
 
                 start = time.time()
                 count = await coro(core, prox)
                 self.measurements[name].append((time.time() - start, count))
-                # yappi.get_func_stats().print_all()
+            renderProgress()
+
+        # yappi.get_func_stats().print_all()
 
     def _getTrialFuncs(self):
         funcs: List[Tuple[str, Callable]] = []
@@ -252,17 +276,14 @@ class Benchmarker:
             funcs.append((funcname, func))
         return funcs
 
-    async def runSuite(self, config: Dict[str, Dict], numprocs: int, tmpdir: str = None):
+    async def runSuite(self, numprocs: int, tmpdir: str = None):
         assert numprocs == 1
         if tmpdir is not None:
             tmpdir = os.path.abspath(tmpdir)
         with syntest.getTestDir(tmpdir) as dirn:
-            logger.info('Loading test data')
-            async with self.getCortexAndProxy(dirn) as (core, _):
-                await self._loadtestdata(core)
             logger.info('Loading test data complete.  Starting benchmarks')
             for funcname, func in self._getTrialFuncs():
-                await self.run(core, funcname, dirn, func)
+                await self.run(funcname, dirn, func)
 
 Configs: Dict[str, Dict] = {
     'simple': {},
@@ -271,45 +292,78 @@ Configs: Dict[str, Dict] = {
     'dedicatedasync': {'dedicated': True, 'layer:lmdb:map_async': True},
 }
 
-def benchmarkAll(confignames: List = None, num_procs=1, workfactor=1000, tmpdir=None,
-                 jsondir: str =None,
-                 jsonprefix: str =None,
-                 ) -> None:
+ProgressBar = None
+
+def initProgress(total):
+    if not DoProgress:
+        return
+    global ProgressBar
+
+    ProgressBar = tqdm.tqdm(total=total)
+
+def renderProgress():
+    if not DoProgress:
+        return
+
+    ProgressBar.update()
+
+def endProgress():
+    global ProgressBar
+    if not DoProgress:
+        return
+    ProgressBar.close()
+
+async def benchmarkAll(confignames: List = None,
+                       num_procs=1,
+                       workfactor=1000,
+                       tmpdir: str = None,
+                       jsondir: str = None,
+                       jsonprefix: str = None,
+                       niters: int = 4,
+                       ) -> None:
 
     if jsondir:
         s_common.gendir(jsondir)
 
-    testdata = TestData(workfactor)
-    if not confignames:
-        confignames = ['simple']
-    for configname in confignames:
-        tick = s_common.now()
-        config = Configs[configname]
-        bench = Benchmarker(config, testdata, workfactor)
-        print(f'{num_procs}-process benchmarking: {configname}')
-        asyncio.run(bench.runSuite(config, num_procs))
-        bench.printreport(configname)
+    async with await TestData.anit(workfactor, tmpdir) as testdata:
+        print('Initial cortex created')
+        if not confignames:
+            confignames = ['simple']
 
-        if jsondir:
-            data = {'time': tick,
-                    'config': config,
-                    'configname': configname,
-                    'workfactor': workfactor,
-                    'niters': bench.num_iters,
-                    'results': bench.reportdata()
-                    }
-            fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
-            if jsonprefix:
-                fn = f'{jsonprefix}{fn}'
-                data['prefix'] = jsonprefix
-            s_common.jssave(data, jsondir, fn)
+        for configname in confignames:
+            tick = s_common.now()
+            config = Configs[configname]
+            bench = Benchmarker(config, testdata, workfactor, num_iters=niters, tmpdir=tmpdir)
+            print(f'{num_procs}-process benchmarking: {configname}')
+            initProgress(niters * len(bench._getTrialFuncs()))
+            try:
+                await bench.runSuite(num_procs)
+                endProgress()
+                bench.printreport(configname)
+
+                if jsondir:
+                    data = {'time': tick,
+                            'config': config,
+                            'configname': configname,
+                            'workfactor': workfactor,
+                            'niters': bench.num_iters,
+                            'results': bench.reportdata()
+                            }
+                    fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
+                    if jsonprefix:
+                        fn = f'{jsonprefix}{fn}'
+                        data['prefix'] = jsonprefix
+                    s_common.jssave(data, jsondir, fn)
+            finally:
+                endProgress()
 
 def getParser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', nargs='*', default=None)
     # parser.add_argument('--num-clients', type=int, default=1)
     parser.add_argument('--workfactor', type=int, default=1000)
-    parser.add_argument('--tmpdir', nargs=1)
+    parser.add_argument('--niters', type=int, default=4, help='Number of times to run each benchmark')
+    parser.add_argument('--tmpdir', type=str),
     parser.add_argument('--jsondir', default=None, type=str,
                         help='Directory to output JSON report data too.')
     parser.add_argument('--jsonprefix', default=None, type=str,
@@ -321,5 +375,5 @@ if __name__ == '__main__':
     parser = getParser()
     opts = parser.parse_args()
 
-    benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir,
-                 jsondir=opts.jsondir, jsonprefix=opts.jsonprefix)
+    asyncio.run(benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir,
+                             jsondir=opts.jsondir, jsonprefix=opts.jsonprefix, niters=opts.niters))
