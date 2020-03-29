@@ -137,7 +137,7 @@ class Benchmarker:
             count = info.get('count')
             mean = info.get('mean') * 1000000
             stddev = info.get('stddev') * 1000000
-            print(f'{name:30}: {totmean:8.3}s / {count:5} = {mean:9.5}μs stddev: {stddev:6.4}μs')
+            print(f'{name:30}: {totmean:8.3f}s / {count:5} = {mean:6.0f}μs stddev: {stddev:6.0f}μs')
 
     def reportdata(self):
         retn = []
@@ -189,7 +189,7 @@ class Benchmarker:
         return self.workfactor
 
     @isatrial
-    async def do02Lift(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+    async def do02LiftSimple(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4'))
         assert count == self.workfactor
         return count
@@ -266,12 +266,30 @@ class Benchmarker:
         assert count == 0
         return self.workfactor
 
+    @isatrial
+    async def do10AutoAdds(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        q = "inet:ipv4 $val=$lib.str.format('{num}.rev', num=$(1000000-$node.value())) [:dns:rev=$val]"
+        count = await acount(prox.eval(q))
+        assert count == self.workfactor
+        return self.workfactor
+
+    @isatrial
+    async def do10Formatting(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        '''
+        The same as do10AutoAdds without the adds (to isolate the autoadd part)
+        '''
+        q = "inet:ipv4 $val=$lib.str.format('{num}.rev', num=$(1000000-$node.value()))"
+        count = await acount(prox.eval(q))
+        assert count == self.workfactor
+        return self.workfactor
+
     async def run(self, name: str, testdirn: str, coro, do_profiling=False) -> None:
         for _ in range(self.num_iters):
             # We set up the cortex each time to avoid intra-cortex caching
             # (there's still a substantial amount of OS caching)
             async with self.getCortexAndProxy() as (core, prox):
                 gc.collect()
+                gc.disable()
 
                 if do_profiling:
                     yappi.start()
@@ -280,6 +298,7 @@ class Benchmarker:
                 self.measurements[name].append((time.time() - start, count))
                 if do_profiling:
                     yappi.stop()
+                gc.enable()
             renderProgress()
 
     def _getTrialFuncs(self):
