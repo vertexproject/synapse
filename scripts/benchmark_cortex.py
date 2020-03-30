@@ -35,11 +35,12 @@ import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 
+DefaultConf = {'dedicated': True, 'layer:lmdb:map_async': True, 'splices:en': False}
 Configs: Dict[str, Dict] = {
     'simple': {'splices:en': False},
     'mapasync': {'layer:lmdb:map_async': True, 'splices:en': False},
     'dedicated': {'dedicated': True, 'splices:en': False},
-    'default': {'dedicated': True, 'layer:lmdb:map_async': True, 'splices:en': False},
+    'default': DefaultConf,
     'dedicatedasynclogging': {'default': True, 'layer:lmdb:map_async': True, 'splices:en': True},
 }
 
@@ -105,7 +106,7 @@ class TestData(s_base.Base):
         tstdirctx = syntest.getTestDir(startdir=dirn)
         self.dirn = await self.enter_context(tstdirctx)
 
-        async with syntest.getTestCore(dirn=self.dirn) as core:
+        async with await s_cortex.Cortex.anit(dirn, conf=DefaultConf) as core:
             await s_common.aspin(core.addNodes(self.ips))
             await s_common.aspin(core.addNodes(self.dnsas))
             await s_common.aspin(core.addNodes(self.urls))
@@ -172,14 +173,21 @@ class Benchmarker:
     async def getCortexAndProxy(self) -> AsyncIterator[Tuple[Any, Any]]:
         with syntest.getTestDir(startdir=self.tmpdir) as dirn:
             s_tools_backup.backup(self.testdata.dirn, dirn, compact=False)
-            async with syntest.getTestCore(conf=self.coreconfig, dirn=dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn, conf=self.coreconfig) as core:
                 assert not core.inaugural
-                lockmemory = self.coreconfig.get('dedicated', False)
+            lockmemory = self.coreconfig.get('dedicated', False)
 
             async with syntest.getTestCoreAndProxy(conf=self.coreconfig, dirn=dirn) as (core, prox):
                 if lockmemory:
                     await core.view.layers[0].layrslab.lockdoneevent.wait()
                 yield core, prox
+
+            async with await s_cortex.Cortex.anit(dirn, conf=self.coreconfig) as core:
+                async with core.getLocalProxy() as prox:
+                    if lockmemory:
+                        await core.view.layers[0].layrslab.lockdoneevent.wait()
+
+                    yield core, prox
 
     @isatrial
     async def do00EmptyQuery(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
@@ -366,45 +374,49 @@ async def benchmarkAll(confignames: List = None,
     if do_profiling:
         yappi.set_clock_type('wall')
 
-    async with await TestData.anit(workfactor, tmpdir) as testdata:
-        print('Initial cortex created')
-        if not confignames:
-            confignames = ['simple']
+    with contextlib.ExitStack() as estk:
+        if tmpdir is None:
+            tmpdir = estk.enter_context(syntest.getTestDir())
 
-        for configname in confignames:
-            tick = s_common.now()
-            config = Configs[configname]
-            bench = Benchmarker(config, testdata, workfactor, num_iters=niters, tmpdir=tmpdir, bench=bench)
-            print(f'{num_procs}-process benchmarking: {configname}')
-            initProgress(niters * len(bench._getTrialFuncs()))
-            try:
-                await bench.runSuite(num_procs, do_profiling=do_profiling)
-                endProgress()
+        async with await TestData.anit(workfactor, tmpdir) as testdata:
+            print('Initial cortex created')
+            if not confignames:
+                confignames = ['simple']
 
-                if do_profiling:
-                    yappi.get_func_stats().print_all()
+            for configname in confignames:
+                tick = s_common.now()
+                config = Configs[configname]
+                bench = Benchmarker(config, testdata, workfactor, num_iters=niters, tmpdir=tmpdir, bench=bench)
+                print(f'{num_procs}-process benchmarking: {configname}')
+                initProgress(niters * len(bench._getTrialFuncs()))
+                try:
+                    await bench.runSuite(num_procs, do_profiling=do_profiling)
+                    endProgress()
 
-                bench.printreport(configname)
+                    if do_profiling:
+                        yappi.get_func_stats().print_all()
 
-                if jsondir:
-                    data = {'time': tick,
-                            'config': config,
-                            'configname': configname,
-                            'workfactor': workfactor,
-                            'niters': bench.num_iters,
-                            'results': bench.reportdata()
-                            }
-                    fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
-                    if jsonprefix:
-                        fn = f'{jsonprefix}{fn}'
-                        data['prefix'] = jsonprefix
-                    s_common.jssave(data, jsondir, fn)
-            finally:
-                endProgress()
+                    bench.printreport(configname)
+
+                    if jsondir:
+                        data = {'time': tick,
+                                'config': config,
+                                'configname': configname,
+                                'workfactor': workfactor,
+                                'niters': bench.num_iters,
+                                'results': bench.reportdata()
+                                }
+                        fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
+                        if jsonprefix:
+                            fn = f'{jsonprefix}{fn}'
+                            data['prefix'] = jsonprefix
+                        s_common.jssave(data, jsondir, fn)
+                finally:
+                    endProgress()
 
 def getParser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', nargs='*', default=None)
+    parser.add_argument('--config', nargs='*', default=['default'])
     # parser.add_argument('--num-clients', type=int, default=1)
     parser.add_argument('--workfactor', type=int, default=1000)
     parser.add_argument('--niters', type=int, default=4, help='Number of times to run each benchmark')
