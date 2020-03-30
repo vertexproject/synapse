@@ -381,11 +381,9 @@ async def benchmarkAll(confignames: List = None,
     if do_profiling:
         yappi.set_clock_type('wall')
 
-    with contextlib.ExitStack() as estk:
-        if tmpdir is None:
-            tmpdir = estk.enter_context(syntest.getTestDir())
+    with syntest.getTestDir(startdir=tmpdir) as dirn:
 
-        async with await TestData.anit(workfactor, tmpdir) as testdata:
+        async with await TestData.anit(workfactor, dirn) as testdata:
             print('Initial cortex created')
             if not confignames:
                 confignames = ['simple']
