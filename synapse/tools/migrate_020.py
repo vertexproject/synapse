@@ -746,29 +746,26 @@ class Migrator(s_base.Base):
 
             # open source slab
             src_path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
-            src_slab = await s_lmdbslab.Slab.anit(src_path, **self.srcslabopts)
-            self.onfini(src_slab.fini)
-            src_bybuid = src_slab.initdb('bybuid')
+            async with await s_lmdbslab.Slab.anit(src_path, **self.srcslabopts) as src_slab:
+                self.onfini(src_slab.fini)
+                src_bybuid = src_slab.initdb('bybuid')
 
-            src_fcnt = collections.defaultdict(int)
-            src_tot = 0
-            async for form in self._srcIterForms(src_slab, src_bybuid):
-                src_fcnt[form] += 1
-                src_tot += 1
-                if src_tot % fairiter == 0:
-                    await asyncio.sleep(0)
-                if src_tot % 10000000 == 0:  # pragma: no cover
-                    logger.debug(f'...counted {src_tot} nodes so far')
-
-            await src_slab.fini()
+                src_fcnt = collections.defaultdict(int)
+                src_tot = 0
+                async for form in self._srcIterForms(src_slab, src_bybuid):
+                    src_fcnt[form] += 1
+                    src_tot += 1
+                    if src_tot % fairiter == 0:
+                        await asyncio.sleep(0)
+                    if src_tot % 10000000 == 0:  # pragma: no cover
+                        logger.debug(f'...counted {src_tot} nodes so far')
 
             # open dest slab
             if hasdest:
                 destpath = os.path.join(self.dest, 'layers', iden, 'layer_v2.lmdb')
-                destslab = await s_lmdbslab.Slab.anit(destpath, lockmemory=False, readonly=True)
-                self.onfini(destslab.fini)
-                dest_fcnt = await destslab.getHotCount('count:forms')
-                dest_fcnt = dest_fcnt.pack()
+                async with await s_lmdbslab.Slab.anit(destpath, lockmemory=False, readonly=True) as destslab:
+                    dest_fcnt = await destslab.getHotCount('count:forms')
+                    dest_fcnt = dest_fcnt.pack()
             else:
                 dest_fcnt = {}
 
