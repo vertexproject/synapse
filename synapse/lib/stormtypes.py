@@ -258,6 +258,9 @@ class LibBase(Lib):
             'guid': self._guid,
             'fire': self._fire,
             'list': self._list,
+            'null': None,
+            'true': True,
+            'false': False,
             'text': self._text,
             'print': self._print,
             'sorted': self._sorted,
@@ -340,10 +343,10 @@ class LibBase(Lib):
         await self.runt.printf(mesg)
 
     async def _dict(self, **kwargs):
-        return kwargs
-        # TODO: return Dict(kwargs)
+        return Dict(kwargs)
 
     async def _fire(self, name, **info):
+        info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
@@ -1195,6 +1198,7 @@ class NodeData(Prim):
 
     async def _setNodeData(self, name, valu):
         self._reqAllowed(('node', 'data', 'set', name))
+        valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
