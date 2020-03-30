@@ -1976,6 +1976,7 @@ class User(Prim):
             'setRules': self._methUserSetRules,
             'setAdmin': self._methUserSetAdmin,
             'setEmail': self._methUserSetEmail,
+            'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
         })
 
@@ -2038,6 +2039,10 @@ class User(Prim):
 
         self.runt.user.confirm(('auth', 'user', 'set', 'passwd'))
         return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
+
+    async def _methUserSetLocked(self, locked):
+        self.runt.user.confirm(('auth', 'user', 'set', 'locked'))
+        return await self.runt.snap.core.setUserLocked(self.valu, bool(intify(locked)))
 
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)

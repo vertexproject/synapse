@@ -2659,7 +2659,19 @@ class StormTypesTest(s_test.SynTest):
             udef = await core.callStorm('return($lib.auth.users.add(hehe, passwd=haha, email=visi@vertex.link))')
 
             self.eq('hehe', udef['name'])
+            self.eq(False, udef['locked'])
             self.eq('visi@vertex.link', udef['email'])
+
+            hehe = await core.callStorm('''
+                $hehe = $lib.auth.users.byname(hehe)
+                $hehe.setLocked(True)
+                return($hehe)
+            ''')
+            self.eq(True, hehe['locked'])
+
+            self.none(await core.tryUserPasswd('hehe', 'haha'))
+
+            await core.callStorm('$lib.auth.users.byname(hehe).setLocked(false)')
 
             self.nn(await core.tryUserPasswd('hehe', 'haha'))
 
