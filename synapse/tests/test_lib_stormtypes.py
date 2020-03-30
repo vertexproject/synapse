@@ -1031,7 +1031,7 @@ class StormTypesTest(s_test.SynTest):
                 _ = await alist(snap.storm(q))
                 self.len(0, snap.buidcache)
 
-    async def test_storm_lib_telepath(self):
+    async def test_stormtypes_telepath(self):
 
         class FakeService:
 

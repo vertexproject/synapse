@@ -12,6 +12,7 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
@@ -704,7 +705,38 @@ class Proxy(StormType):
             mesg = f'No proxy method named {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
 
-        return getattr(self.proxy, name, None)
+        meth = getattr(self.proxy, name, None)
+
+        if isinstance(meth, s_telepath.GenrMethod):
+            return ProxyGenrMethod(meth)
+
+        if isinstance(meth, s_telepath.Method):
+            return ProxyMethod(meth)
+
+class ProxyMethod(StormType):
+
+    def __init__(self, meth, path=None):
+        StormType.__init__(self, path=path)
+        self.meth = meth
+
+    async def __call__(self, *args, **kwargs):
+        args = await toprim(args)
+        kwargs = await toprim(kwargs)
+        # TODO: storm types fromprim()
+        return await self.meth(*args, **kwargs)
+
+class ProxyGenrMethod(StormType):
+
+    def __init__(self, meth, path=None):
+        StormType.__init__(self, path=path)
+        self.meth = meth
+
+    async def __call__(self, *args, **kwargs):
+        args = await toprim(args)
+        kwargs = await toprim(kwargs)
+        async for prim in self.meth(*args, **kwargs):
+            # TODO: storm types fromprim()
+            yield prim
 
 class LibBase64(Lib):
 
