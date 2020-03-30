@@ -878,6 +878,9 @@ class Dict(Prim):
     async def deref(self, name):
         return self.valu.get(name)
 
+    async def value(self):
+        return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
+
 class Set(Prim):
 
     def __init__(self, valu, path=None):
@@ -974,6 +977,9 @@ class List(Prim):
         Return the length of the list.
         '''
         return len(self)
+
+    async def value(self):
+        return tuple([await toprim(v) for v in self.valu])
 
 class Bool(Prim):
     pass
@@ -1440,6 +1446,9 @@ class StatTally(Prim):
 
     async def get(self, name):
         return self.counters.get(name, 0)
+
+    def value(self):
+        return dict(self.counters)
 
 class LibLayer(Lib):
 

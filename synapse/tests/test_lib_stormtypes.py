@@ -2870,4 +2870,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq(valu['hehe'], 20)
             self.eq(valu['haha'], (1, 2, 3))
             self.eq(valu['none'], None)
-        self.eq(valu['bool'], True)
+            self.eq(valu['bool'], True)
+
+            self.eq(('foo', 'bar'), await core.callStorm('$list = $lib.list() $list.append(foo) $list.append(bar) return($list)'))
+            self.eq({'foo': 'bar'}, await core.callStorm('$dict = $lib.dict() $dict.foo = bar return($dict)'))
+            self.eq({'foo': 2}, await core.callStorm('$tally = $lib.stats.tally() $tally.inc(foo) $tally.inc(foo) return($tally)'))
