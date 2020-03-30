@@ -175,12 +175,7 @@ class Benchmarker:
             s_tools_backup.backup(self.testdata.dirn, dirn, compact=False)
             async with await s_cortex.Cortex.anit(dirn, conf=self.coreconfig) as core:
                 assert not core.inaugural
-            lockmemory = self.coreconfig.get('dedicated', False)
-
-            async with syntest.getTestCoreAndProxy(conf=self.coreconfig, dirn=dirn) as (core, prox):
-                if lockmemory:
-                    await core.view.layers[0].layrslab.lockdoneevent.wait()
-                yield core, prox
+                lockmemory = self.coreconfig.get('dedicated', False)
 
             async with await s_cortex.Cortex.anit(dirn, conf=self.coreconfig) as core:
                 async with core.getLocalProxy() as prox:
@@ -374,11 +369,9 @@ async def benchmarkAll(confignames: List = None,
     if do_profiling:
         yappi.set_clock_type('wall')
 
-    with contextlib.ExitStack() as estk:
-        if tmpdir is None:
-            tmpdir = estk.enter_context(syntest.getTestDir())
+    with syntest.getTestDir(startdir=tmpdir) as dirn:
 
-        async with await TestData.anit(workfactor, tmpdir) as testdata:
+        async with await TestData.anit(workfactor, dirn) as testdata:
             print('Initial cortex created')
             if not confignames:
                 confignames = ['simple']
