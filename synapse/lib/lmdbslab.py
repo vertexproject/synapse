@@ -474,7 +474,7 @@ class Slab(s_base.Base):
         self.optspath = path.with_suffix('.opts.yaml')
 
         # Make sure we don't have this lmdb DB open already.  (This can lead to seg faults)
-        abspath = path.resolve()
+        abspath = str(path.resolve())
         if abspath in _AllSlabs:
             raise s_exc.SlabAlreadyOpen(mesg=path)
         self.abspath = abspath
@@ -513,6 +513,7 @@ class Slab(s_base.Base):
         self._saveOptsFile()
 
         self.lenv = lmdb.open(str(path), **opts)
+        print(f'{{+{abspath}')
         _AllSlabs.add(abspath)
 
         self.scans = set()
@@ -645,6 +646,7 @@ class Slab(s_base.Base):
             break
 
         self.lenv.close()
+        print(f'}}-{self.abspath}')
         _AllSlabs.discard(self.abspath)
         del self.lenv
 
