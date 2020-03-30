@@ -379,6 +379,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # map size to be increased
 
                 def anotherproc(path):
+                    # Bypass double-slab-open checking
+                    s_lmdbslab._AllSlabs.remove(newdb.abspath)
+
                     async def lotsofwrites(path):
                         os.remove(pathlib.Path(path).with_suffix('.opts.yaml'))
                         async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
@@ -746,6 +749,23 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq({'foo': 1, 'bar': 42}, ctr.pack())
                 ctr.sync()
                 self.eq({'foo': 1, 'bar': 42}, ctr.pack())
+
+    async def test_lmdbslab_doubleopen(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                foo = slab.initdb('foo')
+                slab.put(b'\x00\x01', b'hehe', db=foo)
+
+            # Can close and re-open fine
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                foo = slab.initdb('foo')
+                self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
+
+                # Can't re-open while already open
+                await self.asyncraises(s_exc.SlabAlreadyOpen, s_lmdbslab.Slab.anit(path))
 
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
