@@ -2722,7 +2722,7 @@ class StormTypesTest(s_test.SynTest):
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 $visi.setEmail(hehe@haha.com)
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''')
 
             self.eq('hehe@haha.com', visi['email'])
@@ -2730,7 +2730,7 @@ class StormTypesTest(s_test.SynTest):
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 $visi.setEmail(giggles@clowntown.net)
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''', asvisi)
 
             self.eq('giggles@clowntown.net', visi['email'])
@@ -2740,7 +2740,7 @@ class StormTypesTest(s_test.SynTest):
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 $visi.setRules(())
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''')
 
             self.eq((), visi['rules'])
@@ -2749,7 +2749,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $visi = $lib.auth.users.byname(visi)
                 $visi.setRules(($rule))
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''')
             self.eq(((True, ('hehe', 'haha')),), visi['rules'])
 
@@ -2757,7 +2757,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(foo.bar)
                 $visi = $lib.auth.users.byname(visi)
                 $visi.addRule($rule)
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''')
             self.eq(((True, ('hehe', 'haha')), (True, ('foo', 'bar'))), visi['rules'])
 
@@ -2765,7 +2765,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(foo.bar)
                 $visi = $lib.auth.users.byname(visi)
                 $visi.delRule($rule)
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''')
             self.eq(((True, ('hehe', 'haha')),), visi['rules'])
 
@@ -2780,7 +2780,7 @@ class StormTypesTest(s_test.SynTest):
             ninjas = await core.callStorm('''
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.setRules(())
-                return($lib.auth.roles.byname(ninjas))
+                return($ninjas)
             ''')
 
             self.eq((), ninjas['rules'])
@@ -2789,7 +2789,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.setRules(($rule))
-                return($lib.auth.roles.byname(ninjas))
+                return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
 
@@ -2797,7 +2797,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(foo.bar)
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.addRule($rule)
-                return($lib.auth.roles.byname(ninjas))
+                return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')), (True, ('foo', 'bar'))), ninjas['rules'])
 
@@ -2805,7 +2805,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(foo.bar)
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.delRule($rule)
-                return($lib.auth.roles.byname(ninjas))
+                return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
 
@@ -2815,8 +2815,9 @@ class StormTypesTest(s_test.SynTest):
             '''))
 
             self.true(await core.callStorm('''
-                $lib.auth.users.byname(visi).setAdmin(true)
-                return($lib.auth.users.byname(visi).get(admin))
+                $visi = $lib.auth.users.byname(visi)
+                $visi.setAdmin(true)
+                return($visi)
             '''))
 
             # test deleting users / roles

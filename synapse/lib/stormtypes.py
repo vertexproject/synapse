@@ -1984,54 +1984,86 @@ class User(Prim):
         return await self.runt.snap.core.isUserAllowed(useriden, perm)
 
     async def _methUserGrant(self, iden):
+
         self.runt.user.confirm(('auth', 'user', 'grant'))
 
         useriden = self.valu.get('iden')
-        return await self.runt.snap.core.addUserRole(useriden, iden)
+        await self.runt.snap.core.addUserRole(useriden, iden)
+
+        # update our value from the user def
+        self.valu = await self.runt.snap.core.getUserDef(useriden)
 
     async def _methUserRevoke(self, iden):
         self.runt.user.confirm(('auth', 'user', 'revoke'))
 
         useriden = self.valu.get('iden')
-        return await self.runt.snap.core.delUserRole(useriden, iden)
+        await self.runt.snap.core.delUserRole(useriden, iden)
+
+        # update our value from the user def
+        self.valu = await self.runt.snap.core.getUserDef(useriden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
+
         self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
 
         useriden = self.valu.get('iden')
-        return await self.runt.snap.core.setUserRules(useriden, rules, gateiden=gateiden)
+        await self.runt.snap.core.setUserRules(useriden, rules, gateiden=gateiden)
+
+        # update our value from the user def
+        self.valu = await self.runt.snap.core.getUserDef(useriden)
 
     async def _methUserAddRule(self, rule, gateiden=None):
+
         self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
 
         useriden = self.valu.get('iden')
-        return await self.runt.snap.core.addUserRule(useriden, rule, gateiden=gateiden)
+        await self.runt.snap.core.addUserRule(useriden, rule, gateiden=gateiden)
+
+        # update our value from the user def
+        self.valu = await self.runt.snap.core.getUserDef(useriden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
+
         self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
 
         useriden = self.valu.get('iden')
-        return await self.runt.snap.core.delUserRule(useriden, rule, gateiden=gateiden)
+        await self.runt.snap.core.delUserRule(useriden, rule, gateiden=gateiden)
+
+        # update our value from the user def
+        self.valu = await self.runt.snap.core.getUserDef(useriden)
 
     async def _methUserSetEmail(self, email):
 
         useriden = self.valu.get('iden')
         if self.runt.user.iden == useriden:
-            return await self.runt.snap.core.setUserEmail(useriden, email)
+            await self.runt.snap.core.setUserEmail(useriden, email)
+            # update our value from the user def
+            self.valu = await self.runt.snap.core.getUserDef(useriden)
+            return
 
         self.runt.user.confirm(('auth', 'user', 'set', 'email'))
-        return await self.runt.snap.core.setUserEmail(useriden, email)
+        await self.runt.snap.core.setUserEmail(useriden, email)
+
+        # update our value from the user def
+        self.valu = await self.runt.snap.core.getUserDef(useriden)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
+
         self.runt.user.confirm(('auth', 'user', 'set', 'admin'))
         admin = bool(intify(admin))
+
         useriden = self.valu.get('iden')
-        return await self.runt.snap.core.setUserAdmin(useriden, admin, gateiden=gateiden)
+        await self.runt.snap.core.setUserAdmin(useriden, admin, gateiden=gateiden)
+
+        # update our value from the user def
+        self.valu = await self.runt.snap.core.getUserDef(useriden)
 
     async def _methUserSetPasswd(self, passwd):
+
         useriden = self.valu.get('iden')
         if self.runt.user.iden == useriden:
             return await self.runt.snap.core.setUserPasswd(useriden, passwd)
+
         self.runt.user.confirm(('auth', 'user', 'set', 'passwd'))
         return await self.runt.snap.core.setUserPasswd(useriden, passwd)
 
@@ -2059,19 +2091,25 @@ class Role(Prim):
         self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
 
         roleiden = self.valu.get('iden')
-        return await self.runt.snap.core.setRoleRules(roleiden, rules, gateiden=gateiden)
+        await self.runt.snap.core.setRoleRules(roleiden, rules, gateiden=gateiden)
+
+        self.valu = await self.runt.snap.core.getRoleDef(roleiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None):
         self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
 
         roleiden = self.valu.get('iden')
-        return await self.runt.snap.core.addRoleRule(roleiden, rule, gateiden=gateiden)
+        await self.runt.snap.core.addRoleRule(roleiden, rule, gateiden=gateiden)
+
+        self.valu = await self.runt.snap.core.getRoleDef(roleiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
         self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
 
         roleiden = self.valu.get('iden')
-        return await self.runt.snap.core.delRoleRule(roleiden, rule, gateiden=gateiden)
+        await self.runt.snap.core.delRoleRule(roleiden, rule, gateiden=gateiden)
+
+        self.valu = await self.runt.snap.core.getRoleDef(roleiden)
 
 class LibCron(Lib):
 
