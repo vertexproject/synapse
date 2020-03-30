@@ -2665,9 +2665,11 @@ class StormTypesTest(s_test.SynTest):
 
             self.nn(await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
-                for $role in $visi.roles() {
-                    if $("all" = $role.name) {
-                        return($role)
+                if $( $visi.name = "visi" ) {
+                    for $role in $visi.roles() {
+                        if $("all" = $role.name) {
+                            return($role)
+                        }
                     }
                 }
             '''))
