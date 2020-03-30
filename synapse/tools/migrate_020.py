@@ -190,7 +190,7 @@ class MigrAuth:
                                 objrules.add(rule)
 
                         # authgate role rules
-                        for riden, rvals in avals['rolesbyiden'].items():
+                        for _, rvals in avals['rolesbyiden'].items():
                             for allow, rule in rvals.get('rules', ()):
                                 if allow:
                                     objrules.add(rule)
@@ -285,7 +285,7 @@ class MigrAuth:
             - Add 'all' role with no rules if it doesn't exist
             - Convert rules
         '''
-        for riden, rvals in self.rolesbyiden.items():
+        for _, rvals in self.rolesbyiden.items():
             rvals['rules'] = await self._trnAuthRules(rvals.get('rules', []))
 
         if 'all' not in self.rolesbyname:
@@ -300,7 +300,7 @@ class MigrAuth:
             - Convert rules
         '''
         allrole = self.rolesbyname['all']
-        for uiden, uvals in self.usersbyiden.items():
+        for _, uvals in self.usersbyiden.items():
             roles = uvals.get('roles', [])
             roles.append(allrole)
             uvals['roles'] = roles
@@ -319,10 +319,10 @@ class MigrAuth:
             - Add root user to all authgates (except cortex) if it doesn't exist
             - Change authgate name 'layr' to 'layer'
         '''
-        for aiden, avals in self.authgatesbyiden.items():
-            for riden, rvals in avals['rolesbyiden'].items():
+        for _, avals in self.authgatesbyiden.items():
+            for _, rvals in avals['rolesbyiden'].items():
                 rvals['rules'] = await self._trnAuthRules(rvals.get('rules', []))
-            for uiden, uvals in avals['usersbyiden'].items():
+            for _, uvals in avals['usersbyiden'].items():
                 uvals['rules'] = await self._trnAuthRules(uvals.get('rules', []))
 
         if 'cortex' not in self.authgatesbyname:
@@ -746,29 +746,26 @@ class Migrator(s_base.Base):
 
             # open source slab
             src_path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
-            src_slab = await s_lmdbslab.Slab.anit(src_path, **self.srcslabopts)
-            self.onfini(src_slab.fini)
-            src_bybuid = src_slab.initdb('bybuid')
+            async with await s_lmdbslab.Slab.anit(src_path, **self.srcslabopts) as src_slab:
+                self.onfini(src_slab.fini)
+                src_bybuid = src_slab.initdb('bybuid')
 
-            src_fcnt = collections.defaultdict(int)
-            src_tot = 0
-            async for form in self._srcIterForms(src_slab, src_bybuid):
-                src_fcnt[form] += 1
-                src_tot += 1
-                if src_tot % fairiter == 0:
-                    await asyncio.sleep(0)
-                if src_tot % 10000000 == 0:  # pragma: no cover
-                    logger.debug(f'...counted {src_tot} nodes so far')
-
-            await src_slab.fini()
+                src_fcnt = collections.defaultdict(int)
+                src_tot = 0
+                async for form in self._srcIterForms(src_slab, src_bybuid):
+                    src_fcnt[form] += 1
+                    src_tot += 1
+                    if src_tot % fairiter == 0:
+                        await asyncio.sleep(0)
+                    if src_tot % 10000000 == 0:  # pragma: no cover
+                        logger.debug(f'...counted {src_tot} nodes so far')
 
             # open dest slab
             if hasdest:
                 destpath = os.path.join(self.dest, 'layers', iden, 'layer_v2.lmdb')
-                destslab = await s_lmdbslab.Slab.anit(destpath, lockmemory=False, readonly=True)
-                self.onfini(destslab.fini)
-                dest_fcnt = await destslab.getHotCount('count:forms')
-                dest_fcnt = dest_fcnt.pack()
+                async with await s_lmdbslab.Slab.anit(destpath, lockmemory=False, readonly=True) as destslab:
+                    dest_fcnt = await destslab.getHotCount('count:forms')
+                    dest_fcnt = dest_fcnt.pack()
             else:
                 dest_fcnt = {}
 
@@ -834,8 +831,6 @@ class Migrator(s_base.Base):
         Returns:
             (list): Discovered local physical layers
         '''
-        migrop = 'dirn'
-
         dest = self.dest
         src = self.src
         logger.info(f'Starting cortex dirn migration: {src} to {dest}')
@@ -888,7 +883,7 @@ class Migrator(s_base.Base):
             elif spath.endswith('slabs'):
                 # delete the non-nexus items from the destination if they exist
                 if exists:
-                    for root, dnames, fnames in os.walk(dpath, topdown=True):
+                    for _, dnames, fnames in os.walk(dpath, topdown=True):
                         for fname in fnames:
                             if 'nexus' not in fname:
                                 os.remove(os.path.join(dpath, fname))
@@ -1102,7 +1097,7 @@ class Migrator(s_base.Base):
 
         # get triggers that will need authgates added (in 020 format)
         triggers = collections.defaultdict(set)
-        for viewiden, viewnode in await self.hive.open(('cortex', 'views')):
+        for _, viewnode in await self.hive.open(('cortex', 'views')):
             for trigiden, trignode in await viewnode.open(('triggers',)):
                 triggers[trigiden].add(trignode.valu.get('user'))
 
@@ -1138,7 +1133,7 @@ class Migrator(s_base.Base):
         migrop = 'cron'
 
         crons = await self.hive.open(('agenda', 'appts'))
-        for croniden, cronnode in crons:
+        for _, cronnode in crons:
             info = cronnode.valu
             uiden = info.get('useriden')
             if uiden is not None:
@@ -1460,9 +1455,8 @@ class Migrator(s_base.Base):
 
         except asyncio.CancelledError:  # pragma: no cover
             raise
-        except Exception as e:  # pragma: no cover
+        except Exception:  # pragma: no cover
             logger.exception(f'Unable to store migration log: {migrop}; {logtyp}; {key}; {val}')
-            pass
 
     async def _migrlogGet(self, migrop=None, logtyp=None, key=None):
         '''
