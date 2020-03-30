@@ -14,6 +14,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
+import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
@@ -78,7 +79,14 @@ class StormType:
         if ctor is not None:
             return ctor(path=self.path)
 
+        valu = await self._derefGet(name)
+        if valu is not s_common.novalu:
+            return valu
+
         raise s_exc.NoSuchName(name=name, styp=self.__class__.__name__)
+
+    async def _derefGet(self, name):
+        return s_common.novalu
 
 class Lib(StormType):
     '''
@@ -496,7 +504,7 @@ class LibCsv(Lib):
         '''
         Emit a csv:row event for the given args.
         '''
-        row = [toprim(a) for a in args]
+        row = [await toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
 
 class LibFeed(Lib):
@@ -1136,6 +1144,25 @@ class Query(StormType):
             if not cancelled:
                 await self.runt.propBackGlobals(subrunt)
 
+class NodeProps(Prim):
+
+    def __init__(self, node, path=None):
+        Prim.__init__(self, node, path=path)
+        self.locls.update({
+            'get': self.get,
+            'list': self.list,
+            # TODO implement set()
+        })
+
+    async def get(self, name, defv=None):
+        return self.valu.get(name)
+
+    async def list(self):
+        return list(self.valu.props.items())
+
+    def value(self):
+        return dict(self.valu.props)
+
 class NodeData(Prim):
 
     def __init__(self, node, path=None):
@@ -1198,10 +1225,14 @@ class Node(Prim):
             'isform': self._methNodeIsForm,
         })
 
-        def ctordata(path=None):
-            return NodeData(node, path=path)
+        self.ctors['data'] = self._ctorNodeData
+        self.ctors['props'] = self._ctorNodeProps
 
-        self.ctors['data'] = ctordata
+    def _ctorNodeData(self, path=None):
+        return NodeData(self.valu, path=path)
+
+    def _ctorNodeProps(self, path=None):
+        return NodeProps(self.valu, path=path)
 
     async def _methNodePack(self, dorepr=False):
         '''
@@ -1817,40 +1848,35 @@ class LibTrigger(Lib):
 
         return iden
 
-class Trigger(StormType):
+class Trigger(Prim):
 
     def __init__(self, runt, tdef):
 
-        StormType.__init__(self)
+        Prim.__init__(self, tdef)
         self.runt = runt
-        self.tdef = tdef
-        self.iden = self.tdef['iden']
 
         self.locls.update({
-            # 'get': self.tdef.get,
             'set': self.set,
-            'pack': self.pack,
+            'iden': tdef['iden'],
         })
 
     async def deref(self, name):
-        valu = self.tdef.get(name, s_common.novalu)
+        valu = self.valu.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
 
         return self.locls.get(name)
 
     async def set(self, name, valu):
+        trigiden = self.valu.get('iden')
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
         gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
-        todo = ('setTriggerInfo', (self.iden, name, valu), {})
+        todo = ('setTriggerInfo', (trigiden, name, valu), {})
         await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
-        self.tdef[name] = valu
-
-    async def pack(self):
-        return self.tdef.copy()
+        self.valu[name] = valu
 
 def ruleFromText(text):
 
@@ -1880,20 +1906,20 @@ class LibUsers(Lib):
         })
 
     async def _methUsersList(self):
-        return [User(self.runt, udef) for udef in await self.runt.snap.core.getUserDefs()]
+        return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
 
     async def _methUsersGet(self, iden):
         udef = await self.runt.snap.core.getUserDef(iden)
-        return User(self.runt, udef)
+        return User(self.runt, udef['iden'])
 
     async def _methUsersByName(self, name):
         udef = await self.runt.snap.core.getUserDefByName(name)
-        return User(self.runt, udef)
+        return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None):
         self.runt.user.confirm(('auth', 'user', 'add'))
         udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email)
-        return User(self.runt, udef)
+        return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
         self.runt.user.confirm(('auth', 'user', 'del'))
@@ -1911,20 +1937,20 @@ class LibRoles(Lib):
         })
 
     async def _methRolesList(self):
-        return [Role(self.runt, rdef) for rdef in await self.runt.snap.core.getRoleDefs()]
+        return [Role(self.runt, rdef['iden']) for rdef in await self.runt.snap.core.getRoleDefs()]
 
     async def _methRolesGet(self, iden):
-        udef = await self.runt.snap.core.getRoleDef(iden)
-        return Role(self.runt, udef)
+        rdef = await self.runt.snap.core.getRoleDef(iden)
+        return Role(self.runt, rdef['iden'])
 
     async def _methRolesByName(self, name):
-        udef = await self.runt.snap.core.getRoleDefByName(name)
-        return Role(self.runt, udef)
+        rdef = await self.runt.snap.core.getRoleDefByName(name)
+        return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
         self.runt.user.confirm(('auth', 'role', 'add'))
-        udef = await self.runt.snap.core.addRole(name)
-        return Role(self.runt, udef)
+        rdef = await self.runt.snap.core.addRole(name)
+        return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):
         self.runt.user.confirm(('auth', 'role', 'del'))
@@ -1932,14 +1958,13 @@ class LibRoles(Lib):
 
 class User(Prim):
 
-    def __init__(self, runt, udef, path=None):
+    def __init__(self, runt, valu, path=None):
 
-        Prim.__init__(self, udef, path=path)
+        Prim.__init__(self, valu, path=path)
         self.runt = runt
 
         self.locls.update({
-            'iden': udef.get('iden'),
-            'name': udef.get('name'),
+            'iden': valu,
             'get': self._methUserGet,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
@@ -1954,106 +1979,106 @@ class User(Prim):
             'setPasswd': self._methUserSetPasswd,
         })
 
+    async def _derefGet(self, name):
+        udef = await self.runt.snap.core.getUserDef(self.valu)
+        return udef.get(name, s_common.novalu)
+
     async def _methUserGet(self, name):
-        return self.valu.get(name)
+        udef = await self.runt.snap.core.getUserDef(self.valu)
+        return udef.get(name)
 
     async def _methUserRoles(self):
-        return [Role(self.runt, rdef) for rdef in self.valu.get('roles')]
+        udef = await self.runt.snap.core.getUserDef(self.valu)
+        return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
 
     async def _methUserAllowed(self, permname):
         perm = tuple(permname.split('.'))
-        useriden = self.valu.get('iden')
-        return await self.runt.snap.core.isUserAllowed(useriden, perm)
+        return await self.runt.snap.core.isUserAllowed(self.valu, perm)
 
     async def _methUserGrant(self, iden):
         self.runt.user.confirm(('auth', 'user', 'grant'))
-
-        useriden = self.valu.get('iden')
-        return await self.runt.snap.core.addUserRole(useriden, iden)
+        await self.runt.snap.core.addUserRole(self.valu, iden)
 
     async def _methUserRevoke(self, iden):
         self.runt.user.confirm(('auth', 'user', 'revoke'))
-
-        useriden = self.valu.get('iden')
-        return await self.runt.snap.core.delUserRole(useriden, iden)
+        await self.runt.snap.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
         self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
-
-        useriden = self.valu.get('iden')
-        return await self.runt.snap.core.setUserRules(useriden, rules, gateiden=gateiden)
+        await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
 
     async def _methUserAddRule(self, rule, gateiden=None):
         self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
-
-        useriden = self.valu.get('iden')
-        return await self.runt.snap.core.addUserRule(useriden, rule, gateiden=gateiden)
+        await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
         self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
-
-        useriden = self.valu.get('iden')
-        return await self.runt.snap.core.delUserRule(useriden, rule, gateiden=gateiden)
+        await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserSetEmail(self, email):
 
-        useriden = self.valu.get('iden')
-        if self.runt.user.iden == useriden:
-            return await self.runt.snap.core.setUserEmail(useriden, email)
+        if self.runt.user.iden == self.valu:
+            await self.runt.snap.core.setUserEmail(self.valu, email)
+            return
 
         self.runt.user.confirm(('auth', 'user', 'set', 'email'))
-        return await self.runt.snap.core.setUserEmail(useriden, email)
+        await self.runt.snap.core.setUserEmail(self.valu, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
+
         self.runt.user.confirm(('auth', 'user', 'set', 'admin'))
         admin = bool(intify(admin))
-        useriden = self.valu.get('iden')
-        return await self.runt.snap.core.setUserAdmin(useriden, admin, gateiden=gateiden)
+
+        await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
 
     async def _methUserSetPasswd(self, passwd):
-        useriden = self.valu.get('iden')
-        if self.runt.user.iden == useriden:
-            return await self.runt.snap.core.setUserPasswd(useriden, passwd)
+
+        if self.runt.user.iden == self.valu:
+            return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
+
         self.runt.user.confirm(('auth', 'user', 'set', 'passwd'))
-        return await self.runt.snap.core.setUserPasswd(useriden, passwd)
+        return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
+
+    async def value(self):
+        return await self.runt.snap.core.getUserDef(self.valu)
 
 class Role(Prim):
 
-    def __init__(self, runt, rdef, path=None):
+    def __init__(self, runt, valu, path=None):
 
-        Prim.__init__(self, rdef, path=path)
+        Prim.__init__(self, valu, path=path)
         self.runt = runt
 
         self.locls.update({
-            'iden': rdef.get('iden'),
-            'name': rdef.get('name'),
+            'iden': valu,
             'get': self._methRoleGet,
-
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
             'setRules': self._methRoleSetRules,
         })
 
+    async def _derefGet(self, name):
+        rdef = await self.runt.snap.core.getRoleDef(self.valu)
+        return rdef.get(name, s_common.novalu)
+
     async def _methRoleGet(self, name):
-        return self.valu.get(name)
+        rdef = await self.runt.snap.core.getRoleDef(self.valu)
+        return rdef.get(name)
 
     async def _methRoleSetRules(self, rules, gateiden=None):
         self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
-
-        roleiden = self.valu.get('iden')
-        return await self.runt.snap.core.setRoleRules(roleiden, rules, gateiden=gateiden)
+        await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None):
         self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
-
-        roleiden = self.valu.get('iden')
-        return await self.runt.snap.core.addRoleRule(roleiden, rule, gateiden=gateiden)
+        await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
         self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
+        await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
 
-        roleiden = self.valu.get('iden')
-        return await self.runt.snap.core.delRoleRule(roleiden, rule, gateiden=gateiden)
+    async def value(self):
+        return await self.runt.snap.core.getRoleDef(self.valu)
 
 class LibCron(Lib):
 
@@ -2570,13 +2595,19 @@ class ModelType(Prim):
         return self.valu.repr(nval[0])
 
 # These will go away once we have value objects in storm runtime
-def toprim(valu, path=None):
+async def toprim(valu, path=None):
 
-    if isinstance(valu, (str, tuple, list, dict, int, bool)) or valu is None:
+    if isinstance(valu, (str, int, bool)) or valu is None:
         return valu
 
+    if isinstance(valu, (tuple, list)):
+        return tuple([await toprim(v) for v in valu])
+
+    if isinstance(valu, dict):
+        return {await toprim(k): await toprim(v) for (k, v) in valu.items()}
+
     if isinstance(valu, Prim):
-        return valu.value()
+        return await s_coro.ornot(valu.value)
 
     if isinstance(valu, s_node.Node):
         return valu.ndef[1]

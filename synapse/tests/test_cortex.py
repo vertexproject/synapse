@@ -1571,6 +1571,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # test the remote storm result counting API
             self.eq(0, await proxy.count('test:pivtarg'))
             self.eq(1, await proxy.count('inet:user'))
+            self.eq(1, await core.count('inet:user'))
 
             # Test the getFeedFuncs command to enumerate feed functions.
             ret = await proxy.getFeedFuncs()

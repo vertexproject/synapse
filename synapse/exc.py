@@ -205,6 +205,7 @@ class DmonSpawn(SynErr):
     '''
     pass
 
+class SlabAlreadyOpen(SynErr): pass
 class SpawnExit(SynErr): pass
 
 class ReadOnlyLayer(SynErr): pass

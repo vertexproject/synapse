@@ -208,13 +208,27 @@ class CmdCronTest(s_t_utils.SynTest):
                                                  tzinfo=tz.utc).timestamp()  # A Tuesday
                     await asyncio.sleep(0)
 
+                    outp.clear()
                     await cmdr.runCmdLine("cron add -H 3 -d Mon,Thursday {[graph:node='*' :type=d2]}")
                     guid2 = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
+                    unixtime = datetime.datetime(year=2018, month=12, day=12, hour=3, minute=10,
+                                                 tzinfo=tz.utc).timestamp()  # Now Wednesday
+                    await asyncio.sleep(0)
+
+                    outp.clear()
+                    await cmdr.runCmdLine(f'cron stat {guid2}')
+                    self.true(outp.expect('last start time: Never'))
+
                     unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
                     await asyncio.sleep(0)
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(1, core.eval('graph:node:type=d2'))
+
+                    outp.clear()
+                    await cmdr.runCmdLine(f'cron stat {guid2}')
+                    self.true(outp.expect('last start time: 2018'))
+                    self.true(outp.expect('dayofweek       0'))
 
                     await cmdr.runCmdLine(f"cron del {guid1}")
                     await cmdr.runCmdLine(f"cron del {guid2}")

@@ -2665,9 +2665,11 @@ class StormTypesTest(s_test.SynTest):
 
             self.nn(await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
-                for $role in $visi.roles() {
-                    if $("all" = $role.name) {
-                        return($role)
+                if $( $visi.name = "visi" ) {
+                    for $role in $visi.roles() {
+                        if $("all" = $role.name) {
+                            return($role)
+                        }
                     }
                 }
             '''))
@@ -2717,10 +2719,12 @@ class StormTypesTest(s_test.SynTest):
             self.nn(await core.callStorm(f'return($lib.auth.roles.get({core.auth.allrole.iden}))'))
             self.nn(await core.callStorm(f'return($lib.auth.users.get({core.auth.rootuser.iden}))'))
 
+            self.len(3, await core.callStorm(f'return($lib.auth.users.list())'))
+
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 $visi.setEmail(hehe@haha.com)
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''')
 
             self.eq('hehe@haha.com', visi['email'])
@@ -2728,7 +2732,7 @@ class StormTypesTest(s_test.SynTest):
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 $visi.setEmail(giggles@clowntown.net)
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''', asvisi)
 
             self.eq('giggles@clowntown.net', visi['email'])
@@ -2738,7 +2742,7 @@ class StormTypesTest(s_test.SynTest):
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 $visi.setRules(())
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''')
 
             self.eq((), visi['rules'])
@@ -2747,7 +2751,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $visi = $lib.auth.users.byname(visi)
                 $visi.setRules(($rule))
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''')
             self.eq(((True, ('hehe', 'haha')),), visi['rules'])
 
@@ -2755,7 +2759,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(foo.bar)
                 $visi = $lib.auth.users.byname(visi)
                 $visi.addRule($rule)
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''')
             self.eq(((True, ('hehe', 'haha')), (True, ('foo', 'bar'))), visi['rules'])
 
@@ -2763,7 +2767,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(foo.bar)
                 $visi = $lib.auth.users.byname(visi)
                 $visi.delRule($rule)
-                return($lib.auth.users.byname(visi))
+                return($visi)
             ''')
             self.eq(((True, ('hehe', 'haha')),), visi['rules'])
 
@@ -2778,7 +2782,7 @@ class StormTypesTest(s_test.SynTest):
             ninjas = await core.callStorm('''
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.setRules(())
-                return($lib.auth.roles.byname(ninjas))
+                return($ninjas)
             ''')
 
             self.eq((), ninjas['rules'])
@@ -2787,7 +2791,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.setRules(($rule))
-                return($lib.auth.roles.byname(ninjas))
+                return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
 
@@ -2795,7 +2799,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(foo.bar)
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.addRule($rule)
-                return($lib.auth.roles.byname(ninjas))
+                return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')), (True, ('foo', 'bar'))), ninjas['rules'])
 
@@ -2803,7 +2807,7 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(foo.bar)
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.delRule($rule)
-                return($lib.auth.roles.byname(ninjas))
+                return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
 
@@ -2813,8 +2817,9 @@ class StormTypesTest(s_test.SynTest):
             '''))
 
             self.true(await core.callStorm('''
-                $lib.auth.users.byname(visi).setAdmin(true)
-                return($lib.auth.users.byname(visi).get(admin))
+                $visi = $lib.auth.users.byname(visi)
+                $visi.setAdmin(true)
+                return($visi)
             '''))
 
             # test deleting users / roles
@@ -2829,3 +2834,28 @@ class StormTypesTest(s_test.SynTest):
                 $lib.auth.roles.del($role.iden)
             ''')
             self.none(await core.auth.getRoleByName('ninjas'))
+
+    async def test_stormtypes_node(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
+            self.eq(20, await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.get(asn))'))
+            self.isin(('asn', 20), await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.list())'))
+
+            props = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props)')
+            self.eq(20, props['asn'])
+
+            self.eq(0x01020304, await core.callStorm('inet:ipv4=1.2.3.4 return($node)'))
+
+    async def test_stormtypes_toprim(self):
+
+        async with self.getTestCore() as core:
+
+            orig = {'hehe': 20, 'haha': (1, 2, 3), 'none': None, 'bool': True}
+            valu = await core.callStorm('return($valu)', opts={'vars': {'valu': orig}})
+
+            self.eq(valu['hehe'], 20)
+            self.eq(valu['haha'], (1, 2, 3))
+            self.eq(valu['none'], None)
+        self.eq(valu['bool'], True)
