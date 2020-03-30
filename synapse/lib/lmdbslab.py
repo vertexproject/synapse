@@ -513,7 +513,6 @@ class Slab(s_base.Base):
         self._saveOptsFile()
 
         self.lenv = lmdb.open(str(path), **opts)
-        print(f'{{+{abspath}')
         _AllSlabs.add(abspath)
 
         self.scans = set()
@@ -646,7 +645,6 @@ class Slab(s_base.Base):
             break
 
         self.lenv.close()
-        print(f'}}-{self.abspath}')
         _AllSlabs.discard(self.abspath)
         del self.lenv
 
