@@ -106,7 +106,7 @@ class TestData(s_base.Base):
         tstdirctx = syntest.getTestDir(startdir=dirn)
         self.dirn = await self.enter_context(tstdirctx)
 
-        async with await s_cortex.Cortex.anit(dirn, conf=DefaultConf) as core:
+        async with await s_cortex.Cortex.anit(self.dirn, conf=DefaultConf) as core:
             await s_common.aspin(core.addNodes(self.ips))
             await s_common.aspin(core.addNodes(self.dnsas))
             await s_common.aspin(core.addNodes(self.urls))
@@ -172,9 +172,12 @@ class Benchmarker:
     @contextlib.asynccontextmanager
     async def getCortexAndProxy(self) -> AsyncIterator[Tuple[Any, Any]]:
         with syntest.getTestDir(startdir=self.tmpdir) as dirn:
+
             s_tools_backup.backup(self.testdata.dirn, dirn, compact=False)
+
             async with await s_cortex.Cortex.anit(dirn, conf=self.coreconfig) as core:
                 assert not core.inaugural
+
                 lockmemory = self.coreconfig.get('dedicated', False)
 
             async with await s_cortex.Cortex.anit(dirn, conf=self.coreconfig) as core:
