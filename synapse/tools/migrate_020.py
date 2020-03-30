@@ -395,6 +395,7 @@ class MigrAuth:
             uname = uname_lookup.get(uiden)
             if uname is None:
                 logger.warning(f'Unable to match user iden to name: {uiden}')
+                continue
             userkids[uiden] = {
                 'kids': {k: {'value': v} for k, v in uvals.items()},
                 'value': uname,
@@ -438,7 +439,8 @@ class MigrAuth:
             for uiden, uvals in avals['usersbyiden'].items():
                 uname = uname_lookup.get(uiden)
                 if uname is None:
-                    logger.warning(f'Unable to match user iden to name: {uiden}')
+                    logger.warning(f'Unable to match user iden to name: {uiden} user for {aiden}')
+                    continue
                 ausers['kids'][uiden] = {
                     'kids': {k: {'value': v} for k, v in uvals.items()},
                     'value': uname

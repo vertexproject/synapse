@@ -833,7 +833,9 @@ class MigrationTest(s_t_utils.SynTest):
                     await migr.hive.rename(('auth', 'users', root), ('auth', 'users', newroot))
                     await migr.hive.rename(('auth', 'users', fred), ('auth', 'users', newfred))
 
-                    migr.migrops = [op for op in migr.migrops if op != 'dirn']
+                    # by not migrating the actual crons and triggers, auth with create new gates
+                    # but won't have a matching user
+                    migr.migrops = [op for op in s_migr.ALL_MIGROPS if op not in ('dirn', 'cron')]
 
                     await migr.migrate()
 
