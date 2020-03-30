@@ -35,12 +35,25 @@ import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 
+SimpleConf = {'layers:lockmemory': False, 'layer:lmdb:map_async': False, 'nexslog:en': False, 'layers:logedits': False}
+MapAsyncConf = {**SimpleConf, 'layer:lmdb:map_async': True}
+DedicatedConf = {**SimpleConf, 'layers:lockmemory': True}
+DefaultConf = {**MapAsyncConf, 'layers:lockmemory': True}
+DedicatedAsyncLogConf = {**DefaultConf, 'nexslog:en': True, 'layers:logedits': True}
+
+Configs: Dict[str, Dict] = {
+    'simple': SimpleConf,
+    'mapasync': MapAsyncConf,
+    'dedicated': DedicatedConf,
+    'default': DefaultConf,
+    'dedicatedasynclogging': DedicatedAsyncLogConf,
+}
+
 '''
 Benchmark cortex operations
 
 TODO:  separate client process, multiple clients
 TODO:  tagprops, regex, control flow, node data, multiple layers, spawn option, remote layer
-TODO:  standard serialized output format
 '''
 
 logger = logging.getLogger(__name__)
@@ -96,7 +109,7 @@ class TestData(s_base.Base):
         tstdirctx = syntest.getTestDir(startdir=dirn)
         self.dirn = await self.enter_context(tstdirctx)
 
-        async with syntest.getTestCore(dirn=self.dirn) as core:
+        async with await s_cortex.Cortex.anit(dirn, conf=DefaultConf) as core:
             await s_common.aspin(core.addNodes(self.ips))
             await s_common.aspin(core.addNodes(self.dnsas))
             await s_common.aspin(core.addNodes(self.urls))
@@ -163,16 +176,23 @@ class Benchmarker:
     async def getCortexAndProxy(self) -> AsyncIterator[Tuple[Any, Any]]:
         with syntest.getTestDir(startdir=self.tmpdir) as dirn:
             s_tools_backup.backup(self.testdata.dirn, dirn, compact=False)
-            async with syntest.getTestCore(conf=self.coreconfig, dirn=dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn, conf=self.coreconfig) as core:
                 assert not core.inaugural
                 lockmemory = self.coreconfig.get('layers:lockmemory', False)
+                nexuslogen = self.coreconfig.get('nexslog:en', True)
+                logedits = self.coreconfig.get('layers:logedits', True)
                 await core.view.layers[0].layrinfo.set('lockmemory', lockmemory)
+                await core.view.layers[0].layrinfo.set('logedits', logedits)
 
-            async with syntest.getTestCoreAndProxy(conf=self.coreconfig, dirn=dirn) as (core, prox):
-                if lockmemory:
-                    await core.view.layers[0].layrslab.lockdoneevent.wait()
+            async with await s_cortex.Cortex.anit(dirn, conf=self.coreconfig) as core:
+                async with core.getLocalProxy() as prox:
+                    if lockmemory:
+                        await core.view.layers[0].layrslab.lockdoneevent.wait()
 
-                yield core, prox
+                    if nexuslogen:
+                        core.nexsroot._nexusslab.forcecommit()
+
+                    yield core, prox
 
     @isatrial
     async def do00EmptyQuery(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
@@ -323,13 +343,6 @@ class Benchmarker:
             for funcname, func in self._getTrialFuncs():
                 await self.run(funcname, dirn, func, do_profiling=do_profiling)
 
-Configs: Dict[str, Dict] = {
-    'simple': {'layers:lockmemory': False, 'layer:lmdb:map_async': False},
-    'mapasync': {'layers:lockmemory': False, 'layer:lmdb:map_async': True},
-    'dedicated': {'layers:lockmemory': True, 'layer:lmdb:map_async': False},
-    'dedicatedasync': {'layers:lockmemory': True, 'layer:lmdb:map_async': True},
-}
-
 ProgressBar = None
 
 def initProgress(total):
@@ -368,45 +381,49 @@ async def benchmarkAll(confignames: List = None,
     if do_profiling:
         yappi.set_clock_type('wall')
 
-    async with await TestData.anit(workfactor, tmpdir) as testdata:
-        print('Initial cortex created')
-        if not confignames:
-            confignames = ['simple']
+    with contextlib.ExitStack() as estk:
+        if tmpdir is None:
+            tmpdir = estk.enter_context(syntest.getTestDir())
 
-        for configname in confignames:
-            tick = s_common.now()
-            config = Configs[configname]
-            bench = Benchmarker(config, testdata, workfactor, num_iters=niters, tmpdir=tmpdir, bench=bench)
-            print(f'{num_procs}-process benchmarking: {configname}')
-            initProgress(niters * len(bench._getTrialFuncs()))
-            try:
-                await bench.runSuite(num_procs, do_profiling=do_profiling)
-                endProgress()
+        async with await TestData.anit(workfactor, tmpdir) as testdata:
+            print('Initial cortex created')
+            if not confignames:
+                confignames = ['simple']
 
-                if do_profiling:
-                    yappi.get_func_stats().print_all()
+            for configname in confignames:
+                tick = s_common.now()
+                config = Configs[configname]
+                bench = Benchmarker(config, testdata, workfactor, num_iters=niters, tmpdir=tmpdir, bench=bench)
+                print(f'{num_procs}-process benchmarking: {configname}')
+                initProgress(niters * len(bench._getTrialFuncs()))
+                try:
+                    await bench.runSuite(num_procs, do_profiling=do_profiling)
+                    endProgress()
 
-                bench.printreport(configname)
+                    if do_profiling:
+                        yappi.get_func_stats().print_all()
 
-                if jsondir:
-                    data = {'time': tick,
-                            'config': config,
-                            'configname': configname,
-                            'workfactor': workfactor,
-                            'niters': bench.num_iters,
-                            'results': bench.reportdata()
-                            }
-                    fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
-                    if jsonprefix:
-                        fn = f'{jsonprefix}{fn}'
-                        data['prefix'] = jsonprefix
-                    s_common.jssave(data, jsondir, fn)
-            finally:
-                endProgress()
+                    bench.printreport(configname)
+
+                    if jsondir:
+                        data = {'time': tick,
+                                'config': config,
+                                'configname': configname,
+                                'workfactor': workfactor,
+                                'niters': bench.num_iters,
+                                'results': bench.reportdata()
+                                }
+                        fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
+                        if jsonprefix:
+                            fn = f'{jsonprefix}{fn}'
+                            data['prefix'] = jsonprefix
+                        s_common.jssave(data, jsondir, fn)
+                finally:
+                    endProgress()
 
 def getParser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', nargs='*', default=None)
+    parser.add_argument('--config', nargs='*', default=['default'])
     # parser.add_argument('--num-clients', type=int, default=1)
     parser.add_argument('--workfactor', type=int, default=1000)
     parser.add_argument('--niters', type=int, default=4, help='Number of times to run each benchmark')
