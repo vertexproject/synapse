@@ -365,6 +365,9 @@ async def benchmarkAll(confignames: List = None,
     if jsondir:
         s_common.gendir(jsondir)
 
+    if do_profiling:
+        yappi.set_clock_type('wall')
+
     async with await TestData.anit(workfactor, tmpdir) as testdata:
         print('Initial cortex created')
         if not confignames:
