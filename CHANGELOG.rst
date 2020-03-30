@@ -2,14 +2,23 @@
 Synapse Changelog
 *****************
 
-Unreleased - TBD
-================
+v0.1.56 - 2019-03-27
+====================
+
+Features and Enhancements
+-------------------------
+
+- Unify syntax checking into setup.cfg. This was cherry-picked from master.
+  (`#1632 <https://github.com/vertexproject/synapse/pull/1632>`_)
 
 Bugfixes
 --------
 
-- Fix a Telepath Proxy call issue which could return an errant ``None``. This was cerry-picked from master.
-  (`#1536 <https://github.com/vertexproject/synapse/pull/1536>`_)
+- Fix a Telepath Proxy call issue which could return an errant ``None``. This was cherry-picked from master.
+  (`#1636 <https://github.com/vertexproject/synapse/pull/1636>`_)
+- Fix an issues with the ``cron`` command not displaying Monday's properly. This was cherry-picked from master.
+  (`#1646 <https://github.com/vertexproject/synapse/pull/1646>`_)
+
 
 v0.1.55 - 2019-03-17
 ====================

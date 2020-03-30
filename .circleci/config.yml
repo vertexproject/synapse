@@ -116,8 +116,9 @@ commands:
           name: syntax
           command: |
             . venv/bin/activate
-            pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 synapse
-            pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 scripts
+            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
+            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
+
 
       - do_test_execution
       - do_report_coverage
@@ -297,6 +298,7 @@ jobs:
       - image: circleci/python:3.7
         environment:
           PYVERS: 3.7
+          RUN_SYNTAX: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
