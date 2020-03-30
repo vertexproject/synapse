@@ -35,12 +35,21 @@ import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 
+Configs: Dict[str, Dict] = {
+    'simple': {'splices:en': False},
+    'mapasync': {'layer:lmdb:map_async': True, 'splices:en': False},
+    'dedicated': {'dedicated': True, 'splices:en': False},
+    'default': {'dedicated': True, 'layer:lmdb:map_async': True, 'splices:en': False},
+    'dedicatedasynclogging': {'default': True, 'layer:lmdb:map_async': True, 'splices:en': True},
+}
+
+ProgressBar = None
+
 '''
 Benchmark cortex operations
 
 TODO:  separate client process, multiple clients
 TODO:  tagprops, regex, control flow, node data, multiple layers, spawn option, remote layer
-TODO:  standard serialized output format
 '''
 
 logger = logging.getLogger(__name__)
@@ -320,15 +329,6 @@ class Benchmarker:
             logger.info('Loading test data complete.  Starting benchmarks')
             for funcname, func in self._getTrialFuncs():
                 await self.run(funcname, dirn, func, do_profiling=do_profiling)
-
-Configs: Dict[str, Dict] = {
-    'simple': {},
-    'mapasync': {'layer:lmdb:map_async': True},
-    'dedicated': {'dedicated': True},
-    'dedicatedasync': {'dedicated': True, 'layer:lmdb:map_async': True},
-}
-
-ProgressBar = None
 
 def initProgress(total):
     if not DoProgress:
