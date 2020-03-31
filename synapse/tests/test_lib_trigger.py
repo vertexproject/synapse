@@ -42,22 +42,22 @@ class TrigTest(s_t_utils.SynTest):
             view = core.view
 
             # node:add case
-            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:int=1 ]'}
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:guid="*" +#nodeadd]'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:str=foo ]')
-            self.len(1, await core.nodes('test:int'))
+            self.len(1, await core.nodes('test:guid#nodeadd'))
 
             # node:del case
-            tdef = {'cond': 'node:del', 'storm': '[ test:int=2 ]', 'form': 'test:str'}
+            tdef = {'cond': 'node:del', 'storm': '[ test:guid="*" +#nodedel ]', 'form': 'test:str'}
             await view.addTrigger(tdef)
             await core.nodes('test:str=foo | delnode')
-            self.len(2, await core.nodes('test:int'))
+            self.len(1, await core.nodes('test:guid#nodedel'))
 
             # tag:add case
-            tdef = {'cond': 'tag:add', 'storm': '[ test:int=3 ]', 'tag': 'footag'}
+            tdef = {'cond': 'tag:add', 'storm': '[ test:guid="*" +#tagadd]', 'tag': 'footag'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:str=foo +#footag ]')
-            self.len(3, await core.nodes('test:int'))
+            self.len(1, await core.nodes('test:guid#tagadd'))
 
             # tag:add globbing and storm var
             tdef = {'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]', 'tag': 'a.*.c'}
@@ -74,16 +74,16 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str=foo.1.2.3.baz'))
 
             # tag:del case
-            tdef = {'cond': 'tag:del', 'storm': '[ test:int=4 ]', 'tag': 'footag'}
+            tdef = {'cond': 'tag:del', 'storm': '[ test:guid="*" +#tagdel ]', 'tag': 'footag'}
             await view.addTrigger(tdef)
             await core.nodes('test:str=foo [ -#footag ]')
-            self.len(1, await core.nodes('test:int=4'))
+            self.len(1, await core.nodes('test:guid#tagdel'))
 
             # Form/tag add
-            tdef = {'cond': 'tag:add', 'storm': '[ test:int=5 ]', 'tag': 'bartag', 'form': 'test:str'}
+            tdef = {'cond': 'tag:add', 'storm': '[ test:guid="*" +#formtagadd]', 'tag': 'bartag', 'form': 'test:str'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:str=foo +#bartag ]')
-            self.len(1, await core.nodes('test:int=5'))
+            self.len(1, await core.nodes('test:guid#formtagadd'))
 
             # Wrong form/right tag add doesn't fire
             await core.nodes('test:int=5 | delnode')
@@ -96,11 +96,11 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:int=5'))
 
             # Prop set
-            tdef = {'cond': 'prop:set', 'storm': '[ test:int=6 ]', 'prop': 'test:type10:intprop'}
+            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propset ]', 'prop': 'test:type10:intprop'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:type10=1 ]')
             await core.nodes('[ test:type10=1 :intprop=25 ]')
-            self.len(1, await core.nodes('test:int=6'))
+            self.len(1, await core.nodes('test:guid#propset'))
 
             # Test re-setting doesn't fire
             await core.nodes('test:int=6 | delnode')
@@ -108,16 +108,16 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:int=6'))
 
             # Prop set univ
-            tdef = {'cond': 'prop:set', 'storm': '[ test:int=7 ]', 'prop': '.test:univ'}
+            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propsetuniv ]', 'prop': '.test:univ'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:type10=1 .test:univ=1 ]')
-            self.len(1, await core.nodes('test:int=7'))
+            self.len(1, await core.nodes('test:guid#propsetuniv'))
 
             # Prop set form specific univ
-            tdef = {'cond': 'prop:set', 'storm': '[ test:int=8 ]', 'prop': 'test:str.test:univ'}
+            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propsetuniv2 ]', 'prop': 'test:str.test:univ'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:str=beep .test:univ=1 ]')
-            self.len(1, await core.nodes('test:int=8'))
+            self.len(1, await core.nodes('test:guid#propsetuniv2'))
 
             # Bad trigger parms
             with self.raises(s_exc.BadConfValu):
