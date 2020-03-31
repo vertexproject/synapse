@@ -1273,3 +1273,40 @@ class AstTest(s_test.SynTest):
             self.len(1, firs)
             evnt = firs[0]
             self.eq(evnt[1].get('data'), {'total': 3})
+
+    async def test_ast_cmdargs(self):
+
+        async with self.getTestCore() as core:
+
+            scmd = {
+                'name': 'foo',
+                'cmdargs': (
+                    ('--bar', {}),
+                ),
+                'storm': '''
+                    $ival = $lib.cast(ival, $cmdopts.bar)
+                    [ inet:ipv4=1.2.3.4 +#foo=$ival ]
+                ''',
+            }
+
+            await core.setStormCmd(scmd)
+
+            nodes = await core.nodes('foo --bar (2020 , 2021) | +#foo@=202002')
+            self.len(1, nodes)
+
+            scmd = {
+                'name': 'baz',
+                'cmdargs': (
+                    ('--faz', {}),
+                ),
+                'storm': '''
+                    $ival = $lib.cast(ival, $cmdopts.faz)
+                    [ inet:ipv4=5.5.5.5 +#foo=$ival ]
+                ''',
+            }
+
+            await core.setStormCmd(scmd)
+
+            await core.nodes('[ inet:ipv4=5.6.7.8 +#foo=(2018, 2021) ]')
+            nodes = await core.nodes('inet:ipv4 $foo=#foo | baz --faz $foo | +inet:ipv4=5.5.5.5 +#foo@=2018 +#foo@=202002')
+            self.len(1, nodes)

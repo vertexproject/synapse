@@ -22,6 +22,7 @@ terminalEnglishMap = {
     'BREAK': 'break',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
+    'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
     'CMPR': 'comparison operator',
     'BYNAME': 'named comparison operator',
@@ -49,9 +50,9 @@ terminalEnglishMap = {
     'IF': 'if',
     'IN': 'in',
     'LBRACE': '[',
+    'LISTTOKN': 'An unquoted list-compatible string.',
     'LPAR': '(',
     'LSQB': '{',
-    'NONCMDQUOTE': 'unquoted command argument',
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
     'NUMBER': 'number',
@@ -73,6 +74,7 @@ terminalEnglishMap = {
     'VARTOKN': 'variable',
     'VBAR': '|',
     'WHILE': 'while',
+    'WORDTOKN': 'A whitespace tokenized string',
     'YIELD': 'yield',
     '_DEREF': '*',
     '_EMBEDQUERYSTART': '${',
@@ -192,15 +194,12 @@ class AstConverter(lark.Transformer):
         argv = []
 
         for kid in kids:
-            if isinstance(kid, s_ast.Const):
-                newkid = kid.valu
-            elif isinstance(kid, s_ast.SubQuery):
-                newkid = kid.text
+            if isinstance(kid, s_ast.SubQuery):
+                argv.append(s_ast.Const(kid.text))
             else:
-                raise AssertionError('Unexpected rule')  # pragma: no cover
-            argv.append(newkid)
+                argv.append(self._convert_child(kid))
 
-        return s_ast.Const(tuple(argv))
+        return s_ast.List(None, kids=argv)
 
     @classmethod
     def _tagsplit(cls, tag):
@@ -324,7 +323,19 @@ class Parser:
         newtree.text = self.text
         return newtree
 
-    def stormcmdargs(self):
+    #def stormcmdargs(self):
+        #'''
+        #Parse command args that might have storm queries as arguments
+        #'''
+        #try:
+            #tree = StormCmdParser.parse(self.text)
+        #except lark.exceptions.LarkError as e:
+            #raise self._larkToSynExc(e) from None
+        #newtree = AstConverter(self.text).transform(tree)
+        #assert isinstance(newtree, s_ast.Const)
+        #return newtree.valu
+
+    def cmdrargs(self):
         '''
         Parse command args that might have storm queries as arguments
         '''
@@ -333,8 +344,7 @@ class Parser:
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
         newtree = AstConverter(self.text).transform(tree)
-        assert isinstance(newtree, s_ast.Const)
-        return newtree.valu
+        return newtree.value()
 
 @s_cache.memoize(size=100)
 def parseQuery(text):

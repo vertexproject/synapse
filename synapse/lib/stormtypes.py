@@ -259,6 +259,7 @@ class LibBase(Lib):
             'fire': self._fire,
             'list': self._list,
             'text': self._text,
+            'cast': self._cast,
             'print': self._print,
             'sorted': self._sorted,
             'import': self._libBaseImport,
@@ -284,6 +285,21 @@ class LibBase(Lib):
         modlib.locls.update(runt.vars)
         modlib.locls['__module__'] = mdef
         return modlib
+
+    async def _cast(self, name, valu):
+
+        name = await toprim(name)
+        valu = await toprim(valu)
+
+        typeitem = self.runt.snap.core.model.type(name)
+        if typeitem is None:
+            mesg = f'No type found for name {name}.'
+            raise s_exc.NoSuchType(mesg=mesg)
+
+        #TODO an eventual mapping between model types and storm prims
+
+        norm, info = typeitem.norm(valu)
+        return fromprim(norm, basetypes=False)
 
     async def _sorted(self, valu):
         for item in sorted(valu):
@@ -2615,10 +2631,12 @@ async def toprim(valu, path=None):
     mesg = 'Unable to convert object to Storm primitive.'
     raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)
 
-def fromprim(valu, path=None):
+def fromprim(valu, path=None, basetypes=True):
 
-    if isinstance(valu, str):
-        return Str(valu, path=path)
+    if basetypes:
+
+        if isinstance(valu, str):
+            return Str(valu, path=path)
 
     # TODO: make s_node.Node a storm type itself?
     if isinstance(valu, s_node.Node):
@@ -2645,5 +2663,8 @@ def fromprim(valu, path=None):
     if isinstance(valu, StormType):
         return valu
 
-    mesg = 'Unable to convert python primitive to StormType.'
-    raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+    if basetypes:
+        mesg = 'Unable to convert python primitive to StormType.'
+        raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+
+    return valu

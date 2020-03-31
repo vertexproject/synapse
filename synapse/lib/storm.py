@@ -1243,6 +1243,13 @@ class Parser(argparse.ArgumentParser):
         # Since we have the async->sync->async problem, queue up and print at exit
         self.root.mesgs.extend(text.split('\n'))
 
+    def _parse_optional(self, argstr):
+
+        if not isinstance(argstr, str):
+            return None
+
+        return argparse.ArgumentParser._parse_optional(self, argstr)
+
 class Cmd:
     '''
     A one line description of the command.
@@ -1738,7 +1745,7 @@ class MoveTagCmd(Cmd):
 
     Example:
 
-        movetag #foo.bar #baz.faz.bar
+        movetag foo.bar baz.faz.bar
     '''
     name = 'movetag'
 

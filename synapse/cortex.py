@@ -1077,7 +1077,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             'name': <name>,
 
-            'cmdopts': [
+            'cmdargs': [
                 (<name>, <opts>),
             ]
 

@@ -591,22 +591,38 @@ class CmdOper(Oper):
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
-        argv = self.kids[1].value()
 
         ctor = runt.snap.core.getStormCmd(name)
         if ctor is None:
             mesg = 'Storm command not found.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
-        scmd = ctor(argv)
+        if self.kids[1].isRuntSafe(runt):
 
-        if not await scmd.hasValidOpts(runt.snap):
+            argv = await self.kids[1].runtval(runt)
+
+            with s_provenance.claim('stormcmd', name=name, argv=argv):
+
+                scmd = ctor(argv)
+                if not await scmd.hasValidOpts(runt.snap):
+                    return
+
+                async for item in scmd.execStormCmd(runt, genr):
+                    yield item
+
             return
 
-        with s_provenance.claim('stormcmd', name=name, argv=argv):
+        async for node, path in genr:
 
-            async for item in scmd.execStormCmd(runt, genr):
-                yield item
+            argv = await self.kids[1].compute(path)
+            with s_provenance.claim('stormcmd', name=name, argv=argv):
+
+                scmd = ctor(argv)
+                if not await scmd.hasValidOpts(runt.snap):
+                    return
+
+                async for item in scmd.execStormCmd(runt, agen((node, path))):
+                    yield item
 
 class SetVarOper(Oper):
 
@@ -2569,6 +2585,10 @@ class EditNodeAdd(Edit):
         '''
         vals = await self.kids[2].compute(path)
 
+        # for now, we have a conflict with a Node instance and prims
+        #if not isinstance(vals, s_stormtypes.Node):
+            #vals = await s_stormtypes.toprim(vals)
+
         for valu in self.form.type.getTypeVals(vals):
             try:
                 newn = await path.runt.snap.addNode(self.name, valu)
@@ -2619,6 +2639,7 @@ class EditNodeAdd(Edit):
                 runt.layerConfirm(('node', 'add', self.name))
 
                 valu = await self.kids[2].runtval(runt)
+                valu = await s_stormtypes.toprim(valu)
 
                 for valu in self.form.type.getTypeVals(valu):
                     try:
@@ -2644,8 +2665,11 @@ class EditPropSet(Edit):
         excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
 
         async for node, path in genr:
+
             name = await self.kids[0].compute(path)
+
             valu = await self.kids[2].compute(path)
+            valu = await s_stormtypes.toprim(valu)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -2738,6 +2762,7 @@ class EditTagAdd(Edit):
 
                 if hasval:
                     valu = await self.kids[1 + oper_offset].compute(path)
+                    valu = await s_stormtypes.toprim(valu)
                 try:
                     await node.addTag(name, valu=valu)
                 except excignore:
@@ -2776,7 +2801,9 @@ class EditTagPropSet(Edit):
         async for node, path in genr:
 
             tag, prop = await self.kids[0].compute(path)
+
             valu = await self.kids[2].compute(path)
+            valu = await s_stormtypes.toprim(valu)
 
             tagparts = tag.split('.')
 
