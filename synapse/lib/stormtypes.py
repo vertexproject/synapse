@@ -12,6 +12,7 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
@@ -258,6 +259,9 @@ class LibBase(Lib):
             'guid': self._guid,
             'fire': self._fire,
             'list': self._list,
+            'null': None,
+            'true': True,
+            'false': False,
             'text': self._text,
             'print': self._print,
             'sorted': self._sorted,
@@ -340,10 +344,10 @@ class LibBase(Lib):
         await self.runt.printf(mesg)
 
     async def _dict(self, **kwargs):
-        return kwargs
-        # TODO: return Dict(kwargs)
+        return Dict(kwargs)
 
     async def _fire(self, name, **info):
+        info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
@@ -701,7 +705,38 @@ class Proxy(StormType):
             mesg = f'No proxy method named {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
 
-        return getattr(self.proxy, name, None)
+        meth = getattr(self.proxy, name, None)
+
+        if isinstance(meth, s_telepath.GenrMethod):
+            return ProxyGenrMethod(meth)
+
+        if isinstance(meth, s_telepath.Method):
+            return ProxyMethod(meth)
+
+class ProxyMethod(StormType):
+
+    def __init__(self, meth, path=None):
+        StormType.__init__(self, path=path)
+        self.meth = meth
+
+    async def __call__(self, *args, **kwargs):
+        args = await toprim(args)
+        kwargs = await toprim(kwargs)
+        # TODO: storm types fromprim()
+        return await self.meth(*args, **kwargs)
+
+class ProxyGenrMethod(StormType):
+
+    def __init__(self, meth, path=None):
+        StormType.__init__(self, path=path)
+        self.meth = meth
+
+    async def __call__(self, *args, **kwargs):
+        args = await toprim(args)
+        kwargs = await toprim(kwargs)
+        async for prim in self.meth(*args, **kwargs):
+            # TODO: storm types fromprim()
+            yield prim
 
 class LibBase64(Lib):
 
@@ -878,6 +913,9 @@ class Dict(Prim):
     async def deref(self, name):
         return self.valu.get(name)
 
+    async def value(self):
+        return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
+
 class Set(Prim):
 
     def __init__(self, valu, path=None):
@@ -974,6 +1012,9 @@ class List(Prim):
         Return the length of the list.
         '''
         return len(self)
+
+    async def value(self):
+        return tuple([await toprim(v) for v in self.valu])
 
 class Bool(Prim):
     pass
@@ -1189,6 +1230,7 @@ class NodeData(Prim):
 
     async def _setNodeData(self, name, valu):
         self._reqAllowed(('node', 'data', 'set', name))
+        valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
@@ -1440,6 +1482,9 @@ class StatTally(Prim):
 
     async def get(self, name):
         return self.counters.get(name, 0)
+
+    def value(self):
+        return dict(self.counters)
 
 class LibLayer(Lib):
 
@@ -1976,6 +2021,7 @@ class User(Prim):
             'setRules': self._methUserSetRules,
             'setAdmin': self._methUserSetAdmin,
             'setEmail': self._methUserSetEmail,
+            'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
         })
 
@@ -2038,6 +2084,10 @@ class User(Prim):
 
         self.runt.user.confirm(('auth', 'user', 'set', 'passwd'))
         return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
+
+    async def _methUserSetLocked(self, locked):
+        self.runt.user.confirm(('auth', 'user', 'set', 'locked'))
+        return await self.runt.snap.core.setUserLocked(self.valu, bool(intify(locked)))
 
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)
