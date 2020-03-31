@@ -136,7 +136,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         except s_ast.StormReturn as e:
 
-            return s_stormtypes.toprim(e.item)
+            return await s_stormtypes.toprim(e.item)
 
     async def nodes(self, text, opts=None):
         '''
