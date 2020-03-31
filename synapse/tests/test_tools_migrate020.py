@@ -1086,6 +1086,6 @@ class MigrationTest(s_t_utils.SynTest):
             ne = (ne[0], 'foo:bar', ne[2])
 
             lyrinfo = await migr._migrHiveLayerInfo(locallyrs[0])
-            wlyr = await migr._destGetWlyr(migr.dest, locallyrs[0], lyrinfo)
-            res = await migr._destAddNodes(wlyr, ne, 'nexus')
-            self.isin('Unable to store nodeedits', res.get('mesg', ''))
+            async with migr._destGetWlyr(migr.dest, locallyrs[0], lyrinfo) as wlyr:
+                res = await migr._destAddNodes(wlyr, ne, 'nexus')
+                self.isin('Unable to store nodeedits', res.get('mesg', ''))
