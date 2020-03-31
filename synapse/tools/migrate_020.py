@@ -1817,8 +1817,19 @@ class Migrator(s_base.Base):
                                 continue
 
                             abrv = wlyr.getPropAbrv(form, None)
-                            for indx in wlyr.getStorIndx(stortype, valu):
-                                wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byprop)
+
+                            if stortype & s_layer.STOR_FLAG_ARRAY:
+
+                                for indx in wlyr.getStorIndx(stortype, valu):
+                                    wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byarray)
+
+                                for indx in wlyr.getStorIndx(s_layer.STOR_TYPE_MSGP, valu):
+                                    wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byprop)
+
+                            else:
+
+                                for indx in wlyr.getStorIndx(stortype, valu):
+                                    wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byprop)
 
                             wlyr.formcounts.inc(form)
 
