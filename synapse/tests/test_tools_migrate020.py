@@ -830,6 +830,8 @@ class MigrationTest(s_t_utils.SynTest):
                         elif uname == 'fred':
                             fred = uiden
 
+                    await usersd.set(fred, None)  # no username
+
                     await migr.hive.rename(('auth', 'users', root), ('auth', 'users', newroot))
                     await migr.hive.rename(('auth', 'users', fred), ('auth', 'users', newfred))
 
