@@ -90,8 +90,7 @@ class SnapTest(s_t_utils.SynTest):
 
                     self.eq(nodes[0].buid, node0.buid)
                     self.eq(id(nodes[0]), id(node0))
-                    # Hang a attr off of the node
-                    setattr(node, '_test', True)
+                    node._test = True
 
                 await doit()  # run in separate function so that objects are gc'd
 
