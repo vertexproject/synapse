@@ -105,11 +105,11 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('fixed unit may not be larger'))
 
                     outp.clear()
-                    await cmdr.runCmdLine('cron add -d "Tuesday,1" {#foo}')
+                    await cmdr.runCmdLine('cron add -d Tuesday,1 {#foo}')
                     self.true(outp.expect('failed to parse day value'))
 
                     outp.clear()
-                    await cmdr.runCmdLine('cron add -d "Fri,3" {#foo}')
+                    await cmdr.runCmdLine('cron add -d Fri,3 {#foo}')
                     self.true(outp.expect('failed to parse day value'))
 
                     outp.clear()
@@ -401,8 +401,6 @@ class CmdCronTest(s_t_utils.SynTest):
                     outp.clear()
                     await cmdr.runCmdLine('cron add --monthly=-1:12:30 {#bar}')
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
-                    print('GUID %r' % (guid,))
-                    print(repr(outp.mesgs[-1]))
                     await cmdr.runCmdLine(f'cron stat {guid[:6]}')
                     self.true(outp.expect("{'hour': 12, 'minute': 30, 'dayofmonth': -1}"))
 
