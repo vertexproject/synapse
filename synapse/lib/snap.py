@@ -495,7 +495,7 @@ class Snap(s_base.Base):
             buid = s_common.buid((f.name, formnorm))
 
             if doadd:
-                edits.append((s_layer.EDIT_NODE_ADD, (formnorm, f.type.stortype)))
+                edits.append((s_layer.EDIT_NODE_ADD, (formnorm, f.type.stortype), []))
 
             formsubs = forminfo.get('subs')
             if formsubs is not None:
@@ -527,7 +527,7 @@ class Snap(s_base.Base):
                                 yield e
 
                 propnorm, typeinfo = prop.type.norm(propvalu)
-                edits.append((s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype)))
+                edits.append((s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype), []))
 
                 propsubs = typeinfo.get('subs')
                 if propsubs is not None:
@@ -540,7 +540,7 @@ class Snap(s_base.Base):
                         assert subprop.type.stortype is not None
 
                         subnorm, subinfo = subprop.type.norm(subvalu)
-                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype)))
+                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), []))
 
                 propform = self.core.model.form(prop.type.name)
                 if propform is None:
@@ -596,21 +596,22 @@ class Snap(s_base.Base):
                 actualedits.append((sode[0], sode[1]['form'], edits))
 
             for edit in edits:
+                etyp, parms = edit
 
-                if edit[0] == s_layer.EDIT_NODE_ADD:
+                if etyp == s_layer.EDIT_NODE_ADD:
                     node.bylayer['ndef'] = wlyr
                     callbacks.append((node.form.wasAdded, (node,), {}))
                     callbacks.append((self.view.runNodeAdd, (node,), {}))
                     continue
 
-                if edit[0] == s_layer.EDIT_NODE_DEL:
+                if etyp == s_layer.EDIT_NODE_DEL:
                     callbacks.append((node.form.wasDeleted, (node,), {}))
                     callbacks.append((self.view.runNodeDel, (node,), {}))
                     continue
 
-                if edit[0] == s_layer.EDIT_PROP_SET:
+                if etyp == s_layer.EDIT_PROP_SET:
 
-                    (name, valu, oldv, stype) = edit[1]
+                    (name, valu, oldv, stype) = parms
 
                     prop = node.form.props.get(name)
                     if prop is None: # pragma: no cover
@@ -624,9 +625,9 @@ class Snap(s_base.Base):
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
                     continue
 
-                if edit[0] == s_layer.EDIT_PROP_DEL:
+                if etyp == s_layer.EDIT_PROP_DEL:
 
-                    (name, oldv, stype) = edit[1]
+                    (name, oldv, stype) = parms
 
                     prop = node.form.props.get(name)
                     if prop is None: # pragma: no cover
@@ -640,9 +641,9 @@ class Snap(s_base.Base):
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
                     continue
 
-                if edit[0] == s_layer.EDIT_TAG_SET:
+                if etyp == s_layer.EDIT_TAG_SET:
 
-                    (tag, valu, oldv) = edit[1]
+                    (tag, valu, oldv) = parms
 
                     node.tags[tag] = valu
                     node.bylayer['tags'][tag] = wlyr
@@ -651,9 +652,9 @@ class Snap(s_base.Base):
                     callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
-                if edit[0] == s_layer.EDIT_TAG_DEL:
+                if etyp == s_layer.EDIT_TAG_DEL:
 
-                    (tag, oldv) = edit[1]
+                    (tag, oldv) = parms
 
                     node.tags.pop(tag, None)
                     node.bylayer['tags'].pop(tag, None)
@@ -662,14 +663,14 @@ class Snap(s_base.Base):
                     callbacks.append((self.wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
-                if edit[0] == s_layer.EDIT_TAGPROP_SET:
-                    (tag, prop, valu, oldv, stype) = edit[1]
+                if etyp == s_layer.EDIT_TAGPROP_SET:
+                    (tag, prop, valu, oldv, stype) = parms
                     node.tagprops[(tag, prop)] = valu
                     node.bylayer['tags'][(tag, prop)] = wlyr
                     continue
 
-                if edit[0] == s_layer.EDIT_TAGPROP_DEL:
-                    (tag, prop, oldv, stype) = edit[1]
+                if etyp == s_layer.EDIT_TAGPROP_DEL:
+                    (tag, prop, oldv, stype) = parms
                     node.tagprops.pop((tag, prop), None)
                     node.bylayer['tags'].pop((tag, prop), None)
                     continue
