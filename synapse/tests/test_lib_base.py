@@ -8,6 +8,7 @@ import multiprocessing
 import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 
 import synapse.tests.utils as s_t_utils
 
@@ -440,3 +441,39 @@ class BaseTest(s_t_utils.SynTest):
 
         self.true(mixed.m1fini.is_set())
         self.true(mixed.m2fini.is_set())
+
+    async def test_base_schedgenr(self):
+        async def goodgenr():
+            yield 'foo'
+            await asyncio.sleep(0)
+            yield 'bar'
+            await asyncio.sleep(0)
+
+        async def badgenr():
+            yield 'foo'
+            await asyncio.sleep(0)
+            raise s_exc.SynErr('rando')
+
+        async def slowgenr():
+            yield 'foo'
+            await asyncio.sleep(5)
+            yield 'bar'
+
+        event = asyncio.Event()
+
+        async def slowtask():
+            g = s_base.schedGenr(slowgenr())
+            item = await g.__anext__()
+            self.eq('foo', item)
+            event.set()
+            item = await g.__anext__()
+
+        items = [item async for item in s_base.schedGenr(goodgenr())]
+        self.eq(items, ['foo', 'bar'])
+        await self.agenraises(s_exc.SynErr, s_base.schedGenr(badgenr()))
+
+        async with await s_base.Base.anit() as base:
+            task = base.schedCoro(slowtask())
+            self.true(await s_coro.event_wait(event, 3.0))
+
+        await self.asyncraises(asyncio.CancelledError, task)
