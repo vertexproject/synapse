@@ -2005,8 +2005,6 @@ class GraphCmd(Cmd):
 
         subg = s_ast.SubGraph(rules)
 
-        genr = subg.run(runt, genr)
-
         async for node, path in subg.run(runt, genr):
             yield node, path
 

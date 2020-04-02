@@ -104,6 +104,13 @@ class Base:
 
         return self
 
+    @classmethod
+    @contextlib.asynccontextmanager
+    async def ctx(cls, *args, **kwargs):
+        item = await cls.anit(*args, **kwargs)
+        yield item
+        await item.fini()
+
     async def __anit__(self):
 
         self.loop = asyncio.get_running_loop()
