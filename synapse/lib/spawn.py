@@ -44,6 +44,9 @@ async def storm(core, item):
     opts = storminfo.get('opts')
     text = storminfo.get('query')
 
+    if opts is None:
+        opts = {}
+
     user = core.auth.user(useriden)
     if user is None:
         raise s_exc.NoSuchUser(iden=useriden)
@@ -52,7 +55,8 @@ async def storm(core, item):
     if view is None:
         raise s_exc.NoSuchView(iden=viewiden)
 
-    async for mesg in view.streamstorm(text, opts=opts, user=user):
+    opts['user'] = useriden
+    async for mesg in view.storm(text, opts=opts):
         yield mesg
 
 async def _innerloop(core, todo, done):
@@ -317,6 +321,8 @@ class SpawnCore(s_base.Base):
         self.iden = spawninfo.get('iden')
         self.dirn = spawninfo.get('dirn')
 
+        self.trigson = self.conf.get('trigger:enable')
+
         self.stormcmds = {}
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
@@ -349,7 +355,6 @@ class SpawnCore(s_base.Base):
         self.hive = await s_hive.openurl(f'cell://{self.dirn}', name='*/hive')
         self.onfini(self.hive)
 
-        # TODO cortex configured for remote auth...
         node = await self.hive.open(('auth',))
         self.auth = await s_hiveauth.Auth.anit(node)
         self.onfini(self.auth.fini)
@@ -443,3 +448,8 @@ class SpawnCore(s_base.Base):
     getStormPkg = s_cortex.Cortex.getStormPkg
     getStormQuery = s_cortex.Cortex.getStormQuery
     loadStormPkg = s_cortex.Cortex.loadStormPkg
+
+    _initStormOpts = s_cortex.Cortex._initStormOpts
+
+    _viewFromOpts = s_cortex.Cortex._viewFromOpts
+    _userFromOpts = s_cortex.Cortex._userFromOpts

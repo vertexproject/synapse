@@ -196,10 +196,11 @@ class MigrationTest(s_t_utils.SynTest):
         tpodes = tdata['podes']
         tnodedata = tdata['nodedata']
 
-        # check all nodes
+        # check all nodes (removing empty nodedata key)
         nodes = await core.nodes('.created -meta:source:name=test')
 
         podes = [n.pack(dorepr=True) for n in nodes]
+        podes = [(p[0], {k: v for k, v in p[1].items() if k != 'nodedata'}) for p in podes]
         self.gt(len(podes), 0)
 
         try:
@@ -232,7 +233,7 @@ class MigrationTest(s_t_utils.SynTest):
 
         # check that triggers are active
         await core.auth.getUserByName('root')
-        self.len(2, await core.eval('syn:trigger').list())
+        self.len(2, await core.nodes('syn:trigger'))
         tnodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
         self.nn(tnodes[0].tags.get('trgtag'))
 
@@ -415,6 +416,7 @@ class MigrationTest(s_t_utils.SynTest):
         conf = {
             'src': None,
             'dest': None,
+            'addmode': 'nexus',
             'migrops': None,
         }
 
@@ -439,9 +441,9 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.fini()
 
             # startup 0.2.0 core
-            async with await s_cortex.Cortex.anit(dest, conf={'logchanges': True}) as core:
+            async with await s_cortex.Cortex.anit(dest, conf={'nexslog:en': True}) as core:
                 # check that nexus root has offsets from migration
-                self.gt(await core.getNexusOffs(), 1)
+                self.gt(core.nexsroot._nexuslog.index(), 1)
 
                 # check core data
                 await self._checkCore(core, tdata)
@@ -466,7 +468,6 @@ class MigrationTest(s_t_utils.SynTest):
         conf = {
             'src': None,
             'dest': None,
-            'addmode': 'nonexus',
             'safetyoff': True,
             'migrops': None,
         }
@@ -481,7 +482,7 @@ class MigrationTest(s_t_utils.SynTest):
             # startup 0.2.0 core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check that nexus root has *no* offsets from migration
-                self.eq(await core.getNexusOffs(), 0)
+                self.eq(core.nexsroot._nexuslog.index(), 0)
 
                 # check core data
                 await self._checkCore(core, tdata)
@@ -506,7 +507,7 @@ class MigrationTest(s_t_utils.SynTest):
             # startup 0.2.0 core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check that nexus root has *no* offsets from migration
-                self.eq(await core.getNexusOffs(), 0)
+                self.eq(core.nexsroot._nexuslog.index(), 0)
 
                 # check core data
                 await self._checkCore(core, tdata)
@@ -535,7 +536,7 @@ class MigrationTest(s_t_utils.SynTest):
             logs = [log async for log in migr0._migrlogGet('nodes', 'stat', f'{lyriden}:totnodes')]
             self.len(1, logs)
             self.eq(24, logs[0]['val'][0])
-            self.ge(24, logs[0]['val'][1])  # -1 for error node
+            self.ge(24, logs[0]['val'][1])
 
             await migr0.fini()
 
@@ -547,7 +548,7 @@ class MigrationTest(s_t_utils.SynTest):
                 await migr.migrate()
 
                 log = await migr._migrlogGetOne('nodes', 'chkpnt', lyriden)
-                self.eq(len(tdata['podes']), log['val'][1] - 1)  # chkpnt is the val to start resume from
+                self.eq(len(tdata['podes']), log['val'][1] - 2)  # -1 since next node, -1 for err not in tdata
 
                 await self._checkStats(tdata, migr, locallyrs)
 
@@ -568,6 +569,9 @@ class MigrationTest(s_t_utils.SynTest):
         }
 
         async with self._getTestMigrCore(conf) as (tdata0, dest0, locallyrs0, migr0):
+            # add a boot.yaml file
+            s_common.yamlsave({'auth:admin': 'root:root'}, migr0.src, 'boot.yaml')
+
             await migr0.migrate()
 
             await self._checkStats(tdata0, migr0, locallyrs0)
@@ -609,6 +613,9 @@ class MigrationTest(s_t_utils.SynTest):
                 lyrslab = os.path.join(dest, 'layers', iden, 'layer_v2.lmdb')
                 self.true(os.path.exists(lyrslab))
 
+                # add a boot.yaml file
+                s_common.yamlsave({'auth:admin': 'root:root'}, migr0.src, 'boot.yaml')
+
                 await migr.migrate()
 
                 await self._checkStats(tdata, migr, locallyrs)
@@ -633,6 +640,11 @@ class MigrationTest(s_t_utils.SynTest):
                 self.eq([(0, 1, 3), (0, 1, 3)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
                 self.eq((0, 1, 53), versyaml.get('src:cortex'))
                 self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr.migrops})
+
+                # check the boot.yaml
+                self.false(os.path.exists(os.path.join(dest, 'boot.yaml')))
+                self.true(os.path.exists(os.path.join(dest, 'migration', 'boot.yaml')))
+                self.len(1, [log async for log in migr._migrlogGet('cell', 'error')])
 
                 await migr.fini()
 
@@ -661,10 +673,11 @@ class MigrationTest(s_t_utils.SynTest):
                 ]
 
                 async with await s_migr.main(argv) as migr:
+                    self.true(migr.isfini)
                     self.eq(migr.src, src)
                     self.eq(migr.dest, dest)
                     self.sorteq(migr.migrops, s_migr.ALL_MIGROPS)
-                    self.eq(migr.addmode, 'nexus')
+                    self.eq(migr.addmode, 'nonexus')
                     self.eq(migr.editbatchsize, 100)
                     self.eq(migr.fairiter, 100)
                     self.none(migr.nodelim)
@@ -838,11 +851,12 @@ class MigrationTest(s_t_utils.SynTest):
 
                 mods = {'modules': ['synapse.tests.utils.TestModule']}
                 s_common.yamlsave(mods, src, 'cell.yaml')
+                s_common.yamlsave({}, src, 'boot.yaml')  # empty, but will still move
 
                 conf = {
                     'src': src,
                     'dest': dest,
-                    'migrops': ['dmodel', 'hivelyr', 'nodes'],
+                    'migrops': ['dmodel', 'hivelyr', 'cell', 'nodes'],
                     'editbatchsize': 1,
                     'nodelim': 2,
                 }
@@ -861,6 +875,9 @@ class MigrationTest(s_t_utils.SynTest):
                         stats.extend([log async for log in migr._migrlogGet('nodes', 'stat', statkey)])
 
                     self.eq((1, 1), stats[0]['val'])
+
+                    self.false(os.path.exists(os.path.join(dest, 'boot.yaml')))
+                    self.true(os.path.exists(os.path.join(dest, 'migration', 'boot.yaml')))
 
     async def test_migr_stormsvc(self):
         conf = {
@@ -961,6 +978,7 @@ class MigrationTest(s_t_utils.SynTest):
                 conf = {
                     'src': src,
                     'dest': dest,
+                    'addmode': 'nexus',
                 }
 
                 async with await s_migr.Migrator.anit(conf) as migr:

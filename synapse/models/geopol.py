@@ -34,12 +34,12 @@ class PolModule(s_module.CoreModule):
 
                     ('pol:country', {}, (
                         ('flag', ('file:bytes', {}), {}),
-                        ('founded', ('time', {}), {'defval': 0}),
+                        ('founded', ('time', {}), {}),
                         ('iso2', ('pol:iso2', {}), {}),
                         ('iso3', ('pol:iso3', {}), {}),
                         ('isonum', ('pol:isonum', {}), {}),
                         ('name', ('str', {'lower': True}), {}),
-                        ('pop', ('int', {}), {'defval': 0}),
+                        ('pop', ('int', {}), {}),
                         ('tld', ('inet:fqdn', {}), {}),
                     )),
 

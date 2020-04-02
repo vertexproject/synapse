@@ -131,7 +131,7 @@ class HttpApiTest(s_tests.SynTest):
 
             bobs = await core.auth.addRole('bobs')
 
-            await newb.grant('bobs')
+            await newb.grant(bobs.iden)
 
             async with self.getHttpSess() as sess:
 
@@ -527,6 +527,53 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', json={}) as resp:
                     retn = await resp.json()
                     self.eq('AuthDeny', retn.get('code'))
+
+    async def test_http_impersonate(self):
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            visi = await core.auth.addUser('visi')
+
+            await visi.setPasswd('secret')
+            await visi.addRule((True, ('storm', 'impersonate')))
+
+            opts = {'user': core.auth.rootuser.iden}
+
+            async with self.getHttpSess() as sess:
+
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                data = {'query': '[ inet:ipv4=1.2.3.4 ]', 'opts': opts}
+
+                podes = []
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
+
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        podes.append(json.loads(byts))
+
+                self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
+
+                msgs = []
+                data = {'query': '[ inet:ipv4=5.5.5.5 ]', 'opts': opts}
+
+                async with sess.get(f'https://localhost:{port}/api/v1/storm', json=data) as resp:
+
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        msgs.append(json.loads(byts))
+                podes = [m[1] for m in msgs if m[0] == 'node']
+                self.eq(podes[0][0], ('inet:ipv4', 0x05050505))
 
     async def test_http_model(self):
 

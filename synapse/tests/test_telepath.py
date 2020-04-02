@@ -54,6 +54,7 @@ class Foo:
 
     def __init__(self):
         self.sleepg_evt = asyncio.Event()
+        self.simplesleep_evt = asyncio.Event()
 
     def bar(self, x, y):
         return x + y
@@ -76,6 +77,11 @@ class Foo:
             self.sleepg_evt.set()
             raise
         yield ('fini', {})
+
+    async def simplesleep(self):
+        self.simplesleep_evt.set()
+        await asyncio.sleep(10)
+        return 42
 
     def genr(self):
         yield 10
@@ -883,6 +889,26 @@ class TeleTest(s_t_utils.SynTest):
                 self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
                 # Ensure we logged the cancellation.
                 self.true(await stream.wait(6))
+
+    async def test_link_fini_breaking_tasks2(self):
+        '''
+        Similar to the previous test, except tears down a proxy that another task is using
+        '''
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+            dmon.share('foo', foo)
+            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+            prox = await s_telepath.openurl(url)  # type: Foo
+
+            async def doit():
+                retn = await prox.simplesleep()
+                return retn
+
+            task = dmon.schedCoro(doit())
+            self.true(await s_coro.event_wait(foo.simplesleep_evt, 2))
+            await prox.fini()
+
+            await self.asyncraises(s_exc.LinkShutDown, task)
 
     async def test_discovery_consul(self):
 

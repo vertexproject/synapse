@@ -195,17 +195,17 @@ class FileTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.eval('[ file:bytes="*" :mime=text/PLAIN ]').list()
+            nodes = await core.nodes('[ file:bytes="*" :mime=text/PLAIN ]')
 
             self.len(1, nodes)
             guid = nodes[0].ndef[1]
             self.eq('text/plain', nodes[0].get('mime'))
 
-            nodes = await core.eval('file:mime=text/plain').list()
+            nodes = await core.nodes('file:mime=text/plain')
             self.len(1, nodes)
 
             opts = {'vars': {'guid': guid}}
-            nodes = await core.eval('file:ismime:file=$guid', opts=opts).list()
+            nodes = await core.nodes('file:ismime:file=$guid', opts=opts)
             self.len(1, nodes)
 
             node = nodes[0]

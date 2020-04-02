@@ -236,7 +236,7 @@ class CryoApi(s_cell.CellApi):
         async for item in tank.metrics(offs, size=size):
             yield item
 
-    @s_cell.adminapi
+    @s_cell.adminapi(log=True)
     async def delete(self, name):
         return await self.cell.delete(name)
 
@@ -267,6 +267,10 @@ class CryoCell(s_cell.Cell):
             tank = await CryoTank.anit(path, conf)
 
             self.tanks.put(name, tank)
+
+    @classmethod
+    def getEnvPrefix(cls):
+        return 'SYN_CRYOTANK'
 
     async def getCellApi(self, link, user, path):
 

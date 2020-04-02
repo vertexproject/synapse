@@ -214,6 +214,77 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(my_maxsize, newdb.mapsize)
                 self.eq(my_maxsize, newdb.maxsize)
 
+    async def test_lmdbslab_scanbump(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+
+                foo = slab.initdb('foo', dupsort=True)
+                foo2 = slab.initdb('foo2', dupsort=False)
+
+                multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
+
+                byts = b'\x00' * 256
+                for i in range(10):
+                    slab.put(multikey, s_common.int64en(i), dupdata=True, db=foo)
+                    slab.put(s_common.int64en(i), byts, db=foo2)
+
+                iter = slab.scanByDups(multikey, db=foo)
+                iter2 = slab.scanByFull(db=foo2)
+
+                for _ in range(6):
+                    next(iter)
+                    next(iter2)
+
+                iterback = slab.scanByDupsBack(multikey, db=foo)
+                next(iterback)
+
+                iterback2 = slab.scanByFullBack(db=foo2)
+                next(iterback2)
+
+                iterback3 = slab.scanByDupsBack(multikey, db=foo)
+                iterback4 = slab.scanByFullBack(db=foo2)
+
+                for _ in range(8):
+                    next(iterback3)
+                    next(iterback4)
+
+                iterback5 = slab.scanByDupsBack(multikey, db=foo)
+                next(iterback5)
+
+                iterback6 = slab.scanByFullBack(db=foo2)
+                next(iterback6)
+
+                # Delete keys to cause set_range in iternext to fail
+                for i in range(5):
+                    slab.delete(multikey, s_common.int64en(i + 5), db=foo)
+                    slab.delete(s_common.int64en(i + 5), db=foo2)
+
+                slab.forcecommit()
+
+                self.raises(StopIteration, next, iter)
+                self.raises(StopIteration, next, iter2)
+                self.eq(5, sum(1 for _ in iterback))
+                self.eq(5, sum(1 for _ in iterback2))
+
+                # Delete all the keys in front of a backwards scan
+                for i in range(4):
+                    slab.delete(multikey, s_common.int64en(i), db=foo)
+                    slab.delete(s_common.int64en(i), db=foo2)
+
+                self.raises(StopIteration, next, iterback3)
+                self.raises(StopIteration, next, iterback4)
+
+                # Delete remaining keys so curs.last fails
+                slab.delete(multikey, s_common.int64en(4), db=foo)
+                slab.delete(s_common.int64en(4), db=foo2)
+
+                self.raises(StopIteration, next, iterback5)
+                self.raises(StopIteration, next, iterback6)
+
     async def test_lmdbslab_grow(self):
 
         with self.getTestDir() as dirn:
@@ -307,19 +378,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # While we have the DB open in readonly, have another process write a bunch of data to cause the
                 # map size to be increased
 
-                def anotherproc(path):
-                    async def lotsofwrites(path):
-                        os.remove(pathlib.Path(path).with_suffix('.opts.yaml'))
-                        async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
-                            foo = slab.initdb('foo', dupsort=True)
-                            mapsize = slab.mapsize
-                            count = 0
-                            while mapsize == slab.mapsize:
-                                count += 1
-                                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, dupdata=True, db=foo)
-                    asyncio.run(lotsofwrites(path))
-
-                proc = multiprocessing.Process(target=anotherproc, args=(path, ))
+                ctx = multiprocessing.get_context('spawn')
+                proc = ctx.Process(target=_writeproc, args=(path, ))
                 proc.start()
                 proc.join()
 
@@ -676,6 +736,23 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 ctr.sync()
                 self.eq({'foo': 1, 'bar': 42}, ctr.pack())
 
+    async def test_lmdbslab_doubleopen(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                foo = slab.initdb('foo')
+                slab.put(b'\x00\x01', b'hehe', db=foo)
+
+            # Can close and re-open fine
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                foo = slab.initdb('foo')
+                self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
+
+                # Can't re-open while already open
+                await self.asyncraises(s_exc.SlabAlreadyOpen, s_lmdbslab.Slab.anit(path))
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):
@@ -716,3 +793,17 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
                 # TODO: make this test reliable
                 self.ge(lockmem, 0)
+
+def _writeproc(path):
+
+    async def lotsofwrites(path):
+        byts = b'\x00' * 256
+        os.remove(pathlib.Path(path).with_suffix('.opts.yaml'))
+        async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
+            foo = slab.initdb('foo', dupsort=True)
+            mapsize = slab.mapsize
+            count = 0
+            while mapsize == slab.mapsize:
+                count += 1
+                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, dupdata=True, db=foo)
+    asyncio.run(lotsofwrites(path))

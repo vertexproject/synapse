@@ -81,7 +81,6 @@ import synapse.lib.slabseqn as s_slabseqn
 logger = logging.getLogger(__name__)
 
 FAIR_ITERS = 10  # every this many rows, yield CPU to other tasks
-BUID_CACHE_SIZE = 10000
 
 import synapse.lib.msgpack as s_msgpack
 
@@ -841,10 +840,11 @@ class Layer(s_nexus.Pusher):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, nexsroot=None):
+    async def __anit__(self, layrinfo, dirn, nexsroot=None, allow_upstream=True):
 
         self.nexsroot = nexsroot
         self.layrinfo = layrinfo
+        self.allow_upstream = allow_upstream
 
         self.iden = layrinfo.get('iden')
         await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
@@ -917,7 +917,7 @@ class Layer(s_nexus.Pusher):
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
         uplayr = layrinfo.get('upstream')
-        if uplayr is not None:
+        if uplayr is not None and allow_upstream:
             if isinstance(uplayr, (tuple, list)):
                 for layr in uplayr:
                     await self.initUpstreamSync(layr)
@@ -978,6 +978,7 @@ class Layer(s_nexus.Pusher):
 
         self.countdb = self.layrslab.initdb('counters')
         self.nodedata = self.dataslab.initdb('nodedata')
+        self.dataname = self.dataslab.initdb('dataname', dupsort=True)
 
         if self.logedits:
             self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
@@ -1178,6 +1179,20 @@ class Layer(s_nexus.Pusher):
             for buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
 
+    async def liftByDataName(self, name):
+
+        abrv = self.getPropAbrv(name, None)
+        for abrv, buid in self.dataslab.scanByDups(abrv, db=self.dataname):
+
+            sode = await self.getStorNode(buid)
+
+            byts = self.dataslab.get(buid + abrv, db=self.nodedata)
+            if byts is not None:
+                item = s_msgpack.un(byts)
+                sode[1]['nodedata'] = {name: item}
+
+            yield sode
+
     async def storNodeEdits(self, nodeedits, meta):
 
         results = await self._push('edits', nodeedits, meta)
@@ -1191,7 +1206,7 @@ class Layer(s_nexus.Pusher):
 
         return retn
 
-    @s_nexus.Pusher.onPushAuto('edits')
+    @s_nexus.Pusher.onPush('edits')
     async def _storNodeEdits(self, nodeedits, meta):
         '''
         Execute a series of node edit operations, returning the updated nodes.
@@ -1553,6 +1568,8 @@ class Layer(s_nexus.Pusher):
             if oldv == valu:
                 return None
 
+        self.dataslab.put(abrv, buid, db=self.dataname)
+
         return (
             (EDIT_NODEDATA_SET, (name, valu, oldv)),
         )
@@ -1567,6 +1584,7 @@ class Layer(s_nexus.Pusher):
             return None
 
         oldv = s_msgpack.un(oldb)
+        self.dataslab.delete(abrv, buid, db=self.dataname)
 
         return (
             (EDIT_NODEDATA_DEL, (name, oldv)),
@@ -1735,6 +1753,9 @@ class Layer(s_nexus.Pusher):
         self.schedCoro(self._initUpstreamSync(url))
 
     async def _initUpstreamSync(self, url):
+        '''
+        We're a downstream layer, receiving a stream of edits from an upstream layer telepath proxy at url
+        '''
 
         while not self.isfini:
 

@@ -140,7 +140,7 @@ class AstTest(s_test.SynTest):
                 { -> test:int [ :loc=haha ] $loc=:loc }
                 $lib.print($loc)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('haha', msgs)
 
             # Show that a computed variable being smashed by a
@@ -158,7 +158,7 @@ class AstTest(s_test.SynTest):
                 $lib.print($loc)
                 -test:comp
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('sol', msgs)
             self.stormIsInPrint('mars', msgs)
 
@@ -173,7 +173,7 @@ class AstTest(s_test.SynTest):
             $newvar=:hehe -.created
             $s.add("yar {x}", x=$newvar)
             $lib.print($s.str())'''
-            mesgs = await core.streamstorm(q).list()
+            mesgs = await core.stormlist(q)
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
             self.eq(['Foo'], prints)
 
@@ -286,7 +286,7 @@ class AstTest(s_test.SynTest):
 
             user = await core.auth.addUser('newb')
             with self.raises(s_exc.AuthDeny):
-                await core.nodes('[ (inet:ipv4=1.2.3.4 :asn=20) ]', user=user)
+                await core.nodes('[ (inet:ipv4=1.2.3.4 :asn=20) ]', opts={'user': user.iden})
 
     async def test_subquery_yield(self):
 
@@ -416,7 +416,7 @@ class AstTest(s_test.SynTest):
             $key = nope
             [ test:str=$data.$key ]
             '''
-            mesgs = await s_test.alist(core.streamstorm(q))
+            mesgs = await core.stormlist(q)
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.eq(errs[0][0], 'BadTypeValu')
 
@@ -599,29 +599,29 @@ class AstTest(s_test.SynTest):
             self.eq({('test:str', 'asdf'), ('test:str', 'qwer')},
                     {n.ndef for n in nodes})
 
-            msgs = await core.streamstorm('pkg.list').list()
+            msgs = await core.stormlist('pkg.list')
             self.stormIsInPrint('foo                             : (0, 0, 1)', msgs)
 
-            msgs = await core.streamstorm('pkg.del asdf').list()
+            msgs = await core.stormlist('pkg.del asdf')
             self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
 
             await core.addStormPkg(otherpkg)
-            msgs = await core.streamstorm('pkg.list').list()
+            msgs = await core.stormlist('pkg.list')
             self.stormIsInPrint('foosball', msgs)
 
-            msgs = await core.streamstorm('pkg.del foo').list()
+            msgs = await core.stormlist('pkg.del foo')
             self.stormIsInPrint('Multiple package names match "foo". Aborting.', msgs)
 
-            msgs = await core.streamstorm(f'pkg.del foosball').list()
+            msgs = await core.stormlist(f'pkg.del foosball')
             self.stormIsInPrint('Removing package: foosball', msgs)
 
-            msgs = await core.streamstorm(f'pkg.del foo').list()
+            msgs = await core.stormlist(f'pkg.del foo')
             self.stormIsInPrint('Removing package: foo', msgs)
 
             # Direct add via stormtypes
-            await core.streamstorm('$lib.pkg.add($pkg)',
-                                   opts={'vars': {'pkg': stormpkg}}).list()
-            msgs = await core.streamstorm('pkg.list').list()
+            await core.stormlist('$lib.pkg.add($pkg)',
+                                   opts={'vars': {'pkg': stormpkg}})
+            msgs = await core.stormlist('pkg.list')
             self.stormIsInPrint('stormpkg', msgs)
 
             with self.raises(s_exc.NoSuchName):
@@ -639,7 +639,7 @@ class AstTest(s_test.SynTest):
             $retn=$hello()
             $lib.print('retn is: {retn}', retn=$retn)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('retn is: hello', msgs)
 
             # Simple echo function
@@ -651,7 +651,7 @@ class AstTest(s_test.SynTest):
             $retn=$echo($node.value())
             $lib.print('retn is: {retn}', retn=$retn)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('retn is: foo', msgs)
             self.stormIsInPrint('retn is: bar', msgs)
 
@@ -667,7 +667,7 @@ class AstTest(s_test.SynTest):
             $retn=$echo($node.value())
             $lib.print('retn is: {retn}', retn=$retn)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('arg is foo', msgs)
             self.stormIsInPrint('arg is bar', msgs)
             self.stormIsInPrint('retn is: 1234', msgs)
@@ -684,7 +684,7 @@ class AstTest(s_test.SynTest):
             $retn=$cond($node.value())
             $lib.print('retn is: {retn}', retn=$retn)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('retn is: None', msgs)
             self.stormIsInPrint('retn is: 1', msgs)
 
@@ -693,7 +693,7 @@ class AstTest(s_test.SynTest):
             $test=$lib.import(test)
             $haha=$test.pprint('hello', 'world', arg3='goodbye')
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('arg1: hello', msgs)
             self.stormIsInPrint('arg2: world', msgs)
             self.stormIsInPrint('arg3: goodbye', msgs)
@@ -702,7 +702,7 @@ class AstTest(s_test.SynTest):
             $test=$lib.import(test)
             $haha=$test.pprint(arg3='goodbye', arg1='hello', arg2='world')
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('arg1: hello', msgs)
             self.stormIsInPrint('arg2: world', msgs)
             self.stormIsInPrint('arg3: goodbye', msgs)
@@ -721,7 +721,7 @@ class AstTest(s_test.SynTest):
             $output = $outer()
             $lib.print($output)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('inner vertex', msgs)
             self.stormIsInPrint('foobarbazbiz', msgs)
 
@@ -738,7 +738,7 @@ class AstTest(s_test.SynTest):
             $lib.print('output is {a}', a=$output)
             '''
 
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('output is 18', msgs)
 
             # recursive functions
@@ -753,7 +753,7 @@ class AstTest(s_test.SynTest):
             $lib.print('final recursive output is {out}', out=$output)
             '''
 
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('final recursive output is 6', msgs)
 
             # return a function (not a value, but a ref to the function itself)
@@ -774,7 +774,7 @@ class AstTest(s_test.SynTest):
             $output = $func()
             $lib.print('[{now}, "got {out}"]', now=$($lib.time.now()), out=$output)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
             self.eq(len(prints), 3)
 
@@ -811,7 +811,7 @@ class AstTest(s_test.SynTest):
             $lib.print($boop())
             $lib.print("biz is now {biz}", biz=$biz)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
             self.len(6, prints)
             self.stormIsInPrint("neato burrito", msgs)
@@ -824,7 +824,7 @@ class AstTest(s_test.SynTest):
             $test=$lib.import(test)
             $lib.print($outer("1337"))
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             for msg in msgs:
                 self.ne('print', msg[0])
 
@@ -842,7 +842,7 @@ class AstTest(s_test.SynTest):
             $foo = $bar("hehe")
             $lib.print($foo)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('hehe', msgs)
             self.stormIsInPrint('arg1=hehe', msgs)
             self.stormIsInPrint('arg2=hehe', msgs)
@@ -858,7 +858,7 @@ class AstTest(s_test.SynTest):
             $lib.print($retn)
             $lib.print("counter is {c}", c$counter)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
             self.len(9, prints)
             self.stormIsInPrint('counter is 0', msgs)
@@ -892,7 +892,7 @@ class AstTest(s_test.SynTest):
             yield $foo("bloooop")
             $lib.print("nodes added: {c}", c=$count)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('nodes added: 1', msgs)
             self.stormIsInPrint('nodes added: 2', msgs)
 
@@ -912,7 +912,7 @@ class AstTest(s_test.SynTest):
             $lib.print("retn is {ans}", ans=$( $foo($global)) )
             $lib.print("this should not print, but {wat}", wat=$wat)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
             self.len(2, prints)
             self.stormIsInPrint('arg1 is 445', msgs)
@@ -934,7 +934,7 @@ class AstTest(s_test.SynTest):
             $lib.print($override())
             $lib.print("NO OVERRIDES FOR YOU")
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('The new lib', msgs)
             self.stormIsInPrint('We should have inherited the one true lib', msgs)
             self.stormIsInPrint('Hi :)', msgs)
@@ -957,7 +957,7 @@ class AstTest(s_test.SynTest):
             $lib.print($nooverride("recovered"))
             '''
 
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('neato', msgs)
             self.stormIsInPrint('foobar', msgs)
             self.stormIsInPrint('recovered', msgs)
@@ -969,7 +969,7 @@ class AstTest(s_test.SynTest):
             $lib.print($node.value())
             $lib.print("splat shouldn't exist, but we got {s}", s=$splat)
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('yieldsforimports', msgs)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'NoSuchVar')
@@ -980,7 +980,7 @@ class AstTest(s_test.SynTest):
             $test=$lib.import(test)
             $haha=$test.pprint('hello', 'world')
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('name'), 'pprint')
@@ -992,7 +992,7 @@ class AstTest(s_test.SynTest):
             $test=$lib.import(test)
             $haha=$test.pprint(arg1='hello', arg2='world')
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('name'), 'pprint')
@@ -1004,7 +1004,7 @@ class AstTest(s_test.SynTest):
             $test=$lib.import(test)
             $haha=$test.pprint('hello', 'world', arg3='world', arg4='newp')
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('name'), 'pprint')
@@ -1015,7 +1015,7 @@ class AstTest(s_test.SynTest):
             $test=$lib.import(test)
             $haha=$test.pprint('hello', 'world', arg1='hello')
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('name'), 'pprint')
@@ -1026,7 +1026,7 @@ class AstTest(s_test.SynTest):
             $test=$lib.import(test)
             $haha=$test.pprint('hello', 'world', 'goodbye', 'newp')
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('name'), 'pprint')
@@ -1131,7 +1131,7 @@ class AstTest(s_test.SynTest):
                 $lib.fire(event, dict=$dict)
             }
             '''
-            mesgs = await core.streamstorm(q).list()
+            mesgs = await core.stormlist(q)
             stormfire = [m for m in mesgs if m[0] == 'storm:fire']
             self.len(1, stormfire)
             self.eq(stormfire[0][1].get('data').get('dict'),
@@ -1142,7 +1142,7 @@ class AstTest(s_test.SynTest):
             $set=$lib.set()
             $set.foo="bar"
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('mesg'), 'Set does not support assignment.')
@@ -1152,7 +1152,7 @@ class AstTest(s_test.SynTest):
             function f(a){ return() }
             $f.newp="newp"
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'NoSuchType')
             self.eq(erfo[1][1].get('mesg'),
@@ -1176,7 +1176,7 @@ class AstTest(s_test.SynTest):
                 fini { $lib.print('xfini: {x}', x=$x) }
             '''
 
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
 
             types = [m[0] for m in msgs if m[0] in ('node', 'print', 'storm:fire')]
             self.eq(types, ('storm:fire', 'node', 'node', 'print'))
@@ -1211,7 +1211,7 @@ class AstTest(s_test.SynTest):
                 [test:str=$hehe]
             }
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('mesg'), 'Init block query must be runtsafe')
@@ -1251,7 +1251,7 @@ class AstTest(s_test.SynTest):
                 [(test:str=fini4 :hehe=$hehe)]
             }
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('mesg'), 'Fini block query must be runtsafe')
@@ -1268,7 +1268,7 @@ class AstTest(s_test.SynTest):
                 }
             }
             '''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             firs = [m for m in msgs if m[0] == 'storm:fire']
             self.len(1, firs)
             evnt = firs[0]

@@ -24,6 +24,7 @@ import copy
 import types
 import shutil
 import asyncio
+import hashlib
 import inspect
 import logging
 import tempfile
@@ -56,6 +57,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_slab
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
@@ -676,6 +678,9 @@ class SynTest(unittest.TestCase):
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
+        self._NextBuid = 0
+        self._NextGuid = 0
+
         for s in dir(self):
             attr = getattr(self, s, None)
             # If s is an instance method and starts with 'test_', synchelp wrap it
@@ -957,7 +962,7 @@ class SynTest(unittest.TestCase):
         if conf is None:
             conf = {'layer:lmdb:map_async': True,
                     'provenance:en': True,
-                    'logchanges': True,
+                    'nexslog:en': True,
                     'layers:logedits': True,
                     }
 
@@ -1033,6 +1038,60 @@ class SynTest(unittest.TestCase):
                 with mock.patch('synapse.lib.certdir.defdir', certdir):
                     yield dmon
 
+    @contextlib.asynccontextmanager
+    async def getTestCell(self, ctor, conf=None, dirn=None):
+        '''
+        Get a test Cell.
+        '''
+        if conf is None:
+            conf = {}
+
+        conf = copy.deepcopy(conf)
+
+        if dirn is not None:
+
+            async with await ctor.anit(dirn, conf=conf) as cell:
+                yield cell
+
+            return
+
+        with self.getTestDir() as dirn:
+            async with await ctor.anit(dirn, conf=conf) as cell:
+                yield cell
+
+    @contextlib.asynccontextmanager
+    async def getTestCoreProxSvc(self, ssvc, ssvc_conf=None, core_conf=None):
+        '''
+        Get a test Cortex, the Telepath Proxy to it, and a test service instance.
+
+        Args:
+            ssvc: Ctor to the Test Service.
+            ssvc_conf: Service configuration.
+            core_conf: Cortex configuration.
+
+        Returns:
+            (s_cortex.Cortex, s_cortex.CoreApi, testsvc): The Cortex, Proxy, and service instance.
+        '''
+        async with self.getTestCoreAndProxy(core_conf) as (core, prox):
+            async with self.getTestCell(ssvc, ssvc_conf) as testsvc:
+                await self.addSvcToCore(testsvc, core)
+
+                yield core, prox, testsvc
+
+    async def addSvcToCore(self, svc, core, svcname='svc'):
+        '''
+        Add a service to a Cortex using telepath over tcp.
+        '''
+        svc.dmon.share('svc', svc)
+        root = await svc.auth.getUserByName('root')
+        await root.setPasswd('root')
+        info = await svc.dmon.listen('tcp://127.0.0.1:0/')
+        svc.dmon.test_addr = info
+        host, port = info
+        surl = f'tcp://root:root@127.0.0.1:{port}/svc'
+        await self.runCoreNodes(core, f'service.add {svcname} {surl}')
+        await self.runCoreNodes(core, f'$lib.service.wait({svcname})')
+
     def getTestUrl(self, dmon, name, **opts):
 
         host, port = dmon.addr
@@ -1052,13 +1111,14 @@ class SynTest(unittest.TestCase):
         return s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None, copyfrom=None, chdir=False):
+    def getTestDir(self, mirror=None, copyfrom=None, chdir=False, startdir=None):
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
 
         Args:
             mirror (str): A directory to mirror into the test directory.
+            startdir (str): The directory under which to place the temporary kdirectory
 
         Notes:
             The mirror argument is normally used to mirror test directory
@@ -1073,7 +1133,7 @@ class SynTest(unittest.TestCase):
             str: The path to a temporary directory.
         '''
         curd = os.getcwd()
-        tempdir = tempfile.mkdtemp()
+        tempdir = tempfile.mkdtemp(dir=startdir)
 
         try:
 
@@ -1621,11 +1681,11 @@ class SynTest(unittest.TestCase):
         ))
 
         iadd = await core.auth.addUser('icanadd')
-        await iadd.grant('creator')
+        await iadd.grant(creator.iden)
         await iadd.setPasswd('secret')
 
         idel = await core.auth.addUser('icandel')
-        await idel.grant('deleter')
+        await idel.grant(deleter.iden)
         await idel.setPasswd('secret')
 
     @contextlib.asynccontextmanager
@@ -1664,3 +1724,44 @@ class SynTest(unittest.TestCase):
             async with await s_hive.openurl(turl) as hive:
 
                 yield hive
+
+    def stablebuid(self, valu=None):
+        '''
+        A stable buid generation for testing purposes
+        '''
+        if valu is None:
+            retn = self._NextBuid.to_bytes(32, 'big')
+            self._NextBuid += 1
+            return retn
+
+        byts = s_msgpack.en(valu)
+        return hashlib.sha256(byts).digest()
+
+    def stableguid(self, valu=None):
+        '''
+        A stable guid generation for testing purposes
+        '''
+        if valu is None:
+            retn = s_common.ehex(self._NextGuid.to_bytes(16, 'big'))
+            self._NextGuid += 1
+            return retn
+
+        byts = s_msgpack.en(valu)
+        return hashlib.md5(byts).hexdigest()
+
+    @contextlib.contextmanager
+    def withStableUids(self):
+        '''
+        A context manager that generates guids and buids in sequence so that successive test runs use the same
+        data
+        '''
+        with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
+            yield
+
+    async def runCoreNodes(self, core, query, opts=None):
+        '''
+        Run a storm query through a Cortex as a SchedCoro and return the results.
+        '''
+        async def coro():
+            return await core.nodes(query, opts)
+        return await core.schedCoro(coro())

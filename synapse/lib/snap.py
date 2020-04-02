@@ -76,7 +76,7 @@ class Snap(s_base.Base):
         self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
-        self.trigson = True
+        self.trigson = self.core.trigson
 
     def disableTriggers(self):
         self.trigson = False
@@ -240,6 +240,7 @@ class Snap(s_base.Base):
 
         tags = {}
         props = {}
+        nodedata = {}
         tagprops = {}
 
         bylayer = {
@@ -277,6 +278,10 @@ class Snap(s_base.Base):
                 tagprops.update(stortagprops)
                 bylayer['tagprops'].update({p: layr for p in stortagprops.keys()})
 
+            stordata = info.get('nodedata')
+            if stordata is not None:
+                nodedata.update(stordata)
+
         if ndef is None:
             return None
 
@@ -284,6 +289,7 @@ class Snap(s_base.Base):
             'ndef': ndef,
             'tags': tags,
             'props': props,
+            'nodedata': nodedata,
             'tagprops': tagprops,
         })
 
@@ -298,6 +304,12 @@ class Snap(s_base.Base):
         async for sode in genr:
             cache[layr.iden] = sode
             yield await self._joinStorNode(sode[0], cache)
+
+    async def nodesByDataName(self, name):
+        for layr in self.layers:
+            genr = layr.liftByDataName(name)
+            async for node in self._joinStorGenr(layr, genr):
+                yield node
 
     async def nodesByProp(self, full):
 

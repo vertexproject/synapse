@@ -33,6 +33,9 @@ MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
+# The paths of all open slabs, to prevent accidental opening of the same slab in two places
+_AllSlabs = set()   # type: ignore
+
 class Hist:
     '''
     A class for storing items in a slab by time.
@@ -466,8 +469,15 @@ class Slab(s_base.Base):
 
         opts = kwargs
 
-        self.path = pathlib.Path(path)
-        self.optspath = self.path.with_suffix('.opts.yaml')
+        path = pathlib.Path(path)
+        self.path = path
+        self.optspath = path.with_suffix('.opts.yaml')
+
+        # Make sure we don't have this lmdb DB open already.  (This can lead to seg faults)
+        abspath = str(path.resolve())
+        if abspath in _AllSlabs:
+            raise s_exc.SlabAlreadyOpen(mesg=path)
+        self.abspath = abspath
 
         if self.optspath.exists():
             opts.update(s_common.yamlload(self.optspath))
@@ -476,7 +486,7 @@ class Slab(s_base.Base):
         if initial_mapsize is None:
             raise s_exc.BadArg('Slab requires map_size')
 
-        mdbpath = self.path / 'data.mdb'
+        mdbpath = path / 'data.mdb'
         if mdbpath.exists():
             mapsize = max(initial_mapsize, os.path.getsize(mdbpath))
         else:
@@ -502,7 +512,8 @@ class Slab(s_base.Base):
 
         self._saveOptsFile()
 
-        self.lenv = lmdb.open(path, **opts)
+        self.lenv = lmdb.open(str(path), **opts)
+        _AllSlabs.add(abspath)
 
         self.scans = set()
 
@@ -632,7 +643,9 @@ class Slab(s_base.Base):
                 self._handle_mapfull()
                 continue
             break
+
         self.lenv.close()
+        _AllSlabs.discard(self.abspath)
         del self.lenv
 
     def _finiCoXact(self):
@@ -1236,9 +1249,11 @@ class Scan:
 
                     self.curs = self.slab.xact.cursor(db=self.db)
                     if self.dupsort:
-                        self.curs.set_range_dup(*self.atitem)
+                        ret = self.curs.set_range_dup(*self.atitem)
                     else:
-                        self.curs.set_range(self.atitem[0])
+                        ret = self.curs.set_range(self.atitem[0])
+                    if ret is False:
+                        raise StopIteration
 
                     self.genr = self.iterfunc(self.curs)
 
@@ -1327,12 +1342,19 @@ class ScanBack(Scan):
 
                     self.curs = self.slab.xact.cursor(db=self.db)
                     if self.dupsort:
-                        self.curs.set_range_dup(*self.atitem)
+                        ret = self.curs.set_range_dup(*self.atitem)
+                        if ret is False:
+                            if not self.curs.last():
+                                raise StopIteration
                     else:
-                        self.curs.set_range(self.atitem[0])
+                        ret = self.curs.set_range(self.atitem[0])
+                        if ret is False:
+                            if not self.curs.last():
+                                raise StopIteration
 
                     self.genr = self.iterfunc(self.curs)
-                    next(self.genr)
+                    if ret is not False:
+                        next(self.genr)
 
                 self.atitem = next(self.genr)
 

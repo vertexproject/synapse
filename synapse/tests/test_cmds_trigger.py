@@ -131,7 +131,7 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('test:int=99'))
 
             # Test manipulating triggers as another user
-            await realcore.auth.addUser('bond')
+            bond = await realcore.auth.addUser('bond')
 
             async with realcore.getLocalProxy(user='bond') as tcore:
 
@@ -157,13 +157,13 @@ class CmdTriggersTest(s_t_utils.SynTest):
                 self.true(toutp.expect('provided iden does not match'))
 
                 # Give explicit perm
-                await core.addUserRule('bond', (True, ('trigger', 'get')))
+                await core.addUserRule(bond.iden, (True, ('trigger', 'get')))
 
                 toutp.clear()
                 await tcmdr.runCmdLine('trigger list')
                 self.true(toutp.expect('root'))
 
-                await core.addUserRule('bond', (True, ('trigger', 'set')))
+                await core.addUserRule(bond.iden, (True, ('trigger', 'set')))
 
                 toutp.clear()
                 await tcmdr.runCmdLine(f'trigger mod {goodbuid2} {{[ test:str=yep ]}}')
@@ -177,7 +177,7 @@ class CmdTriggersTest(s_t_utils.SynTest):
                 await tcmdr.runCmdLine(f'trigger enable {goodbuid2}')
                 self.true(toutp.expect('Enabled trigger '))
 
-                await core.addUserRule('bond', (True, ('trigger', 'del')))
+                await core.addUserRule(bond.iden, (True, ('trigger', 'del')))
 
                 toutp.clear()
                 await tcmdr.runCmdLine(f'trigger del {goodbuid2}')

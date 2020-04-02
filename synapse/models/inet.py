@@ -1146,7 +1146,6 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:asn', {}, (
                         ('name', ('str', {'lower': True}), {
-                            'defval': '??',
                             'doc': 'The name of the organization currently responsible for the ASN.'
                         }),
                         ('owner', ('ou:org', {}), {
@@ -1376,11 +1375,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('issuffix', ('bool', {}), {
                             'doc': 'True if the FQDN is considered a suffix.',
-                            'defval': 0,
                         }),
                         ('iszone', ('bool', {}), {
                             'doc': 'True if the FQDN is considered a zone.',
-                            'defval': 0,
                         }),
                         ('zone', ('inet:fqdn', {}), {
                             'doc': 'The zone level parent for this FQDN.',
@@ -1494,19 +1491,19 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:ipv4', {}, (
 
-                        ('asn', ('inet:asn', {}), {'defval': 0,  # TODO replace with nullval
+                        ('asn', ('inet:asn', {}), {
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the node'}),
 
-                        ('loc', ('loc', {}), {'defval': '??',
+                        ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the IPv4.'}),
 
                         ('place', ('geo:place', {}), {
                             'doc': 'The geo:place assocated with the latlong property.'}),
 
-                        ('type', ('str', {}), {'defval': '??',
+                        ('type', ('str', {}), {
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
 
                         ('dns:rev', ('inet:fqdn', {}), {
@@ -1516,7 +1513,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:ipv6', {}, (
 
                         ('asn', ('inet:asn', {}), {
-                            'defval': 0,  # TODO replace with nullval
                             'doc': 'The ASN to which the IPv6 address is currently assigned.'}),
 
                         ('ipv4', ('inet:ipv4', {}), {
@@ -1532,13 +1528,11 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The most current DNS reverse lookup for the IPv6.'}),
 
                         ('loc', ('loc', {}), {
-                            'defval': '??',
                             'doc': 'The geo-political location string for the IPv6.'}),
                     )),
 
                     ('inet:mac', {}, (
                         ('vendor', ('str', {}), {
-                            'defval': '??',
                             'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'
                         }),
                     )),
@@ -2223,11 +2217,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The "expires" time from the whois record.'
                         }),
                         ('registrar', ('inet:whois:rar', {}), {
-                            'defval': '??',
                             'doc': 'The registrar name from the whois record.'
                         }),
                         ('registrant', ('inet:whois:reg', {}), {
-                            'defval': '??',
                             'doc': 'The registrant name from the whois record.'
                         }),
                     )),
@@ -2405,7 +2397,7 @@ class InetModule(s_module.CoreModule):
                         ('place', ('geo:place', {}), {
                             'doc': 'The geo:place assocated with the latlong property.'}),
 
-                        ('loc', ('loc', {}), {'defval': '??',
+                        ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the wireless access point.'}),
                     )),
 

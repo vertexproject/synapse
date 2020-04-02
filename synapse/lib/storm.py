@@ -836,6 +836,7 @@ class StormDmon(s_base.Base):
 
         self.count = 0
         self.status = 'initializing'
+        self.err_evnt = asyncio.Event()
 
         async def fini():
             if self.task is not None:
@@ -852,6 +853,7 @@ class StormDmon(s_base.Base):
         retn = dict(self.ddef)
         retn['count'] = self.count
         retn['status'] = self.status
+        retn['err'] = self.err_evnt.is_set()
         return retn
 
     async def _run(self):
@@ -881,6 +883,7 @@ class StormDmon(s_base.Base):
                 if self.loop_task:
                     self.loop_task.cancel()
                 self.status = f'fatal error: Dmon main cancelled'
+                self.err_evnt.set()
                 logger.warning(f'Dmon main cancelled ({self.iden})')
                 raise
             except s_exc.NoSuchView as e:
@@ -891,6 +894,7 @@ class StormDmon(s_base.Base):
                 raise
             except Exception as e:  # pragma: no cover
                 self.status = f'error: {e}'
+                self.err_evnt.set()
                 logger.exception(f'Dmon error during loop task execution ({self.iden})')
                 await self.waitfini(timeout=1)
 
@@ -922,6 +926,7 @@ class StormDmon(s_base.Base):
 
                     snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
+                    self.err_evnt.clear()
 
                     async for nodepath in snap.storm(text, opts=opts, user=self.user):
                         # all storm tasks yield often to prevent latency
@@ -940,6 +945,7 @@ class StormDmon(s_base.Base):
             except Exception as e:
                 logger.exception(f'Dmon error ({self.iden})')
                 self.status = f'error: {e}'
+                self.err_evnt.set()
                 await self.waitfini(timeout=1)
 
 class Runtime:
@@ -1707,6 +1713,24 @@ class ReIndexCmd(Cmd):
         # Make this a generator
         if False:
             yield
+
+class SudoCmd(Cmd):
+    '''
+    Deprecated sudo command.
+
+    Left in for 0.2.x so that Storm command with it are still valid to execute.
+    '''
+    name = 'sudo'
+
+    async def execStormCmd(self, runt, genr):
+        s_common.deprecated('stormcmd:sudo')
+
+        mesg = 'Sudo is deprecated and does nothing in ' \
+               '0.2.x and will be removed in 0.3.0.'
+
+        await runt.snap.warn(mesg)
+        async for node, path in genr:
+            yield node, path
 
 class MoveTagCmd(Cmd):
     '''

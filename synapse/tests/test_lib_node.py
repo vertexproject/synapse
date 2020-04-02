@@ -350,7 +350,7 @@ class NodeTest(s_t_utils.SynTest):
             $x = $( $x + 1 )
             $lib.fire(test, valu=$node.value(), x=$x)
             -test:int'''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             data = collections.defaultdict(set)
             for m in msgs:
                 if m[0] == 'storm:fire':

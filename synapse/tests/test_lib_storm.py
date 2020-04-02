@@ -124,12 +124,15 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('[ test:str=foo test:str=bar ] | spin'))
             await self.agenlen(2, core.eval('test:str=foo test:str=bar'))
 
-    async def test_storm_reindex(self):
+    async def test_storm_reindex_sudo(self):
 
         async with self.getTestCore() as core:
 
-            mesgs = await core.streamstorm('reindex').list()
+            mesgs = await core.stormlist('reindex')
             self.stormIsInWarn('reindex currently does nothing', mesgs)
+
+            msgs = await core.stormlist('.created | sudo')
+            self.stormIsInWarn('Sudo is deprecated and does nothing', msgs)
 
     async def test_storm_count(self):
 
@@ -168,8 +171,7 @@ class StormTest(s_t_utils.SynTest):
 
             iq = ' '.join(idens)
             # Demonstrate the iden lift does pass through previous nodes in the pipeline
-            q = f'[test:str=hehe] | iden {iq} | count'
-            mesgs = await alist(core.storm(q))
+            mesgs = await core.nodes(f'[test:str=hehe] | iden {iq} | count')
             self.len(3, mesgs)
 
             q = 'iden newp'
@@ -220,60 +222,60 @@ class StormTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', '1', {'tick': '2016'})
 
             # Relative paths
-            nodes = await core.eval('test:guid | max :tick').list()
+            nodes = await core.nodes('test:guid | max :tick')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), maxval)
 
-            nodes = await core.eval('test:guid | min :tick').list()
+            nodes = await core.nodes('test:guid | min :tick')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
             # Full paths
-            nodes = await core.eval('test:guid | max test:guid:tick').list()
+            nodes = await core.nodes('test:guid | max test:guid:tick')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), maxval)
 
-            nodes = await core.eval('test:guid | min test:guid:tick').list()
+            nodes = await core.nodes('test:guid | min test:guid:tick')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
             # Implicit form filtering with a full path
-            nodes = await core.eval('.created | max test:str:tick').list()
+            nodes = await core.nodes('.created | max test:str:tick')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
-            nodes = await core.eval('.created | min test:str:tick').list()
+            nodes = await core.nodes('.created | min test:str:tick')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
             # Universal prop for relative path
-            nodes = await core.eval('.created>=$minc | max .created',
-                                    {'vars': {'minc': minc}}).list()
+            nodes = await core.nodes('.created>=$minc | max .created',
+                                    {'vars': {'minc': minc}})
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
-            nodes = await core.eval('.created>=$minc | min .created',
-                                    {'vars': {'minc': minc}}).list()
+            nodes = await core.nodes('.created>=$minc | min .created',
+                                    {'vars': {'minc': minc}})
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
             # Universal prop for full paths
-            nodes = await core.eval('.created>=$minc  | max test:str.created',
-                                    {'vars': {'minc': minc}}).list()
+            nodes = await core.nodes('.created>=$minc  | max test:str.created',
+                                    {'vars': {'minc': minc}})
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
-            nodes = await core.eval('.created>=$minc  | min test:str.created',
-                                    {'vars': {'minc': minc}}).list()
+            nodes = await core.nodes('.created>=$minc  | min test:str.created',
+                                    {'vars': {'minc': minc}})
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
-            # Variables evaluated
-            nodes = await core.eval('test:guid ($tick, $tock) = .seen | min $tick').list()
+            # Variables nodesuated
+            nodes = await core.nodes('test:guid ($tick, $tock) = .seen | min $tick')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
-            nodes = await core.eval('test:guid ($tick, $tock) = .seen | max $tock').list()
+            nodes = await core.nodes('test:guid ($tick, $tock) = .seen | max $tock')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), maxval)
 
@@ -296,14 +298,14 @@ class StormTest(s_t_utils.SynTest):
             self.eq(0x05060708, nodes[0].ndef[1])
 
             # Sad paths where there are no nodes which match the specified values.
-            await self.agenlen(0, core.eval('test:guid | max :newp'))
-            await self.agenlen(0, core.eval('test:guid | min :newp'))
+            self.len(0, await core.nodes('test:guid | max :newp'))
+            self.len(0, await core.nodes('test:guid | min :newp'))
 
             # Sad path for a form, not a property; and does not exist at all
-            await self.agenraises(s_exc.BadSyntax,
-                                  core.eval('test:guid | max test:newp'))
-            await self.agenraises(s_exc.BadSyntax,
-                                  core.eval('test:guid | min test:newp'))
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:guid | max test:newp')
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:guid | min test:newp')
 
             # Ensure that max evaluates ival properties as the upper bound.
             async with await core.snap() as snap:
@@ -314,7 +316,7 @@ class StormTest(s_t_utils.SynTest):
                                                              '.seen': (midval, midval + 1)})
                 await node.addTag('maxtest')
 
-            nodes = await core.eval('#maxtest | max .seen').list()
+            nodes = await core.nodes('#maxtest | max .seen')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
@@ -326,35 +328,35 @@ class StormTest(s_t_utils.SynTest):
                 await snap.addNode('test:str', 'fancystr', {'tick': 1234, 'hehe': 'haha', '.seen': '3001'})
 
             q = 'test:str $foo=:tick | testechocmd $foo'
-            mesgs = await core.streamstorm(q).list()
+            mesgs = await core.stormlist(q)
             self.stormIsInPrint('[1234]', mesgs)
 
             q = 'test:str| testechocmd :tick'
-            mesgs = await core.streamstorm(q).list()
+            mesgs = await core.stormlist(q)
             self.stormIsInPrint('[1234]', mesgs)
 
             q = 'test:str| testechocmd .seen'
-            mesgs = await core.streamstorm(q).list()
+            mesgs = await core.stormlist(q)
             self.stormIsInPrint('[(32535216000000, 32535216000001)]', mesgs)
 
             q = 'test:str| testechocmd test:str'
-            mesgs = await core.streamstorm(q).list()
+            mesgs = await core.stormlist(q)
             self.stormIsInPrint('[fancystr]', mesgs)
 
             q = 'test:str| testechocmd test:str:hehe'
-            mesgs = await core.streamstorm(q).list()
+            mesgs = await core.stormlist(q)
             self.stormIsInPrint('[haha]', mesgs)
 
             q = 'test:str| testechocmd test:int'
-            mesgs = await core.streamstorm(q).list()
+            mesgs = await core.stormlist(q)
             self.stormIsInPrint('[None]', mesgs)
 
             q = 'test:str| testechocmd test:int:loc'
-            mesgs = await core.streamstorm(q).list()
+            mesgs = await core.stormlist(q)
             self.stormIsInPrint('[None]', mesgs)
 
             q = 'test:str| testechocmd test:newp'
-            mesgs = await core.streamstorm(q).list()
+            mesgs = await core.stormlist(q)
             errs = [m for m in mesgs if m[0] == 'err']
             self.len(1, errs)
             self.eq(errs[0][1][0], 'BadSyntax')
@@ -401,7 +403,7 @@ class StormTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
 
             await core.nodes('[inet:search:query="*"]')
-            mesgs = await alist(core.streamstorm('inet:search:query | scrape --props text'))
+            mesgs = await core.stormlist('inet:search:query | scrape --props text')
             self.stormIsInPrint('No prop ":text" for', mesgs)
 
             # make sure we handle .seen(i.e. non-str reprs)
@@ -498,7 +500,7 @@ class StormTest(s_t_utils.SynTest):
                 f'{{ [ inet:asn=4 ] $lib.print("made asn node: {{node}}", node=$node) }} '
                 f'{{ [ inet:asn=$foo ] }}'
             )
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             self.stormIsInPrint("made asn node: Node{(('inet:asn', 4)", msgs)
             podes = [m[1] for m in msgs if m[0] == 'node']
             self.eq({('inet:asn', 3), ('inet:asn', 4), ('inet:asn', 5)},
@@ -566,10 +568,10 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            mesgs = await core.streamstorm('[ test:str=foo ]').list()
+            mesgs = await core.stormlist('[ test:str=foo ]')
             await asyncio.sleep(0.01)
 
-            mesgs = await core.streamstorm('[ test:str=bar ]').list()
+            mesgs = await core.stormlist('[ test:str=bar ]')
 
             tick = mesgs[0][1]['tick']
             tickdt = datetime.datetime.utcfromtimestamp(tick / 1000.0)
@@ -580,7 +582,7 @@ class StormTest(s_t_utils.SynTest):
             tockstr = tockdt.strftime('%Y/%m/%d %H:%M:%S.%f')
 
             await asyncio.sleep(0.01)
-            mesgs = await core.streamstorm('[ test:str=baz ]').list()
+            mesgs = await core.stormlist('[ test:str=baz ]')
 
             nodes = await core.nodes(f'splice.list')
             self.len(9, nodes)
@@ -606,11 +608,10 @@ class StormTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes('splice.list --mintime badtime'))
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes('splice.list --maxtime nope'))
 
-            await prox.addAuthUser('visi')
-            await prox.setUserPasswd('visi', 'secret')
+            visi = await prox.addUser('visi', passwd='secret')
 
-            await prox.addUserRule('visi', (True, ('node', 'add')))
-            await prox.addUserRule('visi', (True, ('node', 'prop', 'set')))
+            await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
+            await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
 
             async with core.getLocalProxy(user='visi') as asvisi:
 
@@ -621,7 +622,7 @@ class StormTest(s_t_utils.SynTest):
                 self.len(2, nodes)
 
                 # should get all splices now as an admin
-                await prox.setAuthAdmin('visi', True)
+                await prox.setUserAdmin(visi['iden'], True)
 
                 nodes = await alist(asvisi.eval("splice.list"))
                 self.len(11, nodes)
@@ -632,12 +633,11 @@ class StormTest(s_t_utils.SynTest):
 
             await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
 
-            await prox.addAuthUser('visi')
-            await prox.setUserPasswd('visi', 'secret')
+            visi = await prox.addUser('visi', passwd='secret')
 
-            await prox.addUserRule('visi', (True, ('node', 'add')))
-            await prox.addUserRule('visi', (True, ('node', 'prop', 'set')))
-            await prox.addUserRule('visi', (True, ('node', 'tag', 'add')))
+            await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
+            await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
+            await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
 
             async with core.getLocalProxy(user='visi') as asvisi:
 
@@ -659,13 +659,13 @@ class StormTest(s_t_utils.SynTest):
                 q = f'splice.list --mintimestamp {tick} --maxtimestamp {tock} | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'tag', 'del')))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'del')))
 
                 # undo adding a node fails without node:del perms
                 q = f'splice.list --mintimestamp {tick} --maxtimestamp {tock} | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'del')))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'del')))
                 nodes = await alist(asvisi.eval(q))
 
                 nodes = await alist(asvisi.eval("test:str=bar"))
@@ -674,12 +674,12 @@ class StormTest(s_t_utils.SynTest):
                 # undo a node delete
 
                 # undo deleting a node fails without node:add perms
-                await prox.delAuthRule('visi', (True, ('node', 'add')))
+                await prox.delUserRule(visi['iden'], (True, ('node', 'add')))
 
                 q = 'splice.list | limit 2 | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
                 nodes = await alist(asvisi.eval(q))
 
                 nodes = await alist(asvisi.eval("test:str=bar"))
@@ -694,7 +694,7 @@ class StormTest(s_t_utils.SynTest):
                 q = 'splice.list | limit 1 | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'prop', 'del',)))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'del',)))
                 nodes = await alist(asvisi.eval(q))
 
                 nodes = await alist(asvisi.eval("test:str=foo"))
@@ -710,12 +710,12 @@ class StormTest(s_t_utils.SynTest):
                 self.ne(oldv, nodes[0][1]['props']['tick'])
 
                 # undo updating a prop fails without prop:set perms
-                await prox.delAuthRule('visi', (True, ('node', 'prop', 'set')))
+                await prox.delUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
 
                 q = 'splice.list | limit 1 | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'prop', 'set',)))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set',)))
                 nodes = await alist(asvisi.eval(q))
 
                 nodes = await alist(asvisi.eval("test:str=foo"))
@@ -727,12 +727,12 @@ class StormTest(s_t_utils.SynTest):
                 self.none(nodes[0][1]['props'].get('tick'))
 
                 # undo deleting a prop fails without prop:set perms
-                await prox.delAuthRule('visi', (True, ('node', 'prop', 'set')))
+                await prox.delUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
 
                 q = 'splice.list | limit 1 | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'prop', 'set')))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
                 nodes = await alist(asvisi.eval(q))
 
                 nodes = await alist(asvisi.eval("test:str=foo"))
@@ -745,12 +745,12 @@ class StormTest(s_t_utils.SynTest):
                 self.nn(tagv)
 
                 # undo adding a tag fails without tag:del perms
-                await prox.delAuthRule('visi', (True, ('node', 'tag', 'del',)))
+                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'del',)))
 
                 q = 'splice.list | limit 1 | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'tag', 'del',)))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'del',)))
                 nodes = await alist(asvisi.eval(q))
 
                 nodes = await alist(asvisi.eval("test:str=foo"))
@@ -759,12 +759,12 @@ class StormTest(s_t_utils.SynTest):
                 # undo deleting a tag
 
                 # undo deleting a tag fails without tag:add perms
-                await prox.delAuthRule('visi', (True, ('node', 'tag', 'add')))
+                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
 
                 q = 'splice.list | limit 1 | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'tag', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
                 nodes = await alist(asvisi.eval(q))
 
                 nodes = await alist(asvisi.eval("test:str=foo"))
@@ -789,12 +789,12 @@ class StormTest(s_t_utils.SynTest):
                 self.nn(tagv)
 
                 # undo adding a tagprop fails without tag:del perms
-                await prox.delAuthRule('visi', (True, ('node', 'tag', 'del')))
+                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'del')))
 
                 q = 'splice.list | limit 1 | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'tag', 'del')))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'del')))
                 nodes = await alist(asvisi.eval(q))
 
                 nodes = await alist(asvisi.eval("test:str=foo"))
@@ -803,12 +803,12 @@ class StormTest(s_t_utils.SynTest):
                 # undo deleting a tagprop
 
                 # undo deleting a tagprop fails without tag:add perms
-                await prox.delAuthRule('visi', (True, ('node', 'tag', 'add')))
+                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
 
                 q = 'splice.list | limit 1 | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'tag', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
                 nodes = await alist(asvisi.eval(q))
 
                 nodes = await alist(asvisi.eval("test:str=foo"))
@@ -820,12 +820,12 @@ class StormTest(s_t_utils.SynTest):
                 self.ne(tagv, nodes[0][1]['tagprops']['rep'].get('risk'))
 
                 # undo updating a tagprop fails without prop:set perms
-                await prox.delAuthRule('visi', (True, ('node', 'tag', 'add')))
+                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
 
                 q = 'splice.list | limit 1 | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node', 'tag', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
                 nodes = await alist(asvisi.eval(q))
 
                 nodes = await alist(asvisi.eval("test:str=foo"))
@@ -848,7 +848,7 @@ class StormTest(s_t_utils.SynTest):
                 q = 'splice.list | +:type="node:add" +:form="test:cycle0" | limit 1 | splice.undo --force'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.setAuthAdmin('visi', True)
+                await prox.setUserAdmin(visi['iden'], True)
 
                 nodes = await alist(asvisi.eval(q))
                 nodes = await alist(asvisi.eval("test:cycle0"))
