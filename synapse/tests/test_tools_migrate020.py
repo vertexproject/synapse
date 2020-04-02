@@ -1101,41 +1101,42 @@ class MigrationTest(s_t_utils.SynTest):
             self.none(ne)
             self.isin('Unable to determine stortype for tagprop ahh', err['mesg'])
 
-            # continue on bad nodeedits
-            ndef = ('*inet:fqdn', 'foo.com')
-            buid = s_common.buid(('inet:fqdn', 'foo.com'))
-            node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
-            self.none(err)
-            ne = (ne[0], 'foo:bar', ne[2])
-
             lyrinfo = await migr._migrHiveLayerInfo(locallyrs[0])
             async with migr._destGetWlyr(migr.dest, locallyrs[0], lyrinfo) as wlyr:
+
+                # continue on bad nodeedits
+                ndef = ('*inet:fqdn', 'foo.com')
+                buid = s_common.buid(('inet:fqdn', 'foo.com'))
+                node = await migr._srcPackNode(buid, ndef, {}, {}, {})
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+                self.none(err)
+                ne = (ne[0], 'foo:bar', ne[2])
+
                 res = await migr._destAddNodes(wlyr, ne, 'nexus')
                 self.isin('Unable to store nodeedits', res.get('mesg', ''))
 
-            # test array types
-            mdef = {
-                'types': (
-                    ('test:array', ('array', {'type': 'inet:ipv4'}), {}),
-                ),
-                'forms': (
-                    ('test:array', {}, (
-                    )),
-                ),
-            }
-            migr.model.addDataModels([('asdf', mdef)])
+                # test array types
+                mdef = {
+                    'types': (
+                        ('test:array', ('array', {'type': 'inet:ipv4'}), {}),
+                    ),
+                    'forms': (
+                        ('test:array', {}, (
+                        )),
+                    ),
+                }
+                migr.model.addDataModels([('asdf', mdef)])
 
-            ndef = ('*test:array', [16909060, 84281096])
-            buid = s_common.buid(('test:array', [16909060, 84281096]))
-            node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
-            res = await migr._destAddNodes(wlyr, [ne], 'editor')
-            self.none(res)
+                ndef = ('*test:array', [16909060, 84281096])
+                buid = s_common.buid(('test:array', [16909060, 84281096]))
+                node = await migr._srcPackNode(buid, ndef, {}, {}, {})
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+                res = await migr._destAddNodes(wlyr, [ne], 'editor')
+                self.none(res)
 
-            ndef = ('*ou:org', '4386f6146f3eb3be784d3e0d44cede5e')
-            buid = s_common.buid(('ou:org', '4386f6146f3eb3be784d3e0d44cede5e'))
-            node = await migr._srcPackNode(buid, ndef, {'names': ('foo', 'bar')}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
-            res = await migr._destAddNodes(wlyr, [ne], 'editor')
-            self.none(res)
+                ndef = ('*ou:org', '4386f6146f3eb3be784d3e0d44cede5e')
+                buid = s_common.buid(('ou:org', '4386f6146f3eb3be784d3e0d44cede5e'))
+                node = await migr._srcPackNode(buid, ndef, {'names': ('foo', 'bar')}, {}, {})
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+                res = await migr._destAddNodes(wlyr, [ne], 'editor')
+                self.none(res)

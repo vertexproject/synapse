@@ -1818,6 +1818,7 @@ class Migrator(s_base.Base):
                     await wlyr._storNodeEdit(ne)
 
             elif addmode == 'editor':
+                # NOTE: This code must mirror Layer._editNodeAdd in synapse.lib.layer
                 for ne in nodeedits:
                     buid, form, edits = ne
                     for edit in edits:
