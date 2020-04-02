@@ -1176,6 +1176,11 @@ class Migrator(s_base.Base):
             trgiden = s_common.guid(ruledict)
             ruledict['iden'] = trgiden
 
+            # strip out nonexistent conditions
+            for cond in ('form', 'prop', 'tag'):
+                if cond in ruledict and ruledict[cond] is None:
+                    del ruledict[cond]
+
             trgdict = viewtrgs.get(viewiden)
             if trgdict is None:
                 trgnode = await self.hive.open(('cortex', 'views', viewiden, 'triggers'))
