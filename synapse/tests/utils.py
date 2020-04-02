@@ -729,7 +729,7 @@ class SynTest(unittest.TestCase):
         regr = s_common.genpath(regr)
 
         if not os.path.isdir(regr): # pragma: no cover
-            raise Exception('SYN_REGREGSSION_REPO is not a dir')
+            raise Exception('SYN_REGRESSION_REPO is not a dir')
 
         dirn = os.path.join(regr, *path)
 
