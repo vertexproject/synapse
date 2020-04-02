@@ -7,6 +7,7 @@ import shutil
 import asyncio
 import logging
 import argparse
+import contextlib
 import collections
 
 import synapse.cortex as s_cortex
@@ -395,6 +396,7 @@ class MigrAuth:
             uname = uname_lookup.get(uiden)
             if uname is None:
                 logger.warning(f'Unable to match user iden to name: {uiden}')
+                continue
             userkids[uiden] = {
                 'kids': {k: {'value': v} for k, v in uvals.items()},
                 'value': uname,
@@ -438,7 +440,8 @@ class MigrAuth:
             for uiden, uvals in avals['usersbyiden'].items():
                 uname = uname_lookup.get(uiden)
                 if uname is None:
-                    logger.warning(f'Unable to match user iden to name: {uiden}')
+                    logger.warning(f'Unable to match user iden to name: {uiden} user for {aiden}')
+                    continue
                 ausers['kids'][uiden] = {
                     'kids': {k: {'value': v} for k, v in uvals.items()},
                     'value': uname
@@ -578,13 +581,14 @@ class Migrator(s_base.Base):
         # full layer data migration
         for iden, migrlyrinfo in lyrs.items():
             logger.info(f'Starting migration for layer {iden}')
-            wlyr = await self._destGetWlyr(self.dest, iden, migrlyrinfo)
 
-            if 'nodes' in self.migrops:
-                await self._migrNodes(iden, wlyr)
+            async with self._destGetWlyr(self.dest, iden, migrlyrinfo) as wlyr:
 
-            if 'nodedata' in self.migrops:
-                await self._migrNodeData(iden, wlyr)
+                if 'nodes' in self.migrops:
+                    await self._migrNodes(iden, wlyr)
+
+                if 'nodedata' in self.migrops:
+                    await self._migrNodeData(iden, wlyr)
 
         await self._dumpOffsets()
         await self._dumpVers()
@@ -1174,6 +1178,11 @@ class Migrator(s_base.Base):
             trgiden = s_common.guid(ruledict)
             ruledict['iden'] = trgiden
 
+            # strip out nonexistent conditions
+            for cond in ('form', 'prop', 'tag'):
+                if cond in ruledict and ruledict[cond] is None:
+                    del ruledict[cond]
+
             trgdict = viewtrgs.get(viewiden)
             if trgdict is None:
                 trgnode = await self.hive.open(('cortex', 'views', viewiden, 'triggers'))
@@ -1236,6 +1245,8 @@ class Migrator(s_base.Base):
         else:
             vers = s_msgpack.un(versbyts)
         await self._migrlogAdd(migrop, 'vers', iden, vers)
+
+        logger.debug(f'Layer {iden} model version {vers}')
 
         # even after a partial migration this vers should not be updated to 020 since
         # layer:model:version is no longer used
@@ -1756,6 +1767,7 @@ class Migrator(s_base.Base):
             pass
         return stortype
 
+    @contextlib.asynccontextmanager
     async def _destGetWlyr(self, dirn, iden, migrlyrinfo):
         '''
         Get the write Layer object for the destination.
@@ -1773,10 +1785,13 @@ class Migrator(s_base.Base):
         await migrlyrinfo.set('logedits', False)  # only matters if addmode=nexus, but we never want to store edits
 
         path = os.path.join(dirn, 'layers', iden)
-        wlyr = await s_layer.Layer.anit(migrlyrinfo, path, nexsroot=self.nexusroot)
-        self.onfini(wlyr.fini)
+        async with await s_layer.Layer.anit(migrlyrinfo, path, nexsroot=self.nexusroot) as wlyr:
 
-        return wlyr
+            yield wlyr
+
+            await asyncio.sleep(0)
+
+        return
 
     async def _destAddNodes(self, wlyr, nodeedits, addmode):
         '''
@@ -1803,6 +1818,7 @@ class Migrator(s_base.Base):
                     await wlyr._storNodeEdit(ne)
 
             elif addmode == 'editor':
+                # NOTE: This code must mirror Layer._editNodeAdd in synapse.lib.layer
                 for ne in nodeedits:
                     buid, form, edits = ne
                     for edit in edits:
@@ -1815,8 +1831,19 @@ class Migrator(s_base.Base):
                                 continue
 
                             abrv = wlyr.getPropAbrv(form, None)
-                            for indx in wlyr.getStorIndx(stortype, valu):
-                                wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byprop)
+
+                            if stortype & s_layer.STOR_FLAG_ARRAY:
+
+                                for indx in wlyr.getStorIndx(stortype, valu):
+                                    wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byarray)
+
+                                for indx in wlyr.getStorIndx(s_layer.STOR_TYPE_MSGP, valu):
+                                    wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byprop)
+
+                            else:
+
+                                for indx in wlyr.getStorIndx(stortype, valu):
+                                    wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byprop)
 
                             wlyr.formcounts.inc(form)
 

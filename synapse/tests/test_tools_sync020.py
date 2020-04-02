@@ -9,6 +9,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
+import synapse.lib.layer as s_layer
 import synapse.lib.queue as s_queue
 
 import synapse.tests.utils as s_t_utils
@@ -16,7 +17,7 @@ import synapse.tests.utils as s_t_utils
 import synapse.tools.sync_020 as s_sync
 import synapse.tools.migrate_020 as s_migr
 
-REGR_VER = '0.1.53-migr'
+REGR_VER = '0.1.56-migr'
 
 # Nodes that are expected to be unmigratable
 NOMIGR_NDEF = [
@@ -486,6 +487,60 @@ class SyncTest(s_t_utils.SynTest):
             info = [('tag:prop:set', {'prop': 'spaz', 'valu': 0})]
             ne = await sync._trnNodeSplicesToNodeedit(('inet:fqdn', 'foo.com'), info)
             self.nn(ne[0])
+
+            # array props
+            splices = [
+                ('prop:set', {'ndef': ('ou:org', 'd1589a60391797c88c91efdcac050c76'), 'prop': 'names',
+                               'valu': ('foo baz industries', 'bar bam company'),
+                               'time': 1583285174623, 'user': '970419f1a79f8f3940a5c8cde20f40ea',
+                               'prov': '5461a804fbf9ff24180921f061a93ecd'}),
+            ]
+            ndef = splices[0][1]['ndef']
+
+            err, ne, meta = await sync._trnNodeSplicesToNodeedit(ndef, splices)
+            self.eq(s_layer.STOR_TYPE_UTF8, ne[2][0][1][-1] & 0x7fff)  # array stortype to realtype
+            sodes = await wlyr.storNodeEdits([ne], meta)
+            self.len(1, sodes)
+
+            splices = [
+                ('prop:set',
+                 {'ndef': ('crypto:x509:cert', '71dde169f716ed1409f7eeb1cc019393'), 'prop': 'identities:ipv6s',
+                  'valu': ('2001:db8:85a3::8a2e:370:7334', '2005:db8:85a3::8a2e:370:7334'),
+                  'time': 1585833034884, 'user': 'c3fefa6e343c59564d9d67a83058629e',
+                  'prov': '7d93085dbb13f301762eb5e9afe82522'}),
+            ]
+            ndef = splices[0][1]['ndef']
+
+            err, ne, meta = await sync._trnNodeSplicesToNodeedit(ndef, splices)
+            self.eq(s_layer.STOR_TYPE_IPV6, ne[2][0][1][-1] & 0x7fff)  # array stortype to realtype
+            sodes = await wlyr.storNodeEdits([ne], meta)
+            self.len(1, sodes)
+
+            # array as a primary prop
+            mdef = {
+                'types': (
+                    ('test:array', ('array', {'type': 'inet:fqdn'}), {}),
+                ),
+                'forms': (
+                    ('test:array', {}, (
+                    )),
+                ),
+            }
+            core.model.addDataModels([('asdf', mdef)])
+            model = await core.getModelDict()
+            sync.model.update(model)
+
+            splices = [
+                ('node:add',
+                 {'ndef': ('test:array', ('foo.faz', 'faz.bar')), 'time': 1585833356459,
+                  'user': 'c3fefa6e343c59564d9d67a83058629e', 'prov': '007462a9c62eac3a0d7840631c1ffda8'}),
+            ]
+            ndef = splices[0][1]['ndef']
+
+            err, ne, meta = await sync._trnNodeSplicesToNodeedit(ndef, splices)
+            self.eq(s_layer.STOR_TYPE_FQDN, ne[2][0][1][-1] & 0x7fff)  # array stortype to realtype
+            sodes = await wlyr.storNodeEdits([ne], meta)
+            self.len(1, sodes)
 
     async def test_sync_destIterLyrNodeedits(self):
         async with self._getSyncSvc() as (core, turl, fkcore, fkurl, sync):

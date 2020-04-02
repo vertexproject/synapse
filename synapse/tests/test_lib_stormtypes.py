@@ -1031,7 +1031,7 @@ class StormTypesTest(s_test.SynTest):
                 _ = await alist(snap.storm(q))
                 self.len(0, snap.buidcache)
 
-    async def test_storm_lib_telepath(self):
+    async def test_stormtypes_telepath(self):
 
         class FakeService:
 
@@ -2659,7 +2659,19 @@ class StormTypesTest(s_test.SynTest):
             udef = await core.callStorm('return($lib.auth.users.add(hehe, passwd=haha, email=visi@vertex.link))')
 
             self.eq('hehe', udef['name'])
+            self.eq(False, udef['locked'])
             self.eq('visi@vertex.link', udef['email'])
+
+            hehe = await core.callStorm('''
+                $hehe = $lib.auth.users.byname(hehe)
+                $hehe.setLocked(True)
+                return($hehe)
+            ''')
+            self.eq(True, hehe['locked'])
+
+            self.none(await core.tryUserPasswd('hehe', 'haha'))
+
+            await core.callStorm('$lib.auth.users.byname(hehe).setLocked(false)')
 
             self.nn(await core.tryUserPasswd('hehe', 'haha'))
 
@@ -2858,4 +2870,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq(valu['hehe'], 20)
             self.eq(valu['haha'], (1, 2, 3))
             self.eq(valu['none'], None)
-        self.eq(valu['bool'], True)
+            self.eq(valu['bool'], True)
+
+            self.eq(('foo', 'bar'), await core.callStorm('$list = $lib.list() $list.append(foo) $list.append(bar) return($list)'))
+            self.eq({'foo': 'bar'}, await core.callStorm('$dict = $lib.dict() $dict.foo = bar return($dict)'))
+            self.eq({'foo': 2}, await core.callStorm('$tally = $lib.stats.tally() $tally.inc(foo) $tally.inc(foo) return($tally)'))
