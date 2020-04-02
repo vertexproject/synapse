@@ -736,6 +736,18 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 ctr.sync()
                 self.eq({'foo': 1, 'bar': 42}, ctr.pack())
 
+                ctr.inc('foo')
+                ctr.inc('foo')
+                ctr.set('bar', 37)
+                ctr.sync()
+
+                cache = []
+                for lkey, lval in slab.scanByFull(db='counts'):
+                    cache.append((lkey, s_common.int64un(lval)))
+
+                self.len(1, [k for k, v in cache if k == b'foo'])
+                self.len(1, [k for k, v in cache if k == b'bar'])
+
     async def test_lmdbslab_doubleopen(self):
 
         with self.getTestDir() as dirn:
