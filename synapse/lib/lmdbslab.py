@@ -206,7 +206,7 @@ class HotCount(s_base.Base):
         self.cache = collections.defaultdict(int)
         self.dirty = set()
 
-        self.countdb = self.slab.initdb(name, integerkey=True)
+        self.countdb = self.slab.initdb(name)
 
         for lkey, lval in self.slab.scanByFull(db=self.countdb):
             self.cache[lkey] = s_common.int64un(lval)

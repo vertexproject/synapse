@@ -20,7 +20,7 @@ import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.migrate_020 as s_migr
 
-REGR_VER = '0.1.53-migr'
+REGR_VER = '0.1.56-migr'
 REGR_VER_OLD = '0.1.51-migr'
 
 # Nodes that are expected to be unmigratable
@@ -233,9 +233,14 @@ class MigrationTest(s_t_utils.SynTest):
 
         # check that triggers are active
         await core.auth.getUserByName('root')
-        self.len(2, await core.nodes('syn:trigger'))
+        self.len(5, await core.nodes('syn:trigger'))
+        self.len(5, await core.callStorm('return ($lib.trigger.list())'))
         tnodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
         self.nn(tnodes[0].tags.get('trgtag'))
+
+        # make sure trigger conditions don't exist with a None value
+        trigs = await core.view.listTriggers()
+        self.true(all([trig[1].pack().get(x, 'empty') is not None for trig in trigs for x in ['form', 'prop', 'tag']]))
 
     async def _checkAuth(self, core):
         defview = await core.hive.get(('cellinfo', 'defaultview'))
@@ -248,7 +253,7 @@ class MigrationTest(s_t_utils.SynTest):
         self.sorteq(list(core.auth.usersbyname.keys()), ['root', 'fred', 'bobo'])
         self.sorteq(list(core.auth.rolesbyname.keys()), ['all', 'cowboys', 'ninjas', 'friends'])
 
-        self.len(12, core.auth.authgates)  # 2 views, 2 layers, 2 triggers, 1 cortex, 3 queues, 2 crons
+        self.len(15, core.auth.authgates)  # 2 views, 2 layers, 5 triggers, 1 cortex, 3 queues, 2 crons
         self.len(2, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'view'])
         self.len(2, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'layer'])
         self.len(1, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'cortex'])
@@ -271,8 +276,9 @@ class MigrationTest(s_t_utils.SynTest):
         fred = core.auth.usersbyname['fred']
         self.false(fred.info.get('admin'))
         self.sorteq(['all', 'ninjas'], [core.auth.rolesbyiden[riden].name for riden in fred.info.get('roles')])
-        fredrules = [(True, ('node', 'tag', 'add', 'trgtag')), (True, ('trigger', 'add')), (True, ('trigger', 'get')),
-                     (True, ('queue', 'get')), (True, ('queue', 'add')), (True, ('cron',))]
+        fredrules = [(True, ('node', 'tag', 'add', 'trgtag')), (True, ('node', 'tag', 'add', 'trgtagdel')),
+                     (True, ('trigger', 'add')), (True, ('trigger', 'get')), (True, ('queue', 'get')),
+                     (True, ('queue', 'add')), (True, ('cron',))]
         self.sorteq(fredrules, fred.info.get('rules', []))
 
         # role attributes
@@ -302,12 +308,12 @@ class MigrationTest(s_t_utils.SynTest):
             self.gt(await proxy.count('inet:ipv4'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('[inet:ipv4=10.10.10.10]'))
 
-            self.eq(2, await proxy.count('syn:trigger'))
+            self.eq(5, await proxy.count('syn:trigger'))
             await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'trigger.del {tagtrg}'))
             await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'trigger.del {nodetrg}'))
             trigadd = 'trigger.add node:add --form file:bytes --query {[+#bobotag]}'
             await self.asyncraises(s_exc.AuthDeny, proxy.count(f'{trigadd}'))
-            self.eq(2, await proxy.count('syn:trigger'))
+            self.eq(5, await proxy.count('syn:trigger'))
 
             self.gt(await proxy.count('inet:ipv4 [+#bobotag]'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('#trgtag [-#trgtag]'))
@@ -342,14 +348,14 @@ class MigrationTest(s_t_utils.SynTest):
             self.gt(await proxy.count('inet:ipv4'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('[inet:ipv4=10.10.10.10]'))
 
-            self.eq(2, await proxy.count('syn:trigger'))
+            self.eq(5, await proxy.count('syn:trigger'))
 
             await self.asyncraises(s_exc.AuthDeny, proxy.count(f'trigger.del {tagtrg}'))
             await proxy.count(f'trigger.del {nodetrg}')
-            self.eq(1, await proxy.count('syn:trigger'))
+            self.eq(4, await proxy.count('syn:trigger'))
 
-            await proxy.eval('trigger.add node:add --form file:bytes --query {[+#trgtag]}').list()
-            self.eq(2, await proxy.count('syn:trigger'))
+            await proxy.count('trigger.add node:add --form file:bytes --query {[+#trgtag]}')
+            self.eq(5, await proxy.count('syn:trigger'))
 
             self.gt(await proxy.count('inet:ipv4 [+#trgtag]'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('#trgtag [-#bobotag]'))
@@ -387,9 +393,23 @@ class MigrationTest(s_t_utils.SynTest):
             self.gt(await proxy.count('inet:ipv4'), 0)
             self.gt(await proxy.count('[inet:ipv4=10.10.10.11]'), 0)
 
-            self.eq(2, await proxy.count('syn:trigger'))
-            await proxy.eval(f'$lib.trigger.del({tagtrg})').list()
-            self.eq(1, await proxy.count('syn:trigger'))
+            self.eq(5, await proxy.count('syn:trigger'))
+            await proxy.count(f'$lib.trigger.del({tagtrg})')
+            self.eq(4, await proxy.count('syn:trigger'))
+
+            self.gt(await proxy.count('#faz.baz'), 0)
+            self.eq(0, await proxy.count('#trgtagdel'))
+            await proxy.count('#faz.baz -#faz.baz.* | [-#faz.baz]')
+            self.gt(await proxy.count('#trgtagdel'), 0)
+
+            await proxy.count('inet:ipv4=7.7.7.7 | delnode')
+            self.eq(0, await proxy.count('inet:ipv4=7.7.7.7'))
+            await proxy.count(f'file:bytes | limit 1 | delnode')
+            self.eq(1, await proxy.count('inet:ipv4=7.7.7.7'))
+
+            self.eq(0, await proxy.count('#proptrgtag'))
+            await proxy.count(f'file:bytes | limit 1 | [:name=foofaz]')
+            self.eq(1, await proxy.count('file:bytes:name=foofaz +#proptrgtag'))
 
             self.gt(await proxy.count('inet:ipv4', opts={'view': secview}), 0)
             self.gt(await proxy.count('[inet:ipv4=10.9.10.1]', opts={'view': secview}), 0)
@@ -593,7 +613,7 @@ class MigrationTest(s_t_utils.SynTest):
             # check the saved version file
             versyaml = s_common.yamlload(dest0, 'migration', 'migrvers.yaml')
             self.eq([(0, 1, 3), (0, 1, 3)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
-            self.eq((0, 1, 53), versyaml.get('src:cortex'))
+            self.eq((0, 1, 56), versyaml.get('src:cortex'))
             self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr0.migrops})
 
             await migr0.fini()
@@ -638,7 +658,7 @@ class MigrationTest(s_t_utils.SynTest):
                 # check the saved version file
                 versyaml = s_common.yamlload(dest, 'migration', 'migrvers.yaml')
                 self.eq([(0, 1, 3), (0, 1, 3)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
-                self.eq((0, 1, 53), versyaml.get('src:cortex'))
+                self.eq((0, 1, 56), versyaml.get('src:cortex'))
                 self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr.migrops})
 
                 # check the boot.yaml
@@ -835,8 +855,8 @@ class MigrationTest(s_t_utils.SynTest):
                     await migr.hive.rename(('auth', 'users', root), ('auth', 'users', newroot))
                     await migr.hive.rename(('auth', 'users', fred), ('auth', 'users', newfred))
 
-                    # by not migrating the actual crons and triggers, auth with create new gates
-                    # but won't have a matching user
+                    # by not migrating the actual crons and triggers, the auth migration
+                    # will create new auth gates but won't have a matching user
                     migr.migrops = [op for op in s_migr.ALL_MIGROPS if op not in ('dirn', 'cron')]
 
                     await migr.migrate()
@@ -1090,9 +1110,9 @@ class MigrationTest(s_t_utils.SynTest):
             ne = (ne[0], 'foo:bar', ne[2])
 
             lyrinfo = await migr._migrHiveLayerInfo(locallyrs[0])
-            wlyr = await migr._destGetWlyr(migr.dest, locallyrs[0], lyrinfo)
-            res = await migr._destAddNodes(wlyr, ne, 'nexus')
-            self.isin('Unable to store nodeedits', res.get('mesg', ''))
+            async with migr._destGetWlyr(migr.dest, locallyrs[0], lyrinfo) as wlyr:
+                res = await migr._destAddNodes(wlyr, ne, 'nexus')
+                self.isin('Unable to store nodeedits', res.get('mesg', ''))
 
             # test array types
             mdef = {
