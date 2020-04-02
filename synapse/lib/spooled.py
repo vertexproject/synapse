@@ -47,9 +47,11 @@ class Set(Spooled):
     async def add(self, valu):
 
         if self.fallback:
-            return self.slab.put(s_msgpack.en(valu), b'\x01')
+            self.slab.put(s_msgpack.en(valu), b'\x01')
+            return
 
         self.realset.add(valu)
+
         if len(self.realset) >= self.size:
             await self._initFallBack()
             [self.slab.put(s_msgpack.en(valu), b'\x01') for valu in self.realset]
@@ -72,7 +74,8 @@ class Dict(Spooled):
     async def set(self, name, valu):
 
         if self.fallback:
-            return self._set_fallback(name, valu)
+            self._set_fallback(name, valu)
+            return
 
         self.info[name] = valu
 

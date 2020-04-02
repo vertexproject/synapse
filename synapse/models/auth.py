@@ -7,7 +7,7 @@ class AuthModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('auth:creds', ('guid', {}), {
-                    'doc': 'A unique set of credentials used to authenticate to a system.',
+                    'doc': 'A unique set of credentials used to access a resource.',
                 }),
                 ('auth:access', ('guid', {}), {
                     'doc': 'An instance of using a creds to access a resource.',

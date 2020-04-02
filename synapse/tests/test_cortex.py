@@ -2026,7 +2026,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             alldefs = {}
 
             async with await core.snap() as snap:
-
                 async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
 
                     if path.metadata.get('graph:seed'):
