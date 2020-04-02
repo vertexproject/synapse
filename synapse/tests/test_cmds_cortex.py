@@ -142,7 +142,9 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            await cmdr.runCmdLine('storm [ test:str=foo +#bar.baz=(2015,?) ]')
+            await cmdr.runCmdLine('storm --show-prov [ test:str=foo +#bar.baz=(2015,?) ]')
+            self.true(outp.expect('prov:new'))
+            self.true(outp.expect('....\ntest:str'))
             self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
             self.false(outp.expect('#bar ', throw=False))
             outp.expect('complete. 1 nodes')

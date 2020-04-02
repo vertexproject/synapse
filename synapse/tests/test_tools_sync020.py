@@ -17,7 +17,7 @@ import synapse.tests.utils as s_t_utils
 import synapse.tools.sync_020 as s_sync
 import synapse.tools.migrate_020 as s_migr
 
-REGR_VER = '0.1.53-migr'
+REGR_VER = '0.1.56-migr'
 
 # Nodes that are expected to be unmigratable
 NOMIGR_NDEF = [
