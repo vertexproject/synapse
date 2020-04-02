@@ -83,19 +83,37 @@ class MigrSplices(s_sync.SyncMigrator):
         '''
         genr = self.src_genrs.get(lyriden)
         startoffs = self.pull_offs.get(lyriden)
+        nextoffs = None
         queue = self._queues[lyriden]
+
+        retn = {
+            'status': False,
+            'nextoffs': None,
+            'err': None,
+        }
+
         while not self.isfini:
             try:
                 nextoffs, islive = await self._srcIterLyrSplices(genr, startoffs, queue)
+                self.pull_offs.set(lyriden, nextoffs)
+
                 if islive:
+                    retn['status'] = True
+                    retn['nextoffs'] = nextoffs
                     break
+
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
-                raise  # TODO
+                exc = s_common.excinfo(e)
+                retn['err'] = exc
+                logger.exception(f'Splice pull encountered an exception; queue will be finid')
 
         # fini the queue; writer should continue until the queue is empty
         await queue.fini()
+
+        retn['nextoffs'] = nextoffs
+        return retn
 
     async def _destPushLyrNodeedits(self, lyriden):
         '''
@@ -103,6 +121,12 @@ class MigrSplices(s_sync.SyncMigrator):
         '''
         writer = self.dest_writers.get(lyriden)
         queue = self._queues.get(lyriden)
+
+        retn = {
+            'status': False,
+            'err': None,
+        }
+
         isdone = False
         while not self.isfini and not isdone:
             try:
@@ -112,7 +136,12 @@ class MigrSplices(s_sync.SyncMigrator):
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
-                raise  # TODO
+                exc = s_common.excinfo(e)
+                retn['err'] = exc
+                logger.exception(f'Splice push encountered an exception')
+
+        retn['status'] = isdone
+        return retn
 
 class MigrAuth:
     '''
@@ -1538,6 +1567,8 @@ class Migrator(s_base.Base):
             spliceslab = await s_lmdbslab.Slab.anit(path, readonly=True, map_async=True, lockmemory=False)
             self.onfini(spliceslab.fini)
             splicelog = s_slabseqn.SlabSeqn(spliceslab, 'splices')
+            lastindx = splicelog.index() - 1
+            logger.info(f'Found {lastindx + 1:,} splices to migrate for {iden}')
         else:
             await self._migrlogAdd(migrop, 'error', iden, 'noexist')
             logger.warning(f'Splice slab not found for {iden}, unable to migrate')
@@ -1583,11 +1614,28 @@ class Migrator(s_base.Base):
 
         # start the migration and wait for the tasks to complete
         await synccoro
-        await asyncio.wait_for(self.migrsplices.pull_tasks[iden], timeout=None)
-        await asyncio.wait_for(self.migrsplices.push_tasks[iden], timeout=None)
 
-        # TODO: result logging and error handling from the tasks
-        # TODO: progress reporting
+        pulltask = self.migrsplices.pull_tasks[iden]
+        await asyncio.wait_for(pulltask, timeout=None)
+
+        pushtask = self.migrsplices.push_tasks[iden]
+        await asyncio.wait_for(pushtask, timeout=None)
+
+        status = (await self.migrsplices.status()).get(iden)
+
+        if status is None:  # pragma: no cover
+            logger.error(f'Failed to report splice migration status: {iden}')
+        else:
+            errcnt = status.get('errcnt', 0)
+            if errcnt > 0:
+                logger.warning(f'Splice migration encountered {errcnt} errors')
+
+            src_lastoffs = status.get('src:nextoffs') - 1
+            dest_lastoffs = status.get('dest:nextoffs') - 1
+            logger.info(f'For target offset {lastindx:,}: read up to {src_lastoffs:,}, wrote up to {dest_lastoffs:,}')
+
+            logger.debug(f'Pull task summary: {status.get("src:task")}')
+            logger.debug(f'Push task summary: {status.get("dest:task")}')
 
         await nodeeditslab.fini()
         await spliceslab.fini()

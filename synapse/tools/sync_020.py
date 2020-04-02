@@ -134,6 +134,11 @@ class SyncMigrator(s_cell.Cell):
             'description': 'The max size of the push/pull queue for each layer.',
             'default': 100000,
         },
+        'offs_logging': {
+            'type': 'integer',
+            'description': 'Log push/pull every every so many offsets.',
+            'default': 10000000,
+        },
     }
 
     async def __anit__(self, dirn, conf=None):
@@ -145,6 +150,7 @@ class SyncMigrator(s_cell.Cell):
         self.poll_s = self.conf.get('poll_s')
         self.err_lim = self.conf.get('err_lim')
         self.q_size = self.conf.get('queue_size')
+        self.offs_logging = self.conf.get('offs_logging')
 
         self.pull_fair_iter = 10
         self.push_fair_iter = 100
@@ -268,6 +274,8 @@ class SyncMigrator(s_cell.Cell):
             status = 'active'
 
             if done:
+                retn['result'] = task.result()
+
                 cancelled = task.cancelled()
                 retn['cancelled'] = cancelled
                 status = 'cancelled' if cancelled else 'done'
@@ -525,6 +533,7 @@ class SyncMigrator(s_cell.Cell):
         '''
         curoffs = startoffs
         fair_iter = self.pull_fair_iter
+        offs_logging = self.offs_logging
         q_cap = self.q_cap
         async for splice in genr(startoffs):
             qres = await queue.put((curoffs, splice))
@@ -534,6 +543,8 @@ class SyncMigrator(s_cell.Cell):
             curoffs += 1
 
             if curoffs % fair_iter == 0:
+                if curoffs % offs_logging == 0:
+                    logger.info(f'Source layer pull at offset {curoffs}')
                 await asyncio.sleep(0)
 
             # if we are approaching the queue lim return so we can pause
@@ -724,6 +735,7 @@ class SyncMigrator(s_cell.Cell):
             lyriden (str): Layer iden
         '''
         fair_iter = self.push_fair_iter
+        offs_logging = self.offs_logging
         err_lim = self.err_lim
         evnt = self._push_evnts[lyriden]
 
@@ -767,6 +779,7 @@ class SyncMigrator(s_cell.Cell):
                     errs += 1
                     await self._setLyrErr(lyriden, offs, err)
                     if errs >= err_lim:
+                        logger.error(f'Error limit reached')
                         raise SyncErrLimReached(mesg='Error limit reached - correct or increase err_lim to continue')
 
                 nodesplices = []
@@ -781,6 +794,9 @@ class SyncMigrator(s_cell.Cell):
 
             if queuelen != 0 and queuelen % 10000 == 0:
                 logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
+
+            if offs % offs_logging == 0 and offs != 0:
+                logger.info(f'Destination layer push at offset {offs}')
 
             if queuelen == 0:
                 evnt.set()
