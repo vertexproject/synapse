@@ -1284,10 +1284,14 @@ class Cmd:
     svciden = ''
     forms = {}  # type: ignore
 
-    def __init__(self, argv):
+    def __init__(self, runt):
+
         self.opts = None
-        self.argv = argv
+        self.argv = None
+
+        self.runt = runt
         self.pars = self.getArgParser()
+        self.pars.printf = runt.snap.printf
 
     @classmethod
     def getCmdBrief(cls):
@@ -1302,15 +1306,18 @@ class Cmd:
     def getArgParser(self):
         return Parser(prog=self.getName(), descr=self.getDescr())
 
-    async def hasValidOpts(self, snap):
+    async def setArgv(self, argv):
 
-        self.pars.printf = snap.printf
+        self.argv = argv
+
         try:
             self.opts = self.pars.parse_args(self.argv)
         except s_exc.BadSyntax:
             pass
+
         for line in self.pars.mesgs:
-            await snap.printf(line)
+            await self.runt.snap.printf(line)
+
         return not self.pars.exited
 
     async def execStormCmd(self, runt, genr):
@@ -1421,29 +1428,33 @@ class PureCmd(Cmd):
         text = self.cdef.get('storm')
         query = runt.snap.core.getStormQuery(text)
 
-        cmdvars = {
-            'cmdopts': vars(self.opts),
-            'cmdconf': self.cdef.get('cmdconf', {})
-        }
-
-        opts = {'vars': cmdvars}
+        opts = {}
         with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
 
+            subr.setVar('cmdconf', self.cdef.get('cmdconf', {}))
+
             async def wrapgenr():
+
                 # wrap paths in a scope to isolate vars
-                hasnodes = False
                 async for node, path in genr:
-                    if not hasnodes:
-                        hasnodes = True
+
+                    cmdopts = vars(self.opts)
+                    subr.setVar('cmdopts', cmdopts)
+
+                    # this must be new every time to account for changing argv
+                    cmdvars = {
+                        'cmdopts': vars(self.opts),
+                    }
                     path.initframe(initvars=cmdvars, initrunt=subr)
                     yield node, path
 
                 # when there are no inbound nodes prop down the vars if they don't conflict
-                if not hasnodes:
-                    await subr.propDownVars(runt)
+                #if not hasnodes:
+                    #await subr.propDownVars(runt)
 
             subr.loadRuntVars(query)
 
+            print(f'EXECUTING SUBQUERY: {query}')
             async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
                 path.finiframe()
                 yield node, path

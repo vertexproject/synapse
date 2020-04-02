@@ -143,9 +143,13 @@ funcargs: "(" _WS? (VARTOKN (_WS? "," _WS? VARTOKN)* _WS? )? ")"
 stormfunc: "function" _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 
 stormcmd: CMDNAME [_WS stormcmdargs]
-stormcmdargs: _WS? _cmdargv (["="] _WS* _cmdargv)*
+stormcmdargs: _WS? _cmdargv (["="] _WS? _cmdargv)*
 CMDOPT: /-[a-zA-Z0-9_-]+/
 _cmdargv: baresubquery | CMDOPT | _toknvalu
+
+// an argv parser for cmdr commands which may contain embedded queries
+cmdrargs: _WS? _cmdrargv (["="] _WS? _cmdrargv)*
+_cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN
 
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: "#" (_varvalu | TAGMATCH)
@@ -181,13 +185,16 @@ embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 
 // An unquoted storm string constant.  Must start with a word char, ?, or - and not contain certain punctutation
-NONQUOTEWORD: /[\w\-\+\?][^ \t\n),=\]}|]*/
+NONQUOTEWORD: /[\w\-\+\?\*][^ \t\n),=\]}|]*/
 
 // An unquoted string within a whitespace list
-WORDTOKN: /[\w\+\-\?\*][^ \t\r\n\=\|\}\)]*/
+WORDTOKN: /[\w\+\-\?\*\/][^ \t\r\n\=\|\}\)]*/
 
 // An unquoted string within a list syntax
-LISTTOKN: /([\w\-\+\?\/][\w\+\-\?\*\/\' \.\:]*)*[\w\-\+\?\*\/]/
+LISTTOKN: /([\w\+\-\?\*\/][\w\+\-\?\*\/\' \.\:]*)*[\w\-\+\?\*\/]/
+
+// A white-space *only* delimited string immediate for use in legacy cmdr parser
+CMDRTOKN: /[^\s\{}]+/
 
 // A value consisting of a name then 0 or more derefs and function calls
 _varvalu: "$" _varvaluatom

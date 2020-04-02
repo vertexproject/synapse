@@ -603,8 +603,8 @@ class CmdOper(Oper):
 
             with s_provenance.claim('stormcmd', name=name, argv=argv):
 
-                scmd = ctor(argv)
-                if not await scmd.hasValidOpts(runt.snap):
+                scmd = ctor(runt)
+                if not await scmd.setArgv(argv):
                     return
 
                 async for item in scmd.execStormCmd(runt, genr):
@@ -612,17 +612,34 @@ class CmdOper(Oper):
 
             return
 
-        async for node, path in genr:
+        #with s_provenance.claim('stormcmd', name=name, argv=argv):
+        # FIXME argv as a list of strings?
+        with s_provenance.claim('stormcmd', name=name):
 
-            argv = await self.kids[1].compute(path)
-            with s_provenance.claim('stormcmd', name=name, argv=argv):
+            async def optsgenr():
 
-                scmd = ctor(argv)
-                if not await scmd.hasValidOpts(runt.snap):
-                    return
+                async for node, path in genr:
 
-                async for item in scmd.execStormCmd(runt, agen((node, path))):
-                    yield item
+                    argv = await self.kids[1].compute(path)
+                    if not await scmd.setArgv(argv):
+                        return
+
+                    yield node, path
+
+            scmd = ctor(runt)
+            async for item in scmd.execStormCmd(runt, optsgenr()):
+                yield item
+
+        #async for node, path in genr:
+
+            #argv = await self.kids[1].compute(path)
+
+                #scmd = ctor(argv)
+                #if not await scmd.hasValidOpts(runt.snap):
+                    #return
+
+                #async for item in scmd.execStormCmd(runt, agen((node, path))):
+                    #yield item
 
 class SetVarOper(Oper):
 

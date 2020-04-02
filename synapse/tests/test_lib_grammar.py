@@ -1049,9 +1049,9 @@ class GrammarTest(s_t_utils.SynTest):
         for i, query in enumerate(_Queries):
             parser = s_parser.Parser(query)
             tree = parser.query()
-            print('Q: %r' % (query,))
-            print('G: %r' % (str(tree),))
-            print('W: %r' % (_ParseResults[i],))
+            #print('Q: %r' % (query,))
+            #print('G: %r' % (str(tree),))
+            #print('W: %r' % (_ParseResults[i],))
             self.eq(str(tree), _ParseResults[i])
 
     def test_cmdrargs(self):

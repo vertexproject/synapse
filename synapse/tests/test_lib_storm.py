@@ -339,27 +339,13 @@ class StormTest(s_t_utils.SynTest):
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('[(32535216000000, 32535216000001)]', mesgs)
 
-            q = 'test:str| testechocmd test:str'
+            q = 'test:str $repr=$node.repr() | testechocmd $repr'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('[fancystr]', mesgs)
 
-            q = 'test:str| testechocmd test:str:hehe'
+            q = 'test:str | testechocmd :hehe'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('[haha]', mesgs)
-
-            q = 'test:str| testechocmd test:int'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[None]', mesgs)
-
-            q = 'test:str| testechocmd test:int:loc'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[None]', mesgs)
-
-            q = 'test:str| testechocmd test:newp'
-            mesgs = await core.stormlist(q)
-            errs = [m for m in mesgs if m[0] == 'err']
-            self.len(1, errs)
-            self.eq(errs[0][1][0], 'BadSyntax')
 
     async def test_scrape(self):
         async with self.getTestCore() as core:

@@ -14,6 +14,7 @@ TerminalPygMap = {
     'CASEBARE': p_t.Literal.String,
     'CCOMMENT': p_t.Comment,
     'CMDOPT': p_t.Literal.String,
+    'CMDRTOKN': p_t.Literal.String,
     'CMDNAME': p_t.Keyword,
     'CMPR': p_t.Operator,
     'COLON': p_t.Punctuation,

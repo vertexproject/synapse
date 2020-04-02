@@ -326,11 +326,11 @@ class TestEchoCmd(s_storm.Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
-        func = self.getStormEval(runt, self.opts.valu)
+
+        valu = await s_stormtypes.toprim(self.opts.valu)
+        await runt.snap.printf(f'Echo: [{valu}]')
 
         async for node, path in genr:
-            ret = func(path)
-            await runt.snap.printf(f'Echo: [{ret}]')
             yield node, path
 
 class TestModule(s_module.CoreModule):
