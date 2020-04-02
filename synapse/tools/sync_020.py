@@ -273,10 +273,12 @@ class SyncMigrator(s_cell.Cell):
                 status = 'cancelled' if cancelled else 'done'
 
                 if not cancelled:
-                    exc = str(task.exception())
-                    retn['exc'] = exc
-                    if exc:
+                    exc = task.exception()
+                    if exc is not None:
+                        retn['exc'] = str(exc)
                         status = 'exception'
+                    else:
+                        status = 'finished'
 
             retn['status'] = status
 
