@@ -10,7 +10,7 @@ class AuthModule(s_module.CoreModule):
                     'doc': 'A unique set of credentials used to access a resource.',
                 }),
                 ('auth:access', ('guid', {}), {
-                    'doc': 'An instance of using a creds to access a resource.',
+                    'doc': 'An instance of using creds to access a resource.',
                 }),
             ),
             'forms': (
@@ -43,7 +43,7 @@ class AuthModule(s_module.CoreModule):
                 )),
 
                 ('auth:access', {}, (
-                    ('creds',  ('auth:creds', {}), {
+                    ('creds', ('auth:creds', {}), {
                         'doc': 'The credentials used to attempt access.',
                     }),
                     ('time', ('time', {}), {

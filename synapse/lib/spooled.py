@@ -41,7 +41,7 @@ class Set(Spooled):
 
     def __contains__(self, valu):
         if self.fallback:
-            return self.slab.get(s_msgpack.en(valu)) != None
+            return self.slab.get(s_msgpack.en(valu)) is not None
         return valu in self.realset
 
     async def add(self, valu):
@@ -81,7 +81,7 @@ class Dict(Spooled):
 
         if len(self.info) >= self.size:
             await self._initFallBack()
-            [ self._set_fallback(k, v) for (k, v) in self.info.items() ]
+            [self._set_fallback(k, v) for (k, v) in self.info.items()]
             self.info.clear()
 
     def get(self, name, defv=None):
