@@ -1111,13 +1111,14 @@ class SynTest(unittest.TestCase):
         return s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None, copyfrom=None, chdir=False):
+    def getTestDir(self, mirror=None, copyfrom=None, chdir=False, startdir=None):
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
 
         Args:
             mirror (str): A directory to mirror into the test directory.
+            startdir (str): The directory under which to place the temporary kdirectory
 
         Notes:
             The mirror argument is normally used to mirror test directory
@@ -1132,7 +1133,7 @@ class SynTest(unittest.TestCase):
             str: The path to a temporary directory.
         '''
         curd = os.getcwd()
-        tempdir = tempfile.mkdtemp()
+        tempdir = tempfile.mkdtemp(dir=startdir)
 
         try:
 
@@ -1680,11 +1681,11 @@ class SynTest(unittest.TestCase):
         ))
 
         iadd = await core.auth.addUser('icanadd')
-        await iadd.grant('creator')
+        await iadd.grant(creator.iden)
         await iadd.setPasswd('secret')
 
         idel = await core.auth.addUser('icandel')
-        await idel.grant('deleter')
+        await idel.grant(deleter.iden)
         await idel.setPasswd('secret')
 
     @contextlib.asynccontextmanager

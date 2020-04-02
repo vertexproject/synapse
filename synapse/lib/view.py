@@ -136,11 +136,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         except s_ast.StormReturn as e:
 
-            retn = e.item
-            if isinstance(retn, s_stormtypes.Prim):
-                retn = retn.value()
-
-            return retn
+            return await s_stormtypes.toprim(e.item)
 
     async def nodes(self, text, opts=None):
         '''

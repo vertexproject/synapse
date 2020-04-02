@@ -439,8 +439,8 @@ class CoreSpawnTest(s_test.SynTest):
             # test other users who have access to this queue can do things to it
             async with core.getLocalProxy() as root:
                 # add users
-                await root.addAuthUser('synapse')
-                await root.addAuthUser('wootuser')
+                await root.addUser('synapse')
+                await root.addUser('wootuser')
 
                 synu = await core.auth.getUserByName('synapse')
                 woot = await core.auth.getUserByName('wootuser')

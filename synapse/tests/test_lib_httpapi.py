@@ -131,7 +131,7 @@ class HttpApiTest(s_tests.SynTest):
 
             bobs = await core.auth.addRole('bobs')
 
-            await newb.grant('bobs')
+            await newb.grant(bobs.iden)
 
             async with self.getHttpSess() as sess:
 

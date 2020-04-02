@@ -10,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
+import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.version as s_version
 
@@ -1570,6 +1571,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # test the remote storm result counting API
             self.eq(0, await proxy.count('test:pivtarg'))
             self.eq(1, await proxy.count('inet:user'))
+            self.eq(1, await core.count('inet:user'))
 
             # Test the getFeedFuncs command to enumerate feed functions.
             ret = await proxy.getFeedFuncs()
@@ -2439,11 +2441,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.eq(await alist(prox.spliceHistory()), [s[1] for s in splicelist])
 
-                await prox.addAuthUser('visi')
-                await prox.setUserPasswd('visi', 'secret')
+                visi = await prox.addUser('visi')
+                await prox.setUserPasswd(visi['iden'], 'secret')
 
-                await prox.addAuthRule('visi', (True, ('node', 'add')))
-                await prox.addAuthRule('visi', (True, ('prop', 'set')))
+                await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('prop', 'set')))
 
                 async with core.getLocalProxy(user='visi') as asvisi:
 
@@ -2455,7 +2457,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await self.agenlen(2, asvisi.spliceHistory())
 
                     # should get all splices now as an admin
-                    await prox.setUserAdmin('visi', True)
+                    await prox.setUserAdmin(visi['iden'], True)
                     await self.agenlen(splicecount + 2, asvisi.spliceHistory())
 
     async def test_node_repr(self):
@@ -3791,14 +3793,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('dmon.list')
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
+            dmon = list(core.stormdmons.values())[0]
+
             # make the dmon blow up
             await core.nodes('''
                 $lib.queue.get(boom).put(hehe)
                 for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
             ''')
 
-            # TODO figure out a way to fix this
-            await asyncio.sleep(0.1)
+            self.true(await s_coro.event_wait(dmon.err_evnt, 6))
 
             msgs = await core.stormlist('dmon.list')
             self.stormIsInPrint('(wootdmon            ): error', msgs)
@@ -3844,13 +3847,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadPropDef):
                     await core.addUnivProp('woot', ('str', {'lower': True}), {})
-
-                # blowup for defvals
-                with self.raises(s_exc.BadPropDef):
-                    await core.addFormProp('inet:ipv4', '_visi', ('int', {}), {'defval': 20})
-
-                with self.raises(s_exc.BadPropDef):
-                    await core.addUnivProp('_woot', ('str', {'lower': True}), {'defval': 'asdf'})
 
                 with self.raises(s_exc.NoSuchForm):
                     await core.addFormProp('inet:newp', '_visi', ('int', {}), {})
@@ -4031,8 +4027,8 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_cronjob_perms(self):
         async with self.getTestCore() as realcore:
             async with realcore.getLocalProxy() as core:
-                await core.addAuthUser('fred')
-                await core.setUserPasswd('fred', 'secret')
+                fred = await core.addUser('fred')
+                await core.setUserPasswd(fred['iden'], 'secret')
                 cdef = {'storm': '[test:str=foo]', 'reqs': {'dayofmonth': 1},
                         'incunit': None, 'incvals': None}
                 adef = await core.addCronJob(cdef)
@@ -4060,8 +4056,8 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_migrationmode(self):
         async with self.getTestCore() as core:
             async with core.getLocalProxy(user='root') as prox:
-                await prox.addAuthUser('fred')
-                await prox.setUserPasswd('fred', 'secret')
+
+                fred = await prox.addUser('fred', passwd='secret')
 
                 self.true(core.agenda.enabled)
                 self.true(core.trigson)

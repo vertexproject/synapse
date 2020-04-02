@@ -575,8 +575,8 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             self.printf(f'entries:         {"incunit":10} {"incval":6} {"required"}')
             for reqdict, incunit, incval in recs:
                 reqdict = reqdict or '<None>'
-                incunit = incunit or '<None>'
-                incval = incval or '<None>'
+                incunit = '<None>' if incunit is None else incunit
+                incval = '<None>' if incval is None else incval
                 self.printf(f'                 {incunit:10} {incval:6} {reqdict}')
 
     async def runCmdOpts(self, opts):
