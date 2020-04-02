@@ -7,6 +7,7 @@ import shutil
 import asyncio
 import logging
 import argparse
+import contextlib
 import collections
 
 import synapse.cortex as s_cortex
@@ -578,13 +579,14 @@ class Migrator(s_base.Base):
         # full layer data migration
         for iden, migrlyrinfo in lyrs.items():
             logger.info(f'Starting migration for layer {iden}')
-            wlyr = await self._destGetWlyr(self.dest, iden, migrlyrinfo)
 
-            if 'nodes' in self.migrops:
-                await self._migrNodes(iden, wlyr)
+            async with self._destGetWlyr(self.dest, iden, migrlyrinfo) as wlyr:
 
-            if 'nodedata' in self.migrops:
-                await self._migrNodeData(iden, wlyr)
+                if 'nodes' in self.migrops:
+                    await self._migrNodes(iden, wlyr)
+
+                if 'nodedata' in self.migrops:
+                    await self._migrNodeData(iden, wlyr)
 
         await self._dumpOffsets()
         await self._dumpVers()
@@ -1237,6 +1239,8 @@ class Migrator(s_base.Base):
             vers = s_msgpack.un(versbyts)
         await self._migrlogAdd(migrop, 'vers', iden, vers)
 
+        logger.debug(f'Layer {iden} model version {vers}')
+
         # even after a partial migration this vers should not be updated to 020 since
         # layer:model:version is no longer used
         if vers != MAX_01X_VERS:
@@ -1756,6 +1760,7 @@ class Migrator(s_base.Base):
             pass
         return stortype
 
+    @contextlib.asynccontextmanager
     async def _destGetWlyr(self, dirn, iden, migrlyrinfo):
         '''
         Get the write Layer object for the destination.
@@ -1773,10 +1778,13 @@ class Migrator(s_base.Base):
         await migrlyrinfo.set('logedits', False)  # only matters if addmode=nexus, but we never want to store edits
 
         path = os.path.join(dirn, 'layers', iden)
-        wlyr = await s_layer.Layer.anit(migrlyrinfo, path, nexsroot=self.nexusroot)
-        self.onfini(wlyr.fini)
+        async with await s_layer.Layer.anit(migrlyrinfo, path, nexsroot=self.nexusroot) as wlyr:
 
-        return wlyr
+            yield wlyr
+
+            await asyncio.sleep(0)
+
+        return
 
     async def _destAddNodes(self, wlyr, nodeedits, addmode):
         '''
