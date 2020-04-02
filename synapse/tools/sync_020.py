@@ -666,26 +666,14 @@ class SyncMigrator(s_cell.Cell):
         Returns:
             (int or None): Stortype integer or None if not found
         '''
-        mtype = None
-
         if form is not None:
             if prop is None:
-                mtype = form
+                return self.model['forms'].get(form, {}).get('stortype')
             else:
-                mtype = self.model['forms'].get(form, {})['props'].get(prop, {})
-                if mtype:
-                    mtype = mtype['type'][0]
-                else:
-                    return None
+                return self.model['forms'].get(form, {})['props'].get(prop, {}).get('stortype')
 
         elif tagprop is not None:
-            mtype = self.model['tagprops'].get(tagprop, {})
-            if mtype:
-                mtype = mtype['type'][0]
-            else:
-                return None
-
-        return self.model['types'].get(mtype, {}).get('stortype')
+            return self.model['tagprops'].get(tagprop, {}).get('stortype')
 
     async def _destPushLyrNodeedits(self, lyriden):
         '''
