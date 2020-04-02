@@ -946,6 +946,14 @@ class MigrationTest(s_t_utils.SynTest):
                     await self.asyncraises(Exception, migr.migrate())
 
     async def test_migr_splices(self):
+        '''
+        TODO:
+            - Progress reporting
+            - Error limit
+            - Restart
+            - Start back from 0 on an already partially migrated layer
+            - More splices than queue len to check pausing/restart behavior
+        '''
         conf = {
             'src': None,
             'dest': None,
@@ -955,7 +963,13 @@ class MigrationTest(s_t_utils.SynTest):
         async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
             await migr.migrate()
 
-            migr.migrsplices = await s_migr.MigrSplices.anit(os.path.join(migr.dest, migr.migrdir, 'splices'), conf={})
+            path = os.path.join(migr.dest, migr.migrdir, 'splices')
+            conf = {
+                'queue_size': 5,  # make artificially small to simulate read waiting
+            }
+            migr.migrsplices = await s_migr.MigrSplices.anit(path, conf={})
+            migr.onfini(migr.migrsplices)
+
             migr.migrsplices.model.update(migr.model.getModelDict())
             await migr._migrSplices('9f3e63d5242cf60779a7f46be2e86a4f')
 

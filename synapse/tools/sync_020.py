@@ -296,34 +296,38 @@ class SyncMigrator(s_cell.Cell):
 
         retn = []
         for lyriden, info in lyroffs.items():
-            await self._resetLyrErrs(lyriden)
+            await self.resetLyrErrs(lyriden)
             nextoffs = info['nextoffs']
-            logger.info(f'Starting Layer sync for {lyriden} from file offset {nextoffs}')
+            logger.info(f'Starting Layer splice sync for {lyriden} from file offset {nextoffs}')
             await self.startLyrSync(lyriden, nextoffs)
             retn.append((lyriden, nextoffs))
 
         return retn
 
-    async def startSyncFromLast(self):
+    async def startSyncFromLast(self, lyridens=None):
         '''
         Start sync from minimum last offset stored by push and pull.
         This can also be used to restart dead tasks.
+
+        Args:
+            lyridens (None or list): Restrict sync to a set of layers, or start all if None
 
         Returns:
             (list): Of (<lyriden>, <offset>) tuples
         '''
         retn = []
         for lyriden, _ in self.layers.items():
-            pulloffs = self.pull_offs.get(lyriden)
-            pushoffs = self.push_offs.get(lyriden)
-            if pushoffs == 0:
-                nextoffs = pulloffs
-            else:
-                nextoffs = min(pulloffs, pushoffs)
+            if lyridens is None or lyriden in lyridens:
+                pulloffs = self.pull_offs.get(lyriden)
+                pushoffs = self.push_offs.get(lyriden)
+                if pushoffs == 0:
+                    nextoffs = pulloffs
+                else:
+                    nextoffs = min(pulloffs, pushoffs)
 
-            logger.info(f'Starting Layer sync for {lyriden} from last offset {nextoffs}')
-            await self.startLyrSync(lyriden, nextoffs)
-            retn.append((lyriden, nextoffs))
+                logger.info(f'Starting Layer splice sync for {lyriden} from last offset {nextoffs}')
+                await self.startLyrSync(lyriden, nextoffs)
+                retn.append((lyriden, nextoffs))
 
         return retn
 
@@ -403,7 +407,7 @@ class SyncMigrator(s_cell.Cell):
             logger.exception(f'Unable to disable migration mode on dest cortex: {e}')
             pass
 
-    async def _resetLyrErrs(self, lyriden):
+    async def resetLyrErrs(self, lyriden):
         lpref = s_common.uhex(lyriden)
         for lkey, _ in self.slab.scanByPref(lpref, db=self.errors):
             self.slab.pop(lkey, db=self.errors)
@@ -773,7 +777,7 @@ class SyncMigrator(s_cell.Cell):
 
             cnt += 1
 
-            if queuelen % 10000 == 0:
+            if queuelen != 0 and queuelen % 10000 == 0:
                 logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
 
             if queuelen == 0:
