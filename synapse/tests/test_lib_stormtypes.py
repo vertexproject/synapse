@@ -2875,3 +2875,17 @@ class StormTypesTest(s_test.SynTest):
             self.eq(('foo', 'bar'), await core.callStorm('$list = $lib.list() $list.append(foo) $list.append(bar) return($list)'))
             self.eq({'foo': 'bar'}, await core.callStorm('$dict = $lib.dict() $dict.foo = bar return($dict)'))
             self.eq({'foo': 2}, await core.callStorm('$tally = $lib.stats.tally() $tally.inc(foo) $tally.inc(foo) return($tally)'))
+
+    async def test_print_warn(self):
+        async with self.getTestCore() as core:
+            q = '$lib.print(hello)'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('hello', msgs)
+
+            q = '$name="moto" $lib.print("hello {name}", name=$name)'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('hello moto', msgs)
+
+            q = '$name="moto" $lib.warn("hello {name}", name=$name)'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('hello moto', msgs)

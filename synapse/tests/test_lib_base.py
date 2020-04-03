@@ -440,3 +440,11 @@ class BaseTest(s_t_utils.SynTest):
 
         self.true(mixed.m1fini.is_set())
         self.true(mixed.m2fini.is_set())
+
+    async def test_ctx(self):
+
+        async with Hehe.ctx(1138) as hehe:
+            self.eq(1138, hehe.foo)
+            self.eq(1148, hehe.bar)
+            self.false(hehe.isfini)
+        self.true(hehe.isfini)
