@@ -95,12 +95,15 @@ class MigrSplices(s_sync.SyncMigrator):
 
         while not self.isfini:
             try:
+                if queue.isfini:
+                    retn['err'] = 'queue_fini'
+                    break
+
                 nextoffs, islive = await self._srcIterLyrSplices(genr, startoffs, queue)
                 self.pull_offs.set(lyriden, nextoffs)
 
                 if islive:
                     retn['status'] = True
-                    retn['nextoffs'] = nextoffs
                     break
 
             except asyncio.CancelledError:  # pragma: no cover
@@ -109,6 +112,7 @@ class MigrSplices(s_sync.SyncMigrator):
                 exc = s_common.excinfo(e)
                 retn['err'] = exc
                 logger.exception(f'Splice pull encountered an exception; queue will be finid')
+                break
 
         # fini the queue; writer should continue until the queue is empty
         await queue.fini()
@@ -140,6 +144,8 @@ class MigrSplices(s_sync.SyncMigrator):
                 exc = s_common.excinfo(e)
                 retn['err'] = exc
                 logger.exception(f'Splice push encountered an exception')
+                await queue.fini()
+                break
 
         retn['status'] = isdone
         return retn
@@ -621,6 +627,7 @@ class Migrator(s_base.Base):
         self.spliceconf = {
             'err_lim': 10,
             'queue_size': 100000,
+            'offs_logging': 1000000,
         }
 
         # data model
@@ -1606,13 +1613,14 @@ class Migrator(s_base.Base):
         synccoro = None
         if fromlast:
             synclyriden = self.migrsplices.layers.get(iden)
-            pulloffs = self.migrsplices.pull_offs.get(iden)
+            pushoffs = self.migrsplices.push_offs.get(iden)
 
-            if synclyriden is None or pulloffs is None:
+            if synclyriden is None or pushoffs is None:
                 logger.warning(f'Migration restart specified but no splice checkpoint found; restarting from 0')
                 fromlast = False
 
             else:
+                logger.info(f'Found splice migration checkpoint for {iden} at offset {pushoffs}')
                 synccoro = self.migrsplices.startSyncFromLast(lyridens=[iden])
 
         if not fromlast:
@@ -1637,13 +1645,12 @@ class Migrator(s_base.Base):
             errcnt = status.get('errcnt', 0)
             if errcnt > 0:
                 logger.warning(f'Splice migration encountered {errcnt} errors')
+                logger.debug(f'Source splice read task summary: {status.get("src:task")}')
+                logger.debug(f'Destination splice push task summary: {status.get("dest:task")}')
 
             src_lastoffs = status.get('src:nextoffs') - 1
             dest_lastoffs = status.get('dest:nextoffs') - 1
             logger.info(f'For target offset {lastindx:,}: read up to {src_lastoffs:,}, wrote up to {dest_lastoffs:,}')
-
-            logger.debug(f'Pull task summary: {status.get("src:task")}')
-            logger.debug(f'Push task summary: {status.get("dest:task")}')
 
         await nodeeditslab.fini()
         await spliceslab.fini()

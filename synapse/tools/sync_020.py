@@ -315,7 +315,7 @@ class SyncMigrator(s_cell.Cell):
 
     async def startSyncFromLast(self, lyridens=None):
         '''
-        Start sync from minimum last offset stored by push and pull.
+        Start sync from minimum last offset stored by pull, or 0 if no offset was ever recorded.
         This can also be used to restart dead tasks.
 
         Args:
@@ -327,14 +327,9 @@ class SyncMigrator(s_cell.Cell):
         retn = []
         for lyriden, _ in self.layers.items():
             if lyridens is None or lyriden in lyridens:
-                pulloffs = self.pull_offs.get(lyriden)
-                pushoffs = self.push_offs.get(lyriden)
-                if pushoffs == 0:
-                    nextoffs = pulloffs
-                else:
-                    nextoffs = min(pulloffs, pushoffs)
-
+                nextoffs = self.push_offs.get(lyriden)  # SlabOffs returns 0 if iden doesn't exist
                 logger.info(f'Starting Layer splice sync for {lyriden} from last offset {nextoffs}')
+
                 await self.startLyrSync(lyriden, nextoffs)
                 retn.append((lyriden, nextoffs))
 
@@ -543,7 +538,7 @@ class SyncMigrator(s_cell.Cell):
 
             if curoffs % fair_iter == 0:
                 if curoffs % offs_logging == 0:
-                    logger.info(f'Source layer pull at offset {curoffs}')
+                    logger.info(f'Source layer splice pull at offset {curoffs}')
                 await asyncio.sleep(0)
 
             # if we are approaching the queue lim return so we can pause
@@ -783,7 +778,7 @@ class SyncMigrator(s_cell.Cell):
                 logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
 
             if offs % offs_logging == 0 and offs != 0:
-                logger.info(f'Destination layer push at offset {offs}')
+                logger.info(f'Destination layer splice push at offset {offs}')
 
             if queuelen == 0:
                 evnt.set()
