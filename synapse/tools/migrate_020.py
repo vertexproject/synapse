@@ -55,6 +55,29 @@ ADD_MODES = (
     'editor',   # Layer.editors[<op>]() w/o nexus
 )
 
+# We are already checking that the layer is at the max 01x vers
+# so unmigrated forms and props would be "known" issues that are
+# not currently liftable.
+OLDMODEL_FORMS = (
+    'seen',
+    'source',
+    'has',
+    'wentto',
+    'event',
+    'cluster',
+    'graph:link',
+    'graph:timelink',
+    'inet:whois:regmail',  # commit 6b864d4
+)
+
+OLDMODEL_PROPS = (
+    'ou:org:disolved',
+    # commit 5422fb39
+    'it:exec:reg:get:reg:key', 'it:exec:reg:get:reg:int', 'it:exec:reg:get:reg:str', 'it:exec:reg:get:reg:bytes',
+    'it:exec:reg:set:reg:key', 'it:exec:reg:set:reg:int', 'it:exec:reg:set:reg:str', 'it:exec:reg:set:reg:bytes',
+    'it:exec:reg:del:reg:key', 'it:exec:reg:del:reg:int', 'it:exec:reg:del:reg:str', 'it:exec:reg:del:reg:bytes',
+)
+
 MAX_01X_VERS = (0, 1, 3)
 
 class MigrSplices(s_sync.SyncMigrator):
@@ -65,6 +88,11 @@ class MigrSplices(s_sync.SyncMigrator):
         await s_sync.SyncMigrator.__anit__(self, dirn, conf=conf)
         self.src_genrs = {}
         self.dest_writers = {}
+        await self.loadOldModelItems()
+
+    async def loadOldModelItems(self):
+        self.form_chk = {k: 0 for k in OLDMODEL_FORMS}
+        self.prop_chk = {k: 0 for k in OLDMODEL_PROPS}
 
     async def _loadDatamodel(self):
         '''
@@ -1644,7 +1672,10 @@ class Migrator(s_base.Base):
         else:
             errcnt = status.get('errcnt', 0)
             if errcnt > 0:
-                logger.warning(f'Splice migration encountered {errcnt} errors')
+                model_errs = sum(self.migrsplices.form_chk.values()) + sum(self.migrsplices.prop_chk.values())
+                errmesg = f'Splice migration encountered {errcnt:,} errors ' \
+                          f'of which {model_errs:,} were due to old datamodel entries'
+                logger.warning(errmesg)
                 logger.debug(f'Source splice read task summary: {status.get("src:task")}')
                 logger.debug(f'Destination splice push task summary: {status.get("dest:task")}')
 

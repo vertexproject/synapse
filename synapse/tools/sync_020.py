@@ -152,6 +152,11 @@ class SyncMigrator(s_cell.Cell):
         self.q_size = self.conf.get('queue_size')
         self.offs_logging = self.conf.get('offs_logging')
 
+        # Check that form or prop is not from an older model rev
+        # which we know will fail - only loaded for historical splice migration
+        self.form_chk = {}
+        self.prop_chk = {}
+
         self.pull_fair_iter = 10
         self.push_fair_iter = 100
 
@@ -568,8 +573,23 @@ class SyncMigrator(s_cell.Cell):
 
         stype_f = await self._destGetStortype(form=form)
         if stype_f is None:
-            err = {'mesg': f'Unable to determine stortype type for form {form}', 'splices': splices}
-            logger.warning(err['mesg'])
+            old_form = self.form_chk.get(form)
+
+            if old_form is None:
+                err = {'mesg': f'Unable to determine stortype type for form {form}', 'splices': splices}
+                logger.warning(err['mesg'])
+            else:
+                err = {
+                    'mesg': f'Unable to determine stortype type for form {form} from an older modelrev',
+                    'splices': splices
+                }
+
+                if old_form == 0:
+                    err['mesg'] += '; further errors will suppressed from logging'
+                    logger.warning(err['mesg'])
+
+                self.form_chk[form] += 1
+
             return err, None, None
 
         edits = []
@@ -596,8 +616,24 @@ class SyncMigrator(s_cell.Cell):
 
                 stype_p = await self._destGetStortype(form=form, prop=prop)
                 if stype_p is None:
-                    err = {'mesg': f'Unable to determine stortype type for prop {form}:{prop}', 'splice': splice}
-                    logger.warning(err)
+                    formprop = f'{form}:{prop}'
+                    old_prop = self.prop_chk.get(formprop)
+
+                    if old_prop is None:
+                        err = {'mesg': f'Unable to determine stortype type for prop {formprop}', 'splices': splices}
+                        logger.warning(err['mesg'])
+                    else:
+                        err = {
+                            'mesg': f'Unable to determine stortype type for prop {formprop} from an older modelrev',
+                            'splices': splices
+                        }
+
+                        if old_prop == 0:
+                            err['mesg'] += '; further errors will suppressed from logging'
+                            logger.warning(err['mesg'])
+
+                        self.prop_chk[formprop] += 1
+
                     return err, None, None
 
                 if spedit == 'prop:set':
@@ -755,7 +791,7 @@ class SyncMigrator(s_cell.Cell):
                     raise
                 except Exception as e:
                     err = {'mesg': s_common.excinfo(e), 'splices': nodesplices, 'nodeedits': ne, 'meta': meta}
-                    logger.warning(err['mesg'])
+                    logger.exception(err['mesg'])
 
                 if err is not None:
                     errs += 1

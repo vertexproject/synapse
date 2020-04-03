@@ -1072,26 +1072,37 @@ class MigrationTest(s_t_utils.SynTest):
             path = os.path.join(migr.dest, migr.migrdir, 'splices')
             conf = {
                 'queue_size': 15,
-                'err_lim': 5,
+                'err_lim': 150,
             }
             migr.migrsplices = await s_migr.MigrSplices.anit(path, conf=conf)
             migr.onfini(migr.migrsplices)
 
-            # datamodel is not loaded, which will generate errors
+            # load a partial datamodel which will generate errors
+            # also add a few forms / props to old model chk
+            migr.migrsplices.model = {
+                'forms': {'file:bytes': {'stortype': 1, 'props': {}}},
+                'tagprops': {},
+            }
+            migr.migrsplices.form_chk['inet:ipv4'] = 0
+            migr.migrsplices.prop_chk['file:bytes:mime'] = 0
+
             await migr._migrSplices(locallyrs[0])
             await migr._migrSplices(locallyrs[1])
 
             await migr.fini()
 
-            # startup 0.2.0 core and check there are no nodeedits stored
+            # startup 0.2.0 core and check that partial nodeedits were stored
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
-                offs0 = core.layers[locallyrs[0]].getNodeEditOffset()
-                offs1 = core.layers[locallyrs[1]].getNodeEditOffset()
+                lyr0 = core.getLayer()  # primary layer
 
-                self.eq(0, offs0)
-                self.eq(0, offs1)
+                # the only nodeedits should be for file:byte node adds
+                exp = len([x for x in tdata['podes'] if x[0][0] == 'file:bytes'])
+                offs = lyr0.getNodeEditOffset()
+                self.eq(exp, offs)
+                nes = [nodeedits for offs, nodeedits in lyr0.nodeeditlog.iter(0)]
+                self.len(exp, nes)
 
-                # even though there were splice migration errors, nodes and nodedata are still in tact
+                # even though there were splice migration errors, nodes and nodedata are still intact
                 await self._checkCore(core, tdata)
 
     async def test_migr_cell(self):
