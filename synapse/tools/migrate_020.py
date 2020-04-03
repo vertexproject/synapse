@@ -653,7 +653,7 @@ class Migrator(s_base.Base):
 
         self.migrsplices = None
         self.spliceconf = {
-            'err_lim': 100000,
+            'err_lim': -1,
             'queue_size': 100000,
             'offs_logging': 1000000,
         }

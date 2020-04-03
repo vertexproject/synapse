@@ -796,7 +796,7 @@ class SyncMigrator(s_cell.Cell):
                 if err is not None:
                     errs += 1
                     await self._setLyrErr(lyriden, offs, err)
-                    if errs >= err_lim:
+                    if err_lim != -1 and errs >= err_lim:
                         logger.error(f'Error limit reached')
                         raise SyncErrLimReached(mesg='Error limit reached - correct or increase err_lim to continue')
 
@@ -814,7 +814,7 @@ class SyncMigrator(s_cell.Cell):
                 logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
 
             if offs % offs_logging == 0 and offs != 0:
-                logger.info(f'Destination layer splice push at offset {offs}')
+                logger.info(f'Destination layer splice push at offset {offs} with {errs} errors')
 
             if queuelen == 0:
                 evnt.set()
