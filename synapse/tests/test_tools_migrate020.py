@@ -682,7 +682,7 @@ class MigrationTest(s_t_utils.SynTest):
                 self.true(os.path.exists(lyrslab))
 
                 # add a boot.yaml file
-                s_common.yamlsave({'auth:admin': 'root:root'}, migr0.src, 'boot.yaml')
+                s_common.yamlsave({'auth:admin': 'root:root'}, migr.src, 'boot.yaml')
 
                 await migr.migrate()
 

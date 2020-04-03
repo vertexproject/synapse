@@ -1065,6 +1065,9 @@ class Migrator(s_base.Base):
                 await self._migrlogAdd(migrop, 'error', 'bootyaml_authadmin', s_common.now())
 
             # move to migration dir as backup
+            bubootpath = os.path.join(self.dest, self.migrdir, 'boot.yaml')
+            if os.path.exists(bubootpath):
+                os.remove(bubootpath)
             shutil.move(bootpath, os.path.join(self.dest, self.migrdir))
 
         # confdefs
