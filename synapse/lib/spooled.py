@@ -10,7 +10,7 @@ class Spooled(s_base.Base):
     '''
     A Base class that can be used to implement objects which fallback to lmdb.
 
-    These objects are intended to fallback from Python to lmbd slabs, which alligns them
+    These objects are intended to fallback from Python to lmbd slabs, which aligns them
     together. Under memory pressure, these objects have a better shot of getting paged out.
     '''
 

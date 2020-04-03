@@ -2152,6 +2152,18 @@ class CortexBasicTest(s_t_utils.SynTest):
                      ('inet:fqdn', 'com'),
                      ('inet:asn', 20)}, set(alldefs.keys()))
 
+            # Construct a test that encounters nodes which are already
+            # in the to-do queue. This is mainly a coverage test.
+            q = '[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 :asn=1138 +#deathstar]'
+            await core.nodes(q)
+
+            q = '#deathstar | graph --degree 2 --refs'
+            ndefs = set()
+            async with await core.snap() as snap:
+                async for node, path in snap.storm(q):
+                    ndefs.add(node.ndef)
+            self.isin(('inet:asn', 1138), ndefs)
+
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
             q = '$foo=baz $bar=$foo [test:str=$bar]'
