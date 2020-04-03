@@ -21,6 +21,8 @@ class SpooledTest(s_test.SynTest):
         await sset.add(20)
         await sset.add(30)
 
+        await sset.add(None)
+
         self.nn(sset.slab)
         self.nn(sset.slabpath)
         self.true(sset.fallback)
@@ -28,6 +30,8 @@ class SpooledTest(s_test.SynTest):
         self.true(10 in sset)
         sset.discard(10)
         self.false(10 in sset)
+
+        self.true(None in sset)
 
         self.true(os.path.isdir(sset.slabpath))
         await sset.fini()
