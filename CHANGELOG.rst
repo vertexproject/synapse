@@ -2,6 +2,23 @@
 Synapse Changelog
 *****************
 
+
+v0.1.57 - 2019-04-03
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add an initial auth model.
+- Add ``filterinput`` and ``yieldfiltered`` flags to the graph rules.
+- Add ``$lib.warn()`` to stormtypes
+- Add ``synapse.lib.spool``.
+- Add ``synapse.lib.base.Base.ctx()`` helper.
+
+  These changes were all cherry-picked from master.
+  (`#1657 <https://github.com/vertexproject/synapse/pull/1657>`_)
+  (`#1660 <https://github.com/vertexproject/synapse/pull/1660>`_)
+
 v0.1.56 - 2019-03-27
 ====================
 
