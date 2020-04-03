@@ -66,9 +66,6 @@ import collections
 import regex
 import xxhash
 
-from typing import Tuple, List, NewType, Dict, Any, Optional, Callable, Sequence
-
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -98,13 +95,6 @@ reqValidLdef = s_config.getJsValidator({
     'additionalProperties': True,
     'required': ['iden', 'creator', 'lockmemory'],
 })
-
-BuidT = NewType('BuidT', bytes)
-EditT = Tuple[int, Tuple, Sequence]
-NodeEditT = Tuple[BuidT, str, List[EditT]]
-NodeEditsT = Sequence[NodeEditT]
-
-SodeT = Tuple[BuidT, Dict[str, Any]]
 
 class LayerApi(s_cell.CellApi):
 
@@ -907,7 +897,7 @@ class Layer(s_nexus.Pusher):
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
         ]
 
-        self.editors: Callable[Any, Optional[List[EditT]]] = [
+        self.editors = [
             self._editNodeAdd,
             self._editNodeDel,
             self._editPropSet,
@@ -1203,7 +1193,7 @@ class Layer(s_nexus.Pusher):
 
             yield sode
 
-    async def storNodeEdits(self, nodeedits, meta) -> List[SodeT]:
+    async def storNodeEdits(self, nodeedits, meta):
 
         results = await self._push('edits', nodeedits, meta)
 
@@ -1217,7 +1207,7 @@ class Layer(s_nexus.Pusher):
         return retn
 
     @s_nexus.Pusher.onPush('edits')
-    async def _storNodeEdits(self, nodeedits: NodeEditsT, meta: Dict) -> NodeEditsT:
+    async def _storNodeEdits(self, nodeedits, meta):
         '''
         Execute a series of node edit operations, returning the updated nodes.
 
@@ -1227,7 +1217,7 @@ class Layer(s_nexus.Pusher):
         Returns:
             List[Tuple[buid, form, edits]]  Same list, but with only the edits actually applied (plus the old value)
         '''
-        results: NodeEditsT = []
+        results = []
 
         for edits in [await self._storNodeEdit(e) for e in nodeedits]:
             results.extend(edits)
@@ -1243,7 +1233,7 @@ class Layer(s_nexus.Pusher):
 
         return results
 
-    async def _storNodeEdit(self, nodeedit: NodeEditT) -> NodeEditsT:
+    async def _storNodeEdit(self, nodeedit):
         '''
         Execute a series of storage operations for the given node.
 
@@ -1255,8 +1245,8 @@ class Layer(s_nexus.Pusher):
         '''
         buid, form, edits = nodeedit
 
-        postedits: List[EditT] = []  # The primary nodeedit's edits.
-        retn: NodeEditsT = [(buid, form, postedits)]  # The primary nodeedit
+        postedits = []  # The primary nodeedit's edits.
+        retn = [(buid, form, postedits)]  # The primary nodeedit
 
         for edit in edits:
             changes = self.editors[edit[0]](buid, form, edit)
@@ -1286,7 +1276,7 @@ class Layer(s_nexus.Pusher):
         '''
         await self._push('edits', nodeedits, meta)
 
-    def _editNodeAdd(self, buid, form, edit) -> Sequence[EditT]:
+    def _editNodeAdd(self, buid, form, edit):
         valu, stortype = edit[1]
 
         byts = s_msgpack.en((form, valu, stortype))
@@ -1311,14 +1301,14 @@ class Layer(s_nexus.Pusher):
 
         self.formcounts.inc(form)
 
-        retn: List[EditT] = [(EDIT_NODE_ADD, (valu, stortype), ())]
+        retn = [(EDIT_NODE_ADD, (valu, stortype), ())]
 
         created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_MINTIME))
         retn.extend(self._editPropSet(buid, form, created))
 
         return retn
 
-    def _editNodeDel(self, buid, form, edit) -> Sequence[EditT]:
+    def _editNodeDel(self, buid, form, edit):
 
         byts = self.layrslab.pop(buid + b'\x00', db=self.bybuid)
         if byts is None:
@@ -1349,7 +1339,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODE_DEL, (valu, stortype), ()),
         )
 
-    def _editPropSet(self, buid, form, edit) -> Sequence[EditT]:
+    def _editPropSet(self, buid, form, edit):
 
         prop, valu, oldv, stortype = edit[1]
 
@@ -1428,7 +1418,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_PROP_SET, (prop, valu, oldv, stortype), ()),
         )
 
-    def _editPropDel(self, buid, form, edit) -> Sequence[EditT]:
+    def _editPropDel(self, buid, form, edit):
 
         prop, oldv, stortype = edit[1]
 
@@ -1473,7 +1463,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_PROP_DEL, (prop, valu, stortype), ()),
         )
 
-    def _editTagSet(self, buid, form, edit) -> Sequence[EditT]:
+    def _editTagSet(self, buid, form, edit):
 
         tag, valu, oldv = edit[1]
 
@@ -1504,7 +1494,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAG_SET, (tag, valu, oldv), ()),
         )
 
-    def _editTagDel(self, buid, form, edit) -> Sequence[EditT]:
+    def _editTagDel(self, buid, form, edit):
 
         tag, oldv = edit[1]
 
@@ -1525,7 +1515,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAG_DEL, (tag, oldv), ()),
         )
 
-    def _editTagPropSet(self, buid, form, edit) -> Sequence[EditT]:
+    def _editTagPropSet(self, buid, form, edit):
 
         tag, prop, valu, oldv, stortype = edit[1]
 
@@ -1560,7 +1550,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype), ()),
         )
 
-    def _editTagPropDel(self, buid, form, edit) -> Sequence[EditT]:
+    def _editTagPropDel(self, buid, form, edit):
 
         tag, prop, valu, stortype = edit[1]
 
@@ -1586,7 +1576,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAGPROP_DEL, (tag, prop, oldv, oldt), ()),
         )
 
-    def _editNodeDataSet(self, buid, form, edit) -> Sequence[EditT]:
+    def _editNodeDataSet(self, buid, form, edit):
 
         name, valu, oldv = edit[1]
         abrv = self.getPropAbrv(name, None)
@@ -1604,7 +1594,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODEDATA_SET, (name, valu, oldv), ()),
         )
 
-    def _editNodeDataDel(self, buid, form, edit) -> Sequence[EditT]:
+    def _editNodeDataDel(self, buid, form, edit):
 
         name, valu = edit[1]
         abrv = self.getPropAbrv(name, None)

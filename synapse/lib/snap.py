@@ -7,8 +7,6 @@ import weakref
 import contextlib
 import collections
 
-from typing import List, Dict, Any, Iterator, Callable, Tuple
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -487,12 +485,12 @@ class Snap(s_base.Base):
                     continue
                 yield node
 
-    def getNodeAdds(self, form: str, valu: Any, props: Dict[str, Any] = None, addnode=True) -> s_layer.NodeEditsT:
+    def getNodeAdds(self, form: str, valu, props, addnode=True):
 
-        def _getadds(f, v, p, doaddnode=True) -> Iterator[s_layer.NodeEditT]:
+        def _getadds(f, v, p, doaddnode=True):
 
-            edits: List[s_layer.EditT] = []  # Non-primary prop edits
-            topsubedits: List[s_layer.EditT] = []  # Primary prop sub edits
+            edits = []  # Non-primary prop edits
+            topsubedits = []  # Primary prop sub edits
 
             formnorm, forminfo = f.type.norm(v)
 
@@ -571,7 +569,7 @@ class Snap(s_base.Base):
         nodes = await self.applyNodeEdits((edit,))
         return nodes[0]
 
-    async def applyNodeEdits(self, edits: s_layer.NodeEditsT) -> List[s_node.Node]:
+    async def applyNodeEdits(self, edits):
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
@@ -582,12 +580,12 @@ class Snap(s_base.Base):
         meta = await self.getSnapMeta()
 
         todo = s_common.todo('storNodeEdits', edits, meta)
-        sodes: List[s_layer.SodeT] = await self.core.dyncall(self.wlyr.iden, todo)
+        sodes = await self.core.dyncall(self.wlyr.iden, todo)
 
         wlyr = self.wlyr
-        nodes: List[s_node.Node] = []
-        callbacks: List[Tuple[Callable, Tuple, Dict]] = []
-        actualedits: s_layer.NodeEditsT = []  # List[Tuple[buid, form, changes]]
+        nodes = []
+        callbacks = []
+        actualedits = []  # List[Tuple[buid, form, changes]]
 
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is
@@ -601,7 +599,7 @@ class Snap(s_base.Base):
 
             nodes.append(node)
 
-            postedits: List[s_layer.EditT] = sode[1].get('edits', ())
+            postedits = sode[1].get('edits', ())
 
             if postedits:
                 actualedits.append((sode[0], sode[1]['form'], postedits))
