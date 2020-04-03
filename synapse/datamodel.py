@@ -46,6 +46,7 @@ class TagProp:
             'name': self.name,
             'info': self.info,
             'type': self.tdef,
+            'stortype': self.type.stortype,
         }
 
     def getTagPropDef(self):
@@ -184,7 +185,10 @@ class Prop:
         return self.compoffs
 
     def pack(self):
-        info = {'type': self.typedef}
+        info = {
+            'type': self.typedef,
+            'stortype': self.type.stortype,
+        }
         info.update(self.info)
         return info
 
@@ -377,7 +381,10 @@ class Form:
 
     def pack(self):
         props = {p.name: p.pack() for p in self.props.values()}
-        info = {'props': props}
+        info = {
+            'props': props,
+            'stortype': self.type.stortype,
+        }
         info.update(self.info)
         return info
 
