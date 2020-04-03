@@ -62,6 +62,7 @@ OLDMODEL_FORMS = (
     'seen',
     'source',
     'has',
+    'refs',
     'wentto',
     'event',
     'cluster',
