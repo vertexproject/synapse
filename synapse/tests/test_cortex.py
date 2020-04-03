@@ -2086,6 +2086,72 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(alldefs.get(('syn:tag', 'nope')))
             self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
 
+            # filterinput=false behavior
+            rules['filterinput'] = False
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            # our TLDs are no longer omits
+            self.len(4, seeds)
+            self.len(6, alldefs)
+            self.isin(('inet:fqdn', 'com'), seeds)
+            self.isin(('inet:fqdn', 'link'), seeds)
+            self.isin(('inet:fqdn', 'woot.com'), seeds)
+            self.isin(('inet:fqdn', 'vertex.link'), seeds)
+
+            # yieldfiltered = True
+            rules.pop('filterinput', None)
+            rules['yieldfiltered'] = True
+
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            # The tlds are omitted, but since we are yieldfiltered=True,
+            # we still get the seeds. We also get an inet:dns:a node we
+            # previously omitted.
+            self.len(4, seeds)
+            self.len(7, alldefs)
+            self.isin(('inet:dns:a', ('vertex.link', 84215045)), alldefs)
+
+            # refs
+            rules = {
+                'degrees': 2,
+                'refs': True,
+            }
+
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('inet:dns:a:fqdn=woot.com',
+                                                   opts={'graph': rules}):
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            self.len(1, seeds)
+            self.len(5, alldefs)
+            # We did make it automatically away 2 degrees with just model refs
+            self.eq({('inet:dns:a', ('woot.com', 16909060)),
+                     ('inet:fqdn', 'woot.com'),
+                     ('inet:ipv4', 16909060),
+                     ('inet:fqdn', 'com'),
+                     ('inet:asn', 20)}, set(alldefs.keys()))
+
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
             q = '$foo=baz $bar=$foo [test:str=$bar]'
