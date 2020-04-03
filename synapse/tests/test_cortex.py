@@ -3833,7 +3833,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             ''')
             # wait for him to exit once and loop...
             await core.nodes('for $x in $lib.queue.get(visi).gets(size=2) {}')
-            mesgs = await core.stormlist('for $x in $lib.queue.get(visi).gets(size=2) { $lib.print(hehe) }')
+            await core.stormlist('for $x in $lib.queue.get(visi).gets(size=2) { $lib.print(hehe) }')
 
     async def test_cortex_ext_model(self):
 
@@ -4057,7 +4057,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with core.getLocalProxy(user='root') as prox:
 
-                fred = await prox.addUser('fred', passwd='secret')
+                await prox.addUser('fred', passwd='secret')
 
                 self.true(core.agenda.enabled)
                 self.true(core.trigson)

@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import types
 import asyncio
 import logging
 import weakref
 import contextlib
 import collections
+
+from typing import List, Dict, Any, Iterator, Callable, Tuple
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -483,26 +487,21 @@ class Snap(s_base.Base):
                     continue
                 yield node
 
-    def getNodeAdds(self, form, valu, props=None, addnode=True):
+    def getNodeAdds(self, form: str, valu: Any, props: Dict[str, Any] = None, addnode=True) -> s_layer.NodeEditsT:
 
-        # TODO consider nesting these to allow short circuit on existing
-        def recurse(f, v, p, doadd=True):
+        def _getadds(f, v, p, doaddnode=True) -> Iterator[s_layer.NodeEditT]:
 
-            edits = []
+            edits: List[s_layer.EditT] = []  # Non-primary prop edits
+            topsubedits: List[s_layer.EditT] = []  # Primary prop sub edits
 
             formnorm, forminfo = f.type.norm(v)
 
-            buid = s_common.buid((f.name, formnorm))
-
-            if doadd:
-                edits.append((s_layer.EDIT_NODE_ADD, (formnorm, f.type.stortype), []))
-
-            formsubs = forminfo.get('subs')
-            if formsubs is not None:
-                for subname, subvalu in formsubs.items():
-                    p[subname] = subvalu
+            formsubs = forminfo.get('subs', {})
+            for subname, subvalu in formsubs.items():
+                p[subname] = subvalu
 
             for propname, propvalu in p.items():
+                subedits: s_layer.NodeEditsT = []
 
                 prop = f.prop(propname)
                 if prop is None:
@@ -516,18 +515,15 @@ class Snap(s_base.Base):
                     if ndefform is None:
                         raise s_exc.NoSuchForm(name=ndefname)
 
-                    for item in recurse(ndefform, ndefvalu, {}):
-                        yield item
+                    subedits.extend(list(_getadds(ndefform, ndefvalu, {})))
 
-                if isinstance(prop.type, s_types.Array):
+                elif isinstance(prop.type, s_types.Array):
                     arrayform = self.core.model.form(prop.type.arraytype.name)
                     if arrayform is not None:
                         for arrayvalu in propvalu:
-                            for e in recurse(arrayform, arrayvalu, {}):
-                                yield e
+                            subedits.extend(list(_getadds(arrayform, arrayvalu, {})))
 
                 propnorm, typeinfo = prop.type.norm(propvalu)
-                edits.append((s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype), []))
 
                 propsubs = typeinfo.get('subs')
                 if propsubs is not None:
@@ -540,27 +536,42 @@ class Snap(s_base.Base):
                         assert subprop.type.stortype is not None
 
                         subnorm, subinfo = subprop.type.norm(subvalu)
-                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), []))
+                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
 
                 propform = self.core.model.form(prop.type.name)
-                if propform is None:
-                    continue
+                if propform is not None:
+                    subedits.extend(list(_getadds(propform, propnorm, {})))
 
-                for item in recurse(propform, propnorm, {}):
-                    yield item
+                edit: s_layer.EditT = (s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype), subedits)
+                if propname in formsubs:
+                    topsubedits.append(edit)
+                else:
+                    edits.append(edit)
 
-            yield (buid, f.name, edits)
+            buid = s_common.buid((f.name, formnorm))
+
+            if doaddnode:
+                # Make all the sub edits for the primary property a conditional nodeEdit under a top-level NODE_ADD
+                # edit
+                if topsubedits:
+                    subnodeedits: s_layer.NodeEditsT = [(buid, f.name, topsubedits)]
+                else:
+                    subnodeedits = ()
+                topedit: s_layer.EditT = (s_layer.EDIT_NODE_ADD, (formnorm, f.type.stortype), subnodeedits)
+                yield (buid, f.name, [topedit] + edits)
+            else:
+                yield (buid, f.name, edits)
 
         if props is None:
             props = {}
 
-        return list(recurse(form, valu, props, doadd=addnode))
+        return list(_getadds(form, valu, props, doaddnode=addnode))
 
     async def applyNodeEdit(self, edit):
         nodes = await self.applyNodeEdits((edit,))
         return nodes[0]
 
-    async def applyNodeEdits(self, edits):
+    async def applyNodeEdits(self, edits: s_layer.NodeEditsT) -> List[s_node.Node]:
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
@@ -569,14 +580,14 @@ class Snap(s_base.Base):
             raise s_exc.IsReadOnly(mesg=mesg)
 
         meta = await self.getSnapMeta()
-        todo = s_common.todo('storNodeEdits', edits, meta)
 
-        sodes = await self.core.dyncall(self.wlyr.iden, todo)
+        todo = s_common.todo('storNodeEdits', edits, meta)
+        sodes: List[s_layer.SodeT] = await self.core.dyncall(self.wlyr.iden, todo)
 
         wlyr = self.wlyr
-        nodes = []
-        callbacks = []
-        actualedits = []  # List[Tuple[buid, form, edits]]
+        nodes: List[s_node.Node] = []
+        callbacks: List[Tuple[Callable, Tuple, Dict]] = []
+        actualedits: s_layer.NodeEditsT = []  # List[Tuple[buid, form, changes]]
 
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is
@@ -590,13 +601,14 @@ class Snap(s_base.Base):
 
             nodes.append(node)
 
-            edits = sode[1].get('edits', ())
+            postedits: List[s_layer.EditT] = sode[1].get('edits', ())
 
-            if edits:
-                actualedits.append((sode[0], sode[1]['form'], edits))
+            if postedits:
+                actualedits.append((sode[0], sode[1]['form'], postedits))
 
-            for edit in edits:
-                etyp, parms = edit
+            for edit in postedits:
+
+                etyp, parms, _ = edit
 
                 if etyp == s_layer.EDIT_NODE_ADD:
                     node.bylayer['ndef'] = wlyr
@@ -719,10 +731,10 @@ class Snap(s_base.Base):
                 return None
             raise
 
-        # depth first, so the last one is our added node
         nodes = await self.applyNodeEdits(adds)
 
-        return nodes[-1]
+        # Adds is top-down, so the first node is what we want
+        return nodes[0]
 
     async def addFeedNodes(self, name, items):
         '''
