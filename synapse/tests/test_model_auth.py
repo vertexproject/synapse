@@ -1,10 +1,7 @@
-#import copy
 import logging
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
-#from synapse.tests.utils import alist
 
 logger = logging.getLogger(__name__)
 
