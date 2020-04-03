@@ -4,6 +4,7 @@ import fnmatch
 import logging
 import binascii
 import itertools
+import contextlib
 import collections
 
 import synapse.exc as s_exc
@@ -13,6 +14,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
+import synapse.lib.spooled as s_spooled
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -204,6 +206,9 @@ class SubGraph:
 
                     'degrees': 1,
 
+                    'filterinput': True,
+                    'yieldfiltered': False,
+
                     'filters': [
                         '-(#foo or #bar)',
                         '-(foo:bar or baz:faz)',
@@ -245,6 +250,9 @@ class SubGraph:
 
         self.rules.setdefault('refs', False)
         self.rules.setdefault('degrees', 1)
+
+        self.rules.setdefault('filterinput', True)
+        self.rules.setdefault('yieldfiltered', False)
 
     async def omit(self, node):
 
@@ -302,52 +310,70 @@ class SubGraph:
 
     async def run(self, runt, genr):
 
-        done = {}
         degrees = self.rules.get('degrees')
+        filterinput = self.rules.get('filterinput')
+        yieldfiltered = self.rules.get('yieldfiltered')
 
         self.user = runt.user
 
-        async for node, path in genr:
+        todo = collections.deque()
 
-            if await self.omit(node):
-                continue
+        async with contextlib.AsyncExitStack() as stack:
 
-            path.meta('graph:seed', True)
+            done = await stack.enter_async_context(s_spooled.Set.ctx())
+            intodo = await stack.enter_async_context(s_spooled.Set.ctx())
 
-            todo = collections.deque([(node, path, 0)])
+            async def todogenr():
 
-            while todo:
+                async for node, path in genr:
+                    path.meta('graph:seed', True)
+                    yield node, path, 0
 
-                tnode, tpath, tdist = todo.popleft()
+                while todo:
+                    yield todo.popleft()
 
-                # filter out nodes that we've already done at
-                # the given distance or less... (best possible)
-                donedist = done.get(tnode.buid)
-                if donedist is not None and donedist <= tdist:
+            async for node, path, dist in todogenr():
+
+                if node.buid in done:
                     continue
 
-                done[tnode.buid] = tdist
+                await done.add(node.buid)
+                intodo.discard(node.buid)
+
+                omitted = False
+                if dist > 0 or filterinput:
+                    omitted = await self.omit(node)
+
+                if omitted and not yieldfiltered:
+                    continue
+
+                # we must traverse the pivots for the node *regardless* of degrees
+                # due to needing to tie any leaf nodes to nodes that were already yielded
 
                 edges = set()
-                ndist = tdist + 1
-
-                async for pivn, pivp in self.pivots(runt, tnode, tpath):
-
-                    if await self.omit(pivn):
-                        continue
+                async for pivn, pivp in self.pivots(runt, node, path):
 
                     edges.add(pivn.iden())
 
-                    if degrees is not None and ndist > degrees:
+                    # we dont pivot from omitted nodes
+                    if omitted:
                         continue
 
-                    todo.append((pivn, pivp, ndist))
+                    # no need to pivot to nodes we already did
+                    if pivn.buid in done:
+                        continue
 
-                edgelist = [(iden, {}) for iden in edges]
-                tpath.meta('edges', edgelist)
+                    # no need to queue up todos that are already in todo
+                    if pivn.buid in intodo:
+                        continue
 
-                if donedist is None:
-                    yield tnode, tpath
+                    # do we have room to go another degree out?
+                    if degrees is None or dist < degrees:
+                        todo.append((pivn, pivp, dist + 1))
+                        await intodo.add(pivn.buid)
+
+                path.meta('edges', [(iden, {}) for iden in edges])
+                yield node, path
 
 class Oper(AstNode):
     pass
