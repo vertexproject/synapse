@@ -308,8 +308,9 @@ class Snap(s_base.Base):
     async def printf(self, mesg):
         await self.fire('print', mesg=mesg)
 
-    async def warn(self, mesg, **info):
-        logger.warning(mesg)
+    async def warn(self, mesg, log=True, **info):
+        if log:
+            logger.warning(mesg)
         await self.fire('warn', mesg=mesg, **info)
 
     async def getNodeByBuid(self, buid):

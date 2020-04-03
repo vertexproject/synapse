@@ -2412,3 +2412,17 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy(user='root') as prox:
                 self.len(0, await prox.eval('inet:ipv4=1.2.3.4').list())
+
+    async def test_print_warn(self):
+        async with self.getTestCore() as core:
+            q = '$lib.print(hello)'
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('hello', msgs)
+
+            q = '$name="moto" $lib.print("hello {name}", name=$name)'
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('hello moto', msgs)
+
+            q = '$name="moto" $lib.warn("hello {name}", name=$name)'
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInWarn('hello moto', msgs)
