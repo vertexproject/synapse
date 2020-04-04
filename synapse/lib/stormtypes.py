@@ -268,6 +268,7 @@ class LibBase(Lib):
             'false': False,
             'text': self._text,
             'cast': self._cast,
+            'warn': self._warn,
             'print': self._print,
             'sorted': self._sorted,
             'import': self._libBaseImport,
@@ -356,12 +357,21 @@ class LibBase(Lib):
         ints = [intify(x) for x in vals]
         return max(*ints)
 
-    async def _print(self, mesg, **kwargs):
+    @staticmethod
+    def _get_mesg(mesg, **kwargs):
         if not isinstance(mesg, str):
             mesg = repr(mesg)
         elif kwargs:
             mesg = kwarg_format(mesg, **kwargs)
+        return mesg
+
+    async def _print(self, mesg, **kwargs):
+        mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
+
+    async def _warn(self, mesg, **kwargs):
+        mesg = self._get_mesg(mesg, **kwargs)
+        await self.runt.warn(mesg, log=False)
 
     async def _dict(self, **kwargs):
         return Dict(kwargs)

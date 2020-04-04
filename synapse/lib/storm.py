@@ -2169,6 +2169,14 @@ class GraphCmd(Cmd):
         pars.add_argument('--form-filter', default=[], nargs=2, action='append',
                           help='Specify a <form> <filter> form specific filter.')
 
+        pars.add_argument('--refs', default=False, action='store_true',
+                          help='Do automatic in-model pivoting with node.getNodeRefs().')
+        pars.add_argument('--yield-filtered', default=False, action='store_true', dest='yieldfiltered',
+                          help='Yield nodes which would be filtered. This still performs pivots to collect edge data,'
+                               'but does not yield pivoted nodes.')
+        pars.add_argument('--no-filter-input', default=True, action='store_false', dest='filterinput',
+                          help='Do not drop input nodes if they would match a filter.')
+
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -2180,6 +2188,11 @@ class GraphCmd(Cmd):
             'filters': [],
 
             'forms': {},
+
+            'refs': self.opts.refs,
+            'filterinput': self.opts.filterinput,
+            'yieldfiltered': self.opts.yieldfiltered,
+
         }
 
         for pivo in self.opts.pivot:
@@ -2207,8 +2220,6 @@ class GraphCmd(Cmd):
             formrule['filters'].append(filt[1:-1])
 
         subg = s_ast.SubGraph(rules)
-
-        genr = subg.run(runt, genr)
 
         async for node, path in subg.run(runt, genr):
             yield node, path
