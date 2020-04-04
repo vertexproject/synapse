@@ -95,7 +95,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine("cron add -dMon -m +3 -y +2 {#foo}")
                     self.true(outp.expect('more than 1 recurrence'))
 
-                    await cmdr.runCmdLine("cron add --year 2019 {#foo}")
+                    await cmdr.runCmdLine("cron add --year=2019 {#foo}")
                     self.true(outp.expect('year may not be a fixed value'))
 
                     await cmdr.runCmdLine("cron add {#foo}")

@@ -2487,14 +2487,14 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
                 self.stormIsInPrint("{'hour': 5, 'minute': 47", mesgs)
 
-                #q = r'cron.add --monthly=-1:12:30 {#bar}'
-                #mesgs = await core.stormlist(q)
-                #for mesg in mesgs:
-                    #if mesg[0] == 'print':
-                        #guid = mesg[1]['mesg'].split(' ')[-1]
+                q = r'cron.add --monthly=-1:12:30 {#bar}'
+                mesgs = await core.stormlist(q)
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid = mesg[1]['mesg'].split(' ')[-1]
 
-                #mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                #self.stormIsInPrint("{'hour': 12, 'minute': 30, 'dayofmonth': -1}", mesgs)
+                mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
+                self.stormIsInPrint("{'hour': 12, 'minute': 30, 'dayofmonth': -1}", mesgs)
 
                 q = 'cron.add --yearly 04:17:12:30 {#bar}'
                 mesgs = await core.stormlist(q)

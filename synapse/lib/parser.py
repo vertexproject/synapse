@@ -346,18 +346,6 @@ class Parser:
         newtree.text = self.text
         return newtree
 
-    #def stormcmdargs(self):
-        #'''
-        #Parse command args that might have storm queries as arguments
-        #'''
-        #try:
-            #tree = StormCmdParser.parse(self.text)
-        #except lark.exceptions.LarkError as e:
-            #raise self._larkToSynExc(e) from None
-        #newtree = AstConverter(self.text).transform(tree)
-        #assert isinstance(newtree, s_ast.Const)
-        #return newtree.valu
-
     def cmdrargs(self):
         '''
         Parse command args that might have storm queries as arguments
