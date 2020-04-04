@@ -3,6 +3,7 @@ import copy
 import glob
 import json
 import shutil
+import asyncio
 import itertools
 import contextlib
 
@@ -13,6 +14,7 @@ import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
@@ -1072,7 +1074,7 @@ class MigrationTest(s_t_utils.SynTest):
             path = os.path.join(migr.dest, migr.migrdir, 'splices')
             conf = {
                 'queue_size': 15,
-                'err_lim': 150,
+                'err_lim': 100,
             }
             migr.migrsplices = await s_migr.MigrSplices.anit(path, conf=conf)
             migr.onfini(migr.migrsplices)
@@ -1080,14 +1082,22 @@ class MigrationTest(s_t_utils.SynTest):
             # load a partial datamodel which will generate errors
             # also add a few forms / props to old model chk
             migr.migrsplices.model = {
-                'forms': {'file:bytes': {'stortype': 1, 'props': {}}},
+                'forms': {'inet:fqdn': {'stortype': 1, 'props': {}}},
                 'tagprops': {},
             }
             migr.migrsplices.form_chk['inet:ipv4'] = 0
-            migr.migrsplices.prop_chk['file:bytes:mime'] = 0
+            migr.migrsplices.prop_chk['inet:fqdn:host'] = 0
 
             await migr._migrSplices(locallyrs[0])
             await migr._migrSplices(locallyrs[1])
+
+            # remove the genr and run src iteration
+            migr.migrsplices.src_genrs[locallyrs[1]] = None
+            migr.migrsplices._queues[locallyrs[1]].isfini = False
+            task = migr.migrsplices.schedCoro(migr.migrsplices._srcPullLyrSplices(locallyrs[1]))
+            await asyncio.wait_for(task, timeout=10)
+            res = task.result()
+            self.false(res.get('status'))
 
             await migr.fini()
 
@@ -1096,7 +1106,7 @@ class MigrationTest(s_t_utils.SynTest):
                 lyr0 = core.getLayer()  # primary layer
 
                 # the only nodeedits should be for file:byte node adds
-                exp = len([x for x in tdata['podes'] if x[0][0] == 'file:bytes'])
+                exp = len([x for x in tdata['podes'] if x[0][0] == 'inet:fqdn'])
                 offs = lyr0.getNodeEditOffset()
                 self.eq(exp, offs)
                 nes = [nodeedits for offs, nodeedits in lyr0.nodeeditlog.iter(0)]
@@ -1104,6 +1114,9 @@ class MigrationTest(s_t_utils.SynTest):
 
                 # even though there were splice migration errors, nodes and nodedata are still intact
                 await self._checkCore(core, tdata)
+
+    async def test_migr_migrsplices(self):
+        pass
 
     async def test_migr_cell(self):
         conf = {

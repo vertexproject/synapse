@@ -69,6 +69,8 @@ OLDMODEL_FORMS = (
     'graph:link',
     'graph:timelink',
     'inet:whois:regmail',  # commit 6b864d4
+    # commit 5422fb39
+    'inet:web:actref', 'inet:web:postref',
 )
 
 OLDMODEL_PROPS = (
@@ -77,6 +79,8 @@ OLDMODEL_PROPS = (
     'it:exec:reg:get:reg:key', 'it:exec:reg:get:reg:int', 'it:exec:reg:get:reg:str', 'it:exec:reg:get:reg:bytes',
     'it:exec:reg:set:reg:key', 'it:exec:reg:set:reg:int', 'it:exec:reg:set:reg:str', 'it:exec:reg:set:reg:bytes',
     'it:exec:reg:del:reg:key', 'it:exec:reg:del:reg:int', 'it:exec:reg:del:reg:str', 'it:exec:reg:del:reg:bytes',
+    'inet:fqdn:created', 'inet:fqdn:expires', 'inet:fqdn:updated',
+    'file:ref',
 )
 
 MAX_01X_VERS = (0, 1, 3)
@@ -101,7 +105,7 @@ class MigrSplices(s_sync.SyncMigrator):
         '''
         pass
 
-    async def _disableMigrationMode(self):
+    async def _disableMigrationMode(self):  # pragma: no cover
         pass
 
     async def _initCellDmon(self):

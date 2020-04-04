@@ -352,6 +352,7 @@ class SyncMigrator(s_cell.Cell):
         '''
         await self.layers.set(lyriden, nextoffs)
         self.pull_offs.set(lyriden, nextoffs)
+        self.push_offs.set(lyriden, nextoffs)
 
         await self._loadDatamodel()
 
@@ -810,10 +811,10 @@ class SyncMigrator(s_cell.Cell):
 
             cnt += 1
 
-            if queuelen != 0 and queuelen % 10000 == 0:
+            if queuelen != 0 and queuelen % 10000 == 0:  # pragma: no cover
                 logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
 
-            if offs % offs_logging == 0 and offs != 0:
+            if offs % offs_logging == 0 and offs != 0:  # pragma: no cover
                 logger.info(f'Destination layer splice push at offset {offs} with {errs} errors')
 
             if queuelen == 0:
