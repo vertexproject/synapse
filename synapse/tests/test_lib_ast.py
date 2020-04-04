@@ -168,11 +168,13 @@ class AstTest(s_test.SynTest):
         '''
         async with self.getTestCore() as core:
             q = '''
-            [test:str=another]
-            $s = $lib.text("Foo")
-            $newvar=:hehe -.created
-            $s.add("yar {x}", x=$newvar)
-            $lib.print($s.str())'''
+                [test:str=another :hehe=asdf]
+                $s = $lib.text("Foo")
+                $newvar=:hehe
+                -.created
+                $s.add("yar {x}", x=$newvar)
+                $lib.print($s.str())
+            '''
             mesgs = await core.stormlist(q)
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
             self.eq(['Foo'], prints)
@@ -1148,15 +1150,14 @@ class AstTest(s_test.SynTest):
             self.eq(erfo[1][1].get('mesg'), 'Set does not support assignment.')
 
             # Some types we have in the runtime cannot be converted to StormTypes
-            q = '''
-            function f(a){ return() }
-            $f.newp="newp"
-            '''
-            msgs = await core.stormlist(q)
-            erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'NoSuchType')
-            self.eq(erfo[1][1].get('mesg'),
-                    'Unable to convert python primitive to StormType.')
+            #q = '''
+            #function f(a){ return() }
+            #$f.newp="newp"
+            #'''
+            #msgs = await core.stormlist(q)
+            #erfo = [m for m in msgs if m[0] == 'err'][0]
+            #self.eq(erfo[1][0], 'NoSuchType')
+            #self.eq(erfo[1][1].get('mesg'), 'Unable to convert python primitive to StormType.')
 
     async def test_ast_initfini(self):
 
@@ -1291,7 +1292,7 @@ class AstTest(s_test.SynTest):
 
             await core.setStormCmd(scmd)
 
-            nodes = await core.nodes('foo --bar (2020 , 2021) | +#foo@=202002')
+            nodes = await core.nodes('foo --bar (2020,2021) | +#foo@=202002')
             self.len(1, nodes)
 
             scmd = {
@@ -1300,13 +1301,44 @@ class AstTest(s_test.SynTest):
                     ('--faz', {}),
                 ),
                 'storm': '''
-                    $ival = $lib.cast(ival, $cmdopts.faz)
-                    [ inet:ipv4=5.5.5.5 +#foo=$ival ]
+                    // subquery forces per-node evaluation of even runt safe vars
+                    {
+                        $ival = $lib.cast(ival, $cmdopts.faz)
+                        [ inet:ipv4=5.5.5.5 +#foo=$ival ]
+                    }
                 ''',
             }
 
             await core.setStormCmd(scmd)
 
             await core.nodes('[ inet:ipv4=5.6.7.8 +#foo=(2018, 2021) ]')
-            nodes = await core.nodes('inet:ipv4 $foo=#foo | baz --faz $foo | +inet:ipv4=5.5.5.5 +#foo@=2018 +#foo@=202002')
+            await core.nodes('[ inet:ipv4=1.1.1.1 +#foo=(1977, 2019) ]')
+
+            nodes = await core.nodes('inet:ipv4 | baz --faz #foo | +inet:ipv4=5.5.5.5 +#foo@=1984 +#foo@=202002')
+
             self.len(1, nodes)
+
+    async def test_ast_pullone(self):
+
+        async def genr():
+            yield 1
+            yield 2
+            yield 3
+
+        vals = [x async for x in await s_ast.pullone(genr())]
+        self.eq((1, 2, 3), vals)
+
+        data = {}
+        async def empty():
+            data['executed'] = True
+            if 0: yield None
+
+        vals = [x async for x in await s_ast.pullone(empty())]
+        self.eq([], vals)
+        self.true(data.get('executed'))
+
+        async def hasone():
+            yield 1
+
+        vals = [x async for x in await s_ast.pullone(hasone())]
+        self.eq((1,), vals)

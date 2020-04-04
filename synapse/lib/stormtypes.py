@@ -37,11 +37,15 @@ def intify(x):
 
         try:
             return int(x, 0)
+        except ValueError as e:
+            mesg = f'Failed to make an integer from "{x}".'
+            raise s_exc.BadCast(mesg=mesg) from e
 
-        except ValueError:
-            return len(x) > 0
-
-    return int(x)
+    try:
+        return int(x)
+    except ValueError as e:
+        mesg = f'Failed to make an integer from "{x}".'
+        raise s_exc.BadCast(mesg=mesg) from e
 
 def intOrNoneify(x):
     if x is None:
@@ -1140,11 +1144,11 @@ class LibVars(Lib):
             'list': self._libVarsList,
         })
 
-    async def _libVarsGet(self, name):
+    async def _libVarsGet(self, name, defv=None):
         '''
         Resolve a variable in a storm query
         '''
-        return self.runt.getVar(name, defv=s_common.novalu)
+        return self.runt.getVar(name, defv=defv)
 
     async def _libVarsSet(self, name, valu):
         '''
@@ -1210,6 +1214,9 @@ class NodeProps(Prim):
             'list': self.list,
             # TODO implement set()
         })
+
+    async def _derefGet(self, name):
+        return self.valu.get(name)
 
     async def get(self, name, defv=None):
         return self.valu.get(name)
@@ -2678,10 +2685,19 @@ async def toprim(valu, path=None):
     if isinstance(valu, s_node.Node):
         return valu.ndef[1]
 
+    if isinstance(valu, bytes):
+        return valu
+
+    if valu is None:
+        return valu
+
     mesg = 'Unable to convert object to Storm primitive.'
     raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)
 
 def fromprim(valu, path=None, basetypes=True):
+
+    if valu is None:
+        return valu
 
     if basetypes:
 

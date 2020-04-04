@@ -1648,7 +1648,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # test invalid option syntax
             msgs = await alist(core.storm('inet:user | limit --woot'))
-            self.printed(msgs, 'usage: limit [-h] count')
+            self.printed(msgs, 'Usage: limit [options] <count>')
             self.len(0, [m for m in msgs if m[0] == 'node'])
 
     async def test_onsetdel(self):

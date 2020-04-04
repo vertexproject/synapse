@@ -22,7 +22,7 @@ class StormTest(s_t_utils.SynTest):
                 await tagnode.set('doc', 'haha doc')
                 await tagnode.set('title', 'haha title')
 
-            await s_common.aspin(core.eval('movetag #hehe #woot'))
+            await s_common.aspin(core.eval('movetag hehe woot'))
 
             await self.agenlen(0, core.eval('#hehe'))
             await self.agenlen(0, core.eval('#hehe.haha'))
@@ -70,7 +70,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await tagnode.set('doc', 'haha doc')
 
-            await s_common.aspin(core.eval('movetag #hehe #woot'))
+            await s_common.aspin(core.eval('movetag hehe woot'))
 
             await self.agenlen(0, core.eval('#hehe'))
             await self.agenlen(1, core.eval('#woot'))
@@ -88,18 +88,18 @@ class StormTest(s_t_utils.SynTest):
                 tnode = await snap.getNodeByNdef(('syn:tag', 'a.b'))
                 await tnode.addTag('foo', (None, None))
 
-            await alist(core.eval('movetag #a.b #a.m'))
+            await alist(core.eval('movetag a.b a.m'))
             await self.agenlen(2, core.eval('#foo'))
             await self.agenlen(1, core.eval('syn:tag=a.b +#foo'))
             await self.agenlen(1, core.eval('syn:tag=a.m +#foo'))
 
         # Test moving a tag to itself
         async with self.getTestCore() as core:
-            await self.agenraises(s_exc.BadOperArg, core.eval('movetag #foo.bar #foo.bar'))
+            await self.agenraises(s_exc.BadOperArg, core.eval('movetag foo.bar foo.bar'))
 
         # Test moving a tag which does not exist
         async with self.getTestCore() as core:
-            await self.agenraises(s_exc.BadOperArg, core.eval('movetag #foo.bar #duck.knight'))
+            await self.agenraises(s_exc.BadOperArg, core.eval('movetag foo.bar duck.knight'))
 
         # Test moving a tag to another tag which is a string prefix of the source
         async with self.getTestCore() as core:
@@ -111,7 +111,7 @@ class StormTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', 'Q')
                 await node.addTag('aaa.barbarella.ccc', (None, None))
 
-            await alist(core.eval('movetag #aaa.b #aaa.barbarella'))
+            await alist(core.eval('movetag aaa.b aaa.barbarella'))
 
             await self.agenlen(7, core.eval('syn:tag'))
             await self.agenlen(1, core.eval('syn:tag=aaa.barbarella.ccc'))
@@ -230,24 +230,6 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
-            # Full paths
-            nodes = await core.nodes('test:guid | max test:guid:tick')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), maxval)
-
-            nodes = await core.nodes('test:guid | min test:guid:tick')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), minval)
-
-            # Implicit form filtering with a full path
-            nodes = await core.nodes('.created | max test:str:tick')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), midval)
-
-            nodes = await core.nodes('.created | min test:str:tick')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), midval)
-
             # Universal prop for relative path
             nodes = await core.nodes('.created>=$minc | max .created',
                                     {'vars': {'minc': minc}})
@@ -258,17 +240,6 @@ class StormTest(s_t_utils.SynTest):
                                     {'vars': {'minc': minc}})
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
-
-            # Universal prop for full paths
-            nodes = await core.nodes('.created>=$minc  | max test:str.created',
-                                    {'vars': {'minc': minc}})
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), midval)
-
-            nodes = await core.nodes('.created>=$minc  | min test:str.created',
-                                    {'vars': {'minc': minc}})
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), midval)
 
             # Variables nodesuated
             nodes = await core.nodes('test:guid ($tick, $tock) = .seen | min $tick')
@@ -297,28 +268,12 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(0x05060708, nodes[0].ndef[1])
 
-            # Sad paths where there are no nodes which match the specified values.
-            self.len(0, await core.nodes('test:guid | max :newp'))
-            self.len(0, await core.nodes('test:guid | min :newp'))
+            # Sad paths where the specify an invalid property name
+            with self.raises(s_exc.NoSuchProp):
+                self.len(0, await core.nodes('test:guid | max :newp'))
 
-            # Sad path for a form, not a property; and does not exist at all
-            with self.raises(s_exc.BadSyntax):
-                await core.nodes('test:guid | max test:newp')
-            with self.raises(s_exc.BadSyntax):
-                await core.nodes('test:guid | min test:newp')
-
-            # Ensure that max evaluates ival properties as the upper bound.
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:guid', '*', {'tick': '2015',
-                                                             '.seen': (minval, maxval)})
-                await node.addTag('maxtest')
-                node = await snap.addNode('test:guid', '*', {'tick': '2016',
-                                                             '.seen': (midval, midval + 1)})
-                await node.addTag('maxtest')
-
-            nodes = await core.nodes('#maxtest | max .seen')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), minval)
+            with self.raises(s_exc.NoSuchProp):
+                self.len(0, await core.nodes('test:guid | min :newp'))
 
     async def test_getstormeval(self):
 
@@ -358,7 +313,7 @@ class StormTest(s_t_utils.SynTest):
                                             })
                 await snap.addNode('inet:banner', ('tcp://2.4.6.8:80', 'this is a test foo@bar.com'))
 
-            q = 'inet:search:query | scrape -p :text engine'
+            q = 'inet:search:query | scrape -p :text :engine'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
@@ -376,21 +331,20 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[1].ndef, snode.ndef)
 
             # invalid prop
-            q = 'inet:search:query | scrape -p engine foobarbaz'
-            await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
+            #q = 'inet:search:query | scrape -p engine foobarbaz'
+            #await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
 
             # different forms, same prop name
-            q = 'inet:search:query inet:banner | scrape -p text'
+            q = 'inet:search:query inet:banner | scrape -p :text'
             nodes = await core.nodes(q)
             self.len(3, nodes)
 
             # one has it, but the other doesn't, so boom
-            q = 'inet:search:query inet:banner | scrape -p engine'
-            await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
+            q = 'inet:search:query inet:banner | scrape -p :engine'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
 
-            await core.nodes('[inet:search:query="*"]')
-            mesgs = await core.stormlist('inet:search:query | scrape --props text')
-            self.stormIsInPrint('No prop ":text" for', mesgs)
+            with self.raises(s_exc.NoPropValu):
+                await core.nodes('[ inet:search:query="*" ] | scrape --props :text')
 
             # make sure we handle .seen(i.e. non-str reprs)
             qtxt = 'ns1.twiter-statics.info'

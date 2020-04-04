@@ -586,6 +586,22 @@ class WhileLoop(Oper):
 
                 await asyncio.sleep(0)  # give other tasks some CPU
 
+async def pullone(genr):
+    gotone = None
+    async for gotone in genr:
+        break
+
+    async def pullgenr():
+
+        if gotone is None:
+            return
+
+        yield gotone
+        async for item in genr:
+            yield item
+
+    return pullgenr()
+
 class CmdOper(Oper):
 
     async def run(self, runt, genr):
@@ -597,24 +613,24 @@ class CmdOper(Oper):
             mesg = 'Storm command not found.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
-        if self.kids[1].isRuntSafe(runt):
+        runtsafe = self.kids[1].isRuntSafe(runt)
 
-            argv = await self.kids[1].runtval(runt)
+        scmd = ctor(runt, runtsafe)
 
-            with s_provenance.claim('stormcmd', name=name, argv=argv):
+        with s_provenance.claim('stormcmd', name=name):
 
-                scmd = ctor(runt)
+            if runtsafe:
+
+                genr = await pullone(genr)
+
+                argv = await self.kids[1].runtval(runt)
                 if not await scmd.setArgv(argv):
                     return
 
                 async for item in scmd.execStormCmd(runt, genr):
                     yield item
 
-            return
-
-        #with s_provenance.claim('stormcmd', name=name, argv=argv):
-        # FIXME argv as a list of strings?
-        with s_provenance.claim('stormcmd', name=name):
+                return
 
             async def optsgenr():
 
@@ -626,20 +642,9 @@ class CmdOper(Oper):
 
                     yield node, path
 
-            scmd = ctor(runt)
+            scmd = ctor(runt, runtsafe)
             async for item in scmd.execStormCmd(runt, optsgenr()):
                 yield item
-
-        #async for node, path in genr:
-
-            #argv = await self.kids[1].compute(path)
-
-                #scmd = ctor(argv)
-                #if not await scmd.hasValidOpts(runt.snap):
-                    #return
-
-                #async for item in scmd.execStormCmd(runt, agen((node, path))):
-                    #yield item
 
 class SetVarOper(Oper):
 
@@ -680,7 +685,7 @@ class SetItemOper(Oper):
 
             count += 1
 
-            item = s_stormtypes.fromprim(await self.kids[0].compute(path))
+            item = s_stormtypes.fromprim(await self.kids[0].compute(path), basetypes=False)
 
             name = await self.kids[1].compute(path)
             valu = await self.kids[2].compute(path)
@@ -692,7 +697,7 @@ class SetItemOper(Oper):
 
         if count == 0 and vkid.isRuntSafe(runt):
 
-            item = s_stormtypes.fromprim(await self.kids[0].compute(runt))
+            item = s_stormtypes.fromprim(await self.kids[0].compute(runt), basetypes=False)
 
             name = await self.kids[1].compute(runt)
             valu = await self.kids[2].compute(runt)
@@ -1579,8 +1584,9 @@ class PropPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            valu = await self.kids[0].compute(path)
-            if valu is None:
+            try:
+                valu = await self.kids[0].compute(path)
+            except s_exc.NoPropValu:
                 continue
 
             # TODO cache/bypass normalization in loop!
@@ -2216,6 +2222,9 @@ class PropValue(CompValue):
 
     async def compute(self, path):
         prop, valu = await self.getPropAndValu(path)
+        if valu is None:
+            name = await self.kids[0].compute(path)
+            raise s_exc.NoPropValu(name=name)
         return valu
 
 class RelPropValue(PropValue):

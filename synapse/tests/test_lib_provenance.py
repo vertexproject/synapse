@@ -73,7 +73,7 @@ class ProvenanceTest(s_t_utils.SynTest):
             # prop:del/node:del
             prov = provs[7][1]
             ds2 = ('storm', {'q': 'test:int | delnode', 'user': rootiden})
-            ds3 = ('stormcmd', {'name': 'delnode', 'argv': ()})
+            ds3 = ('stormcmd', {'name': 'delnode'})
             self.eq((ds2, ds3), prov)
 
             # Test the streaming API
@@ -84,9 +84,10 @@ class ProvenanceTest(s_t_utils.SynTest):
             # Force recursion exception to be thrown
             q = '.created ' + '| uniq' * 257
             with self.raises(s_exc.RecursionLimitHit) as cm:
-                _ = await real.nodes(q)
+                await real.nodes(q)
+
             self.eq(cm.exception.get('type'), 'stormcmd')
-            self.eq(cm.exception.get('info'), {'name': 'uniq', 'argv': ()})
+            self.eq(cm.exception.get('info'), {'name': 'uniq'})
             baseframe = cm.exception.get('baseframe')
             name, args = baseframe
             self.eq(name, 'storm')
@@ -94,7 +95,7 @@ class ProvenanceTest(s_t_utils.SynTest):
             recent_frames = cm.exception.get('recent_frames')
             self.len(6, recent_frames)
             for frame in recent_frames:
-                self.eq(frame, ('stormcmd', (('argv', ()), ('name', 'uniq'))))
+                self.eq(frame, ('stormcmd', (('name', 'uniq'),)))
 
             # Run a feed function and validate the user is recorded.
             await core.addFeedData('syn.nodes', [(('test:int', 1138), {})])

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import argparse
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -35,8 +36,6 @@ When condition is tag:add or tag:del, you may optionally provide a form name
 to restrict the trigger to fire only on tags added or deleted from nodes of
 those forms.
 
-Tag names must start with #.
-
 The added tag is provided to the query as an embedded variable '$tag'.
 
 Simple one level tag globbing is supported, only at the end after a period,
@@ -48,30 +47,14 @@ Examples:
     trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
 
     # Adds a tag #todo to every node as it is tagged #aka
-    trigger.add tag:add --tag #aka --query {[ +#todo ]}
+    trigger.add tag:add --tag aka --query {[ +#todo ]}
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
-    trigger.add tag:add --form inet:ipv4 --tag #aka --query {[ +#todo ]}
+    trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
 '''
 
 addcrondescr = '''
 Add a recurring cron job to a cortex.
-
-Syntax:
-    cron.add [optional arguments] {query}
-
-    --minute int[,int...][=]
-    --hour
-    --day
-    --month
-    --year
-
-       *or:*
-
-    [--hourly <min> |
-     --daily <hour>:<min> |
-     --monthly <day>:<hour>:<min> |
-     --yearly <month>:<day>:<hour>:<min>]
 
 Notes:
     All times are interpreted as UTC.
@@ -134,27 +117,10 @@ Examples:
 
     Run a query every other day at 3:57pm
     cron.add --day +2 --minute 57 --hour 15 {#foo}
-
 '''
 
 atcrondescr = '''
 Adds a non-recurring cron job.
-
-It will execute a Storm query at one or more specified times.
-
-Modifying/details/deleting cron jobs created with 'at' use the same commands as
-other cron jobs:  cron.mod/stat/del respectively.
-
-Syntax:
-    cron.at [optional arguments] {query}
-
-    --dt timestring
-
-       *or:*
-
-    --minute int[,int...]
-    --hour
-    --day
 
 Notes:
     This command accepts one or more time specifications followed by exactly
@@ -181,7 +147,6 @@ Examples:
 
     # Run a query at the end of the year Zulu
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
-
 '''
 
 reqValidPkgdef = s_config.getJsValidator({
@@ -595,18 +560,19 @@ stormcmds = (
                     $cond = $trigger.cond.ljust(9)
 
                     $fo = ""
-                    if $($trigger.form) {
+                    if $trigger.form {
                         $fo = $trigger.form
                     }
 
                     $pr = ""
-                    if $($trigger.prop) {
+                    if $trigger.prop {
                         $pr = $trigger.prop
                     }
 
                     if $cond.startswith('tag:') {
                         $obj = $fo.ljust(14)
                         $obj2 = $trigger.tag.ljust(10)
+
                     } else {
                         if $pr {
                             $obj = $pr.ljust(14)
@@ -1201,54 +1167,285 @@ class Runtime:
             self.setVar(name, valu)
             self.runtvars.add(name)
 
-class Parser(argparse.ArgumentParser):
+class Parser:
 
     def __init__(self, prog=None, descr=None, root=None):
 
         if root is None:
             root = self
 
+        self.prog = prog
+        self.descr = descr
+
         self.root = root
         self.exited = False
         self.mesgs = []
 
-        argparse.ArgumentParser.__init__(self,
-                                         prog=prog,
-                                         description=descr,
-                                         formatter_class=argparse.RawDescriptionHelpFormatter)
+        self.optargs = {}
+        self.posargs = []
+        self.allargs = []
 
-    def exit(self, status=0, message=None):
-        '''
-        Argparse expects exit() to be a terminal function and not return.
-        As such, this function must raise an exception which will be caught
-        by Cmd.hasValidOpts.
-        '''
+        self.reqopts = []
+
+        #pars.add_argument('delay', type=float, default=1, help='Delay in floating point seconds.')
+
+        #argparse.ArgumentParser.__init__(self,
+                                         #prog=prog,
+                                         #description=descr,
+                                         #formatter_class=argparse.RawDescriptionHelpFormatter)
+
+        self.add_argument('--help', '-h', action='store_true', default=False, help='Display the command usage.')
+
+    def add_argument(self, *names, **opts):
+
+        assert len(names)
+
+        dest = self._get_dest(names)
+        opts.setdefault('dest', dest)
+        self.allargs.append((names, opts))
+
+        if opts.get('required'):
+            self.reqopts.append((names, opts))
+
+        for name in names:
+            self._add_arg(name, opts)
+
+    def _get_dest(self, names):
+        names = [n.strip('-').replace('-', '_') for n in names]
+        names = list(sorted(names, key=lambda x: len(x)))
+        return names[-1]
+
+    def _printf(self, *msgs):
+        self.mesgs.extend(msgs)
+
+    def _add_arg(self, name, opts):
+
+        if name.startswith('-'):
+            self.optargs[name] = opts
+            return
+
+        self.posargs.append((name, opts))
+
+    def _is_opt(self, valu):
+        if not isinstance(valu, str):
+            return False
+        return self.optargs.get(valu) is not None
+
+    def parse_args(self, argv):
+
+        posargs = []
+        todo = collections.deque(argv)
+
+        opts = {}
+
+        while todo:
+
+            item = todo.popleft()
+
+            # non-string args must be positional or nargs to an optarg
+            if not isinstance(item, str):
+                posargs.append(item)
+                continue
+
+            argdef = self.optargs.get(item)
+            if argdef is None:
+                posargs.append(item)
+                continue
+
+            dest = argdef.get('dest')
+
+            oact = argdef.get('action', 'store')
+            if oact == 'store_true':
+                opts[dest] = True
+                continue
+
+            if oact == 'store_false':
+                opts[dest] = False
+                continue
+
+            if oact == 'append':
+
+                vals = opts.get(dest)
+                if vals is None:
+                    vals = opts[dest] = []
+
+                fakeopts = {}
+                if not self._get_store(item, argdef, todo, fakeopts):
+                    return
+
+                vals.append(fakeopts.get(dest))
+                continue
+
+            assert oact == 'store'
+            if not self._get_store(item, argdef, todo, opts):
+                return
+
+        # process positional arguments
+        todo = collections.deque(posargs)
+        for name, argdef in self.posargs:
+            if not self._get_store(name, argdef, todo, opts):
+                return
+
+        for names, argdef in self.allargs:
+            if 'default' in argdef:
+                opts.setdefault(argdef['dest'], argdef['default'])
+
+        if opts.get('help'):
+            self.help()
+            return
+
+        for names, argdef in self.reqopts:
+            dest = argdef.get('dest')
+            if dest not in opts:
+                namestr = ','.join(names)
+                mesg = f'Missing a required option: {namestr}'
+                self.help(mesg)
+                return
+
+        retn = argparse.Namespace()
+
+        [setattr(retn, name, valu) for (name, valu) in opts.items()]
+
+        return retn
+
+    def _get_store(self, name, argdef, todo, opts):
+
+        dest = argdef.get('dest')
+        nargs = argdef.get('nargs')
+        argtype = argdef.get('type')
+
+        vals = []
+        if nargs is None:
+
+            if not todo or self._is_opt(todo[0]):
+                if name.startswith('-'):
+                    mesg = f'An argument is required for {name}.'
+                else:
+                    mesg = f'The argument <{name}> is required.'
+                return self.help(mesg)
+
+            valu = todo.popleft()
+            if argtype is not None:
+                try:
+                    valu = argtype(valu)
+                except Exception:
+                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    return self.help(mesg=mesg)
+
+            opts[dest] = valu
+            return True
+
+        if nargs == '?':
+
+            # ? will have an implicit default value of None
+            opts.setdefault(dest, None)
+
+            if todo and not self._is_opt(todo[0]):
+
+                valu = todo.popleft()
+                if argtype is not None:
+                    try:
+                        valu = argtype(valu)
+                    except Exception:
+                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        return self.help(mesg=mesg)
+
+                opts[dest] = valu
+
+            return True
+
+        if nargs in ('*', '+'):
+
+            while todo and not self._is_opt(todo[0]):
+                vals.append(todo.popleft())
+
+            if nargs == '+' and len(vals) == 0:
+                mesg = 'At least one argument is required for {name}.'
+                return self.help(mesg)
+
+            opts[dest] = vals
+            return True
+
+        for i in range(nargs):
+
+            if not todo or self._is_opt(todo[0]):
+                mesg = '{nargs} arguments are required for {name}.'
+                return self.help(mesg)
+
+            valu = todo.popleft()
+            if argtype is not None:
+                try:
+                    valu = argtype(valu)
+                except Exception:
+                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    return self.help(mesg=mesg)
+
+            vals.append(valu)
+
+        opts[dest] = vals
+        return True
+
+    def help(self, mesg=None):
+
+        posnames = [f'<{name}>' for (name, argdef) in self.posargs]
+
+        posargs = ' '.join(posnames)
+
+        if self.descr is not None:
+            self._printf(self.descr)
+
+        self._printf(f'Usage: {self.prog} [options] {posargs}')
+
+        options = [x for x in self.allargs if x[0][0].startswith('-')]
+
+        self._printf('')
+        self._printf('Options:')
+        self._printf('')
+
+        for names, argdef in options:
+            self._print_optarg(names, argdef)
+
+        self._printf('')
+        self._printf('Arguments:')
+        self._printf('')
+
+        for name, argdef in self.posargs:
+            self._print_posarg(name, argdef)
+
+        if mesg is not None:
+            self._printf('')
+            self._printf(f'ERROR: {mesg}')
+
         self.exited = True
-        if message is not None:
-            self.mesgs.extend(message.split('\n'))
-        raise s_exc.BadSyntax(mesg=message, prog=self.prog, status=status)
+        return False
 
-    def add_subparsers(self, *args, **kwargs):
+    def _print_optarg(self, names, argdef):
+        dest = self._get_dest_str(argdef)
+        base = f'  {names[0]} {dest}'.ljust(30)
+        helpstr = argdef.get('help', 'No help available')
+        self._printf(f'{base}: {helpstr}')
 
-        def ctor():
-            return Parser(root=self.root)
+    def _print_posarg(self, name, argdef):
+        dest = self._get_dest_str(argdef)
+        helpstr = argdef.get('help', 'No help available')
+        base = f'  {dest}'.ljust(30)
+        self._printf(f'{base}: {helpstr}')
 
-        kwargs['parser_class'] = ctor
-        return argparse.ArgumentParser.add_subparsers(self, *args, **kwargs)
+    def _get_dest_str(self, argdef):
 
-    def _print_message(self, text, fd=None):
-        '''
-        Note:  this overrides an existing method in ArgumentParser
-        '''
-        # Since we have the async->sync->async problem, queue up and print at exit
-        self.root.mesgs.extend(text.split('\n'))
+        dest = argdef.get('dest')
+        nargs = argdef.get('nargs')
 
-    def _parse_optional(self, argstr):
+        if nargs == '*':
+            return f'[<{dest}> ...]'
 
-        if not isinstance(argstr, str):
-            return None
+        if nargs == '+':
+            return f'<{dest}> [<{dest}>...]'
 
-        return argparse.ArgumentParser._parse_optional(self, argstr)
+        if nargs == '?':
+            return f'[{dest}]'
+
+        return f'<{dest}>'
 
 class Cmd:
     '''
@@ -1284,12 +1481,14 @@ class Cmd:
     svciden = ''
     forms = {}  # type: ignore
 
-    def __init__(self, runt):
+    def __init__(self, runt, runtsafe):
 
         self.opts = None
         self.argv = None
 
         self.runt = runt
+        self.runtsafe = runtsafe
+
         self.pars = self.getArgParser()
         self.pars.printf = runt.snap.printf
 
@@ -1407,9 +1606,9 @@ class Cmd:
 
 class PureCmd(Cmd):
 
-    def __init__(self, cdef, argv):
+    def __init__(self, cdef, runt, runtsafe):
         self.cdef = cdef
-        Cmd.__init__(self, argv)
+        Cmd.__init__(self, runt, runtsafe)
 
     def getDescr(self):
         return self.cdef.get('descr', 'no documentation provided')
@@ -1428,24 +1627,27 @@ class PureCmd(Cmd):
         text = self.cdef.get('storm')
         query = runt.snap.core.getStormQuery(text)
 
-        opts = {}
+        opts = {
+            'vars': {
+                'cmdopts': None,
+                'cmdconf': self.cdef.get('cmdconf', {})
+            }
+        }
         with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+
+            if self.opts is not None:
+                subr.setVar('cmdopts', vars(self.opts))
 
             subr.setVar('cmdconf', self.cdef.get('cmdconf', {}))
 
             async def wrapgenr():
 
-                # wrap paths in a scope to isolate vars
                 async for node, path in genr:
 
-                    cmdopts = vars(self.opts)
-                    subr.setVar('cmdopts', cmdopts)
-
-                    # this must be new every time to account for changing argv
-                    cmdvars = {
-                        'cmdopts': vars(self.opts),
-                    }
-                    path.initframe(initvars=cmdvars, initrunt=subr)
+                    # In the event of a non-runtsafe command invocation our
+                    # setArgv() method will be called with an argv computed
+                    # for each node, so we need to remap cmdopts into our path
+                    path.initframe(initvars={'cmdopts': vars(self.opts)}, initrunt=subr)
                     yield node, path
 
                 # when there are no inbound nodes prop down the vars if they don't conflict
@@ -1454,7 +1656,6 @@ class PureCmd(Cmd):
 
             subr.loadRuntVars(query)
 
-            print(f'EXECUTING SUBQUERY: {query}')
             async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
                 path.finiframe()
                 yield node, path
@@ -1589,8 +1790,6 @@ class MaxCmd(Cmd):
 
         file:bytes +#foo.bar | max :size
 
-        file:bytes +#foo.bar | max file:bytes:size
-
         file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | max $tick
 
     '''
@@ -1599,7 +1798,7 @@ class MaxCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('name')
+        pars.add_argument('valu')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -1607,23 +1806,14 @@ class MaxCmd(Cmd):
         maxvalu = None
         maxitem = None
 
-        func = self.getStormEval(runt, self.opts.name)
+        async for item in genr:
 
-        async for node, path in genr:
-
-            valu = func(path)
-            if valu is None:
-                continue
-
-            # Specifically if the name given is a ival property,
-            # we want to max on upper bound of the ival.
-            prop = node.form.prop(self.opts.name)
-            if prop and isinstance(prop.type, s_types.Ival):
-                valu = valu[1]
+            valu = await s_stormtypes.toprim(self.opts.valu)
+            valu = s_stormtypes.intify(valu)
 
             if maxvalu is None or valu > maxvalu:
                 maxvalu = valu
-                maxitem = (node, path)
+                maxitem = item
 
         if maxitem:
             yield maxitem
@@ -1636,15 +1826,13 @@ class MinCmd(Cmd):
 
         file:bytes +#foo.bar | min :size
 
-        file:bytes +#foo.bar | min file:bytes:size
-
         file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | min $tick
     '''
     name = 'min'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('name')
+        pars.add_argument('valu')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -1652,13 +1840,10 @@ class MinCmd(Cmd):
         minvalu = None
         minitem = None
 
-        func = self.getStormEval(runt, self.opts.name)
-
         async for node, path in genr:
 
-            valu = func(path)
-            if valu is None:
-                continue
+            valu = await s_stormtypes.toprim(self.opts.valu)
+            valu = s_stormtypes.intify(valu)
 
             if minvalu is None or valu < minvalu:
                 minvalu = valu
@@ -2095,7 +2280,7 @@ class ScrapeCmd(Cmd):
         inet:search:query | scrape --refs
 
         # Scrape only the :engine and :text props from the inbound nodes.
-        inet:search:query | scrape --props text engine
+        inet:search:query | scrape --props :text :engine
     '''
 
     name = 'scrape'
@@ -2114,38 +2299,32 @@ class ScrapeCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        # TODO make a runtsafe scrape that can produce nodes (without refs) from runtsafe vars
+        # TODO --props option should probably change name eventually
+
         async for node, path in genr:  # type: s_node.Node, s_node.Path
 
-            # repr all prop vals and try to scrape nodes from them
-            reprs = node.reprs()
+            refs = await s_stormtypes.toprim(self.opts.refs)
 
-            # make sure any provided props are valid
-            proplist = [p.strip().lstrip(':') for p in self.opts.props]
-            for fprop in proplist:
-                if node.form.props.get(fprop, None) is None:
-                    raise s_exc.BadOptValu(mesg=f'{fprop} not a valid prop for {node.ndef[1]}',
-                                           name='props', valu=self.opts.props)
+            #TODO some kind of repr or as-string option on toprims
+            proplist = await s_stormtypes.toprim(self.opts.props)
 
             # if a list of props haven't been specified, then default to ALL of them
             if not proplist:
-                proplist = [k for k in node.props.keys()]
+                proplist = list(node.props.values())
 
             for prop in proplist:
-                val = node.props.get(prop)
-                if val is None:
-                    await runt.snap.printf(f'No prop ":{prop}" for {node.ndef}')
-                    continue
 
-                # use the repr val or the system mode val as appropriate
-                sval = reprs.get(prop, val)
-                sval = str(sval)
+                prop = str(prop)
 
-                for form, valu in s_scrape.scrape(sval):
+                for form, valu in s_scrape.scrape(prop):
+
                     nnode = await node.snap.addNode(form, valu)
                     npath = path.fork(nnode)
+
                     yield nnode, npath
 
-                    if self.opts.refs:
+                    if refs:
                         rnode = await node.snap.addNode('edge:refs', (node.ndef, nnode.ndef))
                         rpath = path.fork(rnode)
                         yield rnode, rpath
@@ -2293,7 +2472,7 @@ class SpliceUndoCmd(Cmd):
 
     name = 'splice.undo'
 
-    def __init__(self, argv):
+    def __init__(self, runt, runtsafe):
         self.undo = {
             'prop:set': self.undoPropSet,
             'prop:del': self.undoPropDel,
@@ -2304,8 +2483,7 @@ class SpliceUndoCmd(Cmd):
             'tag:prop:set': self.undoTagPropSet,
             'tag:prop:del': self.undoTagPropDel,
         }
-
-        Cmd.__init__(self, argv)
+        Cmd.__init__(self, runt, runtsafe)
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)

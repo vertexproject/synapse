@@ -247,13 +247,11 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                 {
                     'name': 'magic',
                     'cmdargs': (
-                        ('--stormvar', {'default': False, 'action': 'store_true'}),
                         ('name', {}),
                     ),
                     'storm': '''
-                    $name = $cmdopts.name
-                    $fooz = $lib.vars.get($name)
-                    $fooz = $path.vars.$name
+                    $fooz = $cmdopts.name
+                    $fooz = $path.vars.cmdopts.name
                     $lib.print('my foo var is {f}', f=$fooz)
                     ''',
                 },
@@ -619,15 +617,15 @@ class StormSvcTest(s_test.SynTest):
 
             await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]')
 
-            scmd = f'inet:ipv4=1.2.3.4 $foo=$node.repr() | magic --stormvar foo'
+            scmd = f'inet:ipv4=1.2.3.4 $foo=$node.repr() | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
 
-            scmd = f'inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 $foo=$node.repr() | magic --stormvar foo'
+            scmd = f'inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 $foo=$node.repr() | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
             self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
 
-            scmd = f'$foo="8.8.8.8" | magic --stormvar foo'
+            scmd = f'$foo=8.8.8.8 | magic $foo'
             msgs = await core.stormlist(scmd)
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)

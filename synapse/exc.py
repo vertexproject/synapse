@@ -40,6 +40,7 @@ class BadCmprType(SynErr):
     Attempt to compare two incomparable values
     '''
 
+class BadCast(SynErr): pass
 class BadConfValu(SynErr):
     '''
     The configuration value provided is not valid.

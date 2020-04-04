@@ -1109,8 +1109,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self._reqStormCmd(cdef)
 
-        def ctor(argv):
-            return s_storm.PureCmd(cdef, argv)
+        def ctor(runt, runtsafe):
+            return s_storm.PureCmd(cdef, runt, runtsafe)
 
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
