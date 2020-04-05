@@ -1240,31 +1240,31 @@ class Layer(s_nexus.Pusher):
         Args:
             nodeedit
 
-        Returns a list of flattened post-NodeEdits (Tuple[BuidT, str, List]), with top-level and subedits all at the
-        top level.  The 3rd element of each item contains only the applied changes (called PostEdits).
+        Returns a list of flattened NodeEdits (Tuple[BuidT, str, Sequence]), with top-level and subedits all at the
+        top level.  The 3rd element of each item contains only the applied changes.
         '''
         buid, form, edits = nodeedit
 
-        postedits = []  # The primary nodeedit's edits.
-        retn = [(buid, form, postedits)]  # The primary nodeedit
+        postedits = collections.defaultdict(list)  # Edits by buid
+        retn = [(buid, form, postedits[buid])]  # The primary nodeedit
 
         for edit in edits:
             changes = self.editors[edit[0]](buid, form, edit)
             assert all(len(change[2]) == 0 for change in changes)
 
-            postedits.extend(changes)
+            postedits[buid].extend(changes)
 
             if changes:
                 subedits = edit[2]
                 for ne in subedits:
                     subpostnodeedits = await self._storNodeEdit(ne)
-                    # Consolidate any changes from subedits to the main edit node into that nodeedit's
-                    # edits, otherwise just append an entire nodeedit
                     for subpostnodeedit in subpostnodeedits:
-                        if subpostnodeedit[0] == buid:
-                            postedits.extend(subpostnodeedit[2])
+                        subbuid, _, subpostedit = subpostnodeedit
+                        if subbuid in postedits:
+                            postedits[subbuid].extend(subpostedit)
                         else:
                             retn.append(subpostnodeedit)
+                            postedits[subbuid] = subpostedit
 
         return retn
 

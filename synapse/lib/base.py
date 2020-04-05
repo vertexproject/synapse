@@ -764,7 +764,7 @@ async def schedGenr(genr, maxsize=100):
             async for item in genr:
                 await q.put((True, item))
 
-            await q.put((False, s_common.NoValu))
+            await q.put((False, s_common.novalu))
 
         except (Exception, asyncio.CancelledError):
             if not base.isfini:
@@ -785,7 +785,7 @@ async def schedGenr(genr, maxsize=100):
                 await asyncio.sleep(0)
                 continue
 
-            if retn is s_common.NoValu:
+            if retn is s_common.novalu:
                 return
 
             # genr got exception.  Raise it
