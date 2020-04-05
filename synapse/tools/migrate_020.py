@@ -1635,6 +1635,7 @@ class Migrator(s_base.Base):
         async def genr(offs):
             for indx, valu in splicelog.iter(offs):
                 yield valu
+            return
 
         self.migrsplices.src_genrs[iden] = genr
 
@@ -1666,6 +1667,7 @@ class Migrator(s_base.Base):
 
         # start the migration and wait for the tasks to complete
         await synccoro
+        await asyncio.sleep(0)
 
         pulltask = self.migrsplices.pull_tasks[iden]
         await asyncio.wait_for(pulltask, timeout=None)

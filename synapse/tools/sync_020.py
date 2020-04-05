@@ -170,7 +170,9 @@ class SyncMigrator(s_cell.Cell):
 
         self.pull_offs = s_slaboffs.SlabOffs(self.slab, 'pull_offs')  # key=lyriden
         self.push_offs = s_slaboffs.SlabOffs(self.slab, 'push_offs')  # key=lyriden
+
         self.errors = self.slab.initdb('errors', dupsort=False)  # key=<lyriden><offset>, val=err
+        self.errcnts = await self.slab.getHotCount('count:errors')
 
         self.model = {}
 
@@ -220,7 +222,7 @@ class SyncMigrator(s_cell.Cell):
             srctasksum = await self._getTaskSummary(self.pull_tasks.get(lyriden))
             desttasksum = await self._getTaskSummary(self.push_tasks.get(lyriden))
 
-            errcnt = len(await self.getLyrErrs(lyriden))
+            errcnt = self.errcnts.get(lyriden, defv=0)
 
             retn[lyriden] = {
                 'src:pullstatus': pullstatus,
@@ -418,24 +420,23 @@ class SyncMigrator(s_cell.Cell):
             pass
 
     async def resetLyrErrs(self, lyriden):
+        self.errcnts.set(lyriden, 0)
         lpref = s_common.uhex(lyriden)
         for lkey, _ in self.slab.scanByPref(lpref, db=self.errors):
             self.slab.pop(lkey, db=self.errors)
 
     async def _setLyrErr(self, lyriden, offset, err):
+        self.errcnts.inc(lyriden)
         lkey = s_common.uhex(lyriden) + s_common.int64en(offset)
         errb = s_msgpack.en(err)
         return self.slab.put(lkey, errb, dupdata=False, overwrite=True, db=self.errors)
 
     async def getLyrErrs(self, lyriden):
         lpref = s_common.uhex(lyriden)
-        errs = []
         for lkey, errb in self.slab.scanByPref(lpref, db=self.errors):
             offset = s_common.int64un(lkey[16:])
             err = s_msgpack.un(errb)
-            errs.append((offset, err))
-
-        return errs
+            yield offset, err
 
     def _getLayerUrl(self, tbase, lyriden):
         '''

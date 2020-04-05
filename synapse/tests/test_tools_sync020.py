@@ -269,6 +269,7 @@ class SyncTest(s_t_utils.SynTest):
                 # but the splices from the wlyr will be incorrectly pushed to both
                 # due to fakecore handling so just check the wlyr
                 await syncprx.startSyncFromFile()
+                self.eq(0, sync.errcnts.get(seclyr.iden, defv=-1))
 
                 self.false(core.trigson)
                 self.false(core.agenda.enabled)
@@ -285,6 +286,8 @@ class SyncTest(s_t_utils.SynTest):
                 # we have read all the splices but the status is dependent on where the loop is
                 status = await syncprx.status(True)
                 self.true(status[wlyr.iden]['src:pullstatus'] in ('up_to_date', 'reading_at_live'))
+
+                self.gt(sync.errcnts.get(seclyr.iden, defv=-1), 0)
 
                 await self._checkCore(core)
 
@@ -311,6 +314,7 @@ class SyncTest(s_t_utils.SynTest):
                 # restart sync over same splices with queue cap less than total splices
                 sync.q_cap = 100
                 await syncprx.startSyncFromFile()
+                self.eq(0, sync.errcnts.get(seclyr.iden, defv=-1))
 
                 self.false(core.trigson)
                 self.false(core.agenda.enabled)
@@ -578,16 +582,18 @@ class SyncTest(s_t_utils.SynTest):
                         (offs + 1, ('cat', {'ndef': 'dog'})),
                     ])
                     self.true(await s_coro.event_wait(sync._push_evnts[wlyr.iden], timeout=5))
-                    errs = await sync.getLyrErrs(wlyr.iden)
+                    errs = [err async for err in sync.getLyrErrs(wlyr.iden)]
                     self.len(2, errs)
+                    self.eq(2, sync.errcnts.get(wlyr.iden))
                     self.eq(offs + 1, errs[1][0])
                     self.false(task.done())
 
                     # reach error limit which will kill task
                     await queue.puts([(offs + i, ('foo', {'ndef': str(i)})) for i in range(3, 50)])
                     await self.asyncraises(s_sync.SyncErrLimReached, asyncio.wait_for(task, timeout=2))
-                    errs = await sync.getLyrErrs(wlyr.iden)
+                    errs = [err async for err in sync.getLyrErrs(wlyr.iden)]
                     self.len(10, errs)
+                    self.eq(10, sync.errcnts.get(wlyr.iden))
 
                     tasksum = await sync._getTaskSummary(task)
                     self.true(tasksum.get('isdone'))
