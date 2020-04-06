@@ -456,7 +456,6 @@ class Slab(s_base.Base):
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
     syncset = set()
-    synctodo = set()
     synctask = None
     syncevnt = None
 
