@@ -646,6 +646,7 @@ class Queue(StormType):
             'puts': self._methQueuePuts,
             'gets': self._methQueueGets,
             'cull': self._methQueueCull,
+            'size': self._methQueueSize,
         })
 
     async def _methQueueCull(self, offs):
@@ -653,6 +654,11 @@ class Queue(StormType):
         todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
         await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+
+    async def _methQueueSize(self):
+        todo = s_common.todo('coreQueueSize', self.name)
+        gatekeys = self._getGateKeys('get')
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = intify(wait)

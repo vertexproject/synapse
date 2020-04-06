@@ -963,6 +963,9 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def coreQueueCull(self, name, offs):
         await self.multiqueue.cull(name, offs)
 
+    async def coreQueueSize(self, name):
+        return self.multiqueue.size(name)
+
     async def getSpawnInfo(self):
         return {
             'iden': self.iden,
