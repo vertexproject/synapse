@@ -1245,26 +1245,26 @@ class Layer(s_nexus.Pusher):
         '''
         buid, form, edits = nodeedit
 
-        postedits = collections.defaultdict(list)  # Edits by buid
-        retn = [(buid, form, postedits[buid])]  # The primary nodeedit
+        postedits = []  # The primary nodeedit's edits.
+        retn = [(buid, form, postedits)]  # The primary nodeedit
 
         for edit in edits:
             changes = self.editors[edit[0]](buid, form, edit)
             assert all(len(change[2]) == 0 for change in changes)
 
-            postedits[buid].extend(changes)
+            postedits.extend(changes)
 
             if changes:
                 subedits = edit[2]
                 for ne in subedits:
                     subpostnodeedits = await self._storNodeEdit(ne)
+                    # Consolidate any changes from subedits to the main edit node into that nodeedit's
+                    # edits, otherwise just append an entire nodeedit
                     for subpostnodeedit in subpostnodeedits:
-                        subbuid, _, subpostedit = subpostnodeedit
-                        if subbuid in postedits:
-                            postedits[subbuid].extend(subpostedit)
+                        if subpostnodeedit[0] == buid:
+                            postedits.extend(subpostnodeedit[2])
                         else:
                             retn.append(subpostnodeedit)
-                            postedits[subbuid] = subpostedit
 
         return retn
 
