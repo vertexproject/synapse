@@ -64,8 +64,39 @@ class OuModule(s_module.CoreModule):
                 ('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
                     'doc': 'Represents a person attending a conference event represented by an ou:conference:event node.',
                 }),
+                ('ou:goal', ('guid', {}), {
+                    'doc': 'An assessed or stated goal of an org',
+                }),
+                ('ou:campaign', ('guid', {}), {
+                    'doc': 'Represents an orgs activity in persuit of a goal',
+                }),
             ),
             'forms': (
+                ('ou:goal', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'A terse name for the goal',
+                    }),
+                    ('type', ('str', {}), {
+                        'doc': 'A user specified goal type',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': "A description of the goal and it's uses.",
+                    }),
+                )),
+                ('ou:campaign', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org carrying out the campaign',
+                    }),
+                    ('goal', ('ou:goal', {}), {
+                        'doc': 'The goal of the campaign',
+                    }),
+                    ('name', ('str', {}), {
+                        'doc': 'A terse name of the campaign',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the campaign',
+                    }),
+                )),
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {
                         'doc': 'Location for an organization.'
