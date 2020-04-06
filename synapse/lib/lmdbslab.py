@@ -457,7 +457,7 @@ class Slab(s_base.Base):
     '''
     syncset = set()
     synctask = None
-    syncevnt = None
+    syncevnt = None  # set this event to trigger a sync
 
     COMMIT_PERIOD = 0.2  # time between commits
     DEFAULT_MAPSIZE = s_const.gibibyte
@@ -509,8 +509,9 @@ class Slab(s_base.Base):
 
     @classmethod
     async def syncLoopOnce(clas):
-        for inst in clas.syncset:
-            await inst.sync()
+        for slab in clas.syncset:
+            if slab.isdirty:
+                await slab.sync()
 
     @classmethod
     async def getSlabStats(clas):
