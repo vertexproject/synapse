@@ -45,7 +45,7 @@ setup(
         'lark-parser>=0.7.1,<0.8.0,!=0.7.4',
         'Pygments>=2.3.0,<2.6.0',
         'packaging>=20.0,<21.0',
-        'fastjsonschema>=2.14.2,<2.15',
+        'fastjsonschema>=2.14.3,<2.15',
     ],
 
     extras_require={
