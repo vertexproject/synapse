@@ -399,11 +399,6 @@ class Base:
 
         self.isfini = True
 
-        fevt = self.finievt
-
-        if fevt is not None:
-            fevt.set()
-
         for base in list(self.tofini):
             await base.fini()
 
@@ -422,6 +417,12 @@ class Base:
 
         self._syn_funcs.clear()
         self._fini_funcs.clear()
+
+        fevt = self.finievt
+
+        if fevt is not None:
+            fevt.set()
+
         return 0
 
     @contextlib.contextmanager

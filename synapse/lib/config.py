@@ -14,6 +14,8 @@ import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 import synapse.lib.hashitem as s_hashitem
 
+from fastjsonschema.exceptions import JsonSchemaException
+
 logger = logging.getLogger(__name__)
 
 re_iden = '^[0-9a-f]{32}$'
@@ -70,8 +72,15 @@ def getJsValidator(schema):
         return func
 
     func = fastjsonschema.compile(schema)
-    _JsValidators[key] = func
-    return func
+
+    def wrap(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except JsonSchemaException as e:
+            raise s_exc.BadJson(mesg=e.message, name=e.name)
+
+    _JsValidators[key] = wrap
+    return wrap
 
 jsonschematype2argparse = {
     'integer': int,
@@ -251,7 +260,7 @@ class Config(c_abc.MutableMapping):
         '''
         try:
             self.validator(self.conf)
-        except fastjsonschema.exceptions.JsonSchemaException as e:
+        except s_exc.BadJson as e:
             logger.exception('Configuration is invalid.')
             raise s_exc.BadConfValu(mesg=f'Invalid configuration found: [{str(e)}]') from None
         else:

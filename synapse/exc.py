@@ -41,6 +41,7 @@ class BadCmprType(SynErr):
     '''
 
 class BadCast(SynErr): pass
+class BadJson(SynErr): pass
 class BadConfValu(SynErr):
     '''
     The configuration value provided is not valid.

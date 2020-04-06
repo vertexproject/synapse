@@ -156,6 +156,7 @@ class LibDmon(Lib):
         self.locls.update({
             'add': self._libDmonAdd,
             'del': self._libDmonDel,
+            'log': self._libDmonLog,
             'list': self._libDmonList,
         })
 
@@ -173,6 +174,10 @@ class LibDmon(Lib):
 
     async def _libDmonList(self):
         return await self.runt.snap.core.getStormDmons()
+
+    async def _libDmonLog(self, iden):
+        self.runt.user.confirm(('dmon', 'log'))
+        return await self.runt.snap.core.getStormDmonLog(iden)
 
     async def _libDmonAdd(self, quer, name='noname'):
         '''
@@ -999,6 +1004,7 @@ class List(Prim):
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
+            'has': self._methListHas,
             'size': self._methListSize,
             'index': self._methListIndex,
             'length': self._methListLength,
@@ -1015,6 +1021,17 @@ class List(Prim):
     async def __aiter__(self):
         for item in self:
             yield item
+
+    async def _methListHas(self, valu):
+
+        if valu in self.valu:
+            return True
+
+        prim = await toprim(valu)
+        if prim == valu:
+            return False
+
+        return prim in self.valu
 
     async def _methListAppend(self, valu):
         self.valu.append(valu)
@@ -1988,11 +2005,13 @@ class LibUsers(Lib):
 
     async def _methUsersGet(self, iden):
         udef = await self.runt.snap.core.getUserDef(iden)
-        return User(self.runt, udef['iden'])
+        if udef is not None:
+            return User(self.runt, udef['iden'])
 
     async def _methUsersByName(self, name):
         udef = await self.runt.snap.core.getUserDefByName(name)
-        return User(self.runt, udef['iden'])
+        if udef is not None:
+            return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None):
         self.runt.user.confirm(('auth', 'user', 'add'))
@@ -2019,11 +2038,13 @@ class LibRoles(Lib):
 
     async def _methRolesGet(self, iden):
         rdef = await self.runt.snap.core.getRoleDef(iden)
-        return Role(self.runt, rdef['iden'])
+        if rdef is not None:
+            return Role(self.runt, rdef['iden'])
 
     async def _methRolesByName(self, name):
         rdef = await self.runt.snap.core.getRoleDefByName(name)
-        return Role(self.runt, rdef['iden'])
+        if rdef is not None:
+            return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
         self.runt.user.confirm(('auth', 'role', 'add'))

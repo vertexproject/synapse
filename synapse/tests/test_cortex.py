@@ -3778,10 +3778,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchIden):
                         await prox.delStormDmon(iden)
 
-                    with self.raises(fastjsonschema.exceptions.JsonSchemaException):
+                    with self.raises(s_exc.BadJson):
                         await core.runStormDmon(iden, {})
 
-                    with self.raises(fastjsonschema.exceptions.JsonSchemaException):
+                    with self.raises(s_exc.BadJson):
                         await core.runStormDmon(iden, {'user': 'XXX'})
 
             async with await s_cortex.Cortex.anit(dirn) as core:
@@ -4252,23 +4252,23 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # await core.addStormPkg(base_pkg)
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('name')
-                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
+                with self.raises(s_exc.BadJson) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.message,
+                self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
-                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
+                with self.raises(s_exc.BadJson) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.message,
+                self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['modules'][0].pop('name')
-                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
+                with self.raises(s_exc.BadJson) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.message,
+                self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'storm'] properties")
 
                 pkg = copy.deepcopy(base_pkg)

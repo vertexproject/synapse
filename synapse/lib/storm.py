@@ -803,6 +803,7 @@ class StormDmon(s_base.Base):
         self.count = 0
         self.status = 'initializing'
         self.err_evnt = asyncio.Event()
+        self.runlog = collections.deque()
 
         async def fini():
             if self.task is not None:
@@ -864,6 +865,14 @@ class StormDmon(s_base.Base):
                 logger.exception(f'Dmon error during loop task execution ({self.iden})')
                 await self.waitfini(timeout=1)
 
+    def _runLogAdd(self, mesg):
+        self.runlog.append((s_common.now(), mesg))
+        while len(self.runlog) > 2000:
+            self.runlog.popleft()
+
+    def _getRunLog(self):
+        return list(self.runlog)
+
     async def _innr_run(self):
 
         s_scope.set('storm:dmon', self.iden)
@@ -876,10 +885,12 @@ class StormDmon(s_base.Base):
             raise s_exc.NoSuchView(iden=view_iden)
 
         def dmonPrint(evnt):
+            self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
             logger.info(f'Dmon - {self.iden} - {mesg}')
 
         def dmonWarn(evnt):
+            self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
             logger.info(f'Dmon - {self.iden} - WARNING: {mesg}')
 
@@ -909,6 +920,7 @@ class StormDmon(s_base.Base):
                 raise
 
             except Exception as e:
+                self._runLogAdd(('err', s_common.excinfo(e)))
                 logger.exception(f'Dmon error ({self.iden})')
                 self.status = f'error: {e}'
                 self.err_evnt.set()
@@ -1187,13 +1199,6 @@ class Parser:
 
         self.reqopts = []
 
-        #pars.add_argument('delay', type=float, default=1, help='Delay in floating point seconds.')
-
-        #argparse.ArgumentParser.__init__(self,
-                                         #prog=prog,
-                                         #description=descr,
-                                         #formatter_class=argparse.RawDescriptionHelpFormatter)
-
         self.add_argument('--help', '-h', action='store_true', default=False, help='Display the command usage.')
 
     def add_argument(self, *names, **opts):
@@ -1392,7 +1397,9 @@ class Parser:
         posargs = ' '.join(posnames)
 
         if self.descr is not None:
+            self._printf('')
             self._printf(self.descr)
+            self._printf('')
 
         self._printf(f'Usage: {self.prog} [options] {posargs}')
 

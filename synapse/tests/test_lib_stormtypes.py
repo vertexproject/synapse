@@ -2641,11 +2641,10 @@ class StormTypesTest(s_test.SynTest):
             self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
             self.nn(await core.callStorm('return($lib.auth.users.byname(visi))'))
 
-            with self.raises(s_exc.NoSuchUser):
-                await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}})
-
-            with self.raises(s_exc.NoSuchUser):
-                await core.callStorm('return($lib.auth.users.byname(newp))')
+            self.none(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}}))
+            self.none(await core.callStorm('return($lib.auth.roles.get($iden))', opts={'vars': {'iden': 'newp'}}))
+            self.none(await core.callStorm('return($lib.auth.users.byname(newp))'))
+            self.none(await core.callStorm('return($lib.auth.roles.byname(newp))'))
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$user = $lib.auth.users.byname(visi) $lib.auth.users.del($user.iden)', opts=asvisi)

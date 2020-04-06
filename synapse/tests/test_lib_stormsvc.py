@@ -320,9 +320,9 @@ class StormSvcTest(s_test.SynTest):
                 await core.nodes(f'service.add fake {lurl}')
                 await core.nodes('$lib.service.wait(fake)')
 
-                core.svcsbyname['fake'].client._t_conf['timeout'] = 0.1
+                core.svcsbyname['fake'].proxy._t_conf['timeout'] = 0.1
 
-            await core.svcsbyname['fake'].client._t_proxy.waitfini(6)
+            await core.svcsbyname['fake'].proxy._t_proxy.waitfini(6)
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
@@ -475,7 +475,7 @@ class StormSvcTest(s_test.SynTest):
 
                     # reach in and close the proxies
                     for ssvc in core.getStormSvcs():
-                        await ssvc.client._t_proxy.fini()
+                        await ssvc.proxy._t_proxy.fini()
 
                     nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
                     self.len(2, nodes)
