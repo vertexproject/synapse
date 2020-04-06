@@ -1115,9 +1115,6 @@ class MigrationTest(s_t_utils.SynTest):
                 # even though there were splice migration errors, nodes and nodedata are still intact
                 await self._checkCore(core, tdata)
 
-    async def test_migr_migrsplices(self):
-        pass
-
     async def test_migr_cell(self):
         conf = {
             'src': None,

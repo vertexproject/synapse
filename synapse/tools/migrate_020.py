@@ -68,15 +68,13 @@ OLDMODEL_FORMS = (
     'cluster',
     'graph:link',
     'graph:timelink',
-    'inet:whois:regmail',  # commit 6b864d4
-    # commit 5422fb39
+    'inet:whois:regmail',
     'inet:web:actref', 'inet:web:postref',
     'file:ref',
 )
 
 OLDMODEL_PROPS = (
     'ou:org:disolved',
-    # commit 5422fb39
     'it:exec:reg:get:reg:key', 'it:exec:reg:get:reg:int', 'it:exec:reg:get:reg:str', 'it:exec:reg:get:reg:bytes',
     'it:exec:reg:set:reg:key', 'it:exec:reg:set:reg:int', 'it:exec:reg:set:reg:str', 'it:exec:reg:set:reg:bytes',
     'it:exec:reg:del:reg:key', 'it:exec:reg:del:reg:int', 'it:exec:reg:del:reg:str', 'it:exec:reg:del:reg:bytes',
