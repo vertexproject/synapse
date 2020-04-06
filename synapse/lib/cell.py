@@ -452,6 +452,12 @@ class CellApi(s_base.Base):
         async for item in self.cell.getNexusChanges(offs):
             yield item
 
+    @adminapi()
+    async def getDiagInfo(self):
+        return {
+            'slabs': await s_lmdbslab.Slab.getSlabStats(),
+        }
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
