@@ -5,6 +5,7 @@ coremods = (
     'synapse.models.dns.DnsModule',
     'synapse.models.orgs.OuModule',
     'synapse.models.syn.SynModule',
+    'synapse.models.auth.AuthModule',
     'synapse.models.base.BaseModule',
     'synapse.models.person.PsModule',
     'synapse.models.files.FileModule',
