@@ -504,7 +504,7 @@ class Slab(s_base.Base):
             except asyncio.CancelledError as e:
                 raise
 
-            except Exception as e:
+            except Exception as e: # pragma: no cover
                 logger.exception('Slab.syncLoopTask')
 
     @classmethod
