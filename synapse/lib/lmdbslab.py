@@ -510,7 +510,7 @@ class Slab(s_base.Base):
     @classmethod
     async def syncLoopOnce(clas):
         for slab in clas.syncset:
-            if slab.isdirty:
+            if slab.dirty:
                 await slab.sync()
 
     @classmethod
