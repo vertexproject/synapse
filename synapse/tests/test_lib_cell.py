@@ -475,3 +475,15 @@ class CellTest(s_t_utils.SynTest):
 
                 await proxy.delUser(visi['iden'])
                 await proxy.delRole(ninjas['iden'])
+
+    async def test_cell_diag_info(self):
+        async with self.getTestCore() as core:
+            async with core.getLocalProxy() as proxy:
+                diag = await proxy.getDiagInfo()
+                slab = diag['slabs'][0]
+                self.nn(slab['path'])
+                self.nn(slab['xactops'])
+                self.nn(slab['mapsize'])
+                self.nn(slab['readonly'])
+                self.nn(slab['lockmemory'])
+                self.nn(slab['recovering'])
