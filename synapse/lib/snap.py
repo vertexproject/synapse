@@ -722,6 +722,13 @@ class Snap(s_base.Base):
         if form.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
                                    form=form.full, prop=valu)
+
+        if self.core.conf.get('buid:prefetch'):
+            norm, subs = form.type.norm(valu)
+            node = await self.getNodeByBuid(s_common.buid((form.name, norm)))
+            if node is not None:
+                return node
+
         try:
             adds = self.getNodeAdds(form, valu, props=props)
         except Exception as e:
