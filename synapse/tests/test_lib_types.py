@@ -322,13 +322,13 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.len(1, await core.nodes('[ test:float=42.0 :closed=0.0]'))
-            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :closed=-1.0]'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :closed=-1.0]'))
             self.len(1, await core.nodes('[ test:float=42.0 :closed=360.0]'))
-            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :closed=NaN]'))
-            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :closed=360.1]'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :closed=NaN]'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :closed=360.1]'))
 
-            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :open=0.0]'))
-            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :open=360.0]'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :open=0.0]'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :open=360.0]'))
             self.len(1, await core.nodes('[ test:float=42.0 :open=0.001]'))
             self.len(1, await core.nodes('[ test:float=42.0 :open=359.0]'))
 
@@ -538,17 +538,17 @@ class TypesTest(s_t_utils.SynTest):
 
             # Sad Paths
             q = '[test:str=newp .seen=(2018/03/31,2018/03/30)]'
-            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
             q = '[test:str=newp .seen=("+-1 day","+-1 day")]'
-            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
             q = '[test:str=newp  .seen=("?","?")]'
-            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
             q = '[test:str=newp  .seen=(2018/03/31,2018/03/31)]'
-            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
             q = '[test:str=newp .seen=(2008, 2019, 2000)]'
-            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
             q = '[test:str=newp .seen=("?","-1 day")]'
-            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
             # *range= not supported for ival
             q = 'test:str +:.seen*range=((20090601, 20090701), (20110905, 20110906,))'
             await self.agenraises(s_exc.NoSuchCmpr, core.eval(q))
@@ -932,7 +932,7 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:tick*range=("-+ 1day", "now")')
 
-            with self.raises(s_exc.BadPropValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[test:guid="*" :tick="+-1 day"]')
 
             with self.raises(s_exc.BadTypeValu):

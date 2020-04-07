@@ -55,6 +55,8 @@ class Snap(s_base.Base):
         self.view = view
         self.user = user
 
+        self.buidprefetch = self.core.conf.get('buid:prefetch')
+
         self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]
 
@@ -723,14 +725,23 @@ class Snap(s_base.Base):
             raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
                                    form=form.full, prop=valu)
 
-        if self.core.conf.get('buid:prefetch'):
-            norm, subs = form.type.norm(valu)
-            node = await self.getNodeByBuid(s_common.buid((form.name, norm)))
-            if node is not None:
-                return node
-
         try:
+
+            if self.buidprefetch:
+                norm, info = form.type.norm(valu)
+                node = await self.getNodeByBuid(s_common.buid((form.name, norm)))
+                if node is not None:
+                    # FIXME node.setNodeProps()
+                    if props is not None:
+                        for p, v in props.items():
+                            await node.set(p, v)
+                    return node
+
             adds = self.getNodeAdds(form, valu, props=props)
+
+        except asyncio.CancelledError: # pragma: no cover
+            raise
+
         except Exception as e:
             if not self.strict:
                 await self.warn(f'addNode: {e}')
