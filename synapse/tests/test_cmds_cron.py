@@ -288,7 +288,6 @@ class CmdCronTest(s_t_utils.SynTest):
                     outp.clear()
                     await cmdr.runCmdLine(f'cron stat {guid2[:6]}')
                     self.true(outp.expect("{'month': 1, 'hour': 0, 'minute': 0, 'dayofmonth': 1}"))
-                    outp.clear()
 
                     outp.clear()
                     await cmdr.runCmdLine(f"cron del {guid2}")

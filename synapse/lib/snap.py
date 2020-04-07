@@ -715,7 +715,7 @@ class Snap(s_base.Base):
         try:
 
             if self.core.conf.get('buid:prefetch'):
-                norm, subs = form.type.norm(valu)
+                norm, info = form.type.norm(valu)
                 node = await self.getNodeByBuid(s_common.buid((form.name, norm)))
                 if node is not None:
                     # FIXME node.setNodeProps()
