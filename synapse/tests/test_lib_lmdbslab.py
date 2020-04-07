@@ -99,6 +99,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             items = list(slab.scanByDupsBack(b'\x00\x02', db=bar))
             self.eq(items, ((b'\x00\x02', b'zomg'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'haha')))
+
             items = list(slab.scanByDupsBack(b'\x00\x04', db=bar))
             self.eq(items, ())
 
