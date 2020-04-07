@@ -77,7 +77,6 @@ class BadOperArg(SynErr):
 class NoPropValu(SynErr): pass
 
 class BadOptValu(SynErr): pass
-class BadPropValu(SynErr): pass
 class BadVersion(SynErr):
     '''Generic Bad Version exception.'''
     pass
