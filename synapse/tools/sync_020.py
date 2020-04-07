@@ -134,6 +134,11 @@ class SyncMigrator(s_cell.Cell):
             'description': 'The max size of the push/pull queue for each layer.',
             'default': 100000,
         },
+        'offs_logging': {
+            'type': 'integer',
+            'description': 'Log push/pull every every so many offsets.',
+            'default': 10000000,
+        },
     }
 
     async def __anit__(self, dirn, conf=None):
@@ -145,6 +150,12 @@ class SyncMigrator(s_cell.Cell):
         self.poll_s = self.conf.get('poll_s')
         self.err_lim = self.conf.get('err_lim')
         self.q_size = self.conf.get('queue_size')
+        self.offs_logging = self.conf.get('offs_logging')
+
+        # Check that form or prop is not from an older model rev
+        # which we know will fail - only loaded for historical splice migration
+        self.form_chk = {}
+        self.prop_chk = {}
 
         self.pull_fair_iter = 10
         self.push_fair_iter = 100
@@ -159,14 +170,16 @@ class SyncMigrator(s_cell.Cell):
 
         self.pull_offs = s_slaboffs.SlabOffs(self.slab, 'pull_offs')  # key=lyriden
         self.push_offs = s_slaboffs.SlabOffs(self.slab, 'push_offs')  # key=lyriden
+
         self.errors = self.slab.initdb('errors', dupsort=False)  # key=<lyriden><offset>, val=err
+        self.errcnts = await self.slab.getHotCount('count:errors')
 
         self.model = {}
 
         self._pull_status = {}  # lyriden: status
 
-        self._pull_tasks = {}  # lyriden: Task
-        self._push_tasks = {}
+        self.pull_tasks = {}  # lyriden: Task
+        self.push_tasks = {}
 
         self.pull_last_start = {}  # lyriden: epoch
         self.push_last_start = {}
@@ -206,10 +219,10 @@ class SyncMigrator(s_cell.Cell):
 
             pullstatus = self._pull_status.get(lyriden)
 
-            srctasksum = await self._getTaskSummary(self._pull_tasks.get(lyriden))
-            desttasksum = await self._getTaskSummary(self._push_tasks.get(lyriden))
+            srctasksum = await self._getTaskSummary(self.pull_tasks.get(lyriden))
+            desttasksum = await self._getTaskSummary(self.push_tasks.get(lyriden))
 
-            errcnt = len(await self.getLyrErrs(lyriden))
+            errcnt = self.errcnts.get(lyriden, defv=0)
 
             retn[lyriden] = {
                 'src:pullstatus': pullstatus,
@@ -273,10 +286,13 @@ class SyncMigrator(s_cell.Cell):
                 status = 'cancelled' if cancelled else 'done'
 
                 if not cancelled:
-                    exc = str(task.exception())
-                    retn['exc'] = exc
-                    if exc:
+                    exc = task.exception()
+                    if exc is not None:
+                        retn['exc'] = str(exc)
                         status = 'exception'
+                    else:
+                        retn['result'] = task.result()
+                        status = 'finished'
 
             retn['status'] = status
 
@@ -296,38 +312,37 @@ class SyncMigrator(s_cell.Cell):
 
         retn = []
         for lyriden, info in lyroffs.items():
-            await self._resetLyrErrs(lyriden)
+            await self.resetLyrErrs(lyriden)
             nextoffs = info['nextoffs']
-            logger.info(f'Starting Layer sync for {lyriden} from file offset {nextoffs}')
-            await self._startLyrSync(lyriden, nextoffs)
+            logger.info(f'Starting Layer splice sync for {lyriden} from file offset {nextoffs}')
+            await self.startLyrSync(lyriden, nextoffs)
             retn.append((lyriden, nextoffs))
 
         return retn
 
-    async def startSyncFromLast(self):
+    async def startSyncFromLast(self, lyridens=None):
         '''
-        Start sync from minimum last offset stored by push and pull.
+        Start sync from minimum last offset stored by pull, or 0 if no offset was ever recorded.
         This can also be used to restart dead tasks.
+
+        Args:
+            lyridens (None or list): Restrict sync to a set of layers, or start all if None
 
         Returns:
             (list): Of (<lyriden>, <offset>) tuples
         '''
         retn = []
         for lyriden, _ in self.layers.items():
-            pulloffs = self.pull_offs.get(lyriden)
-            pushoffs = self.push_offs.get(lyriden)
-            if pushoffs == 0:
-                nextoffs = pulloffs
-            else:
-                nextoffs = min(pulloffs, pushoffs)
+            if lyridens is None or lyriden in lyridens:
+                nextoffs = self.push_offs.get(lyriden)  # SlabOffs returns 0 if iden doesn't exist
+                logger.info(f'Starting Layer splice sync for {lyriden} from last offset {nextoffs}')
 
-            logger.info(f'Starting Layer sync for {lyriden} from last offset {nextoffs}')
-            await self._startLyrSync(lyriden, nextoffs)
-            retn.append((lyriden, nextoffs))
+                await self.startLyrSync(lyriden, nextoffs)
+                retn.append((lyriden, nextoffs))
 
         return retn
 
-    async def _startLyrSync(self, lyriden, nextoffs):
+    async def startLyrSync(self, lyriden, nextoffs):
         '''
         Starts up the sync process for a given layer and starting offset.
         Always retrieves a fresh datamodel and sets migration mode.
@@ -339,11 +354,9 @@ class SyncMigrator(s_cell.Cell):
         '''
         await self.layers.set(lyriden, nextoffs)
         self.pull_offs.set(lyriden, nextoffs)
+        self.push_offs.set(lyriden, nextoffs)
 
-        async with await s_telepath.openurl(self.dest) as prx:
-            model = await prx.getModelDict()
-            self.model.update(model)
-            await prx.enableMigrationMode()
+        await self._loadDatamodel()
 
         queue = self._queues.get(lyriden)
         if queue is None or queue.isfini:
@@ -351,15 +364,21 @@ class SyncMigrator(s_cell.Cell):
             self.onfini(queue.fini)
             self._queues[lyriden] = queue
 
-        pulltask = self._pull_tasks.get(lyriden)
+        pulltask = self.pull_tasks.get(lyriden)
         if pulltask is None or pulltask.done():
-            self._pull_tasks[lyriden] = self.schedCoro(self._srcPullLyrSplices(lyriden))
             self._pull_evnts[lyriden] = asyncio.Event()
+            self.pull_tasks[lyriden] = self.schedCoro(self._srcPullLyrSplices(lyriden))
 
-        pushtask = self._push_tasks.get(lyriden)
+        pushtask = self.push_tasks.get(lyriden)
         if pushtask is None or pushtask.done():
-            self._push_tasks[lyriden] = self.schedCoro(self._destPushLyrNodeedits(lyriden))
             self._push_evnts[lyriden] = asyncio.Event()
+            self.push_tasks[lyriden] = self.schedCoro(self._destPushLyrNodeedits(lyriden))
+
+    async def _loadDatamodel(self):
+        async with await s_telepath.openurl(self.dest) as prx:
+            model = await prx.getModelDict()
+            self.model.update(model)
+            await prx.enableMigrationMode()
 
     async def stopSync(self):
         '''
@@ -370,12 +389,12 @@ class SyncMigrator(s_cell.Cell):
         '''
         retn = set()
 
-        for lyriden, task in self._pull_tasks.items():
+        for lyriden, task in self.pull_tasks.items():
             logger.warning(f'Cancelling {lyriden} pull task')
             task.cancel()
             retn.add(lyriden)
 
-        for lyriden, task in self._push_tasks.items():
+        for lyriden, task in self.push_tasks.items():
             logger.warning(f'Cancelling {lyriden} push task')
             task.cancel()
             retn.add(lyriden)
@@ -385,6 +404,12 @@ class SyncMigrator(s_cell.Cell):
             await queue.fini()
             retn.add(lyriden)
 
+        await self._disableMigrationMode()
+
+        logger.info('stopSync complete')
+        return list(retn)
+
+    async def _disableMigrationMode(self):
         try:
             async with await s_telepath.openurl(self.dest) as prx:
                 await prx.disableMigrationMode()
@@ -394,28 +419,24 @@ class SyncMigrator(s_cell.Cell):
             logger.exception(f'Unable to disable migration mode on dest cortex: {e}')
             pass
 
-        logger.info('stopSync complete')
-        return list(retn)
-
-    async def _resetLyrErrs(self, lyriden):
+    async def resetLyrErrs(self, lyriden):
+        self.errcnts.set(lyriden, 0)
         lpref = s_common.uhex(lyriden)
         for lkey, _ in self.slab.scanByPref(lpref, db=self.errors):
             self.slab.pop(lkey, db=self.errors)
 
     async def _setLyrErr(self, lyriden, offset, err):
+        self.errcnts.inc(lyriden)
         lkey = s_common.uhex(lyriden) + s_common.int64en(offset)
         errb = s_msgpack.en(err)
         return self.slab.put(lkey, errb, dupdata=False, overwrite=True, db=self.errors)
 
     async def getLyrErrs(self, lyriden):
         lpref = s_common.uhex(lyriden)
-        errs = []
         for lkey, errb in self.slab.scanByPref(lpref, db=self.errors):
             offset = s_common.int64un(lkey[16:])
             err = s_msgpack.un(errb)
-            errs.append((offset, err))
-
-        return errs
+            yield offset, err
 
     def _getLayerUrl(self, tbase, lyriden):
         '''
@@ -455,6 +476,10 @@ class SyncMigrator(s_cell.Cell):
                 logger.info(f'Connected to source {lyriden}')
                 islive = False
 
+                async def genr(offs):
+                    async for splice in prx.splices(offs, -1):  # -1 to avoid max
+                        yield splice
+
                 while not prx.isfini:
                     queue = self._queues.get(lyriden)
                     startoffs = self.pull_offs.get(lyriden)
@@ -468,7 +493,7 @@ class SyncMigrator(s_cell.Cell):
                     self._pull_evnts[lyriden].clear()
 
                     self.pull_last_start[lyriden] = s_common.now()
-                    nextoffs, islive = await self._srcIterLyrSplices(prx, startoffs, queue)
+                    nextoffs, islive = await self._srcIterLyrSplices(genr, startoffs, queue)
 
                     self.pull_offs.set(lyriden, nextoffs)
 
@@ -495,12 +520,12 @@ class SyncMigrator(s_cell.Cell):
                 self._pull_status[lyriden] = 'connect_err'
                 await asyncio.sleep(2 ** trycnt)
 
-    async def _srcIterLyrSplices(self, prx, startoffs, queue):
+    async def _srcIterLyrSplices(self, genr, startoffs, queue):
         '''
-        Iterate over available splices for a given source layer proxy, and push into queue
+        Iterate over available splices for a given source generator, and push into queue
 
         Args:
-            prx (s_telepath.Proxy): Proxy to source layer
+            genr (async_generator): Generator that takes an offset and yields splices
             startoffs (int): Offset to start iterating from
             queue (s_queue.Window): Layer queue for splices
 
@@ -509,8 +534,9 @@ class SyncMigrator(s_cell.Cell):
         '''
         curoffs = startoffs
         fair_iter = self.pull_fair_iter
+        offs_logging = self.offs_logging
         q_cap = self.q_cap
-        async for splice in prx.splices(startoffs, -1):
+        async for splice in genr(startoffs):
             qres = await queue.put((curoffs, splice))
             if not qres:
                 return curoffs, False
@@ -518,6 +544,8 @@ class SyncMigrator(s_cell.Cell):
             curoffs += 1
 
             if curoffs % fair_iter == 0:
+                if curoffs % offs_logging == 0:
+                    logger.info(f'Source layer splice pull at offset {curoffs}')
                 await asyncio.sleep(0)
 
             # if we are approaching the queue lim return so we can pause
@@ -547,8 +575,23 @@ class SyncMigrator(s_cell.Cell):
 
         stype_f = await self._destGetStortype(form=form)
         if stype_f is None:
-            err = {'mesg': f'Unable to determine stortype type for form {form}', 'splices': splices}
-            logger.warning(err['mesg'])
+            old_form = self.form_chk.get(form)
+
+            if old_form is None:
+                err = {'mesg': f'Unable to determine stortype type for form {form}', 'splices': splices}
+                logger.warning(err['mesg'])
+            else:
+                err = {
+                    'mesg': f'Unable to determine stortype type for form {form} from an older modelrev',
+                    'splices': splices
+                }
+
+                if old_form == 0:
+                    err['mesg'] += '; further errors will suppressed from logging'
+                    logger.warning(err['mesg'])
+
+                self.form_chk[form] += 1
+
             return err, None, None
 
         edits = []
@@ -575,8 +618,24 @@ class SyncMigrator(s_cell.Cell):
 
                 stype_p = await self._destGetStortype(form=form, prop=prop)
                 if stype_p is None:
-                    err = {'mesg': f'Unable to determine stortype type for prop {form}:{prop}', 'splice': splice}
-                    logger.warning(err)
+                    formprop = f'{form}:{prop}'
+                    old_prop = self.prop_chk.get(formprop)
+
+                    if old_prop is None:
+                        err = {'mesg': f'Unable to determine stortype type for prop {formprop}', 'splices': splices}
+                        logger.warning(err['mesg'])
+                    else:
+                        err = {
+                            'mesg': f'Unable to determine stortype type for prop {formprop} from an older modelrev',
+                            'splices': splices
+                        }
+
+                        if old_prop == 0:
+                            err['mesg'] += '; further errors will suppressed from logging'
+                            logger.warning(err['mesg'])
+
+                        self.prop_chk[formprop] += 1
+
                     return err, None, None
 
                 if spedit == 'prop:set':
@@ -667,10 +726,9 @@ class SyncMigrator(s_cell.Cell):
 
                 queue = self._queues.get(lyriden)
 
-                logger.debug(f'Starting {lyriden} splice queue reader')
-
                 self.push_last_start[lyriden] = s_common.now()
-                await self._destIterLyrNodeedits(prx, queue, lyriden)
+                writer = prx.storNodeEditsNoLift
+                await self._destIterLyrNodeedits(writer, queue, lyriden)
 
                 logger.warning(f'{lyriden} splice queue reader has stopped')
 
@@ -685,18 +743,19 @@ class SyncMigrator(s_cell.Cell):
                 await asyncio.sleep(2 ** trycnt)
                 continue
 
-    async def _destIterLyrNodeedits(self, prx, queue, lyriden):
+    async def _destIterLyrNodeedits(self, writer, queue, lyriden):
         '''
         Batch available source splices in a queue as nodeedits and push to the destination layer proxy.
         Nodeedit boundaries are defined by the ndef and prov iden.
         Will run as long as queue is not fini'd.
 
         Args:
-            prx (s_telepath.Proxy): Proxy to destination layer
+            writer (function): Async function that takes (nodeedits, meta) as input
             queue (s_queue.Window): Layer queue for splices
             lyriden (str): Layer iden
         '''
         fair_iter = self.push_fair_iter
+        offs_logging = self.offs_logging
         err_lim = self.err_lim
         evnt = self._push_evnts[lyriden]
 
@@ -721,7 +780,7 @@ class SyncMigrator(s_cell.Cell):
                 try:
                     err, ne, meta = await self._trnNodeSplicesToNodeedit(ndef, nodesplices)
                     if err is None:
-                        await prx.storNodeEditsNoLift([ne], meta)
+                        await writer([ne], meta)
                         self.push_offs.set(lyriden, offs + 1)
 
                 except asyncio.CancelledError:  # pragma: no cover
@@ -734,12 +793,13 @@ class SyncMigrator(s_cell.Cell):
                     raise
                 except Exception as e:
                     err = {'mesg': s_common.excinfo(e), 'splices': nodesplices, 'nodeedits': ne, 'meta': meta}
-                    logger.warning(err['mesg'])
+                    logger.exception(err['mesg'])
 
                 if err is not None:
                     errs += 1
                     await self._setLyrErr(lyriden, offs, err)
-                    if errs >= err_lim:
+                    if err_lim != -1 and errs >= err_lim:
+                        logger.error(f'Error limit reached')
                         raise SyncErrLimReached(mesg='Error limit reached - correct or increase err_lim to continue')
 
                 nodesplices = []
@@ -752,8 +812,11 @@ class SyncMigrator(s_cell.Cell):
 
             cnt += 1
 
-            if queuelen % 10000 == 0:
+            if queuelen != 0 and queuelen % 10000 == 0:  # pragma: no cover
                 logger.debug(f'{lyriden} queue reader status: read={cnt}, errs={errs}, size={queuelen}')
+
+            if offs % offs_logging == 0 and offs != 0:  # pragma: no cover
+                logger.info(f'Destination layer splice push at offset {offs} with {errs} errors')
 
             if queuelen == 0:
                 evnt.set()

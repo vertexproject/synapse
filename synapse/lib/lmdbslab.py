@@ -455,9 +455,77 @@ class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
-    COMMIT_PERIOD = 0.5  # time between commits
+    syncset = set()
+    synctask = None
+    syncevnt = None  # set this event to trigger a sync
+
+    COMMIT_PERIOD = 0.2  # time between commits
     DEFAULT_MAPSIZE = s_const.gibibyte
     DEFAULT_GROWSIZE = None
+
+    @classmethod
+    async def initSyncLoop(clas, inst):
+
+        clas.syncset.add(inst)
+
+        async def fini():
+
+            # no need to sync
+            clas.syncset.discard(inst)
+
+            if not clas.syncset:
+                clas.synctask.cancel()
+                clas.synctask = None
+                clas.syncevnt = None
+
+        inst.onfini(fini)
+
+        if clas.synctask is not None:
+            return
+
+        clas.syncevnt = asyncio.Event()
+
+        coro = clas.syncLoopTask()
+        loop = asyncio.get_running_loop()
+
+        clas.synctask = loop.create_task(coro)
+
+    @classmethod
+    async def syncLoopTask(clas):
+        while True:
+            try:
+
+                clas.syncevnt.clear()
+
+                await s_coro.event_wait(clas.syncevnt, timeout=clas.COMMIT_PERIOD)
+
+                await clas.syncLoopOnce()
+
+            except asyncio.CancelledError as e:
+                raise
+
+            except Exception as e: # pragma: no cover
+                logger.exception('Slab.syncLoopTask')
+
+    @classmethod
+    async def syncLoopOnce(clas):
+        for slab in clas.syncset:
+            if slab.dirty:
+                await slab.sync()
+
+    @classmethod
+    async def getSlabStats(clas):
+        retn = []
+        for slab in clas.syncset:
+            retn.append({
+                'path': str(slab.path),
+                'xactops': len(slab.xactops),
+                'mapsize': slab.mapsize,
+                'readonly': slab.readonly,
+                'lockmemory': slab.lockmemory,
+                'recovering': slab.recovering,
+            })
+        return retn
 
     async def __anit__(self, path, **kwargs):
 
@@ -544,8 +612,9 @@ class Slab(s_base.Base):
         self.dbnames = {None: (None, False)}  # prepopulate the default DB for speed
 
         self.onfini(self._onCoFini)
+
         if not self.readonly:
-            self.schedCoro(self._runSyncLoop())
+            await Slab.initSyncLoop(self)
 
     def __repr__(self):
         return 'Slab: %r' % (self.path,)
@@ -612,7 +681,7 @@ class Slab(s_base.Base):
             opts['maxsize'] = self.maxsize
         s_common.yamlmod(opts, self.optspath)
 
-    async def _syncLoopOnce(self):
+    async def sync(self):
         try:
             # do this from the loop thread only to avoid recursion
             await self.fire('commit')
@@ -621,15 +690,6 @@ class Slab(s_base.Base):
         except lmdb.MapFullError:
             self._handle_mapfull()
             # There's no need to re-try self.forcecommit as _growMapSize does it
-
-    async def _runSyncLoop(self):
-        while not self.isfini:
-            await self.waitfini(timeout=self.COMMIT_PERIOD)
-            if self.isfini:
-                # There's no reason to forcecommit on fini, because there's a separate handler to already do that
-                break
-
-            await self._syncLoopOnce()
 
     async def _onCoFini(self):
         assert s_glob.iAmLoop()
