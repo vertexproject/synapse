@@ -726,7 +726,7 @@ class Snap(s_base.Base):
 
             adds = self.getNodeAdds(form, valu, props=props)
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError: # pragma: no cover
             raise
 
         except Exception as e:
