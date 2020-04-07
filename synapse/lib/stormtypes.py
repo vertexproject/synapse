@@ -642,6 +642,7 @@ class Queue(StormType):
 
         self.locls.update({
             'get': self._methQueueGet,
+            'pop': self._methQueuePop,
             'put': self._methQueuePut,
             'puts': self._methQueuePuts,
             'gets': self._methQueueGets,
@@ -687,6 +688,20 @@ class Queue(StormType):
         gatekeys = self._getGateKeys('get')
 
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+
+    async def _methQueuePop(self, offs=0, cull=True, wait=True):
+
+        offs = intify(offs)
+        wait = intify(wait)
+
+        todo = s_common.todo('coreQueueGet', self.name, offs, cull=cull, wait=wait)
+        gatekeys = self._getGateKeys('get')
+
+        valu = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if valu is not None:
+            await self._methQueueCull(valu[0])
+
+        return valu
 
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
