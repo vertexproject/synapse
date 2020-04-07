@@ -53,6 +53,8 @@ class Snap(s_base.Base):
         self.view = view
         self.user = user
 
+        self.buidprefetch = self.core.conf.get('buid:prefetch')
+
         self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]
 
@@ -714,7 +716,7 @@ class Snap(s_base.Base):
 
         try:
 
-            if self.core.conf.get('buid:prefetch'):
+            if self.buidprefetch:
                 norm, info = form.type.norm(valu)
                 node = await self.getNodeByBuid(s_common.buid((form.name, norm)))
                 if node is not None:
