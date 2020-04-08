@@ -14,7 +14,6 @@ if __debug__:
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
-import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 
@@ -766,9 +765,12 @@ async def schedGenr(genr, maxsize=100):
             async for item in genr:
                 await q.put((True, item))
 
-            await q.put((False, s_common.novalu))
+            await q.put((False, None))
 
-        except (Exception, asyncio.CancelledError):
+        except asyncio.CancelledError:
+            raise
+
+        except Exception:
             if not base.isfini:
                 await q.put((False, None))
             raise
@@ -787,11 +789,8 @@ async def schedGenr(genr, maxsize=100):
                 await asyncio.sleep(0)
                 continue
 
-            if retn is s_common.novalu:
-                return
-
-            # genr got exception.  Raise it
             await task
+            return
 
 async def main(coro): # pragma: no cover
     base = await coro

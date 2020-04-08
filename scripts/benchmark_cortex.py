@@ -462,7 +462,7 @@ async def benchmarkAll(confignames: List = None,
                         stats = yappi.get_func_stats()
                         stats.print_all()
                         perfdir = tmpdir or tempfile.gettempdir()
-                        perffn = pathlib.Path(perfdir) / ('callgrind.out.' + datetime.datetime.now().isoformat())
+                        perffn = pathlib.Path(perfdir) / f'{configname}_{datetime.datetime.now().isoformat()}.out'
                         print(f'Callgrind stats output to {str(perffn)}')
                         stats.save(perffn, 'CALLGRIND')
 
