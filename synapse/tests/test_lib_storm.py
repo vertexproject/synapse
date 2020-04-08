@@ -32,6 +32,13 @@ class StormTest(s_t_utils.SynTest):
 
                 await s_common.aspin(prox.eval('sudo | [ test:str=woot ]'))
 
+    async def test_storm_tree(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:fqdn=www.vertex.link ] | tree { :domain -> inet:fqdn }')
+            vals = [n.ndef[1] for n in nodes]
+            self.eq(('www.vertex.link', 'vertex.link', 'link'), vals)
+
     async def test_storm_movetag(self):
 
         async with self.getTestCore() as core:
