@@ -758,3 +758,13 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('[test:str=foo .seen=(2015, 2016)]')
             lafter = len(await alist(layr.splices()))
             self.eq(lbefore, lafter)
+
+    async def test_layer_del_then_lift(self):
+        '''
+        Regression test
+        '''
+        async with self.getTestCore() as core:
+            await core.nodes('$x = 0 while $($x < 2000) { [file:bytes="*"] [ou:org="*"] $x = $($x + 1)}')
+            await core.nodes('.created | delnode --force')
+            nodes = await core.nodes('.created')
+            self.len(0, nodes)
