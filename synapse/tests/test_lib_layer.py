@@ -609,7 +609,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL)),
+                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL), ()),
                 )),
             ]
 
@@ -619,7 +619,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME), ()),
                 )),
             ]
 
@@ -630,7 +630,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME), ()),
                 )),
             ]
 
@@ -644,7 +644,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv)),
+                    (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv), ()),
                 )),
             ]
 

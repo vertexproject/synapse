@@ -459,7 +459,7 @@ class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
-    syncset = set()
+    syncset = set()  # type:  ignore
     synctask = None
     syncevnt = None  # set this event to trigger a sync
 
@@ -505,10 +505,10 @@ class Slab(s_base.Base):
 
                 await clas.syncLoopOnce()
 
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
 
-            except Exception as e: # pragma: no cover
+            except Exception: # pragma: no cover
                 logger.exception('Slab.syncLoopTask')
 
     @classmethod

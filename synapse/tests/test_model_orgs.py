@@ -152,8 +152,8 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('perc'), 50)
                 self.eq(node.get('current'), 1)
 
-                await self.asyncraises(s_exc.BadPropValu, node.set('perc', -1))
-                await self.asyncraises(s_exc.BadPropValu, node.set('perc', 101))
+                await self.asyncraises(s_exc.BadTypeValu, node.set('perc', -1))
+                await self.asyncraises(s_exc.BadTypeValu, node.set('perc', 101))
 
                 # ou:user
                 node = await snap.addNode('ou:user', (guid0, 'arrowman'))

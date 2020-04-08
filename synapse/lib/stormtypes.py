@@ -642,10 +642,12 @@ class Queue(StormType):
 
         self.locls.update({
             'get': self._methQueueGet,
+            'pop': self._methQueuePop,
             'put': self._methQueuePut,
             'puts': self._methQueuePuts,
             'gets': self._methQueueGets,
             'cull': self._methQueueCull,
+            'size': self._methQueueSize,
         })
 
     async def _methQueueCull(self, offs):
@@ -653,6 +655,11 @@ class Queue(StormType):
         todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
         await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+
+    async def _methQueueSize(self):
+        todo = s_common.todo('coreQueueSize', self.name)
+        gatekeys = self._getGateKeys('get')
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = intify(wait)
@@ -681,6 +688,20 @@ class Queue(StormType):
         gatekeys = self._getGateKeys('get')
 
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+
+    async def _methQueuePop(self, offs=0, cull=True, wait=True):
+
+        offs = intify(offs)
+        wait = intify(wait)
+
+        todo = s_common.todo('coreQueueGet', self.name, offs, cull=cull, wait=wait)
+        gatekeys = self._getGateKeys('get')
+
+        valu = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if valu is not None:
+            await self._methQueueCull(valu[0])
+
+        return valu
 
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))

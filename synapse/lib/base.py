@@ -767,13 +767,17 @@ async def schedGenr(genr, maxsize=100):
 
             await q.put((False, None))
 
-        except Exception as e:
+        except asyncio.CancelledError:
+            raise
+
+        except Exception:
             if not base.isfini:
-                await q.put((False, e))
+                await q.put((False, None))
+            raise
 
     async with await Base.anit() as base:
 
-        base.schedCoro(genrtask(base))
+        task = base.schedCoro(genrtask(base))
 
         while not base.isfini:
 
@@ -785,10 +789,8 @@ async def schedGenr(genr, maxsize=100):
                 await asyncio.sleep(0)
                 continue
 
-            if retn is None:
-                return
-
-            raise retn
+            await task
+            return
 
 async def main(coro): # pragma: no cover
     base = await coro

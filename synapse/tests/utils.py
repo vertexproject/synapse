@@ -423,7 +423,7 @@ class TestModule(s_module.CoreModule):
         if curv == valu:
             return False
         if not valu.endswith('.sys'):
-            raise s_exc.BadPropValu(mesg='test:runt:lulz must end with ".sys"',
+            raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
                                     valu=valu, name=prop.full)
         node.props[prop.name] = valu
         # In this test helper, we do NOT persist the change to our in-memory
@@ -729,7 +729,7 @@ class SynTest(unittest.TestCase):
         regr = s_common.genpath(regr)
 
         if not os.path.isdir(regr): # pragma: no cover
-            raise Exception('SYN_REGREGSSION_REPO is not a dir')
+            raise Exception('SYN_REGRESSION_REPO is not a dir')
 
         dirn = os.path.join(regr, *path)
 

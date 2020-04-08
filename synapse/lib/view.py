@@ -286,7 +286,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if name not in ('name',):
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
-        #TODO when we can set more props, we may need to parse values.
+        # TODO when we can set more props, we may need to parse values.
         await self.info.set(name, valu)
         return valu
 

@@ -1256,9 +1256,9 @@ class MigrationTest(s_t_utils.SynTest):
                 node = await migr._srcPackNode(buid, ndef, {}, {}, {})
                 err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
                 self.none(err)
-                ne = (ne[0], 'foo:bar', ne[2])
+                ne = ('badbuid', 'foo:bar', ne[2])
 
-                res = await migr._destAddNodes(wlyr, ne, 'nexus')
+                res = await migr._destAddNodes(wlyr, [ne], 'nexus')
                 self.isin('Unable to store nodeedits', res.get('mesg', ''))
 
                 # test array types

@@ -606,11 +606,11 @@ class SyncMigrator(s_cell.Cell):
 
             if spedit == 'node:add':
                 edit = s_layer.EDIT_NODE_ADD
-                edits.append((edit, (fval, stype_f)))
+                edits.append((edit, (fval, stype_f), ()))
 
             elif spedit == 'node:del':
                 edit = s_layer.EDIT_NODE_DEL
-                edits.append((edit, (fval, stype_f)))
+                edits.append((edit, (fval, stype_f), ()))
 
             elif spedit in ('prop:set', 'prop:del'):
                 prop = props.get('prop')
@@ -640,11 +640,11 @@ class SyncMigrator(s_cell.Cell):
 
                 if spedit == 'prop:set':
                     edit = s_layer.EDIT_PROP_SET
-                    edits.append((edit, (prop, pval, None, stype_p)))
+                    edits.append((edit, (prop, pval, None, stype_p), ()))
 
                 elif spedit == 'prop:del':
                     edit = s_layer.EDIT_PROP_DEL
-                    edits.append((edit, (prop, pval, stype_p)))
+                    edits.append((edit, (prop, pval, stype_p), ()))
 
             elif spedit in ('tag:add', 'tag:del'):
                 tag = props.get('tag')
@@ -653,11 +653,11 @@ class SyncMigrator(s_cell.Cell):
 
                 if spedit == 'tag:add':
                     edit = s_layer.EDIT_TAG_SET
-                    edits.append((edit, (tag, tval, toldv)))
+                    edits.append((edit, (tag, tval, toldv), ()))
 
                 elif spedit == 'tag:del':
                     edit = s_layer.EDIT_TAG_DEL
-                    edits.append((edit, (tag, tval)))
+                    edits.append((edit, (tag, tval), ()))
 
             elif spedit in ('tag:prop:set', 'tag:prop:del'):
                 tag = props.get('tag')
@@ -673,11 +673,11 @@ class SyncMigrator(s_cell.Cell):
 
                 if spedit == 'tag:prop:set':
                     edit = s_layer.EDIT_TAGPROP_SET
-                    edits.append((edit, (tag, prop, tval, tcurv, stype_tp)))
+                    edits.append((edit, (tag, prop, tval, tcurv, stype_tp), ()))
 
                 elif spedit == 'tag:prop:del':
                     edit = s_layer.EDIT_TAGPROP_DEL
-                    edits.append((edit, (tag, prop, tval, stype_tp)))
+                    edits.append((edit, (tag, prop, tval, stype_tp), ()))
 
             else:
                 err = {'mesg': 'Unrecognized splice edit', 'splice': splice}

@@ -90,8 +90,7 @@ class SnapTest(s_t_utils.SynTest):
 
                     self.eq(nodes[0].buid, node0.buid)
                     self.eq(id(nodes[0]), id(node0))
-                    # Hang a attr off of the node
-                    setattr(node, '_test', True)
+                    node._test = True
 
                 await doit()  # run in separate function so that objects are gc'd
 
@@ -128,6 +127,11 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0], node)
 
+                # Make sure that we can still add secondary props even if the node already exists
+                node2 = await snap.addNode('test:str', 'hehe', props={'baz': 'test:guid:tick=2020'})
+                self.eq(node2, node)
+                self.nn(node2.get('baz'))
+
     async def test_addNodesAuto(self):
         '''
         Secondary props that are forms when set make nodes
@@ -140,7 +144,8 @@ class SnapTest(s_t_utils.SynTest):
                 nodes = await alist(snap.nodesByPropValu('test:int', '=', 42))
                 self.len(1, nodes)
 
-                # For good measure, set a secondary prop that is itself a comp type that has an element that is a form
+                # For good measure, set a secondary prop that is itself a comp type that has an element that
+                # is a form
                 node = await snap.addNode('test:haspivcomp', 42)
                 await node.set('have', ('woot', 'rofl'))
                 nodes = await alist(snap.nodesByPropValu('test:pivcomp', '=', ('woot', 'rofl')))
@@ -149,6 +154,10 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 nodes = await alist(snap.nodesByPropValu('test:str', '=', 'rofl'))
                 self.len(1, nodes)
+
+                # Make sure the sodes didn't get misordered
+                node = await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+                self.eq(node.ndef[0], 'inet:dns:a')
 
     async def test_addNodeRace(self):
         ''' Test when a reader might retrieve a partially constructed node '''

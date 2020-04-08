@@ -2582,7 +2582,7 @@ class EditNodeAdd(Edit):
         if self.form is None:
             raise s_exc.NoSuchForm(name=self.name)
 
-        self.excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
+        self.excignore = (s_exc.BadTypeValu, s_exc.BadTypeValu) if oper == '?=' else ()
 
     def isruntsafe(self, runt):
         return self.kids[2].isRuntSafe(runt)
@@ -2667,7 +2667,7 @@ class EditPropSet(Edit):
     async def run(self, runt, genr):
 
         oper = self.kids[1].value()
-        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper in ('?=', '?+=', '?-=') else ()
+        excignore = (s_exc.BadTypeValu,) if oper in ('?=', '?+=', '?-=') else ()
 
         isadd = oper in ('+=', '?+=')
         issub = oper in ('-=', '?-=')
@@ -2778,7 +2778,7 @@ class EditTagAdd(Edit):
         else:
             oper_offset = 0
 
-        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper_offset == 1 else ()
+        excignore = (s_exc.BadTypeValu, s_exc.BadTypeValu) if oper_offset == 1 else ()
 
         hasval = len(self.kids) > 1 + oper_offset
 
@@ -2830,7 +2830,7 @@ class EditTagPropSet(Edit):
     async def run(self, runt, genr):
 
         oper = self.kids[1].value()
-        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
+        excignore = s_exc.BadTypeValu if oper == '?=' else ()
 
         async for node, path in genr:
 

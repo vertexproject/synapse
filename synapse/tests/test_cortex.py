@@ -158,7 +158,7 @@ class CortexTest(s_t_utils.SynTest):
                 q = 'test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'
                 self.len(1, await core.nodes(q))
 
-                with self.raises(s_exc.BadPropValu):
+                with self.raises(s_exc.BadTypeValu):
                     self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=asdf ]'))
 
                 self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score?=asdf ] +#foo.bar:score=40'))
@@ -1786,7 +1786,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', 'foo')
 
                 await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
-                await self.asyncraises(s_exc.BadPropValu, node.set('tick', (20, 30)))
+                await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
 
                 snap.strict = False
                 self.none(await snap.addNode('test:str', s_common.novalu))
@@ -2366,7 +2366,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('lulz'), 'woah.sys')
 
             # A edit may throw an exception due to some prop-specific normalization reason.
-            await self.asyncraises(s_exc.BadPropValu, core.nodes('test:runt=woah [:lulz=no.way]'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:runt=woah [:lulz=no.way]'))
 
             # Setting a property which has no callback or ro fails.
             await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=woah [:newp=pennywise]'))
@@ -3911,7 +3911,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             ''')
             # wait for him to exit once and loop...
             await core.nodes('for $x in $lib.queue.get(visi).gets(size=2) {}')
-            mesgs = await core.stormlist('for $x in $lib.queue.get(visi).gets(size=2) { $lib.print(hehe) }')
+            await core.stormlist('for $x in $lib.queue.get(visi).gets(size=2) { $lib.print(hehe) }')
 
     async def test_cortex_ext_model(self):
 
@@ -4135,7 +4135,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with core.getLocalProxy(user='root') as prox:
 
-                fred = await prox.addUser('fred', passwd='secret')
+                await prox.addUser('fred', passwd='secret')
 
                 self.true(core.agenda.enabled)
                 self.true(core.trigson)
