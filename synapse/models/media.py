@@ -41,6 +41,9 @@ class MediaModule(s_module.CoreModule):
                     'doc': 'The free-form author of the news',
                     'ex': 'stark,anthony'
                 }),
+                ('rss:feed', ('inet:url', {}), {
+                    'doc': 'The RSS feed that published the news',
+                }),
                 # ('doi',{'ptype':'media:issn','doc':'The (optional) ISSN number for the news publication'})
                 # ('issn',{'ptype':'media:issn','doc':'The (optional) ISSN number for the news publication'})
             )),
