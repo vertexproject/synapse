@@ -537,7 +537,10 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             guid = s_common.guid()
-            nodes = await core.nodes(f'[ test:arrayprop={guid} ]')
+            nodes = await core.nodes(f'[ test:arrayprop={guid} :ints=() ]')
+
+            # test that removing a non-existant item is ok...
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints-=22 ]')
 
             # test starting with the property unset
             nodes = await core.nodes(f'test:arrayprop={guid} [ :ints+=99 ]')
