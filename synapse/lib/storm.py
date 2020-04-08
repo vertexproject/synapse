@@ -2075,6 +2075,38 @@ class TeeCmd(Cmd):
                 async for nnode, npath in subr.iterStormQuery(query):
                     yield nnode, npath
 
+class TreeCmd(Cmd):
+    '''
+    Walk elements of a tree using a recursive pivot.
+
+    Examples:
+
+        # pivot upward yielding each FQDN
+        inet:fqdn=www.vertex.link | tree { :domain -> inet:fqdn }
+    '''
+    name = 'tree'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('query', help='The pivot query')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        text = self.opts.query[1:-1]
+
+        async def recurse(node, path):
+
+            yield node, path
+
+            async for nnode, npath in node.storm(text, user=runt.user, path=path):
+                async for item in recurse(nnode, npath):
+                    yield item
+
+        async for node, path in genr:
+            async for nodepath in recurse(node, path):
+                yield nodepath
+
 class ScrapeCmd(Cmd):
     '''
     Use textual properties of existing nodes to find other easily recognizable nodes.

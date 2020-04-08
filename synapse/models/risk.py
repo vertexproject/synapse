@@ -12,7 +12,7 @@ class RiskModule(s_module.CoreModule):
                 ('risk:hasvuln', ('guid', {}), {
                     'doc': 'An instance of a vulnerability present in a target',
                 }),
-                ('risk:attacked', ('guid', {}), {
+                ('risk:attack', ('guid', {}), {
                     'doc': 'An instance of an actor attacking a target.'
                 }),
             ),
@@ -43,9 +43,6 @@ class RiskModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {
                         'doc': 'The vulnerable org',
                     }),
-                    ('host', ('it:host', {}), {
-                        'doc': 'The vulnerable host',
-                    }),
                     ('place', ('geo:place', {}), {
                         'doc': 'The vulnerable place',
                     }),
@@ -60,7 +57,7 @@ class RiskModule(s_module.CoreModule):
                     }),
                 )),
 
-                ('risk:attacked', {}, (
+                ('risk:attack', {}, (
                     ('time', ('time', {}), {
                         'doc': 'Set if the time of the attack is known',
                     }),
@@ -72,6 +69,9 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('campaign', ('ou:campaign', {}), {
                         'doc': 'Set if the attack was part of a larger campaign',
+                    }),
+                    ('prev', ('risk:attack', {}), {
+                        'doc': 'The previous/parent attack in a list or hierarcy',
                     }),
                     ('actor:org', ('ou:org', {}), {
                         'doc': 'The org that carried out the attack',
@@ -105,6 +105,9 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('used:url', ('inet:url', {}), {
                         'doc': 'The actor used the url in the attack',
+                    }),
+                    ('used:host', ('it:host', {}), {
+                        'doc': 'The actor used the host in the attack',
                     }),
                     ('used:email', ('inet:email', {}), {
                         'doc': 'The actor used the email in the attack',

@@ -65,7 +65,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Represents a person attending a conference event represented by an ou:conference:event node.',
                 }),
                 ('ou:goal', ('guid', {}), {
-                    'doc': 'An assessed or stated goal of an org',
+                    'doc': 'An assessed or stated goal which may be abstract or org specific',
+                }),
+                ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
+                    'doc': 'An org has an assessed or stated goal',
                 }),
                 ('ou:campaign', ('guid', {}), {
                     'doc': 'Represents an orgs activity in persuit of a goal',
@@ -80,7 +83,24 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A user specified goal type',
                     }),
                     ('desc', ('str', {}), {
-                        'doc': "A description of the goal and it's uses.",
+                        'doc': 'A description of the goal',
+                    }),
+                    ('prev', ('ou:goal', {}), {
+                        'doc': 'The previous/parent goal in a list or hierarchy',
+                    }),
+                )),
+                ('ou:hasgoal', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org which has the goal',
+                    }),
+                    ('goal', ('ou:goal', {}), {
+                        'doc': 'The goal which the org has',
+                    }),
+                    ('stated', ('bool', {}), {
+                        'doc': 'Set to true/false if the goal is known to be self stated',
+                    }),
+                    ('window', ('ival', {}), {
+                        'doc': 'Set if a goal has a limited time window',
                     }),
                 )),
                 ('ou:campaign', {}, (
@@ -88,10 +108,16 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The org carrying out the campaign',
                     }),
                     ('goal', ('ou:goal', {}), {
-                        'doc': 'The goal of the campaign',
+                        'doc': 'The assessed primary goal of the campaign',
+                    }),
+                    ('goals', ('array', {'type': 'ou:goal'}), {
+                        'doc': 'Additional assessed goals of the campaign',
                     }),
                     ('name', ('str', {}), {
                         'doc': 'A terse name of the campaign',
+                    }),
+                    ('type', ('str', {}), {
+                        'doc': 'A user specified campaign type',
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the campaign',
