@@ -557,6 +557,19 @@ class AstTest(s_test.SynTest):
             await core.nodes(f'test:arrayprop={guid} [ :ints?+=asdf ]')
             self.eq((1, 2, 4), nodes[0].get('ints'))
 
+            # ensure that we get a proper exception when using += (et al) on non-array props
+            with self.raises(s_exc.StormRuntimeError):
+                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn+=10 ]')
+
+            with self.raises(s_exc.StormRuntimeError):
+                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn?+=10 ]')
+
+            with self.raises(s_exc.StormRuntimeError):
+                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn-=10 ]')
+
+            with self.raises(s_exc.StormRuntimeError):
+                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn?-=10 ]')
+
     async def test_ast_del_array(self):
 
         async with self.getTestCore() as core:
