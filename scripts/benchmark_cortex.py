@@ -5,7 +5,10 @@ import time
 import random
 import asyncio
 import logging
+import pathlib
+import tempfile
 import argparse
+import datetime
 import contextlib
 import statistics
 import collections
@@ -129,7 +132,7 @@ def benchmark(tags=None):
 
     def _inner(meth):
         '''
-        Mark a method as being a trial
+        Mark a method as being a benchmark
         '''
         meth._benchmark = True
 
@@ -383,9 +386,9 @@ class Benchmarker:
             if self.bench is not None:
                 if not any(funcname.startswith(b) for b in self.bench):
                     continue
-                if self.tag is not None:
-                    if self.tag not in func._tags:
-                        continue
+            if self.tag is not None:
+                if self.tag not in func._tags:
+                    continue
             funcs.append((funcname, func))
         return funcs
 
@@ -456,7 +459,12 @@ async def benchmarkAll(confignames: List = None,
                     endProgress()
 
                     if do_profiling:
-                        yappi.get_func_stats().print_all()
+                        stats = yappi.get_func_stats()
+                        stats.print_all()
+                        perfdir = tmpdir or tempfile.gettempdir()
+                        perffn = pathlib.Path(perfdir) / ('callgrind.out.' + datetime.datetime.now().isoformat())
+                        print(f'Callgrind stats output to {str(perffn)}')
+                        stats.save(perffn, 'CALLGRIND')
 
                     bencher.printreport(configname)
 
