@@ -2672,7 +2672,7 @@ class EditPropSet(Edit):
 
                     if isadd:
                         # this new valu will get normed by the array prop
-                        valu = arry + (valu,)
+                        valu = tuple(arry) + (valu,)
 
                     else:
                         # make arry mutable
