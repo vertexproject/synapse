@@ -883,6 +883,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 valu = abrv.nameToAbrv('haha')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
+                self.eq('haha', abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01'))
+
                 # And we still have no valu for 02
                 self.none(abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
 

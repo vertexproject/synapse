@@ -2667,7 +2667,10 @@ class EditPropSet(Edit):
     async def run(self, runt, genr):
 
         oper = self.kids[1].value()
-        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
+        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper in ('?=', '?+=', '?-=') else ()
+
+        isadd = oper in ('+=', '?+=')
+        issub = oper in ('-=', '?-=')
 
         async for node, path in genr:
             name = await self.kids[0].compute(path)
@@ -2682,7 +2685,37 @@ class EditPropSet(Edit):
                 runt.layerConfirm(('node', 'prop', 'set', prop.full))
 
             try:
+
+                if isadd or issub:
+
+                    if not isinstance(prop.type, s_types.Array):
+                        mesg = f'Property set using ({oper}) is only valid on arrays.'
+                        raise s_exc.StormRuntimeError(mesg)
+
+                    arry = node.get(name)
+                    if arry is None:
+                        arry = ()
+
+                    if isadd:
+                        # this new valu will get normed by the array prop
+                        valu = arry + (valu,)
+
+                    else:
+                        # make arry mutable
+                        arry = list(arry)
+
+                        # we cant remove something we cant norm...
+                        # but that also means it can't be in the array so...
+                        norm, info = prop.type.arraytype.norm(valu)
+                        try:
+                            arry.remove(norm)
+                        except ValueError:
+                            pass
+
+                        valu = arry
+
                 await node.set(name, valu)
+
             except excignore:
                 pass
 
