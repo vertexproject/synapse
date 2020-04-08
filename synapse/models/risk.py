@@ -62,7 +62,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'Set if the time of the attack is known',
                     }),
                     ('success', ('bool', {}), {
-                        'doc': 'Set if the attack was known to have succeed or not',
+                        'doc': 'Set if the attack was known to have succeeded or not',
                     }),
                     ('targeted', ('bool', {}), {
                         'doc': 'Set if the attack was assessed to be targeted or not',
