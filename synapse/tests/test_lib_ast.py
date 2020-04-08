@@ -1,6 +1,8 @@
 import json
 import synapse.exc as s_exc
 
+import synapse.common as s_common
+
 import synapse.lib.ast as s_ast
 import synapse.tests.utils as s_test
 
@@ -529,6 +531,31 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:arrayprop +:ints*[=100]')
             self.len(1, nodes)
             self.eq(nodes[0].get('ints'), (100, 101, 102))
+
+    async def test_ast_array_addsub(self):
+
+        async with self.getTestCore() as core:
+
+            guid = s_common.guid()
+            nodes = await core.nodes(f'[ test:arrayprop={guid} :ints=(1, 2, 3) ]')
+
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints+=4 ]')
+            self.eq((1, 2, 3, 4), nodes[0].get('ints'))
+
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints-=3 ]')
+            self.eq((1, 2, 4), nodes[0].get('ints'))
+
+            with self.raises(s_exc.BadPropValu):
+                await core.nodes(f'test:arrayprop={guid} [ :ints+=asdf ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(f'test:arrayprop={guid} [ :ints-=asdf ]')
+
+            await core.nodes(f'test:arrayprop={guid} [ :ints?-=asdf ]')
+            self.eq((1, 2, 4), nodes[0].get('ints'))
+
+            await core.nodes(f'test:arrayprop={guid} [ :ints?+=asdf ]')
+            self.eq((1, 2, 4), nodes[0].get('ints'))
 
     async def test_ast_del_array(self):
 
