@@ -275,33 +275,6 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 self.len(0, await core.nodes('test:guid | min :newp'))
 
-    async def test_getstormeval(self):
-
-        # Use testechocmd to exercise all of Cmd.getStormEval
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                await snap.addNode('test:str', 'fancystr', {'tick': 1234, 'hehe': 'haha', '.seen': '3001'})
-
-            q = 'test:str $foo=:tick | testechocmd $foo'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[1234]', mesgs)
-
-            q = 'test:str| testechocmd :tick'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[1234]', mesgs)
-
-            q = 'test:str| testechocmd .seen'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[(32535216000000, 32535216000001)]', mesgs)
-
-            q = 'test:str $repr=$node.repr() | testechocmd $repr'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[fancystr]', mesgs)
-
-            q = 'test:str | testechocmd :hehe'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[haha]', mesgs)
-
     async def test_scrape(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:

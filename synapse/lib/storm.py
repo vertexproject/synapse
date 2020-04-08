@@ -1532,50 +1532,6 @@ class Cmd:
         for item in genr:
             yield item
 
-    def getStormEval(self, runt, name):
-        '''
-        Construct an evaluator function that takes a path and returns a value.
-        This allows relative / absolute props and variables.
-        '''
-        if name.startswith('$'):
-            varn = name[1:]
-
-            def func(path):
-                return path.getVar(varn, defv=None)
-            return func
-
-        if name.startswith(':'):
-
-            prop = name[1:]
-
-            def func(path):
-                return path.node.get(prop)
-            return func
-
-        if name.startswith('.'):
-            def func(path):
-                return path.node.get(name)
-            return func
-
-        form = runt.snap.core.model.form(name)
-        if form is not None:
-            def func(path):
-                if path.node.form != form:
-                    return None
-                return path.node.ndef[1]
-            return func
-
-        prop = runt.snap.core.model.prop(name)
-        if prop is not None:
-            def func(path):
-                if path.node.form != prop.form:
-                    return None
-                return path.node.get(prop.name)
-            return func
-
-        mesg = 'Unknown prop/variable syntax'
-        raise s_exc.BadSyntax(mesg=mesg, valu=name)
-
     @classmethod
     def getStorNode(cls, form):
         ndef = (form.name, form.type.norm(cls.name)[0])
