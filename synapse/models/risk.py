@@ -7,7 +7,7 @@ class RiskModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('risk:vuln', ('guid', {}), {
-                    'doc': 'A unique vulnerabilty',
+                    'doc': 'A unique vulnerability',
                 }),
                 ('risk:hasvuln', ('guid', {}), {
                     'doc': 'An instance of a vulnerability present in a target',
@@ -35,7 +35,7 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:hasvuln', {}, (
                     ('vuln', ('risk:vuln', {}), {
-                        'doc': 'The vulnerabilty present in the target.'
+                        'doc': 'The vulnerability present in the target.'
                     }),
                     ('person', ('ps:person', {}), {
                         'doc': 'The vulnerable person',
@@ -71,7 +71,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'Set if the attack was part of a larger campaign',
                     }),
                     ('prev', ('risk:attack', {}), {
-                        'doc': 'The previous/parent attack in a list or hierarcy',
+                        'doc': 'The previous/parent attack in a list or hierarchy',
                     }),
                     ('actor:org', ('ou:org', {}), {
                         'doc': 'The org that carried out the attack',

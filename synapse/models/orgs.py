@@ -71,7 +71,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An org has an assessed or stated goal',
                 }),
                 ('ou:campaign', ('guid', {}), {
-                    'doc': 'Represents an orgs activity in persuit of a goal',
+                    'doc': 'Represents an orgs activity in pursuit of a goal',
                 }),
             ),
             'forms': (
