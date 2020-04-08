@@ -936,6 +936,9 @@ class Ival(Type):
         if valu == '?':
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires begin time')
 
+        if ',' in valu:
+            return self._normByTickTock(valu.split(',', 1))
+
         minv, _ = self.timetype.norm(valu)
         # Norm is guaranteed to be a valid time value, but norm +1 may not be
         maxv, info = self.timetype._normPyInt(minv + 1)

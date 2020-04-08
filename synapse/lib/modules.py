@@ -7,6 +7,7 @@ coremods = (
     'synapse.models.syn.SynModule',
     'synapse.models.auth.AuthModule',
     'synapse.models.base.BaseModule',
+    'synapse.models.risk.RiskModule',
     'synapse.models.person.PsModule',
     'synapse.models.files.FileModule',
     'synapse.models.infotech.ItModule',
