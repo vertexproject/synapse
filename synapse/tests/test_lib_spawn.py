@@ -210,8 +210,8 @@ class CoreSpawnTest(s_test.SynTest):
                 ))
 
                 # Test a python cmd that came in via a ctor
-                msgs = await prox.storm('inet:ipv4=1.2.3.4 | testechocmd :asn', opts=opts).list()
-                self.stormIsInPrint('Echo: [0]', msgs)
+                msgs = await prox.storm('inet:ipv4=1.2.3.4 | testcmd', opts=opts).list()
+                self.stormIsInPrint("testcmd: ('inet:ipv4', 16909060)", msgs)
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 self.len(1, podes)
 

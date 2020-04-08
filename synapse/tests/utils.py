@@ -314,29 +314,7 @@ class TestCmd(s_storm.Cmd):
 
     async def execStormCmd(self, runt, genr):
         async for node, path in genr:
-            yield node, path
-
-class TestEchoCmd(s_storm.Cmd):
-    '''A command to echo a using getStormEval'''
-    name = 'testechocmd'
-
-    def getArgParser(self):
-        pars = s_storm.Cmd.getArgParser(self)
-        pars.add_argument('valu', help='valu to echo')
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-
-        if self.runtsafe:
-            valu = await s_stormtypes.toprim(self.opts.valu)
-            await runt.snap.printf(f'Echo: [{valu}]')
-
-        async for node, path in genr:
-
-            if not self.runtsafe:
-                valu = await s_stormtypes.toprim(self.opts.valu)
-                await runt.snap.printf(f'Echo: [{valu}]')
-
+            await runt.printf(f'{self.name}: {node.ndef}')
             yield node, path
 
 class TestModule(s_module.CoreModule):
@@ -454,7 +432,6 @@ class TestModule(s_module.CoreModule):
 
     def getStormCmds(self):
         return (TestCmd,
-                TestEchoCmd,
                 )
 
 class TstEnv:
