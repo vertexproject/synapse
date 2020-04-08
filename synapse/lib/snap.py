@@ -731,7 +731,7 @@ class Snap(s_base.Base):
                 norm, info = form.type.norm(valu)
                 node = await self.getNodeByBuid(s_common.buid((form.name, norm)))
                 if node is not None:
-                    # FIXME node.setNodeProps()
+                    # TODO implement node.setNodeProps()
                     if props is not None:
                         for p, v in props.items():
                             await node.set(p, v)
