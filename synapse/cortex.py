@@ -1785,6 +1785,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.MaxCmd)
         self.addStormCmd(s_storm.MinCmd)
         self.addStormCmd(s_storm.TeeCmd)
+        self.addStormCmd(s_storm.TreeCmd)
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)
