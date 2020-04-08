@@ -195,6 +195,10 @@ class SlabAbrv:
     def nameToAbrv(self, name):
         return self.bytsToAbrv(name.encode())
 
+    @s_cache.memoize(10000)
+    def abrvToName(self, byts):
+        return self.abrvToByts(byts).decode()
+
 class HotCount(s_base.Base):
     '''
     A hot-loop capable counter that only sync's on commit.
