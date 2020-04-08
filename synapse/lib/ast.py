@@ -2667,7 +2667,7 @@ class EditPropSet(Edit):
     async def run(self, runt, genr):
 
         oper = self.kids[1].value()
-        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper in ('?=', '?+=', '?-=') else ()
+        excignore = (s_exc.BadTypeValu,) if oper in ('?=', '?+=', '?-=') else ()
 
         isadd = oper in ('+=', '?+=')
         issub = oper in ('-=', '?-=')

@@ -557,7 +557,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(f'test:arrayprop={guid} [ :ints-=3 ]')
             self.eq((1, 2, 4), nodes[0].get('ints'))
 
-            with self.raises(s_exc.BadPropValu):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes(f'test:arrayprop={guid} [ :ints+=asdf ]')
 
             with self.raises(s_exc.BadTypeValu):
