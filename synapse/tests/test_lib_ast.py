@@ -537,7 +537,16 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             guid = s_common.guid()
-            nodes = await core.nodes(f'[ test:arrayprop={guid} :ints=(1, 2, 3) ]')
+            nodes = await core.nodes(f'[ test:arrayprop={guid} ]')
+
+            # test starting with the property unset
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints+=99 ]')
+            self.eq((99,), nodes[0].get('ints'))
+
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints-=99 ]')
+            self.eq((), nodes[0].get('ints'))
+
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints=(1, 2, 3) ]')
 
             nodes = await core.nodes(f'test:arrayprop={guid} [ :ints+=4 ]')
             self.eq((1, 2, 3, 4), nodes[0].get('ints'))
