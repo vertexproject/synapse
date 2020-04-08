@@ -108,8 +108,10 @@ class Base:
     @contextlib.asynccontextmanager
     async def ctx(cls, *args, **kwargs):
         item = await cls.anit(*args, **kwargs)
-        yield item
-        await item.fini()
+        try:
+            yield item
+        finally:
+            await item.fini()
 
     async def __anit__(self):
 
