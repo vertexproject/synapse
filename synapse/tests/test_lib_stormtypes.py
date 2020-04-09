@@ -506,8 +506,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('inet:ipv4 $repr=$node.repr(newp)')
 
             err = mesgs[-2][1]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('mesg', err[1])
+            self.eq(err[0], 'NoSuchProp')
             self.eq(err[1].get('prop'), 'newp')
             self.eq(err[1].get('form'), 'inet:ipv4')
 

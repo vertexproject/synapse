@@ -319,9 +319,6 @@ class StormTest(s_t_utils.SynTest):
             q = 'inet:search:query inet:banner | scrape -p :engine'
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
 
-            with self.raises(s_exc.NoPropValu):
-                await core.nodes('[ inet:search:query="*" ] | scrape --props :text')
-
             # make sure we handle .seen(i.e. non-str reprs)
             qtxt = 'ns1.twiter-statics.info'
             async with await core.snap() as snap:

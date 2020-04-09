@@ -1610,9 +1610,8 @@ class PropPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            try:
-                valu = await self.kids[0].compute(path)
-            except s_exc.NoPropValu:
+            valu = await self.kids[0].compute(path)
+            if valu is None:
                 continue
 
             # TODO cache/bypass normalization in loop!
@@ -2248,9 +2247,6 @@ class PropValue(CompValue):
 
     async def compute(self, path):
         prop, valu = await self.getPropAndValu(path)
-        if valu is None:
-            name = await self.kids[0].compute(path)
-            raise s_exc.NoPropValu(name=name)
         return valu
 
 class RelPropValue(PropValue):

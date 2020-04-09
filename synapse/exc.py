@@ -76,8 +76,6 @@ class BadOperArg(SynErr):
     ''' Improper storm function arguments '''
     pass
 
-class NoPropValu(SynErr): pass
-
 class BadOptValu(SynErr): pass
 class BadVersion(SynErr):
     '''Generic Bad Version exception.'''

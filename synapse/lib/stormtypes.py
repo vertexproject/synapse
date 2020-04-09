@@ -1410,17 +1410,7 @@ class Node(Prim):
         Raises:
             s_exc.StormRuntimeError: If the secondary property does not exist for the Node form.
         '''
-        try:
-            return self.valu.repr(name=name)
-
-        except s_exc.NoPropValu:
-            return defv
-
-        except s_exc.NoSuchProp as e:
-            form = e.get('form')
-            prop = e.get('prop')
-            mesg = f'Requested property [{prop}] does not exist for the form [{form}].'
-            raise s_exc.StormRuntimeError(mesg=mesg, form=form, prop=prop) from None
+        return self.valu.repr(name=name, defv=defv)
 
     async def _methNodeIden(self):
         return self.valu.iden()
