@@ -1285,9 +1285,16 @@ class Parser:
 
         # process positional arguments
         todo = collections.deque(posargs)
+
         for name, argdef in self.posargs:
             if not self._get_store(name, argdef, todo, opts):
                 return
+
+        if todo:
+            delta = len(posargs) - len(todo)
+            mesg = f'Expected {delta} positional arguments. Got {len(posargs)}: {posargs!r}'
+            self.help(mesg)
+            return
 
         for names, argdef in self.allargs:
             if 'default' in argdef:

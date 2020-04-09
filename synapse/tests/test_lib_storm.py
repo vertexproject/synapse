@@ -4,6 +4,8 @@ import datetime
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.storm as s_storm
+
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
@@ -766,3 +768,9 @@ class StormTest(s_t_utils.SynTest):
                 nodes = await alist(asvisi.eval(q))
                 nodes = await alist(asvisi.eval("test:cycle0"))
                 self.len(0, nodes)
+
+    async def test_storm_argv_parser(self):
+        pars = s_storm.Parser(prog='hehe')
+        pars.add_argument('--hehe')
+        self.none(pars.parse_args(['--lol']))
+        self.isin("ERROR: Expected 0 positional arguments. Got 1: ['--lol']", pars.mesgs)
