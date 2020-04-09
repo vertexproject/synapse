@@ -195,7 +195,9 @@ class SyncMigrator(s_cell.Cell):
         self.q_cap = int(self.q_size * 0.9)
 
         self.layers = await self.hive.dict(('sync:layer', ))  # lyridens
+
         self.migrmode = await self.hive.open(('sync:migrmode', ))  # Override migration mode defaults with True/False
+        self.migrmode_evnt = asyncio.Event()
 
         # if migrmode was overridden true, try to re-enable on startup
         if self.migrmode.valu:
@@ -461,6 +463,7 @@ class SyncMigrator(s_cell.Cell):
         try:
             async with await s_telepath.openurl(self.dest) as prx:
                 await prx.disableMigrationMode()
+            logger.info('Disabled migrationMode')
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
@@ -468,7 +471,7 @@ class SyncMigrator(s_cell.Cell):
             logger.exception(err)
             retn = err
 
-        logger.info('Disabled migrationMode')
+        self.migrmode_evnt.clear()
         return retn
 
     async def enableMigrationMode(self):
@@ -476,6 +479,7 @@ class SyncMigrator(s_cell.Cell):
         try:
             async with await s_telepath.openurl(self.dest) as prx:
                 await prx.enableMigrationMode()
+            logger.info('Enabled migrationMode')
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
@@ -483,7 +487,7 @@ class SyncMigrator(s_cell.Cell):
             logger.exception(err)
             retn = err
 
-        logger.info('Enabled migrationMode')
+        self.migrmode_evnt.set()
         return retn
 
     async def resetLyrErrs(self, lyriden):
@@ -586,10 +590,6 @@ class SyncMigrator(s_cell.Cell):
                 logger.exception(f'Source layer connection error cnt={trycnt}: {lyriden}')
                 self._pull_status[lyriden] = 'connect_err'
                 await asyncio.sleep(2 ** trycnt)
-
-                # If migrmode valu is not overridden or overridden to True, attempt to re-enable
-                if self.migrmode.valu is None or self.migrmode.valu:
-                    await self.enableMigrationMode()
 
     async def _srcIterLyrSplices(self, genr, startoffs, queue):
         '''
@@ -812,7 +812,10 @@ class SyncMigrator(s_cell.Cell):
             except (ConnectionError, s_exc.IsFini):
                 logger.exception(f'Destination layer connection error cnt={trycnt}: {lyriden}')
                 await asyncio.sleep(2 ** trycnt)
-                continue
+
+                # If migrmode valu is not overridden or overridden to True, attempt to re-enable
+                if self.migrmode.valu is None or self.migrmode.valu:
+                    await self.enableMigrationMode()
 
     async def _destIterLyrNodeedits(self, writer, queue, lyriden):
         '''

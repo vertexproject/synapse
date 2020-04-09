@@ -431,6 +431,11 @@ class SyncTest(s_t_utils.SynTest):
                 self.false(sync.push_tasks[wlyr.iden].done())
                 self.false(sync._queues[wlyr.iden].isfini)
 
+                # trigger migrmode reset on connection drop
+                sync.migrmode_evnt.clear()
+                task = sync.schedCoro(sync._destPushLyrNodeedits(wlyr.iden))
+                self.true(await s_coro.event_wait(sync.migrmode_evnt, timeout=5))
+
     async def test_sync_assvr(self):
         with self.getTestDir() as dirn, self.withSetLoggingMock():
             argv = [
