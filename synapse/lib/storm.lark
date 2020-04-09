@@ -143,12 +143,12 @@ funcargs: "(" _WS? (VARTOKN (_WS? "," _WS? VARTOKN)* _WS? )? ")"
 stormfunc: "function" _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 
 stormcmd: CMDNAME [_WS stormcmdargs]
-stormcmdargs: _WS? _cmdargv (["="] _WS? _cmdargv)*
+stormcmdargs: _WS? _cmdargv (("=" | _WS?) _cmdargv)*
 CMDOPT: /-[a-zA-Z0-9_-]+/
 _cmdargv: baresubquery | CMDOPT | _toknvalu
 
 // an argv parser for cmdr commands which may contain embedded queries
-cmdrargs: _WS? _cmdrargv (["="] _WS? _cmdrargv)*
+cmdrargs: _WS? _cmdrargv (("=" | _WS?) _cmdrargv)*
 _cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN
 
 // A tag with either a variable reference or a tag name potentially with asterisks
