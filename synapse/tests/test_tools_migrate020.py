@@ -1286,3 +1286,28 @@ class MigrationTest(s_t_utils.SynTest):
                 err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
                 res = await migr._destAddNodes(wlyr, [ne], 'editor')
                 self.none(res)
+
+                # test inet:server:proto=host
+                # original valu was host://fazbaz.com
+                ndef = ('*inet:server', 'host://1144e562c90bf6d2bbb3a80b1982b84f')
+                buid = s_common.buid(('inet:server', 'host://1144e562c90bf6d2bbb3a80b1982b84f'))
+                props = {'proto': 'host', 'host': '1144e562c90bf6d2bbb3a80b1982b84f', '.created': 1586437148551}
+                node = await migr._srcPackNode(buid, ndef, props, {}, {})
+
+                # the actual storage works
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=False)
+                self.none(err)
+                sodes = await wlyr.storNodeEdits([ne], meta=None)  # returns sode
+                self.len(1, sodes)
+                self.eq(buid, sodes[0][0])
+
+                # but if chknodes=True the norming check fails - commented out because it FAILS
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+                # self.none(err)
+                # sodes = await wlyr.storNodeEdits([ne], meta=None)  # returns sode
+                # self.len(1, sodes)
+                # self.eq(buid, sodes[0][0])
+
+                # because...
+                renorm = migr.model.form('inet:server').type.norm(ndef[1])
+                self.eq(ndef[1], renorm)  # this FAILS
