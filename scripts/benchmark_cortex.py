@@ -474,8 +474,8 @@ async def benchmarkAll(confignames: List = None,
                                 'config': config,
                                 'configname': configname,
                                 'workfactor': workfactor,
-                                'niters': bench.num_iters,
-                                'results': bench.reportdata()
+                                'niters': niters,
+                                'results': bencher.reportdata()
                                 }
                         fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
                         if jsonprefix:
