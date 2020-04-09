@@ -129,9 +129,11 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
         return await self.cell.stopSync()
 
     async def enableMigrationMode(self):
+        await self.cell.setMigrationModeOverride(True)
         return await self.cell.enableMigrationMode()
 
     async def disableMigrationMode(self):
+        await self.cell.setMigrationModeOverride(False)
         return await self.cell.disableMigrationMode()
 
 class SyncMigrator(s_cell.Cell):
@@ -193,6 +195,11 @@ class SyncMigrator(s_cell.Cell):
         self.q_cap = int(self.q_size * 0.9)
 
         self.layers = await self.hive.dict(('sync:layer', ))  # lyridens
+        self.migrmode = await self.hive.open(('sync:migrmode', ))  # Override migration mode defaults with True/False
+
+        # if migrmode was overridden true, try to re-enable on startup
+        if self.migrmode.valu:
+            await self.enableMigrationMode()
 
         path = s_common.gendir(dirn, 'slabs', 'migrsync.lmdb')
         self.slab = await s_lmdbslab.Slab.anit(path, map_async=True)
@@ -264,6 +271,7 @@ class SyncMigrator(s_cell.Cell):
                 'src:laststart': srclaststart,
                 'dest:laststart': destlaststart,
                 'errcnt': errcnt,
+                'migrmode_override': self.migrmode.valu,
             }
 
             if pprint:
@@ -388,6 +396,10 @@ class SyncMigrator(s_cell.Cell):
 
         await self._loadDatamodel()
 
+        # If migrmode valu is not overridden or overridden to True, enable
+        if self.migrmode.valu is None or self.migrmode.valu:
+            await self.enableMigrationMode()
+
         queue = self._queues.get(lyriden)
         if queue is None or queue.isfini:
             queue = await s_queue.Window.anit(maxsize=self.q_size)
@@ -408,7 +420,6 @@ class SyncMigrator(s_cell.Cell):
         async with await s_telepath.openurl(self.dest) as prx:
             model = await prx.getModelDict()
             self.model.update(model)
-            await prx.enableMigrationMode()
 
     async def stopSync(self):
         '''
@@ -434,10 +445,16 @@ class SyncMigrator(s_cell.Cell):
             await queue.fini()
             retn.add(lyriden)
 
-        await self.disableMigrationMode()
+        if not self.migrmode.valu:
+            await self.disableMigrationMode()
 
         logger.info('stopSync complete')
         return list(retn)
+
+    async def setMigrationModeOverride(self, setval):
+        if setval is not None and not isinstance(setval, bool):
+            raise s_exc.BadTypeValu(valu=setval, mesg='migrationModeOverride requires bool or None')
+        await self.migrmode.set(setval)
 
     async def disableMigrationMode(self):
         retn = None
@@ -451,6 +468,7 @@ class SyncMigrator(s_cell.Cell):
             logger.exception(err)
             retn = err
 
+        logger.info('Disabled migrationMode')
         return retn
 
     async def enableMigrationMode(self):
@@ -465,6 +483,7 @@ class SyncMigrator(s_cell.Cell):
             logger.exception(err)
             retn = err
 
+        logger.info('Enabled migrationMode')
         return retn
 
     async def resetLyrErrs(self, lyriden):
@@ -567,6 +586,10 @@ class SyncMigrator(s_cell.Cell):
                 logger.exception(f'Source layer connection error cnt={trycnt}: {lyriden}')
                 self._pull_status[lyriden] = 'connect_err'
                 await asyncio.sleep(2 ** trycnt)
+
+                # If migrmode valu is not overridden or overridden to True, attempt to re-enable
+                if self.migrmode.valu is None or self.migrmode.valu:
+                    await self.enableMigrationMode()
 
     async def _srcIterLyrSplices(self, genr, startoffs, queue):
         '''

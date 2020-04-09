@@ -106,6 +106,9 @@ class MigrSplices(s_sync.SyncMigrator):
     async def disableMigrationMode(self):  # pragma: no cover
         pass
 
+    async def enableMigrationMode(self):  # pragma: no cover
+        pass
+
     async def _initCellDmon(self):
         pass
 
