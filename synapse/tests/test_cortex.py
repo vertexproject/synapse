@@ -2157,7 +2157,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 :asn=1138 +#deathstar]'
             await core.nodes(q)
 
-            q = '#deathstar | graph --degree 2 --refs'
+            q = '#deathstar | graph --degrees 2 --refs'
             ndefs = set()
             async with await core.snap() as snap:
                 async for node, path in snap.storm(q):
