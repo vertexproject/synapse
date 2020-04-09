@@ -356,13 +356,13 @@ workflows:
             branches:
                only: /.*/
 
-      - osx37:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only:
-                - master
+#      - osx37:
+#          filters:
+#            tags:
+#              only: /.*/
+#            branches:
+#              only:
+#                - master
 
       - python37:
           filters:
