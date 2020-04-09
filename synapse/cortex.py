@@ -752,7 +752,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         'buid:prefetch': {
             'default': True,
             'type': 'boolean',
-            'description': 'Controls BUID pre-fetch behavior in the snap.',
+            'description': 'EXPERIMENTAL: Controls BUID pre-fetch behavior in the snap.',
         },
     }
 
