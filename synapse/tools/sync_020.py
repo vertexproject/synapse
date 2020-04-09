@@ -89,6 +89,30 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
                     $lib.print("")
                 '''
             },
+            {
+                'name': f'{_storm_svc_name}.migrationmode.enable',
+                'descr': 'Prevent crons and triggers from running on 0.2.x Cortex',
+                'cmdargs': (),
+                'cmdconf': {},
+                'storm': '''
+                    $svc = $lib.service.get($cmdconf.svciden)
+                    $retn = $svc.enableMigrationMode()
+                    if $retn { $lib.print("Enabling migrationMode encountered an error: {retn}", retn=$retn) }
+                    else { $lib.print("migrationMode successfully enabled") }
+                '''
+            },
+            {
+                'name': f'{_storm_svc_name}.migrationmode.disable',
+                'descr': 'Allow crons and triggers to run on 0.2.x Cortex',
+                'cmdargs': (),
+                'cmdconf': {},
+                'storm': '''
+                    $svc = $lib.service.get($cmdconf.svciden)
+                    $retn = $svc.disableMigrationMode()
+                    if $retn { $lib.print("Disabling migrationMode encountered an error: {retn}", retn=$retn) }
+                    else { $lib.print("migrationMode successfully disabled") }
+                '''
+            },
         ),
     },)
 
@@ -103,6 +127,12 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
 
     async def stopSync(self):
         return await self.cell.stopSync()
+
+    async def enableMigrationMode(self):
+        return await self.cell.enableMigrationMode()
+
+    async def disableMigrationMode(self):
+        return await self.cell.disableMigrationMode()
 
 class SyncMigrator(s_cell.Cell):
     cellapi = SyncMigratorApi
@@ -404,20 +434,38 @@ class SyncMigrator(s_cell.Cell):
             await queue.fini()
             retn.add(lyriden)
 
-        await self._disableMigrationMode()
+        await self.disableMigrationMode()
 
         logger.info('stopSync complete')
         return list(retn)
 
-    async def _disableMigrationMode(self):
+    async def disableMigrationMode(self):
+        retn = None
         try:
             async with await s_telepath.openurl(self.dest) as prx:
                 await prx.disableMigrationMode()
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
-            logger.exception(f'Unable to disable migration mode on dest cortex: {e}')
-            pass
+            err = f'Disabling migration mode on dest cortex encountered an error: {e}'
+            logger.exception(err)
+            retn = err
+
+        return retn
+
+    async def enableMigrationMode(self):
+        retn = None
+        try:
+            async with await s_telepath.openurl(self.dest) as prx:
+                await prx.enableMigrationMode()
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            err = f'Enabling migration mode on dest cortex encountered an error: {e}'
+            logger.exception(err)
+            retn = err
+
+        return retn
 
     async def resetLyrErrs(self, lyriden):
         self.errcnts.set(lyriden, 0)

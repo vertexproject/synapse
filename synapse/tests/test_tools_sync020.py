@@ -251,6 +251,20 @@ class SyncTest(s_t_utils.SynTest):
             mesgs = await core.stormlist(f'migrsync.status')
             self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
 
+            # enable/disable migrationMode
+            self.false(core.agenda.enabled)
+            self.false(core.trigson)
+
+            mesgs = await core.stormlist(f'migrsync.migrationmode.disable')
+            self.stormIsInPrint('migrationMode successfully disabled', mesgs)
+            self.true(core.agenda.enabled)
+            self.true(core.trigson)
+
+            mesgs = await core.stormlist(f'migrsync.migrationmode.enable')
+            self.stormIsInPrint('migrationMode successfully enabled', mesgs)
+            self.false(core.agenda.enabled)
+            self.false(core.trigson)
+
     async def test_startSyncFromFile(self):
         conf_sync = {
             'poll_s': 1,
@@ -338,6 +352,12 @@ class SyncTest(s_t_utils.SynTest):
                 sync.dest = 'foobar'
                 stopres = await syncprx.stopSync()
                 self.len(2, stopres)  # returns the two layers stopped
+
+                retn = await syncprx.enableMigrationMode()
+                self.isin('encountered an error', retn)
+
+                retn = await syncprx.disableMigrationMode()
+                self.isin('encountered an error', retn)
 
     async def test_startSyncFromLast(self):
         conf_sync = {
