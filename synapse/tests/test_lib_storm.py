@@ -284,6 +284,16 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 self.len(0, await core.nodes('test:guid | min :newp'))
 
+            # test that intervals work
+            minnodes = await core.nodes('[ ou:org=* +#minmax=(1981, 2010) ]')
+            maxnodes = await core.nodes('[ ou:org=* +#minmax=(1997, 2020) ]')
+
+            testmin = await core.nodes('ou:org | min #minmax')
+            self.eq(testmin[0].ndef, minnodes[0].ndef)
+
+            testmax = await core.nodes('ou:org | max #minmax')
+            self.eq(testmax[0].ndef, maxnodes[0].ndef)
+
     async def test_scrape(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:

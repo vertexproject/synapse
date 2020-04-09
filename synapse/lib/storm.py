@@ -1774,9 +1774,15 @@ class MaxCmd(Cmd):
         maxvalu = None
         maxitem = None
 
+        ivaltype = self.runt.snap.core.model.type('ival')
+
         async for item in genr:
 
             valu = await s_stormtypes.toprim(self.opts.valu)
+            if isinstance(valu, (list, tuple)):
+                ival, info = ivaltype.norm(valu)
+                valu = ival[1]
+
             valu = s_stormtypes.intify(valu)
 
             if maxvalu is None or valu > maxvalu:
@@ -1794,7 +1800,7 @@ class MinCmd(Cmd):
 
         file:bytes +#foo.bar | min :size
 
-        file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | min $tick
+        file:bytes +#foo.bar | min .seen
     '''
     name = 'min'
 
@@ -1808,9 +1814,19 @@ class MinCmd(Cmd):
         minvalu = None
         minitem = None
 
+        ivaltype = self.runt.snap.core.model.type('ival')
+
         async for node, path in genr:
 
+            if self.opts.valu is None:
+                continue
+
             valu = await s_stormtypes.toprim(self.opts.valu)
+
+            if isinstance(valu, (list, tuple)):
+                ival, info = ivaltype.norm(valu)
+                valu = ival[0]
+
             valu = s_stormtypes.intify(valu)
 
             if minvalu is None or valu < minvalu:
