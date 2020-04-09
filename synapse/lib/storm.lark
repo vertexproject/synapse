@@ -184,17 +184,17 @@ univpropvalu: univprop
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 
-// An unquoted storm string constant.  Must start with a word char, ?, or - and not contain certain punctutation
-NONQUOTEWORD: /[\w\-\+\?\*][^ \t\n),=\]}|]*/
+// An unquoted storm string constant.  Must start with a word char, ?, or - and not contain certain punctuation
+NONQUOTEWORD: /[\w\-\+\?\*\/\\][^ \t\n),=\]}|]*/
 
 // An unquoted string within a whitespace list
 WORDTOKN: /[\w\+\-\?\*\/\\][^ \t\r\n\=\|\}\)]*/
 
 // An unquoted string within a list syntax
-LISTTOKN: /[\w\+\-\?\*\/\\]([^,)]*[^\s,)])*/
+LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 
 // A white-space *only* delimited string immediate for use in legacy cmdr parser
-CMDRTOKN: /[^\s\{}]+/
+CMDRTOKN: /[^="'\s\{}][^\s\{}]*/
 
 // A value consisting of a name then 0 or more derefs and function calls
 _varvalu: "$" _varvaluatom

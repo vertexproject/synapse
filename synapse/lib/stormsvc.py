@@ -187,6 +187,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
         # method used by storm runtime library on deref
         try:
             await self.proxy.waitready()
+            return await s_stormtypes.Proxy.deref(self, name)
         except asyncio.TimeoutError:
             mesg = 'Timeout waiting for storm service'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
@@ -194,5 +195,3 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
             # possible client race condition seen in the real world
             mesg = f'Error dereferencing storm service - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
-
-        return await s_stormtypes.Proxy.deref(self, name)
