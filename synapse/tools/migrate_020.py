@@ -1887,7 +1887,7 @@ class Migrator(s_base.Base):
         Returns:
             (tuple): (cond, nodedit)
                 cond: None or error dict
-                nodeedit: (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
+                nodeedit: (<buid>, <form>, [edits]) where edits is list of (<type>, <info>, subedits)
         '''
         buid = node[0]
         fname = node[1]['ndef'][0]
@@ -1938,7 +1938,7 @@ class Migrator(s_base.Base):
                 normerr['node'] = node
                 return normerr, None
 
-        edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype)))  # name, stype
+        edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype), ()))  # name, stype
 
         # iterate over secondary properties
         for sprop, sval in node[1]['props'].items():
@@ -1948,12 +1948,12 @@ class Migrator(s_base.Base):
                 err = {'mesg': f'Unable to determine stortype for sprop {sprop}'}
                 return err, None
 
-            edits.append((s_layer.EDIT_PROP_SET, (sprop, sval, None, stortype)))  # name, valu, oldv, stype
+            edits.append((s_layer.EDIT_PROP_SET, (sprop, sval, None, stortype), ()))  # name, valu, oldv, stype
 
         # set tags
         for tname, tval in node[1]['tags'].items():
             tnamenorm = tname[1:]
-            edits.append((s_layer.EDIT_TAG_SET, (tnamenorm, tval, None)))  # tag, valu, oldv
+            edits.append((s_layer.EDIT_TAG_SET, (tnamenorm, tval, None), ()))  # tag, valu, oldv
 
         # tagprops
         for tname, tprops in node[1]['tagprops'].items():
@@ -1970,7 +1970,7 @@ class Migrator(s_base.Base):
                     return err, None
 
                 edits.append((s_layer.EDIT_TAGPROP_SET,
-                              (tnamenorm, tpname, tpval, None, stortype)))  # tag, prop, valu, oldv, stype
+                              (tnamenorm, tpname, tpval, None, stortype), ()))  # tag, prop, valu, oldv, stype
 
         return None, (buid, fname, edits)
 
@@ -1988,7 +1988,7 @@ class Migrator(s_base.Base):
         name = nodedata[1]
         valu = nodedata[2]
 
-        edits = [(s_layer.EDIT_NODEDATA_SET, (name, valu, None))]
+        edits = [(s_layer.EDIT_NODEDATA_SET, (name, valu, None), ())]
 
         return buid, None, edits
 

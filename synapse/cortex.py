@@ -748,7 +748,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             'default': 30,
             'description': 'Logging log level to emit storm logs at.',
             'type': 'integer'
-        }
+        },
+        'buid:prefetch': {
+            'default': True,
+            'type': 'boolean',
+            'description': 'Controls BUID pre-fetch behavior in the snap.',
+        },
     }
 
     cellapi = CoreApi
@@ -963,6 +968,9 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('queue:cull')
     async def coreQueueCull(self, name, offs):
         await self.multiqueue.cull(name, offs)
+
+    async def coreQueueSize(self, name):
+        return self.multiqueue.size(name)
 
     async def getSpawnInfo(self):
         return {
@@ -1783,6 +1791,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.MaxCmd)
         self.addStormCmd(s_storm.MinCmd)
         self.addStormCmd(s_storm.TeeCmd)
+        self.addStormCmd(s_storm.TreeCmd)
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)

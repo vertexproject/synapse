@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import binascii
 import datetime
+import contextlib
 
 from datetime import timezone as tz
 from unittest import mock
@@ -2168,6 +2169,33 @@ class StormTypesTest(s_test.SynTest):
                     if mesg[0] == 'print':
                         guid = mesg[1]['mesg'].split(' ')[-1]
 
+                await core.nodes('$lib.queue.add(foo)')
+                async def getNextFoo():
+                    return await core.callStorm('''
+                        $foo = $lib.queue.get(foo)
+                        ($offs, $valu) = $foo.get()
+                        $foo.cull($offs)
+                        return($valu)
+                    ''')
+                async def getFooSize():
+                    return await core.callStorm('''
+                        return($lib.queue.get(foo).size())
+                    ''')
+
+                async def getCronIden():
+                    return await core.callStorm('''
+                        for $job in $lib.cron.list() { return ($job.iden) }
+                    ''')
+
+                @contextlib.asynccontextmanager
+                async def getCronJob(text):
+                    msgs = await core.stormlist(text)
+                    self.stormIsInPrint(f'Created cron job', msgs)
+                    guid = await getCronIden()
+                    yield guid
+                    msgs = await core.stormlist(f'cron.del {guid}')
+                    self.stormIsInPrint(f'Deleted cron job: {guid}', msgs)
+
                 unixtime += 60
                 mesgs = await core.stormlist('cron.list')
                 self.stormIsInPrint(':type=m1', mesgs)
@@ -2229,45 +2257,31 @@ class StormTypesTest(s_test.SynTest):
                 # Test fixed minute, i.e. every hour at 17 past
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()
-                q = "cron.add --minute 17 {[graph:node='*' :type=m3]}"
-                mesgs = await core.stormlist(q)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid = mesg[1]['mesg'].split(' ')[-1]
 
-                unixtime += 7 * MINSECS
+                async with getCronJob("cron.add --minute 17 {$lib.queue.get(foo).put(m3)}") as guid:
 
-                # Make sure it runs.  We add the cron.list to give the cron scheduler a chance to run
-                await prox.eval('cron.list').list()
-                await self.agenlen(1, prox.eval('graph:node:type=m3'))
-                await core.nodes(f"cron.del {guid}")
+                    unixtime += 7 * MINSECS
+
+                    self.eq('m3', await getNextFoo())
 
                 ##################
 
                 # Test day increment
-                q = "cron.add --day +2 {[graph:node='*' :type=d1]}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInPrint('Created cron job', mesgs)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid1 = mesg[1]['mesg'].split(' ')[-1]
+                async with getCronJob("cron.add --day +2 {$lib.queue.get(foo).put(d1)}") as guid:
 
-                unixtime += DAYSECS
+                    unixtime += DAYSECS
 
-                # Make sure it *didn't* run
-                await self.agenlen(0, prox.eval('graph:node:type=d1'))
+                    # Make sure it *didn't* run
+                    self.eq(0, await getFooSize())
 
-                unixtime += DAYSECS
+                    unixtime += DAYSECS
 
-                # Make sure it runs.  We add the cron.list to give the cron scheduler a chance to run
-                await prox.eval('cron.list').list()
-                await asyncio.sleep(0)
-                await self.agenlen(1, prox.eval('graph:node:type=d1'))
+                    # Make sure it runs.  We add the cron.list to give the cron scheduler a chance to run
+                    self.eq('d1', await getNextFoo())
 
-                unixtime += DAYSECS * 2
-                await prox.eval('cron.list').list()
-                await asyncio.sleep(0)
-                await self.agenlen(2, prox.eval('graph:node:type=d1'))
+                    unixtime += DAYSECS * 2
+
+                    self.eq('d1', await getNextFoo())
 
                 ##################
 
@@ -2275,87 +2289,63 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=11, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()  # A Tuesday
 
-                q = "cron.add --hour 3 --day Mon,Thursday {[graph:node='*' :type=d2]}"
-                mesgs = await core.stormlist(q)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid2 = mesg[1]['mesg'].split(' ')[-1]
+                async with getCronJob("cron.add --hour 3 --day Mon,Thursday {$lib.queue.get(foo).put(d2)}") as guid:
 
-                unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
-                                             tzinfo=tz.utc).timestamp()  # Now Thursday
-                await prox.eval('cron.list').list()
-                await self.agenlen(1, prox.eval('graph:node:type=d2'))
+                    unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
+                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
 
-                q = f'cron.del ""'
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('matches more than one', mesgs)
+                    self.eq('d2', await getNextFoo())
 
-                await core.nodes(f"cron.del {guid1}")
-                await core.nodes(f"cron.del {guid2}")
+                ##################
 
-                q = "cron.add --hour 3 --day Noday {[graph:node='*' :type=d2]}"
+                q = "cron.add --hour 3 --day Noday {}"
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Failed to parse day value "Noday"', mesgs)
 
                 ##################
 
                 # Test fixed day of month: second-to-last day of month
-                q = "cron.add --day -2 --month Dec {[graph:node='*' :type=d3]}"
-                mesgs = await core.stormlist(q)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid = mesg[1]['mesg'].split(' ')[-1]
+                async with getCronJob("cron.add --day -2 --month Dec {$lib.queue.get(foo).put(d3)}") as guid:
 
-                unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
-                                             tzinfo=tz.utc).timestamp()  # Now Thursday
-                await prox.eval('cron.list').list()
-                await self.agenlen(0, prox.eval('graph:node:type=d3'))  # Not yet
+                    unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
+                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
 
-                unixtime += DAYSECS
-                await prox.eval('cron.list').list()
-                await asyncio.sleep(0)
-                await self.agenlen(1, prox.eval('graph:node:type=d3'))
+                    #self.eq('d3', await getNextFoo())
+                    self.eq(0, await getFooSize())
 
-                await core.nodes(f"cron.del {guid}")
+                    unixtime += DAYSECS
+
+                    self.eq('d3', await getNextFoo())
 
                 ##################
 
                 # Test month increment
 
-                q = "cron.add --month +2 --day=4 {[graph:node='*' :type=month1]}"
-                mesgs = await core.stormlist(q)
-                unixtime = datetime.datetime(year=2019, month=2, day=4, hour=0, minute=0,
-                                             tzinfo=tz.utc).timestamp()  # Now Thursday
+                async with getCronJob("cron.add --month +2 --day=4 {$lib.queue.get(foo).put(month1)}") as guid:
 
-                await prox.eval('cron.list').list()
-                await self.agenlen(1, prox.eval('graph:node:type=month1'))
+                    unixtime = datetime.datetime(year=2019, month=2, day=4, hour=0, minute=0,
+                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+
+                    self.eq('month1', await getNextFoo())
 
                 ##################
 
                 # Test year increment
 
-                q = "cron.add --year +2 {[graph:node='*' :type=year1]}"
-                mesgs = await core.stormlist(q)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid2 = mesg[1]['mesg'].split(' ')[-1]
+                async with getCronJob("cron.add --year +2 {$lib.queue.get(foo).put(year1)}") as guid:
 
-                unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
-                                             tzinfo=tz.utc).timestamp()  # Now Thursday
+                    unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
+                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
 
-                await prox.eval('cron.list').list()
-                await asyncio.sleep(0)
-                await self.agenlen(1, prox.eval('graph:node:type=year1'))
+                    self.eq('year1', await getNextFoo())
 
                 # Make sure second-to-last day works for February
-                q = "cron.add --month February --day=-2 {[graph:node='*' :type=year2]}"
-                mesgs = await core.stormlist(q)
-                unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
-                                             tzinfo=tz.utc).timestamp()  # Now Thursday
+                async with getCronJob("cron.add --month February --day=-2 {$lib.queue.get(foo).put(year2)}") as guid:
 
-                await prox.eval('cron.list').list()
-                await asyncio.sleep(0)
-                await self.agenlen(1, prox.eval('graph:node:type=year2'))
+                    unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
+                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+
+                    self.eq('year2', await getNextFoo())
 
                 ##################
 
@@ -2385,136 +2375,89 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                q = "cron.at --minute +5 {[graph:node='*' :type=at1]}"
-                mesgs = await core.stormlist(q)
-                unixtime += 5 * MINSECS
+                async with getCronJob("cron.at --minute +5 {$lib.queue.get(foo).put(at1)}"):
 
-                await prox.eval('cron.list').list()
-                await asyncio.sleep(0)
-                self.len(1, await core.nodes('graph:node:type=at1'))
+                    unixtime += 5 * MINSECS
 
-                q = "cron.at --day +1,+7 {[graph:node='*' :type=at2]}"
-                mesgs = await core.stormlist(q)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid = mesg[1]['mesg'].split(' ')[-1]
+                    self.eq('at1', await getNextFoo())
 
-                unixtime += DAYSECS
-                await prox.eval('cron.list').list()
-                await self.agenlen(1, prox.eval('graph:node:type=at2'))
+                async with getCronJob("cron.at --day +1,+7 {$lib.queue.get(foo).put(at2)}"):
 
-                unixtime += 6 * DAYSECS + 1
-                await asyncio.sleep(0)
-                await prox.eval('cron.list').list()
-                await self.agenlen(2, prox.eval('graph:node:type=at2'))
+                    unixtime += DAYSECS
 
-                q = "cron.at --dt 202104170415 {[graph:node='*' :type=at3]}"
-                mesgs = await core.stormlist(q)
+                    self.eq('at2', await getNextFoo())
 
-                unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
-                                             tzinfo=tz.utc).timestamp()  # Now Thursday
+                    unixtime += 6 * DAYSECS + 1
 
-                await asyncio.sleep(0)
-                await prox.eval('cron.list').list()
-                await self.agenlen(1, prox.eval('graph:node:type=at3'))
+                    self.eq('at2', await getNextFoo())
 
                 ##################
 
-                # Test 'stat' command
-                mesgs = await core.stormlist('cron.stat xxx')
-                self.stormIsInErr('Provided iden does not match any', mesgs)
+                async with getCronJob("cron.at --dt 202104170415 {$lib.queue.get(foo).put(at3)}") as guid:
 
-                mesgs = await core.stormlist(f'cron.stat ""')
-                self.stormIsInErr('matches more than one', mesgs)
+                    unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
+                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
 
-                mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                self.stormIsInPrint('last result:     finished successfully with 1 nodes', mesgs)
-                self.stormIsInPrint('entries:         <None>', mesgs)
+                    self.eq('at3', await getNextFoo())
 
-                mesgs = await core.stormlist(f'cron.stat {guid2[:6]}')
-                self.stormIsInPrint("{'month': 1, 'hour': 0, 'minute': 0, 'dayofmonth': 1}", mesgs)
+                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
 
-                ##################
+                    self.stormIsInPrint('last result:     finished successfully with 0 nodes', mesgs)
+                    self.stormIsInPrint('entries:         <None>', mesgs)
 
-                # Test 'enable' 'disable' commands
-                q = f'cron.enable xxx'
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Provided iden does not match any', mesgs)
+                    # Test 'stat' command
+                    mesgs = await core.stormlist('cron.stat xxx')
+                    self.stormIsInErr('Provided iden does not match any', mesgs)
 
-                q = f'cron.disable xxx'
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Provided iden does not match any', mesgs)
+                    # Test 'enable' 'disable' commands
+                    mesgs = await core.stormlist(f'cron.enable xxx')
+                    self.stormIsInErr('Provided iden does not match any', mesgs)
 
-                q = f'cron.disable {guid[:6]}'
-                mesgs = await core.stormlist(q)
-                self.stormIsInPrint(f'Disabled cron job: {guid}', mesgs)
+                    mesgs = await core.stormlist(f'cron.disable xxx')
+                    self.stormIsInErr('Provided iden does not match any', mesgs)
 
-                mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                self.stormIsInPrint('enabled:         N', mesgs)
+                    mesgs = await core.stormlist(f'cron.disable {guid[:6]}')
+                    self.stormIsInPrint(f'Disabled cron job: {guid}', mesgs)
 
-                q = f'cron.enable {guid[:6]}'
-                mesgs = await core.stormlist(q)
-                self.stormIsInPrint(f'Enabled cron job: {guid}', mesgs)
+                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
+                    self.stormIsInPrint('enabled:         N', mesgs)
 
-                mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                self.stormIsInPrint('enabled:         Y', mesgs)
+                    mesgs = await core.stormlist(f'cron.enable {guid[:6]}')
+                    self.stormIsInPrint(f'Enabled cron job: {guid}', mesgs)
 
-                ###################
-
-                # Delete an expired at job
-                q = f"cron.del {guid}"
-                mesgs = await core.stormlist(q)
-                self.stormIsInPrint(f'Deleted cron job: {guid}', mesgs)
+                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
+                    self.stormIsInPrint('enabled:         Y', mesgs)
 
                 ##################
 
                 # Test the aliases
-                q = 'cron.add --hourly 15 {#bar}'
-                mesgs = await core.stormlist(q)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid = mesg[1]['mesg'].split(' ')[-1]
+                async with getCronJob('cron.add --hourly 15 {#foo}') as guid:
+                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
+                    self.stormIsInPrint("{'minute': 15}", mesgs)
 
-                mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                self.stormIsInPrint("{'minute': 15}", mesgs)
+                async with getCronJob('cron.add --daily 05:47 {#bar}') as guid:
+                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
+                    self.stormIsInPrint("{'hour': 5, 'minute': 47", mesgs)
 
-                q = 'cron.add --daily 05:47 {#bar}'
-                mesgs = await core.stormlist(q)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid = mesg[1]['mesg'].split(' ')[-1]
+                async with getCronJob('cron.add --monthly=-1:12:30 {#bar}') as guid:
+                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
+                    self.stormIsInPrint("{'hour': 12, 'minute': 30, 'dayofmonth': -1}", mesgs)
 
-                mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                self.stormIsInPrint("{'hour': 5, 'minute': 47", mesgs)
-
-                q = r'cron.add --monthly=-1:12:30 {#bar}'
-                mesgs = await core.stormlist(q)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid = mesg[1]['mesg'].split(' ')[-1]
-
-                mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
-                self.stormIsInPrint("{'hour': 12, 'minute': 30, 'dayofmonth': -1}", mesgs)
-
-                q = 'cron.add --yearly 04:17:12:30 {#bar}'
-                mesgs = await core.stormlist(q)
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        guid = mesg[1]['mesg'].split(' ')[-1]
+                # leave this job around for the subsequent tests
+                mesgs = await core.stormlist('cron.add --yearly 04:17:12:30 {#bar}')
+                self.stormIsInPrint('Created cron job', mesgs)
+                guid = await getCronIden()
 
                 mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
                 self.stormIsInPrint("{'month': 4, 'hour': 12, 'minute': 30, 'dayofmonth': 17}", mesgs)
 
-                q = 'cron.add --yearly 04:17:12 {#bar}'
-                mesgs = await core.stormlist(q)
+                mesgs = await core.stormlist('cron.add --yearly 04:17:12 {#bar}')
                 self.stormIsInErr('Failed to parse parameter', mesgs)
 
-                q = 'cron.add --daily xx:xx {#bar}'
-                mesgs = await core.stormlist(q)
+                mesgs = await core.stormlist('cron.add --daily xx:xx {#bar}')
                 self.stormIsInErr('Failed to parse ..ly parameter', mesgs)
 
-                q = 'cron.add --hourly 1 --minute 17 {#bar}'
-                mesgs = await core.stormlist(q)
+                mesgs = await core.stormlist('cron.add --hourly 1 --minute 17 {#bar}')
                 self.stormIsInErr('May not use both', mesgs)
 
                 # Test manipulating cron jobs as another user
