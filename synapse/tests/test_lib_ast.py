@@ -1149,16 +1149,6 @@ class AstTest(s_test.SynTest):
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('mesg'), 'Set does not support assignment.')
 
-            # Some types we have in the runtime cannot be converted to StormTypes
-            #q = '''
-            #function f(a){ return() }
-            #$f.newp="newp"
-            #'''
-            #msgs = await core.stormlist(q)
-            #erfo = [m for m in msgs if m[0] == 'err'][0]
-            #self.eq(erfo[1][0], 'NoSuchType')
-            #self.eq(erfo[1][1].get('mesg'), 'Unable to convert python primitive to StormType.')
-
     async def test_ast_initfini(self):
 
         async with self.getTestCore() as core:

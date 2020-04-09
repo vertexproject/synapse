@@ -803,7 +803,7 @@ class StormDmon(s_base.Base):
         self.count = 0
         self.status = 'initializing'
         self.err_evnt = asyncio.Event()
-        self.runlog = collections.deque()
+        self.runlog = collections.deque((), 2000)
 
         async def fini():
             if self.task is not None:
@@ -867,8 +867,6 @@ class StormDmon(s_base.Base):
 
     def _runLogAdd(self, mesg):
         self.runlog.append((s_common.now(), mesg))
-        while len(self.runlog) > 2000:
-            self.runlog.popleft()
 
     def _getRunLog(self):
         return list(self.runlog)

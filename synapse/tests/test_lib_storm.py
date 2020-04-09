@@ -303,10 +303,6 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
             self.eq(nodes[1].ndef, snode.ndef)
 
-            # invalid prop
-            #q = 'inet:search:query | scrape -p engine foobarbaz'
-            #await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
-
             # different forms, same prop name
             q = 'inet:search:query inet:banner | scrape -p :text'
             nodes = await core.nodes(q)
