@@ -41,7 +41,6 @@ class BadCmprType(SynErr):
     '''
 
 class BadCast(SynErr): pass
-class BadJson(SynErr): pass
 class BadConfValu(SynErr):
     '''
     The configuration value provided is not valid.
@@ -203,6 +202,8 @@ class DmonSpawn(SynErr):
     aborting standard calls, generators, and async generators ).
     '''
     pass
+
+class SchemaViolation(SynErr): pass
 
 class SlabAlreadyOpen(SynErr): pass
 class SpawnExit(SynErr): pass

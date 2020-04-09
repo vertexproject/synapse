@@ -3778,10 +3778,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchIden):
                         await prox.delStormDmon(iden)
 
-                    with self.raises(s_exc.BadJson):
+                    with self.raises(s_exc.SchemaViolation):
                         await core.runStormDmon(iden, {})
 
-                    with self.raises(s_exc.BadJson):
+                    with self.raises(s_exc.SchemaViolation):
                         await core.runStormDmon(iden, {'user': 'XXX'})
 
             async with await s_cortex.Cortex.anit(dirn) as core:
@@ -4252,21 +4252,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # await core.addStormPkg(base_pkg)
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('name')
-                with self.raises(s_exc.BadJson) as cm:
+                with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
-                with self.raises(s_exc.BadJson) as cm:
+                with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['modules'][0].pop('name')
-                with self.raises(s_exc.BadJson) as cm:
+                with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'storm'] properties")

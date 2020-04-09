@@ -77,7 +77,7 @@ def getJsValidator(schema):
         try:
             return func(*args, **kwargs)
         except JsonSchemaException as e:
-            raise s_exc.BadJson(mesg=e.message, name=e.name)
+            raise s_exc.SchemaViolation(mesg=e.message, name=e.name)
 
     _JsValidators[key] = wrap
     return wrap
@@ -260,7 +260,7 @@ class Config(c_abc.MutableMapping):
         '''
         try:
             self.validator(self.conf)
-        except s_exc.BadJson as e:
+        except s_exc.SchemaViolation as e:
             logger.exception('Configuration is invalid.')
             raise s_exc.BadConfValu(mesg=f'Invalid configuration found: [{str(e)}]') from None
         else:
