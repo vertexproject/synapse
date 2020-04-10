@@ -242,6 +242,7 @@ What you need to do
     ========== ======================================== =============================== ======================================
     movetags   No longer takes ``#`` prefixes on tags.  ``movetags #foo.bar #baz.faz``  ``movetags foo.bar baz.faz``
     min/max    No longer take full property names       ``min file:bytes:size``         ``min :size``
+    scrape     Argument convention refactored.          ``scrape --props foo``          ``scrape :foo``
     ========== ======================================== =============================== ======================================
 
 Additional Changes
