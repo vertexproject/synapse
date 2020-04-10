@@ -324,7 +324,8 @@ class StormTest(s_t_utils.SynTest):
             guid = s_common.guid()
 
             await core.nodes(f'[ inet:search:query={guid} :text="hi there 5.5.5.5" ]')
-            nodes = await core.nodes('inet:search:query | scrape :text')
+            # test the special runtsafe but still per-node invocation
+            nodes = await core.nodes('inet:search:query | scrape')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'inet:search:query')
 
@@ -771,7 +772,56 @@ class StormTest(s_t_utils.SynTest):
                 self.len(0, nodes)
 
     async def test_storm_argv_parser(self):
+
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('--hehe')
         self.none(pars.parse_args(['--lol']))
         self.isin("ERROR: Expected 0 positional arguments. Got 1: ['--lol']", pars.mesgs)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--no-foo', default=True, action='store_false')
+        opts = pars.parse_args(['--no-foo'])
+        self.false(opts.no_foo)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada')
+        self.none(pars.parse_args(['--yada']))
+        self.true(pars.exited)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', action='append')
+        self.none(pars.parse_args(['--yada']))
+        self.true(pars.exited)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', nargs='?')
+        opts = pars.parse_args(['--yada'])
+        self.none(opts.yada)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', nargs='+')
+        self.none(pars.parse_args(['--yada']))
+        self.true(pars.exited)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', type=int)
+        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.true(pars.exited)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--star', nargs='*')
+        pars.help()
+        helptext = '\n'.join(pars.mesgs)
+        self.isin('--star [<star> ...]', helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--plus', nargs='+')
+        pars.help()
+        helptext = '\n'.join(pars.mesgs)
+        self.isin('--plus <plus> [<plus> ...]', helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs='?')
+        pars.help()
+        helptext = '\n'.join(pars.mesgs)
+        self.isin('-ques [ques]', helptext)

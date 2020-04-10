@@ -40,6 +40,31 @@ class CortexTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
 
+    async def test_cortex_storm_dmon_log(self):
+
+        async with self.getTestCore() as core:
+
+            iden = await core.callStorm('''
+                $que = $lib.queue.add(que)
+
+                $ddef = $lib.dmon.add(${
+                    $lib.print(hi)
+                    $lib.warn(omg)
+                    $que = $lib.queue.get(que)
+                    $que.put(done)
+                })
+
+                $que.get()
+                return($ddef.iden)
+            ''')
+
+            opts = {'vars': {'iden': iden}}
+            logs = await core.callStorm('return($lib.dmon.log($iden))', opts=opts)
+            self.eq(logs[0][1][0], 'print')
+            self.eq(logs[0][1][1]['mesg'], 'hi')
+            self.eq(logs[1][1][0], 'warn')
+            self.eq(logs[1][1][1]['mesg'], 'omg')
+
     async def test_storm_impersonate(self):
 
         async with self.getTestCore() as core:

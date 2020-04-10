@@ -1160,23 +1160,6 @@ class Runtime:
                 continue
             self.vars[name] = valu
 
-    async def propDownVars(self, runt):
-        '''
-        Propagate down the vars from a called runtime (passed in by parameter) that are not functions
-        and do not conflict with the sub-runtime (self).
-        '''
-        for name, valu in runt.vars.items():
-            if valu is s_common.novalu:
-                continue
-            if not self.canPropName(name):
-                # don't override the function in the sub-runtime
-                continue
-            if name in self.runtvars:
-                # don't propagate vars already defined as runtvars
-                continue
-            self.setVar(name, valu)
-            self.runtvars.add(name)
-
 class Parser:
 
     def __init__(self, prog=None, descr=None, root=None):
@@ -1452,7 +1435,7 @@ class Parser:
             return f'[<{dest}> ...]'
 
         if nargs == '+':
-            return f'<{dest}> [<{dest}>...]'
+            return f'<{dest}> [<{dest}> ...]'
 
         if nargs == '?':
             return f'[{dest}]'
@@ -1523,7 +1506,7 @@ class Cmd:
 
         try:
             self.opts = self.pars.parse_args(self.argv)
-        except s_exc.BadSyntax:
+        except s_exc.BadSyntax: # pragma: no cover
             pass
 
         for line in self.pars.mesgs:
@@ -1531,7 +1514,7 @@ class Cmd:
 
         return not self.pars.exited
 
-    async def execStormCmd(self, runt, genr):
+    async def execStormCmd(self, runt, genr): # pragma: no cover
         ''' Abstract base method '''
         raise s_exc.NoSuchImpl('Subclass must implement execStormCmd')
         for item in genr:
@@ -1617,10 +1600,6 @@ class PureCmd(Cmd):
                     # for each node, so we need to remap cmdopts into our path
                     path.initframe(initvars={'cmdopts': vars(self.opts)}, initrunt=subr)
                     yield node, path
-
-                # when there are no inbound nodes prop down the vars if they don't conflict
-                #if not hasnodes:
-                    #await subr.propDownVars(runt)
 
             subr.loadRuntVars(query)
 
@@ -2336,8 +2315,9 @@ class ScrapeCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if self.runtsafe:
+        if self.runtsafe and len(self.opts.values):
 
+            # a bit of a special case.  we may be runtsafe with 0
             async for nodepath in genr:
                 if not self.opts.doyield:
                     yield nodepath
