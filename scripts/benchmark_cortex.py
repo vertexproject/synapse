@@ -281,6 +281,13 @@ class Benchmarker:
         assert count == self.workfactor
         return count
 
+    @benchmark({'addnodes'})
+    async def do07AAddNodesSync(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acount(prox.addNodes(self.testdata.asns2))
+        core.view.layers[0].layrslab.lenv.sync()
+        assert count == self.workfactor
+        return count
+
     @benchmark({'official', 'addnodes'})
     async def do07BAddNodesSimpleProp(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         '''
@@ -355,6 +362,7 @@ class Benchmarker:
                     yappi.start()
                 start = time.time()
                 count = await coro(core, prox)
+                core.view.layers[0].layrslab.forcecommit()
                 self.measurements[name].append((time.time() - start, count))
                 if do_profiling:
                     yappi.stop()
