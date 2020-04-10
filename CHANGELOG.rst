@@ -3,6 +3,25 @@ Synapse Changelog
 *****************
 
 
+v0.1.58 - 2019-04-10
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add Storm syntax for easily adding and removing elements from array properties.
+  (`#1670 <https://github.com/vertexproject/synapse/pull/1670>`_)
+  (`#1672 <https://github.com/vertexproject/synapse/pull/1672>`_)
+- Add ``risk`` model with attack, campaign and vulnerability forms.
+  (`#1665 <https://github.com/vertexproject/synapse/pull/1665>`_)
+  (`#1673 <https://github.com/vertexproject/synapse/pull/1673>`_)
+- Add Storm ``tree`` command to facilitate recursive tree walking of nodes.
+  (`#1665 <https://github.com/vertexproject/synapse/pull/1665>`_)
+  (`#1673 <https://github.com/vertexproject/synapse/pull/1673>`_)
+- Add ``:rss:feed`` property to ``media:news`` form. This was cherry-picked from master.
+  (`#1674 <https://github.com/vertexproject/synapse/pull/1674>`_)
+
+
 v0.1.57 - 2019-04-03
 ====================
 
