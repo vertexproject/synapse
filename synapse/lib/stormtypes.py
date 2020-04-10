@@ -828,6 +828,9 @@ class Prim(StormType):
         StormType.__init__(self, path=path)
         self.valu = valu
 
+    def __len__(self):
+        return len(self.valu)
+
     def value(self):
         return self.valu
 
@@ -986,9 +989,6 @@ class Set(Prim):
             'size': self._methSetSize,
         })
 
-    def __len__(self):
-        return len(self.valu)
-
     def __iter__(self):
         for item in self.valu:
             yield item
@@ -1031,9 +1031,6 @@ class List(Prim):
             'length': self._methListLength,
             'append': self._methListAppend,
         })
-
-    def __len__(self):
-        return len(self.valu)
 
     def __iter__(self):
         for item in self.valu:

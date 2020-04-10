@@ -285,7 +285,10 @@ class StormTest(s_t_utils.SynTest):
                 self.len(0, await core.nodes('test:guid | min :newp'))
 
             # test that intervals work
+            maxnodes = await core.nodes('[ ou:org=* ]')
+            maxnodes = await core.nodes('[ ou:org=* +#minmax ]')
             minnodes = await core.nodes('[ ou:org=* +#minmax=(1981, 2010) ]')
+            midnodes = await core.nodes('[ ou:org=* +#minmax=(1982, 2018) ]')
             maxnodes = await core.nodes('[ ou:org=* +#minmax=(1997, 2020) ]')
 
             testmin = await core.nodes('ou:org | min #minmax')
@@ -295,57 +298,45 @@ class StormTest(s_t_utils.SynTest):
             self.eq(testmax[0].ndef, maxnodes[0].ndef)
 
     async def test_scrape(self):
+
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                guid = s_common.guid()
-                snode = await snap.addNode('inet:search:query', guid,
-                                           {'text': 'what about 1.2.3.4',
-                                            'time': '2019-04-04 17:03',
-                                            'engine': 'google',
-                                            })
-                await snap.addNode('inet:banner', ('tcp://2.4.6.8:80', 'this is a test foo@bar.com'))
 
-            q = 'inet:search:query | scrape -p :text :engine'
-            nodes = await core.nodes(q)
+            # runtsafe tests
+            nodes = await core.nodes('$foo=6.5.4.3 | scrape $foo')
+            self.len(0, nodes)
+
+            self.len(1, await core.nodes('inet:ipv4=6.5.4.3'))
+
+            nodes = await core.nodes('$foo=6.5.4.3 | scrape $foo --yield')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x06050403))
 
-            q = 'inet:search:query | scrape --refs'
-            nodes = await core.nodes(q)
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.eq(nodes[1].ndef, ('edge:refs', (snode.ndef, nodes[0].ndef)))
-
-            q = 'inet:search:query | scrape --join'
-            nodes = await core.nodes(q)
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.eq(nodes[1].ndef, snode.ndef)
-
-            # different forms, same prop name
-            q = 'inet:search:query inet:banner | scrape -p :text'
-            nodes = await core.nodes(q)
-            self.len(3, nodes)
-
-            # one has it, but the other doesn't, so boom
-            q = 'inet:search:query inet:banner | scrape -p :engine'
-            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
-
-            # make sure we handle .seen(i.e. non-str reprs)
-            qtxt = 'ns1.twiter-statics.info'
-            async with await core.snap() as snap:
-                guid = s_common.guid()
-                snode = await snap.addNode('inet:search:query', guid,
-                                           {'text': qtxt,
-                                               'time': '2019-04-04 17:03',
-                                               '.seen': ('2018/11/08 18:21:15.423', '2018/11/08 18:21:15.424'),
-                                               'engine': 'google',
-                                            })
-
-            q = f'inet:search:query:text={qtxt} | scrape'
-            nodes = await core.nodes(q)
+            nodes = await core.nodes('[inet:ipv4=9.9.9.9 ] $foo=6.5.4.3 | scrape $foo')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:fqdn', qtxt))
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x09090909))
+
+            nodes = await core.nodes('[inet:ipv4=9.9.9.9 ] $foo=6.5.4.3 | scrape $foo --yield')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x06050403))
+
+            # per-node tests
+
+            guid = s_common.guid()
+
+            await core.nodes(f'[ inet:search:query={guid} :text="hi there 5.5.5.5" ]')
+            nodes = await core.nodes('inet:search:query | scrape :text')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:search:query')
+
+            self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
+
+            nodes = await core.nodes('inet:search:query | scrape :text --yield')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+
+            nodes = await core.nodes('inet:search:query | scrape :text --refs --yield')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('edge:refs', (('inet:search:query', guid), ('inet:ipv4', 0x05050505))))
 
     async def test_storm_tee(self):
 

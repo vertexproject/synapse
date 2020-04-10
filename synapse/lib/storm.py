@@ -1779,7 +1779,13 @@ class MaxCmd(Cmd):
         async for item in genr:
 
             valu = await s_stormtypes.toprim(self.opts.valu)
+            if valu is None:
+                continue
+
             if isinstance(valu, (list, tuple)):
+                if valu == (None, None):
+                    continue
+
                 ival, info = ivaltype.norm(valu)
                 valu = ival[1]
 
@@ -1818,12 +1824,14 @@ class MinCmd(Cmd):
 
         async for node, path in genr:
 
-            if self.opts.valu is None:
+            valu = await s_stormtypes.toprim(self.opts.valu)
+            if valu is None:
                 continue
 
-            valu = await s_stormtypes.toprim(self.opts.valu)
-
             if isinstance(valu, (list, tuple)):
+                if valu == (None, None):
+                    continue
+
                 ival, info = ivaltype.norm(valu)
                 valu = ival[0]
 
@@ -2307,7 +2315,10 @@ class ScrapeCmd(Cmd):
         inet:search:query | scrape --refs
 
         # Scrape only the :engine and :text props from the inbound nodes.
-        inet:search:query | scrape --props :text :engine
+        inet:search:query | scrape :text :engine
+
+        # Scrape properties inbound nodes and yield newly scraped nodes.
+        inet:search:query | scrape --yield
     '''
 
     name = 'scrape'
@@ -2315,48 +2326,60 @@ class ScrapeCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
 
-        pars.add_argument('--props', '-p', nargs='+', type=str, default=[],
-                          help='Specify relative properties to scrape')
         pars.add_argument('--refs', '-r', default=False, action='store_true',
-                          help='Create edge:refs to any scraped nodes from the source node')
-        pars.add_argument('-j', '--join', default=False, action='store_true',
-                          help='Include source nodes in the output of the command.')
-
+                          help='Create edge:refs to any scraped nodes from the input node')
+        pars.add_argument('--yield', dest='doyield', default=False, action='store_true',
+                          help='Include newly scraped nodes (or edge:refs if --refs) in the output')
+        pars.add_argument('values', nargs='*',
+                          help='Specific relative properties or variables to scrape')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        # TODO make a runtsafe scrape that can produce nodes (without refs) from runtsafe vars
-        # TODO --props option should probably change name eventually
+        if self.runtsafe:
+
+            async for nodepath in genr:
+                if not self.opts.doyield:
+                    yield nodepath
+
+            for item in self.opts.values:
+                text = str(await s_stormtypes.toprim(item))
+
+                for form, valu in s_scrape.scrape(text):
+                    addnode = await runt.snap.addNode(form, valu)
+                    if self.opts.doyield:
+                        yield addnode, runt.initPath(addnode)
+
+            return
 
         async for node, path in genr:  # type: s_node.Node, s_node.Path
 
             refs = await s_stormtypes.toprim(self.opts.refs)
 
             #TODO some kind of repr or as-string option on toprims
-            proplist = await s_stormtypes.toprim(self.opts.props)
+            todo = await s_stormtypes.toprim(self.opts.values)
 
             # if a list of props haven't been specified, then default to ALL of them
-            if not proplist:
-                proplist = list(node.props.values())
+            if not todo:
+                todo = list(node.props.values())
 
-            for prop in proplist:
+            for text in todo:
 
-                prop = str(prop)
+                text = str(text)
 
-                for form, valu in s_scrape.scrape(prop):
+                for form, valu in s_scrape.scrape(text):
+
+                    if refs:
+                        valu = (node.ndef, (form, valu))
+                        form = 'edge:refs'
 
                     nnode = await node.snap.addNode(form, valu)
                     npath = path.fork(nnode)
 
-                    yield nnode, npath
+                    if self.opts.doyield:
+                        yield nnode, npath
 
-                    if refs:
-                        rnode = await node.snap.addNode('edge:refs', (node.ndef, nnode.ndef))
-                        rpath = path.fork(rnode)
-                        yield rnode, rpath
-
-            if self.opts.join:
+            if not self.opts.doyield:
                 yield node, path
 
 class SpliceListCmd(Cmd):
