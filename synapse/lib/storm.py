@@ -1350,7 +1350,17 @@ class Parser:
         if nargs in ('*', '+'):
 
             while todo and not self._is_opt(todo[0]):
-                vals.append(todo.popleft())
+
+                valu = todo.popleft()
+
+                if argtype is not None:
+                    try:
+                        valu = argtype(valu)
+                    except Exception:
+                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        return self.help(mesg=mesg)
+
+                vals.append(valu)
 
             if nargs == '+' and len(vals) == 0:
                 mesg = 'At least one argument is required for {name}.'

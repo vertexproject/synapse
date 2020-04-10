@@ -65,6 +65,15 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(logs[1][1][0], 'warn')
             self.eq(logs[1][1][1]['mesg'], 'omg')
 
+            async with core.getLocalProxy() as prox:
+                logs = await prox.getStormDmonLog(iden)
+                self.eq(logs[0][1][0], 'print')
+                self.eq(logs[0][1][1]['mesg'], 'hi')
+                self.eq(logs[1][1][0], 'warn')
+                self.eq(logs[1][1][1]['mesg'], 'omg')
+
+                self.len(0, await prox.getStormDmonLog('newp'))
+
     async def test_storm_impersonate(self):
 
         async with self.getTestCore() as core:

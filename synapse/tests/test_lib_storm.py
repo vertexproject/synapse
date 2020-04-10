@@ -808,6 +808,7 @@ class StormTest(s_t_utils.SynTest):
         self.none(pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
 
+        # check help output formatting of optargs
         pars = s_storm.Parser()
         pars.add_argument('--star', nargs='*')
         pars.help()
@@ -824,4 +825,36 @@ class StormTest(s_t_utils.SynTest):
         pars.add_argument('--ques', nargs='?')
         pars.help()
         helptext = '\n'.join(pars.mesgs)
-        self.isin('-ques [ques]', helptext)
+        self.isin('--ques [ques]', helptext)
+
+        # test some nargs type intersections
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs='?', type=int)
+        self.none(pars.parse_args(['--ques', 'asdf']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs='*', type=int)
+        self.none(pars.parse_args(['--ques', 'asdf']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs='+', type=int)
+        self.none(pars.parse_args(['--ques', 'asdf']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('foo', type=int)
+        self.none(pars.parse_args(['asdf']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+
+        # argument count mismatch
+        pars = s_storm.Parser()
+        pars.add_argument('--ques')
+        self.none(pars.parse_args(['--ques']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("An argument is required for --ques", helptext)
