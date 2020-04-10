@@ -205,6 +205,8 @@ class Benchmarker:
                     if lockmemory:
                         await core.view.layers[0].layrslab.lockdoneevent.wait()
 
+                    await core.view.layers[0].layrslab.sync()
+
                     yield core, prox
 
     @benchmark()
