@@ -4,6 +4,7 @@ import asyncio
 import itertools
 import contextlib
 
+import synapse.exc as s_exc
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
@@ -251,6 +252,20 @@ class SyncTest(s_t_utils.SynTest):
             mesgs = await core.stormlist(f'migrsync.status')
             self.eq(4, ''.join([x[1].get('mesg') for x in mesgs if x[0] == 'print']).count('active'))
 
+            # enable/disable migrationMode
+            self.false(core.agenda.enabled)
+            self.false(core.trigson)
+
+            mesgs = await core.stormlist(f'migrsync.migrationmode.disable')
+            self.stormIsInPrint('migrationMode successfully disabled', mesgs)
+            self.true(core.agenda.enabled)
+            self.true(core.trigson)
+
+            mesgs = await core.stormlist(f'migrsync.migrationmode.enable')
+            self.stormIsInPrint('migrationMode successfully enabled', mesgs)
+            self.false(core.agenda.enabled)
+            self.false(core.trigson)
+
     async def test_startSyncFromFile(self):
         conf_sync = {
             'poll_s': 1,
@@ -339,6 +354,12 @@ class SyncTest(s_t_utils.SynTest):
                 stopres = await syncprx.stopSync()
                 self.len(2, stopres)  # returns the two layers stopped
 
+                retn = await syncprx.enableMigrationMode()
+                self.isin('encountered an error', retn)
+
+                retn = await syncprx.disableMigrationMode()
+                self.isin('encountered an error', retn)
+
     async def test_startSyncFromLast(self):
         conf_sync = {
             'poll_s': 1,
@@ -410,6 +431,11 @@ class SyncTest(s_t_utils.SynTest):
                 self.false(sync.push_tasks[wlyr.iden].done())
                 self.false(sync._queues[wlyr.iden].isfini)
 
+                # trigger migrmode reset on connection drop
+                sync.migrmode_evnt.clear()
+                task = sync.schedCoro(sync._destPushLyrNodeedits(wlyr.iden))
+                self.true(await s_coro.event_wait(sync.migrmode_evnt, timeout=5))
+
     async def test_sync_assvr(self):
         with self.getTestDir() as dirn, self.withSetLoggingMock():
             argv = [
@@ -434,6 +460,15 @@ class SyncTest(s_t_utils.SynTest):
                 lyriden = '75adb79a576b31a65f0a1afad5d90665'
                 self.raises(s_sync.SyncInvalidTelepath, sync._getLayerUrl, 'baz://0.0.0.0:123', lyriden)
                 self.eq(f'{tbase}/cortex/layer/{lyriden}', sync._getLayerUrl(tbase, lyriden))
+
+                self.none(sync.migrmode.valu)
+                await self.asyncraises(s_exc.BadTypeValu, sync.setMigrationModeOverride('foobar'))
+                await sync.setMigrationModeOverride(True)
+                self.true(sync.migrmode.valu)
+
+            # check that migrmode override persists
+            async with await s_sync.SyncMigrator.initFromArgv(argv) as sync:
+                self.true(sync.migrmode.valu)
 
     async def test_sync_srcIterLyrSplices(self):
         async with self._getSyncSvc() as (core, turl, fkcore, fkurl, sync):
