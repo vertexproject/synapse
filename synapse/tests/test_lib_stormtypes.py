@@ -207,6 +207,24 @@ class StormTypesTest(s_test.SynTest):
             self.eq(erfo[1][0], 'NoSuchName')
             self.eq(erfo[1][1].get('name'), 'newp')
 
+            # lib.len()
+            opts = {
+                'vars': {
+                    'true': True,
+                    'list': [1, 2, 3],
+                    'dict': {'k1': 'v1', 'k2': 'v2'}
+                }
+            }
+
+            msgs = await core.stormlist('$lib.print($lib.len($list))', opts=opts)
+            self.stormIsInPrint('3', msgs)
+            msgs = await core.stormlist('$lib.print($lib.len($dict))', opts=opts)
+            self.stormIsInPrint('2', msgs)
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$lib.print($lib.len($true))', opts=opts)
+            self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
+
     async def test_storm_lib_query(self):
         async with self.getTestCore() as core:
             # basic
@@ -1454,10 +1472,6 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
             self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
-
-            with self.raises(s_exc.StormRuntimeError) as cm:
-                _ = await core.nodes('$t = $lib.stats.tally() $lib.print($lib.len($t))')
-            self.eq(cm.exception.get('mesg'), 'Object synapse.lib.stormtypes.StatTally does not have a length.')
 
     async def test_storm_lib_layer(self):
 
