@@ -335,7 +335,11 @@ class LibBase(Lib):
         return s_common.guid()
 
     async def _len(self, item):
-        return len(item)
+        try:
+            return len(item)
+        except TypeError:
+            name = f'{item.__module__}.{item.__class__.__name__}'
+            raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name) from None
 
     async def _min(self, *args):
         # allow passing in a list of ints
@@ -829,7 +833,7 @@ class Prim(StormType):
         self.valu = valu
 
     def __len__(self):
-        name = self.__class__.__name
+        name = f'{self.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
 
     def value(self):
@@ -1468,9 +1472,6 @@ class Path(Prim):
             'listvars': self._methPathListVars,
             'vars': PathVars(path),
         })
-
-    def __len__(self):
-        return len(self.valu.nodes)
 
     async def _methPathIdens(self):
         return [n.iden() for n in self.valu.nodes]
