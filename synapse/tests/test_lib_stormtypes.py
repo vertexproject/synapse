@@ -1455,6 +1455,10 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
 
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                _ = await core.nodes('$t = $lib.stats.tally() $lib.print($lib.len($t))')
+            self.eq(cm.exception.get('mesg'), 'Object synapse.lib.stormtypes.StatTally does not have a length.')
+
     async def test_storm_lib_layer(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -2796,6 +2800,10 @@ class StormTypesTest(s_test.SynTest):
             self.eq(20, props['asn'])
 
             self.eq(0x01020304, await core.callStorm('inet:ipv4=1.2.3.4 return($node)'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                _ = await core.nodes('inet:ipv4=1.2.3.4 $lib.print($lib.len($node))')
+            self.eq(cm.exception.get('mesg'), 'Object synapse.lib.node.Node does not have a length.')
 
     async def test_stormtypes_toprim(self):
 
