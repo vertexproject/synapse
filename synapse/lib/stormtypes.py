@@ -829,7 +829,8 @@ class Prim(StormType):
         self.valu = valu
 
     def __len__(self):
-        return len(self.valu)
+        name = self.__class__.__name
+        raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
 
     def value(self):
         return self.valu
@@ -846,6 +847,9 @@ class Str(Prim):
             'rjust': self._methStrRjust,
             'encode': self._methEncode,
         })
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methEncode(self, encoding='utf8'):
         '''
@@ -894,6 +898,9 @@ class Bytes(Prim):
             'gzip': self._methGzip,
             'json': self._methJsonLoad,
         })
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methDecode(self, encoding='utf8'):
         '''
@@ -966,6 +973,9 @@ class Dict(Prim):
         for item in self.valu.items():
             yield item
 
+    def __len__(self):
+        return len(self.valu)
+
     async def setitem(self, name, valu):
         self.valu[name] = valu
 
@@ -996,6 +1006,9 @@ class Set(Prim):
     async def __aiter__(self):
         for item in self.valu:
             yield item
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methSetSize(self):
         return len(self)
@@ -1039,6 +1052,9 @@ class List(Prim):
     async def __aiter__(self):
         for item in self:
             yield item
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methListHas(self, valu):
 
@@ -1453,6 +1469,9 @@ class Path(Prim):
             'vars': PathVars(path),
         })
 
+    def __len__(self):
+        return len(self.valu.nodes)
+
     async def _methPathIdens(self):
         return [n.iden() for n in self.valu.nodes]
 
@@ -1489,6 +1508,9 @@ class Text(Prim):
             'add': self._methTextAdd,
             'str': self._methTextStr,
         })
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methTextAdd(self, text, **kwargs):
         text = kwarg_format(text, **kwargs)
@@ -1721,6 +1743,9 @@ class View(Prim):
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
         })
+
+    def __len__(self):
+        return len(self.valu.get('layers', ()))
 
     async def _methViewGet(self, name, defv=None):
         return self.valu.get(name, defv)
