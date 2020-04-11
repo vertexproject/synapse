@@ -2208,7 +2208,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint(':type=m1', mesgs)
 
                 # Make sure it ran
-                self.len(1, await core.nodes('graph:node:type=m1'))
+                await self.agenlen(1, prox.eval('graph:node:type=m1'))
 
                 # Make sure the provenance of the new splices looks right
                 splices = await alist(prox.splices(nextoffs, 1000))
@@ -2239,9 +2239,9 @@ class StormTypesTest(s_test.SynTest):
                 # Make sure the old one didn't run and the new query ran
                 unixtime += 60
                 await asyncio.sleep(0)
-                self.len(1, await core.nodes('graph:node:type=m1'))
+                await self.agenlen(1, prox.eval('graph:node:type=m1'))
                 await asyncio.sleep(0)
-                self.len(1, await core.nodes('graph:node:type=m2'))
+                await self.agenlen(1, prox.eval('graph:node:type=m2'))
 
                 # Delete the job
                 q = f"cron.del {guid}"
@@ -2258,8 +2258,8 @@ class StormTypesTest(s_test.SynTest):
 
                 # Make sure deleted job didn't run
                 unixtime += 60
-                self.len(1, await core.nodes('graph:node:type=m1'))
-                self.len(1, await core.nodes('graph:node:type=m2'))
+                await self.agenlen(1, prox.eval('graph:node:type=m1'))
+                await self.agenlen(1, prox.eval('graph:node:type=m2'))
 
                 # Test fixed minute, i.e. every hour at 17 past
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,

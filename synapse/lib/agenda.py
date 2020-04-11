@@ -756,9 +756,8 @@ class Agenda(s_base.Base):
             starttime = time.time()
             try:
                 opts = {'user': user.iden}
-                async for mesg in self.core.storm(appt.query, opts=opts):
-                    if mesg[0] == 'node':
-                        count += 1
+                async for _ in self.core.eval(appt.query, opts=opts):
+                    count += 1
             except asyncio.CancelledError:
                 result = 'cancelled'
                 raise
