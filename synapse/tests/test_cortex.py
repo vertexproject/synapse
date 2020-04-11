@@ -40,6 +40,40 @@ class CortexTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
 
+    async def test_cortex_storm_dmon_log(self):
+
+        async with self.getTestCore() as core:
+
+            iden = await core.callStorm('''
+                $que = $lib.queue.add(que)
+
+                $ddef = $lib.dmon.add(${
+                    $lib.print(hi)
+                    $lib.warn(omg)
+                    $que = $lib.queue.get(que)
+                    $que.put(done)
+                })
+
+                $que.get()
+                return($ddef.iden)
+            ''')
+
+            opts = {'vars': {'iden': iden}}
+            logs = await core.callStorm('return($lib.dmon.log($iden))', opts=opts)
+            self.eq(logs[0][1][0], 'print')
+            self.eq(logs[0][1][1]['mesg'], 'hi')
+            self.eq(logs[1][1][0], 'warn')
+            self.eq(logs[1][1][1]['mesg'], 'omg')
+
+            async with core.getLocalProxy() as prox:
+                logs = await prox.getStormDmonLog(iden)
+                self.eq(logs[0][1][0], 'print')
+                self.eq(logs[0][1][1]['mesg'], 'hi')
+                self.eq(logs[1][1][0], 'warn')
+                self.eq(logs[1][1][1]['mesg'], 'omg')
+
+                self.len(0, await prox.getStormDmonLog('newp'))
+
     async def test_storm_impersonate(self):
 
         async with self.getTestCore() as core:
@@ -1648,7 +1682,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # test invalid option syntax
             msgs = await alist(core.storm('inet:user | limit --woot'))
-            self.printed(msgs, 'usage: limit [-h] count')
+            self.printed(msgs, 'Usage: limit [options] <count>')
             self.len(0, [m for m in msgs if m[0] == 'node'])
 
     async def test_onsetdel(self):
@@ -2157,7 +2191,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 :asn=1138 +#deathstar]'
             await core.nodes(q)
 
-            q = '#deathstar | graph --degree 2 --refs'
+            q = '#deathstar | graph --degrees 2 --refs'
             ndefs = set()
             async with await core.snap() as snap:
                 async for node, path in snap.storm(q):
@@ -3778,10 +3812,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchIden):
                         await prox.delStormDmon(iden)
 
-                    with self.raises(fastjsonschema.exceptions.JsonSchemaException):
+                    with self.raises(s_exc.SchemaViolation):
                         await core.runStormDmon(iden, {})
 
-                    with self.raises(fastjsonschema.exceptions.JsonSchemaException):
+                    with self.raises(s_exc.SchemaViolation):
                         await core.runStormDmon(iden, {'user': 'XXX'})
 
             async with await s_cortex.Cortex.anit(dirn) as core:
@@ -4252,23 +4286,23 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # await core.addStormPkg(base_pkg)
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('name')
-                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
+                with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.message,
+                self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
-                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
+                with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.message,
+                self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['modules'][0].pop('name')
-                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
+                with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.message,
+                self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'storm'] properties")
 
                 pkg = copy.deepcopy(base_pkg)

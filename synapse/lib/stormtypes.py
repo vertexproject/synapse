@@ -37,11 +37,15 @@ def intify(x):
 
         try:
             return int(x, 0)
+        except ValueError as e:
+            mesg = f'Failed to make an integer from "{x}".'
+            raise s_exc.BadCast(mesg=mesg) from e
 
-        except ValueError:
-            return len(x) > 0
-
-    return int(x)
+    try:
+        return int(x)
+    except Exception as e:
+        mesg = f'Failed to make an integer from "{x}".'
+        raise s_exc.BadCast(mesg=mesg) from e
 
 def intOrNoneify(x):
     if x is None:
@@ -152,6 +156,7 @@ class LibDmon(Lib):
         self.locls.update({
             'add': self._libDmonAdd,
             'del': self._libDmonDel,
+            'log': self._libDmonLog,
             'list': self._libDmonList,
         })
 
@@ -169,6 +174,10 @@ class LibDmon(Lib):
 
     async def _libDmonList(self):
         return await self.runt.snap.core.getStormDmons()
+
+    async def _libDmonLog(self, iden):
+        self.runt.user.confirm(('dmon', 'log'))
+        return await self.runt.snap.core.getStormDmonLog(iden)
 
     async def _libDmonAdd(self, quer, name='noname'):
         '''
@@ -263,6 +272,7 @@ class LibBase(Lib):
             'true': True,
             'false': False,
             'text': self._text,
+            'cast': self._cast,
             'warn': self._warn,
             'print': self._print,
             'sorted': self._sorted,
@@ -289,6 +299,21 @@ class LibBase(Lib):
         modlib.locls.update(runt.vars)
         modlib.locls['__module__'] = mdef
         return modlib
+
+    async def _cast(self, name, valu):
+
+        name = await toprim(name)
+        valu = await toprim(valu)
+
+        typeitem = self.runt.snap.core.model.type(name)
+        if typeitem is None:
+            mesg = f'No type found for name {name}.'
+            raise s_exc.NoSuchType(mesg=mesg)
+
+        #TODO an eventual mapping between model types and storm prims
+
+        norm, info = typeitem.norm(valu)
+        return fromprim(norm, basetypes=False)
 
     async def _sorted(self, valu):
         for item in sorted(valu):
@@ -803,6 +828,9 @@ class Prim(StormType):
         StormType.__init__(self, path=path)
         self.valu = valu
 
+    def __len__(self):
+        return len(self.valu)
+
     def value(self):
         return self.valu
 
@@ -961,9 +989,6 @@ class Set(Prim):
             'size': self._methSetSize,
         })
 
-    def __len__(self):
-        return len(self.valu)
-
     def __iter__(self):
         for item in self.valu:
             yield item
@@ -1000,14 +1025,12 @@ class List(Prim):
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
+            'has': self._methListHas,
             'size': self._methListSize,
             'index': self._methListIndex,
             'length': self._methListLength,
             'append': self._methListAppend,
         })
-
-    def __len__(self):
-        return len(self.valu)
 
     def __iter__(self):
         for item in self.valu:
@@ -1016,6 +1039,17 @@ class List(Prim):
     async def __aiter__(self):
         for item in self:
             yield item
+
+    async def _methListHas(self, valu):
+
+        if valu in self.valu:
+            return True
+
+        prim = await toprim(valu)
+        if prim == valu:
+            return False
+
+        return prim in self.valu
 
     async def _methListAppend(self, valu):
         self.valu.append(valu)
@@ -1155,11 +1189,11 @@ class LibVars(Lib):
             'list': self._libVarsList,
         })
 
-    async def _libVarsGet(self, name):
+    async def _libVarsGet(self, name, defv=None):
         '''
         Resolve a variable in a storm query
         '''
-        return self.runt.getVar(name, defv=s_common.novalu)
+        return self.runt.getVar(name, defv=defv)
 
     async def _libVarsSet(self, name, valu):
         '''
@@ -1225,6 +1259,9 @@ class NodeProps(Prim):
             'list': self.list,
             # TODO implement set()
         })
+
+    async def _derefGet(self, name):
+        return self.valu.get(name)
 
     async def get(self, name, defv=None):
         return self.valu.get(name)
@@ -1370,17 +1407,7 @@ class Node(Prim):
         Raises:
             s_exc.StormRuntimeError: If the secondary property does not exist for the Node form.
         '''
-        try:
-            return self.valu.repr(name=name)
-
-        except s_exc.NoPropValu:
-            return defv
-
-        except s_exc.NoSuchProp as e:
-            form = e.get('form')
-            prop = e.get('prop')
-            mesg = f'Requested property [{prop}] does not exist for the form [{form}].'
-            raise s_exc.StormRuntimeError(mesg=mesg, form=form, prop=prop) from None
+        return self.valu.repr(name=name, defv=defv)
 
     async def _methNodeIden(self):
         return self.valu.iden()
@@ -1986,11 +2013,13 @@ class LibUsers(Lib):
 
     async def _methUsersGet(self, iden):
         udef = await self.runt.snap.core.getUserDef(iden)
-        return User(self.runt, udef['iden'])
+        if udef is not None:
+            return User(self.runt, udef['iden'])
 
     async def _methUsersByName(self, name):
         udef = await self.runt.snap.core.getUserDefByName(name)
-        return User(self.runt, udef['iden'])
+        if udef is not None:
+            return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None):
         self.runt.user.confirm(('auth', 'user', 'add'))
@@ -2017,11 +2046,13 @@ class LibRoles(Lib):
 
     async def _methRolesGet(self, iden):
         rdef = await self.runt.snap.core.getRoleDef(iden)
-        return Role(self.runt, rdef['iden'])
+        if rdef is not None:
+            return Role(self.runt, rdef['iden'])
 
     async def _methRolesByName(self, name):
         rdef = await self.runt.snap.core.getRoleDefByName(name)
-        return Role(self.runt, rdef['iden'])
+        if rdef is not None:
+            return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
         self.runt.user.confirm(('auth', 'role', 'add'))
@@ -2678,7 +2709,7 @@ class ModelType(Prim):
 # These will go away once we have value objects in storm runtime
 async def toprim(valu, path=None):
 
-    if isinstance(valu, (str, int, bool)) or valu is None:
+    if isinstance(valu, (str, int, bool, float, bytes)) or valu is None:
         return valu
 
     if isinstance(valu, (tuple, list)):
@@ -2696,10 +2727,15 @@ async def toprim(valu, path=None):
     mesg = 'Unable to convert object to Storm primitive.'
     raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)
 
-def fromprim(valu, path=None):
+def fromprim(valu, path=None, basetypes=True):
 
-    if isinstance(valu, str):
-        return Str(valu, path=path)
+    if valu is None:
+        return valu
+
+    if basetypes:
+
+        if isinstance(valu, str):
+            return Str(valu, path=path)
 
     # TODO: make s_node.Node a storm type itself?
     if isinstance(valu, s_node.Node):
@@ -2726,5 +2762,8 @@ def fromprim(valu, path=None):
     if isinstance(valu, StormType):
         return valu
 
-    mesg = 'Unable to convert python primitive to StormType.'
-    raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+    if basetypes:
+        mesg = 'Unable to convert python primitive to StormType.'
+        raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+
+    return valu

@@ -83,10 +83,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine("cron add -m 8nosuchmonth -d=-2 {#foo}")
                     self.true(outp.expect('failed to parse fixed parameter'))
 
-                    await cmdr.runCmdLine("cron add -d=, {#foo}")
-                    self.true(outp.expect('failed to parse day value'))
-
-                    await cmdr.runCmdLine("cron add -dMon -m +3 {#foo}")
+                    await cmdr.runCmdLine("cron add -d Mon -m +3 {#foo}")
                     self.true(outp.expect('provide a recurrence value with day of week'))
 
                     await cmdr.runCmdLine("cron add -dMon -m June {#foo}")

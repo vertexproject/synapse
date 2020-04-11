@@ -612,26 +612,64 @@ class WhileLoop(Oper):
 
                 await asyncio.sleep(0)  # give other tasks some CPU
 
+async def pullone(genr):
+    gotone = None
+    async for gotone in genr:
+        break
+
+    async def pullgenr():
+
+        if gotone is None:
+            return
+
+        yield gotone
+        async for item in genr:
+            yield item
+
+    return pullgenr()
+
 class CmdOper(Oper):
 
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
-        argv = self.kids[1].value()
 
         ctor = runt.snap.core.getStormCmd(name)
         if ctor is None:
             mesg = 'Storm command not found.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
-        scmd = ctor(argv)
+        runtsafe = self.kids[1].isRuntSafe(runt)
 
-        if not await scmd.hasValidOpts(runt.snap):
-            return
+        scmd = ctor(runt, runtsafe)
 
-        with s_provenance.claim('stormcmd', name=name, argv=argv):
+        with s_provenance.claim('stormcmd', name=name):
 
-            async for item in scmd.execStormCmd(runt, genr):
+            if runtsafe:
+
+                genr = await pullone(genr)
+
+                argv = await self.kids[1].runtval(runt)
+                if not await scmd.setArgv(argv):
+                    return
+
+                async for item in scmd.execStormCmd(runt, genr):
+                    yield item
+
+                return
+
+            async def optsgenr():
+
+                async for node, path in genr:
+
+                    argv = await self.kids[1].compute(path)
+                    if not await scmd.setArgv(argv):
+                        return
+
+                    yield node, path
+
+            scmd = ctor(runt, runtsafe)
+            async for item in scmd.execStormCmd(runt, optsgenr()):
                 yield item
 
 class SetVarOper(Oper):
@@ -673,7 +711,7 @@ class SetItemOper(Oper):
 
             count += 1
 
-            item = s_stormtypes.fromprim(await self.kids[0].compute(path))
+            item = s_stormtypes.fromprim(await self.kids[0].compute(path), basetypes=False)
 
             name = await self.kids[1].compute(path)
             valu = await self.kids[2].compute(path)
@@ -685,7 +723,7 @@ class SetItemOper(Oper):
 
         if count == 0 and vkid.isRuntSafe(runt):
 
-            item = s_stormtypes.fromprim(await self.kids[0].compute(runt))
+            item = s_stormtypes.fromprim(await self.kids[0].compute(runt), basetypes=False)
 
             name = await self.kids[1].compute(runt)
             valu = await self.kids[2].compute(runt)
@@ -2595,6 +2633,10 @@ class EditNodeAdd(Edit):
         '''
         vals = await self.kids[2].compute(path)
 
+        # for now, we have a conflict with a Node instance and prims
+        #if not isinstance(vals, s_stormtypes.Node):
+            #vals = await s_stormtypes.toprim(vals)
+
         for valu in self.form.type.getTypeVals(vals):
             try:
                 newn = await path.runt.snap.addNode(self.name, valu)
@@ -2645,6 +2687,7 @@ class EditNodeAdd(Edit):
                 runt.layerConfirm(('node', 'add', self.name))
 
                 valu = await self.kids[2].runtval(runt)
+                valu = await s_stormtypes.toprim(valu)
 
                 for valu in self.form.type.getTypeVals(valu):
                     try:
@@ -2673,8 +2716,11 @@ class EditPropSet(Edit):
         issub = oper in ('-=', '?-=')
 
         async for node, path in genr:
+
             name = await self.kids[0].compute(path)
+
             valu = await self.kids[2].compute(path)
+            valu = await s_stormtypes.toprim(valu)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -2797,6 +2843,7 @@ class EditTagAdd(Edit):
 
                 if hasval:
                     valu = await self.kids[1 + oper_offset].compute(path)
+                    valu = await s_stormtypes.toprim(valu)
                 try:
                     await node.addTag(name, valu=valu)
                 except excignore:
@@ -2835,7 +2882,9 @@ class EditTagPropSet(Edit):
         async for node, path in genr:
 
             tag, prop = await self.kids[0].compute(path)
+
             valu = await self.kids[2].compute(path)
+            valu = await s_stormtypes.toprim(valu)
 
             tagparts = tag.split('.')
 

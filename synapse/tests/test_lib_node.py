@@ -375,8 +375,7 @@ class NodeTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 node.repr('newp')
 
-            with self.raises(s_exc.NoPropValu):
-                node.repr('dns:rev')
+            self.none(node.repr('dns:rev'))
 
     async def test_node_data(self):
         async with self.getTestCore() as core:
