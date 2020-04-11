@@ -14,6 +14,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.provenance as s_provenance
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
 
@@ -128,6 +129,13 @@ class StormTypesTest(s_test.SynTest):
             ],
         }
         async with self.getTestCore() as core:
+
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('$lib.cast(newp, asdf)')
+
+            self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
+            self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))
+            self.false(await core.callStorm('$x=(foo,bar) return($x.has((foo,bar)))'))
 
             await core.addStormPkg(pdef)
             nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
@@ -2827,3 +2835,9 @@ class StormTypesTest(s_test.SynTest):
             q = '$name="moto" $lib.warn("hello {name}", name=$name)'
             msgs = await core.stormlist(q)
             self.stormIsInWarn('hello moto', msgs)
+
+    async def test_stormtypes_intify(self):
+        with self.raises(s_exc.BadCast):
+            s_stormtypes.intify('asdf')
+        with self.raises(s_exc.BadCast):
+            s_stormtypes.intify(None)

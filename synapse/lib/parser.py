@@ -211,7 +211,8 @@ class AstConverter(lark.Transformer):
                 argv.append(kid.text)
                 continue
 
-            if isinstance(kid, s_ast.Const):
+            # this one should never happen, but is here in case
+            if isinstance(kid, s_ast.Const): # pragma: no cover
                 argv.append(kid.valu)
                 continue
 
@@ -219,6 +220,7 @@ class AstConverter(lark.Transformer):
                 argv.append(str(kid))
                 continue
 
+            # pragma: no cover
             mesg = f'Unhandled AST node type in cmdrargs: {kid!r}'
             raise s_exc.BadSyntax(mesg=mesg)
 

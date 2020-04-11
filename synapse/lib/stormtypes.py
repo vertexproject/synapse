@@ -43,7 +43,7 @@ def intify(x):
 
     try:
         return int(x)
-    except ValueError as e:
+    except Exception as e:
         mesg = f'Failed to make an integer from "{x}".'
         raise s_exc.BadCast(mesg=mesg) from e
 

@@ -1372,7 +1372,7 @@ class Parser:
         for i in range(nargs):
 
             if not todo or self._is_opt(todo[0]):
-                mesg = '{nargs} arguments are required for {name}.'
+                mesg = f'{nargs} arguments are required for {name}.'
                 return self.help(mesg)
 
             valu = todo.popleft()

@@ -858,3 +858,15 @@ class StormTest(s_t_utils.SynTest):
         self.none(pars.parse_args(['--ques']))
         helptext = '\n'.join(pars.mesgs)
         self.isin("An argument is required for --ques", helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs=2)
+        self.none(pars.parse_args(['--ques', 'lolz']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("2 arguments are required for --ques", helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs=2, type=int)
+        self.none(pars.parse_args(['--ques', 'lolz', 'hehe']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<class 'int'>): lolz", helptext)
