@@ -832,6 +832,9 @@ class Prim(StormType):
         StormType.__init__(self, path=path)
         self.valu = valu
 
+    def __bool__(self):
+        return bool(self.valu)
+
     def __len__(self):
         name = f'{self.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
