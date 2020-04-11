@@ -582,13 +582,16 @@ class StormTypesTest(s_test.SynTest):
             err = mesgs[-2]
             self.eq(err[1][0], 'NoSuchType')
 
-    async def test_storm_text_add(self):
+    async def test_storm_text(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) }
                 [ test:str=$text.str() ] +test:str''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
+
+            msgs = await core.stormlist('$t=$lib.text(beepboop) $lib.print($lib.len($t))')
+            self.stormIsInPrint('8', msgs)
 
     async def test_storm_set(self):
 
