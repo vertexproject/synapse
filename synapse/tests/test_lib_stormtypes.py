@@ -2075,8 +2075,6 @@ class StormTypesTest(s_test.SynTest):
 
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
-        sync = asyncio.Event()
-        lastquery = None
         s_provenance.reset()
 
         def timetime():
@@ -2084,13 +2082,6 @@ class StormTypesTest(s_test.SynTest):
 
         def looptime():
             return unixtime - MONO_DELT
-
-        async def myeval(query, user=None):
-            nonlocal lastquery
-            lastquery = query
-            sync.set()
-            return
-            yield None
 
         loop = asyncio.get_running_loop()
 
