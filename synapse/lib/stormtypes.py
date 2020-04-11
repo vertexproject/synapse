@@ -338,7 +338,7 @@ class LibBase(Lib):
         try:
             return len(item)
         except TypeError:
-            name = f'{item.__module__}.{item.__class__.__name__}'
+            name = f'{item.__class__.__module__}.{item.__class__.__name__}'
             raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name) from None
 
     async def _min(self, *args):
@@ -836,7 +836,7 @@ class Prim(StormType):
         return bool(self.valu)
 
     def __len__(self):
-        name = f'{self.__module__}.{self.__class__.__name__}'
+        name = f'{self.__class__.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
 
     def value(self):
