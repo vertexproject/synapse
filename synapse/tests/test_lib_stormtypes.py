@@ -635,7 +635,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), ())
 
-            q = '$set = $lib.set(a, b, c) [test:int=$set.size()]'
+            q = '$set = $lib.set(a, b, c, b, a) [test:int=$set.size()]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 3))
