@@ -1470,6 +1470,7 @@ class StormTypesTest(s_test.SynTest):
                 }
 
                 $lib.print('tally: foo={foo} baz={baz}', foo=$tally.get(foo), baz=$tally.get(baz))
+                $lib.print('tally.len()={v}', v=$lib.len($tally))
             '''
             mesgs = await core.stormlist(q)
             nodes = [m[1] for m in mesgs if m[0] == 'node']
@@ -1477,6 +1478,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
             self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
+            self.stormIsInPrint('tally.len()=2', mesgs)
 
     async def test_storm_lib_layer(self):
 

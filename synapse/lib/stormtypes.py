@@ -1560,6 +1560,9 @@ class StatTally(Prim):
         for name, valu in self.counters.items():
             yield name, valu
 
+    def __len__(self):
+        return len(self.counters)
+
     async def inc(self, name, valu=1):
         valu = intify(valu)
         self.counters[name] += valu
