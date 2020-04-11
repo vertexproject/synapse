@@ -1648,6 +1648,9 @@ class StormTypesTest(s_test.SynTest):
             self.isin(forkiden, core.views)
             self.isin(forklayr, core.layers)
 
+            msgs = await core.stormlist(f'$v=$lib.view.get({forkiden}) $lib.print($lib.len($v))')
+            self.stormIsInPrint('2', msgs)
+
             # Add a view
             ldef = await core.addLayer()
             newlayer = core.getLayer(ldef.get('iden'))
