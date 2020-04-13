@@ -1609,6 +1609,7 @@ class PureCmd(Cmd):
                     # setArgv() method will be called with an argv computed
                     # for each node, so we need to remap cmdopts into our path
                     path.initframe(initvars={'cmdopts': vars(self.opts)}, initrunt=subr)
+                    subr.setVar('cmdopts', vars(self.opts))
                     yield node, path
 
             subr.loadRuntVars(query)

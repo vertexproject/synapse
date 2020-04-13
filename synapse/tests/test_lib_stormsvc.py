@@ -635,5 +635,5 @@ class StormSvcTest(s_test.SynTest):
 
             scmd = f'$foo=8.8.8.8 | magic $foo --debug'
             msgs = await core.stormlist(scmd)
-            self.stormIsInPrint('DEBUG: fooz=8.8.8.8')
+            self.stormIsInPrint('DEBUG: fooz=8.8.8.8', msgs)
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
