@@ -14,6 +14,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.provenance as s_provenance
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
 
@@ -128,6 +129,13 @@ class StormTypesTest(s_test.SynTest):
             ],
         }
         async with self.getTestCore() as core:
+
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('$lib.cast(newp, asdf)')
+
+            self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
+            self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))
+            self.false(await core.callStorm('$x=(foo,bar) return($x.has((foo,bar)))'))
 
             await core.addStormPkg(pdef)
             nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
@@ -506,8 +514,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('inet:ipv4 $repr=$node.repr(newp)')
 
             err = mesgs[-2][1]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('mesg', err[1])
+            self.eq(err[0], 'NoSuchProp')
             self.eq(err[1].get('prop'), 'newp')
             self.eq(err[1].get('form'), 'inet:ipv4')
 
@@ -531,7 +538,7 @@ class StormTypesTest(s_test.SynTest):
                     ('csv:row', {'row': ['test:str', '9876', '3001/01/01 00:00:00.000'],
                                  'table': 'mytable'}))
 
-            q = 'test:str $lib.csv.emit(:tick, :hehe)'
+            q = 'test:str $hehe=$node.props.hehe $lib.csv.emit(:tick, $hehe)'
             mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
             csv_rows = [m for m in mesgs if m[0] == 'csv:row']
             self.len(2, csv_rows)
@@ -1900,16 +1907,14 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ test:str=foo ]')
             self.len(1, await core.nodes('test:int'))
 
-            q = 'trigger.add tag:add --form test:str --tag #footag.* --query {[ +#count test:str=$tag ]}'
-            mesgs = await core.stormlist(q)
+            await core.nodes('trigger.add tag:add --form test:str --tag footag.* --query {[ +#count test:str=$tag ]}')
 
             await core.nodes('[ test:str=bar +#footag.bar ]')
             await core.nodes('[ test:str=bar +#footag.bar ]')
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=footag.bar'))
 
-            q = 'trigger.add prop:set --disabled --prop test:type10:intprop --query {[ test:int=6 ]}'
-            mesgs = await core.stormlist(q)
+            await core.nodes('trigger.add prop:set --disabled --prop test:type10:intprop --query {[ test:int=6 ]}')
 
             q = 'trigger.list'
             mesgs = await core.stormlist(q)
@@ -1965,7 +1970,7 @@ class StormTypesTest(s_test.SynTest):
             q = 'trigger.mod deadbeef12341234 {#foo}'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            await core.nodes('trigger.add tag:add --tag #another --query {[ +#count2 ]}')
+            await core.nodes('trigger.add tag:add --tag another --query {[ +#count2 ]}')
 
             # Syntax mistakes
             mesgs = await core.stormlist('trigger.mod "" {#foo}')
@@ -1977,20 +1982,20 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.add tug:udd --prop another --query {[ +#count2 ]}')
             self.stormIsInErr('data.cond must be one of', mesgs)
 
-            mesgs = await core.stormlist('trigger.add tag:add --form inet:ipv4 --tag #test')
-            self.stormIsInPrint('the following arguments are required: --query', mesgs)
+            mesgs = await core.stormlist('trigger.add tag:add --form inet:ipv4 --tag test')
+            self.stormIsInPrint('Missing a required option: --query', mesgs)
 
-            mesgs = await core.stormlist('trigger.add node:add --form test:str --tag #foo --query {test:str}')
+            mesgs = await core.stormlist('trigger.add node:add --form test:str --tag foo --query {test:str}')
             self.stormIsInErr('tag must not be present for node:add or node:del', mesgs)
 
-            mesgs = await core.stormlist('trigger.add prop:set --tag #foo --query {test:str}')
+            mesgs = await core.stormlist('trigger.add prop:set --tag foo --query {test:str}')
             self.stormIsInErr("data must contain ['prop']", mesgs)
 
-            q = 'trigger.add prop:set --prop test:type10.intprop --tag #foo --query {test:str}'
+            q = 'trigger.add prop:set --prop test:type10.intprop --tag foo --query {test:str}'
             mesgs = await core.stormlist(q)
             self.stormIsInErr('form and tag must not be present for prop:set', mesgs)
 
-            mesgs = await core.stormlist('trigger.add node:add --tag #tag1 --query {test:str}')
+            mesgs = await core.stormlist('trigger.add node:add --tag tag1 --query {test:str}')
             self.stormIsInErr("data must contain ['form']", mesgs)
 
             mesgs = await core.stormlist(f'trigger.mod {goodbuid2} test:str')
@@ -2100,7 +2105,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                q = 'cron.add #foo'
+                q = 'cron.add foo'
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('must start with {', mesgs)
 
@@ -2112,8 +2117,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Failed to parse fixed parameter "8nosuchmonth"', mesgs)
 
-                q = "cron.add --day=, {#foo}"
-                mesgs = await core.stormlist(q)
+                mesgs = await core.stormlist('cron.add --day="," {#foo}')
                 self.stormIsInErr('Failed to parse day value', mesgs)
 
                 q = "cron.add --day Mon --month +3 {#foo}"
@@ -2354,7 +2358,7 @@ class StormTypesTest(s_test.SynTest):
 
                 # Test 'at' command
 
-                q = 'cron.at #foo'
+                q = 'cron.at foo'
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('must start with {', mesgs)
 
@@ -2368,7 +2372,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = 'cron.at --day +1'
                 mesgs = await core.stormlist(q)
-                self.stormIsInPrint('the following arguments are required: query', mesgs)
+                self.stormIsInPrint('The argument <query> is required', mesgs)
 
                 q = 'cron.at --dt nope {#foo}'
                 mesgs = await core.stormlist(q)
@@ -2587,11 +2591,10 @@ class StormTypesTest(s_test.SynTest):
             self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
             self.nn(await core.callStorm('return($lib.auth.users.byname(visi))'))
 
-            with self.raises(s_exc.NoSuchUser):
-                await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}})
-
-            with self.raises(s_exc.NoSuchUser):
-                await core.callStorm('return($lib.auth.users.byname(newp))')
+            self.none(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}}))
+            self.none(await core.callStorm('return($lib.auth.roles.get($iden))', opts={'vars': {'iden': 'newp'}}))
+            self.none(await core.callStorm('return($lib.auth.users.byname(newp))'))
+            self.none(await core.callStorm('return($lib.auth.roles.byname(newp))'))
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$user = $lib.auth.users.byname(visi) $lib.auth.users.del($user.iden)', opts=asvisi)
@@ -2832,3 +2835,9 @@ class StormTypesTest(s_test.SynTest):
             q = '$name="moto" $lib.warn("hello {name}", name=$name)'
             msgs = await core.stormlist(q)
             self.stormIsInWarn('hello moto', msgs)
+
+    async def test_stormtypes_intify(self):
+        with self.raises(s_exc.BadCast):
+            s_stormtypes.intify('asdf')
+        with self.raises(s_exc.BadCast):
+            s_stormtypes.intify(None)

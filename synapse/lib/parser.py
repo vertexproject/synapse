@@ -22,7 +22,9 @@ terminalEnglishMap = {
     'BREAK': 'break',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
+    'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
+    'CMDRTOKN': 'An unquoted string parsed as a cmdr arg',
     'CMPR': 'comparison operator',
     'BYNAME': 'named comparison operator',
     'COLON': ':',
@@ -49,9 +51,9 @@ terminalEnglishMap = {
     'IF': 'if',
     'IN': 'in',
     'LBRACE': '[',
+    'LISTTOKN': 'An unquoted list-compatible string.',
     'LPAR': '(',
     'LSQB': '{',
-    'NONCMDQUOTE': 'unquoted command argument',
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
     'NUMBER': 'number',
@@ -73,6 +75,7 @@ terminalEnglishMap = {
     'VARTOKN': 'variable',
     'VBAR': '|',
     'WHILE': 'while',
+    'WORDTOKN': 'A whitespace tokenized string',
     'YIELD': 'yield',
     '_DEREF': '*',
     '_EMBEDQUERYSTART': '${',
@@ -192,15 +195,36 @@ class AstConverter(lark.Transformer):
         argv = []
 
         for kid in kids:
-            if isinstance(kid, s_ast.Const):
-                newkid = kid.valu
-            elif isinstance(kid, s_ast.SubQuery):
-                newkid = kid.text
+            if isinstance(kid, s_ast.SubQuery):
+                argv.append(s_ast.Const(kid.text))
             else:
-                raise AssertionError('Unexpected rule')  # pragma: no cover
-            argv.append(newkid)
+                argv.append(self._convert_child(kid))
 
-        return s_ast.Const(tuple(argv))
+        return s_ast.List(None, kids=argv)
+
+    def cmdrargs(self, kids):
+        argv = []
+
+        for kid in kids:
+
+            if isinstance(kid, s_ast.SubQuery):
+                argv.append(kid.text)
+                continue
+
+            # this one should never happen, but is here in case
+            if isinstance(kid, s_ast.Const): # pragma: no cover
+                argv.append(kid.valu)
+                continue
+
+            if isinstance(kid, lark.lexer.Token):
+                argv.append(str(kid))
+                continue
+
+            # pragma: no cover
+            mesg = f'Unhandled AST node type in cmdrargs: {kid!r}'
+            raise s_exc.BadSyntax(mesg=mesg)
+
+        return argv
 
     @classmethod
     def _tagsplit(cls, tag):
@@ -272,8 +296,8 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 QueryParser = lark.Lark(_grammar, start='query', propagate_positions=True)
-CmdrParser = lark.Lark(_grammar, start='query', propagate_positions=True, keep_all_tokens=True)
 StormCmdParser = lark.Lark(_grammar, start='stormcmdargs', propagate_positions=True)
+CmdrParser = lark.Lark(_grammar, start='cmdrargs', propagate_positions=True)
 
 _eofre = regex.compile(r'''Terminal\('(\w+)'\)''')
 
@@ -324,17 +348,15 @@ class Parser:
         newtree.text = self.text
         return newtree
 
-    def stormcmdargs(self):
+    def cmdrargs(self):
         '''
         Parse command args that might have storm queries as arguments
         '''
         try:
-            tree = StormCmdParser.parse(self.text)
+            tree = CmdrParser.parse(self.text)
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
-        newtree = AstConverter(self.text).transform(tree)
-        assert isinstance(newtree, s_ast.Const)
-        return newtree.valu
+        return AstConverter(self.text).transform(tree)
 
 @s_cache.memoize(size=100)
 def parseQuery(text):

@@ -40,6 +40,7 @@ class BadCmprType(SynErr):
     Attempt to compare two incomparable values
     '''
 
+class BadCast(SynErr): pass
 class BadConfValu(SynErr):
     '''
     The configuration value provided is not valid.
@@ -73,8 +74,6 @@ class BadMesgFormat(SynErr): pass
 class BadOperArg(SynErr):
     ''' Improper storm function arguments '''
     pass
-
-class NoPropValu(SynErr): pass
 
 class BadOptValu(SynErr): pass
 class BadVersion(SynErr):
@@ -203,6 +202,8 @@ class DmonSpawn(SynErr):
     aborting standard calls, generators, and async generators ).
     '''
     pass
+
+class SchemaViolation(SynErr): pass
 
 class SlabAlreadyOpen(SynErr): pass
 class SpawnExit(SynErr): pass

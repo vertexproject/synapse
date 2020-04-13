@@ -649,21 +649,27 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('storm', 'pkg', 'del'))
         return await self.cell.delStormPkg(iden)
 
+    @s_cell.adminapi()
     async def getStormPkgs(self):
         return await self.cell.getStormPkgs()
 
+    @s_cell.adminapi()
     async def getStormPkg(self, name):
         return await self.cell.getStormPkg(name)
 
+    @s_cell.adminapi()
     async def addStormDmon(self, ddef):
         return await self.cell.addStormDmon(ddef)
 
+    @s_cell.adminapi()
     async def getStormDmons(self):
         return await self.cell.getStormDmons()
 
-    async def getStormDmon(self, iden):
-        return await self.cell.getStormDmon(iden)
+    @s_cell.adminapi()
+    async def getStormDmonLog(self, iden):
+        return await self.cell.getStormDmonLog(iden)
 
+    @s_cell.adminapi()
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
@@ -746,7 +752,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         'buid:prefetch': {
             'default': True,
             'type': 'boolean',
-            'description': 'Controls BUID pre-fetch behavior in the snap.',
+            'description': 'EXPERIMENTAL: Controls BUID pre-fetch behavior in the snap.',
         },
     }
 
@@ -1085,7 +1091,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             'name': <name>,
 
-            'cmdopts': [
+            'cmdargs': [
                 (<name>, <opts>),
             ]
 
@@ -1117,8 +1123,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self._reqStormCmd(cdef)
 
-        def ctor(argv):
-            return s_storm.PureCmd(cdef, argv)
+        def ctor(runt, runtsafe):
+            return s_storm.PureCmd(cdef, runt, runtsafe)
 
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
@@ -2438,6 +2444,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def getStormDmons(self):
         return list(d.pack() for d in self.stormdmons.values())
+
+    async def getStormDmonLog(self, iden):
+        dmon = self.stormdmons.get(iden)
+        if dmon is not None:
+            return dmon._getRunLog()
+        return ()
 
     def addStormLib(self, path, ctor):
 
