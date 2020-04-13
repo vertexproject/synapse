@@ -218,14 +218,10 @@ class StormTypesTest(s_test.SynTest):
                 }
             }
 
-            msgs = await core.stormlist('$lib.print($lib.len($list))', opts=opts)
-            self.stormIsInPrint('3', msgs)
-            msgs = await core.stormlist('$lib.print($lib.len($dict))', opts=opts)
-            self.stormIsInPrint('2', msgs)
-            msgs = await core.stormlist('$lib.print($lib.len($str))', opts=opts)
-            self.stormIsInPrint('4', msgs)
-            msgs = await core.stormlist('$lib.print($lib.len($bytes))', opts=opts)
-            self.stormIsInPrint('1', msgs)
+            self.eq(4, await core.callStorm('return($lib.len($str))', opts=opts))
+            self.eq(3, await core.callStorm('return($lib.len($list))', opts=opts))
+            self.eq(2, await core.callStorm('return($lib.len($dict))', opts=opts))
+            self.eq(1, await core.callStorm('return($lib.len($bytes))', opts=opts))
 
             with self.raises(s_exc.StormRuntimeError) as cm:
                 await core.nodes('$lib.print($lib.len($true))', opts=opts)
@@ -321,8 +317,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('vertex.link', nodes[0].ndef[1])
 
-            msgs = await core.stormlist('$d=$lib.dict(k1=1, k2=2) $lib.print($lib.len($d))')
-            self.stormIsInPrint('2', msgs)
+            self.eq(2, await core.callStorm('$d=$lib.dict(k1=1, k2=2) return($lib.len($d))'))
 
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
