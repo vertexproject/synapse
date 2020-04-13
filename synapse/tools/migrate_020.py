@@ -1930,7 +1930,7 @@ class Migrator(s_base.Base):
                 if fval != formnorm:
                     # check if its a special case where we can't renorm a norm'd value
                     if mform.type.subof == 'inet:addr' and fval.startswith('host://'):
-                        logger.debug(f'Skipping norm failure on host: {fval}')
+                        logger.debug(f'Skipping norm failure on inet:addr type host: {fval}')
                     else:
                         normerr = {'mesg': f'Normed form val does not match inbound {fname}, {fval}, {formnorm}'}
 
