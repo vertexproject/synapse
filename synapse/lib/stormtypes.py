@@ -340,6 +340,9 @@ class LibBase(Lib):
         except TypeError:
             name = f'{item.__class__.__module__}.{item.__class__.__name__}'
             raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name) from None
+        except Exception as e:  # pragma: no cover
+            name = f'{item.__class__.__module__}.{item.__class__.__name__}'
+            raise s_exc.StormRuntimeError(mesg=f'Unknown error during len(): {repr(e)}', name=name)
 
     async def _min(self, *args):
         # allow passing in a list of ints

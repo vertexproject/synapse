@@ -344,6 +344,9 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10) ]')
             self.eq('woot      ', nodes[0].ndef[1])
 
+            sobj = s_stormtypes.Str('beepbeep')
+            self.len(8, sobj)
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
@@ -590,8 +593,12 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
 
-            msgs = await core.stormlist('$t=$lib.text(beepboop) $lib.print($lib.len($t))')
+            q = '''$t=$lib.text(beepboop) $lib.print($lib.len($t))
+            $t.add("more!") $lib.print($lib.len($t))
+            '''
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('8', msgs)
+            self.stormIsInPrint('13', msgs)
 
     async def test_storm_set(self):
 
@@ -1299,6 +1306,9 @@ class StormTypesTest(s_test.SynTest):
             errs = [m for m in msgs if m[0] == 'err']
             self.len(1, errs)
             self.eq(errs[0][1][0], 'StormRuntimeError')
+
+            bobj = s_stormtypes.Bytes(b'beepbeep')
+            self.len(8, bobj)
 
     async def test_storm_lib_base64(self):
 
