@@ -1473,7 +1473,7 @@ class Migrator(s_base.Base):
                     bform = map_slab.get(buid, db=map_bybuid)
                     form = bform.decode('utf8') if bform is not None else None
 
-                    if form is None:  # pragma: No cover
+                    if form is None:  # pragma: no cover
                         logger.warning(f'Unable to locate form from buid map: {buid}')
 
                 elif not fnd_emptyform:
