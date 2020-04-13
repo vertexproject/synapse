@@ -248,7 +248,7 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                     'name': 'magic',
                     'cmdargs': (
                         ('name', {}),
-                        ('--debug', {'default': 'false', 'action': 'store_true'})
+                        ('--debug', {'default': False, 'action': 'store_true'})
                     ),
                     'storm': '''
                     $fooz = $cmdopts.name
