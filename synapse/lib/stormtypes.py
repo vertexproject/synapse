@@ -1751,9 +1751,6 @@ class View(Prim):
             'merge': self._methViewMerge,
         })
 
-    def __len__(self):
-        return len(self.valu.get('layers', ()))
-
     async def _methViewGet(self, name, defv=None):
         return self.valu.get(name, defv)
 
