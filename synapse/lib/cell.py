@@ -670,20 +670,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.fire('user:mod', act='archived', user=iden, archived=archived)
 
     async def getUserDef(self, iden):
-        user = await self.auth.reqUser(iden)
-        return user.pack(packroles=True)
+        user = self.auth.user(iden)
+        if user is not None:
+            return user.pack(packroles=True)
 
     async def getRoleDef(self, iden):
-        role = await self.auth.reqRole(iden)
-        return role.pack()
+        role = self.auth.role(iden)
+        if role is not None:
+            return role.pack()
 
     async def getUserDefByName(self, name):
-        user = await self.auth.reqUserByName(name)
-        return user.pack(packroles=True)
+        user = await self.auth.getUserByName(name)
+        if user is not None:
+            return user.pack(packroles=True)
 
     async def getRoleDefByName(self, name):
-        role = await self.auth.reqRoleByName(name)
-        return role.pack()
+        role = await self.auth.getRoleByName(name)
+        if role is not None:
+            return role.pack()
 
     async def getUserDefs(self):
         return [u.pack(packroles=True) for u in self.auth.users()]

@@ -222,6 +222,29 @@ What you need to do
     with JSON serialization, you will need to migrate these values to JSON compatible structures prior to running your
     ``0.2.0`` migration.
 
+Storm Command Argument Passing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+What changed
+    The Storm command architecture has been updated to allow passing variables, properties, and tag values as parameters.
+    As such, a couple commands have had parameters change to bring them in line with the new convention.
+
+Why make the change
+    This change allows dynamic resolution of command line arguments on a per-node basis and standardizes a mechanism
+    for giving inputs to commands.  Several variants of similar behavior existed in one-off implementations and this
+    change standardizes the various emerging patterns into a single supported design pattern.
+
+What you need to do
+    The following storm commands have changed:
+
+    ========== ======================================== =============================== ======================================
+    storm cmd  Description of the change                Old Use Example                 New Use Example
+    ========== ======================================== =============================== ======================================
+    movetags   No longer takes ``#`` prefixes on tags.  ``movetags #foo.bar #baz.faz``  ``movetags foo.bar baz.faz``
+    min/max    No longer take full property names       ``min file:bytes:size``         ``min :size``
+    scrape     Argument convention refactored.          ``scrape --props foo``          ``scrape :foo``
+    ========== ======================================== =============================== ======================================
+
 Additional Changes
 ------------------
 

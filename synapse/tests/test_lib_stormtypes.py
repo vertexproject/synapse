@@ -14,6 +14,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.provenance as s_provenance
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
 
@@ -129,6 +130,13 @@ class StormTypesTest(s_test.SynTest):
         }
         async with self.getTestCore() as core:
 
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('$lib.cast(newp, asdf)')
+
+            self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
+            self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))
+            self.false(await core.callStorm('$x=(foo,bar) return($x.has((foo,bar)))'))
+
             await core.addStormPkg(pdef)
             nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
             self.len(1, nodes)
@@ -198,6 +206,26 @@ class StormTypesTest(s_test.SynTest):
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'NoSuchName')
             self.eq(erfo[1][1].get('name'), 'newp')
+
+            # lib.len()
+            opts = {
+                'vars': {
+                    'true': True,
+                    'list': [1, 2, 3],
+                    'dict': {'k1': 'v1', 'k2': 'v2'},
+                    'str': '1138',
+                    'bytes': b'o'
+                }
+            }
+
+            self.eq(4, await core.callStorm('return($lib.len($str))', opts=opts))
+            self.eq(3, await core.callStorm('return($lib.len($list))', opts=opts))
+            self.eq(2, await core.callStorm('return($lib.len($dict))', opts=opts))
+            self.eq(1, await core.callStorm('return($lib.len($bytes))', opts=opts))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$lib.print($lib.len($true))', opts=opts)
+            self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
     async def test_storm_lib_query(self):
         async with self.getTestCore() as core:
@@ -289,6 +317,8 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('vertex.link', nodes[0].ndef[1])
 
+            self.eq(2, await core.callStorm('$d=$lib.dict(k1=1, k2=2) return($lib.len($d))'))
+
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
             q = '$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l)' \
@@ -308,6 +338,9 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10) ]')
             self.eq('woot      ', nodes[0].ndef[1])
+
+            sobj = s_stormtypes.Str('beepbeep')
+            self.len(8, sobj)
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
@@ -506,8 +539,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('inet:ipv4 $repr=$node.repr(newp)')
 
             err = mesgs[-2][1]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('mesg', err[1])
+            self.eq(err[0], 'NoSuchProp')
             self.eq(err[1].get('prop'), 'newp')
             self.eq(err[1].get('form'), 'inet:ipv4')
 
@@ -531,7 +563,7 @@ class StormTypesTest(s_test.SynTest):
                     ('csv:row', {'row': ['test:str', '9876', '3001/01/01 00:00:00.000'],
                                  'table': 'mytable'}))
 
-            q = 'test:str $lib.csv.emit(:tick, :hehe)'
+            q = 'test:str $hehe=$node.props.hehe $lib.csv.emit(:tick, $hehe)'
             mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
             csv_rows = [m for m in mesgs if m[0] == 'csv:row']
             self.len(2, csv_rows)
@@ -548,20 +580,20 @@ class StormTypesTest(s_test.SynTest):
             err = mesgs[-2]
             self.eq(err[1][0], 'NoSuchType')
 
-    async def test_storm_node_iden(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[ test:int=10 test:str=$node.iden() ] +test:str')
-            iden = s_common.ehex(s_common.buid(('test:int', 10)))
-            self.eq(nodes[0].ndef, ('test:str', iden))
-            self.len(1, nodes)
-
-    async def test_storm_text_add(self):
+    async def test_storm_text(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) }
                 [ test:str=$text.str() ] +test:str''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
+
+            q = '''$t=$lib.text(beepboop) $lib.print($lib.len($t))
+            $t.add("more!") $lib.print($lib.len($t))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('8', msgs)
+            self.stormIsInPrint('13', msgs)
 
     async def test_storm_set(self):
 
@@ -608,7 +640,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), ())
 
-            q = '$set = $lib.set(a, b, c) [test:int=$set.size()]'
+            q = '$set = $lib.set(a, b, c, b, a) [test:int=$set.size()]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 3))
@@ -1270,6 +1302,9 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, errs)
             self.eq(errs[0][1][0], 'StormRuntimeError')
 
+            bobj = s_stormtypes.Bytes(b'beepbeep')
+            self.len(8, bobj)
+
     async def test_storm_lib_base64(self):
 
         async with self.getTestCore() as core:
@@ -1440,6 +1475,7 @@ class StormTypesTest(s_test.SynTest):
                 }
 
                 $lib.print('tally: foo={foo} baz={baz}', foo=$tally.get(foo), baz=$tally.get(baz))
+                $lib.print('tally.len()={v}', v=$lib.len($tally))
             '''
             mesgs = await core.stormlist(q)
             nodes = [m[1] for m in mesgs if m[0] == 'node']
@@ -1447,6 +1483,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
             self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
+            self.stormIsInPrint('tally.len()=2', mesgs)
 
     async def test_storm_lib_layer(self):
 
@@ -1617,6 +1654,9 @@ class StormTypesTest(s_test.SynTest):
 
             self.isin(forkiden, core.views)
             self.isin(forklayr, core.layers)
+
+            msgs = await core.stormlist(f'$v=$lib.view.get({forkiden}) $lib.print($lib.len($v))')
+            self.stormIsInErr('View does not have a length', msgs)
 
             # Add a view
             ldef = await core.addLayer()
@@ -1900,16 +1940,14 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ test:str=foo ]')
             self.len(1, await core.nodes('test:int'))
 
-            q = 'trigger.add tag:add --form test:str --tag #footag.* --query {[ +#count test:str=$tag ]}'
-            mesgs = await core.stormlist(q)
+            await core.nodes('trigger.add tag:add --form test:str --tag footag.* --query {[ +#count test:str=$tag ]}')
 
             await core.nodes('[ test:str=bar +#footag.bar ]')
             await core.nodes('[ test:str=bar +#footag.bar ]')
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=footag.bar'))
 
-            q = 'trigger.add prop:set --disabled --prop test:type10:intprop --query {[ test:int=6 ]}'
-            mesgs = await core.stormlist(q)
+            await core.nodes('trigger.add prop:set --disabled --prop test:type10:intprop --query {[ test:int=6 ]}')
 
             q = 'trigger.list'
             mesgs = await core.stormlist(q)
@@ -1965,7 +2003,7 @@ class StormTypesTest(s_test.SynTest):
             q = 'trigger.mod deadbeef12341234 {#foo}'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            await core.nodes('trigger.add tag:add --tag #another --query {[ +#count2 ]}')
+            await core.nodes('trigger.add tag:add --tag another --query {[ +#count2 ]}')
 
             # Syntax mistakes
             mesgs = await core.stormlist('trigger.mod "" {#foo}')
@@ -1977,20 +2015,20 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.add tug:udd --prop another --query {[ +#count2 ]}')
             self.stormIsInErr('data.cond must be one of', mesgs)
 
-            mesgs = await core.stormlist('trigger.add tag:add --form inet:ipv4 --tag #test')
-            self.stormIsInPrint('the following arguments are required: --query', mesgs)
+            mesgs = await core.stormlist('trigger.add tag:add --form inet:ipv4 --tag test')
+            self.stormIsInPrint('Missing a required option: --query', mesgs)
 
-            mesgs = await core.stormlist('trigger.add node:add --form test:str --tag #foo --query {test:str}')
+            mesgs = await core.stormlist('trigger.add node:add --form test:str --tag foo --query {test:str}')
             self.stormIsInErr('tag must not be present for node:add or node:del', mesgs)
 
-            mesgs = await core.stormlist('trigger.add prop:set --tag #foo --query {test:str}')
+            mesgs = await core.stormlist('trigger.add prop:set --tag foo --query {test:str}')
             self.stormIsInErr("data must contain ['prop']", mesgs)
 
-            q = 'trigger.add prop:set --prop test:type10.intprop --tag #foo --query {test:str}'
+            q = 'trigger.add prop:set --prop test:type10.intprop --tag foo --query {test:str}'
             mesgs = await core.stormlist(q)
             self.stormIsInErr('form and tag must not be present for prop:set', mesgs)
 
-            mesgs = await core.stormlist('trigger.add node:add --tag #tag1 --query {test:str}')
+            mesgs = await core.stormlist('trigger.add node:add --tag tag1 --query {test:str}')
             self.stormIsInErr("data must contain ['form']", mesgs)
 
             mesgs = await core.stormlist(f'trigger.mod {goodbuid2} test:str')
@@ -2070,8 +2108,6 @@ class StormTypesTest(s_test.SynTest):
 
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
-        sync = asyncio.Event()
-        lastquery = None
         s_provenance.reset()
 
         def timetime():
@@ -2079,13 +2115,6 @@ class StormTypesTest(s_test.SynTest):
 
         def looptime():
             return unixtime - MONO_DELT
-
-        async def myeval(query, user=None):
-            nonlocal lastquery
-            lastquery = query
-            sync.set()
-            return
-            yield None
 
         loop = asyncio.get_running_loop()
 
@@ -2100,7 +2129,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                q = 'cron.add #foo'
+                q = 'cron.add foo'
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('must start with {', mesgs)
 
@@ -2112,8 +2141,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Failed to parse fixed parameter "8nosuchmonth"', mesgs)
 
-                q = "cron.add --day=, {#foo}"
-                mesgs = await core.stormlist(q)
+                mesgs = await core.stormlist('cron.add --day="," {#foo}')
                 self.stormIsInErr('Failed to parse day value', mesgs)
 
                 q = "cron.add --day Mon --month +3 {#foo}"
@@ -2354,7 +2382,7 @@ class StormTypesTest(s_test.SynTest):
 
                 # Test 'at' command
 
-                q = 'cron.at #foo'
+                q = 'cron.at foo'
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('must start with {', mesgs)
 
@@ -2368,7 +2396,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = 'cron.at --day +1'
                 mesgs = await core.stormlist(q)
-                self.stormIsInPrint('the following arguments are required: query', mesgs)
+                self.stormIsInPrint('The argument <query> is required', mesgs)
 
                 q = 'cron.at --dt nope {#foo}'
                 mesgs = await core.stormlist(q)
@@ -2587,11 +2615,10 @@ class StormTypesTest(s_test.SynTest):
             self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
             self.nn(await core.callStorm('return($lib.auth.users.byname(visi))'))
 
-            with self.raises(s_exc.NoSuchUser):
-                await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}})
-
-            with self.raises(s_exc.NoSuchUser):
-                await core.callStorm('return($lib.auth.users.byname(newp))')
+            self.none(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}}))
+            self.none(await core.callStorm('return($lib.auth.roles.get($iden))', opts={'vars': {'iden': 'newp'}}))
+            self.none(await core.callStorm('return($lib.auth.users.byname(newp))'))
+            self.none(await core.callStorm('return($lib.auth.roles.byname(newp))'))
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$user = $lib.auth.users.byname(visi) $lib.auth.users.del($user.iden)', opts=asvisi)
@@ -2794,6 +2821,11 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            nodes = await core.nodes('[ test:int=10 test:str=$node.iden() ] +test:str')
+            iden = s_common.ehex(s_common.buid(('test:int', 10)))
+            self.eq(nodes[0].ndef, ('test:str', iden))
+            self.len(1, nodes)
+
             await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
             self.eq(20, await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.get(asn))'))
             self.isin(('asn', 20), await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.list())'))
@@ -2802,6 +2834,10 @@ class StormTypesTest(s_test.SynTest):
             self.eq(20, props['asn'])
 
             self.eq(0x01020304, await core.callStorm('inet:ipv4=1.2.3.4 return($node)'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                _ = await core.nodes('inet:ipv4=1.2.3.4 $lib.print($lib.len($node))')
+            self.eq(cm.exception.get('mesg'), 'Object synapse.lib.node.Node does not have a length.')
 
     async def test_stormtypes_toprim(self):
 
@@ -2832,3 +2868,9 @@ class StormTypesTest(s_test.SynTest):
             q = '$name="moto" $lib.warn("hello {name}", name=$name)'
             msgs = await core.stormlist(q)
             self.stormIsInWarn('hello moto', msgs)
+
+    async def test_stormtypes_intify(self):
+        with self.raises(s_exc.BadCast):
+            s_stormtypes.intify('asdf')
+        with self.raises(s_exc.BadCast):
+            s_stormtypes.intify(None)

@@ -289,7 +289,7 @@ class Node:
 
         await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
-    def repr(self, name=None):
+    def repr(self, name=None, defv=None):
 
         if name is None:
             return self.form.type.repr(self.ndef[1])
@@ -300,7 +300,7 @@ class Node:
 
         valu = self.props.get(name)
         if valu is None:
-            raise s_exc.NoPropValu(prop=name, form=self.form.name)
+            return defv
 
         return prop.type.repr(valu)
 

@@ -99,7 +99,7 @@ class HandlerBase:
         try:
             return json.loads(byts)
         except Exception:
-            self.sendRestErr('BadJson', 'Invalid JSON content.')
+            self.sendRestErr('SchemaViolation', 'Invalid JSON content.')
             return None
 
     def sendAuthReqired(self):
