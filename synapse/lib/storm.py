@@ -1608,8 +1608,9 @@ class PureCmd(Cmd):
                     # In the event of a non-runtsafe command invocation our
                     # setArgv() method will be called with an argv computed
                     # for each node, so we need to remap cmdopts into our path & subr
-                    path.initframe(initvars={'cmdopts': vars(self.opts)}, initrunt=subr)
-                    subr.setVar('cmdopts', vars(self.opts))
+                    cmdopts = vars(self.opts)
+                    path.initframe(initvars={'cmdopts': cmdopts}, initrunt=subr)
+                    subr.setVar('cmdopts', cmdopts)
                     yield node, path
 
             subr.loadRuntVars(query)
