@@ -1273,8 +1273,8 @@ class MigrationTest(s_t_utils.SynTest):
                 }
                 migr.model.addDataModels([('asdf', mdef)])
 
-                ndef = ('*test:array', [16909060, 84281096])
-                buid = s_common.buid(('test:array', [16909060, 84281096]))
+                ndef = ('*test:array', (16909060, 84281096))
+                buid = s_common.buid(('test:array', (16909060, 84281096)))
                 node = await migr._srcPackNode(buid, ndef, {}, {}, {})
                 err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
                 res = await migr._destAddNodes(wlyr, [ne], 'editor')

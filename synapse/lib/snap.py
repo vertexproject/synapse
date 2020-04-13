@@ -600,6 +600,10 @@ class Snap(s_base.Base):
 
             node = await self._joinStorNode(sode[0], cache)
 
+            if node is None:
+                # We got part of a node but no ndef
+                continue
+
             nodes.append(node)
 
             postedits = sode[1].get('edits', ())

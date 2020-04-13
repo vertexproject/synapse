@@ -165,6 +165,8 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.liftperm)
         return self.layr.iden
 
+BUID_CACHE_SIZE = 10000
+
 STOR_TYPE_UTF8 = 1
 
 STOR_TYPE_U8 = 2
@@ -916,6 +918,8 @@ class Layer(s_nexus.Pusher):
         self.windows = []
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
+        self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
+
         uplayr = layrinfo.get('upstream')
         if uplayr is not None and allow_upstream:
             if isinstance(uplayr, (tuple, list)):
@@ -1064,6 +1068,10 @@ class Layer(s_nexus.Pusher):
         props = {}
         tagprops = {}
 
+        info = self.buidcache.get(buid)
+        if info is not None:
+            return (buid, info)
+
         for lkey, lval in self.layrslab.scanByPref(buid, db=self.bybuid):
 
             flag = lkey[32]
@@ -1105,6 +1113,8 @@ class Layer(s_nexus.Pusher):
 
         if tagprops:
             info['tagprops'] = tagprops
+
+        self.buidcache[buid] = info
 
         return (buid, info)
 
@@ -1303,6 +1313,12 @@ class Layer(s_nexus.Pusher):
 
         retn = [(EDIT_NODE_ADD, (valu, stortype), ())]
 
+        entry = self.buidcache.get(buid)
+        if entry is None:
+            self.buidcache[buid] = {'ndef': (form, valu)}
+        else:
+            entry['ndef'] = (form, valu)
+
         created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_MINTIME))
         retn.extend(self._editPropSet(buid, form, created))
 
@@ -1335,9 +1351,33 @@ class Layer(s_nexus.Pusher):
 
         self._wipeNodeData(buid)
 
+        self.buidcache.pop(buid, None)
+
         return (
             (EDIT_NODE_DEL, (valu, stortype), ()),
         )
+
+    def _putBuidCache(self, buid, typ, key, valu):
+        cacheval = self.buidcache.get(buid)
+        if cacheval is None:
+            return
+
+        typdict = cacheval.get(typ)
+        if typdict is None:
+            cacheval[typ] = {key: valu}
+        else:
+            typdict[key] = valu
+
+    def _popBuidCache(self, buid, typ, prop):
+        cacheval = self.buidcache.get(buid)
+        if cacheval is None:
+            return
+
+        typdict = cacheval.get(typ)
+        if typdict is None:
+            return
+
+        typdict.pop(prop, None)
 
     def _editPropSet(self, buid, form, edit):
 
@@ -1414,6 +1454,8 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.put(univabrv + indx, buid, db=self.byprop)
 
+        self._putBuidCache(buid, 'props', prop, valu)
+
         return (
             (EDIT_PROP_SET, (prop, valu, oldv, stortype), ()),
         )
@@ -1459,6 +1501,8 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
 
+        self._popBuidCache(buid, 'props', prop)
+
         return (
             (EDIT_PROP_DEL, (prop, valu, stortype), ()),
         )
@@ -1490,6 +1534,8 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
+        self._putBuidCache(buid, 'tags', tag, valu)
+
         return (
             (EDIT_TAG_SET, (tag, valu, oldv), ()),
         )
@@ -1510,6 +1556,8 @@ class Layer(s_nexus.Pusher):
         self.layrslab.delete(tagabrv + formabrv, buid, db=self.bytag)
 
         oldv = s_msgpack.un(oldb)
+
+        self._popBuidCache(buid, 'tags', tag)
 
         return (
             (EDIT_TAG_DEL, (tag, oldv), ()),
@@ -1546,6 +1594,8 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.putmulti(kvpairs, db=self.bytagprop)
 
+        self._putBuidCache(buid, 'tagprops', (tag, prop), valu)
+
         return (
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype), ()),
         )
@@ -1571,6 +1621,8 @@ class Layer(s_nexus.Pusher):
         for oldi in self.getStorIndx(oldt, oldv):
             self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
             self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
+
+        self._popBuidCache(buid, 'tagprops', (tag, prop))
 
         return (
             (EDIT_TAGPROP_DEL, (tag, prop, oldv, oldt), ()),
