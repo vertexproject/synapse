@@ -290,6 +290,7 @@ EXPRMINUS: "-"
 EXPRTIMES: "*"
 EXPRDIVIDE: "/"
 NUMBER: /-?\d+(\.\d*)?/
+HEXNUMBER: /-?0x[0-9a-fA-F]+/
 NOT: "not"
 OR: "or"
 AND: "and"
@@ -304,5 +305,5 @@ AND: "and"
 _expratom: _exprvalu | "(" exprsum ")"
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings
-_exprvalu: NUMBER | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
+_exprvalu: NUMBER | HEXNUMBER | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | dollarexpr

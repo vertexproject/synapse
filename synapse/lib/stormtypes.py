@@ -2705,9 +2705,9 @@ class LibModel(Lib):
 
     @s_cache.memoize(size=100)
     async def _methForm(self, name):
-        prop = self.model.form(name)
-        if prop is not None:
-            return ModelForm(prop)
+        form = self.model.form(name)
+        if form is not None:
+            return ModelForm(form)
 
 class ModelForm(Prim):
 
@@ -2719,6 +2719,13 @@ class ModelForm(Prim):
             'name': form.name,
             'prop': self._getFormProp,
         })
+
+        self.ctors.update({
+            'type': self._ctorFormType,
+        })
+
+    def _ctorFormType(self, path=None):
+        return ModelType(self.valu.type, path=path)
 
     def _getFormProp(self, name):
         prop = self.valu.prop(name)
@@ -2741,11 +2748,11 @@ class ModelProp(Prim):
             'type': self._ctorPropType,
         })
 
-    def _ctorPropType(self):
-        return ModelType(self.valu.type)
+    def _ctorPropType(self, path=None):
+        return ModelType(self.valu.type, path=path)
 
-    def _ctorPropForm(self):
-        return ModelForm(self.valu.form)
+    def _ctorPropForm(self, path=None):
+        return ModelForm(self.valu.form, path=path)
 
 class ModelType(Prim):
     '''
@@ -2754,12 +2761,17 @@ class ModelType(Prim):
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
+            'name': valu.name,
             'repr': self._methRepr,
+            'norm': self._methNorm,
         })
 
     async def _methRepr(self, valu):
         nval = self.valu.norm(valu)
         return self.valu.repr(nval[0])
+
+    async def _methNorm(self, valu):
+        return self.valu.norm(valu)
 
 # These will go away once we have value objects in storm runtime
 async def toprim(valu, path=None):
