@@ -78,10 +78,13 @@ class StormType:
 
         ctor = self.ctors.get(name)
         if ctor is not None:
-            return ctor(path=self.path)
+            item = ctor(path=self.path)
+            self.locls[name] = item
+            return item
 
         valu = await self._derefGet(name)
         if valu is not s_common.novalu:
+            self.locls[name] = valu
             return valu
 
         raise s_exc.NoSuchName(name=name, styp=self.__class__.__name__)
@@ -1805,6 +1808,8 @@ class LibTrigger(Lib):
         '''
         Add a trigger to the cortex.
         '''
+        tdef = await toprim(tdef)
+
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
@@ -2651,15 +2656,65 @@ class LibModel(Lib):
     def addLibFuncs(self):
         self.locls.update({
             'type': self._methType,
+            'prop': self._methProp,
+            'form': self._methForm,
         })
 
     @s_cache.memoize(size=100)
-    def _getmodeltypeobject(self, typename):
-        modeltype = self.model.type(typename)
-        return ModelType(modeltype)
+    async def _methType(self, name):
+        type_ = self.model.type(name)
+        if type_ is not None:
+            return ModelType(type_)
 
-    async def _methType(self, typename):
-        return self._getmodeltypeobject(typename)
+    @s_cache.memoize(size=100)
+    async def _methProp(self, name):
+        prop = self.model.prop(name)
+        if prop is not None:
+            return ModelProp(prop)
+
+    @s_cache.memoize(size=100)
+    async def _methForm(self, name):
+        prop = self.model.form(name)
+        if prop is not None:
+            return ModelForm(prop)
+
+class ModelForm(Prim):
+
+    def __init__(self, form, path=None):
+
+        Prim.__init__(self, form, path=path)
+
+        self.locls.update({
+            'name': form.name,
+            'prop': self._getFormProp,
+        })
+
+    def _getFormProp(self, name):
+        prop = self.valu.prop(name)
+        if prop is not None:
+            return ModelProp(prop)
+
+class ModelProp(Prim):
+
+    def __init__(self, prop, path=None):
+
+        Prim.__init__(self, prop, path=path)
+
+        self.locls.update({
+            'name': prop.name,
+            'full': prop.full,
+        })
+
+        self.ctors.update({
+            'form': self._ctorPropForm,
+            'type': self._ctorPropType,
+        })
+
+    def _ctorPropType(self):
+        return ModelType(self.valu.type)
+
+    def _ctorPropForm(self):
+        return ModelForm(self.valu.form)
 
 class ModelType(Prim):
     '''
