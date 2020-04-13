@@ -646,6 +646,8 @@ class Migrator(s_base.Base):
         self.fromlast = conf.get('fromlast', False)
         self.savechkpnt = 100000  # save a restart marker every this many nodes
 
+        self.mappartial = conf.get('mappartial', False)
+
         self.srcdedicated = conf.get('srcdedicated', False)
 
         self.destdedicated = conf.get('destdedicated', False)
@@ -1388,7 +1390,24 @@ class Migrator(s_base.Base):
         logger.debug(f'Opening src layer slab: {path}')
         src_slab = await s_lmdbslab.Slab.anit(path, **self.srcslabopts)
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
+        src_byprop = src_slab.initdb('byprop')  # <form>00<prop>00<indx>=<buid>
         self.onfini(src_slab.fini)
+
+        # optionally create the buid:form map
+        # will run the scan to load the map if the slab doesn't exist or not resuming from a checkpoint
+        map_slab = None
+        map_bybuid = None
+        if self.mappartial:
+            path = os.path.join(self.dest, self.migrdir, 'layermaps', iden, 'layermap.lmdb')
+            logger.debug(f'Opening layermap slab: {path}')
+            map_slab = await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False, readonly=False)
+            map_bybuid = map_slab.initdb('bybuid')
+            self.onfini(map_slab.fini)
+
+            if not os.path.exists or lmin is None:
+                logger.info(f'Starting partial layer map load for {iden}')
+                await self._srcLoadBuidFormMap(src_slab, src_byprop, map_slab, map_bybuid)
+                logger.info(f'Finished partial layer map load for {iden}')
 
         # check and store model vers
         versbyts = src_slab.get(b'layer:model:version')
@@ -1422,6 +1441,7 @@ class Migrator(s_base.Base):
         await self._migrlogAdd(migrop, 'nextoffs', iden, (nextindx, s_common.now()))
 
         # migrate data
+        fnd_emptyform = False
         src_fcnt = collections.defaultdict(int)
         nodeedits = []
         buid = None
@@ -1440,8 +1460,27 @@ class Migrator(s_base.Base):
                 await asyncio.sleep(0)
 
             buid = node[0]
-            form = node[1]['ndef'][0].replace('*', '')
-            src_fcnt[form] += 1
+
+            form = None
+            if node[1]['ndef'] is not None:
+                form = node[1]['ndef'][0].replace('*', '')
+                src_fcnt[form] += 1
+
+            # if no form associated with the node attempt to get from buid map
+            # otherwise node will not migrate
+            if form is None:
+                if map_slab is not None:
+                    bform = map_slab.get(buid, db=map_bybuid)
+                    form = bform.decode('utf8') if bform is not None else None
+
+                    if form is None:  # pragma: No cover
+                        logger.warning(f'Unable to locate form from buid map: {buid}')
+
+                elif not fnd_emptyform:
+                    fnd_emptyform = True
+                    msg = f'No form returned for node; ' \
+                          f'if this is a partial layer consider running with --partial-map option: {buid}'
+                    logger.warning(msg)
 
             if nodelim is not None and stot >= nodelim:
                 logger.warning(f'Stopping node migration due to reaching nodelim {stot}')
@@ -1453,7 +1492,7 @@ class Migrator(s_base.Base):
             if stot % savechkpnt == 0:
                 await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot_inc + 1, s_common.now()))
 
-            err, nodeedit = await self._trnNodeToNodeedit(node, model, chknodes)
+            err, nodeedit = await self._trnNodeToNodeedit(node, model, form, chknodes)
             if err is not None:
                 logger.warning(err)
                 err['node'] = node
@@ -1510,6 +1549,9 @@ class Migrator(s_base.Base):
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
         await src_slab.fini()
+
+        if map_slab is not None:
+            await map_slab.fini()
 
         return
 
@@ -1864,6 +1906,23 @@ class Migrator(s_base.Base):
         if buid is not None:
             yield await self._srcPackNode(buid, ndef, props, tags, tagprops)
 
+    async def _srcLoadBuidFormMap(self, propslab, propdb, mapslab, mapdb):
+        '''
+        Create a map of buid to primary form for a given layer slab.
+        Stores data into a dedicated map slab located in migr directory.
+        '''
+        cnt = 0
+        for lkey, lval in propslab.scanByFull(db=propdb):
+            cnt += 1
+            buid = s_msgpack.un(lval)[0]
+            bform = lkey.split(b'\x00')[0]
+
+            mapslab.put(buid, bform, db=mapdb)
+
+            if cnt % 10000000 == 0:  # pragma: no cover
+                logger.info(f'...on entry {cnt:,} for partial layer map load')
+                await asyncio.sleep(0)
+
     async def _srcIterNodedata(self, buidslab, buiddb):
         '''
         Iterate over 0.1.0 nodedata
@@ -1878,13 +1937,14 @@ class Migrator(s_base.Base):
     # Translation operations
     #############################################################
 
-    async def _trnNodeToNodeedit(self, node, model, chknodes=True):
+    async def _trnNodeToNodeedit(self, node, model, fname=None, chknodes=True):
         '''
         Create translation of node info to an 0.2.0 node edit.
 
         Args:
             node (tuple): (<buid>, {'ndef': ..., 'props': ..., 'tags': ..., 'tagprops': ...}
             model (Obj): Datamodel instance
+            fname (str or None): Optional form name to associate with the node
             chknodes (bool): Whether to require valid node norming and buid comparisons in order to add
 
         Returns:
@@ -1893,62 +1953,73 @@ class Migrator(s_base.Base):
                 nodeedit: (<buid>, <form>, [edits]) where edits is list of (<type>, <info>, subedits)
         '''
         buid = node[0]
-        fname = node[1]['ndef'][0]
-        fval = node[1]['ndef'][1]
 
-        if fname[0] == '*':
-            fname = fname[1:]
-        else:
-            err = {'mesg': f'Unable to parse form name {fname}', 'node': node}
-            return err, None
-
+        ndef = node[1]['ndef']
         edits = []
+        if ndef is not None:
+            fname = ndef[0]
+            fval = ndef[1]
 
-        # setup storage type
-        if chknodes:
-            try:
-                mform = model.form(fname)
-                stortype = mform.type.stortype
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-            except Exception as e:
-                err = {'mesg': f'Unable to determine stortype for {fname}: {e}'}
-                return err, None
-        else:
-            mform = None
-            stortype = self._destGetFormStype(fname)
-            if stortype is None:
-                err = {'mesg': f'Unable to determine stortype for {fname}'}
+            if fname[0] == '*':
+                fname = fname[1:]
+            else:
+                err = {'mesg': f'Unable to parse form name {fname}', 'node': node}
                 return err, None
 
-        # safety check for buid/norming
-        if chknodes:
-            normerr = None
-            try:
-                formnorm, _ = mform.type.norm(fval)
-                if fval != formnorm:
-                    normerr = {'mesg': f'Normed form val does not match inbound {fname}, {fval}, {formnorm}'}
-                if buid != s_common.buid((fname, fval)):
-                    normerr = {'mesg': f'Calculated buid does not match inbound {buid}, {fname}, {fval}'}
+            # setup storage type
+            if chknodes:
+                try:
+                    mform = model.form(fname)
+                    stortype = mform.type.stortype
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+                except Exception as e:
+                    err = {'mesg': f'Unable to determine stortype for {fname}: {e}'}
+                    return err, None
+            else:
+                mform = None
+                stortype = self._destGetFormStype(fname)
+                if stortype is None:
+                    err = {'mesg': f'Unable to determine stortype for {fname}'}
+                    return err, None
 
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-            except Exception as e:
-                normerr = {'mesg': f'Buid/norming exception {e}: {buid}, {fname}, {fval}'}
-                pass
+            # safety check for buid/norming
+            if chknodes:
+                normerr = None
+                try:
+                    formnorm, _ = mform.type.norm(fval)
+                    if fval != formnorm:
+                        normerr = {'mesg': f'Normed form val does not match inbound {fname}, {fval}, {formnorm}'}
+                    if buid != s_common.buid((fname, fval)):
+                        normerr = {'mesg': f'Calculated buid does not match inbound {buid}, {fname}, {fval}'}
 
-            if normerr is not None:
-                normerr['node'] = node
-                return normerr, None
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+                except Exception as e:
+                    normerr = {'mesg': f'Buid/norming exception {e}: {buid}, {fname}, {fval}'}
+                    pass
 
-        edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype), ()))  # name, stype
+                if normerr is not None:
+                    normerr['node'] = node
+                    return normerr, None
+
+            edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype), ()))  # name, stype
+
+        if fname is None:
+            err = {'mesg': f'No form name available for {buid}'}
+            return err, None
 
         # iterate over secondary properties
         for sprop, sval in node[1]['props'].items():
             sprop = sprop.replace('*', '')
-            stortype = self._destGetPropStype(fname, sprop)
+
+            if sprop[0] == '.':
+                stortype = self._destGetPropStype(None, sprop)
+            else:
+                stortype = self._destGetPropStype(fname, sprop)
+
             if stortype is None:
-                err = {'mesg': f'Unable to determine stortype for sprop {sprop}'}
+                err = {'mesg': f'Unable to determine stortype for sprop {sprop}, form {fname}'}
                 return err, None
 
             edits.append((s_layer.EDIT_PROP_SET, (sprop, sval, None, stortype), ()))  # name, valu, oldv, stype
@@ -2014,8 +2085,11 @@ class Migrator(s_base.Base):
     def _destGetPropStype(self, form, sprop):
         stortype = None
         try:
-            mform = self.model.form(form)
-            prop = mform.prop(sprop)
+            if form is None:
+                prop = self.model.univ(sprop)
+            else:
+                mform = self.model.form(form)
+                prop = mform.prop(sprop)
             stortype = prop.type.stortype
         except Exception as e:
             logger.debug(f'Secondary prop stortype exception: {form}, {sprop}, {e}')
@@ -2145,6 +2219,8 @@ async def main(argv, outp=s_output.stdout):
                       help='Open source layer slab as dedicated (lockmemory=True).')
     pars.add_argument('--dest-dedicated', required=False, action='store_true',
                       help='Open destination layer slab as dedicated (lockmemory=True).')
+    pars.add_argument('--map-partial', required=False, action='store_true',
+                      help='For layers containing partial node information, create a form lookup map.')
     pars.add_argument('--log-level', required=False, default='info', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
     pars.add_argument('--form-counts', required=False, action='store_true',
@@ -2172,6 +2248,7 @@ async def main(argv, outp=s_output.stdout):
         'fromlast': opts.from_last,
         'srcdedicated': opts.src_dedicated,
         'destdedicated': opts.dest_dedicated,
+        'mappartial': opts.map_partial,
         'formcounts': formcounts,
     }
 
