@@ -335,7 +335,14 @@ class LibBase(Lib):
         return s_common.guid()
 
     async def _len(self, item):
-        return len(item)
+        try:
+            return len(item)
+        except TypeError:
+            name = f'{item.__class__.__module__}.{item.__class__.__name__}'
+            raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name) from None
+        except Exception as e:  # pragma: no cover
+            name = f'{item.__class__.__module__}.{item.__class__.__name__}'
+            raise s_exc.StormRuntimeError(mesg=f'Unknown error during len(): {repr(e)}', name=name)
 
     async def _min(self, *args):
         # allow passing in a list of ints
@@ -828,8 +835,12 @@ class Prim(StormType):
         StormType.__init__(self, path=path)
         self.valu = valu
 
+    def __bool__(self):
+        return bool(self.valu)
+
     def __len__(self):
-        return len(self.valu)
+        name = f'{self.__class__.__module__}.{self.__class__.__name__}'
+        raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
 
     def value(self):
         return self.valu
@@ -846,6 +857,9 @@ class Str(Prim):
             'rjust': self._methStrRjust,
             'encode': self._methEncode,
         })
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methEncode(self, encoding='utf8'):
         '''
@@ -894,6 +908,9 @@ class Bytes(Prim):
             'gzip': self._methGzip,
             'json': self._methJsonLoad,
         })
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methDecode(self, encoding='utf8'):
         '''
@@ -966,6 +983,9 @@ class Dict(Prim):
         for item in self.valu.items():
             yield item
 
+    def __len__(self):
+        return len(self.valu)
+
     async def setitem(self, name, valu):
         self.valu[name] = valu
 
@@ -996,6 +1016,9 @@ class Set(Prim):
     async def __aiter__(self):
         for item in self.valu:
             yield item
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methSetSize(self):
         return len(self)
@@ -1039,6 +1062,9 @@ class List(Prim):
     async def __aiter__(self):
         for item in self:
             yield item
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methListHas(self, valu):
 
@@ -1490,6 +1516,9 @@ class Text(Prim):
             'str': self._methTextStr,
         })
 
+    def __len__(self):
+        return len(self.valu)
+
     async def _methTextAdd(self, text, **kwargs):
         text = kwarg_format(text, **kwargs)
         self.valu += text
@@ -1533,6 +1562,9 @@ class StatTally(Prim):
     async def __aiter__(self):
         for name, valu in self.counters.items():
             yield name, valu
+
+    def __len__(self):
+        return len(self.counters)
 
     async def inc(self, name, valu=1):
         valu = intify(valu)
