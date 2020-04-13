@@ -48,6 +48,7 @@ terminalEnglishMap = {
     'FILTPREFIX': '+ or -',
     'FOR': 'for',
     'FUNCTION': 'function',
+    'HEXNUMBER': 'number',
     'IF': 'if',
     'IN': 'in',
     'LBRACE': '[',
@@ -378,6 +379,7 @@ terminalClassMap = {
     'DEREFMATCHNOSEP': massage_vartokn,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
+    'HEXNUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
     'VARTOKN': massage_vartokn,
