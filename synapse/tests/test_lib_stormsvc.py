@@ -248,10 +248,13 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                     'name': 'magic',
                     'cmdargs': (
                         ('name', {}),
+                        ('--debug', {'default': 'false', 'action': 'store_true'})
                     ),
                     'storm': '''
                     $fooz = $cmdopts.name
-                    $fooz = $path.vars.cmdopts.name
+                    if $cmdopts.debug {
+                        $lib.print('DEBUG: fooz={fooz}', fooz=$fooz)
+                    }
                     $lib.print('my foo var is {f}', f=$fooz)
                     ''',
                 },
@@ -628,4 +631,9 @@ class StormSvcTest(s_test.SynTest):
 
             scmd = f'$foo=8.8.8.8 | magic $foo'
             msgs = await core.stormlist(scmd)
+            self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
+
+            scmd = f'$foo=8.8.8.8 | magic $foo --debug'
+            msgs = await core.stormlist(scmd)
+            self.stormIsInPrint('DEBUG: fooz=8.8.8.8')
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
