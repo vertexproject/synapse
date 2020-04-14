@@ -1258,8 +1258,10 @@ class Layer(s_nexus.Pusher):
         postedits = []  # The primary nodeedit's edits.
         retn = [(buid, form, postedits)]  # The primary nodeedit
 
+        cacheval = self.buidcache.get(buid)
+
         for edit in edits:
-            changes = self.editors[edit[0]](buid, form, edit)
+            changes = self.editors[edit[0]](buid, form, edit, cacheval)
             assert all(len(change[2]) == 0 for change in changes)
 
             postedits.extend(changes)
@@ -1286,7 +1288,7 @@ class Layer(s_nexus.Pusher):
         '''
         await self._push('edits', nodeedits, meta)
 
-    def _editNodeAdd(self, buid, form, edit):
+    def _editNodeAdd(self, buid, form, edit, cacheval):
         valu, stortype = edit[1]
 
         byts = s_msgpack.en((form, valu, stortype))
@@ -1313,18 +1315,15 @@ class Layer(s_nexus.Pusher):
 
         retn = [(EDIT_NODE_ADD, (valu, stortype), ())]
 
-        entry = self.buidcache.get(buid)
-        if entry is None:
-            self.buidcache[buid] = {'ndef': (form, valu)}
-        else:
-            entry['ndef'] = (form, valu)
+        if cacheval is not None:
+            cacheval['ndef'] = (form, valu)
 
         created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_MINTIME))
-        retn.extend(self._editPropSet(buid, form, created))
+        retn.extend(self._editPropSet(buid, form, created, cacheval))
 
         return retn
 
-    def _editNodeDel(self, buid, form, edit):
+    def _editNodeDel(self, buid, form, edit, cacheval):
 
         byts = self.layrslab.pop(buid + b'\x00', db=self.bybuid)
         if byts is None:
@@ -1357,29 +1356,21 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODE_DEL, (valu, stortype), ()),
         )
 
-    def _putBuidCache(self, buid, typ, key, valu):
-        cacheval = self.buidcache.get(buid)
-        if cacheval is None:
-            return
-
+    def _putBuidCache(self, cacheval, buid, typ, key, valu):
         typdict = cacheval.get(typ)
         if typdict is None:
             cacheval[typ] = {key: valu}
         else:
             typdict[key] = valu
 
-    def _popBuidCache(self, buid, typ, prop):
-        cacheval = self.buidcache.get(buid)
-        if cacheval is None:
-            return
-
+    def _popBuidCache(self, cacheval, buid, typ, key):
         typdict = cacheval.get(typ)
         if typdict is None:
             return
 
-        typdict.pop(prop, None)
+        typdict.pop(key, None)
 
-    def _editPropSet(self, buid, form, edit):
+    def _editPropSet(self, buid, form, edit, cacheval):
 
         prop, valu, oldv, stortype = edit[1]
 
@@ -1454,13 +1445,14 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.put(univabrv + indx, buid, db=self.byprop)
 
-        self._putBuidCache(buid, 'props', prop, valu)
+        if cacheval is not None:
+            self._putBuidCache(cacheval, buid, 'props', prop, valu)
 
         return (
             (EDIT_PROP_SET, (prop, valu, oldv, stortype), ()),
         )
 
-    def _editPropDel(self, buid, form, edit):
+    def _editPropDel(self, buid, form, edit, cacheval):
 
         prop, oldv, stortype = edit[1]
 
@@ -1501,13 +1493,14 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
 
-        self._popBuidCache(buid, 'props', prop)
+        if cacheval is not None:
+            self._popBuidCache(cacheval, buid, 'props', prop)
 
         return (
             (EDIT_PROP_DEL, (prop, valu, stortype), ()),
         )
 
-    def _editTagSet(self, buid, form, edit):
+    def _editTagSet(self, buid, form, edit, cacheval):
 
         tag, valu, oldv = edit[1]
 
@@ -1534,13 +1527,14 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
-        self._putBuidCache(buid, 'tags', tag, valu)
+        if cacheval is not None:
+            self._putBuidCache(cacheval, buid, 'tags', tag, valu)
 
         return (
             (EDIT_TAG_SET, (tag, valu, oldv), ()),
         )
 
-    def _editTagDel(self, buid, form, edit):
+    def _editTagDel(self, buid, form, edit, cacheval):
 
         tag, oldv = edit[1]
 
@@ -1557,13 +1551,14 @@ class Layer(s_nexus.Pusher):
 
         oldv = s_msgpack.un(oldb)
 
-        self._popBuidCache(buid, 'tags', tag)
+        if cacheval is not None:
+            self._popBuidCache(cacheval, buid, 'tags', tag)
 
         return (
             (EDIT_TAG_DEL, (tag, oldv), ()),
         )
 
-    def _editTagPropSet(self, buid, form, edit):
+    def _editTagPropSet(self, buid, form, edit, cacheval):
 
         tag, prop, valu, oldv, stortype = edit[1]
 
@@ -1594,13 +1589,14 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.putmulti(kvpairs, db=self.bytagprop)
 
-        self._putBuidCache(buid, 'tagprops', (tag, prop), valu)
+        if cacheval is not None:
+            self._putBuidCache(cacheval, buid, 'tagprops', (tag, prop), valu)
 
         return (
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype), ()),
         )
 
-    def _editTagPropDel(self, buid, form, edit):
+    def _editTagPropDel(self, buid, form, edit, cacheval):
 
         tag, prop, valu, stortype = edit[1]
 
@@ -1622,13 +1618,14 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
             self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
-        self._popBuidCache(buid, 'tagprops', (tag, prop))
+        if cacheval is not None:
+            self._popBuidCache(cacheval, buid, 'tagprops', (tag, prop))
 
         return (
             (EDIT_TAGPROP_DEL, (tag, prop, oldv, oldt), ()),
         )
 
-    def _editNodeDataSet(self, buid, form, edit):
+    def _editNodeDataSet(self, buid, form, edit, cacheval):
 
         name, valu, oldv = edit[1]
         abrv = self.getPropAbrv(name, None)
@@ -1646,7 +1643,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODEDATA_SET, (name, valu, oldv), ()),
         )
 
-    def _editNodeDataDel(self, buid, form, edit):
+    def _editNodeDataDel(self, buid, form, edit, cacheval):
 
         name, valu = edit[1]
         abrv = self.getPropAbrv(name, None)
