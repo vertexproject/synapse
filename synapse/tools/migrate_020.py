@@ -1926,8 +1926,14 @@ class Migrator(s_base.Base):
             normerr = None
             try:
                 formnorm, _ = mform.type.norm(fval)
+
                 if fval != formnorm:
-                    normerr = {'mesg': f'Normed form val does not match inbound {fname}, {fval}, {formnorm}'}
+                    # check if its a special case where we can't renorm a norm'd value
+                    if mform.type.subof == 'inet:addr' and fval.startswith('host://'):
+                        logger.debug(f'Skipping norm failure on inet:addr type host: {fval}')
+                    else:
+                        normerr = {'mesg': f'Normed form val does not match inbound {fname}, {fval}, {formnorm}'}
+
                 if buid != s_common.buid((fname, fval)):
                     normerr = {'mesg': f'Calculated buid does not match inbound {buid}, {fname}, {fval}'}
 

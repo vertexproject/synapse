@@ -82,10 +82,13 @@ class StormType:
 
         ctor = self.ctors.get(name)
         if ctor is not None:
-            return ctor(path=self.path)
+            item = ctor(path=self.path)
+            self.locls[name] = item
+            return item
 
         valu = await self._derefGet(name)
         if valu is not s_common.novalu:
+            self.locls[name] = valu
             return valu
 
         raise s_exc.NoSuchName(name=name, styp=self.__class__.__name__)
@@ -335,7 +338,14 @@ class LibBase(Lib):
         return s_common.guid()
 
     async def _len(self, item):
-        return len(item)
+        try:
+            return len(item)
+        except TypeError:
+            name = f'{item.__class__.__module__}.{item.__class__.__name__}'
+            raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name) from None
+        except Exception as e:  # pragma: no cover
+            name = f'{item.__class__.__module__}.{item.__class__.__name__}'
+            raise s_exc.StormRuntimeError(mesg=f'Unknown error during len(): {repr(e)}', name=name)
 
     async def _min(self, *args):
         # allow passing in a list of ints
@@ -828,8 +838,12 @@ class Prim(StormType):
         StormType.__init__(self, path=path)
         self.valu = valu
 
+    def __bool__(self):
+        return bool(self.valu)
+
     def __len__(self):
-        return len(self.valu)
+        name = f'{self.__class__.__module__}.{self.__class__.__name__}'
+        raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
 
     def value(self):
         return self.valu
@@ -846,6 +860,9 @@ class Str(Prim):
             'rjust': self._methStrRjust,
             'encode': self._methEncode,
         })
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methEncode(self, encoding='utf8'):
         '''
@@ -894,6 +911,9 @@ class Bytes(Prim):
             'gzip': self._methGzip,
             'json': self._methJsonLoad,
         })
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methDecode(self, encoding='utf8'):
         '''
@@ -966,6 +986,9 @@ class Dict(Prim):
         for item in self.valu.items():
             yield item
 
+    def __len__(self):
+        return len(self.valu)
+
     async def setitem(self, name, valu):
         self.valu[name] = valu
 
@@ -996,6 +1019,9 @@ class Set(Prim):
     async def __aiter__(self):
         for item in self.valu:
             yield item
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methSetSize(self):
         return len(self)
@@ -1039,6 +1065,9 @@ class List(Prim):
     async def __aiter__(self):
         for item in self:
             yield item
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methListHas(self, valu):
 
@@ -1490,6 +1519,9 @@ class Text(Prim):
             'str': self._methTextStr,
         })
 
+    def __len__(self):
+        return len(self.valu)
+
     async def _methTextAdd(self, text, **kwargs):
         text = kwarg_format(text, **kwargs)
         self.valu += text
@@ -1533,6 +1565,9 @@ class StatTally(Prim):
     async def __aiter__(self):
         for name, valu in self.counters.items():
             yield name, valu
+
+    def __len__(self):
+        return len(self.counters)
 
     async def inc(self, name, valu=1):
         valu = intify(valu)
@@ -1832,6 +1867,8 @@ class LibTrigger(Lib):
         '''
         Add a trigger to the cortex.
         '''
+        tdef = await toprim(tdef)
+
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
@@ -2682,15 +2719,72 @@ class LibModel(Lib):
     def addLibFuncs(self):
         self.locls.update({
             'type': self._methType,
+            'prop': self._methProp,
+            'form': self._methForm,
         })
 
     @s_cache.memoize(size=100)
-    def _getmodeltypeobject(self, typename):
-        modeltype = self.model.type(typename)
-        return ModelType(modeltype)
+    async def _methType(self, name):
+        type_ = self.model.type(name)
+        if type_ is not None:
+            return ModelType(type_)
 
-    async def _methType(self, typename):
-        return self._getmodeltypeobject(typename)
+    @s_cache.memoize(size=100)
+    async def _methProp(self, name):
+        prop = self.model.prop(name)
+        if prop is not None:
+            return ModelProp(prop)
+
+    @s_cache.memoize(size=100)
+    async def _methForm(self, name):
+        form = self.model.form(name)
+        if form is not None:
+            return ModelForm(form)
+
+class ModelForm(Prim):
+
+    def __init__(self, form, path=None):
+
+        Prim.__init__(self, form, path=path)
+
+        self.locls.update({
+            'name': form.name,
+            'prop': self._getFormProp,
+        })
+
+        self.ctors.update({
+            'type': self._ctorFormType,
+        })
+
+    def _ctorFormType(self, path=None):
+        return ModelType(self.valu.type, path=path)
+
+    def _getFormProp(self, name):
+        prop = self.valu.prop(name)
+        if prop is not None:
+            return ModelProp(prop)
+
+class ModelProp(Prim):
+
+    def __init__(self, prop, path=None):
+
+        Prim.__init__(self, prop, path=path)
+
+        self.locls.update({
+            'name': prop.name,
+            'full': prop.full,
+        })
+
+        self.ctors.update({
+            'form': self._ctorPropForm,
+            'type': self._ctorPropType,
+        })
+
+    def _ctorPropType(self, path=None):
+        return ModelType(self.valu.type, path=path)
+
+    def _ctorPropForm(self, path=None):
+        return ModelForm(self.valu.form, path=path)
 
 class ModelType(Prim):
     '''
@@ -2699,12 +2793,17 @@ class ModelType(Prim):
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
+            'name': valu.name,
             'repr': self._methRepr,
+            'norm': self._methNorm,
         })
 
     async def _methRepr(self, valu):
         nval = self.valu.norm(valu)
         return self.valu.repr(nval[0])
+
+    async def _methNorm(self, valu):
+        return self.valu.norm(valu)
 
 # These will go away once we have value objects in storm runtime
 async def toprim(valu, path=None):

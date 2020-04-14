@@ -207,6 +207,26 @@ class StormTypesTest(s_test.SynTest):
             self.eq(erfo[1][0], 'NoSuchName')
             self.eq(erfo[1][1].get('name'), 'newp')
 
+            # lib.len()
+            opts = {
+                'vars': {
+                    'true': True,
+                    'list': [1, 2, 3],
+                    'dict': {'k1': 'v1', 'k2': 'v2'},
+                    'str': '1138',
+                    'bytes': b'o'
+                }
+            }
+
+            self.eq(4, await core.callStorm('return($lib.len($str))', opts=opts))
+            self.eq(3, await core.callStorm('return($lib.len($list))', opts=opts))
+            self.eq(2, await core.callStorm('return($lib.len($dict))', opts=opts))
+            self.eq(1, await core.callStorm('return($lib.len($bytes))', opts=opts))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$lib.print($lib.len($true))', opts=opts)
+            self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
+
     async def test_storm_lib_query(self):
         async with self.getTestCore() as core:
             # basic
@@ -297,6 +317,8 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('vertex.link', nodes[0].ndef[1])
 
+            self.eq(2, await core.callStorm('$d=$lib.dict(k1=1, k2=2) return($lib.len($d))'))
+
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
             q = '$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l)' \
@@ -316,6 +338,9 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10) ]')
             self.eq('woot      ', nodes[0].ndef[1])
+
+            sobj = s_stormtypes.Str('beepbeep')
+            self.len(8, sobj)
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
@@ -555,20 +580,20 @@ class StormTypesTest(s_test.SynTest):
             err = mesgs[-2]
             self.eq(err[1][0], 'NoSuchType')
 
-    async def test_storm_node_iden(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[ test:int=10 test:str=$node.iden() ] +test:str')
-            iden = s_common.ehex(s_common.buid(('test:int', 10)))
-            self.eq(nodes[0].ndef, ('test:str', iden))
-            self.len(1, nodes)
-
-    async def test_storm_text_add(self):
+    async def test_storm_text(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) }
                 [ test:str=$text.str() ] +test:str''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
+
+            q = '''$t=$lib.text(beepboop) $lib.print($lib.len($t))
+            $t.add("more!") $lib.print($lib.len($t))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('8', msgs)
+            self.stormIsInPrint('13', msgs)
 
     async def test_storm_set(self):
 
@@ -615,7 +640,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), ())
 
-            q = '$set = $lib.set(a, b, c) [test:int=$set.size()]'
+            q = '$set = $lib.set(a, b, c, b, a) [test:int=$set.size()]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 3))
@@ -1277,6 +1302,9 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, errs)
             self.eq(errs[0][1][0], 'StormRuntimeError')
 
+            bobj = s_stormtypes.Bytes(b'beepbeep')
+            self.len(8, bobj)
+
     async def test_storm_lib_base64(self):
 
         async with self.getTestCore() as core:
@@ -1447,6 +1475,7 @@ class StormTypesTest(s_test.SynTest):
                 }
 
                 $lib.print('tally: foo={foo} baz={baz}', foo=$tally.get(foo), baz=$tally.get(baz))
+                $lib.print('tally.len()={v}', v=$lib.len($tally))
             '''
             mesgs = await core.stormlist(q)
             nodes = [m[1] for m in mesgs if m[0] == 'node']
@@ -1454,6 +1483,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
             self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
+            self.stormIsInPrint('tally.len()=2', mesgs)
 
     async def test_storm_lib_layer(self):
 
@@ -1624,6 +1654,9 @@ class StormTypesTest(s_test.SynTest):
 
             self.isin(forkiden, core.views)
             self.isin(forklayr, core.layers)
+
+            msgs = await core.stormlist(f'$v=$lib.view.get({forkiden}) $lib.print($lib.len($v))')
+            self.stormIsInErr('View does not have a length', msgs)
 
             # Add a view
             ldef = await core.addLayer()
@@ -2075,8 +2108,6 @@ class StormTypesTest(s_test.SynTest):
 
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
-        sync = asyncio.Event()
-        lastquery = None
         s_provenance.reset()
 
         def timetime():
@@ -2084,13 +2115,6 @@ class StormTypesTest(s_test.SynTest):
 
         def looptime():
             return unixtime - MONO_DELT
-
-        async def myeval(query, user=None):
-            nonlocal lastquery
-            lastquery = query
-            sync.set()
-            return
-            yield None
 
         loop = asyncio.get_running_loop()
 
@@ -2521,7 +2545,9 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('Deleted cron job', mesgs)
 
     async def test_lib_model(self):
+
         async with self.getTestCore() as core:
+
             q = '$val = $lib.model.type(inet:ipv4).repr(42) [test:str=$val]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -2531,6 +2557,15 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'True'))
+
+            self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
+            self.eq('inet:ipv4', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.name)'))
+            self.eq('inet:dns:a', await core.callStorm('return($lib.model.type(inet:dns:a).name)'))
+
+            self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ipv4).repr($(0x01020304)))'))
+            self.eq(0x01020304, await core.callStorm('return($lib.model.type(inet:ipv4).norm(1.2.3.4).index(0))'))
+            self.eq('inet:dns:a:ipv4', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ipv4).full)'))
+            self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).form.name)'))
 
     async def test_storm_lib_userview(self):
 
@@ -2797,6 +2832,11 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            nodes = await core.nodes('[ test:int=10 test:str=$node.iden() ] +test:str')
+            iden = s_common.ehex(s_common.buid(('test:int', 10)))
+            self.eq(nodes[0].ndef, ('test:str', iden))
+            self.len(1, nodes)
+
             await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
             self.eq(20, await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.get(asn))'))
             self.isin(('asn', 20), await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.list())'))
@@ -2805,6 +2845,10 @@ class StormTypesTest(s_test.SynTest):
             self.eq(20, props['asn'])
 
             self.eq(0x01020304, await core.callStorm('inet:ipv4=1.2.3.4 return($node)'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                _ = await core.nodes('inet:ipv4=1.2.3.4 $lib.print($lib.len($node))')
+            self.eq(cm.exception.get('mesg'), 'Object synapse.lib.node.Node does not have a length.')
 
     async def test_stormtypes_toprim(self):
 
