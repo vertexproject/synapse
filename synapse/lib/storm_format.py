@@ -37,6 +37,7 @@ TerminalPygMap = {
     'FILTPREFIX': p_t.Operator,
     'FOR': p_t.Keyword,
     'FUNCTION': p_t.Keyword,
+    'HEXNUMBER': p_t.Literal.Number,
     'IF': p_t.Keyword,
     'IN': p_t.Keyword,
     'LBRACE': p_t.Punctuation,
