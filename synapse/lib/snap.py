@@ -17,6 +17,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
+import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
@@ -884,6 +885,32 @@ class Snap(s_base.Base):
             node.isrunt = True
 
             yield node
+
+    async def iterNodeEdgesN1(self, buid, verb=None):
+
+        async with s_spooled.Set.ctx() as edgeset:
+
+            for layr in self.layers:
+
+                async for edge in layr.iterNodeEdgesN1(buid, verb=verb):
+                    if edge in edgeset:
+                        continue
+
+                    await edgeset.add(edge)
+                    yield edge
+
+    async def iterNodeEdgesN2(self, buid, verb=None):
+
+        async with s_spooled.Set.ctx() as edgeset:
+
+            for layr in self.layers:
+
+                async for edge in layr.iterNodeEdgesN2(buid, verb=verb):
+                    if edge in edgeset:
+                        continue
+
+                    await edgeset.add(edge)
+                    yield edge
 
     async def getNodeData(self, buid, name, defv=None):
         '''

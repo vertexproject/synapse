@@ -50,6 +50,30 @@ class Node:
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
+    async def addEdge(self, verb, n2iden):
+        nodeedits = (
+            (self.buid, self.form.name, (
+                (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
+            )),
+        )
+        await self.snap.applyNodeEdits(nodeedits)
+
+    async def delEdge(self, verb, n2iden):
+        nodeedits = (
+            (self.buid, self.form.name, (
+                (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
+            )),
+        )
+        await self.snap.applyNodeEdits(nodeedits)
+
+    async def iterEdgesN1(self, verb=None):
+        async for edge in self.snap.iterNodeEdgesN1(self.buid, verb=verb):
+            yield edge
+
+    async def iterEdgesN2(self, verb=None):
+        async for edge in self.snap.iterNodeEdgesN2(self.buid, verb=verb):
+            yield edge
+
     async def storm(self, text, opts=None, user=None, path=None):
         '''
         Args:

@@ -34,6 +34,69 @@ class CortexTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
 
+    async def test_cortex_edges(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                news = await snap.addNode('media:news', '*')
+                ipv4 = await snap.addNode('inet:ipv4', '1.2.3.4')
+
+                await news.addEdge('refs', ipv4.iden())
+
+                n1edges = await alist(news.iterEdgesN1())
+                n2edges = await alist(ipv4.iterEdgesN2())
+
+                self.eq(n1edges, (('refs', ipv4.iden()),))
+                self.eq(n2edges, (('refs', news.iden()),))
+
+                await news.delEdge('refs', ipv4.iden())
+
+                self.len(0, await alist(news.iterEdgesN1()))
+                self.len(0, await alist(ipv4.iterEdgesN2()))
+
+            nodes = await core.nodes('media:news [ +(refs)> {inet:ipv4=1.2.3.4} ]')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            # check all the walk from N1 syntaxes
+            nodes = await core.nodes('media:news -(refs)>')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('media:news -(*)>')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('$types = (refs,hehe) media:news -($types)>')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('$types = (*) media:news -($types)>')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # check all the walk from N2 syntaxes
+            nodes = await core.nodes('inet:ipv4 <(refs)-')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('inet:ipv4 <(*)-')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)-')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('$types = (*) inet:ipv4 <($types)-')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            # get the edge using stormtypes
+            msgs = await core.stormlist('media:news for $edge in $node.edges() { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+
+            msgs = await core.stormlist('media:news for $edge in $node.edges(verb=refs) { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+
+            # remove the refs edge
+            nodes = await core.nodes('media:news [ -(refs)> {inet:ipv4=1.2.3.4} ]')
+            self.len(1, nodes)
+
+            # no walking now...
+            self.len(0, await core.nodes('media:news -(refs)>'))
+
     async def test_cortex_callstorm(self):
         async with self.getTestCore() as core:
             self.eq('asdf', await core.callStorm('return (asdf)'))

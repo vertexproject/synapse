@@ -210,6 +210,8 @@ EDIT_TAGPROP_SET = 6  # (<type>, (<tag>, <prop>, <valu>, <oldv>, <type>), ())
 EDIT_TAGPROP_DEL = 7  # (<type>, (<tag>, <prop>, <oldv>, <type>), ())
 EDIT_NODEDATA_SET = 8 # (<type>, (<name>, <valu>, <oldv>), ())
 EDIT_NODEDATA_DEL = 9 # (<type>, (<name>, <valu>), ())
+EDIT_EDGE_ADD = 10    # (<type>, (<verb>, <destnodeiden>), ())
+EDIT_EDGE_DEL = 11    # (<type>, (<verb>, <destnodeiden>), ())
 
 class IndxBy:
     '''
@@ -908,6 +910,8 @@ class Layer(s_nexus.Pusher):
             self._editTagPropDel,
             self._editNodeDataSet,
             self._editNodeDataDel,
+            self._editNodeEdgeAdd,
+            self._editNodeEdgeDel,
         ]
 
         self.canrev = True
@@ -970,6 +974,9 @@ class Layer(s_nexus.Pusher):
         self.onfini(self.dataslab)
 
         self.bybuid = self.layrslab.initdb('bybuid')
+
+        self.edgesn1 = self.layrslab.initdb('edgesn1', dupsort=True)
+        self.edgesn2 = self.layrslab.initdb('edgesn2', dupsort=True)
 
         self.bytag = self.layrslab.initdb('bytag', dupsort=True)
         self.byprop = self.layrslab.initdb('byprop', dupsort=True)
@@ -1334,6 +1341,8 @@ class Layer(s_nexus.Pusher):
         self.formcounts.inc(form, valu=-1)
 
         self._wipeNodeData(buid)
+        # TODO edits to become async so we can sleep(0) on large deletes?
+        self._delNodeEdges(buid)
 
         return (
             (EDIT_NODE_DEL, (valu, stortype), ()),
@@ -1610,6 +1619,44 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODEDATA_DEL, (name, oldv), ()),
         )
 
+    def _editNodeEdgeAdd(self, buid, form, edit):
+
+        verb, n2iden = edit[1]
+
+        venc = verb.encode()
+        n2buid = s_common.uhex(n2iden)
+
+        if not self.layrslab.put(buid + venc, n2buid, db=self.edgesn1, overwrite=False):
+            return ()
+
+        self.layrslab.put(n2buid + venc, buid, db=self.edgesn2)
+
+        return (
+            (EDIT_EDGE_ADD, (verb, n2iden), ()),
+        )
+
+    def _editNodeEdgeDel(self, buid, form, edit):
+
+        verb, n2iden = edit[1]
+
+        venc = verb.encode()
+        n2buid = s_common.uhex(n2iden)
+
+        if not self.layrslab.delete(buid + venc, n2buid, db=self.edgesn1):
+            return ()
+
+        self.layrslab.delete(n2buid + venc, buid, db=self.edgesn2)
+
+        return (
+            (EDIT_EDGE_DEL, (verb, n2iden), ()),
+        )
+
+    def _delNodeEdges(self, buid):
+        for lkey, n2buid in self.layrslab.scanByPref(buid, db=self.edgesn1):
+            venc = lkey[32:]
+            self.layrslab.delete(lkey, n2buid, db=self.edgesn1)
+            self.layrslab.delete(n2buid + venc, buid, db=self.edgesn2)
+
     def getStorIndx(self, stortype, valu):
 
         if stortype & 0x8000:
@@ -1638,6 +1685,25 @@ class Layer(s_nexus.Pusher):
 
             form, valu, stortype = s_msgpack.un(byts)
             yield buid, valu
+
+    async def iterNodeEdgesN1(self, buid, verb=None):
+
+        pref = buid
+        if verb is not None:
+            pref += verb.encode()
+
+        for lkey, n2buid in self.layrslab.scanByPref(pref, db=self.edgesn1):
+            verb = lkey[32:].decode()
+            yield verb, s_common.ehex(n2buid)
+
+    async def iterNodeEdgesN2(self, buid, verb=None):
+        pref = buid
+        if verb is not None:
+            pref += verb.encode()
+
+        for lkey, n1buid in self.layrslab.scanByPref(pref, db=self.edgesn2):
+            verb = lkey[32:].decode()
+            yield verb, s_common.ehex(n1buid)
 
     async def iterPropRows(self, form, prop):
 
@@ -1980,7 +2046,7 @@ class Layer(s_nexus.Pusher):
 
             for editoffs, (edit, info, _) in editgenr:
 
-                if edit == EDIT_NODEDATA_SET or edit == EDIT_NODEDATA_DEL:
+                if edit in (EDIT_NODEDATA_SET, EDIT_NODEDATA_DEL, EDIT_EDGE_ADD, EDIT_EDGE_DEL):
                     continue
 
                 spliceoffs = (offs, nodeoffs, editoffs)

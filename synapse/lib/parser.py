@@ -133,6 +133,31 @@ class AstConverter(lark.Transformer):
         return kid
 
     @lark.v_args(meta=True)
+    def edgeadd(self, kids, meta):
+        kids = self._convert_children(kids)
+        return s_ast.EditEdgeAdd(kids=kids)
+
+    @lark.v_args(meta=True)
+    def edgedel(self, kids, meta):
+        kids = self._convert_children(kids)
+        return s_ast.EditEdgeDel(kids=kids)
+
+    @lark.v_args(meta=True)
+    def n1walk(self, kids, meta):
+        kids = self._convert_children(kids)
+        return s_ast.N1Walk(kids=kids)
+
+    @lark.v_args(meta=True)
+    def n2walk(self, kids, meta):
+        kids = self._convert_children(kids)
+        return s_ast.N2Walk(kids=kids)
+
+    @lark.v_args(meta=True)
+    def rawpivot(self, kids, meta):
+        kids = self._convert_children(kids)
+        return s_ast.RawPivot(kids=kids)
+
+    @lark.v_args(meta=True)
     def baresubquery(self, kids, meta):
         assert len(kids) == 1
 

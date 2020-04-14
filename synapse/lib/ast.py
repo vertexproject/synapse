@@ -2816,6 +2816,158 @@ class EditUnivDel(Edit):
 
             await asyncio.sleep(0)
 
+class N1Walk(Oper):
+
+    async def run(self, runt, genr):
+
+        const = None
+        if isinstance(self.kids[0], Const):
+            const = self.kids[0].value()
+
+        async for node, path in genr:
+
+            verb = const
+            if verb is None:
+                verb = await self.kids[0].compute(path)
+                verb = await s_stormtypes.toprim(verb)
+
+            if isinstance(verb, str):
+                if verb == '*':
+                    verb = None
+
+                async for _, iden in node.iterEdgesN1(verb=verb):
+                    buid = s_common.uhex(iden)
+                    walknode = await runt.snap.getNodeByBuid(buid)
+                    if walknode is not None:
+                        yield walknode, path.fork(walknode)
+
+            elif isinstance(verb, (list, tuple)):
+                for verb in verb:
+                    if verb == '*':
+                        verb = None
+
+                    async for _, iden in node.iterEdgesN1(verb=verb):
+                        buid = s_common.uhex(iden)
+                        walknode = await runt.snap.getNodeByBuid(buid)
+                        if walknode is not None:
+                            yield walknode, path.fork(walknode)
+
+            else:
+                mesg = f'walk operation expected a string or list.  got: {verb!r}.'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+
+class N2Walk(Oper):
+
+    async def run(self, runt, genr):
+
+        const = None
+        if isinstance(self.kids[0], Const):
+            const = self.kids[0].value()
+
+        async for node, path in genr:
+
+            verb = const
+            if verb is None:
+                verb = await self.kids[0].compute(path)
+                verb = await s_stormtypes.toprim(verb)
+
+            if isinstance(verb, str):
+                if verb == '*':
+                    verb = None
+
+                async for _, iden in node.iterEdgesN2(verb=verb):
+                    buid = s_common.uhex(iden)
+                    walknode = await runt.snap.getNodeByBuid(buid)
+                    if walknode is not None:
+                        yield walknode, path.fork(walknode)
+
+            elif isinstance(verb, (list, tuple)):
+                for verb in verb:
+                    if verb == '*':
+                        verb = None
+
+                    async for _, iden in node.iterEdgesN2(verb=verb):
+                        buid = s_common.uhex(iden)
+                        walknode = await runt.snap.getNodeByBuid(buid)
+                        if walknode is not None:
+                            yield walknode, path.fork(walknode)
+
+            else:
+                mesg = f'walk operation expected a string or list.  got: {verb!r}.'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+
+class EditEdgeAdd(Edit):
+
+    async def run(self, runt, genr):
+
+        #SubQuery -> Query
+        query = self.kids[1].kids[0]
+
+        hits = set()
+        def allowed(x):
+            if x in hits:
+                return
+
+            runt.layerConfirm(('node', 'edge', 'add', x))
+            hits.add(x)
+
+        async for node, path in genr:
+
+            verb = await self.kids[0].compute(path)
+            #TODO this will need a toprim once Str is in play
+
+            allowed(verb)
+
+            varz = {}
+            varz.update(runt.vars)
+            varz.update(path.vars)
+
+            opts = {
+                'vars': varz,
+            }
+
+            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
+                #TODO perhaps chunk the edge edits?
+                async for subn, subp in runt.iterStormQuery(query):
+                    await node.addEdge(verb, subn.iden())
+
+            yield node, path
+
+class EditEdgeDel(Edit):
+
+    async def run(self, runt, genr):
+        query = self.kids[1].kids[0]
+
+        hits = set()
+        def allowed(x):
+            if x in hits:
+                return
+
+            runt.layerConfirm(('node', 'edge', 'del', x))
+            hits.add(x)
+
+        async for node, path in genr:
+
+            verb = await self.kids[0].compute(path)
+            #TODO this will need a toprim once Str is in play
+
+            allowed(verb)
+
+            varz = {}
+            varz.update(runt.vars)
+            varz.update(path.vars)
+
+            opts = {
+                'vars': varz,
+            }
+
+            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
+                #TODO perhaps chunk the edge edits?
+                async for subn, subp in runt.iterStormQuery(query):
+                    await node.delEdge(verb, subn.iden())
+
+            yield node, path
+
 class EditTagAdd(Edit):
 
     async def run(self, runt, genr):

@@ -1358,9 +1358,9 @@ class Node(Prim):
             'pack': self._methNodePack,
             'repr': self._methNodeRepr,
             'tags': self._methNodeTags,
+            'edges': self._methNodeEdges,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
-
             'isform': self._methNodeIsForm,
         })
 
@@ -1384,6 +1384,14 @@ class Node(Prim):
             (tuple): An (ndef, info) node tuple.
         '''
         return self.valu.pack(dorepr=dorepr)
+
+    async def _methNodeEdges(self, verb=None):
+        '''
+        Yields the (verb, iden) tuples for this nodes edges.
+        '''
+        verb = await toprim(verb)
+        async for edge in self.valu.iterEdgesN1(verb=verb):
+            yield edge
 
     async def _methNodeIsForm(self, name):
         return self.valu.form.name == name

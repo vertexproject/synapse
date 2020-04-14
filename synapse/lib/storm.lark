@@ -36,7 +36,7 @@ _editopers: _editoper (_WS _editoper)*
 _editoper: editnodeadd
             | editpropset | editunivset | edittagpropset | edittagadd
             | editpropdel | editunivdel | edittagpropdel | edittagdel
-            | editparens
+            | editparens | edgeadd | edgedel
 
 ///Parenthesis in an edit block don't have incoming nodes
 editparens: "(" _WS? editnodeadd [ _WS _editopers ] _WS? ")"
@@ -57,7 +57,7 @@ SETTAGOPER: "?"
 _oper: stormfunc | initblock | finiblock | subquery | _formpivot | formjoin | formpivotin | formjoinin
      | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
-     | _liftprop | ifstmt | yieldvalu
+     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk
 
 BREAK: "break"
 CONTINUE: "continue"
@@ -124,6 +124,12 @@ _LEFTPIVOT:  "<-"
 
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
             | liftbytagprop | liftbyformtagprop
+
+n1walk: "-(" _valu ")>"
+n2walk: "<(" _valu ")-"
+
+edgeadd: "+(" _valu ")>" _WS? baresubquery
+edgedel: "-(" _valu ")>" _WS? baresubquery
 
 liftformtag.1: PROPNAME tagname [_WS? _cmpr _valu]
 _DEREF:  "*"
