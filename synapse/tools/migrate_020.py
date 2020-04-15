@@ -2112,7 +2112,7 @@ class Migrator(s_base.Base):
                             # which would then be overwritten by EDIT_PROP_SET
 
                         else:
-                            wlyr.editors[editor](buid, form, edit)
+                            wlyr.editors[editor](buid, form, edit, None)
 
             else:
                 err = {'mesg': f'Unrecognized addmode {addmode}'}

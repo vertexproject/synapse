@@ -417,12 +417,12 @@ class Array(Type):
         adds = list(set(adds))
 
         if self.isuniq:
-            norms = list(set(norms))
+            norms = tuple(set(norms))
 
         if self.issorted:
-            norms = sorted(norms)
+            norms = tuple(sorted(norms))
 
-        return norms, {'adds': adds}
+        return tuple(norms), {'adds': adds}
 
     def repr(self, valu):
         return [self.arraytype.repr(v) for v in valu]

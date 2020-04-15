@@ -165,6 +165,8 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.liftperm)
         return self.layr.iden
 
+BUID_CACHE_SIZE = 10000
+
 STOR_TYPE_UTF8 = 1
 
 STOR_TYPE_U8 = 2
@@ -920,6 +922,8 @@ class Layer(s_nexus.Pusher):
         self.windows = []
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
+        self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
+
         uplayr = layrinfo.get('upstream')
         if uplayr is not None and allow_upstream:
             if isinstance(uplayr, (tuple, list)):
@@ -1065,11 +1069,12 @@ class Layer(s_nexus.Pusher):
         '''
         Return a potentially incomplete pode.
         '''
-        ndef = None
+        info = self.buidcache.get(buid)
+        if info is not None:
+            return (buid, info)
 
-        tags = {}
-        props = {}
-        tagprops = {}
+        info = collections.defaultdict(dict)
+        self.buidcache[buid] = info
 
         for lkey, lval in self.layrslab.scanByPref(buid, db=self.bybuid):
 
@@ -1077,41 +1082,27 @@ class Layer(s_nexus.Pusher):
 
             if flag == 0:
                 form, valu, stortype = s_msgpack.un(lval)
-                ndef = (form, valu)
+                info['ndef'] = (form, valu)
                 continue
 
             if flag == 1:
                 name = lkey[33:].decode()
                 valu, stortype = s_msgpack.un(lval)
-                props[name] = valu
+                info['props'][name] = valu
                 continue
 
             if flag == 2:
                 name = lkey[33:].decode()
-                tags[name] = s_msgpack.un(lval)
+                info['tags'][name] = s_msgpack.un(lval)
                 continue
 
             if flag == 3:
                 tag, prop = lkey[33:].decode().split(':')
                 valu, stortype = s_msgpack.un(lval)
-                tagprops[(tag, prop)] = valu
+                info['tagprops'][(tag, prop)] = valu
                 continue
 
             logger.warning(f'unrecognized storage row: {flag}')
-
-        info = {}
-
-        if ndef:
-            info['ndef'] = ndef
-
-        if props:
-            info['props'] = props
-
-        if tags:
-            info['tags'] = tags
-
-        if tagprops:
-            info['tagprops'] = tagprops
 
         return (buid, info)
 
@@ -1255,8 +1246,10 @@ class Layer(s_nexus.Pusher):
         postedits = []  # The primary nodeedit's edits.
         retn = [(buid, form, postedits)]  # The primary nodeedit
 
+        sode = self.buidcache.get(buid)
+
         for edit in edits:
-            changes = self.editors[edit[0]](buid, form, edit)
+            changes = self.editors[edit[0]](buid, form, edit, sode)
             assert all(len(change[2]) == 0 for change in changes)
 
             postedits.extend(changes)
@@ -1283,7 +1276,7 @@ class Layer(s_nexus.Pusher):
         '''
         await self._push('edits', nodeedits, meta)
 
-    def _editNodeAdd(self, buid, form, edit):
+    def _editNodeAdd(self, buid, form, edit, sode):
         valu, stortype = edit[1]
 
         byts = s_msgpack.en((form, valu, stortype))
@@ -1310,12 +1303,15 @@ class Layer(s_nexus.Pusher):
 
         retn = [(EDIT_NODE_ADD, (valu, stortype), ())]
 
+        if sode is not None:
+            sode['ndef'] = (form, valu)
+
         created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_MINTIME))
-        retn.extend(self._editPropSet(buid, form, created))
+        retn.extend(self._editPropSet(buid, form, created, sode))
 
         return retn
 
-    def _editNodeDel(self, buid, form, edit):
+    def _editNodeDel(self, buid, form, edit, sode):
 
         byts = self.layrslab.pop(buid + b'\x00', db=self.bybuid)
         if byts is None:
@@ -1344,11 +1340,13 @@ class Layer(s_nexus.Pusher):
         # TODO edits to become async so we can sleep(0) on large deletes?
         self._delNodeEdges(buid)
 
+        self.buidcache.pop(buid, None)
+
         return (
             (EDIT_NODE_DEL, (valu, stortype), ()),
         )
 
-    def _editPropSet(self, buid, form, edit):
+    def _editPropSet(self, buid, form, edit, sode):
 
         prop, valu, oldv, stortype = edit[1]
 
@@ -1423,11 +1421,14 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.put(univabrv + indx, buid, db=self.byprop)
 
+        if sode is not None:
+            sode['props'][prop] = valu
+
         return (
             (EDIT_PROP_SET, (prop, valu, oldv, stortype), ()),
         )
 
-    def _editPropDel(self, buid, form, edit):
+    def _editPropDel(self, buid, form, edit, sode):
 
         prop, oldv, stortype = edit[1]
 
@@ -1468,11 +1469,14 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
 
+        if sode is not None:
+            sode['props'].pop(prop, None)
+
         return (
             (EDIT_PROP_DEL, (prop, valu, stortype), ()),
         )
 
-    def _editTagSet(self, buid, form, edit):
+    def _editTagSet(self, buid, form, edit, sode):
 
         tag, valu, oldv = edit[1]
 
@@ -1499,11 +1503,14 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
+        if sode is not None:
+            sode['tags'][tag] = valu
+
         return (
             (EDIT_TAG_SET, (tag, valu, oldv), ()),
         )
 
-    def _editTagDel(self, buid, form, edit):
+    def _editTagDel(self, buid, form, edit, sode):
 
         tag, oldv = edit[1]
 
@@ -1520,11 +1527,14 @@ class Layer(s_nexus.Pusher):
 
         oldv = s_msgpack.un(oldb)
 
+        if sode is not None:
+            sode['tags'].pop(tag, None)
+
         return (
             (EDIT_TAG_DEL, (tag, oldv), ()),
         )
 
-    def _editTagPropSet(self, buid, form, edit):
+    def _editTagPropSet(self, buid, form, edit, sode):
 
         tag, prop, valu, oldv, stortype = edit[1]
 
@@ -1555,11 +1565,14 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.putmulti(kvpairs, db=self.bytagprop)
 
+        if sode is not None:
+            sode['tagprops'][(tag, prop)] = valu
+
         return (
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype), ()),
         )
 
-    def _editTagPropDel(self, buid, form, edit):
+    def _editTagPropDel(self, buid, form, edit, sode):
 
         tag, prop, valu, stortype = edit[1]
 
@@ -1581,11 +1594,14 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
             self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
+        if sode is not None:
+            sode['tagprops'].pop((tag, prop), None)
+
         return (
             (EDIT_TAGPROP_DEL, (tag, prop, oldv, oldt), ()),
         )
 
-    def _editNodeDataSet(self, buid, form, edit):
+    def _editNodeDataSet(self, buid, form, edit, sode):
 
         name, valu, oldv = edit[1]
         abrv = self.getPropAbrv(name, None)
@@ -1603,7 +1619,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODEDATA_SET, (name, valu, oldv), ()),
         )
 
-    def _editNodeDataDel(self, buid, form, edit):
+    def _editNodeDataDel(self, buid, form, edit, sode):
 
         name, valu = edit[1]
         abrv = self.getPropAbrv(name, None)

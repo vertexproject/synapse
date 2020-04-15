@@ -289,7 +289,7 @@ class SyncTest(s_t_utils.SynTest):
                 self.false(core.trigson)
                 self.false(core.agenda.enabled)
 
-                self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=8))
+                self.true(await s_coro.event_wait(sync._pull_evnts[wlyr.iden], timeout=4))
                 self.true(await s_coro.event_wait(sync._pull_evnts[seclyr.iden], timeout=4))
 
                 self.true(await s_coro.event_wait(sync._push_evnts[wlyr.iden], timeout=2))
@@ -433,7 +433,7 @@ class SyncTest(s_t_utils.SynTest):
 
                 # trigger migrmode reset on connection drop
                 sync.migrmode_evnt.clear()
-                task = sync.schedCoro(sync._destPushLyrNodeedits(wlyr.iden))
+                sync.schedCoro(sync._destPushLyrNodeedits(wlyr.iden))
                 self.true(await s_coro.event_wait(sync.migrmode_evnt, timeout=5))
 
     async def test_sync_assvr(self):
@@ -535,9 +535,9 @@ class SyncTest(s_t_utils.SynTest):
             # array props
             splices = [
                 ('prop:set', {'ndef': ('ou:org', 'd1589a60391797c88c91efdcac050c76'), 'prop': 'names',
-                               'valu': ('foo baz industries', 'bar bam company'),
-                               'time': 1583285174623, 'user': '970419f1a79f8f3940a5c8cde20f40ea',
-                               'prov': '5461a804fbf9ff24180921f061a93ecd'}),
+                              'valu': ('foo baz industries', 'bar bam company'),
+                              'time': 1583285174623, 'user': '970419f1a79f8f3940a5c8cde20f40ea',
+                              'prov': '5461a804fbf9ff24180921f061a93ecd'}),
             ]
             ndef = splices[0][1]['ndef']
 
