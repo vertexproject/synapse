@@ -33,6 +33,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.time as s_time
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tools.backup as s_tools_backup
 
@@ -206,7 +207,6 @@ class Benchmarker:
                 assert not core.inaugural
 
                 lockmemory = self.coreconfig.get('layers:lockmemory', False)
-                nexuslogen = self.coreconfig.get('nexslog:en', True)
                 logedits = self.coreconfig.get('layers:logedits', True)
 
                 await core.view.layers[0].layrinfo.set('lockmemory', lockmemory)
@@ -217,8 +217,7 @@ class Benchmarker:
                     if lockmemory:
                         await core.view.layers[0].layrslab.lockdoneevent.wait()
 
-                    if nexuslogen:
-                        core.nexsroot._nexusslab.forcecommit()
+                    await s_lmdbslab.Slab.syncLoopOnce()
 
                     yield core, prox
 
@@ -296,6 +295,13 @@ class Benchmarker:
         assert count == self.workfactor
         return count
 
+    @benchmark({'addnodes'})
+    async def do07AAddNodesSync(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acount(prox.addNodes(self.testdata.asns2))
+        core.view.layers[0].layrslab.lenv.sync()
+        assert count == self.workfactor
+        return count
+
     @benchmark({'official', 'addnodes'})
     async def do07BAddNodesSimpleProp(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         '''
@@ -370,6 +376,7 @@ class Benchmarker:
                     yappi.start()
                 start = time.time()
                 count = await coro(core, prox)
+                await s_lmdbslab.Slab.syncLoopOnce()
                 self.measurements[name].append((time.time() - start, count))
                 if do_profiling:
                     yappi.stop()
@@ -465,6 +472,7 @@ async def benchmarkAll(confignames: List = None,
                         perffn = pathlib.Path(perfdir) / f'{configname}_{datetime.datetime.now().isoformat()}.out'
                         print(f'Callgrind stats output to {str(perffn)}')
                         stats.save(perffn, 'CALLGRIND')
+                        yappi.clear_stats()
 
                     bencher.printreport(configname)
 
@@ -473,8 +481,8 @@ async def benchmarkAll(confignames: List = None,
                                 'config': config,
                                 'configname': configname,
                                 'workfactor': workfactor,
-                                'niters': bench.num_iters,
-                                'results': bench.reportdata()
+                                'niters': niters,
+                                'results': bencher.reportdata()
                                 }
                         fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
                         if jsonprefix:
