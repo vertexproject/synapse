@@ -1383,8 +1383,8 @@ class MigrationTest(s_t_utils.SynTest):
                 }
                 migr.model.addDataModels([('asdf', mdef)])
 
-                ndef = ('*test:array', [16909060, 84281096])
-                buid = s_common.buid(('test:array', [16909060, 84281096]))
+                ndef = ('*test:array', (16909060, 84281096))
+                buid = s_common.buid(('test:array', (16909060, 84281096)))
                 node = await migr._srcPackNode(buid, ndef, {}, {}, {})
                 err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
                 res = await migr._destAddNodes(wlyr, [ne], 'editor')
@@ -1396,3 +1396,24 @@ class MigrationTest(s_t_utils.SynTest):
                 err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
                 res = await migr._destAddNodes(wlyr, [ne], 'editor')
                 self.none(res)
+
+                # test inet:server:proto=host
+                # original valu was host://fazbaz.com
+                ndef = ('*inet:server', 'host://1144e562c90bf6d2bbb3a80b1982b84f')
+                buid = s_common.buid(('inet:server', 'host://1144e562c90bf6d2bbb3a80b1982b84f'))
+                props = {'proto': 'host', 'host': '1144e562c90bf6d2bbb3a80b1982b84f', '.created': 1586437148551}
+                node = await migr._srcPackNode(buid, ndef, props, {}, {})
+
+                # no safety check
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=False)
+                self.none(err)
+                sodes = await wlyr.storNodeEdits([ne], meta=None)  # returns sode
+                self.len(1, sodes)
+                self.eq(buid, sodes[0][0])
+
+                # safety check on to exercise re-norming bypass
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+                self.none(err)
+                sodes = await wlyr.storNodeEdits([ne], meta=None)  # returns sode
+                self.len(1, sodes)
+                self.eq(buid, sodes[0][0])

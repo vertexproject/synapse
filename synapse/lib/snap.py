@@ -308,7 +308,9 @@ class Snap(s_base.Base):
         cache = {}
         async for sode in genr:
             cache[layr.iden] = sode
-            yield await self._joinStorNode(sode[0], cache)
+            node = await self._joinStorNode(sode[0], cache)
+            if node is not None:
+                yield node
 
     async def nodesByDataName(self, name):
         for layr in self.layers:
@@ -599,6 +601,10 @@ class Snap(s_base.Base):
             cache = {wlyr.iden: sode}
 
             node = await self._joinStorNode(sode[0], cache)
+
+            if node is None:
+                # We got part of a node but no ndef
+                continue
 
             nodes.append(node)
 

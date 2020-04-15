@@ -2545,7 +2545,9 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('Deleted cron job', mesgs)
 
     async def test_lib_model(self):
+
         async with self.getTestCore() as core:
+
             q = '$val = $lib.model.type(inet:ipv4).repr(42) [test:str=$val]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -2555,6 +2557,15 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'True'))
+
+            self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
+            self.eq('inet:ipv4', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.name)'))
+            self.eq('inet:dns:a', await core.callStorm('return($lib.model.type(inet:dns:a).name)'))
+
+            self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ipv4).repr($(0x01020304)))'))
+            self.eq(0x01020304, await core.callStorm('return($lib.model.type(inet:ipv4).norm(1.2.3.4).index(0))'))
+            self.eq('inet:dns:a:ipv4', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ipv4).full)'))
+            self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).form.name)'))
 
     async def test_storm_lib_userview(self):
 
