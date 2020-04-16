@@ -1785,15 +1785,18 @@ class View(Prim):
         async for item in self.runt.dyniter(viewiden, todo, gatekeys=gatekeys):
             yield item
 
+    async def callViewApi(self, todo, perm):
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        gatekeys = ((useriden, perm, viewiden),)
+        return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+
     async def _methViewGet(self, name, defv=None):
         return self.valu.get(name, defv)
 
     async def _methViewSet(self, name, valu):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, ('view', 'set', name), viewiden),)
         todo = s_common.todo('setViewInfo', name, valu)
-        valu = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        valu = await self.callViewApi(todo, ('view', 'set', name))
         self.valu[name] = valu
 
     async def _methViewRepr(self):

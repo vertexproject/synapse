@@ -1690,6 +1690,7 @@ class Layer(s_nexus.Pusher):
     def _delNodeEdges(self, buid):
         for lkey, n2buid in self.layrslab.scanByPref(buid, db=self.edgesn1):
             venc = lkey[32:]
+            self.layrslab.delete(venc, buid + n2buid, db=self.byverb)
             self.layrslab.delete(lkey, n2buid, db=self.edgesn1)
             self.layrslab.delete(n2buid + venc, buid, db=self.edgesn2)
 

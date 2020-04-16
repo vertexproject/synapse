@@ -135,9 +135,18 @@ class CortexTest(s_t_utils.SynTest):
             self.stormIsInPrint(ipv4.iden(), msgs)
             self.stormIsInPrint(news.iden(), msgs)
 
-            # no walking now...
-            nodes = await core.nodes('media:news [ -(refs)> {inet:ipv4=1.2.3.4} ]')
-            self.len(0, await core.nodes('media:news -(refs)>'))
+            self.eq(1, await core.callStorm('''
+                $list = $lib.list()
+                for $edge in $lib.view.get().getEdges() { $list.append($edge) }
+                return($list.size())
+            '''))
+            await core.nodes('media:news | delnode')
+            # check that auto-deleting a node's edges works
+            self.eq(0, await core.callStorm('''
+                $list = $lib.list()
+                for $edge in $lib.view.get().getEdges() { $list.append($edge) }
+                return($list.size())
+            '''))
 
     async def test_cortex_callstorm(self):
         async with self.getTestCore() as core:
