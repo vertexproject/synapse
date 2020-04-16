@@ -490,14 +490,12 @@ class Snap(s_base.Base):
                     continue
                 yield node
 
-    def getNodeAdds(self, form: str, valu, props, addnode=True):
+    def getNodeAdds(self, form, valu, props, addnode=True):
 
-        def _getadds(f, v, p, doaddnode=True):
+        def _getadds(f, p, formnorm, forminfo, doaddnode=True):
 
             edits = []  # Non-primary prop edits
             topsubedits = []  # Primary prop sub edits
-
-            formnorm, forminfo = f.type.norm(v)
 
             formsubs = forminfo.get('subs', {})
             for subname, subvalu in formsubs.items():
@@ -518,13 +516,15 @@ class Snap(s_base.Base):
                     if ndefform is None:
                         raise s_exc.NoSuchForm(name=ndefname)
 
-                    subedits.extend(list(_getadds(ndefform, ndefvalu, {})))
+                    ndefnorm, ndefinfo = ndefform.type.norm(ndefvalu)
+                    subedits.extend(list(_getadds(ndefform, {}, ndefnorm, ndefinfo)))
 
                 elif isinstance(prop.type, s_types.Array):
                     arrayform = self.core.model.form(prop.type.arraytype.name)
                     if arrayform is not None:
                         for arrayvalu in propvalu:
-                            subedits.extend(list(_getadds(arrayform, arrayvalu, {})))
+                            arraynorm, arrayinfo = arrayform.type.norm(arrayvalu)
+                            subedits.extend(list(_getadds(arrayform, {}, arraynorm, arrayinfo)))
 
                 propnorm, typeinfo = prop.type.norm(propvalu)
 
@@ -543,7 +543,7 @@ class Snap(s_base.Base):
 
                 propform = self.core.model.form(prop.type.name)
                 if propform is not None:
-                    subedits.extend(list(_getadds(propform, propnorm, {})))
+                    subedits.extend(list(_getadds(propform, {}, propnorm, typeinfo)))
 
                 edit: s_layer.EditT = (s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype), subedits)
                 if propname in formsubs:
@@ -568,7 +568,8 @@ class Snap(s_base.Base):
         if props is None:
             props = {}
 
-        return list(_getadds(form, valu, props, doaddnode=addnode))
+        norm, info = form.type.norm(valu)
+        return list(_getadds(form, props, norm, info, doaddnode=addnode))
 
     async def applyNodeEdit(self, edit):
         nodes = await self.applyNodeEdits((edit,))
