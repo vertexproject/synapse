@@ -1098,7 +1098,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(('newp', 9), s_parser.parse_cmd_string('help newp', 5))
 
     def test_syntax_error(self):
-        query = 'test:str )'
+        query = 'test:str --->'
         parser = s_parser.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 
