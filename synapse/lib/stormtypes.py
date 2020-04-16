@@ -1770,22 +1770,22 @@ class View(Prim):
     async def _methGetEdges(self, verb=None):
         verb = await toprim(verb)
         todo = s_common.todo('getEdges', verb=verb)
-        async for edge in self.iterViewApi(todo, ('view', 'read')):
+        async for edge in self.viewDynIter(todo, ('view', 'read')):
             yield edge
 
     async def _methGetEdgeVerbs(self):
         todo = s_common.todo('getEdgeVerbs')
-        async for verb in self.iterViewApi(todo, ('view', 'read')):
+        async for verb in self.viewDynIter(todo, ('view', 'read')):
             yield verb
 
-    async def iterViewApi(self, todo, perm):
+    async def viewDynIter(self, todo, perm):
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
         gatekeys = ((useriden, perm, viewiden),)
         async for item in self.runt.dyniter(viewiden, todo, gatekeys=gatekeys):
             yield item
 
-    async def callViewApi(self, todo, perm):
+    async def viewDynCall(self, todo, perm):
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
         gatekeys = ((useriden, perm, viewiden),)
@@ -1796,7 +1796,7 @@ class View(Prim):
 
     async def _methViewSet(self, name, valu):
         todo = s_common.todo('setViewInfo', name, valu)
-        valu = await self.callViewApi(todo, ('view', 'set', name))
+        valu = await self.viewDynCall(todo, ('view', 'set', name))
         self.valu[name] = valu
 
     async def _methViewRepr(self):

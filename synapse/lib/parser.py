@@ -148,44 +148,6 @@ class AstConverter(lark.Transformer):
         return kid
 
     @lark.v_args(meta=True)
-    def edgeaddn1(self, kids, meta):
-        kids = self._convert_children(kids)
-        return s_ast.EditEdgeAdd(kids=kids)
-
-    @lark.v_args(meta=True)
-    def edgedeln1(self, kids, meta):
-        kids = self._convert_children(kids)
-        return s_ast.EditEdgeDel(kids=kids)
-
-    @lark.v_args(meta=True)
-    def edgeaddn2(self, kids, meta):
-        kids = self._convert_children(kids)
-        return s_ast.EditEdgeAdd(kids=kids, n2=True)
-
-    @lark.v_args(meta=True)
-    def edgedeln2(self, kids, meta):
-        kids = self._convert_children(kids)
-        return s_ast.EditEdgeDel(kids=kids, n2=True)
-
-    @lark.v_args(meta=True)
-    def n1walk(self, kids, meta):
-        kids = self._convert_children(kids)
-        return s_ast.N1Walk(kids=kids)
-
-    @lark.v_args(meta=True)
-    def n2walk(self, kids, meta):
-        kids = self._convert_children(kids)
-        return s_ast.N2Walk(kids=kids)
-
-    @lark.v_args(meta=True)
-    def n1walknpivo(self, kids, meta):
-        return s_ast.N1WalkNPivo()
-
-    @lark.v_args(meta=True)
-    def n2walknpivo(self, kids, meta):
-        return s_ast.N2WalkNPivo()
-
-    @lark.v_args(meta=True)
     def baresubquery(self, kids, meta):
         assert len(kids) == 1
 
@@ -445,6 +407,10 @@ ruleClassMap = {
     'andexpr': s_ast.AndCond,
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
+    'edgeaddn1': s_ast.EditEdgeAdd,
+    'edgedeln1': s_ast.EditEdgeDel,
+    'edgeaddn2': lambda kids: s_ast.EditEdgeAdd(kids, n2=True),
+    'edgedeln2': lambda kids: s_ast.EditEdgeDel(kids, n2=True),
     'editnodeadd': s_ast.EditNodeAdd,
     'editparens': s_ast.EditParens,
     'initblock': s_ast.InitBlock,
@@ -490,6 +456,10 @@ ruleClassMap = {
     'liftbyarray': s_ast.LiftByArray,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
+    'n1walk': s_ast.N1Walk,
+    'n2walk': s_ast.N2Walk,
+    'n1walknpivo': s_ast.N1WalkNPivo,
+    'n2walknpivo': s_ast.N2WalkNPivo,
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,

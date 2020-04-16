@@ -2855,45 +2855,12 @@ class EditUnivDel(Edit):
 
 class N1Walk(Oper):
 
-    async def run(self, runt, genr):
-
-        const = None
-        if isinstance(self.kids[0], Const):
-            const = self.kids[0].value()
-
-        async for node, path in genr:
-
-            verb = const
-            if verb is None:
-                verb = await self.kids[0].compute(path)
-                verb = await s_stormtypes.toprim(verb)
-
-            if isinstance(verb, str):
-                if verb == '*':
-                    verb = None
-
-                async for _, iden in node.iterEdgesN1(verb=verb):
-                    buid = s_common.uhex(iden)
-                    walknode = await runt.snap.getNodeByBuid(buid)
-                    if walknode is not None:
-                        yield walknode, path.fork(walknode)
-
-            elif isinstance(verb, (list, tuple)):
-                for verb in verb:
-                    if verb == '*':
-                        verb = None
-
-                    async for _, iden in node.iterEdgesN1(verb=verb):
-                        buid = s_common.uhex(iden)
-                        walknode = await runt.snap.getNodeByBuid(buid)
-                        if walknode is not None:
-                            yield walknode, path.fork(walknode)
-
-            else:
-                mesg = f'walk operation expected a string or list.  got: {verb!r}.'
-                raise s_exc.StormRuntimeError(mesg=mesg)
-
-class N2Walk(Oper):
+    async def walkNodeEdges(self, runt, node, verb=None):
+        async for _, iden in node.iterEdgesN1(verb=verb):
+            buid = s_common.uhex(iden)
+            walknode = await runt.snap.getNodeByBuid(buid)
+            if walknode is not None:
+                yield walknode
 
     async def run(self, runt, genr):
 
@@ -2912,26 +2879,29 @@ class N2Walk(Oper):
                 if verb == '*':
                     verb = None
 
-                async for _, iden in node.iterEdgesN2(verb=verb):
-                    buid = s_common.uhex(iden)
-                    walknode = await runt.snap.getNodeByBuid(buid)
-                    if walknode is not None:
-                        yield walknode, path.fork(walknode)
+                async for walknode in self.walkNodeEdges(runt, node, verb=verb):
+                    yield walknode, path.fork(walknode)
 
             elif isinstance(verb, (list, tuple)):
                 for verb in verb:
                     if verb == '*':
                         verb = None
 
-                    async for _, iden in node.iterEdgesN2(verb=verb):
-                        buid = s_common.uhex(iden)
-                        walknode = await runt.snap.getNodeByBuid(buid)
-                        if walknode is not None:
-                            yield walknode, path.fork(walknode)
+                    async for walknode in self.walkNodeEdges(runt, node, verb=verb):
+                        yield walknode, path.fork(walknode)
 
             else:
                 mesg = f'walk operation expected a string or list.  got: {verb!r}.'
                 raise s_exc.StormRuntimeError(mesg=mesg)
+
+class N2Walk(N1Walk):
+
+    async def walkNodeEdges(self, runt, node, verb=None):
+        async for _, iden in node.iterEdgesN2(verb=verb):
+            buid = s_common.uhex(iden)
+            walknode = await runt.snap.getNodeByBuid(buid)
+            if walknode is not None:
+                yield walknode
 
 class EditEdgeAdd(Edit):
 

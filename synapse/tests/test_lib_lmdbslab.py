@@ -65,6 +65,25 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(testlist, (b'hehe', b'hoho'))
                 self.eq(dupslist, (b'hehe', b'hoho'))
 
+                # now lets delete the key we're on
+                testgenr = slab.scanKeys(db=testdb)
+                dupsgenr = slab.scanKeys(db=testdb)
+
+                testlist = [next(testgenr)]
+                dupslist = [next(dupsgenr)]
+
+                slab.delete(b'hehe', db=testdb)
+                for lkey, lval in slab.scanByDups(b'hehe', db=dupsdb):
+                    slab.delete(lkey, lval, db=dupsdb)
+
+                await s_lmdbslab.Slab.syncLoopOnce()
+
+                testlist.extend(testgenr)
+                dupslist.extend(dupsgenr)
+
+                self.eq(testlist, (b'hehe', b'hoho'))
+                self.eq(dupslist, (b'hehe', b'hoho'))
+
     async def test_lmdbslab_base(self):
 
         with self.getTestDir() as dirn:

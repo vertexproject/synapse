@@ -1328,7 +1328,8 @@ class Scan:
 
                     self.bumped = False
                     self.curs = self.slab.xact.cursor(db=self.db)
-                    self.curs.set_range(self.atitem)
+                    if not self.curs.set_range(self.atitem):
+                        return
 
                     self.genr = self.curs.iternext(self.curs, values=False)
 
