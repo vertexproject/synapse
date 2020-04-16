@@ -164,6 +164,13 @@ class CortexTest(s_t_utils.SynTest):
 
             self.eq((), list(core.view.layers[0].makeSplices(0, nodeedits, {})))
 
+            # Sad path - edges must be a str/list of strs
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                q = 'inet:ipv4 $edges=$(0) -($edges)>'
+                await core.nodes(q)
+            self.eq(cm.exception.get('mesg'),
+                    'walk operation expected a string or list.  got: 0.')
+
     async def test_cortex_callstorm(self):
         async with self.getTestCore() as core:
             self.eq('asdf', await core.callStorm('return (asdf)'))
