@@ -12,6 +12,7 @@ import synapse.cortex as s_cortex
 
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
+import synapse.lib.layer as s_layer
 import synapse.lib.version as s_version
 
 import synapse.tools.backup as s_tools_backup
@@ -135,18 +136,33 @@ class CortexTest(s_t_utils.SynTest):
             self.stormIsInPrint(ipv4.iden(), msgs)
             self.stormIsInPrint(news.iden(), msgs)
 
+            # delete an edge that doesn't exist to bounce off the layer
+            await core.nodes('media:news [ -(refs)> { [ inet:ipv4=5.5.5.5 ] } ]')
+
+            # add an edge that exists already to bounce off the layer
+            await core.nodes('media:news [ +(refs)> { inet:ipv4=1.2.3.4 } ]')
+
             self.eq(1, await core.callStorm('''
                 $list = $lib.list()
                 for $edge in $lib.view.get().getEdges() { $list.append($edge) }
                 return($list.size())
             '''))
-            await core.nodes('media:news | delnode')
+
             # check that auto-deleting a node's edges works
+            await core.nodes('media:news | delnode')
             self.eq(0, await core.callStorm('''
                 $list = $lib.list()
                 for $edge in $lib.view.get().getEdges() { $list.append($edge) }
                 return($list.size())
             '''))
+
+            # check that edge node edits dont bork up legacy splice generation
+            nodeedits = [(ipv4.buid, 'inet:ipv4', (
+                (s_layer.EDIT_EDGE_ADD, (), ()),
+                (s_layer.EDIT_EDGE_DEL, (), ()),
+            ))]
+
+            self.eq((), list(core.view.layers[0].makeSplices(0, nodeedits, {})))
 
     async def test_cortex_callstorm(self):
         async with self.getTestCore() as core:

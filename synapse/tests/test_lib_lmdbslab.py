@@ -39,6 +39,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 dupsdb = slab.initdb('dups', dupsort=True)
                 editdb = slab.initdb('edit')
 
+                self.eq((), list(slab.scanKeys(db=testdb)))
+
                 slab.put(b'hehe', b'haha', db=dupsdb)
                 slab.put(b'hehe', b'lolz', db=dupsdb)
                 slab.put(b'hoho', b'asdf', db=dupsdb)
