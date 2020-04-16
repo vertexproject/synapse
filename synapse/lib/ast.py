@@ -1154,7 +1154,7 @@ class PivotOut(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            for item in self.getPivsOut(runt, node, path):
+            async for item in self.getPivsOut(runt, node, path):
                 yield item
 
     async def getPivsOut(self, runt, node, path):
