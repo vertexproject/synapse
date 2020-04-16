@@ -97,6 +97,48 @@ class CortexTest(s_t_utils.SynTest):
             # no walking now...
             self.len(0, await core.nodes('media:news -(refs)>'))
 
+            # now lets add the edge using the n2 syntax
+            nodes = await core.nodes('inet:ipv4 [ <(refs)+ { media:news } ]')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('media:news -(refs)>')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('inet:ipv4 [ <(refs)- { media:news } ]')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # test refs+pivs in and out
+            nodes = await core.nodes('media:news [ +(refs)> { inet:ipv4=1.2.3.4 } ]')
+            nodes = await core.nodes('media:news [ :rss:feed=http://www.vertex.link/rss ]')
+            nodes = await core.nodes('[ inet:dns:a=(woot.com, 1.2.3.4) ]')
+
+            # we should now be able to edge walk *and* refs out
+            nodes = await core.nodes('media:news --> *')
+            self.eq(nodes[0].ndef[0], 'inet:url')
+            self.eq(nodes[1].ndef[0], 'inet:ipv4')
+
+            # we should now be able to edge walk *and* refs in
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 <-- *')
+            self.eq(nodes[0].ndef[0], 'inet:dns:a')
+            self.eq(nodes[1].ndef[0], 'media:news')
+
+            msgs = await core.stormlist('for $verb in $lib.view.get().getEdgeVerbs() { $lib.print($verb) }')
+            self.stormIsInPrint('refs', msgs)
+
+            msgs = await core.stormlist('for $edge in $lib.view.get().getEdges() { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+            self.stormIsInPrint(ipv4.iden(), msgs)
+            self.stormIsInPrint(news.iden(), msgs)
+
+            msgs = await core.stormlist('for $edge in $lib.view.get().getEdges(verb=refs) { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+            self.stormIsInPrint(ipv4.iden(), msgs)
+            self.stormIsInPrint(news.iden(), msgs)
+
+            # no walking now...
+            nodes = await core.nodes('media:news [ -(refs)> {inet:ipv4=1.2.3.4} ]')
+            self.len(0, await core.nodes('media:news -(refs)>'))
+
     async def test_cortex_callstorm(self):
         async with self.getTestCore() as core:
             self.eq('asdf', await core.callStorm('return (asdf)'))

@@ -979,6 +979,7 @@ class Layer(s_nexus.Pusher):
 
         self.bybuid = self.layrslab.initdb('bybuid')
 
+        self.byverb = self.layrslab.initdb('byverb', dupsort=True)
         self.edgesn1 = self.layrslab.initdb('edgesn1', dupsort=True)
         self.edgesn2 = self.layrslab.initdb('edgesn2', dupsort=True)
 
@@ -1635,7 +1636,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODEDATA_DEL, (name, oldv), ()),
         )
 
-    def _editNodeEdgeAdd(self, buid, form, edit):
+    def _editNodeEdgeAdd(self, buid, form, edit, sode):
 
         verb, n2iden = edit[1]
 
@@ -1645,13 +1646,14 @@ class Layer(s_nexus.Pusher):
         if not self.layrslab.put(buid + venc, n2buid, db=self.edgesn1, overwrite=False):
             return ()
 
+        self.layrslab.put(venc, buid + n2buid, db=self.byverb)
         self.layrslab.put(n2buid + venc, buid, db=self.edgesn2)
 
         return (
             (EDIT_EDGE_ADD, (verb, n2iden), ()),
         )
 
-    def _editNodeEdgeDel(self, buid, form, edit):
+    def _editNodeEdgeDel(self, buid, form, edit, sode):
 
         verb, n2iden = edit[1]
 
@@ -1661,11 +1663,29 @@ class Layer(s_nexus.Pusher):
         if not self.layrslab.delete(buid + venc, n2buid, db=self.edgesn1):
             return ()
 
+        self.layrslab.delete(venc, buid + n2buid, db=self.byverb)
         self.layrslab.delete(n2buid + venc, buid, db=self.edgesn2)
 
         return (
             (EDIT_EDGE_DEL, (verb, n2iden), ()),
         )
+
+    def getEdgeVerbs(self):
+
+        for lkey in self.layrslab.scanKeys(db=self.byverb):
+            yield lkey.decode()
+
+    def getEdges(self, verb=None):
+
+        if verb is None:
+
+            for lkey, lval in self.layrslab.scanByFull(db=self.byverb):
+                yield (s_common.ehex(lval[:32]), lkey.decode(), s_common.ehex(lval[32:]))
+
+            return
+
+        for lkey, lval in self.layrslab.scanByDups(verb.encode(), db=self.byverb):
+            yield (s_common.ehex(lval[:32]), verb, s_common.ehex(lval[32:]))
 
     def _delNodeEdges(self, buid):
         for lkey, n2buid in self.layrslab.scanByPref(buid, db=self.edgesn1):

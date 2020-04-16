@@ -79,10 +79,24 @@ terminalEnglishMap = {
     'WORDTOKN': 'A whitespace tokenized string',
     'YIELD': 'yield',
     '_DEREF': '*',
+    '_EDGEADDN1INIT': '+(',
+    '_EDGEADDN1FINI': ')>',
+    '_EDGEDELN1INIT': '-(',
+    '_EDGEDELN1FINI': ')>',
+    '_EDGEADDN2INIT': '<(',
+    '_EDGEADDN2FINI': ')+',
+    '_EDGEDELN2INIT': '<(',
+    '_EDGEDELN2FINI': ')-',
     '_EMBEDQUERYSTART': '${',
     '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
+    '_WALKNPIVON1': '-->',
+    '_WALKNPIVON2': '<--',
+    '_N1WALKINIT': '-(',
+    '_N1WALKFINI': ')>',
+    '_N2WALKINIT': '<(',
+    '_N2WALKFINI': ')-',
     '_ONLYTAGPROP': '#:',
     '_RETURN': 'return',
     '_RIGHTJOIN': '-+>',
@@ -133,14 +147,24 @@ class AstConverter(lark.Transformer):
         return kid
 
     @lark.v_args(meta=True)
-    def edgeadd(self, kids, meta):
+    def edgeaddn1(self, kids, meta):
         kids = self._convert_children(kids)
         return s_ast.EditEdgeAdd(kids=kids)
 
     @lark.v_args(meta=True)
-    def edgedel(self, kids, meta):
+    def edgedeln1(self, kids, meta):
         kids = self._convert_children(kids)
         return s_ast.EditEdgeDel(kids=kids)
+
+    @lark.v_args(meta=True)
+    def edgeaddn2(self, kids, meta):
+        kids = self._convert_children(kids)
+        return s_ast.EditEdgeAdd(kids=kids, n2=True)
+
+    @lark.v_args(meta=True)
+    def edgedeln2(self, kids, meta):
+        kids = self._convert_children(kids)
+        return s_ast.EditEdgeDel(kids=kids, n2=True)
 
     @lark.v_args(meta=True)
     def n1walk(self, kids, meta):
@@ -153,9 +177,12 @@ class AstConverter(lark.Transformer):
         return s_ast.N2Walk(kids=kids)
 
     @lark.v_args(meta=True)
-    def rawpivot(self, kids, meta):
-        kids = self._convert_children(kids)
-        return s_ast.RawPivot(kids=kids)
+    def n1walknpivo(self, kids, meta):
+        return s_ast.N1WalkNPivo()
+
+    @lark.v_args(meta=True)
+    def n2walknpivo(self, kids, meta):
+        return s_ast.N2WalkNPivo()
 
     @lark.v_args(meta=True)
     def baresubquery(self, kids, meta):

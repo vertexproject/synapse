@@ -148,6 +148,7 @@ class CoreSpawnTest(s_test.SynTest):
                 proc.join(12)
 
     async def test_cortex_spawn_telepath(self):
+        self.skip('this test wedges too frequently')
         conf = {
             'storm:log': True,
             'storm:log:level': logging.INFO,

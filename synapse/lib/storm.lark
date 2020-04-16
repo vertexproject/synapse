@@ -36,7 +36,7 @@ _editopers: _editoper (_WS _editoper)*
 _editoper: editnodeadd
             | editpropset | editunivset | edittagpropset | edittagadd
             | editpropdel | editunivdel | edittagpropdel | edittagdel
-            | editparens | edgeadd | edgedel
+            | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
 ///Parenthesis in an edit block don't have incoming nodes
 editparens: "(" _WS? editnodeadd [ _WS _editopers ] _WS? ")"
@@ -57,7 +57,7 @@ SETTAGOPER: "?"
 _oper: stormfunc | initblock | finiblock | subquery | _formpivot | formjoin | formpivotin | formjoinin
      | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
-     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk
+     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo
 
 BREAK: "break"
 CONTINUE: "continue"
@@ -125,11 +125,34 @@ _LEFTPIVOT:  "<-"
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
             | liftbytagprop | liftbyformtagprop
 
-n1walk: "-(" _valu ")>"
-n2walk: "<(" _valu ")-"
+_N1WALKINIT: "-("
+_N1WALKFINI: ")>"
+_N2WALKINIT: "<("
+_N2WALKFINI: ")-"
 
-edgeadd: "+(" _valu ")>" _WS? baresubquery
-edgedel: "-(" _valu ")>" _WS? baresubquery
+n1walk: _N1WALKINIT _valu _N1WALKFINI
+n2walk: _N2WALKINIT _valu _N2WALKFINI
+
+_WALKNPIVON1: "-->"
+_WALKNPIVON2: "<--"
+
+n1walknpivo: _WALKNPIVON1 _WS? "*"
+n2walknpivo: _WALKNPIVON2 _WS? "*"
+
+_EDGEADDN1INIT: "+("
+_EDGEADDN1FINI: ")>"
+_EDGEDELN1INIT: "-("
+_EDGEDELN1FINI: ")>"
+
+_EDGEADDN2INIT: "<("
+_EDGEADDN2FINI: ")+"
+_EDGEDELN2INIT: "<("
+_EDGEDELN2FINI: ")-"
+
+edgeaddn1: _EDGEADDN1INIT _valu _EDGEADDN1FINI _WS? baresubquery
+edgedeln1: _EDGEDELN1INIT _valu _EDGEDELN1FINI _WS? baresubquery
+edgeaddn2: _EDGEADDN2INIT _valu _EDGEADDN2FINI _WS? baresubquery
+edgedeln2: _EDGEDELN2INIT _valu _EDGEDELN2FINI _WS? baresubquery
 
 liftformtag.1: PROPNAME tagname [_WS? _cmpr _valu]
 _DEREF:  "*"

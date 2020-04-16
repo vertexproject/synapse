@@ -11,6 +11,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
+import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -100,6 +101,34 @@ class View(s_nexus.Pusher):  # type: ignore
             for name, valu in (await layr.getFormCounts()).items():
                 counts[name] += valu
         return counts
+
+    async def getEdgeVerbs(self):
+
+        async with s_spooled.Set.ctx() as vset:
+
+            for layr in self.layers:
+
+                for verb in layr.getEdgeVerbs():
+
+                    if verb in vset:
+                        continue
+
+                    await vset.add(verb)
+                    yield verb
+
+    async def getEdges(self, verb=None):
+
+        async with s_spooled.Set.ctx() as eset:
+
+            for layr in self.layers:
+
+                for edge in layr.getEdges(verb=verb):
+
+                    if edge in eset:
+                        continue
+
+                    await eset.add(edge)
+                    yield edge
 
     async def _initViewLayers(self):
 

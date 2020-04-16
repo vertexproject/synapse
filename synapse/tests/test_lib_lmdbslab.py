@@ -27,6 +27,42 @@ def getFileMapCount(filename):
 
 class LmdbSlabTest(s_t_utils.SynTest):
 
+    async def test_lmdbslab_scankeys(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with s_lmdbslab.Slab.ctx(path) as slab:
+
+                testdb = slab.initdb('test')
+                dupsdb = slab.initdb('dups', dupsort=True)
+                editdb = slab.initdb('edit')
+
+                slab.put(b'hehe', b'haha', db=dupsdb)
+                slab.put(b'hehe', b'lolz', db=dupsdb)
+                slab.put(b'hoho', b'asdf', db=dupsdb)
+
+                slab.put(b'hehe', b'haha', db=testdb)
+                slab.put(b'hoho', b'haha', db=testdb)
+
+                testgenr = slab.scanKeys(db=testdb)
+                dupsgenr = slab.scanKeys(db=testdb)
+
+                testlist = [next(testgenr)]
+                dupslist = [next(dupsgenr)]
+
+                slab.put(b'derp', b'derp', db=editdb)
+
+                # bump them both...
+                await s_lmdbslab.Slab.syncLoopOnce()
+
+                testlist.extend(testgenr)
+                dupslist.extend(dupsgenr)
+
+                self.eq(testlist, (b'hehe', b'hoho'))
+                self.eq(dupslist, (b'hehe', b'hoho'))
+
     async def test_lmdbslab_base(self):
 
         with self.getTestDir() as dirn:

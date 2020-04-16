@@ -1154,58 +1154,78 @@ class PivotOut(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            # <syn:tag> -> * is "from tags to nodes with tags"
-            if node.form.name == 'syn:tag':
+            for item in self.getPivsOut(runt, node, path):
+                yield item
 
-                async for pivo in runt.snap.nodesByTag(node.ndef[1]):
-                    yield pivo, path.fork(pivo)
+    async def getPivsOut(self, runt, node, path):
 
-                continue
+        # <syn:tag> -> * is "from tags to nodes with tags"
+        if node.form.name == 'syn:tag':
 
-            if isinstance(node.form.type, s_types.Edge):
-                n2def = node.get('n2')
-                pivo = await runt.snap.getNodeByNdef(n2def)
-                if pivo is None:
-                    logger.warning(f'Missing node corresponding to ndef {n2def} on edge')
-                    continue
+            async for pivo in runt.snap.nodesByTag(node.ndef[1]):
                 yield pivo, path.fork(pivo)
+
+            return
+
+        if isinstance(node.form.type, s_types.Edge):
+            n2def = node.get('n2')
+            pivo = await runt.snap.getNodeByNdef(n2def)
+            if pivo is None:
+                logger.warning(f'Missing node corresponding to ndef {n2def} on edge')
+                return
+
+            yield pivo, path.fork(pivo)
+            return
+
+        for name, prop in node.form.props.items():
+
+            valu = node.get(name)
+            if valu is None:
                 continue
 
-            for name, prop in node.form.props.items():
-
-                valu = node.get(name)
-                if valu is None:
-                    continue
-
-                # if the outbound prop is an ndef...
-                if isinstance(prop.type, s_types.Ndef):
-                    pivo = await runt.snap.getNodeByNdef(valu)
-                    if pivo is None:
-                        continue
-
-                    yield pivo, path.fork(pivo)
-                    continue
-
-                if isinstance(prop.type, s_types.Array):
-                    typename = prop.type.opts.get('type')
-                    if runt.model.forms.get(typename) is not None:
-                        for item in valu:
-                            async for pivo in runt.snap.nodesByPropValu(typename, '=', item):
-                                yield pivo, path.fork(pivo)
-
-                form = runt.model.forms.get(prop.type.name)
-                if form is None:
-                    continue
-
-                pivo = await runt.snap.getNodeByNdef((form.name, valu))
+            # if the outbound prop is an ndef...
+            if isinstance(prop.type, s_types.Ndef):
+                pivo = await runt.snap.getNodeByNdef(valu)
                 if pivo is None:
                     continue
 
-                # avoid self references
-                if pivo.buid == node.buid:
-                    continue
-
                 yield pivo, path.fork(pivo)
+                continue
+
+            if isinstance(prop.type, s_types.Array):
+                typename = prop.type.opts.get('type')
+                if runt.model.forms.get(typename) is not None:
+                    for item in valu:
+                        async for pivo in runt.snap.nodesByPropValu(typename, '=', item):
+                            yield pivo, path.fork(pivo)
+
+            form = runt.model.forms.get(prop.type.name)
+            if form is None:
+                continue
+
+            pivo = await runt.snap.getNodeByNdef((form.name, valu))
+            if pivo is None:
+                continue
+
+            # avoid self references
+            if pivo.buid == node.buid:
+                continue
+
+            yield pivo, path.fork(pivo)
+
+class N1WalkNPivo(PivotOut):
+
+    async def run(self, runt, genr):
+
+        async for node, path in genr:
+
+            async for item in self.getPivsOut(runt, node, path):
+                yield item
+
+            async for (verb, iden) in node.iterEdgesN1():
+                wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
+                if wnode is not None:
+                    yield wnode, path.fork(wnode)
 
 class PivotToTags(PivotOper):
     '''
@@ -1285,28 +1305,45 @@ class PivotIn(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            # if it's a graph edge, use :n1
-            if isinstance(node.form.type, s_types.Edge):
+            async for item in self.getPivsIn(runt, node, path):
+                yield item
 
-                ndef = node.get('n1')
+    async def getPivsIn(self, runt, node, path):
 
-                pivo = await runt.snap.getNodeByNdef(ndef)
-                if pivo is None:
-                    continue
+        # if it's a graph edge, use :n1
+        if isinstance(node.form.type, s_types.Edge):
 
+            ndef = node.get('n1')
+
+            pivo = await runt.snap.getNodeByNdef(ndef)
+            if pivo is not None:
                 yield pivo, path.fork(pivo)
 
-                continue
+            return
 
-            name, valu = node.ndef
+        name, valu = node.ndef
 
-            for prop in runt.model.propsbytype.get(name, ()):
-                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
-                    yield pivo, path.fork(pivo)
+        for prop in runt.model.propsbytype.get(name, ()):
+            async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
+                yield pivo, path.fork(pivo)
 
-            for prop in runt.model.arraysbytype.get(name, ()):
-                async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
-                    yield pivo, path.fork(pivo)
+        for prop in runt.model.arraysbytype.get(name, ()):
+            async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
+                yield pivo, path.fork(pivo)
+
+class N2WalkNPivo(PivotIn):
+
+    async def run(self, runt, genr):
+
+        async for node, path in genr:
+
+            async for item in self.getPivsIn(runt, node, path):
+                yield item
+
+            async for (verb, iden) in node.iterEdgesN2():
+                wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
+                if wnode is not None:
+                    yield wnode, path.fork(wnode)
 
 class PivotInFrom(PivotOper):
     '''
@@ -2898,6 +2935,10 @@ class N2Walk(Oper):
 
 class EditEdgeAdd(Edit):
 
+    def __init__(self, kids=(), n2=False):
+        Edit.__init__(self, kids=kids)
+        self.n2 = n2
+
     async def run(self, runt, genr):
 
         #SubQuery -> Query
@@ -2913,6 +2954,7 @@ class EditEdgeAdd(Edit):
 
         async for node, path in genr:
 
+            iden = node.iden()
             verb = await self.kids[0].compute(path)
             #TODO this will need a toprim once Str is in play
 
@@ -2929,11 +2971,18 @@ class EditEdgeAdd(Edit):
             with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
                 #TODO perhaps chunk the edge edits?
                 async for subn, subp in runt.iterStormQuery(query):
-                    await node.addEdge(verb, subn.iden())
+                    if self.n2:
+                        await subn.addEdge(verb, iden)
+                    else:
+                        await node.addEdge(verb, subn.iden())
 
             yield node, path
 
 class EditEdgeDel(Edit):
+
+    def __init__(self, kids=(), n2=False):
+        Edit.__init__(self, kids=kids)
+        self.n2 = n2
 
     async def run(self, runt, genr):
         query = self.kids[1].kids[0]
@@ -2948,6 +2997,7 @@ class EditEdgeDel(Edit):
 
         async for node, path in genr:
 
+            iden = node.iden()
             verb = await self.kids[0].compute(path)
             #TODO this will need a toprim once Str is in play
 
@@ -2964,7 +3014,10 @@ class EditEdgeDel(Edit):
             with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
                 #TODO perhaps chunk the edge edits?
                 async for subn, subp in runt.iterStormQuery(query):
-                    await node.delEdge(verb, subn.iden())
+                    if self.n2:
+                        await subn.delEdge(verb, iden)
+                    else:
+                        await node.delEdge(verb, subn.iden())
 
             yield node, path
 

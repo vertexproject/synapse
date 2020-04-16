@@ -945,6 +945,7 @@ class Runtime:
 
         self.opts = opts
         self.snap = snap
+        self.view = snap.view
         self.user = user
 
         self.model = snap.core.getDataModel()

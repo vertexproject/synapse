@@ -1763,7 +1763,27 @@ class View(Prim):
             'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
+            'getEdges': self._methGetEdges,
+            'getEdgeVerbs': self._methGetEdgeVerbs,
         })
+
+    async def _methGetEdges(self, verb=None):
+        verb = await toprim(verb)
+        todo = s_common.todo('getEdges', verb=verb)
+        async for edge in self.iterViewApi(todo, ('view', 'read')):
+            yield edge
+
+    async def _methGetEdgeVerbs(self):
+        todo = s_common.todo('getEdgeVerbs')
+        async for verb in self.iterViewApi(todo, ('view', 'read')):
+            yield verb
+
+    async def iterViewApi(self, todo, perm):
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        gatekeys = ((useriden, perm, viewiden),)
+        async for item in self.runt.dyniter(viewiden, todo, gatekeys=gatekeys):
+            yield item
 
     async def _methViewGet(self, name, defv=None):
         return self.valu.get(name, defv)
