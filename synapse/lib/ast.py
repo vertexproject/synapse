@@ -1170,7 +1170,7 @@ class PivotOut(PivotOper):
         if isinstance(node.form.type, s_types.Edge):
             n2def = node.get('n2')
             pivo = await runt.snap.getNodeByNdef(n2def)
-            if pivo is None:
+            if pivo is None:  # pragma: no cover
                 logger.warning(f'Missing node corresponding to ndef {n2def} on edge')
                 return
 
@@ -1204,7 +1204,7 @@ class PivotOut(PivotOper):
                 continue
 
             pivo = await runt.snap.getNodeByNdef((form.name, valu))
-            if pivo is None:
+            if pivo is None:  # pragma: no cover
                 continue
 
             # avoid self references
