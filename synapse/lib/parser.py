@@ -78,6 +78,7 @@ terminalEnglishMap = {
     'WHILE': 'while',
     'WORDTOKN': 'A whitespace tokenized string',
     'YIELD': 'yield',
+    '_ARRAYCONDSTART': '*[',
     '_DEREF': '*',
     '_EDGEADDN1INIT': '+(',
     '_EDGEADDN1FINI': ')>',

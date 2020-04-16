@@ -269,7 +269,8 @@ tagvalucond.1:  _tagmatch _WS? _cmpr _WS? _valu
 tagcond: _tagmatch
 
 condsubq: "{" query "}" [_WSCOMM? _cmpr _WSCOMM? _valu]
-arraycond: relprop "*[" _WS? _safe_cmpr _WS? _valu _WS? "]"
+arraycond: relprop _ARRAYCONDSTART _WS? _safe_cmpr _WS? _valu _WS? "]"
+_ARRAYCONDSTART: "*["
 
 _condexpr: _cond | orexpr | andexpr
 orexpr: _condexpr _WS? "or" _WS? _cond

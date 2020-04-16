@@ -68,6 +68,7 @@ TerminalPygMap = {
     'WHILE': p_t.Keyword,
     'WORDTOKN': p_t.Literal.String,
     'YIELD': p_t.Keyword,
+    '_ARRAYCONDSTART': p_t.Punctuation,
     '_EDGEADDN1INIT': p_t.Punctuation,
     '_EDGEADDN1FINI': p_t.Punctuation,
     '_EDGEDELN1INIT': p_t.Punctuation,
