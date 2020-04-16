@@ -231,7 +231,7 @@ class Node:
                 return False
 
         props = {prop.name: norm}
-        nodeedits = self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
+        nodeedits = await self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
 
         await self.snap.applyNodeEdits(nodeedits)
 

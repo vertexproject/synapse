@@ -490,9 +490,9 @@ class Snap(s_base.Base):
                     continue
                 yield node
 
-    def getNodeAdds(self, form, valu, props, addnode=True):
+    async def getNodeAdds(self, form, valu, props, addnode=True):
 
-        def _getadds(f, p, formnorm, forminfo, doaddnode=True):
+        async def _getadds(f, p, formnorm, forminfo, doaddnode=True):
 
             edits = []  # Non-primary prop edits
             topsubedits = []  # Primary prop sub edits
@@ -517,14 +517,26 @@ class Snap(s_base.Base):
                         raise s_exc.NoSuchForm(name=ndefname)
 
                     ndefnorm, ndefinfo = ndefform.type.norm(ndefvalu)
-                    subedits.extend(list(_getadds(ndefform, {}, ndefnorm, ndefinfo)))
+                    do_subedit = True
+                    if self.buidprefetch:
+                        node = await self.getNodeByBuid(s_common.buid((ndefform.name, ndefnorm)))
+                        do_subedit = node is None
+
+                    if do_subedit:
+                        subedits.extend([x async for x in _getadds(ndefform, {}, ndefnorm, ndefinfo)])
 
                 elif isinstance(prop.type, s_types.Array):
                     arrayform = self.core.model.form(prop.type.arraytype.name)
                     if arrayform is not None:
                         for arrayvalu in propvalu:
                             arraynorm, arrayinfo = arrayform.type.norm(arrayvalu)
-                            subedits.extend(list(_getadds(arrayform, {}, arraynorm, arrayinfo)))
+
+                            if self.buidprefetch:
+                                node = await self.getNodeByBuid(s_common.buid((arrayform.name, arraynorm)))
+                                if node is not None:
+                                    continue
+
+                            subedits.extend([x async for x in _getadds(arrayform, {}, arraynorm, arrayinfo)])
 
                 propnorm, typeinfo = prop.type.norm(propvalu)
 
@@ -539,11 +551,19 @@ class Snap(s_base.Base):
                         assert subprop.type.stortype is not None
 
                         subnorm, subinfo = subprop.type.norm(subvalu)
+
                         edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
 
                 propform = self.core.model.form(prop.type.name)
                 if propform is not None:
-                    subedits.extend(list(_getadds(propform, {}, propnorm, typeinfo)))
+
+                    doedit = True
+                    if self.buidprefetch:
+                        node = await self.getNodeByBuid(s_common.buid((propform.name, propnorm)))
+                        doedit = node is None
+
+                    if doedit:
+                        subedits.extend([x async for x in _getadds(propform, {}, propnorm, typeinfo)])
 
                 edit: s_layer.EditT = (s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype), subedits)
                 if propname in formsubs:
@@ -569,7 +589,7 @@ class Snap(s_base.Base):
             props = {}
 
         norm, info = form.type.norm(valu)
-        return list(_getadds(form, props, norm, info, doaddnode=addnode))
+        return [x async for x in _getadds(form, props, norm, info, doaddnode=addnode)]
 
     async def applyNodeEdit(self, edit):
         nodes = await self.applyNodeEdits((edit,))
@@ -744,7 +764,7 @@ class Snap(s_base.Base):
                             await node.set(p, v)
                     return node
 
-            adds = self.getNodeAdds(form, valu, props=props)
+            adds = await self.getNodeAdds(form, valu, props=props)
 
         except asyncio.CancelledError: # pragma: no cover
             raise
