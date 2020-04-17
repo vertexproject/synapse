@@ -4,8 +4,10 @@ import glob
 import json
 import shutil
 import asyncio
+import binascii
 import itertools
 import contextlib
+import collections
 
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
@@ -17,6 +19,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
@@ -1166,6 +1169,113 @@ class MigrationTest(s_t_utils.SynTest):
                     self.sorteq(srcglob, [x for x in glob.glob(src + '/**', recursive=True) if 'lock' not in x])
                     self.true(os.path.exists(nexpath))
 
+    async def test_migr_partiallayer(self):
+        podemap = {}
+        with self.getRegrDir('assets', REGR_VER) as assetdir:
+            podesj = getAssetJson(assetdir, 'podes.json')
+
+            # map by iden and strip out data that wont migrate
+            for pode in podesj:
+                if pode[0] in NOMIGR_NDEF:
+                    continue
+                podemap[pode[1]['iden']] = {k: v for k, v in pode[1].get('props', {}).items()}
+
+            podemap = tupleize(podemap)
+
+        with self.getRegrDir('cortexes', REGR_VER) as src:
+            with self.getTestDir() as dest:
+                os.listdir(os.path.join(src, 'layers'))
+
+                conf = {
+                    'src': src,
+                    'dest': dest,
+                    'mappartial': True,
+                }
+
+                # strip out primary prop rows
+                for lyriden in os.listdir(os.path.join(src, 'layers')):
+
+                    lyrdirn = os.path.join(src, 'layers', lyriden, 'layer.lmdb')
+
+                    async with await s_lmdbslab.Slab.anit(lyrdirn) as slab:
+                        bybuid = slab.initdb('bybuid')
+                        for lkey, lval in slab.scanByFull(db=bybuid):
+                            prop = lkey[32:].decode('utf8')
+                            if prop[0] == '*':
+                                slab.delete(lkey, db=bybuid)
+
+                async with await s_migr.Migrator.anit(conf) as migr:
+                    await migr.migrate()
+
+                # startup 0.2.0 core and check layer values
+                async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                    layer = core.getLayer()
+
+                    newpodemap = collections.defaultdict(dict)
+                    for lkey, lval in layer.layrslab.scanByFull(db='bybuid'):
+                        buid = lkey[:32]
+                        iden = binascii.hexlify(buid).decode('utf8')
+
+                        flag = lkey[32]
+                        self.ne(0, flag)
+
+                        # prop sets only
+                        if flag == 1:
+                            name = lkey[33:].decode()
+                            valu, stortype = s_msgpack.un(lval)
+
+                            newpodemap[iden][name] = valu
+
+                    self.eq(podemap, newpodemap)
+
+    async def test_migr_partiallayer_errors(self):
+        with self.getRegrDir('cortexes', REGR_VER) as src:
+            with self.getTestDir() as dest:
+                os.listdir(os.path.join(src, 'layers'))
+
+                conf = {
+                    'src': src,
+                    'dest': dest,
+                    'mappartial': False,
+                }
+
+                # strip out primary prop rows
+                for lyriden in os.listdir(os.path.join(src, 'layers')):
+
+                    lyrdirn = os.path.join(src, 'layers', lyriden, 'layer.lmdb')
+
+                    async with await s_lmdbslab.Slab.anit(lyrdirn) as slab:
+                        bybuid = slab.initdb('bybuid')
+                        for lkey, lval in slab.scanByFull(db=bybuid):
+                            prop = lkey[32:].decode('utf8')
+                            if prop[0] == '*':
+                                slab.delete(lkey, db=bybuid)
+
+                async with await s_migr.Migrator.anit(conf) as migr:
+                    # every node will generate an error, but is survivable
+                    await migr.migrate()
+
+                # startup 0.2.0 core and check layer values
+                async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                    layer = core.getLayer()
+
+                    newpodemap = collections.defaultdict(dict)
+                    for lkey, lval in layer.layrslab.scanByFull(db='bybuid'):
+                        buid = lkey[:32]
+                        iden = binascii.hexlify(buid).decode('utf8')
+
+                        flag = lkey[32]
+                        self.ne(0, flag)
+
+                        # prop sets only
+                        if flag == 1:
+                            name = lkey[33:].decode()
+                            valu, stortype = s_msgpack.un(lval)
+
+                            newpodemap[iden][name] = valu
+
+                    self.len(0, newpodemap.keys())
+
     async def test_migr_migrTriggers(self):
         conf = {
             'src': None,
@@ -1201,49 +1311,49 @@ class MigrationTest(s_t_utils.SynTest):
             ndef = ('foo:bar', '1.2.3.3')
             buid = s_common.buid(ndef)
             node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Unable to parse form name', err['mesg'])
 
             ndef = ('*inet:fqdn', 123)
             buid = s_common.buid(ndef)
             node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Buid/norming exception', err['mesg'])
 
             ndef = ('*inet:fqdn', 'foo.com.')
             buid = s_common.buid(('inet:fqdn', 'foo.com.'))
             node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Normed form val does not match inbound', err['mesg'])
 
             ndef = ('*inet:fqdn', 'foo.com.')
             buid = s_common.buid(('inet:fqdn', 'foo.com'))
             node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Calculated buid does not match inbound', err['mesg'])
 
             ndef = ('*inet:fqdn', 'foo.com')
             buid = s_common.buid(('inet:fqdn', 'foo.com'))
             node = await migr._srcPackNode(buid, ndef, {'foo:bar': 'ham'}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Unable to determine stortype for sprop foo:bar', err['mesg'])
 
             ndef = ('*inet:fqdn', 'foo.com')
             buid = s_common.buid(('inet:fqdn', 'foo.com'))
             node = await migr._srcPackNode(buid, ndef, {'inet:ipv4': 'ham'}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Unable to determine stortype for sprop inet:ipv4', err['mesg'])
 
             ndef = ('*inet:fqdn', 'foo.com')
             buid = s_common.buid(('inet:fqdn', 'foo.com'))
             node = await migr._srcPackNode(buid, ndef, {}, {}, {'newp': {'ahh': 37}})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Unable to determine stortype for tagprop ahh', err['mesg'])
 
@@ -1254,7 +1364,7 @@ class MigrationTest(s_t_utils.SynTest):
                 ndef = ('*inet:fqdn', 'foo.com')
                 buid = s_common.buid(('inet:fqdn', 'foo.com'))
                 node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
                 self.none(err)
                 ne = ('badbuid', 'foo:bar', ne[2])
 
@@ -1276,14 +1386,14 @@ class MigrationTest(s_t_utils.SynTest):
                 ndef = ('*test:array', (16909060, 84281096))
                 buid = s_common.buid(('test:array', (16909060, 84281096)))
                 node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
                 res = await migr._destAddNodes(wlyr, [ne], 'editor')
                 self.none(res)
 
                 ndef = ('*ou:org', '4386f6146f3eb3be784d3e0d44cede5e')
                 buid = s_common.buid(('ou:org', '4386f6146f3eb3be784d3e0d44cede5e'))
                 node = await migr._srcPackNode(buid, ndef, {'names': ('foo', 'bar')}, {}, {})
-                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
                 res = await migr._destAddNodes(wlyr, [ne], 'editor')
                 self.none(res)
 
