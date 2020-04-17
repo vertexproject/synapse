@@ -938,6 +938,11 @@ class Slab(s_base.Base):
         finally:
             self._relXactForReading()
 
+    def hasdup(self, lkey, lval, db=None):
+        realdb, dupsort = self.dbnames[db]
+        with self.xact.cursor(db=realdb) as curs:
+            return curs.set_key_dup(lkey, lval)
+
     def stat(self, db=None):
         self._acqXactForReading()
         realdb, dupsort = self.dbnames[db]
