@@ -12,6 +12,7 @@ import synapse.cortex as s_cortex
 
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
+import synapse.lib.layer as s_layer
 import synapse.lib.version as s_version
 
 import synapse.tools.backup as s_tools_backup
@@ -33,6 +34,149 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadStorageVersion):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
+
+    async def test_cortex_edges(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                news = await snap.addNode('media:news', '*')
+                ipv4 = await snap.addNode('inet:ipv4', '1.2.3.4')
+
+                await news.addEdge('refs', ipv4.iden())
+
+                n1edges = await alist(news.iterEdgesN1())
+                n2edges = await alist(ipv4.iterEdgesN2())
+
+                self.eq(n1edges, (('refs', ipv4.iden()),))
+                self.eq(n2edges, (('refs', news.iden()),))
+
+                await news.delEdge('refs', ipv4.iden())
+
+                self.len(0, await alist(news.iterEdgesN1()))
+                self.len(0, await alist(ipv4.iterEdgesN2()))
+
+            nodes = await core.nodes('media:news [ +(refs)> {inet:ipv4=1.2.3.4} ]')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            # check all the walk from N1 syntaxes
+            nodes = await core.nodes('media:news -(refs)>')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('media:news -(*)>')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('$types = (refs,hehe) media:news -($types)>')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('$types = (*) media:news -($types)>')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # check all the walk from N2 syntaxes
+            nodes = await core.nodes('inet:ipv4 <(refs)-')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('inet:ipv4 <(*)-')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)-')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('$types = (*) inet:ipv4 <($types)-')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            # get the edge using stormtypes
+            msgs = await core.stormlist('media:news for $edge in $node.edges() { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+
+            msgs = await core.stormlist('media:news for $edge in $node.edges(verb=refs) { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+
+            # remove the refs edge
+            nodes = await core.nodes('media:news [ -(refs)> {inet:ipv4=1.2.3.4} ]')
+            self.len(1, nodes)
+
+            # no walking now...
+            self.len(0, await core.nodes('media:news -(refs)>'))
+
+            # now lets add the edge using the n2 syntax
+            nodes = await core.nodes('inet:ipv4 [ <(refs)+ { media:news } ]')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('media:news -(refs)>')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('inet:ipv4 [ <(refs)- { media:news } ]')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # test refs+pivs in and out
+            nodes = await core.nodes('media:news [ +(refs)> { inet:ipv4=1.2.3.4 } ]')
+            nodes = await core.nodes('media:news [ :rss:feed=http://www.vertex.link/rss ]')
+            nodes = await core.nodes('[ inet:dns:a=(woot.com, 1.2.3.4) ]')
+
+            # we should now be able to edge walk *and* refs out
+            nodes = await core.nodes('media:news --> *')
+            self.eq(nodes[0].ndef[0], 'inet:url')
+            self.eq(nodes[1].ndef[0], 'inet:ipv4')
+
+            # we should now be able to edge walk *and* refs in
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 <-- *')
+            self.eq(nodes[0].ndef[0], 'inet:dns:a')
+            self.eq(nodes[1].ndef[0], 'media:news')
+
+            msgs = await core.stormlist('for $verb in $lib.view.get().getEdgeVerbs() { $lib.print($verb) }')
+            self.stormIsInPrint('refs', msgs)
+
+            msgs = await core.stormlist('for $edge in $lib.view.get().getEdges() { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+            self.stormIsInPrint(ipv4.iden(), msgs)
+            self.stormIsInPrint(news.iden(), msgs)
+
+            msgs = await core.stormlist('for $edge in $lib.view.get().getEdges(verb=refs) { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+            self.stormIsInPrint(ipv4.iden(), msgs)
+            self.stormIsInPrint(news.iden(), msgs)
+
+            # delete an edge that doesn't exist to bounce off the layer
+            await core.nodes('media:news [ -(refs)> { [ inet:ipv4=5.5.5.5 ] } ]')
+
+            # add an edge that exists already to bounce off the layer
+            await core.nodes('media:news [ +(refs)> { inet:ipv4=1.2.3.4 } ]')
+
+            self.eq(1, await core.callStorm('''
+                $list = $lib.list()
+                for $edge in $lib.view.get().getEdges() { $list.append($edge) }
+                return($list.size())
+            '''))
+
+            # check that auto-deleting a node's edges works
+            await core.nodes('media:news | delnode')
+            self.eq(0, await core.callStorm('''
+                $list = $lib.list()
+                for $edge in $lib.view.get().getEdges() { $list.append($edge) }
+                return($list.size())
+            '''))
+
+            # check that edge node edits dont bork up legacy splice generation
+            nodeedits = [(ipv4.buid, 'inet:ipv4', (
+                (s_layer.EDIT_EDGE_ADD, (), ()),
+                (s_layer.EDIT_EDGE_DEL, (), ()),
+            ))]
+
+            self.eq((), list(core.view.layers[0].makeSplices(0, nodeedits, {})))
+
+            # Run multiple nodes through edge creation/deletion ( test coverage for perm caching )
+            await core.nodes('inet:ipv4 [ <(test)+ { meta:source:name=test }]')
+            self.len(2, await core.nodes('meta:source:name=test -(test)>'))
+
+            await core.nodes('inet:ipv4 [ <(test)-{ meta:source:name=test }]')
+            self.len(0, await core.nodes('meta:source:name=test -(test)>'))
+
+            # Sad path - edges must be a str/list of strs
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                q = 'inet:ipv4 $edges=$(0) -($edges)>'
+                await core.nodes(q)
+            self.eq(cm.exception.get('mesg'),
+                    'walk operation expected a string or list.  got: 0.')
 
     async def test_cortex_callstorm(self):
         async with self.getTestCore() as core:

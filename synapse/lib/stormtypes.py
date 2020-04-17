@@ -1358,9 +1358,9 @@ class Node(Prim):
             'pack': self._methNodePack,
             'repr': self._methNodeRepr,
             'tags': self._methNodeTags,
+            'edges': self._methNodeEdges,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
-
             'isform': self._methNodeIsForm,
         })
 
@@ -1384,6 +1384,14 @@ class Node(Prim):
             (tuple): An (ndef, info) node tuple.
         '''
         return self.valu.pack(dorepr=dorepr)
+
+    async def _methNodeEdges(self, verb=None):
+        '''
+        Yields the (verb, iden) tuples for this nodes edges.
+        '''
+        verb = await toprim(verb)
+        async for edge in self.valu.iterEdgesN1(verb=verb):
+            yield edge
 
     async def _methNodeIsForm(self, name):
         return self.valu.form.name == name
@@ -1755,17 +1763,40 @@ class View(Prim):
             'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
+            'getEdges': self._methGetEdges,
+            'getEdgeVerbs': self._methGetEdgeVerbs,
         })
+
+    async def _methGetEdges(self, verb=None):
+        verb = await toprim(verb)
+        todo = s_common.todo('getEdges', verb=verb)
+        async for edge in self.viewDynIter(todo, ('view', 'read')):
+            yield edge
+
+    async def _methGetEdgeVerbs(self):
+        todo = s_common.todo('getEdgeVerbs')
+        async for verb in self.viewDynIter(todo, ('view', 'read')):
+            yield verb
+
+    async def viewDynIter(self, todo, perm):
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        gatekeys = ((useriden, perm, viewiden),)
+        async for item in self.runt.dyniter(viewiden, todo, gatekeys=gatekeys):
+            yield item
+
+    async def viewDynCall(self, todo, perm):
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        gatekeys = ((useriden, perm, viewiden),)
+        return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
     async def _methViewGet(self, name, defv=None):
         return self.valu.get(name, defv)
 
     async def _methViewSet(self, name, valu):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, ('view', 'set', name), viewiden),)
         todo = s_common.todo('setViewInfo', name, valu)
-        valu = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        valu = await self.viewDynCall(todo, ('view', 'set', name))
         self.valu[name] = valu
 
     async def _methViewRepr(self):

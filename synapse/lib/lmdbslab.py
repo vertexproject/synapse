@@ -938,6 +938,11 @@ class Slab(s_base.Base):
         finally:
             self._relXactForReading()
 
+    def hasdup(self, lkey, lval, db=None):
+        realdb, dupsort = self.dbnames[db]
+        with self.xact.cursor(db=realdb) as curs:
+            return curs.set_key_dup(lkey, lval)
+
     def stat(self, db=None):
         self._acqXactForReading()
         realdb, dupsort = self.dbnames[db]
@@ -950,6 +955,15 @@ class Slab(s_base.Base):
     # def getByDup(self, lkey, db=None):
     # def getByPref(self, lkey, db=None):
     # def getByRange(self, lkey, db=None):
+
+    def scanKeys(self, db=None):
+
+        with Scan(self, db) as scan:
+
+            if not scan.firstkeys():
+                return
+
+            yield from scan.iterkeys()
 
     def scanByDups(self, lkey, db=None):
 
@@ -1277,6 +1291,15 @@ class Scan:
         self.atitem = next(self.genr)
         return True
 
+    def firstkeys(self):
+
+        if not self.curs.first():
+            return False
+
+        self.genr = self.curs.iternext(values=False)
+        self.atitem = next(self.genr)
+        return True
+
     def set_key(self, lkey):
 
         if not self.curs.set_key(lkey):
@@ -1297,6 +1320,32 @@ class Scan:
         self.atitem = next(self.genr)
 
         return True
+
+    def iterkeys(self):
+
+        try:
+            while True:
+
+                yield self.atitem
+                # we only want to iterate keys even in dupsort case
+
+                if self.bumped:
+
+                    self.bumped = False
+                    self.curs = self.slab.xact.cursor(db=self.db)
+                    if not self.curs.set_range(self.atitem):
+                        return
+
+                    self.genr = self.curs.iternext(self.curs, values=False)
+
+                    # if we restore and the atitem key is still there, skip it.
+                    if self.atitem == self.curs.key():
+                        next(self.genr)
+
+                self.atitem = next(self.genr)
+
+        except StopIteration:
+            return
 
     def iternext(self):
 
