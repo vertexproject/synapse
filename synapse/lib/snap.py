@@ -17,6 +17,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
+import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
@@ -490,14 +491,12 @@ class Snap(s_base.Base):
                     continue
                 yield node
 
-    def getNodeAdds(self, form: str, valu, props, addnode=True):
+    async def getNodeAdds(self, form, valu, props, addnode=True):
 
-        def _getadds(f, v, p, doaddnode=True):
+        async def _getadds(f, p, formnorm, forminfo, doaddnode=True):
 
             edits = []  # Non-primary prop edits
             topsubedits = []  # Primary prop sub edits
-
-            formnorm, forminfo = f.type.norm(v)
 
             formsubs = forminfo.get('subs', {})
             for subname, subvalu in formsubs.items():
@@ -518,13 +517,27 @@ class Snap(s_base.Base):
                     if ndefform is None:
                         raise s_exc.NoSuchForm(name=ndefname)
 
-                    subedits.extend(list(_getadds(ndefform, ndefvalu, {})))
+                    ndefnorm, ndefinfo = ndefform.type.norm(ndefvalu)
+                    do_subedit = True
+                    if self.buidprefetch:
+                        node = await self.getNodeByBuid(s_common.buid((ndefform.name, ndefnorm)))
+                        do_subedit = node is None
+
+                    if do_subedit:
+                        subedits.extend([x async for x in _getadds(ndefform, {}, ndefnorm, ndefinfo)])
 
                 elif isinstance(prop.type, s_types.Array):
                     arrayform = self.core.model.form(prop.type.arraytype.name)
                     if arrayform is not None:
                         for arrayvalu in propvalu:
-                            subedits.extend(list(_getadds(arrayform, arrayvalu, {})))
+                            arraynorm, arrayinfo = arrayform.type.norm(arrayvalu)
+
+                            if self.buidprefetch:
+                                node = await self.getNodeByBuid(s_common.buid((arrayform.name, arraynorm)))
+                                if node is not None:
+                                    continue
+
+                            subedits.extend([x async for x in _getadds(arrayform, {}, arraynorm, arrayinfo)])
 
                 propnorm, typeinfo = prop.type.norm(propvalu)
 
@@ -539,11 +552,19 @@ class Snap(s_base.Base):
                         assert subprop.type.stortype is not None
 
                         subnorm, subinfo = subprop.type.norm(subvalu)
+
                         edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
 
                 propform = self.core.model.form(prop.type.name)
                 if propform is not None:
-                    subedits.extend(list(_getadds(propform, propnorm, {})))
+
+                    doedit = True
+                    if self.buidprefetch:
+                        node = await self.getNodeByBuid(s_common.buid((propform.name, propnorm)))
+                        doedit = node is None
+
+                    if doedit:
+                        subedits.extend([x async for x in _getadds(propform, {}, propnorm, typeinfo)])
 
                 edit: s_layer.EditT = (s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype), subedits)
                 if propname in formsubs:
@@ -568,7 +589,8 @@ class Snap(s_base.Base):
         if props is None:
             props = {}
 
-        return list(_getadds(form, valu, props, doaddnode=addnode))
+        norm, info = form.type.norm(valu)
+        return [x async for x in _getadds(form, props, norm, info, doaddnode=addnode)]
 
     async def applyNodeEdit(self, edit):
         nodes = await self.applyNodeEdits((edit,))
@@ -743,7 +765,7 @@ class Snap(s_base.Base):
                             await node.set(p, v)
                     return node
 
-            adds = self.getNodeAdds(form, valu, props=props)
+            adds = await self.getNodeAdds(form, valu, props=props)
 
         except asyncio.CancelledError: # pragma: no cover
             raise
@@ -890,6 +912,32 @@ class Snap(s_base.Base):
             node.isrunt = True
 
             yield node
+
+    async def iterNodeEdgesN1(self, buid, verb=None):
+
+        async with s_spooled.Set.ctx() as edgeset:
+
+            for layr in self.layers:
+
+                async for edge in layr.iterNodeEdgesN1(buid, verb=verb):
+                    if edge in edgeset:
+                        continue
+
+                    await edgeset.add(edge)
+                    yield edge
+
+    async def iterNodeEdgesN2(self, buid, verb=None):
+
+        async with s_spooled.Set.ctx() as edgeset:
+
+            for layr in self.layers:
+
+                async for edge in layr.iterNodeEdgesN2(buid, verb=verb):
+                    if edge in edgeset:
+                        continue
+
+                    await edgeset.add(edge)
+                    yield edge
 
     async def getNodeData(self, buid, name, defv=None):
         '''
