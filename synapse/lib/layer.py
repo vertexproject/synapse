@@ -1643,10 +1643,13 @@ class Layer(s_nexus.Pusher):
         venc = verb.encode()
         n2buid = s_common.uhex(n2iden)
 
-        if not self.layrslab.put(buid + venc, n2buid, db=self.edgesn1, overwrite=False):
+        n1key = buid + venc
+
+        if self.layrslab.hasdup(n1key, n2buid, db=self.edgesn1):
             return ()
 
         self.layrslab.put(venc, buid + n2buid, db=self.byverb)
+        self.layrslab.put(n1key, n2buid, db=self.edgesn1)
         self.layrslab.put(n2buid + venc, buid, db=self.edgesn2)
 
         return (
