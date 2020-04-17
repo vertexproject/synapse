@@ -164,6 +164,13 @@ class CortexTest(s_t_utils.SynTest):
 
             self.eq((), list(core.view.layers[0].makeSplices(0, nodeedits, {})))
 
+            # Run multiple nodes through edge creation/deletion ( test coverage for perm caching )
+            await core.nodes('inet:ipv4 [ <(test)+ { meta:source:name=test }]')
+            self.len(2, await core.nodes('meta:source:name=test -(test)>'))
+
+            await core.nodes('inet:ipv4 [ <(test)-{ meta:source:name=test }]')
+            self.len(0, await core.nodes('meta:source:name=test -(test)>'))
+
             # Sad path - edges must be a str/list of strs
             with self.raises(s_exc.StormRuntimeError) as cm:
                 q = 'inet:ipv4 $edges=$(0) -($edges)>'
