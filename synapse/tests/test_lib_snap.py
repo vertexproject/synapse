@@ -225,7 +225,6 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(0, adds[0][2][1][2])
 
                 # Check that array secondary props don't create new nodes if already exist
-                # array
                 props = {'ints': (1, 2, 3)}
                 form = core.model.form('test:arrayprop')
                 adds = await snap.getNodeAdds(form, '*', props=props)
