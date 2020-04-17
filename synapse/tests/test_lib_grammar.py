@@ -14,6 +14,16 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    'inet:ipv4 --> *',
+    'inet:ipv4 <-- *',
+    'inet:fqdn=woot.com [ <(refs)+ { media:news } ]',
+    'inet:fqdn=woot.com [ <(refs)+ { media:news } ]',
+    '$refs = refs media:news -($refs)> -(#foo or #bar)',
+    '$refs = refs media:news <($refs)- -(#foo or #bar)',
+    'media:news -(refs)> -(#foo or #bar)',
+    'media:news <(refs)- -(#foo or #bar)',
+    'media:news [ -(refs)> { inet:fqdn=woot.com } ]',
+    'media:news [ +(refs)> { inet:fqdn=woot.com } ]',
     'cron add --monthly=-1:12:30 {#bar}',
     '$foo=$(1 or 1 or 0)',
     '$foo=$(1 and 1 and 0)',
@@ -560,6 +570,16 @@ _Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [LiftProp: [Const: inet:ipv4], N1WalkNPivo: [], isjoin=False]',
+    'Query: [LiftProp: [Const: inet:ipv4], N2WalkNPivo: [], isjoin=False]',
+    'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], EditEdgeAdd: [Const: refs, SubQuery: [Query: [LiftProp: [Const: media:news]]]]]',
+    'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], EditEdgeAdd: [Const: refs, SubQuery: [Query: [LiftProp: [Const: media:news]]]]]',
+    'Query: [SetVarOper: [Const: refs, Const: refs], LiftProp: [Const: media:news], N1Walk: [VarValue: [Const: refs]], FiltOper: [Const: -, OrCond: [TagCond: [TagMatch: [Const: foo]], TagCond: [TagMatch: [Const: bar]]]]]',
+    'Query: [SetVarOper: [Const: refs, Const: refs], LiftProp: [Const: media:news], N2Walk: [VarValue: [Const: refs]], FiltOper: [Const: -, OrCond: [TagCond: [TagMatch: [Const: foo]], TagCond: [TagMatch: [Const: bar]]]]]',
+    'Query: [LiftProp: [Const: media:news], N1Walk: [Const: refs], FiltOper: [Const: -, OrCond: [TagCond: [TagMatch: [Const: foo]], TagCond: [TagMatch: [Const: bar]]]]]',
+    'Query: [LiftProp: [Const: media:news], N2Walk: [Const: refs], FiltOper: [Const: -, OrCond: [TagCond: [TagMatch: [Const: foo]], TagCond: [TagMatch: [Const: bar]]]]]',
+    'Query: [LiftProp: [Const: media:news], EditEdgeDel: [Const: refs, SubQuery: [Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com]]]]]',
+    'Query: [LiftProp: [Const: media:news], EditEdgeAdd: [Const: refs, SubQuery: [Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com]]]]]',
     'Query: [CmdOper: [Const: cron, List: [Const: add, Const: --monthly, Const: -1:12:30, Const: {#bar}]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: or, Const: 1], Const: or, Const: 0]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: and, Const: 1], Const: and, Const: 0]]]]',
@@ -1078,7 +1098,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(('newp', 9), s_parser.parse_cmd_string('help newp', 5))
 
     def test_syntax_error(self):
-        query = 'test:str --> *'
+        query = 'test:str )'
         parser = s_parser.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 
