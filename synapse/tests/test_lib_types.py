@@ -1075,6 +1075,11 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
             self.len(1, nodes)
 
+            # create a long array (fails pre-020)
+            arr = ','.join([str(i) for i in range(300)])
+            nodes = await core.nodes(f'[ test:array=({arr}) ]')
+            self.len(1, nodes)
+
             nodes = await core.nodes('test:array*[=1.2.3.4]')
             self.len(1, nodes)
 
