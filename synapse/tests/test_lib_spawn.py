@@ -267,9 +267,10 @@ class CoreSpawnTest(s_test.SynTest):
                 # Test launching a bunch of spawn queries at the same time
                 donecount = 0
 
+                waiter = core.view.layers[0].layrslab.waiter(1, 'commit')
                 await self.runCoreNodes(core, '[test:int=1]')
                 # wait for commit
-                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+                self.nn(await waiter.wait(timeout=6))
 
                 async def taskfunc(i):
                     nonlocal donecount
