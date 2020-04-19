@@ -57,7 +57,7 @@ SETTAGOPER: "?"
 _oper: stormfunc | initblock | finiblock | subquery | _formpivot | formjoin | formpivotin | formjoinin
      | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
-     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo
+     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
 
 BREAK: "break"
 CONTINUE: "continue"
@@ -116,6 +116,8 @@ formjoinin.2: _LEFTJOIN _WS? "*" -> formjoinin_pivotin
 
 operrelprop: relprop _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
            | relprop _WS? _RIGHTJOIN _WS? ABSPROP -> operrelprop_join
+
+rawpivot: _RIGHTPIVOT _WS? "{" query "}"
 
 _RIGHTJOIN:  "-+>"
 _LEFTJOIN:   "<+-"

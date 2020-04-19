@@ -35,6 +35,13 @@ class CortexTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
 
+    async def test_cortex_rawpivot(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[inet:ipv4=1.2.3.4] $ipv4=$node.value() -> { [ inet:dns:a=(woot.com, $ipv4) ] }')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:dns:a', ('woot.com', 0x01020304)))
+
     async def test_cortex_edges(self):
 
         async with self.getTestCore() as core:

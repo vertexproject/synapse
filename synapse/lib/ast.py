@@ -1143,6 +1143,27 @@ class PivotOper(Oper):
     def __repr__(self):
         return self.repr()
 
+class RawPivot(PivotOper):
+    '''
+    -> { <varsfrompath> }
+    '''
+    async def run(self, runt, genr):
+        query = self.kids[0]
+
+        async for node, path in genr:
+
+            varz = {}
+            varz.update(runt.vars)
+            varz.update(path.vars)
+
+            opts = {
+                'vars': varz,
+            }
+
+            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
+                async for subn, subp in runt.iterStormQuery(query):
+                    yield subn, subp
+
 class PivotOut(PivotOper):
     '''
     -> *
