@@ -97,6 +97,12 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
             self.len(0, await core.nodes('media:news -(*)> mat:spec'))
 
+            with self.raises(s_exc.StormRuntimeError):
+                self.len(0, await core.nodes('inet:ipv4 <(*)- $(0)'))
+
+            with self.raises(s_exc.StormRuntimeError):
+                self.len(0, await core.nodes('media:news -(*)> $(0)'))
+
             nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
