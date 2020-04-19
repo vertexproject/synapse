@@ -93,7 +93,9 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4 <(*)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
+            # coverage for isDestForm()
             self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
+            self.len(0, await core.nodes('media:news -(*)> mat:spec'))
 
             nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
@@ -159,6 +161,9 @@ class CortexTest(s_t_utils.SynTest):
             # add an edge that exists already to bounce off the layer
             await core.nodes('media:news [ +(refs)> { inet:ipv4=1.2.3.4 } ]')
 
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('media:news -(refs)> $(10)')
+
             self.eq(1, await core.callStorm('''
                 $list = $lib.list()
                 for $edge in $lib.view.get().getEdges() { $list.append($edge) }
@@ -194,9 +199,6 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes(q)
             self.eq(cm.exception.get('mesg'),
                     'walk operation expected a string or list.  got: 0.')
-
-            with self.raises(s_exc.StormRuntimeError) as cm:
-                await core.nodes('inet:ipv4 $edges=$(0) -($edges)> $(10)')
 
     async def test_cortex_callstorm(self):
         async with self.getTestCore() as core:
