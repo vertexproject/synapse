@@ -2864,22 +2864,41 @@ class N1Walk(Oper):
 
     async def run(self, runt, genr):
 
-        const = None
-        if isinstance(self.kids[0], Const):
-            const = self.kids[0].value()
+        @s_cache.memoize(size=100)
+        def isDestForm(formname, destforms):
+
+            if not isinstance(destforms, (list, tuple)):
+                destforms = (destforms, )
+
+            for destform in destforms:
+
+                if not isinstance(destform, str):
+                    mesg = 'walk operation expected a string or list for dest. got: {destform!r}'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+
+                if destform == '*':
+                    return True
+
+                if formname == destform:
+                    return True
+
+            return False
 
         async for node, path in genr:
 
-            verb = const
-            if verb is None:
-                verb = await self.kids[0].compute(path)
-                verb = await s_stormtypes.toprim(verb)
+            verb = await self.kids[0].compute(path)
+            verb = await s_stormtypes.toprim(verb)
+
+            dest = await self.kids[1].compute(path)
+            dest = await s_stormtypes.toprim(dest)
 
             if isinstance(verb, str):
                 if verb == '*':
                     verb = None
 
                 async for walknode in self.walkNodeEdges(runt, node, verb=verb):
+                    if not isDestForm(walknode.form.name, dest):
+                        continue
                     yield walknode, path.fork(walknode)
 
             elif isinstance(verb, (list, tuple)):
@@ -2888,6 +2907,8 @@ class N1Walk(Oper):
                         verb = None
 
                     async for walknode in self.walkNodeEdges(runt, node, verb=verb):
+                        if not isDestForm(walknode.form.name, dest):
+                            continue
                         yield walknode, path.fork(walknode)
 
             else:

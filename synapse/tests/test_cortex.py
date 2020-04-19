@@ -59,29 +59,39 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef[0], 'media:news')
 
             # check all the walk from N1 syntaxes
-            nodes = await core.nodes('media:news -(refs)>')
+            nodes = await core.nodes('media:news -(refs)> *')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-            nodes = await core.nodes('media:news -(*)>')
+            self.len(0, await core.nodes('media:news -(refs)> mat:spec'))
+
+            nodes = await core.nodes('media:news -(refs)> inet:ipv4')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-            nodes = await core.nodes('$types = (refs,hehe) media:news -($types)>')
+            nodes = await core.nodes('media:news -(refs)> (inet:ipv4,inet:ipv6)')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-            nodes = await core.nodes('$types = (*) media:news -($types)>')
+            nodes = await core.nodes('media:news -(*)> *')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('$types = (refs,hehe) media:news -($types)> *')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('$types = (*) media:news -($types)> *')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
             # check all the walk from N2 syntaxes
-            nodes = await core.nodes('inet:ipv4 <(refs)-')
+            nodes = await core.nodes('inet:ipv4 <(refs)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
-            nodes = await core.nodes('inet:ipv4 <(*)-')
+            nodes = await core.nodes('inet:ipv4 <(*)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
-            nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)-')
+            self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
+
+            nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
-            nodes = await core.nodes('$types = (*) inet:ipv4 <($types)-')
+            nodes = await core.nodes('$types = (*) inet:ipv4 <($types)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
             # get the edge using stormtypes
@@ -96,13 +106,13 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # no walking now...
-            self.len(0, await core.nodes('media:news -(refs)>'))
+            self.len(0, await core.nodes('media:news -(refs)> *'))
 
             # now lets add the edge using the n2 syntax
             nodes = await core.nodes('inet:ipv4 [ <(refs)+ { media:news } ]')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-            nodes = await core.nodes('media:news -(refs)>')
+            nodes = await core.nodes('media:news -(refs)> *')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
             nodes = await core.nodes('inet:ipv4 [ <(refs)- { media:news } ]')
@@ -166,17 +176,20 @@ class CortexTest(s_t_utils.SynTest):
 
             # Run multiple nodes through edge creation/deletion ( test coverage for perm caching )
             await core.nodes('inet:ipv4 [ <(test)+ { meta:source:name=test }]')
-            self.len(2, await core.nodes('meta:source:name=test -(test)>'))
+            self.len(2, await core.nodes('meta:source:name=test -(test)> *'))
 
             await core.nodes('inet:ipv4 [ <(test)-{ meta:source:name=test }]')
-            self.len(0, await core.nodes('meta:source:name=test -(test)>'))
+            self.len(0, await core.nodes('meta:source:name=test -(test)> *'))
 
             # Sad path - edges must be a str/list of strs
             with self.raises(s_exc.StormRuntimeError) as cm:
-                q = 'inet:ipv4 $edges=$(0) -($edges)>'
+                q = 'inet:ipv4 $edges=$(0) -($edges)> *'
                 await core.nodes(q)
             self.eq(cm.exception.get('mesg'),
                     'walk operation expected a string or list.  got: 0.')
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('inet:ipv4 $edges=$(0) -($edges)> $(10)')
 
     async def test_cortex_callstorm(self):
         async with self.getTestCore() as core:

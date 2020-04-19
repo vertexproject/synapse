@@ -130,8 +130,8 @@ _N1WALKFINI: ")>"
 _N2WALKINIT: "<("
 _N2WALKFINI: ")-"
 
-n1walk: _N1WALKINIT _valu _N1WALKFINI
-n2walk: _N2WALKINIT _valu _N2WALKFINI
+n1walk: _N1WALKINIT _valu _N1WALKFINI _WS? _valu
+n2walk: _N2WALKINIT _valu _N2WALKFINI _WS? _valu
 
 _WALKNPIVON1: "-->"
 _WALKNPIVON2: "<--"
