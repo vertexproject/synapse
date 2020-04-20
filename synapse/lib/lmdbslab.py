@@ -19,6 +19,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
+import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
@@ -32,12 +33,8 @@ MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
-class LmdbDatabase():
-    def __init__(self, db, dupsort):
-        self.db = db
-        self.dupsort = dupsort
-
-_DefaultDB = LmdbDatabase(None, False)
+# The paths of all open slabs, to prevent accidental opening of the same slab in two places
+_AllSlabs = set()   # type: ignore
 
 class Hist:
     '''
@@ -157,32 +154,31 @@ class SlabDict:
 
 class SlabAbrv:
     '''
-    A utility for translating arbitrary name strings into fixed with id bytes
+    A utility for translating arbitrary bytes into fixed with id bytes
     '''
 
     def __init__(self, slab, name):
 
         self.slab = slab
-        self.name2abrv = slab.initdb(f'{name}:name2abrv')
-        self.abrv2name = slab.initdb(f'{name}:abrv2name')
+        self.name2abrv = slab.initdb(f'{name}:byts2abrv')
+        self.abrv2name = slab.initdb(f'{name}:abrv2byts')
 
         self.offs = 0
 
         item = self.slab.last(db=self.abrv2name)
         if item is not None:
-            self.offs = s_common.int64un(item[0])
+            self.offs = s_common.int64un(item[0]) + 1
 
     @s_cache.memoize(10000)
-    def abrvToName(self, abrv):
+    def abrvToByts(self, abrv):
         byts = self.slab.get(abrv, db=self.abrv2name)
         if byts is not None:
-            return byts.decode()
+            return byts
 
     @s_cache.memoize(10000)
-    def nameToAbrv(self, name):
+    def bytsToAbrv(self, byts):
 
-        lkey = name.encode()
-        abrv = self.slab.get(lkey, db=self.name2abrv)
+        abrv = self.slab.get(byts, db=self.name2abrv)
         if abrv is not None:
             return abrv
 
@@ -190,18 +186,78 @@ class SlabAbrv:
 
         self.offs += 1
 
-        self.slab.put(lkey, abrv, db=self.name2abrv)
-        self.slab.put(abrv, lkey, db=self.abrv2name)
+        self.slab.put(byts, abrv, db=self.name2abrv)
+        self.slab.put(abrv, byts, db=self.abrv2name)
 
         return abrv
 
-class MultiQueue:
+    @s_cache.memoize(10000)
+    def nameToAbrv(self, name):
+        return self.bytsToAbrv(name.encode())
+
+    @s_cache.memoize(10000)
+    def abrvToName(self, byts):
+        return self.abrvToByts(byts).decode()
+
+class HotCount(s_base.Base):
+    '''
+    A hot-loop capable counter that only sync's on commit.
+    '''
+    async def __anit__(self, slab, name):
+        await s_base.Base.__anit__(self)
+
+        self.slab = slab
+        self.cache = collections.defaultdict(int)
+        self.dirty = set()
+
+        self.countdb = self.slab.initdb(name)
+
+        for lkey, lval in self.slab.scanByFull(db=self.countdb):
+            self.cache[lkey] = s_common.int64un(lval)
+
+        slab.on('commit', self._onSlabCommit)
+
+        self.onfini(self.sync)
+
+    async def _onSlabCommit(self, mesg):
+        if self.dirty:
+            self.sync()
+
+    def inc(self, name: str, valu=1):
+        byts = name.encode()
+        self.cache[byts] += valu
+        self.dirty.add(byts)
+
+    def set(self, name: str, valu: int):
+        byts = name.encode()
+        self.cache[byts] = valu
+        self.dirty.add(byts)
+
+    def get(self, name: str, defv=0):
+        return self.cache.get(name.encode(), defv)
+
+    def sync(self):
+
+        tups = [(p, s_common.int64en(self.cache[p])) for p in self.dirty]
+        if not tups:
+            return
+
+        self.slab.putmulti(tups, db=self.countdb)
+        self.dirty.clear()
+
+    def pack(self):
+        return {n.decode(): v for (n, v) in self.cache.items()}
+
+class MultiQueue(s_base.Base):
     '''
     Allows creation/consumption of multiple durable queues in a slab.
     '''
-    def __init__(self, slab, name):
+    async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None, auth=None):  # type: ignore
+
+        await s_base.Base.__anit__(self)
 
         self.slab = slab
+        self.auth = auth
 
         self.abrv = slab.getNameAbrv(f'{name}:abrv')
         self.qdata = self.slab.initdb(f'{name}:qdata')
@@ -210,7 +266,7 @@ class MultiQueue:
         self.queues = SlabDict(self.slab, db=self.slab.initdb(f'{name}:meta'))
         self.offsets = SlabDict(self.slab, db=self.slab.initdb(f'{name}:offs'))
 
-        self.waiters = collections.defaultdict(asyncio.Event)
+        self.waiters = collections.defaultdict(asyncio.Event)  # type: ignore
 
     def list(self):
         return [self.status(n) for n in self.queues.keys()]
@@ -238,17 +294,15 @@ class MultiQueue:
     def offset(self, name):
         return self.offsets.get(name)
 
-    def add(self, name, info):
+    async def add(self, name, info):
 
         if self.queues.get(name) is not None:
-            mesg = f'A queue exists with the name {name}.'
+            mesg = f'A queue already exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
-        item = self.queues.get(name)
-        if item is None:
-            self.queues.set(name, info)
-            self.sizes.set(name, 0)
-            self.offsets.set(name, 0)
+        self.queues.set(name, info)
+        self.sizes.set(name, 0)
+        self.offsets.set(name, 0)
 
     async def rem(self, name):
 
@@ -273,10 +327,10 @@ class MultiQueue:
             return itemoffs, item
         return -1, None
 
-    def put(self, name, item):
-        return self.puts(name, (item,))
+    async def put(self, name, item):
+        return await self.puts(name, (item,))
 
-    def puts(self, name, items):
+    async def puts(self, name, items):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -350,7 +404,7 @@ class MultiQueue:
         indx = s_common.int64en(offs)
         abrv = self.abrv.nameToAbrv(name)
 
-        for lkey, lval in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
+        for lkey, _ in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
             self.slab.delete(lkey, db=self.qdata)
             self.sizes.set(name, self.sizes.get(name) - 1)
             await asyncio.sleep(0)
@@ -405,20 +459,97 @@ class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
-    COMMIT_PERIOD = 0.5  # time between commits
+    syncset = set()  # type:  ignore
+    synctask = None
+    syncevnt = None  # set this event to trigger a sync
+
+    COMMIT_PERIOD = 0.2  # time between commits
+    DEFAULT_MAPSIZE = s_const.gibibyte
+    DEFAULT_GROWSIZE = None
+
+    @classmethod
+    async def initSyncLoop(clas, inst):
+
+        clas.syncset.add(inst)
+
+        async def fini():
+
+            # no need to sync
+            clas.syncset.discard(inst)
+
+            if not clas.syncset:
+                clas.synctask.cancel()
+                clas.synctask = None
+                clas.syncevnt = None
+
+        inst.onfini(fini)
+
+        if clas.synctask is not None:
+            return
+
+        clas.syncevnt = asyncio.Event()
+
+        coro = clas.syncLoopTask()
+        loop = asyncio.get_running_loop()
+
+        clas.synctask = loop.create_task(coro)
+
+    @classmethod
+    async def syncLoopTask(clas):
+        while True:
+            try:
+
+                clas.syncevnt.clear()
+
+                await s_coro.event_wait(clas.syncevnt, timeout=clas.COMMIT_PERIOD)
+
+                await clas.syncLoopOnce()
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception: # pragma: no cover
+                logger.exception('Slab.syncLoopTask')
+
+    @classmethod
+    async def syncLoopOnce(clas):
+        for slab in clas.syncset:
+            if slab.dirty:
+                await slab.sync()
+
+    @classmethod
+    async def getSlabStats(clas):
+        retn = []
+        for slab in clas.syncset:
+            retn.append({
+                'path': str(slab.path),
+                'xactops': len(slab.xactops),
+                'mapsize': slab.mapsize,
+                'readonly': slab.readonly,
+                'lockmemory': slab.lockmemory,
+                'recovering': slab.recovering,
+            })
+        return retn
 
     async def __anit__(self, path, **kwargs):
 
         await s_base.Base.__anit__(self)
 
-        kwargs.setdefault('map_size', s_const.gibibyte)
+        kwargs.setdefault('map_size', self.DEFAULT_MAPSIZE)
         kwargs.setdefault('lockmemory', False)
+        kwargs.setdefault('map_async', True)
 
         opts = kwargs
 
-        self.path = pathlib.Path(path)
+        path = pathlib.Path(path)
+        self.path = path
+        self.optspath = path.with_suffix('.opts.yaml')
 
-        self.optspath = self.path.with_suffix('.opts.yaml')
+        # Make sure we don't have this lmdb DB open already.  (This can lead to seg faults)
+        abspath = str(path.resolve())
+        if abspath in _AllSlabs:
+            raise s_exc.SlabAlreadyOpen(mesg=path)
+        self.abspath = abspath
 
         if self.optspath.exists():
             opts.update(s_common.yamlload(self.optspath))
@@ -427,7 +558,7 @@ class Slab(s_base.Base):
         if initial_mapsize is None:
             raise s_exc.BadArg('Slab requires map_size')
 
-        mdbpath = self.path / 'data.mdb'
+        mdbpath = path / 'data.mdb'
         if mdbpath.exists():
             mapsize = max(initial_mapsize, os.path.getsize(mdbpath))
         else:
@@ -441,10 +572,11 @@ class Slab(s_base.Base):
         opts.setdefault('writemap', True)
 
         self.maxsize = opts.pop('maxsize', None)
-        self.growsize = opts.pop('growsize', None)
+        self.growsize = opts.pop('growsize', self.DEFAULT_GROWSIZE)
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
+        opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:
@@ -452,7 +584,8 @@ class Slab(s_base.Base):
 
         self._saveOptsFile()
 
-        self.lenv = lmdb.open(path, **opts)
+        self.lenv = lmdb.open(str(path), **opts)
+        _AllSlabs.add(abspath)
 
         self.scans = set()
 
@@ -480,15 +613,22 @@ class Slab(s_base.Base):
             self.memlocktask = s_coro.executor(self._memorylockloop)
             self.onfini(memlockfini)
 
-        self.dbnames = {}
+        self.dbnames = {None: (None, False)}  # prepopulate the default DB for speed
 
         self.onfini(self._onCoFini)
-        self.schedCoro(self._runSyncLoop())
 
-    def trash(self):
+        if not self.readonly:
+            await Slab.initSyncLoop(self)
+
+    def __repr__(self):
+        return 'Slab: %r' % (self.path,)
+
+    async def trash(self):
         '''
         Deletes underlying storage
         '''
+        await self.fini()
+
         try:
             os.unlink(self.optspath)
         except FileNotFoundError:  # pragma: no cover
@@ -496,11 +636,18 @@ class Slab(s_base.Base):
 
         shutil.rmtree(self.path, ignore_errors=True)
 
+    async def getHotCount(self, name):
+        item = await HotCount.anit(self, name)
+        self.onfini(item)
+        return item
+
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
 
-    def getMultiQueue(self, name):
-        return MultiQueue(self, name)
+    async def getMultiQueue(self, name, nexsroot=None):
+        mq = await MultiQueue.anit(self, name, nexsroot=None)
+        self.onfini(mq)
+        return mq
 
     def statinfo(self):
         return {
@@ -528,6 +675,9 @@ class Slab(s_base.Base):
             self._finiCoXact()
 
     def _saveOptsFile(self):
+        if self.readonly:
+            return
+
         opts = {}
         if self.growsize is not None:
             opts['growsize'] = self.growsize
@@ -535,7 +685,7 @@ class Slab(s_base.Base):
             opts['maxsize'] = self.maxsize
         s_common.yamlmod(opts, self.optspath)
 
-    async def _syncLoopOnce(self):
+    async def sync(self):
         try:
             # do this from the loop thread only to avoid recursion
             await self.fire('commit')
@@ -544,15 +694,6 @@ class Slab(s_base.Base):
         except lmdb.MapFullError:
             self._handle_mapfull()
             # There's no need to re-try self.forcecommit as _growMapSize does it
-
-    async def _runSyncLoop(self):
-        while not self.isfini:
-            await self.waitfini(timeout=self.COMMIT_PERIOD)
-            if self.isfini:
-                # There's no reason to forcecommit on fini, because there's a separate handler to already do that
-                break
-
-            await self._syncLoopOnce()
 
     async def _onCoFini(self):
         assert s_glob.iAmLoop()
@@ -566,7 +707,9 @@ class Slab(s_base.Base):
                 self._handle_mapfull()
                 continue
             break
+
         self.lenv.close()
+        _AllSlabs.discard(self.abspath)
         del self.lenv
 
     def _finiCoXact(self):
@@ -670,7 +813,15 @@ class Slab(s_base.Base):
             self.schedCallSafe(self.lockdoneevent.clear)
             self.resizeevent.clear()
 
-            memstart, memlen = s_thisplat.getFileMappedRegion(path)
+            try:
+                memstart, memlen = s_thisplat.getFileMappedRegion(path)
+            except s_exc.NoSuchFile:
+                logger.warning('map not found for %s', path)
+
+                if not self.resizeevent.is_set():
+                    self.schedCallSafe(self.lockdoneevent.set)
+                continue
+
             if memlen > max_to_lock:
                 memlen = max_to_lock
                 if not limit_warned:
@@ -683,7 +834,7 @@ class Slab(s_base.Base):
             # too-long length)
             filesize = os.fstat(fileno).st_size
             goal_end = memstart + min(memlen, filesize)
-            self.lock_goal = goal_end
+            self.lock_goal = goal_end - memstart
 
             self.lock_progress = 0
             prev_memend = memstart
@@ -699,6 +850,9 @@ class Slab(s_base.Base):
                     with s_thisplat.mmap(0, length=new_memend - prev_memend, prot=PROT, flags=FLAGS, fd=fileno,
                                          offset=prev_memend - memstart):
                         s_thisplat.mlock(prev_memend, memlen)
+                except OSError as e:
+                    logger.warning('error while attempting to lock memory of %s: %s', path, e)
+                    break
                 finally:
                     self.prefaulting = False
 
@@ -709,17 +863,24 @@ class Slab(s_base.Base):
                 first_end = False
                 logger.info('completed prefaulting and locking slab')
 
-            self.schedCallSafe(self.lockdoneevent.set)
+            if not self.resizeevent.is_set():
+                self.schedCallSafe(self.lockdoneevent.set)
 
         self.locking_memory = False
         logger.debug('memory locking thread ended')
 
-    def initdb(self, name, dupsort=False):
+    def initdb(self, name, dupsort=False, integerkey=False):
         while True:
             try:
-                db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
-                self.dirty = True
-                self.forcecommit()
+                if self.readonly:
+                    # In a readonly environment, we can't make our own write transaction, but we
+                    # can have the lmdb module create one for us by not specifying the transaction
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey)
+                else:
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey)
+                    self.dirty = True
+                    self.forcecommit()
+
                 self.dbnames[name] = (db, dupsort)
                 return name
             except lmdb.MapFullError:
@@ -757,7 +918,7 @@ class Slab(s_base.Base):
 
     def get(self, lkey, db=None):
         self._acqXactForReading()
-        realdb, dupsort = self.dbnames.get(db, (None, False))
+        realdb, dupsort = self.dbnames[db]
         try:
             return self.xact.get(lkey, db=realdb)
         finally:
@@ -768,7 +929,7 @@ class Slab(s_base.Base):
         Return the last key/value pair from the given db.
         '''
         self._acqXactForReading()
-        realdb, dupsort = self.dbnames.get(db, (None, False))
+        realdb, dupsort = self.dbnames[db]
         try:
             with self.xact.cursor(db=realdb) as curs:
                 if not curs.last():
@@ -777,9 +938,14 @@ class Slab(s_base.Base):
         finally:
             self._relXactForReading()
 
+    def hasdup(self, lkey, lval, db=None):
+        realdb, dupsort = self.dbnames[db]
+        with self.xact.cursor(db=realdb) as curs:
+            return curs.set_key_dup(lkey, lval)
+
     def stat(self, db=None):
         self._acqXactForReading()
-        realdb, dupsort = self.dbnames.get(db, (None, False))
+        realdb, dupsort = self.dbnames[db]
         try:
             return self.xact.stat(db=realdb)
         finally:
@@ -790,9 +956,27 @@ class Slab(s_base.Base):
     # def getByPref(self, lkey, db=None):
     # def getByRange(self, lkey, db=None):
 
-    def scanByDups(self, lkey, db=None):
+    def scanKeys(self, db=None):
 
         with Scan(self, db) as scan:
+
+            if not scan.firstkeys():
+                return
+
+            yield from scan.iterkeys()
+
+    def scanByDups(self, lkey, db=None):
+
+        with Scan(self, db, singlekey=True) as scan:
+
+            if not scan.set_key(lkey):
+                return
+
+            yield from scan.iternext()
+
+    def scanByDupsBack(self, lkey, db=None):
+
+        with ScanBack(self, db, singlekey=True) as scan:
 
             if not scan.set_key(lkey):
                 return
@@ -805,6 +989,30 @@ class Slab(s_base.Base):
 
             if not scan.set_range(byts):
                 return
+
+            size = len(byts)
+            for lkey, lval in scan.iternext():
+
+                if lkey[:size] != byts:
+                    return
+
+                yield lkey, lval
+
+    def scanByPrefBack(self, byts, db=None):
+
+        with ScanBack(self, db) as scan:
+
+            intoff = int.from_bytes(byts, "big")
+            intoff += 1
+            try:
+                nextbyts = intoff.to_bytes(len(byts), "big")
+
+                if not scan.set_range(nextbyts):
+                    return
+
+            except OverflowError:
+                if not scan.first():
+                    return
 
             size = len(byts)
             for lkey, lval in scan.iternext():
@@ -830,6 +1038,20 @@ class Slab(s_base.Base):
 
                 yield lkey, lval
 
+    def scanByRangeBack(self, lmax, lmin=None, db=None):
+
+        with ScanBack(self, db) as scan:
+
+            if not scan.set_range(lmax):
+                return
+
+            for lkey, lval in scan.iternext():
+
+                if lmin is not None and lkey < lmin:
+                    return
+
+                yield lkey, lval
+
     def scanByFull(self, db=None):
 
         with Scan(self, db) as scan:
@@ -837,8 +1059,16 @@ class Slab(s_base.Base):
             if not scan.first():
                 return
 
-            for lkey, lval in scan.iternext():
-                yield lkey, lval
+            yield from scan.iternext()
+
+    def scanByFullBack(self, db=None):
+
+        with ScanBack(self, db) as scan:
+
+            if not scan.first():
+                return
+
+            yield from scan.iternext()
 
     # def keysByRange():
     # def valsByRange():
@@ -896,7 +1126,7 @@ class Slab(s_base.Base):
         if self.readonly:
             raise s_exc.IsReadOnly()
 
-        realdb, dupsort = self.dbnames.get(db, (None, False))
+        realdb, dupsort = self.dbnames[db]
 
         try:
             self.dirty = True
@@ -921,7 +1151,7 @@ class Slab(s_base.Base):
         if not isinstance(kvpairs, list):
             kvpairs = list(kvpairs)
 
-        realdb, dupsort = self.dbnames.get(db, (None, False))
+        realdb, dupsort = self.dbnames[db]
 
         try:
             self.dirty = True
@@ -953,10 +1183,10 @@ class Slab(s_base.Base):
             If any rows already exist in the target database, this method returns an error.  This means that one cannot
             use destdbname=None unless there are no explicit databases in the destination slab.
         '''
-        sourcedb, dupsort = self.dbnames.get(sourcedbname)
+        sourcedb, dupsort = self.dbnames[sourcedbname]
 
         destslab.initdb(destdbname, dupsort)
-        destdb, _ = destslab.dbnames.get(destdbname)
+        destdb, _ = destslab.dbnames[destdbname]
 
         statdict = destslab.stat(db=destdbname)
         if statdict['entries'] > 0:
@@ -1007,14 +1237,29 @@ class Slab(s_base.Base):
 class Scan:
     '''
     A state-object used by Slab.  Not to be instantiated directly.
+
+    Args:
+
+        slab (Slab):  which slab the scan is over
+        db (str):  name of open database on the slab
+        singlekey(bool):  whether the scan should iterate over the values in a single key
     '''
-    def __init__(self, slab, db):
+    def __init__(self, slab, db, singlekey=False):
         self.slab = slab
-        self.db, self.dupsort = slab.dbnames.get(db, (None, False))
+        self.db, self.dupsort = slab.dbnames[db]
+
+        assert not singlekey or self.dupsort  # singlekey doesn't make sense with non dupsort db
+
+        self.singlekey = singlekey
+
+        if self.singlekey:
+            self.iterfunc = functools.partial(lmdb.Cursor.iternext_dup, keys=True)
+        else:
+            self.iterfunc = lmdb.Cursor.iternext
 
         self.atitem = None
         self.bumped = False
-        self.iterfunc = None
+        self.curs = None
 
     def __enter__(self):
         self.slab._acqXactForReading()
@@ -1026,6 +1271,7 @@ class Scan:
         self.bump()
         self.slab.scans.discard(self)
         self.slab._relXactForReading()
+        self.curs = None
 
     def last_key(self):
         '''
@@ -1041,12 +1287,16 @@ class Scan:
         if not self.curs.first():
             return False
 
-        if self.dupsort:
-            self.iterfunc = functools.partial(lmdb.Cursor.iternext_dup, keys=True)
-        else:
-            self.iterfunc = lmdb.Cursor.iternext
-
         self.genr = self.curs.iternext()
+        self.atitem = next(self.genr)
+        return True
+
+    def firstkeys(self):
+
+        if not self.curs.first():
+            return False
+
+        self.genr = self.curs.iternext(values=False)
         self.atitem = next(self.genr)
         return True
 
@@ -1055,26 +1305,47 @@ class Scan:
         if not self.curs.set_key(lkey):
             return False
 
-        # set_key for a scan is only logical if it's a dup scan
-        if self.dupsort:
-            self.iterfunc = functools.partial(lmdb.Cursor.iternext_dup, keys=True)
-        else:
-            self.iterfunc = lmdb.Cursor.iternext
-
         self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
         return True
 
     def set_range(self, lkey):
 
+        assert not self.singlekey
+
         if not self.curs.set_range(lkey):
             return False
 
-        self.iterfunc = lmdb.Cursor.iternext
         self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
 
         return True
+
+    def iterkeys(self):
+
+        try:
+            while True:
+
+                yield self.atitem
+                # we only want to iterate keys even in dupsort case
+
+                if self.bumped:
+
+                    self.bumped = False
+                    self.curs = self.slab.xact.cursor(db=self.db)
+                    if not self.curs.set_range(self.atitem):
+                        return
+
+                    self.genr = self.curs.iternext(self.curs, values=False)
+
+                    # if we restore and the atitem key is still there, skip it.
+                    if self.atitem == self.curs.key():
+                        next(self.genr)
+
+                self.atitem = next(self.genr)
+
+        except StopIteration:
+            return
 
     def iternext(self):
 
@@ -1092,10 +1363,23 @@ class Scan:
                     self.bumped = False
 
                     self.curs = self.slab.xact.cursor(db=self.db)
+
                     if self.dupsort:
-                        self.curs.set_range_dup(*self.atitem)
+
+                        ret = self.curs.set_range_dup(*self.atitem)
+                        if not ret:
+                            if self.singlekey:
+                                raise StopIteration
+                            key = self.atitem[0]
+                            ret = self.curs.set_range(key)
+                            if ret and self.curs.key() == key:
+                                ret = self.curs.next_nodup()
+
                     else:
-                        self.curs.set_range(self.atitem[0])
+                        ret = self.curs.set_range(self.atitem[0])
+
+                    if not ret:
+                        raise StopIteration
 
                     self.genr = self.iterfunc(self.curs)
 
@@ -1111,3 +1395,110 @@ class Scan:
         if not self.bumped:
             self.curs.close()
             self.bumped = True
+
+class ScanBack(Scan):
+    '''
+    A state-object used by Slab.  Not to be instantiated directly.
+
+    Scans backwards.
+    '''
+    def __init__(self, slab, db, singlekey=False):
+        Scan.__init__(self, slab, db, singlekey)
+        if self.singlekey:
+            self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True)
+        else:
+            self.iterfunc = lmdb.Cursor.iterprev
+
+    def first(self):
+
+        if not self.curs.last():
+            return False
+
+        self.genr = self.curs.iterprev()
+
+        self.atitem = next(self.genr)
+        return True
+
+    def set_key(self, lkey):
+
+        if not self.curs.set_key(lkey):
+            return False
+
+        # set_key for a scan is only logical if it's a dup scan
+        if self.dupsort:
+            if not self.curs.last_dup():
+                return False # pragma: no cover
+
+        self.genr = self.iterfunc(self.curs)
+        self.atitem = next(self.genr)
+        return True
+
+    def set_range(self, lkey):
+
+        assert not self.singlekey
+
+        if not self.curs.set_range(lkey):
+            if not self.curs.last():
+                return False
+
+        self.genr = self.iterfunc(self.curs)
+        self.atitem = next(self.genr)
+
+        if not self.atitem[0] <= lkey:
+            self.atitem = next(self.genr)
+
+        return True
+
+    def iternext(self):
+
+        try:
+
+            while True:
+                yield self.atitem
+
+                if self.slab.isfini:
+                    raise s_exc.IsFini()
+
+                if not self.bumped:
+                    self.atitem = next(self.genr)
+                    continue
+
+                self.bumped = False
+                advance = True
+
+                self.curs = self.slab.xact.cursor(db=self.db)
+
+                if self.dupsort:
+
+                    # Grab the >= val with the exact key
+                    ret = self.curs.set_range_dup(*self.atitem)
+                    if not ret:
+                        # Grab >= key
+                        key = self.atitem[0]
+                        ret = self.curs.set_range(key)
+
+                        # If we got the same key, advance to the last val
+                        if ret and self.curs.key() == key:
+                            self.curs.last_dup()
+
+                            # We're already guaranteed to be < self.atitem because set_range_dup returned False
+                            advance = False
+
+                        elif self.singlekey:  # if set_range failed or we didn't get the same key, we're done
+                            raise StopIteration
+
+                else:
+                    ret = self.curs.set_range(self.atitem[0])
+
+                if not ret:
+                    if not self.curs.last():
+                        raise StopIteration
+
+                self.genr = self.iterfunc(self.curs)
+                if ret and advance:
+                    next(self.genr)
+
+                self.atitem = next(self.genr)
+
+        except StopIteration:
+            return

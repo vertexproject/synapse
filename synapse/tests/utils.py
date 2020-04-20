@@ -24,6 +24,7 @@ import copy
 import types
 import shutil
 import asyncio
+import hashlib
 import inspect
 import logging
 import tempfile
@@ -51,10 +52,12 @@ import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
 import synapse.lib.const as s_const
+import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_slab
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
@@ -83,17 +86,17 @@ class LibTst(s_stormtypes.Lib):
 
 class TestType(s_types.Type):
 
+    stortype = s_layer.STOR_TYPE_UTF8
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
         return valu.lower(), {}
 
-    def indx(self, norm):
-        # make this purposely fragile...
-        return norm.encode('utf8')
-
 class ThreeType(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_U8
 
     def norm(self, valu):
         return 3, {'subs': {'three': 3}}
@@ -101,10 +104,9 @@ class ThreeType(s_types.Type):
     def repr(self, valu):
         return '3'
 
-    def indx(self, norm):
-        return '3'.encode('utf8')
-
 class TestSubType(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_U32
 
     def norm(self, valu):
         valu = int(valu)
@@ -113,8 +115,28 @@ class TestSubType(s_types.Type):
     def repr(self, norm):
         return str(norm)
 
-    def indx(self, norm):
-        return norm.to_bytes(4, 'big')
+class TestRunt:
+
+    def __init__(self, name, **kwargs):
+        self.name = name
+        self.props = kwargs
+        self.props.setdefault('.created', s_common.now())
+
+    def getStorNode(self, form):
+
+        ndef = (form.name, form.type.norm(self.name)[0])
+        buid = s_common.buid(ndef)
+
+        pnorms = {}
+        for prop, valu in self.props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
+        return (buid, {
+            'ndef': ndef,
+            'props': pnorms,
+        })
 
 testmodel = {
 
@@ -135,6 +157,7 @@ testmodel = {
         ('test:ival', ('ival', {}), {}),
 
         ('test:int', ('int', {}), {}),
+        ('test:float', ('float', {}), {}),
         ('test:str', ('str', {}), {}),
         ('test:migr', ('str', {}), {}),
         ('test:auto', ('str', {}), {}),
@@ -178,17 +201,10 @@ testmodel = {
         )),
         ('test:type10', {}, (
 
-            ('intprop', ('int', {'min': 20, 'max': 30}), {
-                'defval': 20}),
-
-            ('strprop', ('str', {'lower': 1}), {
-                'defval': 'asdf'}),
-
-            ('guidprop', ('guid', {'lower': 1}), {
-                'defval': '*'}),
-
-            ('locprop', ('loc', {}), {
-                'defval': '??'}),
+            ('intprop', ('int', {'min': 20, 'max': 30}), {}),
+            ('strprop', ('str', {'lower': 1}), {}),
+            ('guidprop', ('guid', {'lower': 1}), {}),
+            ('locprop', ('loc', {}), {}),
         )),
 
         ('test:cycle0', {}, (
@@ -213,6 +229,11 @@ testmodel = {
 
         ('test:int', {}, (
             ('loc', ('loc', {}), {}),
+        )),
+
+        ('test:float', {}, (
+            ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
+            ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
         )),
 
         ('test:edge', {}, (
@@ -293,23 +314,7 @@ class TestCmd(s_storm.Cmd):
 
     async def execStormCmd(self, runt, genr):
         async for node, path in genr:
-            yield node, path
-
-class TestEchoCmd(s_storm.Cmd):
-    '''A command to echo a using getStormEval'''
-    name = 'testechocmd'
-
-    def getArgParser(self):
-        pars = s_storm.Cmd.getArgParser(self)
-        pars.add_argument('valu', help='valu to echo')
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-        func = self.getStormEval(runt, self.opts.valu)
-
-        async for node, path in genr:
-            ret = func(path)
-            await runt.snap.printf(f'Echo: [{ret}]')
+            await runt.printf(f'{self.name}: {node.ndef}')
             yield node, path
 
 class TestModule(s_module.CoreModule):
@@ -327,17 +332,12 @@ class TestModule(s_module.CoreModule):
         self.healthy = True
         self.core.addHealthFunc(self._testModHealth)
 
-        self._runtsByBuid = {}
-        self._runtsByPropValu = collections.defaultdict(list)
-        await self._initTestRunts()
+        form = self.model.form('test:runt')
+        self.core.addRuntLift(form.full, self._testRuntLift)
 
-        # Add runt lift helpers
-        for form in ('test:runt',):
-            form = self.model.form(form)
-            self.core.addRuntLift(form.full, self._testRuntLift)
-            for name, prop in form.props.items():
-                pfull = prop.full
-                self.core.addRuntLift(pfull, self._testRuntLift)
+        for prop in form.props.values():
+            self.core.addRuntLift(prop.full, self._testRuntLift)
+
         self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
         self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
 
@@ -354,25 +354,52 @@ class TestModule(s_module.CoreModule):
             await snap.addNode('test:str', name)
 
     async def _testRuntLift(self, full, valu=None, cmpr=None):
-        # runt lift helpers must decide what comparators they support
-        if cmpr is not None and cmpr != '=':
-            raise s_exc.BadCmprValu(mesg='Test runts do not support cmpr which is not equality',
-                                    cmpr=cmpr)
 
-        # Runt lift helpers must support their own normalization for data retrieval
-        if valu is not None:
-            prop = self.model.prop(full)
-            valu, _ = prop.type.norm(valu)
+        now = s_common.now()
+        modl = self.core.model
 
-        # runt lift helpers must then yield buid/rows pairs for Node object creation.
-        if valu is None:
-            buids = self._runtsByPropValu.get(full, ())
+        runtdefs = [
+            (' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
+            ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
+            ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
+            ('woah', {}),
+        ]
+
+        runts = {}
+        for name, props in runtdefs:
+            runts[name] = TestRunt(name, **props)
+
+        genr = runts.values
+
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
+            yield node
+
+    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
+
+        if cmpr is not None:
+            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
+            if filt is None:
+                raise s_exc.BadCmprValu(cmpr=cmpr)
+
+        fullprop = self.model.prop(full)
+        if fullprop.isform:
+
+            if cmpr is None:
+                for obj in genr():
+                    yield obj.getStorNode(fullprop)
+                return
+
+            for obj in genr():
+                sode = obj.getStorNode(fullprop)
+                if filt(sode[1]['ndef'][1]):
+                    yield sode
         else:
-            buids = self._runtsByPropValu.get((full, valu), ())
+            for obj in genr():
+                sode = obj.getStorNode(fullprop.form)
+                propval = sode[1]['props'].get(fullprop.name)
 
-        rowsets = [(buid, self._runtsByBuid.get(buid, ())) for buid in buids]
-        for buid, rows in rowsets:
-            yield buid, rows
+                if propval is not None and (cmpr is None or filt(propval)):
+                    yield sode
 
     async def _testRuntPropSetLulz(self, node, prop, valu):
         curv = node.get(prop.name)
@@ -380,7 +407,7 @@ class TestModule(s_module.CoreModule):
         if curv == valu:
             return False
         if not valu.endswith('.sys'):
-            raise s_exc.BadPropValu(mesg='test:runt:lulz must end with ".sys"',
+            raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
                                     valu=valu, name=prop.full)
         node.props[prop.name] = valu
         # In this test helper, we do NOT persist the change to our in-memory
@@ -398,47 +425,6 @@ class TestModule(s_module.CoreModule):
         # change that a user made here.
         return True
 
-    async def _initTestRunts(self):
-        modl = self.core.model
-        fnme = 'test:runt'
-        form = modl.form(fnme)
-        now = s_common.now()
-        data = [(' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
-                ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
-                ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
-                ('woah', {}),
-                ]
-        for pprop, propd in data:
-            props = {}
-            pnorm, _ = form.type.norm(pprop)
-
-            for k, v in propd.items():
-                prop = form.props.get(k)
-                if prop:
-                    norm, _ = prop.type.norm(v)
-                    props[k] = norm
-
-            props.setdefault('.created', s_common.now())
-
-            rows = [('*' + fnme, pnorm)]
-            for k, v in props.items():
-                rows.append((k, v))
-
-            buid = s_common.buid((fnme, pnorm))
-            self._runtsByBuid[buid] = rows
-
-            # Allow for indirect lookup to a set of buids
-            self._runtsByPropValu[fnme].append(buid)
-            self._runtsByPropValu[(fnme, pnorm)].append(buid)
-            for k, propvalu in props.items():
-                prop = fnme + ':' + k
-                if k.startswith('.'):
-                    prop = fnme + k
-                self._runtsByPropValu[prop].append(buid)
-                if modl.prop(prop).type.indx(propvalu):
-                    # Can the secondary property be indexed for lift?
-                    self._runtsByPropValu[(prop, propvalu)].append(buid)
-
     def getModelDefs(self):
         return (
             ('test', testmodel),
@@ -446,7 +432,6 @@ class TestModule(s_module.CoreModule):
 
     def getStormCmds(self):
         return (TestCmd,
-                TestEchoCmd,
                 )
 
 class TstEnv:
@@ -461,20 +446,20 @@ class TstEnv:
             raise AttributeError(prop)
         return item
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, cls, exc, tb):
-        self.fini()
+    async def __aexit__(self, cls, exc, tb):
+        await self.fini()
 
     def add(self, name, item, fini=False):
         self.items[name] = item
         if fini:
             self.tofini.append(item)
 
-    def fini(self):
-        for bus in self.tofini:
-            bus.fini()
+    async def fini(self):
+        for base in self.tofini:
+            await base.fini()
 
 class TstOutPut(s_output.OutPutStr):
 
@@ -492,7 +477,8 @@ class TstOutPut(s_output.OutPutStr):
         outs = str(self)
         if outs.find(substr) == -1:
             if throw:
-                raise Exception('TestOutPut.expect(%s) not in %s' % (substr, outs))
+                mesg = 'TestOutPut.expect(%s) not in %s' % (substr, outs)
+                raise s_exc.SynErr(mesg=mesg)
             return False
         return True
 
@@ -675,6 +661,9 @@ class SynTest(unittest.TestCase):
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
+        self._NextBuid = 0
+        self._NextGuid = 0
+
         for s in dir(self):
             attr = getattr(self, s, None)
             # If s is an instance method and starts with 'test_', synchelp wrap it
@@ -723,7 +712,7 @@ class SynTest(unittest.TestCase):
         regr = s_common.genpath(regr)
 
         if not os.path.isdir(regr): # pragma: no cover
-            raise Exception('SYN_REGREGSSION_REPO is not a dir')
+            raise Exception('SYN_REGRESSION_REPO is not a dir')
 
         dirn = os.path.join(regr, *path)
 
@@ -856,6 +845,18 @@ class SynTest(unittest.TestCase):
                         mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
             yield patch
 
+    @contextlib.contextmanager
+    def withSetLoggingMock(self):
+        '''
+        Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
+
+        Returns:
+            mock.MagicMock: Yields a mock.MagikMock object.
+        '''
+        with mock.patch('synapse.common.setlogging',
+                        mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
+            yield patch
+
     def getMagicPromptLines(self, patch):
         '''
         Get the text lines from a MagicMock object from withCliPromptMock.
@@ -942,7 +943,11 @@ class SynTest(unittest.TestCase):
             s_cortex.Cortex: A Cortex object.
         '''
         if conf is None:
-            conf = {'layer:lmdb:map_async': True}
+            conf = {'layer:lmdb:map_async': True,
+                    'provenance:en': True,
+                    'nexslog:en': True,
+                    'layers:logedits': True,
+                    }
 
         conf = copy.deepcopy(conf)
 
@@ -1016,6 +1021,60 @@ class SynTest(unittest.TestCase):
                 with mock.patch('synapse.lib.certdir.defdir', certdir):
                     yield dmon
 
+    @contextlib.asynccontextmanager
+    async def getTestCell(self, ctor, conf=None, dirn=None):
+        '''
+        Get a test Cell.
+        '''
+        if conf is None:
+            conf = {}
+
+        conf = copy.deepcopy(conf)
+
+        if dirn is not None:
+
+            async with await ctor.anit(dirn, conf=conf) as cell:
+                yield cell
+
+            return
+
+        with self.getTestDir() as dirn:
+            async with await ctor.anit(dirn, conf=conf) as cell:
+                yield cell
+
+    @contextlib.asynccontextmanager
+    async def getTestCoreProxSvc(self, ssvc, ssvc_conf=None, core_conf=None):
+        '''
+        Get a test Cortex, the Telepath Proxy to it, and a test service instance.
+
+        Args:
+            ssvc: Ctor to the Test Service.
+            ssvc_conf: Service configuration.
+            core_conf: Cortex configuration.
+
+        Returns:
+            (s_cortex.Cortex, s_cortex.CoreApi, testsvc): The Cortex, Proxy, and service instance.
+        '''
+        async with self.getTestCoreAndProxy(core_conf) as (core, prox):
+            async with self.getTestCell(ssvc, ssvc_conf) as testsvc:
+                await self.addSvcToCore(testsvc, core)
+
+                yield core, prox, testsvc
+
+    async def addSvcToCore(self, svc, core, svcname='svc'):
+        '''
+        Add a service to a Cortex using telepath over tcp.
+        '''
+        svc.dmon.share('svc', svc)
+        root = await svc.auth.getUserByName('root')
+        await root.setPasswd('root')
+        info = await svc.dmon.listen('tcp://127.0.0.1:0/')
+        svc.dmon.test_addr = info
+        host, port = info
+        surl = f'tcp://root:root@127.0.0.1:{port}/svc'
+        await self.runCoreNodes(core, f'service.add {svcname} {surl}')
+        await self.runCoreNodes(core, f'$lib.service.wait({svcname})')
+
     def getTestUrl(self, dmon, name, **opts):
 
         host, port = dmon.addr
@@ -1034,19 +1093,15 @@ class SynTest(unittest.TestCase):
         kwargs.update({'host': host, 'port': port})
         return s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
-    async def agetTestProxy(self, dmon, name, **kwargs):
-        host, port = dmon.addr
-        kwargs.update({'host': host, 'port': port})
-        return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
-
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None, copyfrom=None, chdir=False):
+    def getTestDir(self, mirror=None, copyfrom=None, chdir=False, startdir=None):
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
 
         Args:
             mirror (str): A directory to mirror into the test directory.
+            startdir (str): The directory under which to place the temporary kdirectory
 
         Notes:
             The mirror argument is normally used to mirror test directory
@@ -1061,7 +1116,7 @@ class SynTest(unittest.TestCase):
             str: The path to a temporary directory.
         '''
         curd = os.getcwd()
-        tempdir = tempfile.mkdtemp()
+        tempdir = tempfile.mkdtemp(dir=startdir)
 
         try:
 
@@ -1089,8 +1144,8 @@ class SynTest(unittest.TestCase):
             shutil.rmtree(tempdir, ignore_errors=True)
 
     def getTestFilePath(self, *names):
-        import synapse.tests.common
-        path = os.path.dirname(synapse.tests.common.__file__)
+        import synapse.tests.__init__
+        path = os.path.dirname(synapse.tests.__init__.__file__)
         return os.path.join(path, 'files', *names)
 
     @contextlib.contextmanager
@@ -1149,12 +1204,15 @@ class SynTest(unittest.TestCase):
         handler = logging.StreamHandler(stream)
         slogger = logging.getLogger(logname)
         slogger.addHandler(handler)
+        level = slogger.level
+        slogger.setLevel('DEBUG')
         try:
             yield stream
         except Exception:  # pragma: no cover
             raise
         finally:
             slogger.removeHandler(handler)
+            slogger.setLevel(level)
 
     @contextlib.contextmanager
     def getAsyncLoggerStream(self, logname, mesg=''):
@@ -1192,12 +1250,15 @@ class SynTest(unittest.TestCase):
         handler = logging.StreamHandler(stream)
         slogger = logging.getLogger(logname)
         slogger.addHandler(handler)
+        level = slogger.level
+        slogger.setLevel('DEBUG')
         try:
             yield stream
         except Exception:  # pragma: no cover
             raise
         finally:
             slogger.removeHandler(handler)
+            slogger.setLevel(level)
 
     @contextlib.asynccontextmanager
     async def getHttpSess(self, auth=None, port=None):
@@ -1238,7 +1299,7 @@ class SynTest(unittest.TestCase):
     @contextlib.contextmanager
     def setTstEnvars(self, **props):
         '''
-        Set Environmental variables for the purposes of running a specific test.
+        Set Environment variables for the purposes of running a specific test.
 
         Args:
             **props: A kwarg list of envars to set. The values set are run
@@ -1288,6 +1349,7 @@ class SynTest(unittest.TestCase):
 
     async def execToolMain(self, func, argv):
         outp = self.getTestOutp()
+
         def execmain():
             return func(argv, outp=outp)
         retn = await s_coro.executor(execmain)
@@ -1495,11 +1557,10 @@ class SynTest(unittest.TestCase):
         Assert that the length of an object is equal to X
         '''
         gtyps = (
-                 s_coro.GenrHelp,
-                 s_telepath.Genr,
-                 s_telepath.GenrIter,
-                 types.GeneratorType,
-                 )
+            s_coro.GenrHelp,
+            s_telepath.Genr,
+            s_telepath.GenrIter,
+            types.GeneratorType)
 
         if isinstance(obj, gtyps):
             obj = list(obj)
@@ -1537,6 +1598,17 @@ class SynTest(unittest.TestCase):
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
         self.isin(mesg, print_str)
 
+    def stormIsInErr(self, mesg, mesgs):
+        '''
+        Check if a string is present in all of the error messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1][1].get('mesg') for m in mesgs if m[0] == 'err'])
+        self.isin(mesg, print_str)
+
     def istufo(self, obj):
         '''
         Check to see if an object is a tufo.
@@ -1558,104 +1630,13 @@ class SynTest(unittest.TestCase):
         self.isinstance(obj[1], dict)
 
     @contextlib.contextmanager
-    def getTestConfDir(self, name, boot=None, conf=None):
+    def getTestConfDir(self, name, conf=None):
         with self.getTestDir() as dirn:
             cdir = os.path.join(dirn, name)
             s_common.makedirs(cdir)
-            if boot:
-                s_common.yamlsave(boot, cdir, 'boot.yaml')
             if conf:
                 s_common.yamlsave(conf, cdir, 'cell.yaml')
             yield dirn
-
-    def getIngestDef(self, guid, seen):
-        gestdef = {
-            'comment': 'ingest_test',
-            'source': guid,
-            'seen': '20180102',
-            'forms': {
-                'test:str': [
-                    '1234',
-                    'duck',
-                    'knight',
-                ],
-                'test:int': [
-                    '1234'
-                ],
-                'test:pivcomp': [
-                    ('hehe', 'haha')
-                ]
-            },
-            'tags': {
-                'test.foo': (None, None),
-                'test.baz': ('2014', '2015'),
-                'test.woah': (seen - 1, seen + 1),
-            },
-            'nodes': [
-                [
-                    [
-                        'test:str',
-                        'ohmy'
-                    ],
-                    {
-                        'props': {
-                            'bar': ('test:int', 137),
-                            'tick': '2001',
-                        },
-                        'tags': {
-                            'beep.beep': (None, None),
-                            'beep.boop': (10, 20),
-                        }
-                    }
-                ],
-                [
-                    [
-                        'test:int',
-                        '8675309'
-                    ],
-                    {
-                        'tags': {
-                            'beep.morp': (None, None)
-                        }
-                    }
-                ]
-            ],
-            'edges': [
-                [
-                    [
-                        'test:str',
-                        '1234'
-                    ],
-                    'edge:refs',
-                    [
-                        [
-                            'test:int',
-                            1234
-                        ]
-                    ]
-                ]
-            ],
-            'time:edges': [
-                [
-                    [
-                        'test:str',
-                        '1234'
-                    ],
-                    'edge:wentto',
-                    [
-                        [
-                            [
-                                'test:int',
-                                8675309
-
-                            ],
-                            '20170102'
-                        ]
-                    ]
-                ]
-            ]
-        }
-        return gestdef
 
     async def addCreatorDeleterRoles(self, core):
         '''
@@ -1669,25 +1650,25 @@ class SynTest(unittest.TestCase):
         creator = await core.auth.addRole('creator')
 
         await creator.setRules((
-            (True, ('node:add',)),
-            (True, ('prop:set',)),
-            (True, ('tag:add',)),
+            (True, ('node', 'add')),
+            (True, ('node', 'prop', 'set')),
+            (True, ('node', 'tag', 'add')),
             (True, ('feed:data',)),
         ))
 
         deleter = await core.auth.addRole('deleter')
         await deleter.setRules((
-            (True, ('node:del',)),
-            (True, ('prop:del',)),
-            (True, ('tag:del',)),
+            (True, ('node', 'del')),
+            (True, ('node', 'prop', 'del')),
+            (True, ('node', 'tag', 'del')),
         ))
 
         iadd = await core.auth.addUser('icanadd')
-        await iadd.grant('creator')
+        await iadd.grant(creator.iden)
         await iadd.setPasswd('secret')
 
         idel = await core.auth.addUser('icandel')
-        await idel.grant('deleter')
+        await idel.grant(deleter.iden)
         await idel.setPasswd('secret')
 
     @contextlib.asynccontextmanager
@@ -1726,3 +1707,44 @@ class SynTest(unittest.TestCase):
             async with await s_hive.openurl(turl) as hive:
 
                 yield hive
+
+    def stablebuid(self, valu=None):
+        '''
+        A stable buid generation for testing purposes
+        '''
+        if valu is None:
+            retn = self._NextBuid.to_bytes(32, 'big')
+            self._NextBuid += 1
+            return retn
+
+        byts = s_msgpack.en(valu)
+        return hashlib.sha256(byts).digest()
+
+    def stableguid(self, valu=None):
+        '''
+        A stable guid generation for testing purposes
+        '''
+        if valu is None:
+            retn = s_common.ehex(self._NextGuid.to_bytes(16, 'big'))
+            self._NextGuid += 1
+            return retn
+
+        byts = s_msgpack.en(valu)
+        return hashlib.md5(byts).hexdigest()
+
+    @contextlib.contextmanager
+    def withStableUids(self):
+        '''
+        A context manager that generates guids and buids in sequence so that successive test runs use the same
+        data
+        '''
+        with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
+            yield
+
+    async def runCoreNodes(self, core, query, opts=None):
+        '''
+        Run a storm query through a Cortex as a SchedCoro and return the results.
+        '''
+        async def coro():
+            return await core.nodes(query, opts)
+        return await core.schedCoro(coro())

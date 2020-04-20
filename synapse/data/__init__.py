@@ -7,7 +7,7 @@ def get(name, defval=None):
 
     Example:
 
-        for tld in syanpse.data.get('iana.tlds'):
+        for tld in synapse.data.get('iana.tlds'):
             dostuff(tld)
 
     NOTE: Files are named synapse/data/<name>.mpk

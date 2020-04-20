@@ -62,7 +62,7 @@ stormcmds = (
             $lib.print("Storm service list (iden, ready, name, url):")
             $count = $(0)
             for $sdef in $lib.service.list() {
-                $lib.print("    {iden} {ready} ({name}): {url}", iden=$sdef.iden, ready=$sdef.ready, name=$sdef.name, url=$sdef.url)
+ $lib.print("    {iden} {ready} ({name}): {url}", iden=$sdef.iden, ready=$sdef.ready, name=$sdef.name, url=$sdef.url)
                 $count = $( $count + 1 )
             }
             $lib.print("")
@@ -78,8 +78,8 @@ class StormSvc:
 
     _storm_svc_name = 'noname'
     _storm_svc_vers = (0, 0, 1)
-    _storm_svc_evts = {}
-    _storm_svc_pkgs = {}
+    _storm_svc_evts = {}  # type: ignore
+    _storm_svc_pkgs = ()  # type: ignore
 
     async def getStormSvcInfo(self):
         return {
@@ -92,7 +92,7 @@ class StormSvc:
     async def getStormSvcPkgs(self):
         return self._storm_svc_pkgs
 
-class StormSvcClient(s_base.Base, s_stormtypes.StormType):
+class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
     '''
     A StormService is a wrapper for a telepath proxy to a service
     accessible from the storm runtime.
@@ -100,7 +100,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
     async def __anit__(self, core, sdef):
 
         await s_base.Base.__anit__(self)
-        s_stormtypes.StormType.__init__(self)
+        s_stormtypes.Proxy.__init__(self, None)
 
         self.core = core
         self.sdef = sdef
@@ -114,9 +114,11 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         url = self.sdef.get('url')
 
         self.ready = asyncio.Event()
-        self.client = await s_telepath.Client.anit(url, onlink=self._onTeleLink)
 
-        self.onfini(self.client.fini)
+        proxy = await s_telepath.Client.anit(url, onlink=self._onTeleLink)
+        s_stormtypes.Proxy.__init__(self, proxy)
+
+        self.onfini(self.proxy.fini)
 
     async def _onTeleLink(self, proxy):
 
@@ -133,7 +135,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
             except asyncio.CancelledError:  # pragma: no cover
                 raise
 
-            except Exception as e:
+            except Exception:
                 logger.exception(f'_delStormSvcPkgs failed for service {self.name} ({self.iden})')
 
             # Register new packages
@@ -181,10 +183,11 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         self.ready.set()
 
     async def deref(self, name):
+
         # method used by storm runtime library on deref
         try:
-            await self.client.waitready()
-            return getattr(self.client, name)
+            await self.proxy.waitready()
+            return await s_stormtypes.Proxy.deref(self, name)
         except asyncio.TimeoutError:
             mesg = 'Timeout waiting for storm service'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None

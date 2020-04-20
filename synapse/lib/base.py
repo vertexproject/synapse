@@ -1,4 +1,5 @@
 import gc
+import os
 import atexit
 import signal
 import asyncio
@@ -18,6 +19,8 @@ import synapse.lib.coro as s_coro
 
 logger = logging.getLogger(__name__)
 
+OMIT_FINI_WARNS = os.environ.get('SYNDEV_OMIT_FINI_WARNS', False)
+
 def _fini_atexit(): # pragma: no cover
 
     for item in gc.get_objects():
@@ -31,7 +34,7 @@ def _fini_atexit(): # pragma: no cover
         if item.isfini:
             continue
 
-        if not item._fini_atexit:
+        if not item._fini_atexit and not OMIT_FINI_WARNS:
             if __debug__:
                 print(f'At exit: Missing fini for {item}')
                 for depth, call in enumerate(item.call_stack[:-2]):
@@ -94,13 +97,21 @@ class Base:
             await self.__anit__(*args, **kwargs)
 
         except Exception:
-
             if self.anitted:
                 await self.fini()
 
             raise
 
         return self
+
+    @classmethod
+    @contextlib.asynccontextmanager
+    async def ctx(cls, *args, **kwargs):
+        item = await cls.anit(*args, **kwargs)
+        try:
+            yield item
+        finally:
+            await item.fini()
 
     async def __anit__(self):
 
@@ -139,7 +150,13 @@ class Base:
         self._active_tasks = set()  # the free running tasks associated with me
 
     async def enter_context(self, item):
+        '''
+        Modeled on Python's contextlib.ExitStack.enter_context.  Enters a new context manager and adds its __exit__()
+        and __aexit__ method to its onfini handlers.
 
+        Returns:
+            The result of item’s own __aenter__ or __enter__() method.
+        '''
         async def fini():
             meth = getattr(item, '__aexit__', None)
             if meth is not None:
@@ -159,11 +176,12 @@ class Base:
             return await entr()
 
         entr = getattr(item, '__enter__', None)
-        if entr is not None:
-            async def fini():
-                item.__exit__(None, None, None)
-            self.onfini(fini)
-            return entr()
+        assert entr is not None
+
+        async def fini():
+            item.__exit__(None, None, None)
+        self.onfini(fini)
+        return entr()
 
     def onfini(self, func):
         '''
@@ -383,17 +401,12 @@ class Base:
 
         self.isfini = True
 
-        fevt = self.finievt
-
-        if fevt is not None:
-            fevt.set()
-
         for base in list(self.tofini):
             await base.fini()
 
         try:
             await self._kill_active_tasks()
-        except:
+        except Exception:
             logger.exception(f'{self} - Exception during _kill_active_tasks')
 
         for fini in self._fini_funcs:
@@ -406,6 +419,12 @@ class Base:
 
         self._syn_funcs.clear()
         self._fini_funcs.clear()
+
+        fevt = self.finievt
+
+        if fevt is not None:
+            fevt.set()
+
         return 0
 
     @contextlib.contextmanager
@@ -475,11 +494,12 @@ class Base:
         def taskDone(task):
             self._active_tasks.remove(task)
             try:
-                task.result()
+                if not task.done():
+                    task.result()
             except asyncio.CancelledError:
                 pass
             except Exception:
-                logger.exception('Task scheduled through Base.schedCoro raised exception')
+                logger.exception('Task %s scheduled through Base.schedCoro raised exception', task)
 
         self._active_tasks.add(task)
         task.add_done_callback(taskDone)
@@ -574,7 +594,7 @@ class Base:
 
             # .. fire thread that will cause foo:bar events
 
-            events = waiter.wait(timeout=3)
+            events = await waiter.wait(timeout=3)
 
             if events == None:
                 # handle the timout case...
@@ -734,6 +754,44 @@ class BaseRef(Base):
         # make a copy during iteration to prevent dict
         # change during iteration exceptions
         return iter(list(self.base_by_name.values()))
+
+async def schedGenr(genr, maxsize=100):
+    '''
+    Schedule a generator to run on a separate task and yield results to this task (pipelined generator).
+    '''
+    q = asyncio.Queue(maxsize=maxsize)
+
+    async def genrtask(base):
+        try:
+            async for item in genr:
+                await q.put((True, item))
+
+            await q.put((False, None))
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception:
+            if not base.isfini:
+                await q.put((False, None))
+            raise
+
+    async with await Base.anit() as base:
+
+        task = base.schedCoro(genrtask(base))
+
+        while not base.isfini:
+
+            ok, retn = await q.get()
+
+            if ok:
+                yield retn
+                # since we are a pipeline, yield every time...
+                await asyncio.sleep(0)
+                continue
+
+            await task
+            return
 
 async def main(coro): # pragma: no cover
     base = await coro

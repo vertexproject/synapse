@@ -7,7 +7,6 @@ import synapse.lib.cmdr as s_cmdr
 import synapse.lib.provenance as s_provenance
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 MINSECS = 60
 HOURSECS = 60 * MINSECS
@@ -43,6 +42,22 @@ class CmdCronTest(s_t_utils.SynTest):
                 outp = self.getTestOutp()
                 async with await s_cmdr.getItemCmdr(core, outp=outp) as cmdr:
 
+                    async def waitForCron(guid):
+                        '''
+                        Because the wall clock is "frozen" for this test unless we manually advance it, we can't sleep
+                        non-zero amounts.  However, we are running in the same asyncio loop as the agenda.  Just
+                        sleep(0) in a loop until the cron job is not running anymore
+                        '''
+                        for _ in range(30):
+                            await asyncio.sleep(0)
+                            crons = await core.listCronJobs()
+                            cron = [c for c in crons if c.get('iden') == guid][0]
+                            if not cron['isrunning']:
+                                break
+                        else:
+                            # the cron job didn't finish after ten sleeps?!
+                            self.true(0)
+
                     # Various silliness
 
                     await cmdr.runCmdLine('cron')
@@ -68,10 +83,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine("cron add -m 8nosuchmonth -d=-2 {#foo}")
                     self.true(outp.expect('failed to parse fixed parameter'))
 
-                    await cmdr.runCmdLine("cron add -d=, {#foo}")
-                    self.true(outp.expect('failed to parse day value'))
-
-                    await cmdr.runCmdLine("cron add -dMon -m +3 {#foo}")
+                    await cmdr.runCmdLine("cron add -d Mon -m +3 {#foo}")
                     self.true(outp.expect('provide a recurrence value with day of week'))
 
                     await cmdr.runCmdLine("cron add -dMon -m June {#foo}")
@@ -101,35 +113,32 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine('cron add }')
                     self.true(outp.expect('BadSyntax'))
 
-                    ##################
-                    oldsplices = len(await alist(core.splices(0, 1000)))
+                    # add a mechanism on which we can wait...
+                    await realcore.nodes('$lib.queue.add(foo)')
 
+                    async def getNextFoo():
+                        return await asyncio.wait_for(realcore.callStorm('''
+                            $foo = $lib.queue.get(foo)
+                            ($offs, $retn) = $foo.get()
+                            $foo.cull($offs)
+                            return($retn)
+                        '''), timeout=5)
+
+                    ##################
                     # Start simple: add a cron job that creates a node every minute
                     outp.clear()
-                    await cmdr.runCmdLine("cron add -M +1 {[graph:node='*' :type=m1]}")
+                    await cmdr.runCmdLine("cron add -M +1 {$lib.queue.get(foo).put(bar)}")
                     self.true(outp.expect('Created cron job'))
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
                     unixtime += 60
+                    self.eq('bar', await getNextFoo())
+
                     await cmdr.runCmdLine('cron list')
-                    self.true(outp.expect(':type=m1'))
+                    self.true(outp.expect('(bar)'))
 
                     # Make sure it ran
-                    await self.agenlen(1, core.eval('graph:node:type=m1'))
-
-                    # Make sure the provenance of the new splices looks right
-                    splices = await alist(core.splices(oldsplices, 1000))
-                    self.gt(len(splices), 1)
-                    aliases = [splice[1]['prov'] for splice in splices]
-                    self.true(all(a == aliases[0] for a in aliases))
-                    prov = await core.getProvStack(aliases[0])
-                    rootiden = prov[1][1][1]['user']
-                    correct = ({}, (
-                               ('cron', {'iden': guid}),
-                               ('storm', {'q': "[graph:node='*' :type=m1]", 'user': rootiden})))
-                    self.eq(prov, correct)
-
-                    await cmdr.runCmdLine(f"cron mod {guid[:6]} {{[graph:node='*' :type=m2]}}")
+                    await cmdr.runCmdLine(f"cron mod {guid[:6]} {{$lib.queue.get(foo).put(baz)}}")
                     self.true(outp.expect('Modified cron job'))
                     await cmdr.runCmdLine(f"cron edit xxx {{[graph:node='*' :type=m2]}}")
                     self.true(outp.expect('does not match'))
@@ -138,8 +147,7 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     # Make sure the old one didn't run and the new query ran
                     unixtime += 60
-                    await self.agenlen(1, core.eval('graph:node:type=m1'))
-                    await self.agenlen(1, core.eval('graph:node:type=m2'))
+                    self.eq('baz', await getNextFoo())
 
                     outp.clear()
 
@@ -153,44 +161,43 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     # Make sure deleted job didn't run
                     unixtime += 60
-                    await self.agenlen(1, core.eval('graph:node:type=m1'))
-                    await self.agenlen(1, core.eval('graph:node:type=m2'))
+                    await asyncio.sleep(0)
+                    self.eq(0, await realcore.callStorm('return($lib.queue.get(foo).size())'))
 
                     # Test fixed minute, i.e. every hour at 17 past
                     unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                                  tzinfo=tz.utc).timestamp()
-                    await cmdr.runCmdLine("cron add -M 17 {[graph:node='*' :type=m3]}")
+                    await cmdr.runCmdLine("cron add -M 17 {$lib.queue.get(foo).put(faz)}")
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
                     unixtime += 7 * MINSECS
 
-                    # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, core.eval('graph:node:type=m3'))
+                    self.eq('faz', await getNextFoo())
                     await cmdr.runCmdLine(f"cron del {guid}")
 
                     ##################
 
                     # Test day increment
-                    await cmdr.runCmdLine("cron add -d +2 {[graph:node='*' :type=d1]}")
+                    await cmdr.runCmdLine("cron add -d +2 {$lib.queue.get(foo).put(d1)}")
                     self.true(outp.expect('Created cron job'))
                     guid1 = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
                     unixtime += DAYSECS
 
                     # Make sure it *didn't* run
-                    await self.agenlen(0, core.eval('graph:node:type=d1'))
+                    await asyncio.sleep(0)
+                    self.eq(0, await realcore.callStorm('return($lib.queue.get(foo).size())'))
 
                     unixtime += DAYSECS
 
-                    # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
-
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, core.eval('graph:node:type=d1'))
+                    self.eq('d1', await getNextFoo())
 
                     unixtime += DAYSECS * 2
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(2, core.eval('graph:node:type=d1'))
+
+                    outp.clear()
+                    self.eq('d1', await getNextFoo())
+                    await cmdr.runCmdLine(f"cron del {guid1}")
+                    outp.expect('Deleted cron job')
 
                     ##################
 
@@ -198,15 +205,31 @@ class CmdCronTest(s_t_utils.SynTest):
                     unixtime = datetime.datetime(year=2018, month=12, day=11, hour=7, minute=10,
                                                  tzinfo=tz.utc).timestamp()  # A Tuesday
 
-                    await cmdr.runCmdLine("cron add -H 3 -d Mon,Thursday {[graph:node='*' :type=d2]}")
+                    outp.clear()
+                    await cmdr.runCmdLine("cron add -H 3 -d Mon,Thursday {$lib.queue.get(foo).put(d2)}")
+                    self.true(outp.expect('Created cron job'))
+
                     guid2 = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
+                    unixtime = datetime.datetime(year=2018, month=12, day=12, hour=3, minute=10,
+                                                 tzinfo=tz.utc).timestamp()  # Now Wednesday
+
+                    outp.clear()
+                    await cmdr.runCmdLine(f'cron stat {guid2}')
+                    self.true(outp.expect('last start time: Never'))
+
                     unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, core.eval('graph:node:type=d2'))
 
-                    await cmdr.runCmdLine(f"cron del {guid1}")
+                    self.eq('d2', await getNextFoo())
+
+                    outp.clear()
+                    await cmdr.runCmdLine(f'cron stat {guid2}')
+                    self.true(outp.expect('last start time: 2018'))
+                    self.true(outp.expect('dayofweek       0'))
+
+                    outp.clear()
                     await cmdr.runCmdLine(f"cron del {guid2}")
+                    outp.expect('Deleted cron job')
 
                     await cmdr.runCmdLine("cron add -H 3 -d Noday {[graph:node='*' :type=d2]}")
                     self.true(outp.expect('failed to parse day value "Noday"'))
@@ -214,46 +237,68 @@ class CmdCronTest(s_t_utils.SynTest):
                     ##################
 
                     # Test fixed day of month: second-to-last day of month
-                    await cmdr.runCmdLine("cron add -d-2 -mDec {[graph:node='*' :type=d3]}")
+                    await cmdr.runCmdLine("cron add -d-2 -mDec {$lib.queue.get(foo).put(d3)}")
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
                     unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(0, core.eval('graph:node:type=d3'))  # Not yet
+
                     unixtime += DAYSECS
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, core.eval('graph:node:type=d3'))
+
+                    self.eq('d3', await getNextFoo())
+
+                    outp.clear()
                     await cmdr.runCmdLine(f"cron del {guid}")
+                    outp.expect('Deleted cron job')
 
                     ##################
 
                     # Test month increment
 
-                    await cmdr.runCmdLine("cron add -m +2 -d=4 {[graph:node='*' :type=month1]}")
+                    outp.clear()
+                    await cmdr.runCmdLine("cron add -m +2 -d=4 {$lib.queue.get(foo).put(month1)}")
+                    guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
+                    self.true(outp.expect('Created cron job'))
 
                     unixtime = datetime.datetime(year=2019, month=2, day=4, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, core.eval('graph:node:type=month1'))
+
+                    self.eq('month1', await getNextFoo())
+
+                    outp.clear()
+                    await cmdr.runCmdLine(f"cron del {guid}")
+                    outp.expect('Deleted cron job')
 
                     ##################
 
                     # Test year increment
 
-                    await cmdr.runCmdLine("cron add -y +2 {[graph:node='*' :type=year1]}")
+                    outp.clear()
+                    await cmdr.runCmdLine("cron add -y +2 {$lib.queue.get(foo).put(year1)}")
                     guid2 = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
+                    self.true(outp.expect('Created cron job'))
+
                     unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, core.eval('graph:node:type=year1'))
+                    self.eq('year1', await getNextFoo())
+
+                    outp.clear()
+                    await cmdr.runCmdLine(f'cron stat {guid2[:6]}')
+                    self.true(outp.expect("{'month': 1, 'hour': 0, 'minute': 0, 'dayofmonth': 1}"))
+
+                    outp.clear()
+                    await cmdr.runCmdLine(f"cron del {guid2}")
+                    outp.expect('Deleted cron job')
 
                     # Make sure second-to-last day works for February
-                    await cmdr.runCmdLine("cron add -m February -d=-2 {[graph:node='*' :type=year2]}")
+                    outp.clear()
+                    await cmdr.runCmdLine("cron add -m February -d=-2 {$lib.queue.get(foo).put(year2)}")
+                    self.true(outp.expect('Created cron job'))
+
                     unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, core.eval('graph:node:type=year2'))
+
+                    self.eq('year2', await getNextFoo())
 
                     ##################
 
@@ -280,25 +325,31 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine('at +1day')
                     self.true(outp.expect('Missing query'))
 
-                    await cmdr.runCmdLine("at +5 minutes {[graph:node='*' :type=at1]}")
+                    await cmdr.runCmdLine("at +5 minutes {$lib.queue.get(foo).put(at1)}")
+
                     unixtime += 5 * MINSECS
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, core.eval('graph:node:type=at1'))
 
-                    await cmdr.runCmdLine("at +1 day +7 days {[graph:node='*' :type=at2]}")
+                    self.eq('at1', await getNextFoo())
+
+                    await cmdr.runCmdLine("at +1 day +7 days {$lib.queue.get(foo).put(at2)}")
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
-                    unixtime += DAYSECS
-                    await self.agenlen(1, core.eval('graph:node:type=at2'))
-                    unixtime += 6 * DAYSECS + 1
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(2, core.eval('graph:node:type=at2'))
 
-                    await cmdr.runCmdLine("at 202104170415 {[graph:node='*' :type=at3]}")
+                    unixtime += DAYSECS
+
+                    await waitForCron(guid)
+
+                    self.eq('at2', await getNextFoo())
+
+                    unixtime += 6 * DAYSECS + 1
+
+                    self.eq('at2', await getNextFoo())
+
+                    await cmdr.runCmdLine("at 202104170415 {$lib.queue.get(foo).put(at3)}")
 
                     unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
-                    await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, core.eval('graph:node:type=at3'))
+
+                    self.eq('at3', await getNextFoo())
                     outp.clear()
 
                     ##################
@@ -308,11 +359,8 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('provided iden does not match any'))
 
                     await cmdr.runCmdLine(f'cron stat {guid[:6]}')
-                    self.true(outp.expect('last result:     finished successfully with 1 nodes'))
+                    self.true(outp.expect('last result:     finished successfully with 0 nodes'))
                     self.true(outp.expect('entries:         <None>'))
-                    await cmdr.runCmdLine(f'cron stat {guid2[:6]}')
-                    self.true(outp.expect("{'month': 1, 'hour': 0, 'minute': 0, 'dayofmonth': 1}"))
-                    outp.clear()
 
                     ##################
 
@@ -381,7 +429,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('may not use both'))
 
                 # Test manipulating cron jobs as another user
-                await realcore.auth.addUser('bond')
+                bond = await realcore.auth.addUser('bond')
 
                 async with realcore.getLocalProxy(user='bond') as tcore:
                     toutp = self.getTestOutp()
@@ -407,13 +455,13 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(toutp.expect('provided iden does not match'))
 
                     # Give explicit perm
-                    await core.addAuthRule('bond', (True, ('cron', 'get')))
+                    await core.addUserRule(bond.iden, (True, ('cron', 'get')))
 
                     toutp.clear()
                     await tcmdr.runCmdLine('cron list')
                     self.true(toutp.expect('root'))
 
-                    await core.addAuthRule('bond', (True, ('cron', 'set')))
+                    await core.addUserRule(bond.iden, (True, ('cron', 'set')))
 
                     toutp.clear()
                     await tcmdr.runCmdLine(f'cron disable {guid[:6]}')
@@ -427,7 +475,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await tcmdr.runCmdLine(f'cron edit {guid[:6]} {{#foo}}')
                     self.true(toutp.expect('Modified cron job'))
 
-                    await core.addAuthRule('bond', (True, ('cron', 'del')))
+                    await core.addUserRule(bond.iden, (True, ('cron', 'del')))
 
                     toutp.clear()
                     await tcmdr.runCmdLine(f'cron del {guid[:6]}')

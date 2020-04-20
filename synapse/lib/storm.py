@@ -9,16 +9,222 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
-import synapse.lib.cache as s_cache
+import synapse.lib.time as s_time
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
+import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
+import synapse.lib.grammar as s_grammar
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+addtriggerdescr = '''
+Add a trigger to the cortex.
+
+Notes:
+    Valid values for condition are:
+        * tag:add
+        * tag:del
+        * node:add
+        * node:del
+        * prop:set
+
+When condition is tag:add or tag:del, you may optionally provide a form name
+to restrict the trigger to fire only on tags added or deleted from nodes of
+those forms.
+
+The added tag is provided to the query as an embedded variable '$tag'.
+
+Simple one level tag globbing is supported, only at the end after a period,
+that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
+supported.
+
+Examples:
+    # Adds a tag to every inet:ipv4 added
+    trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
+
+    # Adds a tag #todo to every node as it is tagged #aka
+    trigger.add tag:add --tag aka --query {[ +#todo ]}
+
+    # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
+    trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
+'''
+
+addcrondescr = '''
+Add a recurring cron job to a cortex.
+
+Notes:
+    All times are interpreted as UTC.
+
+    All arguments are interpreted as the job period, unless the value ends in
+    an equals sign, in which case the argument is interpreted as the recurrence
+    period.  Only one recurrence period parameter may be specified.
+
+    Currently, a fixed unit must not be larger than a specified recurrence
+    period.  i.e. '--hour 7 --minute +15' (every 15 minutes from 7-8am?) is not
+    supported.
+
+    Value values for fixed hours are 0-23 on a 24-hour clock where midnight is 0.
+
+    If the --day parameter value does not start with a '+' and is an integer, it is
+    interpreted as a fixed day of the month.  A negative integer may be
+    specified to count from the end of the month with -1 meaning the last day
+    of the month.  All fixed day values are clamped to valid days, so for
+    example '-d 31' will run on February 28.
+    If the fixed day parameter is a value in ([Mon, Tue, Wed, Thu, Fri, Sat,
+    Sun] if locale is set to English) it is interpreted as a fixed day of the
+    week.
+
+    Otherwise, if the parameter value starts with a '+', then it is interpreted
+    as a recurrence interval of that many days.
+
+    If no plus-sign-starting parameter is specified, the recurrence period
+    defaults to the unit larger than all the fixed parameters.   e.g. '--minute 5'
+    means every hour at 5 minutes past, and --hour 3, --minute 1 means 3:01 every day.
+
+    At least one optional parameter must be provided.
+
+    All parameters accept multiple comma-separated values.  If multiple
+    parameters have multiple values, all combinations of those values are used.
+
+    All fixed units not specified lower than the recurrence period default to
+    the lowest valid value, e.g. --month +2 will be scheduled at 12:00am the first of
+    every other month.  One exception is if the largest fixed value is day of the
+    week, then the default period is set to be a week.
+
+    A month period with a day of week fixed value is not currently supported.
+
+    Fixed-value year (i.e. --year 2019) is not supported.  See the 'at'
+    command for one-time cron jobs.
+
+    As an alternative to the above options, one may use exactly one of
+    --hourly, --daily, --monthly, --yearly with a colon-separated list of
+    fixed parameters for the value.  It is an error to use both the individual
+    options and these aliases at the same time.
+
+Examples:
+    Run a query every last day of the month at 3 am
+    cron.add --hour 3 --day -1 {#foo}
+
+    Run a query every 8 hours
+    cron.add --hour +8 {#foo}
+
+    Run a query every Wednesday and Sunday at midnight and noon
+    cron.add --hour 0,12 --day Wed,Sun {#foo}
+
+    Run a query every other day at 3:57pm
+    cron.add --day +2 --minute 57 --hour 15 {#foo}
+'''
+
+atcrondescr = '''
+Adds a non-recurring cron job.
+
+Notes:
+    This command accepts one or more time specifications followed by exactly
+    one storm query in curly braces.  Each time specification may be in synapse
+    time delta format (e.g --day +1) or synapse time format (e.g.
+    20501217030432101).  Seconds will be ignored, as cron jobs' granularity is
+    limited to minutes.
+
+    All times are interpreted as UTC.
+
+    The other option for time specification is a relative time from now.  This
+    consists of a plus sign, a positive integer, then one of 'minutes, hours,
+    days'.
+
+    Note that the record for a cron job is stored until explicitly deleted via
+    "cron.del".
+
+Examples:
+    # Run a storm query in 5 minutes
+    cron.at --minute +5 {[inet:ipv4=1]}
+
+    # Run a storm query tomorrow and in a week
+    cron.at --day +1,+7 {[inet:ipv4=1]}
+
+    # Run a query at the end of the year Zulu
+    cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
+'''
+
+reqValidPkgdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'version': {
+            'type': ['array', 'number'],
+            'items': {'type': 'number'}
+        },
+        'modules': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/module'}
+        },
+        'commands': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/command'}
+        },
+        'desc': {'type': 'string'},
+        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden}
+    },
+    'additionalProperties': True,
+    'required': ['name', 'version'],
+    'definitions': {
+        'module': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'storm': {'type': 'string'}
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        },
+        'command': {
+            'type': 'object',
+            'properties': {
+                'name': {
+                    'type': 'string',
+                    'pattern': s_grammar.re_scmd
+                },
+                'storm': {'type': 'string'}
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        }
+    }
+})
+
+reqValidDdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'storm': {'type': 'string'},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'stormopts': {
+            'oneOf': [
+                {'type': 'null'},
+                {'$ref': '#/definitions/stormopts'}
+            ]
+        }
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'user', 'storm'],
+    'definitions': {
+        'stormopts': {
+            'type': 'object',
+            'properties': {
+                'spawn': {'type': 'boolean'},
+                'repr': {'type': 'boolean'},
+                'path': {'type': 'string'},
+                'show': {'type': 'array', 'items': {'type': 'string'}}
+            },
+            'additionalProperties': True,
+        },
+    }
+})
 
 stormcmds = (
     {
@@ -79,6 +285,73 @@ stormcmds = (
         '''
     },
     {
+        'name': 'layer.add',
+        'descr': 'Add a layer to the cortex.',
+        'cmdargs': (
+            ('--lockmemory', {'help': 'Should the layer lock memory for performance.',
+                              'action': 'store_true'}),
+            ('--readonly', {'help': 'Should the layer be readonly.',
+                            'action': 'store_true'}),
+            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': int}),
+            ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
+            ('--name', {'help': 'The name of the layer.'}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.add($cmdopts)
+            $lib.print($layr.repr())
+            $lib.print("Layer added.")
+        ''',
+    },
+    {
+        'name': 'layer.set',
+        'descr': 'Set a layer option.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the layer to modify.'}),
+            ('name', {'help': 'The name of the layer property to set.'}),
+            ('valu', {'help': 'The value to set the layer property to.'}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.iden)
+            $layr.set($cmdopts.name, $cmdopts.valu)
+            $lib.print($layr.repr())
+            $lib.print('Layer updated.')
+        ''',
+    },
+    {
+        'name': 'layer.del',
+        'descr': 'Delete a layer from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the layer to delete.'}),
+        ),
+        'storm': '''
+            $lib.layer.del($cmdopts.iden)
+            $lib.print("Layer deleted: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'layer.get',
+        'descr': 'Get a layer from the cortex.',
+        'cmdargs': (
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the layer to get. If no iden is provided, the main layer will be returned.'}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.iden)
+            $lib.print($layr.repr())
+        ''',
+    },
+    {
+        'name': 'layer.list',
+        'descr': 'List the layers in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            $lib.print('Layers:')
+            for $layr in $lib.layer.list() {
+                $lib.print($layr.repr())
+            }
+        ''',
+    },
+    {
         'name': 'pkg.list',
         'descr': 'List the storm packages loaded in the cortex.',
         'cmdrargs': (),
@@ -129,7 +402,386 @@ stormcmds = (
 
             }
         '''
-    }
+    },
+    {
+        'name': 'view.add',
+        'descr': 'Add a view to the cortex.',
+        'cmdargs': (
+            ('--name', {'default': None, 'help': 'The name of the new view.'}),
+            ('--layers', {'default': [], 'nargs': '*', 'help': 'Layers for the view.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.add($cmdopts.layers, name=$cmdopts.name)
+            $lib.print($view.repr())
+            $lib.print("View added.")
+        ''',
+    },
+    {
+        'name': 'view.del',
+        'descr': 'Delete a view from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to delete.'}),
+        ),
+        'storm': '''
+            $lib.view.del($cmdopts.iden)
+            $lib.print("View deleted: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'view.set',
+        'descr': 'Set a view option.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to modify.'}),
+            ('name', {'help': 'The name of the view property to set.'}),
+            ('valu', {'help': 'The value to set the view property to.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.get($cmdopts.iden)
+            $view.set($cmdopts.name, $cmdopts.valu)
+            $lib.print($view.repr())
+            $lib.print("View updated.")
+        ''',
+    },
+    {
+        'name': 'view.fork',
+        'descr': 'Fork a view in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to fork.'}),
+            ('--name', {'default': None, 'help': 'Name for the newly forked view.'}),
+        ),
+        'storm': '''
+            $forkview = $lib.view.get($cmdopts.iden).fork(name=$cmdopts.name)
+            $lib.print($forkview.repr())
+            $lib.print("View {iden} forked to new view: {forkiden}", iden=$cmdopts.iden, forkiden=$forkview.iden)
+        ''',
+    },
+    {
+        'name': 'view.get',
+        'descr': 'Get a view from the cortex.',
+        'cmdargs': (
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.get($cmdopts.iden)
+            $lib.print($view.repr())
+        ''',
+    },
+    {
+        'name': 'view.list',
+        'descr': 'List the views in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            $lib.print("")
+            for $view in $lib.view.list() {
+                $lib.print($view.repr())
+                $lib.print("")
+            }
+        ''',
+    },
+    {
+        'name': 'view.merge',
+        'descr': 'Merge a forked view into its parent view.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to merge.'}),
+            ('--delete', {'default': False, 'action': 'store_true',
+                          'help': 'Once the merge is complete, delete the layer and view.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.get($cmdopts.iden)
+
+            $view.merge()
+
+            if $cmdopts.delete {
+                $layriden = $view.pack().layers.index(0).iden
+
+                $lib.view.del($view.iden)
+                $lib.layer.del($layriden)
+            }
+            $lib.print("View merged: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'trigger.add',
+        'descr': addtriggerdescr,
+        'cmdargs': (
+            ('condition', {'help': 'Condition for the trigger.'}),
+            ('--form', {'help': 'Form to fire on.'}),
+            ('--tag', {'help': 'Tag to fire on.'}),
+            ('--prop', {'help': 'Property to fire on.'}),
+            ('--query', {'help': 'Query for the trigger to execute.', 'required': True}),
+            ('--disabled', {'default': False, 'action': 'store_true',
+                            'help': 'Create the trigger in disabled state.'}),
+        ),
+        'storm': '''
+            $trig = $lib.trigger.add($cmdopts)
+
+            $lib.print("Added trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.del',
+        'descr': 'Delete a trigger from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.del($cmdopts.iden)
+            $lib.print("Deleted trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.mod',
+        'descr': "Modify an existing trigger's query.",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+            ('query', {'help': 'New storm query for the trigger.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.mod($cmdopts.iden, $cmdopts.query)
+            $lib.print("Modified trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.list',
+        'descr': "List existing triggers in the cortex.",
+        'cmdargs': (),
+        'storm': '''
+            $triggers = $lib.trigger.list()
+
+            if $triggers {
+
+                $lib.print("user       iden                             en?    cond      object                    storm query")
+
+                for $trigger in $triggers {
+                    $user = $trigger.username.ljust(10)
+                    $iden = $trigger.iden.ljust(12)
+                    $enabled = $lib.model.type(bool).repr($trigger.enabled).ljust(6)
+                    $cond = $trigger.cond.ljust(9)
+
+                    $fo = ""
+                    if $trigger.form {
+                        $fo = $trigger.form
+                    }
+
+                    $pr = ""
+                    if $trigger.prop {
+                        $pr = $trigger.prop
+                    }
+
+                    if $cond.startswith('tag:') {
+                        $obj = $fo.ljust(14)
+                        $obj2 = $trigger.tag.ljust(10)
+
+                    } else {
+                        if $pr {
+                            $obj = $pr.ljust(14)
+                        } elif $fo {
+                            $obj = $fo.ljust(14)
+                        } else {
+                            $obj = '<missing>     '
+                        }
+                        $obj2 = '          '
+                    }
+
+                    $lib.print("{user} {iden} {enabled} {cond} {obj} {obj2} {query}",
+                              user=$user, iden=$iden, enabled=$enabled, cond=$cond,
+                              obj=$obj, obj2=$obj2, query=$trigger.storm)
+                }
+            } else {
+                $lib.print("No triggers found")
+            }
+        ''',
+    },
+    {
+        'name': 'trigger.enable',
+        'descr': 'Enable a trigger in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.enable($cmdopts.iden)
+            $lib.print("Enabled trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.disable',
+        'descr': 'Disable a trigger in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.disable($cmdopts.iden)
+            $lib.print("Disabled trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.add',
+        'descr': addcrondescr,
+        'cmdargs': (
+            ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--minute', {'help': 'Minute value for job or recurrence period.'}),
+            ('--hour', {'help': 'Hour value for job or recurrence period.'}),
+            ('--day', {'help': 'Day value for job or recurrence period.'}),
+            ('--month', {'help': 'Month value for job or recurrence period.'}),
+            ('--year', {'help': 'Year value for recurrence period.'}),
+            ('--hourly', {'help': 'Fixed parameters for an hourly job.'}),
+            ('--daily', {'help': 'Fixed parameters for a daily job.'}),
+            ('--monthly', {'help': 'Fixed parameters for a monthly job.'}),
+            ('--yearly', {'help': 'Fixed parameters for a yearly job.'}),
+        ),
+        'storm': '''
+            $cron = $lib.cron.add(query=$cmdopts.query,
+                                  minute=$cmdopts.minute,
+                                  hour=$cmdopts.hour,
+                                  day=$cmdopts.day,
+                                  month=$cmdopts.month,
+                                  year=$cmdopts.year,
+                                  hourly=$cmdopts.hourly,
+                                  daily=$cmdopts.daily,
+                                  monthly=$cmdopts.monthly,
+                                  yearly=$cmdopts.yearly)
+
+            $lib.print("Created cron job: {iden}", iden=$cron.iden)
+        ''',
+    },
+    {
+        'name': 'cron.at',
+        'descr': atcrondescr,
+        'cmdargs': (
+            ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--minute', {'help': 'Minute(s) to execute at.'}),
+            ('--hour', {'help': 'Hour(s) to execute at.'}),
+            ('--day', {'help': 'Day(s) to execute at.'}),
+            ('--dt', {'help': 'Datetime(s) to execute at.'}),
+        ),
+        'storm': '''
+            $cron = $lib.cron.at(query=$cmdopts.query,
+                                 minute=$cmdopts.minute,
+                                 hour=$cmdopts.hour,
+                                 day=$cmdopts.day,
+                                 dt=$cmdopts.dt)
+
+            $lib.print("Created cron job: {iden}", iden=$cron.iden)
+        ''',
+    },
+    {
+        'name': 'cron.del',
+        'descr': 'Delete a cron job from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $lib.cron.del($cmdopts.iden)
+            $lib.print("Deleted cron job: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'cron.mod',
+        'descr': "Modify an existing cron job's query.",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+            ('query', {'help': 'New storm query for the cron job.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.mod($cmdopts.iden, $cmdopts.query)
+            $lib.print("Modified cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.list',
+        'descr': "List existing cron jobs in the cortex.",
+        'cmdargs': (),
+        'storm': '''
+            $crons = $lib.cron.list()
+
+            if $crons {
+                $lib.print("user       iden       en? rpt? now? err? # start last start       last end         query")
+
+                for $cron in $crons {
+
+                    $job = $cron.pprint()
+
+                    $user = $job.user.ljust(10)
+                    $iden = $job.idenshort.ljust(10)
+                    $enabled = $job.enabled.ljust(3)
+                    $isrecur = $job.isrecur.ljust(4)
+                    $isrunning = $job.isrunning.ljust(4)
+                    $iserr = $job.iserr.ljust(4)
+                    $startcount = $lib.str.format("{startcount}", startcount=$job.startcount).ljust(7)
+                    $laststart = $job.laststart.ljust(16)
+                    $lastend = $job.lastend.ljust(16)
+
+       $lib.print("{user} {iden} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
+                               user=$user, iden=$iden, enabled=$enabled, isrecur=$isrecur,
+                               isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
+                               laststart=$laststart, lastend=$lastend, query=$job.query)
+                }
+            } else {
+                $lib.print("No cron jobs found")
+            }
+        ''',
+    },
+    {
+        'name': 'cron.stat',
+        'descr': "Gives detailed information about a cron job.",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $cron = $lib.cron.get($cmdopts.iden)
+
+            if $cron {
+                $job = $cron.pprint()
+
+                $lib.print('iden:            {iden}', iden=$job.iden)
+                $lib.print('user:            {user}', user=$job.user)
+                $lib.print('enabled:         {enabled}', enabled=$job.enabled)
+                $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
+                $lib.print('# starts:        {startcount}', startcount=$job.startcount)
+                $lib.print('last start time: {laststart}', laststart=$job.laststart)
+                $lib.print('last end time:   {lastend}', lastend=$job.lastend)
+                $lib.print('last result:     {lastresult}', lastresult=$job.lastresult)
+                $lib.print('query:           {query}', query=$job.query)
+
+                if $job.recs {
+                    $lib.print('entries:         incunit    incval required')
+
+                    for $rec in $job.recs {
+                        $incunit = $lib.str.format('{incunit}', incunit=$rec.incunit).ljust(10)
+                        $incval = $lib.str.format('{incval}', incval=$rec.incval).ljust(6)
+
+                        $lib.print('                 {incunit} {incval} {reqdict}',
+                                   incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
+                    }
+                } else {
+                    $lib.print('entries:         <None>')
+                }
+            }
+        ''',
+    },
+    {
+        'name': 'cron.enable',
+        'descr': 'Enable a cron job in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.enable($cmdopts.iden)
+            $lib.print("Enabled cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.disable',
+        'descr': 'Disable a cron job in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.disable($cmdopts.iden)
+            $lib.print("Disabled cron job: {iden}", iden=$iden)
+        ''',
+    },
 )
 
 class StormDmon(s_base.Base):
@@ -150,6 +802,8 @@ class StormDmon(s_base.Base):
 
         self.count = 0
         self.status = 'initializing'
+        self.err_evnt = asyncio.Event()
+        self.runlog = collections.deque((), 2000)
 
         async def fini():
             if self.task is not None:
@@ -166,6 +820,7 @@ class StormDmon(s_base.Base):
         retn = dict(self.ddef)
         retn['count'] = self.count
         retn['status'] = self.status
+        retn['err'] = self.err_evnt.is_set()
         return retn
 
     async def _run(self):
@@ -181,34 +836,72 @@ class StormDmon(s_base.Base):
                                                     info=info)
                 self.loop_task = synt.task
                 await synt.waitfini()
+                # We have to give the callbacks a chance to run
+                # so that we can determine the status of the task
+                await asyncio.sleep(0)
+                if self.loop_task.cancelled():
+                    # Restart the loop right away
+                    continue
+                # Check and re-raise exceptions
+                exc = self.loop_task.exception()
+                if exc:
+                    raise exc
             except asyncio.CancelledError:
-                logger.warning(f'Dmon main cancelled ({self.iden})')
                 if self.loop_task:
                     self.loop_task.cancel()
+                self.status = f'fatal error: Dmon main cancelled'
+                self.err_evnt.set()
+                logger.warning(f'Dmon main cancelled ({self.iden})')
+                raise
+            except s_exc.NoSuchView as e:
+                if self.loop_task:
+                    self.loop_task.cancel()
+                self.status = f'fatal error: invalid view (iden={e.get("iden")})'
+                logger.warning(f'Dmon View is invalid. Exiting Dmon: ({self.iden})')
                 raise
             except Exception as e:  # pragma: no cover
-                logger.exception(f'Dmon error during loop task execution ({self.iden})')
                 self.status = f'error: {e}'
+                self.err_evnt.set()
+                logger.exception(f'Dmon error during loop task execution ({self.iden})')
                 await self.waitfini(timeout=1)
+
+    def _runLogAdd(self, mesg):
+        self.runlog.append((s_common.now(), mesg))
+
+    def _getRunLog(self):
+        return list(self.runlog)
 
     async def _innr_run(self):
 
         s_scope.set('storm:dmon', self.iden)
 
         text = self.ddef.get('storm')
-        opts = self.ddef.get('stormopts')
+        opts = self.ddef.get('stormopts', {})
+        view_iden = opts.get('view')
+        view = self.core.getView(view_iden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=view_iden)
 
         def dmonPrint(evnt):
+            self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
             logger.info(f'Dmon - {self.iden} - {mesg}')
+
+        def dmonWarn(evnt):
+            self._runLogAdd(evnt)
+            mesg = evnt[1].get('mesg', '')
+            logger.info(f'Dmon - {self.iden} - WARNING: {mesg}')
 
         while not self.isfini:
 
             try:
 
                 self.status = 'running'
-                async with await self.core.snap(user=self.user) as snap:
+                async with await self.core.snap(user=self.user, view=view) as snap:
+
+                    snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
+                    self.err_evnt.clear()
 
                     async for nodepath in snap.storm(text, opts=opts, user=self.user):
                         # all storm tasks yield often to prevent latency
@@ -220,18 +913,25 @@ class StormDmon(s_base.Base):
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
 
-            except asyncio.CancelledError as e:
-                logger.warning(f'Dmon loop cancelled ({self.iden})')
+            except asyncio.CancelledError:
+                logger.warning(f'Dmon loop cancelled: ({self.iden})')
                 raise
 
             except Exception as e:
+                self._runLogAdd(('err', s_common.excinfo(e)))
                 logger.exception(f'Dmon error ({self.iden})')
                 self.status = f'error: {e}'
+                self.err_evnt.set()
                 await self.waitfini(timeout=1)
 
 class Runtime:
     '''
     A Runtime represents the instance of a running query.
+
+    The runtime should maintain a firm API boundary using the snap.
+    Parallel query execution requires that the snap be treated as an
+    opaque object which is called through, but not dereferenced.
+
     '''
     def __init__(self, snap, opts=None, user=None):
 
@@ -246,6 +946,8 @@ class Runtime:
         self.opts = opts
         self.snap = snap
         self.user = user
+
+        self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
 
@@ -265,10 +967,13 @@ class Runtime:
         self.modulefuncs = {}
 
         self.proxies = {}
-        self.elevated = False
 
-    def getStormMod(self, name):
-        return self.snap.getStormMod(name)
+    async def dyncall(self, iden, todo, gatekeys=()):
+        return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
+
+    async def dyniter(self, iden, todo, gatekeys=()):
+        async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
+            yield item
 
     async def getStormQuery(self, text):
         return self.snap.core.getStormQuery(text)
@@ -297,9 +1002,6 @@ class Runtime:
 
     async def warn(self, mesg, **info):
         return await self.snap.warn(mesg, **info)
-
-    def elevate(self):
-        self.elevated = True
 
     def tick(self):
         pass
@@ -360,39 +1062,16 @@ class Runtime:
             if node is not None:
                 yield node, self.initPath(node)
 
-    def reqLayerAllowed(self, perms):
-        if self._allowed(perms, ask_layer=True):
-            return
+    def layerConfirm(self, perms):
+        iden = self.snap.wlyr.iden
+        return self.user.confirm(perms, gateiden=iden)
 
-        perm = '.'.join(perms)
-        mesg = f'User must have permission {perm} on write layer'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
-
-    def reqAllowed(self, perms):
+    def confirm(self, perms, gateiden=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
 
         '''
-        if self._allowed(perms):
-            return
-
-        perm = '.'.join(perms)
-        mesg = f'User must have permission {perm}'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
-
-    @s_cache.memoize(size=100)
-    def _allowed(self, perms, ask_layer=False):
-        '''
-        Note:
-            Caching results is acceptable because the cache lifetime is that of a single query
-        '''
-        if self.user is None or self.user.admin or self.elevated:
-            return True
-
-        if ask_layer:
-            return self.snap.wlyr.allowed(self.user, perms)
-        else:
-            return self.user.allowed(perms)
+        return self.user.confirm(perms, gateiden=gateiden)
 
     def loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -481,47 +1160,297 @@ class Runtime:
                 continue
             self.vars[name] = valu
 
-class Parser(argparse.ArgumentParser):
+class Parser:
 
     def __init__(self, prog=None, descr=None, root=None):
 
         if root is None:
             root = self
 
+        self.prog = prog
+        self.descr = descr
+
         self.root = root
         self.exited = False
         self.mesgs = []
 
-        argparse.ArgumentParser.__init__(self,
-                                         prog=prog,
-                                         description=descr,
-                                         formatter_class=argparse.RawDescriptionHelpFormatter)
+        self.optargs = {}
+        self.posargs = []
+        self.allargs = []
 
-    def exit(self, status=0, message=None):
-        '''
-        Argparse expects exit() to be a terminal function and not return.
-        As such, this function must raise an exception which will be caught
-        by Cmd.hasValidOpts.
-        '''
+        self.reqopts = []
+
+        self.add_argument('--help', '-h', action='store_true', default=False, help='Display the command usage.')
+
+    def add_argument(self, *names, **opts):
+
+        assert len(names)
+
+        dest = self._get_dest(names)
+        opts.setdefault('dest', dest)
+        self.allargs.append((names, opts))
+
+        if opts.get('required'):
+            self.reqopts.append((names, opts))
+
+        for name in names:
+            self._add_arg(name, opts)
+
+    def _get_dest(self, names):
+        names = [n.strip('-').replace('-', '_') for n in names]
+        names = list(sorted(names, key=lambda x: len(x)))
+        return names[-1]
+
+    def _printf(self, *msgs):
+        self.mesgs.extend(msgs)
+
+    def _add_arg(self, name, opts):
+
+        if name.startswith('-'):
+            self.optargs[name] = opts
+            return
+
+        self.posargs.append((name, opts))
+
+    def _is_opt(self, valu):
+        if not isinstance(valu, str):
+            return False
+        return self.optargs.get(valu) is not None
+
+    def parse_args(self, argv):
+
+        posargs = []
+        todo = collections.deque(argv)
+
+        opts = {}
+
+        while todo:
+
+            item = todo.popleft()
+
+            # non-string args must be positional or nargs to an optarg
+            if not isinstance(item, str):
+                posargs.append(item)
+                continue
+
+            argdef = self.optargs.get(item)
+            if argdef is None:
+                posargs.append(item)
+                continue
+
+            dest = argdef.get('dest')
+
+            oact = argdef.get('action', 'store')
+            if oact == 'store_true':
+                opts[dest] = True
+                continue
+
+            if oact == 'store_false':
+                opts[dest] = False
+                continue
+
+            if oact == 'append':
+
+                vals = opts.get(dest)
+                if vals is None:
+                    vals = opts[dest] = []
+
+                fakeopts = {}
+                if not self._get_store(item, argdef, todo, fakeopts):
+                    return
+
+                vals.append(fakeopts.get(dest))
+                continue
+
+            assert oact == 'store'
+            if not self._get_store(item, argdef, todo, opts):
+                return
+
+        # process positional arguments
+        todo = collections.deque(posargs)
+
+        for name, argdef in self.posargs:
+            if not self._get_store(name, argdef, todo, opts):
+                return
+
+        if todo:
+            delta = len(posargs) - len(todo)
+            mesg = f'Expected {delta} positional arguments. Got {len(posargs)}: {posargs!r}'
+            self.help(mesg)
+            return
+
+        for names, argdef in self.allargs:
+            if 'default' in argdef:
+                opts.setdefault(argdef['dest'], argdef['default'])
+
+        if opts.get('help'):
+            self.help()
+            return
+
+        for names, argdef in self.reqopts:
+            dest = argdef.get('dest')
+            if dest not in opts:
+                namestr = ','.join(names)
+                mesg = f'Missing a required option: {namestr}'
+                self.help(mesg)
+                return
+
+        retn = argparse.Namespace()
+
+        [setattr(retn, name, valu) for (name, valu) in opts.items()]
+
+        return retn
+
+    def _get_store(self, name, argdef, todo, opts):
+
+        dest = argdef.get('dest')
+        nargs = argdef.get('nargs')
+        argtype = argdef.get('type')
+
+        vals = []
+        if nargs is None:
+
+            if not todo or self._is_opt(todo[0]):
+                if name.startswith('-'):
+                    mesg = f'An argument is required for {name}.'
+                else:
+                    mesg = f'The argument <{name}> is required.'
+                return self.help(mesg)
+
+            valu = todo.popleft()
+            if argtype is not None:
+                try:
+                    valu = argtype(valu)
+                except Exception:
+                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    return self.help(mesg=mesg)
+
+            opts[dest] = valu
+            return True
+
+        if nargs == '?':
+
+            # ? will have an implicit default value of None
+            opts.setdefault(dest, None)
+
+            if todo and not self._is_opt(todo[0]):
+
+                valu = todo.popleft()
+                if argtype is not None:
+                    try:
+                        valu = argtype(valu)
+                    except Exception:
+                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        return self.help(mesg=mesg)
+
+                opts[dest] = valu
+
+            return True
+
+        if nargs in ('*', '+'):
+
+            while todo and not self._is_opt(todo[0]):
+
+                valu = todo.popleft()
+
+                if argtype is not None:
+                    try:
+                        valu = argtype(valu)
+                    except Exception:
+                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        return self.help(mesg=mesg)
+
+                vals.append(valu)
+
+            if nargs == '+' and len(vals) == 0:
+                mesg = 'At least one argument is required for {name}.'
+                return self.help(mesg)
+
+            opts[dest] = vals
+            return True
+
+        for i in range(nargs):
+
+            if not todo or self._is_opt(todo[0]):
+                mesg = f'{nargs} arguments are required for {name}.'
+                return self.help(mesg)
+
+            valu = todo.popleft()
+            if argtype is not None:
+                try:
+                    valu = argtype(valu)
+                except Exception:
+                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    return self.help(mesg=mesg)
+
+            vals.append(valu)
+
+        opts[dest] = vals
+        return True
+
+    def help(self, mesg=None):
+
+        posnames = [f'<{name}>' for (name, argdef) in self.posargs]
+
+        posargs = ' '.join(posnames)
+
+        if self.descr is not None:
+            self._printf('')
+            self._printf(self.descr)
+            self._printf('')
+
+        self._printf(f'Usage: {self.prog} [options] {posargs}')
+
+        options = [x for x in self.allargs if x[0][0].startswith('-')]
+
+        self._printf('')
+        self._printf('Options:')
+        self._printf('')
+
+        for names, argdef in options:
+            self._print_optarg(names, argdef)
+
+        self._printf('')
+        self._printf('Arguments:')
+        self._printf('')
+
+        for name, argdef in self.posargs:
+            self._print_posarg(name, argdef)
+
+        if mesg is not None:
+            self._printf('')
+            self._printf(f'ERROR: {mesg}')
+
         self.exited = True
-        if message is not None:
-            self.mesgs.extend(message.split('\n'))
-        raise s_exc.BadSyntax(mesg=message, prog=self.prog, status=status)
+        return False
 
-    def add_subparsers(self, *args, **kwargs):
+    def _print_optarg(self, names, argdef):
+        dest = self._get_dest_str(argdef)
+        base = f'  {names[0]} {dest}'.ljust(30)
+        helpstr = argdef.get('help', 'No help available')
+        self._printf(f'{base}: {helpstr}')
 
-        def ctor():
-            return Parser(root=self.root)
+    def _print_posarg(self, name, argdef):
+        dest = self._get_dest_str(argdef)
+        helpstr = argdef.get('help', 'No help available')
+        base = f'  {dest}'.ljust(30)
+        self._printf(f'{base}: {helpstr}')
 
-        kwargs['parser_class'] = ctor
-        return argparse.ArgumentParser.add_subparsers(self, *args, **kwargs)
+    def _get_dest_str(self, argdef):
 
-    def _print_message(self, text, fd=None):
-        '''
-        Note:  this overrides an existing method in ArgumentParser
-        '''
-        # Since we have the async->sync->async problem, queue up and print at exit
-        self.root.mesgs.extend(text.split('\n'))
+        dest = argdef.get('dest')
+        nargs = argdef.get('nargs')
+
+        if nargs == '*':
+            return f'[<{dest}> ...]'
+
+        if nargs == '+':
+            return f'<{dest}> [<{dest}> ...]'
+
+        if nargs == '?':
+            return f'[{dest}]'
+
+        return f'<{dest}>'
 
 class Cmd:
     '''
@@ -555,12 +1484,18 @@ class Cmd:
     name = 'cmd'
     pkgname = ''
     svciden = ''
-    forms = {}
+    forms = {}  # type: ignore
 
-    def __init__(self, argv):
+    def __init__(self, runt, runtsafe):
+
         self.opts = None
-        self.argv = argv
+        self.argv = None
+
+        self.runt = runt
+        self.runtsafe = runtsafe
+
         self.pars = self.getArgParser()
+        self.pars.printf = runt.snap.printf
 
     @classmethod
     def getCmdBrief(cls):
@@ -575,69 +1510,66 @@ class Cmd:
     def getArgParser(self):
         return Parser(prog=self.getName(), descr=self.getDescr())
 
-    async def hasValidOpts(self, snap):
+    async def setArgv(self, argv):
 
-        self.pars.printf = snap.printf
+        self.argv = argv
+
         try:
             self.opts = self.pars.parse_args(self.argv)
-        except s_exc.BadSyntax as e:
+        except s_exc.BadSyntax: # pragma: no cover
             pass
+
         for line in self.pars.mesgs:
-            await snap.printf(line)
+            await self.runt.snap.printf(line)
+
         return not self.pars.exited
 
-    async def execStormCmd(self, runt, genr):
+    async def execStormCmd(self, runt, genr): # pragma: no cover
         ''' Abstract base method '''
         raise s_exc.NoSuchImpl('Subclass must implement execStormCmd')
         for item in genr:
             yield item
 
-    def getStormEval(self, runt, name):
-        '''
-        Construct an evaluator function that takes a path and returns a value.
-        This allows relative / absolute props and variables.
-        '''
-        if name.startswith('$'):
-            varn = name[1:]
-            def func(path):
-                return path.getVar(varn, defv=None)
-            return func
+    @classmethod
+    def getStorNode(cls, form):
+        ndef = (form.name, form.type.norm(cls.name)[0])
+        buid = s_common.buid(ndef)
 
-        if name.startswith(':'):
-            prop = name[1:]
-            def func(path):
-                return path.node.get(prop)
-            return func
+        props = {
+            'doc': cls.getCmdBrief()
+        }
 
-        if name.startswith('.'):
-            def func(path):
-                return path.node.get(name)
-            return func
+        inpt = cls.forms.get('input')
+        outp = cls.forms.get('output')
 
-        form = runt.snap.core.model.form(name)
-        if form is not None:
-            def func(path):
-                if path.node.form != form:
-                    return None
-                return path.node.ndef[1]
-            return func
+        if inpt:
+            props['input'] = tuple(inpt)
 
-        prop = runt.snap.core.model.prop(name)
-        if prop is not None:
-            def func(path):
-                if path.node.form != prop.form:
-                    return None
-                return path.node.get(prop.name)
-            return func
+        if outp:
+            props['output'] = tuple(outp)
 
-        mesg = 'Unknown prop/variable syntax'
-        raise s_exc.BadSyntax(mesg=mesg, valu=name)
+        if cls.svciden:
+            props['svciden'] = cls.svciden
+
+        if cls.pkgname:
+            props['package'] = cls.pkgname
+
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
+        return (buid, {
+            'ndef': ndef,
+            'props': pnorms,
+        })
 
 class PureCmd(Cmd):
 
-    def __init__(self, cdef, argv):
+    def __init__(self, cdef, runt, runtsafe):
         self.cdef = cdef
-        Cmd.__init__(self, argv)
+        Cmd.__init__(self, runt, runtsafe)
 
     def getDescr(self):
         return self.cdef.get('descr', 'no documentation provided')
@@ -656,18 +1588,29 @@ class PureCmd(Cmd):
         text = self.cdef.get('storm')
         query = runt.snap.core.getStormQuery(text)
 
-        cmdvars = {
-            'cmdopts': vars(self.opts),
-            'cmdconf': self.cdef.get('cmdconf', {})
+        opts = {
+            'vars': {
+                'cmdopts': None,
+                'cmdconf': self.cdef.get('cmdconf', {})
+            }
         }
-
-        opts = {'vars': cmdvars}
         with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
 
+            if self.opts is not None:
+                subr.setVar('cmdopts', vars(self.opts))
+
+            subr.setVar('cmdconf', self.cdef.get('cmdconf', {}))
+
             async def wrapgenr():
-                # wrap paths in a scope to isolate vars
+
                 async for node, path in genr:
-                    path.initframe(initvars=cmdvars, initrunt=subr)
+
+                    # In the event of a non-runtsafe command invocation our
+                    # setArgv() method will be called with an argv computed
+                    # for each node, so we need to remap cmdopts into our path & subr
+                    cmdopts = vars(self.opts)
+                    path.initframe(initvars={'cmdopts': cmdopts}, initrunt=subr)
+                    subr.setVar('cmdopts', cmdopts)
                     yield node, path
 
             subr.loadRuntVars(query)
@@ -793,6 +1736,8 @@ class UniqCmd(Cmd):
         async for node, path in genr:
 
             if node.buid in buidset:
+                # all filters must sleep
+                await asyncio.sleep(0)
                 continue
 
             buidset.add(node.buid)
@@ -806,8 +1751,6 @@ class MaxCmd(Cmd):
 
         file:bytes +#foo.bar | max :size
 
-        file:bytes +#foo.bar | max file:bytes:size
-
         file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | max $tick
 
     '''
@@ -816,7 +1759,7 @@ class MaxCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('name')
+        pars.add_argument('valu')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -824,23 +1767,26 @@ class MaxCmd(Cmd):
         maxvalu = None
         maxitem = None
 
-        func = self.getStormEval(runt, self.opts.name)
+        ivaltype = self.runt.snap.core.model.type('ival')
 
-        async for node, path in genr:
+        async for item in genr:
 
-            valu = func(path)
+            valu = await s_stormtypes.toprim(self.opts.valu)
             if valu is None:
                 continue
 
-            # Specifically if the name given is a ival property,
-            # we want to max on upper bound of the ival.
-            prop = node.form.prop(self.opts.name)
-            if prop and isinstance(prop.type, s_types.Ival):
-                valu = valu[1]
+            if isinstance(valu, (list, tuple)):
+                if valu == (None, None):
+                    continue
+
+                ival, info = ivaltype.norm(valu)
+                valu = ival[1]
+
+            valu = s_stormtypes.intify(valu)
 
             if maxvalu is None or valu > maxvalu:
                 maxvalu = valu
-                maxitem = (node, path)
+                maxitem = item
 
         if maxitem:
             yield maxitem
@@ -853,15 +1799,13 @@ class MinCmd(Cmd):
 
         file:bytes +#foo.bar | min :size
 
-        file:bytes +#foo.bar | min file:bytes:size
-
-        file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | min $tick
+        file:bytes +#foo.bar | min .seen
     '''
     name = 'min'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('name')
+        pars.add_argument('valu')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -869,13 +1813,22 @@ class MinCmd(Cmd):
         minvalu = None
         minitem = None
 
-        func = self.getStormEval(runt, self.opts.name)
+        ivaltype = self.runt.snap.core.model.type('ival')
 
         async for node, path in genr:
 
-            valu = func(path)
+            valu = await s_stormtypes.toprim(self.opts.valu)
             if valu is None:
                 continue
+
+            if isinstance(valu, (list, tuple)):
+                if valu == (None, None):
+                    continue
+
+                ival, info = ivaltype.norm(valu)
+                valu = ival[0]
+
+            valu = s_stormtypes.intify(valu)
 
             if minvalu is None or valu < minvalu:
                 minvalu = valu
@@ -905,7 +1858,7 @@ class DelNodeCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if self.opts.force:
-            if runt.user is not None and not runt.user.admin:
+            if runt.user is not None and not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
@@ -914,9 +1867,9 @@ class DelNodeCmd(Cmd):
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
-                runt.reqLayerAllowed(('tag:del', *tag.split('.')))
+                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
-            runt.reqLayerAllowed(('node:del', node.form.name))
+            runt.layerConfirm(('node', 'del', node.form.name))
 
             await node.delete(force=self.opts.force)
 
@@ -929,149 +1882,43 @@ class DelNodeCmd(Cmd):
         if False:
             yield
 
-class SudoCmd(Cmd):
-    '''
-    Use admin privileges to bypass standard query permissions.
-
-    Example:
-
-        sudo | [ inet:fqdn=vertex.link ]
-    '''
-    name = 'sudo'
-
-    async def execStormCmd(self, runt, genr):
-        runt.reqAllowed(('storm', 'cmd', 'sudo'))
-        runt.elevate()
-        async for item in genr:
-            yield item
-
-# TODO
-# class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
-# class DelPropCmd(Cmd):     # | delprop baz
-# class SetPropCmd(Cmd):     # | setprop foo bar
-# class AddTagCmd(Cmd):      # | addtag --time 2015 #hehe.haha
-# class DelTagCmd(Cmd):      # | deltag #foo.bar
-# class SeenCmd(Cmd):        # | seen --from <guid>update .seen and seen=(src,node).seen
-# class SourcesCmd(Cmd):     # | sources ( <nodes> -> seen:ndef :source -> source )
-
 class ReIndexCmd(Cmd):
     '''
     Use admin privileges to re index/normalize node properties.
 
-    Example:
-
-        foo:bar | reindex --subs
-
-        reindex --type inet:ipv4
-
-    NOTE: This is mostly for model updates and migrations.
-          Use with caution and be very sure of what you are doing.
+    NOTE: Currently does nothing but is reserved for future use.
     '''
     name = 'reindex'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        mutx = pars.add_mutually_exclusive_group(required=True)
-        mutx.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
-        mutx.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
-        mutx.add_argument('--form-counts', default=False, action='store_true', help='Re-calculate all form counts.')
-        mutx.add_argument('--fire-handler', default=None,
-                          help='Fire onAdd/wasSet/runTagAdd commands for a fully qualified form/property'
-                               ' or tag name on inbound nodes.')
         return pars
 
     async def execStormCmd(self, runt, genr):
+        mesg = 'reindex currently does nothing but is reserved for future use'
+        await runt.snap.warn(mesg)
 
-        snap = runt.snap
+        # Make this a generator
+        if False:
+            yield
 
-        if snap.user is not None and not snap.user.admin:
-            await snap.warn('reindex requires an admin')
-            return
+class SudoCmd(Cmd):
+    '''
+    Deprecated sudo command.
 
-        # are we re-indexing a type?
-        if self.opts.type is not None:
+    Left in for 0.2.x so that Storm command with it are still valid to execute.
+    '''
+    name = 'sudo'
 
-            # is the type also a form?
-            form = snap.model.forms.get(self.opts.type)
+    async def execStormCmd(self, runt, genr):
+        s_common.deprecated('stormcmd:sudo')
 
-            if form is not None:
+        mesg = 'Sudo is deprecated and does nothing in ' \
+               '0.2.x and will be removed in 0.3.0.'
 
-                await snap.printf(f'reindex form: {form.name}')
-
-                async for buid, norm in snap.xact.iterFormRows(form.name):
-                    await snap.stor(form.getSetOps(buid, norm))
-
-            for prop in snap.model.getPropsByType(self.opts.type):
-
-                await snap.printf(f'reindex prop: {prop.full}')
-
-                formname = prop.form.name
-
-                async for buid, norm in snap.xact.iterPropRows(formname, prop.name):
-                    await snap.stor(prop.getSetOps(buid, norm))
-
-            return
-
-        if self.opts.subs:
-
-            async for node, path in genr:
-
-                form, valu = node.ndef
-                norm, info = node.form.type.norm(valu)
-
-                subs = info.get('subs')
-                if subs is not None:
-                    for subn, subv in subs.items():
-                        if node.form.props.get(subn):
-                            await node.set(subn, subv, init=True)
-
-                yield node, path
-
-            return
-
-        if self.opts.form_counts:
-            await snap.printf(f'reindex form counts (full) beginning...')
-            await snap.core._calcFormCounts()
-            await snap.printf(f'...done')
-            return
-
-        if self.opts.fire_handler:
-            obj = None
-            name = None
-            tname = None
-
-            if self.opts.fire_handler.startswith('#'):
-                name, _ = runt.snap.model.prop('syn:tag').type.norm(self.opts.fire_handler)
-                tname = '#' + name
-            else:
-                obj = runt.snap.model.prop(self.opts.fire_handler)
-                if obj is None:
-                    raise s_exc.NoSuchProp(mesg='',
-                                           name=self.opts.fire_handler)
-
-            async for node, path in genr:
-                if hasattr(obj, 'wasAdded'):
-                    if node.form.full != obj.full:
-                        continue
-                    await obj.wasAdded(node)
-                elif hasattr(obj, 'wasSet'):
-                    if obj.form.name != node.form.name:
-                        continue
-                    valu = node.get(obj.name)
-                    if valu is None:
-                        continue
-                    await obj.wasSet(node, valu)
-                else:
-                    # We're a tag...
-                    valu = node.get(tname)
-                    if valu is None:
-                        continue
-                    await runt.snap.view.runTagAdd(node, name, valu)
-
-                yield node, path
-
-            return
-
+        await runt.snap.warn(mesg)
+        async for node, path in genr:
+            yield node, path
 
 class MoveTagCmd(Cmd):
     '''
@@ -1079,7 +1926,7 @@ class MoveTagCmd(Cmd):
 
     Example:
 
-        movetag #foo.bar #baz.faz.bar
+        movetag foo.bar baz.faz.bar
     '''
     name = 'movetag'
 
@@ -1092,7 +1939,9 @@ class MoveTagCmd(Cmd):
     async def execStormCmd(self, runt, genr):
         snap = runt.snap
 
-        nodes = [node async for node in snap.getNodesBy('syn:tag', self.opts.oldtag)]
+        opts = {'vars': {'tag': self.opts.oldtag}}
+        nodes = await snap.nodes('syn:tag=$tag', opts=opts)
+
         if not nodes:
             raise s_exc.BadOperArg(mesg='Cannot move a tag which does not exist.',
                                    oldtag=self.opts.oldtag)
@@ -1112,7 +1961,8 @@ class MoveTagCmd(Cmd):
         retag = {oldstr: newstr}
 
         # first we set all the syn:tag:isnow props
-        async for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
+        oldtag = self.opts.oldtag.strip('#')
+        async for node in snap.nodesByPropValu('syn:tag', '^=', oldtag):
 
             tagstr = node.ndef[1]
             tagparts = tagstr.split('.')
@@ -1141,7 +1991,7 @@ class MoveTagCmd(Cmd):
 
         # now we re-tag all the nodes...
         count = 0
-        async for node in snap.getNodesBy(f'#{oldstr}'):
+        async for node in snap.nodesByTag(oldstr):
 
             count += 1
 
@@ -1179,14 +2029,8 @@ class SpinCmd(Cmd):
         if False:  # make this method an async generator function
             yield None
 
-        i = 0
-
         async for node, path in genr:
-            i += 1
-
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
+            await asyncio.sleep(0)
 
 class CountCmd(Cmd):
     '''
@@ -1204,12 +2048,9 @@ class CountCmd(Cmd):
 
         i = 0
         async for item in genr:
+
             yield item
             i += 1
-
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
 
         await runt.printf(f'Counted {i} nodes.')
 
@@ -1274,6 +2115,18 @@ class SleepCmd(Cmd):
 class GraphCmd(Cmd):
     '''
     Generate a subgraph from the given input nodes and command line options.
+
+    Example:
+
+        inet:fqdn | graph
+                    --degrees 2
+                    --filter { -#nope }
+                    --pivot { <- meta:seen <- meta:source }
+                    --form-pivot inet:fqdn {<- * | limit 20}
+                    --form-pivot inet:fqdn {-> * | limit 20}
+                    --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
+                    --form-pivot syn:tag {-> *}
+                    --form-pivot * {-> #}
     '''
     name = 'graph'
 
@@ -1282,11 +2135,23 @@ class GraphCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--degrees', type=int, default=1, help='How many degrees to graph out.')
 
-        pars.add_argument('--pivot', default=[], action='append', help='Specify a storm pivot for all nodes. (must quote)')
-        pars.add_argument('--filter', default=[], action='append', help='Specify a storm filter for all nodes. (must quote)')
+        pars.add_argument('--pivot', default=[], action='append',
+                          help='Specify a storm pivot for all nodes. (must quote)')
+        pars.add_argument('--filter', default=[], action='append',
+                          help='Specify a storm filter for all nodes. (must quote)')
 
-        pars.add_argument('--form-pivot', default=[], nargs=2, action='append', help='Specify a <form> <pivot> form specific pivot.')
-        pars.add_argument('--form-filter', default=[], nargs=2, action='append', help='Specify a <form> <filter> form specific filter.')
+        pars.add_argument('--form-pivot', default=[], nargs=2, action='append',
+                          help='Specify a <form> <pivot> form specific pivot.')
+        pars.add_argument('--form-filter', default=[], nargs=2, action='append',
+                          help='Specify a <form> <filter> form specific filter.')
+
+        pars.add_argument('--refs', default=False, action='store_true',
+                          help='Do automatic in-model pivoting with node.getNodeRefs().')
+        pars.add_argument('--yield-filtered', default=False, action='store_true', dest='yieldfiltered',
+                          help='Yield nodes which would be filtered. This still performs pivots to collect edge data,'
+                               'but does not yield pivoted nodes.')
+        pars.add_argument('--no-filter-input', default=True, action='store_false', dest='filterinput',
+                          help='Do not drop input nodes if they would match a filter.')
 
         return pars
 
@@ -1299,6 +2164,11 @@ class GraphCmd(Cmd):
             'filters': [],
 
             'forms': {},
+
+            'refs': self.opts.refs,
+            'filterinput': self.opts.filterinput,
+            'yieldfiltered': self.opts.yieldfiltered,
+
         }
 
         for pivo in self.opts.pivot:
@@ -1326,8 +2196,6 @@ class GraphCmd(Cmd):
             formrule['filters'].append(filt[1:-1])
 
         subg = s_ast.SubGraph(rules)
-
-        genr = subg.run(runt, genr)
 
         async for node, path in subg.run(runt, genr):
             yield node, path
@@ -1386,6 +2254,38 @@ class TeeCmd(Cmd):
                 async for nnode, npath in subr.iterStormQuery(query):
                     yield nnode, npath
 
+class TreeCmd(Cmd):
+    '''
+    Walk elements of a tree using a recursive pivot.
+
+    Examples:
+
+        # pivot upward yielding each FQDN
+        inet:fqdn=www.vertex.link | tree { :domain -> inet:fqdn }
+    '''
+    name = 'tree'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('query', help='The pivot query')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        text = self.opts.query[1:-1]
+
+        async def recurse(node, path):
+
+            yield node, path
+
+            async for nnode, npath in node.storm(text, user=runt.user, path=path):
+                async for item in recurse(nnode, npath):
+                    yield item
+
+        async for node, path in genr:
+            async for nodepath in recurse(node, path):
+                yield nodepath
+
 class ScrapeCmd(Cmd):
     '''
     Use textual properties of existing nodes to find other easily recognizable nodes.
@@ -1399,7 +2299,10 @@ class ScrapeCmd(Cmd):
         inet:search:query | scrape --refs
 
         # Scrape only the :engine and :text props from the inbound nodes.
-        inet:search:query | scrape --props text engine
+        inet:search:query | scrape :text :engine
+
+        # Scrape properties inbound nodes and yield newly scraped nodes.
+        inet:search:query | scrape --yield
     '''
 
     name = 'scrape'
@@ -1407,52 +2310,367 @@ class ScrapeCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
 
-        pars.add_argument('--props', '-p', nargs='+', type=str, default=[],
-                          help='Specify relative properties to scrape')
         pars.add_argument('--refs', '-r', default=False, action='store_true',
-                          help='Create edge:refs to any scraped nodes from the source node')
-        pars.add_argument('-j', '--join', default=False, action='store_true',
-                          help='Include source nodes in the output of the command.')
+                          help='Create edge:refs to any scraped nodes from the input node')
+        pars.add_argument('--yield', dest='doyield', default=False, action='store_true',
+                          help='Include newly scraped nodes (or edge:refs if --refs) in the output')
+        pars.add_argument('values', nargs='*',
+                          help='Specific relative properties or variables to scrape')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if self.runtsafe and len(self.opts.values):
+
+            # a bit of a special case.  we may be runtsafe with 0
+            async for nodepath in genr:
+                if not self.opts.doyield:
+                    yield nodepath
+
+            for item in self.opts.values:
+                text = str(await s_stormtypes.toprim(item))
+
+                for form, valu in s_scrape.scrape(text):
+                    addnode = await runt.snap.addNode(form, valu)
+                    if self.opts.doyield:
+                        yield addnode, runt.initPath(addnode)
+
+            return
+
+        async for node, path in genr:  # type: s_node.Node, s_node.Path
+
+            refs = await s_stormtypes.toprim(self.opts.refs)
+
+            #TODO some kind of repr or as-string option on toprims
+            todo = await s_stormtypes.toprim(self.opts.values)
+
+            # if a list of props haven't been specified, then default to ALL of them
+            if not todo:
+                todo = list(node.props.values())
+
+            for text in todo:
+
+                text = str(text)
+
+                for form, valu in s_scrape.scrape(text):
+
+                    if refs:
+                        valu = (node.ndef, (form, valu))
+                        form = 'edge:refs'
+
+                    nnode = await node.snap.addNode(form, valu)
+                    npath = path.fork(nnode)
+
+                    if self.opts.doyield:
+                        yield nnode, npath
+
+            if not self.opts.doyield:
+                yield node, path
+
+class SpliceListCmd(Cmd):
+    '''
+    Retrieve a list of splices backwards from the end of the splicelog.
+
+    Examples:
+
+        # Show the last 10 splices.
+        splice.list | limit 10
+
+        # Show splices after a specific time.
+        splice.list --mintime "2020/01/06 15:38:10.991"
+
+        # Show splices from a specific timeframe.
+        splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367
+
+    Notes:
+
+        If both a time string and timestamp value are provided for a min or max,
+        the timestamp will take precedence over the time string value.
+    '''
+
+    name = 'splice.list'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--maxtimestamp', type=int, default=None,
+                          help='Only yield splices which occurred on or before this timestamp.')
+        pars.add_argument('--mintimestamp', type=int, default=None,
+                          help='Only yield splices which occurred on or after this timestamp.')
+        pars.add_argument('--maxtime', type=str, default=None,
+                          help='Only yield splices which occurred on or before this time.')
+        pars.add_argument('--mintime', type=str, default=None,
+                          help='Only yield splices which occurred on or after this time.')
 
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        async for node, path in genr:  # type: s_node.Node, s_node.Path
+        maxtime = None
+        if self.opts.maxtimestamp:
+            maxtime = self.opts.maxtimestamp
+        elif self.opts.maxtime:
+            try:
+                maxtime = s_time.parse(self.opts.maxtime, chop=True)
+            except s_exc.BadTypeValu as e:
+                mesg = f'Error during maxtime parsing - {str(e)}'
 
-            # repr all prop vals and try to scrape nodes from them
-            reprs = node.reprs()
+                raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.maxtime) from None
 
-            # make sure any provided props are valid
-            proplist = [p.strip().lstrip(':') for p in self.opts.props]
-            for fprop in proplist:
-                if node.form.props.get(fprop, None) is None:
-                    raise s_exc.BadOptValu(mesg=f'{fprop} not a valid prop for {node.ndef[1]}',
-                                           name='props', valu=self.opts.props)
+        mintime = None
+        if self.opts.mintimestamp:
+            mintime = self.opts.mintimestamp
+        elif self.opts.mintime:
+            try:
+                mintime = s_time.parse(self.opts.mintime, chop=True)
+            except s_exc.BadTypeValu as e:
+                mesg = f'Error during mintime parsing - {str(e)}'
 
-            # if a list of props haven't been specified, then default to ALL of them
-            if not proplist:
-                proplist = [k for k in node.props.keys()]
+                raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.mintime) from None
 
-            for prop in proplist:
-                val = node.props.get(prop)
-                if val is None:
-                    await runt.snap.printf(f'No prop ":{prop}" for {node.ndef}')
+        i = 0
+
+        async for splice in runt.snap.core.spliceHistory(runt.user):
+
+            splicetime = splice[1].get('time')
+            if splicetime is None:
+                splicetime = 0
+
+            if maxtime and maxtime < splicetime:
+                continue
+
+            if mintime and mintime > splicetime:
+                return
+
+            guid = s_common.guid(splice)
+
+            buid = s_common.buid(splice[1]['ndef'])
+            iden = s_common.ehex(buid)
+
+            props = {'.created': s_common.now(),
+                     'splice': splice,
+                     'type': splice[0],
+                     'iden': iden,
+                     'form': splice[1]['ndef'][0],
+                     'time': splicetime,
+                     'user': splice[1].get('user'),
+                     'prov': splice[1].get('prov'),
+                     }
+
+            prop = splice[1].get('prop')
+            if prop:
+                props['prop'] = prop
+
+            tag = splice[1].get('tag')
+            if tag:
+                props['tag'] = tag
+
+            if 'valu' in splice[1]:
+                props['valu'] = splice[1]['valu']
+            elif splice[0] == 'node:del':
+                props['valu'] = splice[1]['ndef'][1]
+
+            if 'oldv' in splice[1]:
+                props['oldv'] = splice[1]['oldv']
+
+            fullnode = (buid, {
+                'ndef': ('syn:splice', guid),
+                'tags': {},
+                'props': props,
+                'tagprops': {},
+            })
+
+            node = s_node.Node(runt.snap, fullnode)
+
+            yield (node, runt.initPath(node))
+
+            i += 1
+            # Yield to other tasks occasionally
+            if not i % 1000:
+                await asyncio.sleep(0)
+
+class SpliceUndoCmd(Cmd):
+    '''
+    Reverse the actions of syn:splice runt nodes.
+
+    Examples:
+
+        # Undo the last 5 splices.
+        splice.list | limit 5 | splice.undo
+
+        # Undo splices after a specific time.
+        splice.list --mintime "2020/01/06 15:38:10.991" | splice.undo
+
+        # Undo splices from a specific timeframe.
+        splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367 | splice.undo
+    '''
+
+    name = 'splice.undo'
+
+    def __init__(self, runt, runtsafe):
+        self.undo = {
+            'prop:set': self.undoPropSet,
+            'prop:del': self.undoPropDel,
+            'node:add': self.undoNodeAdd,
+            'node:del': self.undoNodeDel,
+            'tag:add': self.undoTagAdd,
+            'tag:del': self.undoTagDel,
+            'tag:prop:set': self.undoTagPropSet,
+            'tag:prop:del': self.undoTagPropDel,
+        }
+        Cmd.__init__(self, runt, runtsafe)
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        forcehelp = 'Force delete nodes even if it causes broken references (requires admin).'
+        pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
+        return pars
+
+    async def undoPropSet(self, runt, splice, node):
+
+        name = splice.props.get('prop')
+        if name == '.created':
+            return
+
+        if node:
+            prop = node.form.props.get(name)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+
+            oldv = splice.props.get('oldv')
+            if oldv is not None:
+                runt.layerConfirm(('node', 'prop', 'set', prop.full))
+                await node.set(name, oldv)
+            else:
+                runt.layerConfirm(('node', 'prop', 'del', prop.full))
+                await node.pop(name)
+
+    async def undoPropDel(self, runt, splice, node):
+
+        name = splice.props.get('prop')
+        if name == '.created':
+            return
+
+        if node:
+            prop = node.form.props.get(name)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+
+            valu = splice.props.get('valu')
+
+            runt.layerConfirm(('node', 'prop', 'set', prop.full))
+            await node.set(name, valu)
+
+    async def undoNodeAdd(self, runt, splice, node):
+
+        if node:
+            for tag in node.tags.keys():
+                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
+
+            runt.layerConfirm(('node', 'del', node.form.name))
+            await node.delete(force=self.opts.force)
+
+    async def undoNodeDel(self, runt, splice, node):
+
+        if node is None:
+            form = splice.props.get('form')
+            valu = splice.props.get('valu')
+
+            if form and (valu is not None):
+                runt.layerConfirm(('node', 'add', form))
+                await runt.snap.addNode(form, valu)
+
+    async def undoTagAdd(self, runt, splice, node):
+
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+            runt.layerConfirm(('node', 'tag', 'del', *parts))
+
+            await node.delTag(tag)
+
+            oldv = splice.props.get('oldv')
+            if oldv is not None:
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
+                await node.addTag(tag, valu=oldv)
+
+    async def undoTagDel(self, runt, splice, node):
+
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+            runt.layerConfirm(('node', 'tag', 'add', *parts))
+
+            valu = splice.props.get('valu')
+            if valu is not None:
+                await node.addTag(tag, valu=valu)
+
+    async def undoTagPropSet(self, runt, splice, node):
+
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+
+            prop = splice.props.get('prop')
+
+            oldv = splice.props.get('oldv')
+            if oldv is not None:
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
+                await node.setTagProp(tag, prop, oldv)
+            else:
+                runt.layerConfirm(('node', 'tag', 'del', *parts))
+                await node.delTagProp(tag, prop)
+
+    async def undoTagPropDel(self, runt, splice, node):
+
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+            runt.layerConfirm(('node', 'tag', 'add', *parts))
+
+            prop = splice.props.get('prop')
+
+            valu = splice.props.get('valu')
+            if valu is not None:
+                await node.setTagProp(tag, prop, valu)
+
+    async def execStormCmd(self, runt, genr):
+
+        if self.opts.force:
+            if not runt.user.isAdmin():
+                mesg = '--force requires admin privs.'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+        i = 0
+
+        async for node, path in genr:
+
+            if not node.form.name == 'syn:splice':
+                mesg = 'splice.undo only accepts syn:splice nodes'
+                raise s_exc.StormRuntimeError(mesg=mesg, form=node.form.name)
+
+            if False:  # make this method an async generator function
+                yield None
+
+            splicetype = node.props.get('type')
+
+            if splicetype in self.undo:
+
+                iden = node.props.get('iden')
+                if iden is None:
                     continue
 
-                # use the repr val or the system mode val as appropriate
-                sval = reprs.get(prop, val)
-                sval = str(sval)
+                buid = s_common.uhex(iden)
+                if len(buid) != 32:
+                    raise s_exc.NoSuchIden(mesg='Iden must be 32 bytes', iden=iden)
 
-                for form, valu in s_scrape.scrape(sval):
-                    nnode = await node.snap.addNode(form, valu)
-                    npath = path.fork(nnode)
-                    yield nnode, npath
+                splicednode = await runt.snap.getNodeByBuid(buid)
 
-                    if self.opts.refs:
-                        rnode = await node.snap.addNode('edge:refs', (node.ndef, nnode.ndef))
-                        rpath = path.fork(rnode)
-                        yield rnode, rpath
+                await self.undo[splicetype](runt, node, splicednode)
+            else:
+                raise s_exc.StormRuntimeError(mesg='Unknown splice type.', splicetype=splicetype)
 
-            if self.opts.join:
-                yield node, path
+            i += 1
+            # Yield to other tasks occasionally
+            if not i % 1000:
+                await asyncio.sleep(0)

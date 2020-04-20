@@ -20,6 +20,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
+import synapse.lib.parser as s_parser
 import synapse.lib.grammar as s_grammar
 import synapse.lib.version as s_version
 
@@ -29,10 +30,8 @@ logger = logging.getLogger(__name__)
 class Cmd:
     '''
     Base class for modular commands in the synapse CLI.
-
-    FIXME: document the _cmd_syntax definitions.
     '''
-    _cmd_name = 'FIXME'
+    _cmd_name = 'fixme'
     _cmd_syntax = ()
 
     def __init__(self, cli, **opts):
@@ -87,7 +86,6 @@ class Cmd:
         opts = {}
 
         args = collections.deque([synt for synt in self._cmd_syntax if not synt[0].startswith('-')])
-
         switches = {synt[0]: synt for synt in self._cmd_syntax if synt[0].startswith('-')}
 
         # populate defaults and lists
@@ -125,18 +123,18 @@ class Cmd:
                 snam = swit[0].strip('-')
 
                 if styp == 'valu':
-                    valu, off = s_grammar.parse_cmd_string(text, off)
+                    valu, off = s_parser.parse_cmd_string(text, off)
                     opts[snam] = valu
 
                 elif styp == 'list':
-                    valu, off = s_grammar.parse_cmd_string(text, off)
+                    valu, off = s_parser.parse_cmd_string(text, off)
                     if not isinstance(valu, list):
                         valu = valu.split(',')
                     opts[snam].extend(valu)
 
                 elif styp == 'enum':
                     vals = swit[1].get('enum:vals')
-                    valu, off = s_grammar.parse_cmd_string(text, off)
+                    valu, off = s_parser.parse_cmd_string(text, off)
                     if valu not in vals:
                         raise s_exc.BadSyntax(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
                                                    text=text)
@@ -165,13 +163,13 @@ class Cmd:
                 valu = []
 
                 while off < len(text):
-                    item, off = s_grammar.parse_cmd_string(text, off)
+                    item, off = s_parser.parse_cmd_string(text, off)
                     valu.append(item)
 
                 opts[synt[0]] = valu
                 break
 
-            valu, off = s_grammar.parse_cmd_string(text, off)
+            valu, off = s_parser.parse_cmd_string(text, off)
             opts[synt[0]] = valu
 
         return opts
@@ -322,7 +320,7 @@ class Cli(s_base.Base):
 
         if color is not None:
             mesg = FormattedText([(color, mesg)])
-        return print_formatted_text(mesg)
+        return print_formatted_text(mesg, end='\n' if addnl else '')
 
     def addCmdClass(self, ctor, **opts):
         '''
@@ -358,8 +356,6 @@ class Cli(s_base.Base):
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
         while not self.isfini:
-
-            # FIXME completion
 
             self.cmdtask = None
 
@@ -471,9 +467,9 @@ class CmdHelp(Cmd):
 
     '''
     _cmd_name = 'help'
-    _cmd_syntax = [
-        ('cmds', {'type': 'list'})
-    ]
+    _cmd_syntax = (
+        ('cmds', {'type': 'list'}),  # type: ignore
+    )
 
     async def runCmdOpts(self, opts):
         cmds = opts.get('cmds')

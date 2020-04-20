@@ -28,26 +28,33 @@ iden on each stack frame (which represents the iden for the stack that ends
 on that stack frame).
 '''
 
+ProvenanceEnabled = True
+
 class _ProvStack:
     def __init__(self):
         # We start with a dummy frame so we don't have to special case an empty stack
         self.provs = [None]  # A stack of the provenance info
-        self.idens = [None]  # A stack of the idens for the prov stack ending in this frame
+        self.idens = [(None, True)]  # A stack of the iden/written tupls for the prov stack ending in this frame
 
     def __len__(self):
         return len(self.provs)
 
     def get(self):
+        '''
+        Returns:
+            iden, whether that iden has been written, the provstack info
+        '''
         # We add an empty dict for future expansion/info
-        return self.idens[-1], ({}, self.provs[1:])
+        iden, written = self.idens[-1]
+        return iden, written, ({}, self.provs[1:])
 
-    def setiden(self, iden):
-        self.idens[-1] = iden
+    def setiden(self, identupl):
+        self.idens[-1] = identupl
 
     def push(self, typ, **info):
         tuplinfo = tuple((k, info[k]) for k in sorted(info.keys()))
         self.provs.append((typ, tuplinfo))
-        self.idens.append(None)
+        self.idens.append((None, True))
 
     def pop(self):
         self.provs.pop()
@@ -73,6 +80,9 @@ def claim(typ, **info):
         recent_frames = stack.provs[-6:]
         raise s_exc.RecursionLimitHit(mesg='Hit provenance claim recursion limit',
                                       type=typ, info=info, baseframe=baseframe, recent_frames=recent_frames)
+
+    if not ProvenanceEnabled:
+        info = {}
 
     stack.push(typ, **info)
 
@@ -104,12 +114,13 @@ def get():
     stack = s_task.varget('provstack')
     return stack.get()
 
-def setiden(iden):
+def setiden(iden, waswritten):
     '''
-    Sets the cached stack iden for the current provenance stack
+    Sets the cached stack iden, waswritten for the current provenance stack.  We use waswritten to cache whether we've
+    written the stack and so we can tell the snap whether to fire a prov:new event
     '''
     stack = s_task.varget('provstack')
-    stack.setiden(iden)
+    stack.setiden((iden, waswritten))
 
 def _providen(prov):
     '''
@@ -124,20 +135,29 @@ class ProvStor(s_base.Base):
     PROV_MAP_SIZE = 64 * s_const.mebibyte
     PROV_FN = 'prov.lmdb'
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, proven=True):
         await s_base.Base.__anit__(self)
-        path = str(pathlib.Path(dirn) / 'slabs' / self.PROV_FN)
-        self.slab = await s_lmdbslab.Slab.anit(path, map_size=self.PROV_MAP_SIZE)
-        self.onfini(self.slab.fini)
 
-        self.db = self.slab.initdb('prov')
+        global ProvenanceEnabled
+        ProvenanceEnabled = proven
+        self.enabled = proven
 
-        self.provseq = s_slabseqn.SlabSeqn(self.slab, 'provs')
+        if self.enabled:
+            path = str(pathlib.Path(dirn) / 'slabs' / self.PROV_FN)
+            self.slab = await s_lmdbslab.Slab.anit(path, map_size=self.PROV_MAP_SIZE)
+            self.onfini(self.slab.fini)
+
+            self.db = self.slab.initdb('prov')
+
+            self.provseq = s_slabseqn.SlabSeqn(self.slab, 'provs')
 
     def getProvStack(self, iden: bytes):
         '''
         Returns the provenance stack given the iden to it
         '''
+        if not ProvenanceEnabled:
+            return None
+
         retn = self.slab.get(iden, db=self.db)
         if retn is None:
             return None
@@ -148,43 +168,54 @@ class ProvStor(s_base.Base):
         '''
         Returns a stream of provenance stacks at the given offset
         '''
+        if not ProvenanceEnabled:
+            return None
+
         for _, iden in self.provseq.slice(offs, size):
             stack = self.getProvStack(iden)
             if stack is None:
                 continue
             yield (iden, stack)
 
-    def getProvIden(self, provstack):
+    def stor(self):
         '''
-        Returns the iden corresponding to a provenance stack and stores if it hasn't seen it before
+        Writes the current provenance stack to storage if it wasn't already there
+
+        Returns (iden, provstack) if was written, (None, None) if it was already there
         '''
-        iden = _providen(provstack)
-        misc, frames = provstack
+        if not ProvenanceEnabled:
+            return None, None
+
+        iden, waswritten, provstack = get()
+        if waswritten:
+            return None, None
+
+        assert iden is not None
+
         # Convert each frame back from (k, v) tuples to a dict
+        misc, frames = provstack
         dictframes = [(typ, {k: v for (k, v) in info}) for (typ, info) in frames]
         bytz = s_msgpack.en((misc, dictframes))
+
         didwrite = self.slab.put(iden, bytz, overwrite=False, db=self.db)
         if didwrite:
             self.provseq.save([iden])
 
-        return iden
+        setiden(iden, True)
 
-    def commit(self):
-        '''
-        Writes the current provenance stack to storage if it wasn't already there and returns it
+        return s_common.ehex(iden), provstack
 
-        Returns (Tuple[bool, str, List[]]):
-            Whether the stack was not cached, the iden of the prov stack, and the provstack
+    def precommit(self):
         '''
-        providen, provstack = get()
-        wasnew = (providen is None)
-        if wasnew:
-            providen = self.getProvIden(provstack)
-            setiden(providen)
-        return wasnew, s_common.ehex(providen), provstack
+        Determine the iden for the current provenance stack and return it
 
-    def migratePre010(self, layer):
+        Returns the iden
         '''
-        Ask layer to migrate its old provstack DBs into me
-        '''
-        layer.migrateProvPre010(self.slab)
+        if not ProvenanceEnabled:
+            return None
+
+        providen, waswritten, provstack = get()
+        if providen is None:
+            providen = _providen(provstack)
+            setiden(providen, False)
+        return s_common.ehex(providen)

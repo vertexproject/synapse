@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 poptsToWords = {
         'ex': 'Example',
         'ro': 'Read Only',
-        'defval': 'Default Value',
     }
 
 raw_back_slash_colon = r'\:'
@@ -192,7 +191,7 @@ def processTypes(rst, dochelp, types):
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
 
-def processFormsProps(rst, dochelp, forms):
+def processFormsProps(rst, dochelp, forms, univ_names):
 
     rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
     rst.addLines('',
@@ -220,6 +219,9 @@ def processFormsProps(rst, dochelp, forms):
                          )
         for pname, (ptname, ptopts), popts in props:
 
+            if pname in univ_names:
+                continue
+
             hpname = pname
             if ':' in pname:
                 hpname = pname.replace(':', raw_back_slash_colon)
@@ -241,8 +243,6 @@ def processFormsProps(rst, dochelp, forms):
                              ''
                              )
                 for k, v in popts.items():
-                    if k == 'defval' and v == '':
-                        v = "''"
                     k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
                     rst.addLines('  ' + f'* {k}: ``{v}``')
 
@@ -280,7 +280,7 @@ def processUnivs(rst, dochelp, univs):
         if ':' in name:
             hname = name.replace(':', raw_back_slash_colon)
 
-        rst.addHead('.' + hname, lvl=2, link=f'.. _dm-univ-{name.replace(":", "-")}:')
+        rst.addHead(hname, lvl=2, link=f'.. _dm-univ-{name.replace(":", "-")}:')
 
         rst.addLines('',
                      doc,
@@ -291,8 +291,6 @@ def processUnivs(rst, dochelp, univs):
                          ''
                          )
             for k, v in info.items():
-                if k == 'defval' and v == '':
-                    v = "''"
                 k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
                 rst.addLines('  ' + f'* {k}: ``{v}``')
 
@@ -323,6 +321,7 @@ async def docModel(outp,
     univs = sorted(univs, key=lambda x: x[0])
     types = sorted(types, key=lambda x: x[0])
     forms = sorted(forms, key=lambda x: x[0])
+    univ_names = {univ[0] for univ in univs}
 
     for fname, fnfo, fprops in forms:
         for prop in fprops:
@@ -341,7 +340,7 @@ async def docModel(outp,
     rst2 = RstHelp()
     rst2.addHead('Synapse Data Model - Forms', lvl=0)
 
-    processFormsProps(rst2, dochelp, forms)
+    processFormsProps(rst2, dochelp, forms, univ_names)
     processUnivs(rst2, dochelp, univs)
 
     # outp.printf(rst.getRstText())

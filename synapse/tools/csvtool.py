@@ -12,9 +12,11 @@ import synapse.lib.cmd as s_cmd
 import synapse.lib.base as s_base
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
+import synapse.lib.version as s_version
+
+reqver = '>=0.2.0,<0.3.0'
 
 async def main(argv, outp=s_output.stdout):
-
     pars = makeargparser()
 
     try:
@@ -39,6 +41,15 @@ async def main(argv, outp=s_output.stdout):
         outp.printf(f'Exporting CSV rows to: {path}')
 
         async with await s_telepath.openurl(opts.cortex) as core:
+
+            try:
+                s_version.reqVersion(core._getSynVers(), reqver)
+            except s_exc.BadVersion as e:
+                valu = s_version.fmtVersion(*e.get('valu'))
+                outp.printf(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
+                outp.printf(f'Please use a version of Synapse which supports {valu}; '
+                            f'current version is {s_version.verstring}.')
+                return 1
 
             with open(path, 'w') as fd:
 
@@ -89,20 +100,18 @@ async def main(argv, outp=s_output.stdout):
 
     async def addCsvData(core):
 
-        newcount, nodecount = 0, 0
+        nodecount = 0
 
         for rows in rowgenr:
 
             stormopts = {
                 'vars': {'rows': rows},
+                'editformat': 'splices',
             }
 
             async for mesg in core.storm(text, opts=stormopts):
 
-                if mesg[0] == 'node:add':
-                    newcount += 1
-
-                elif mesg[0] == 'node':
+                if mesg[0] == 'node':
                     nodecount += 1
 
                 elif mesg[0] == 'err' and not opts.debug:
@@ -121,20 +130,31 @@ async def main(argv, outp=s_output.stdout):
         if opts.cli:
             await s_cmdr.runItemCmdr(core, outp, True)
 
-        return newcount, nodecount
+        return nodecount
 
     if opts.test:
         async with s_cortex.getTempCortex() as core:
-            newcount, nodecount = await addCsvData(core)
+            nodecount = await addCsvData(core)
 
     else:
         async with await s_telepath.openurl(opts.cortex) as core:
-            newcount, nodecount = await addCsvData(core)
+
+            try:
+                s_version.reqVersion(core._getSynVers(), reqver)
+            except s_exc.BadVersion as e:
+                valu = s_version.fmtVersion(*e.get('valu'))
+                outp.printf(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
+                outp.printf(f'Please use a version of Synapse which supports {valu}; '
+                            f'current version is {s_version.verstring}.')
+                return 1
+
+            nodecount = await addCsvData(core)
 
     if logfd is not None:
         logfd.close()
 
-    outp.printf('%d nodes (%d created).' % (nodecount, newcount,))
+    outp.printf('%d nodes.' % (nodecount, ))
+    return 0
 
 def makeargparser():
     desc = '''
@@ -194,5 +214,5 @@ def makeargparser():
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
 
-if __name__ == '__main__': # pragma: no cover
-    asyncio.run(s_base.main(main(sys.argv[1:])))
+if __name__ == '__main__':  # pragma: no cover
+    sys.exit(asyncio.run(s_base.main(main(sys.argv[1:]))))

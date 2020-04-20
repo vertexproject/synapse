@@ -9,8 +9,8 @@ class CoreModule:
 
     def __init__(self, core, conf=None):
 
-        self.core = core        # type: synapse.cortex.Cortex
-        self.model = core.model # type: synapse.datamodel.Model
+        self.core = core
+        self.model = core.model
         if self.mod_name is None:
             self.mod_name = self.getModName()
 

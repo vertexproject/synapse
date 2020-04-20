@@ -5,10 +5,12 @@ import datetime
 import functools
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
 import synapse.lib.time as s_time
-import synapse.lib.grammar as s_grammar
+import synapse.lib.parser as s_parser
 
 StatHelp = '''
 Gives detailed information about a single cron job.
@@ -168,8 +170,8 @@ one-time jobs.
 A subcommand is required.  Use 'cron -h' for more detailed help.  '''
     _cmd_name = 'cron'
 
-    _cmd_syntax = (  # type: ignore
-        ('line', {'type': 'glob'}),
+    _cmd_syntax = (
+        ('line', {'type': 'glob'}),  # type: ignore
     )
 
     async def _match_idens(self, core, prefix):
@@ -177,7 +179,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        idens = [iden for iden, trig in await core.listCronJobs()]
+        idens = [cron['iden'] for cron in await core.listCronJobs()]
         matches = [iden for iden in idens if iden.startswith(prefix)]
         if len(matches) == 1:
             return matches[0]
@@ -194,7 +196,8 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
                                            parser_class=functools.partial(s_cmd.Parser, outp=self))
 
-        subparsers.add_parser('list', aliases=['ls'], help="List cron jobs you're allowed to manipulate", usage=ListHelp)
+        subparsers.add_parser('list', aliases=['ls'], help="List cron jobs you're allowed to manipulate",
+                              usage=ListHelp)
 
         parser_add = subparsers.add_parser('add', help='add a cron job', usage=AddHelp)
         parser_add.add_argument('--minute', '-M')
@@ -447,9 +450,13 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         # Remove the curly braces
         query = opts.query[1:-1]
-
-        iden = await core.addCronJob(query, reqdict, incunit, incval)
-        self.printf(f'Created cron job {iden}')
+        cdef = {'storm': query,
+                'reqs': reqdict,
+                'incunit': incunit,
+                'incvals': incval,
+                }
+        newcdef = await core.addCronJob(cdef)
+        self.printf(f'Created cron job {newcdef["iden"]}')
 
     @staticmethod
     def _format_timestamp(ts):
@@ -466,7 +473,9 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             f'{"user":10} {"iden":10} {"en?":3} {"rpt?":4} {"now?":4} {"err?":4} '
             f'{"# start":7} {"last start":16} {"last end":16} {"query"}')
 
-        for iden, cron in cronlist:
+        for cron in cronlist:
+            iden = cron.get('iden')
+
             idenf = iden[:8] + '..'
             user = cron.get('username') or '<None>'
             query = cron.get('query') or '<missing>'
@@ -527,7 +536,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         ''' Prints details about a particular cron job. Not actually a different API call '''
         prefix = opts.prefix
         crons = await core.listCronJobs()
-        idens = [cron[0] for cron in crons]
+        idens = [cron['iden'] for cron in crons]
         matches = [iden for iden in idens if iden.startswith(prefix)]
         if len(matches) == 0:
             self.printf('Error: provided iden does not match any valid authorized cron job')
@@ -537,7 +546,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             return
 
         iden = matches[0]
-        cron = [cron[1] for cron in crons if cron[0] == iden][0]
+        cron = [cron for cron in crons if cron.get('iden') == iden][0]
 
         user = cron.get('username') or '<None>'
         query = cron.get('query') or '<missing>'
@@ -566,11 +575,14 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             self.printf(f'entries:         {"incunit":10} {"incval":6} {"required"}')
             for reqdict, incunit, incval in recs:
                 reqdict = reqdict or '<None>'
-                incunit = incunit or '<None>'
-                incval = incval or '<None>'
+                incunit = '<None>' if incunit is None else incunit
+                incval = '<None>' if incval is None else incval
                 self.printf(f'                 {incunit:10} {incval:6} {reqdict}')
 
     async def runCmdOpts(self, opts):
+
+        s_common.deprecated('cmdr> cron')
+
         line = opts.get('line')
         if line is None:
             self.printf(self.__doc__)
@@ -578,7 +590,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         core = self.getCmdItem()
 
-        argv = s_grammar.Parser(line).stormcmdargs()
+        argv = s_parser.Parser(line).cmdrargs()
         try:
             opts = self._make_argparser().parse_args(argv)
         except s_exc.ParserExit:
@@ -638,8 +650,8 @@ Examples:
 '''
     _cmd_name = 'at'
 
-    _cmd_syntax = (  # type: ignore
-        ('line', {'type': 'glob'}),
+    _cmd_syntax = (
+        ('line', {'type': 'glob'}),  # type: ignore
     )
 
     def _make_argparser(self):
@@ -648,6 +660,9 @@ Examples:
         return parser
 
     async def runCmdOpts(self, opts):
+
+        s_common.deprecated('cmdr> at')
+
         line = opts.get('line')
         if line is None:
             self.printf(self.__doc__)
@@ -655,7 +670,7 @@ Examples:
 
         core = self.getCmdItem()
 
-        argv = s_grammar.Parser(line).stormcmdargs()
+        argv = s_parser.Parser(line).cmdrargs()
         # Currently, using an argparser is overkill for this command.  Using for future extensibility (and help).
         try:
             opts = self._make_argparser().parse_args(argv)
@@ -719,5 +734,11 @@ Examples:
 
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
 
-        iden = await core.addCronJob(query, reqdicts, None, None)
-        self.printf(f'Created cron job {iden}')
+        cdef = {'storm': query,
+                'reqs': reqdicts,
+                'incunit': None,
+                'incvals': None,
+                }
+
+        newcdef = await core.addCronJob(cdef)
+        self.printf(f'Created cron job {newcdef["iden"]}')

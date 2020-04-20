@@ -40,6 +40,7 @@ class BadCmprType(SynErr):
     Attempt to compare two incomparable values
     '''
 
+class BadCast(SynErr): pass
 class BadConfValu(SynErr):
     '''
     The configuration value provided is not valid.
@@ -74,10 +75,10 @@ class BadOperArg(SynErr):
     ''' Improper storm function arguments '''
     pass
 
-class NoPropValu(SynErr): pass
-
 class BadOptValu(SynErr): pass
-class BadPropValu(SynErr): pass
+class BadVersion(SynErr):
+    '''Generic Bad Version exception.'''
+    pass
 class BadStorageVersion(SynErr):
     ''' Stored persistent data is incompatible with running software '''
     pass
@@ -91,7 +92,7 @@ class CantDelCmd(SynErr): pass
 class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelUniv(SynErr): pass
-class CantDelRootUser(SynErr): pass
+class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
 class CliFini(SynErr):
     '''
@@ -117,9 +118,11 @@ class DataAlreadyExists(SynErr):
 
 class DbOutOfSpace(SynErr): pass
 class DupName(SynErr): pass
+class DupIden(SynErr): pass
 class DupFileName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass
+class DupTagPropName(SynErr): pass
 class DupUserName(SynErr): pass
 class DupStormSvc(SynErr): pass
 
@@ -145,6 +148,7 @@ class NoCertKey(SynErr):
     pass
 
 class ModAlreadyLoaded(SynErr): pass
+class MustBeJsonSafe(SynErr): pass
 
 class NoSuchAct(SynErr): pass
 class NoSuchAuthGate(SynErr): pass
@@ -174,7 +178,6 @@ class NoSuchPivot(SynErr): pass
 class NoSuchProp(SynErr): pass
 class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
-class NoSuchStor(SynErr): pass
 class NoSuchType(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
@@ -182,10 +185,27 @@ class NoSuchView(SynErr): pass
 class NoSuchTagProp(SynErr): pass
 class NoSuchStormSvc(SynErr): pass
 
+class NoSuchStor(SynErr):
+    def __init__(self, name):
+        SynErr.__init__(self, mesg=f'No storage type found named {name!r}', name=name)
+
+class NotANumberCompared(SynErr): pass
+
 class ParserExit(SynErr):
     ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''
     pass
 
+class DmonSpawn(SynErr):
+    '''
+    Raised by a dispatched telepath method that has answered the call
+    using a spawned process. ( control flow that is compatible with
+    aborting standard calls, generators, and async generators ).
+    '''
+    pass
+
+class SchemaViolation(SynErr): pass
+
+class SlabAlreadyOpen(SynErr): pass
 class SpawnExit(SynErr): pass
 
 class ReadOnlyLayer(SynErr): pass

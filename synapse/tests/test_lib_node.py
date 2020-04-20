@@ -350,7 +350,7 @@ class NodeTest(s_t_utils.SynTest):
             $x = $( $x + 1 )
             $lib.fire(test, valu=$node.value(), x=$x)
             -test:int'''
-            msgs = await core.streamstorm(q).list()
+            msgs = await core.stormlist(q)
             data = collections.defaultdict(set)
             for m in msgs:
                 if m[0] == 'storm:fire':
@@ -375,5 +375,38 @@ class NodeTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 node.repr('newp')
 
-            with self.raises(s_exc.NoPropValu):
-                node.repr('dns:rev')
+            self.none(node.repr('dns:rev'))
+
+    async def test_node_data(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            self.len(1, nodes)
+
+            node = nodes[0]
+
+            self.none(await node.getData('foo'))
+
+            await node.setData('foo', 123)
+            self.eq(123, await node.getData('foo'))
+
+            await node.setData('foo', 123)
+            self.eq(123, await node.getData('foo'))
+
+            await node.setData('bar', (4, 5, 6))
+            self.eq((4, 5, 6), await node.getData('bar'))
+            self.eq(123, await node.getData('foo'))
+
+            self.eq([('foo', 123), ('bar', (4, 5, 6))], await alist(node.iterData()))
+
+            self.eq(123, await node.popData('foo'))
+            self.none(await node.getData('foo'))
+            self.none(await node.popData('foo'))
+
+            self.eq((4, 5, 6), await node.getData('bar'))
+
+            await node.delete()
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            node = nodes[0]
+
+            self.none(await node.getData('foo'))
+            self.none(await node.getData('bar'))

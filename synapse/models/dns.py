@@ -3,20 +3,15 @@ import synapse.exc as s_exc
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 
-class DnsName(s_types.StrBase):
+class DnsName(s_types.Str):
 
     def postTypeInit(self):
 
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.inarpa = '.in-addr.arpa'
         self.inarpa6 = '.ip6.arpa'
 
         self.setNormFunc(str, self._normPyStr)
-
-    def indxByPref(self, valu):
-        valu = valu.lower()
-        valu = valu.strip()
-        return s_types.StrBase.indxByPref(self, valu)
 
     def _normPyStr(self, valu):
         # Backwards compatible

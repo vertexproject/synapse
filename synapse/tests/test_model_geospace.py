@@ -44,37 +44,26 @@ class GeoTest(s_t_utils.SynTest):
             t = core.model.type(formlat)
             self.raises(s_exc.BadTypeValu, t.norm, '-90.1')
             self.eq(t.norm('-90')[0], -90.0)
-            self.eq(t.norm('-12.345678901234567890')[0], -12.3456789)
+            self.eq(t.norm('-12.345678901234567890')[0], -12.34567890123456789)
             self.eq(t.norm('-0')[0], 0.0)
             self.eq(t.norm('0')[0], 0.0)
-            self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
+            self.eq(t.norm('12.345678901234567890')[0], 12.34567890123456789)
             self.eq(t.norm('90')[0], 90.0)
+            self.eq(t.norm('39.94891608')[0], 39.94891608)
             self.raises(s_exc.BadTypeValu, t.norm, '90.1')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
-            self.eq(t.indx(-90), b'\x00\x00\x00\x00\x00')  # index starts at 0 and goes to 9000000000
-            self.eq(t.indx(-12.34567890123456789), b'\x01\xce\xdb\x17-')
-            self.eq(t.indx(0), b'\x02\x18q\x1a\x00')
-            self.eq(t.indx(12.34567890123456789), b'\x02b\x07\x1c\xd2')
-            self.eq(t.indx(90), b'\x040\xe24\x00')
-
             # Longitude Type Tests =====================================================================================
             t = core.model.type(formlon)
-            self.raises(s_exc.BadTypeValu, t.norm, '-180.1')
-            self.eq(t.norm('-180')[0], -180.0)
-            self.eq(t.norm('-12.345678901234567890')[0], -12.3456789)
+            self.raises(s_exc.BadTypeValu, t.norm, '-180.0')
+            self.eq(t.norm('-12.345678901234567890')[0], -12.34567890123456789)
             self.eq(t.norm('-0')[0], 0.0)
             self.eq(t.norm('0')[0], 0.0)
-            self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
+            self.eq(t.norm('12.345678901234567890')[0], 12.34567890123456789)
             self.eq(t.norm('180')[0], 180.0)
+            self.eq(t.norm('39.94891608')[0], 39.94891608)
             self.raises(s_exc.BadTypeValu, t.norm, '180.1')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
-
-            self.eq(t.indx(-180), b'\x00\x00\x00\x00\x00')  # index starts at 0 and goes to 18000000000
-            self.eq(t.indx(-12.34567890123456789), b'\x03\xe7L1-')
-            self.eq(t.indx(0), b'\x040\xe24\x00')
-            self.eq(t.indx(12.34567890123456789), b'\x04zx6\xd2')
-            self.eq(t.indx(180), b'\x08a\xc4h\x00')
 
             # Latlong Type Tests =====================================================================================
             t = core.model.type(formlatlon)
@@ -85,31 +74,13 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(t.norm([89.999, 179.999]), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
             self.eq(t.norm((89.999, 179.999)), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
 
-            self.raises(s_exc.BadTypeValu, t.norm, '-91,0')
-            self.raises(s_exc.BadTypeValu, t.norm, '91,0')
-            self.raises(s_exc.BadTypeValu, t.norm, '0,-181')
-            self.raises(s_exc.BadTypeValu, t.norm, '0,181')
-            self.raises(s_exc.BadTypeValu, t.norm, ('newp', 'newp', 'still newp'))
-
             # Demonstrate precision
             self.eq(t.norm('12.345678,-12.345678'),
-                ((12.345678, -12.345678), {'subs': {'lat': 12.345678, 'lon': -12.345678}}))
+                    ((12.345678, -12.345678), {'subs': {'lat': 12.345678, 'lon': -12.345678}}))
             self.eq(t.norm('12.3456789,-12.3456789'),
-                ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
+                    ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
             self.eq(t.norm('12.34567890,-12.34567890'),
-                ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
-
-            self.eq(t.indx((-90, -180)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-            self.eq(t.indx((90, 180)), b'\x040\xe24\x00\x08a\xc4h\x00')
-
-            self.eq(t.indx((0, 0)), b'\x02\x18q\x1a\x00\x040\xe24\x00')
-            self.eq(t.indx((0, -0)), b'\x02\x18q\x1a\x00\x040\xe24\x00')
-            self.eq(t.indx((0, 1)), b'\x02\x18q\x1a\x00\x046\xd8\x15\x00')
-            self.eq(t.indx((0, -1)), b'\x02\x18q\x1a\x00\x04*\xecS\x00')
-            self.eq(t.indx((-90, 180)), b'\x00\x00\x00\x00\x00\x08a\xc4h\x00')
-            self.eq(t.indx((90, -180)), b'\x040\xe24\x00\x00\x00\x00\x00\x00')
-            self.eq(t.indx((12.3456789, -12.3456789)), b'\x02b\x07\x1c\xd2\x03\xe7L1.')
-            self.eq(t.indx((12.34567890, -12.34567890)), b'\x02b\x07\x1c\xd2\x03\xe7L1.')
+                    ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
 
             self.eq(t.repr((0, 0)), '0,0')
             self.eq(t.repr((0, -0)), '0,0')
@@ -178,7 +149,7 @@ class GeoTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], guid)
                 self.eq(node.get('name'), 'vertex hq')
                 self.eq(node.get('loc'), 'us.hehe.haha')
-                self.eq(node.get('latlong'), (34.13409999, -118.3215))
+                self.eq(node.get('latlong'), (34.1341, -118.3215))
                 self.eq(node.get('radius'), 1337000)
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
                 self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
@@ -191,7 +162,42 @@ class GeoTest(s_t_utils.SynTest):
                 nodes = await core.nodes('geo:place=$place', opts=opts)
                 self.len(1, nodes)
 
+            q = '[geo:place=(beep) :latlong=$latlong]'
+            opts = {'vars': {'latlong': (11.38, 20.01)}}
+            nodes = await core.nodes(q, opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('latlong'), (11.38, 20.01))
+
+    async def test_eq(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+
+                guid0 = s_common.guid()
+                props = {'name': 'Vertex  HQ',
+                         'latlong': '34.1341, -118.3215',
+                         'radius': '1.337km'}
+                node = await snap.addNode('geo:place', guid0, props)
+                self.nn(node)
+
+                guid1 = s_common.guid()
+                props = {'name': 'Griffith Observatory',
+                         'latlong': '34.1341, -118.3215',
+                         'radius': '75m'}
+                node = await snap.addNode('geo:place', guid1, props)
+                self.nn(node)
+
+            nodes = await core.nodes('geo:place:latlong=(34.1341, -118.3215)')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('geo:place:latlong=(34.1341, -118.3)')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('geo:place:latlong=(34.1, -118.3215)')
+            self.len(0, nodes)
+
     async def test_near(self):
+
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 # These two nodes are 2,605m apart
@@ -226,19 +232,30 @@ class GeoTest(s_t_utils.SynTest):
                 node = await snap.addNode('tel:mob:telem', guid4, props)
                 self.nn(node)
 
+                # Far away nodes to test bounding box
+                guid5 = s_common.guid()
+                props = {'latlong': '35.118660, -118.300470'}
+                node = await snap.addNode('tel:mob:telem', guid5, props)
+                self.nn(node)
+
+                guid6 = s_common.guid()
+                props = {'latlong': '33.118660, -118.300470'}
+                node = await snap.addNode('tel:mob:telem', guid6, props)
+                self.nn(node)
+
             # Node filtering behavior
-            nodes = await alist(core.eval('geo:place +:latlong*near=((34.1, -118.3), 10km)'))
+            nodes = await core.nodes('geo:place +:latlong*near=((34.1, -118.3), 10km)')
             self.len(2, nodes)
-            nodes = await alist(core.eval('geo:place +geo:place:latlong*near=((34.1, -118.3), 10km)'))
+            nodes = await core.nodes('geo:place +geo:place:latlong*near=((34.1, -118.3), 10km)')
             self.len(2, nodes)
 
-            nodes = await alist(core.eval('geo:place +:latlong*near=((34.1, -118.3), 50m)'))
+            nodes = await core.nodes('geo:place +:latlong*near=((34.1, -118.3), 50m)')
             self.len(0, nodes)
 
             # +1's come from the unknown loc without a latlong prop
-            nodes = await alist(core.eval('geo:place -:latlong*near=((34.1, -118.3), 10km)'))
+            nodes = await core.nodes('geo:place -:latlong*near=((34.1, -118.3), 10km)')
             self.len(0 + 1, nodes)
-            nodes = await alist(core.eval('geo:place -:latlong*near=((34.1, -118.3), 50m)'))
+            nodes = await core.nodes('geo:place -:latlong*near=((34.1, -118.3), 50m)')
             self.len(2 + 1, nodes)
 
             # Storm variable use to filter nodes based on a given location.
@@ -280,14 +297,14 @@ class GeoTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
             # Lift behavior for a node whose has a latlong as their primary property
-            nodes = await core.eval('[(test:latlong=(10, 10) :dist=10m) '
+            nodes = await core.nodes('[(test:latlong=(10, 10) :dist=10m) '
                                     '(test:latlong=(10.1, 10.1) :dist=20m) '
-                                    '(test:latlong=(3, 3) :dist=5m)]').list()
+                                    '(test:latlong=(3, 3) :dist=5m)]')
             self.len(3, nodes)
 
-            nodes = await core.eval('test:latlong*near=((10, 10), 5km)').list()
+            nodes = await core.nodes('test:latlong*near=((10, 10), 5km)')
             self.len(1, nodes)
-            nodes = await core.eval('test:latlong*near=((10, 10), 30km)').list()
+            nodes = await core.nodes('test:latlong*near=((10, 10), 30km)')
             self.len(2, nodes)
 
             # Ensure geo:dist inherits from IntBase correctly

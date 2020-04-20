@@ -14,6 +14,7 @@ import logging
 import binascii
 import builtins
 import tempfile
+import warnings
 import functools
 import itertools
 import threading
@@ -102,7 +103,7 @@ def buid(valu=None):
 
 def ehex(byts):
     '''
-    Encode a set of bytes to a string using binascii.hexlify.
+    Encode a bytes variable to a string using binascii.hexlify.
 
     Args:
         byts (bytes): Bytes to encode.
@@ -154,6 +155,12 @@ def vertup(vstr):
 
     '''
     return tuple([int(x) for x in vstr.split('.')])
+
+def todo(name, *args, **kwargs):
+    '''
+    Construct and return a todo tuple of (name, args, kwargs).
+    '''
+    return (name, args, kwargs)
 
 def genpath(*paths):
     path = os.path.join(*paths)
@@ -551,7 +558,7 @@ def setlogging(mlogger, defval=None):
 
     Args:
         mlogger (logging.Logger): Reference to a logging.Logger()
-        defval (str): Default log level
+        defval (str): Default log level. May be an integer.
 
     Notes:
         This calls logging.basicConfig and should only be called once per process.
@@ -562,9 +569,10 @@ def setlogging(mlogger, defval=None):
     log_level = os.getenv('SYN_LOG_LEVEL',
                           defval)
     if log_level:  # pragma: no cover
-        log_level = log_level.upper()
-        if log_level not in s_const.LOG_LEVEL_CHOICES:
-            raise ValueError('Invalid log level provided: {}'.format(log_level))
+        if isinstance(log_level, str):
+            log_level = log_level.upper()
+            if log_level not in s_const.LOG_LEVEL_CHOICES:
+                raise ValueError('Invalid log level provided: {}'.format(log_level))
         logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
         mlogger.info('log level set to %s', log_level)
 
@@ -636,3 +644,39 @@ def config(conf, confdefs):
         conf.setdefault(name, info.get('defval'))
 
     return conf
+
+def deprecated(name):
+    mesg = f'"{name}" is deprecated in 0.2.0.'
+    warnings.warn(mesg, DeprecationWarning)
+
+def reqjsonsafe(item):
+    '''
+    Returns None if item is json serializable, otherwise raises an exception
+    '''
+    try:
+        json.dumps(item)
+    except TypeError as e:
+        raise s_exc.MustBeJsonSafe(mesg={str(e)}) from None
+
+def jsonsafe_nodeedits(nodeedits):
+    '''
+    Hexlify the buid of each node:edits
+    '''
+    retn = []
+    for nodeedit in nodeedits:
+        newedit = (ehex(nodeedit[0]), *nodeedit[1:])
+        retn.append(newedit)
+
+    return retn
+
+def unjsonsafe_nodeedits(nodeedits):
+    retn = []
+    for nodeedit in nodeedits:
+        buid = nodeedit[0]
+        if isinstance(buid, str):
+            newedit = (uhex(buid), *nodeedit[1:])
+        else:
+            newedit = nodeedit
+        retn.append(newedit)
+
+    return retn

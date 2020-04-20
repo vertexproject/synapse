@@ -54,15 +54,10 @@ class Sess(s_base.Base):
 
 class HandlerBase:
 
-    httpsonly = False
-
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
         self._web_user = None
-
-        if (self.httpsonly or self.cell.httpsonly) and self.request.protocol != 'https':
-            self.redirect('https://' + self.request.host, permanent=False)
 
     def set_default_headers(self):
         origin = self.request.headers.get('origin')
@@ -104,7 +99,7 @@ class HandlerBase:
         try:
             return json.loads(byts)
         except Exception:
-            self.sendRestErr('BadJson', 'Invalid JSON content.')
+            self.sendRestErr('SchemaViolation', 'Invalid JSON content.')
             return None
 
     def sendAuthReqired(self):
@@ -120,15 +115,12 @@ class HandlerBase:
 
     async def reqAuthAdmin(self):
 
-        if self.cell.insecure:
-            return True
-
         user = await self.user()
         if user is None:
             self.sendAuthReqired()
             return False
 
-        if not user.admin:
+        if not user.isAdmin():
             self.sendRestErr('AuthDeny', f'User {user.iden} ({user.name}) is not an admin.')
             return False
 
@@ -143,9 +135,9 @@ class HandlerBase:
 
         Notes:
             This will call reqAuthUser() to ensure that there is a valid user.
-            If the cell is insecure, this will return True.  If this returns
-            False, the handler should return since the the status code and
-            resulting error message will already have been sent.
+            If this returns False, the handler should return since the the
+            status code and resulting error message will already have been
+            sent to the requester.
 
         Examples:
 
@@ -164,8 +156,6 @@ class HandlerBase:
             s_exc.AuthDeny: If the permission is not allowed.
 
         '''
-        if self.cell.insecure:  # pragma: no cover
-            return True
 
         if not await self.reqAuthUser():
             return False
@@ -220,11 +210,11 @@ class HandlerBase:
             logger.exception('invalid basic auth header')
             return None
 
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             return None
 
-        if user.locked:
+        if user.isLocked():
             return None
 
         if not user.tryPasswd(passwd):
@@ -239,8 +229,6 @@ class HandlerBase:
             return user.name
 
     async def authenticated(self):
-        if self.cell.insecure:
-            return True
         return await self.user() is not None
 
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
@@ -262,6 +250,19 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
 class Handler(HandlerBase, t_web.RequestHandler):
     pass
+
+    async def _reqValidOpts(self, opts):
+
+        if opts is None:
+            opts = {}
+
+        user = await self.user()
+
+        opts.setdefault('user', user.iden)
+        if opts.get('user') != user.iden:
+            user.confirm(('storm', 'impersonate'))
+
+        return opts
 
 class StormNodesV1(Handler):
 
@@ -285,7 +286,10 @@ class StormNodesV1(Handler):
 
         await self.cell.boss.promote('storm', user=user, info={'query': query})
 
-        async for pode in self.cell.iterStormPodes(query, opts=opts, user=user):
+        opts = await self._reqValidOpts(opts)
+
+        view = self.cell._viewFromOpts(opts)
+        async for pode in view.iterStormPodes(query, opts=opts):
             self.write(json.dumps(pode))
             await self.flush()
 
@@ -305,12 +309,16 @@ class StormV1(Handler):
             return
 
         # dont allow a user to be specified
-        opts = body.get('opts')
+        opts = body.get('opts', {})
         query = body.get('query')
+
+        # Maintain backwards compatibility with 0.1.x output
+        opts = await self._reqValidOpts(opts)
+        opts['editformat'] = 'splices'
 
         await self.cell.boss.promote('storm', user=user, info={'query': query})
 
-        async for mesg in self.cell.streamstorm(query, opts=opts, user=user):
+        async for mesg in self.cell.storm(query, opts=opts):
             self.write(json.dumps(mesg))
             await self.flush()
 
@@ -366,7 +374,7 @@ class LoginV1(Handler):
         name = body.get('user')
         passwd = body.get('passwd')
 
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             return self.sendRestErr('AuthDeny', 'No such user.')
 
@@ -390,7 +398,7 @@ class AuthUsersV1(Handler):
             if archived not in (0, 1):
                 return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
 
-        except Exception as e:
+        except Exception:
             return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
 
         if archived:
@@ -483,7 +491,7 @@ class AuthUserPasswdV1(Handler):
 
         password = body.get('passwd')
 
-        if current_user.admin or current_user.iden == user.iden:
+        if current_user.isAdmin() or current_user.iden == user.iden:
             try:
                 await user.setPasswd(password)
             except s_exc.BadArg as e:
@@ -553,7 +561,7 @@ class AuthGrantV1(Handler):
             self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
             return
 
-        await user.grantRole(role)
+        await user.grant(role.iden)
 
         self.sendRestRetn(user.pack())
 
@@ -587,7 +595,7 @@ class AuthRevokeV1(Handler):
             self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
             return
 
-        await user.revokeRole(role)
+        await user.revoke(role.iden)
         self.sendRestRetn(user.pack())
 
         return
@@ -608,7 +616,7 @@ class AuthAddUserV1(Handler):
             self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.')
             return
 
-        if self.cell.auth.getUserByName(name) is not None:
+        if await self.cell.auth.getUserByName(name) is not None:
             self.sendRestErr('DupUser', f'A user named {name} already exists.')
             return
 
@@ -649,7 +657,7 @@ class AuthAddRoleV1(Handler):
             self.sendRestErr('MissingField', 'The addrole API requires a "name" argument.')
             return
 
-        if self.cell.auth.getRoleByName(name) is not None:
+        if await self.cell.auth.getRoleByName(name) is not None:
             self.sendRestErr('DupRole', f'A role named {name} already exists.')
             return
 
@@ -678,11 +686,11 @@ class AuthDelRoleV1(Handler):
             self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.')
             return
 
-        role = self.cell.auth.getRoleByName(name)
+        role = await self.cell.auth.getRoleByName(name)
         if role is None:
             return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!')
 
-        await self.cell.auth.delRole(name)
+        await self.cell.auth.delRole(role.iden)
 
         self.sendRestRetn(None)
         return

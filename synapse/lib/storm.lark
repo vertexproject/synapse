@@ -10,7 +10,10 @@
 // * Rules ending with a .<num> are higher priority than other rules.
 // * Rules starting with a ? have their parse tree node replaced by their children if they have exactly 1 child.
 
-// Entry point for an unadorned storm query
+// Style Note:
+// All string constants with length > 1 should have an explicit terminal name.  Lark already has a
+// name defined for all 1-character strings.  Lark makes __ANON tokens for unnamed terminals.  We don't want those
+// because it makes storm syntax errors harder to decipher.
 
 // Entry point for an unadorned storm query
 query: [_WSCOMM? "|"] _WSCOMM? (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
@@ -33,11 +36,11 @@ _editopers: _editoper (_WS _editoper)*
 _editoper: editnodeadd
             | editpropset | editunivset | edittagpropset | edittagadd
             | editpropdel | editunivdel | edittagpropdel | edittagdel
-            | editparens
+            | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
 ///Parenthesis in an edit block don't have incoming nodes
 editparens: "(" _WS? editnodeadd [ _WS _editopers ] _WS? ")"
-edittagadd: "+" tagname [_WS? "=" _WS? _valu]
+edittagadd: "+" [SETTAGOPER] tagname [_WS? "=" _WS? _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
 editpropset: relprop _WS? SETOPER _WS? _valu
@@ -46,13 +49,15 @@ editunivset: univprop _WS? SETOPER _WS? _valu
 editnodeadd: ABSPROPNOUNIV _WS? SETOPER _WS? _valu
 edittagpropset: "+" tagprop _WS? SETOPER _WS? _valu
 edittagpropdel: "-" tagprop
-SETOPER: "=" | "?="
+SETOPER: "=" | "+=" | "-=" | _TRYSET
+_TRYSET: "?=" | "?+=" | "?-="
+SETTAGOPER: "?"
 
 // The set of non-edit non-commands in storm
 _oper: stormfunc | initblock | finiblock | subquery | _formpivot | formjoin | formpivotin | formjoinin
      | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
-     | _liftprop | ifstmt | yieldvalu
+     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
 
 BREAK: "break"
 CONTINUE: "continue"
@@ -112,13 +117,44 @@ formjoinin.2: _LEFTJOIN _WS? "*" -> formjoinin_pivotin
 operrelprop: relprop _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
            | relprop _WS? _RIGHTJOIN _WS? ABSPROP -> operrelprop_join
 
+rawpivot: _RIGHTPIVOT _WS? "{" query "}"
+
 _RIGHTJOIN:  "-+>"
 _LEFTJOIN:   "<+-"
 _RIGHTPIVOT: "->"
 _LEFTPIVOT:  "<-"
 
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
-            | liftbytagprop | liftbyformtagprop | liftbyonlytagprop
+            | liftbytagprop | liftbyformtagprop
+
+_N1WALKINIT: "-("
+_N1WALKFINI: ")>"
+_N2WALKINIT: "<("
+_N2WALKFINI: ")-"
+
+n1walk: _N1WALKINIT _valu _N1WALKFINI _WS? _valu
+n2walk: _N2WALKINIT _valu _N2WALKFINI _WS? _valu
+
+_WALKNPIVON1: "-->"
+_WALKNPIVON2: "<--"
+
+n1walknpivo: _WALKNPIVON1 _WS? "*"
+n2walknpivo: _WALKNPIVON2 _WS? "*"
+
+_EDGEADDN1INIT: "+("
+_EDGEADDN1FINI: ")>"
+_EDGEDELN1INIT: "-("
+_EDGEDELN1FINI: ")>"
+
+_EDGEADDN2INIT: "<("
+_EDGEADDN2FINI: ")+"
+_EDGEDELN2INIT: "<("
+_EDGEDELN2FINI: ")-"
+
+edgeaddn1: _EDGEADDN1INIT _valu _EDGEADDN1FINI _WS? baresubquery
+edgedeln1: _EDGEDELN1INIT _valu _EDGEDELN1FINI _WS? baresubquery
+edgeaddn2: _EDGEADDN2INIT _valu _EDGEADDN2FINI _WS? baresubquery
+edgedeln2: _EDGEDELN2INIT _valu _EDGEDELN2FINI _WS? baresubquery
 
 liftformtag.1: PROPNAME tagname [_WS? _cmpr _valu]
 _DEREF:  "*"
@@ -128,12 +164,9 @@ liftbyarray: (PROPNAME | _DEREF _varvalu) _WS? "*[" _WS? _safe_cmpr _WS? _valu _
 lifttagtag: "#" tagname [_WS? _cmpr _valu]
 liftbytag: tagname [_WS? _cmpr _valu]
 liftbytagprop: tagprop [_WS? _cmpr _valu]
-liftbyonlytagprop: onlytagprop [_WS? _cmpr _valu]
 liftbyformtagprop: formtagprop [_WS? _cmpr _valu]
 tagname: "#" _WS? (_varvalu | TAG)
 tagprop: "#" TAG ":" BASEPROP
-_ONLYTAGPROP: "#:"
-onlytagprop: _ONLYTAGPROP BASEPROP
 formtagprop: PROPNAME "#" TAG ":" BASEPROP
 
 _funcarg: (VARTOKN | kwarg)
@@ -141,10 +174,13 @@ funcargs: "(" _WS? (VARTOKN (_WS? "," _WS? VARTOKN)* _WS? )? ")"
 stormfunc: "function" _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 
 stormcmd: CMDNAME [_WS stormcmdargs]
-stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*
-_cmdargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
-// An unquoted string that's a command argument
-NONCMDQUOTE: /(?!['\"])[^\s|}]+/
+stormcmdargs: _WS? _cmdargv (("=" | _WS?) _cmdargv)*
+CMDOPT: /-[a-zA-Z0-9_-]+/
+_cmdargv: baresubquery | CMDOPT | _toknvalu
+
+// an argv parser for cmdr commands which may contain embedded queries
+cmdrargs: _WS? _cmdrargv (("=" | _WS?) _cmdrargv)*
+_cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN
 
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: "#" (_varvalu | TAGMATCH)
@@ -164,18 +200,32 @@ CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
 
 _safe_cmpr: BYNAME | CMPR
 
-_valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu
+_basevalu.1: valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu
     | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr | embedquery
 
-valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
+_valu: _basevalu | NONQUOTEWORD
+_toknvalu: _basevalu | WORDTOKN
+_listvalu: _basevalu | LISTTOKN
+
+valulist: "(" [_WS? _listvalu (_WS? "," _WS? _listvalu)*] _WS? ["," _WS?] ")"
 tagvalu: tagname
 tagpropvalu: tagprop
 relpropvalu: relprop
 univpropvalu: univprop
-embedquery: "${" query "}"
+embedquery: _EMBEDQUERYSTART query "}"
+_EMBEDQUERYSTART: "${"
 
-// An unquoted storm string constant.  Must start with a word char, ?, or - and not contain certain punctutation
-NONQUOTEWORD: /[\w\-?][^ \t\n),=\]}|]*/
+// An unquoted storm string constant.  Must start with a word char, ?, or - and not contain certain punctuation
+NONQUOTEWORD: /[\w\-\+\?\*\/\\][^ \t\n),=\]}|]*/
+
+// An unquoted string within a whitespace list
+WORDTOKN: /[\w\+\-\?\*\/\\][^ \t\r\n\=\|\}\)]*/
+
+// An unquoted string within a list syntax
+LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
+
+// A white-space *only* delimited string immediate for use in legacy cmdr parser
+CMDRTOKN: /[^="'\s\{}][^\s\{}]*/
 
 // A value consisting of a name then 0 or more derefs and function calls
 _varvalu: "$" _varvaluatom
@@ -221,7 +271,8 @@ tagvalucond.1:  _tagmatch _WS? _cmpr _WS? _valu
 tagcond: _tagmatch
 
 condsubq: "{" query "}" [_WSCOMM? _cmpr _WSCOMM? _valu]
-arraycond: relprop "*[" _WS? _safe_cmpr _WS? _valu _WS? "]"
+arraycond: relprop _ARRAYCONDSTART _WS? _safe_cmpr _WS? _valu _WS? "]"
+_ARRAYCONDSTART: "*["
 
 _condexpr: _cond | orexpr | andexpr
 orexpr: _condexpr _WS? "or" _WS? _cond
@@ -271,6 +322,7 @@ EXPRMINUS: "-"
 EXPRTIMES: "*"
 EXPRDIVIDE: "/"
 NUMBER: /-?\d+(\.\d*)?/
+HEXNUMBER: /-?0x[0-9a-fA-F]+/
 NOT: "not"
 OR: "or"
 AND: "and"
@@ -285,5 +337,5 @@ AND: "and"
 _expratom: _exprvalu | "(" exprsum ")"
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings
-_exprvalu: NUMBER | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
+_exprvalu: NUMBER | HEXNUMBER | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | dollarexpr

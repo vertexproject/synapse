@@ -658,7 +658,7 @@ class CertDir:
 
         fname = os.path.split(path)[1]
         parts = fname.rsplit('.', 1)
-        ext = parts[1] if len(parts) is 2 else None
+        ext = parts[1] if len(parts) == 2 else None
 
         if not ext or ext not in ('crt', 'key', 'p12'):
             mesg = 'importFile only supports .crt, .key, .p12 extensions'

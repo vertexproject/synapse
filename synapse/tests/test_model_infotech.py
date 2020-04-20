@@ -182,9 +182,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('semver:build'), 'exp.sha.5114f85')
                 self.eq(node.get('url'), url1)
                 # callback node creation checks
-                nodes = await alist(snap.getNodesBy('it:dev:str', 'V1.0.1-beta+exp.sha.5114f85'))
+                nodes = await snap.nodes('it:dev:str=V1.0.1-beta+exp.sha.5114f85')
                 self.len(1, nodes)
-                nodes = await alist(snap.getNodesBy('it:dev:str', 'amd64'))
+                nodes = await snap.nodes('it:dev:str=amd64')
                 self.len(1, nodes)
 
                 host0 = s_common.guid()
@@ -270,24 +270,23 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], 'evil RAT')
                 self.eq(node.get('norm'), 'evil rat')
 
-                pipe = 'MyPipe'
-                node = await snap.addNode('it:dev:pipe', pipe)
-                self.eq(node.ndef[1], pipe)
-                nodes = await alist(snap.getNodesBy('it:dev:str', pipe))
+                node = await snap.addNode('it:dev:pipe', 'MyPipe')
+                self.eq(node.ndef[1], 'MyPipe')
+                nodes = await snap.nodes('it:dev:str=MyPipe')
                 self.len(1, nodes)
                 # The callback created node also has norm set on it
-                self.eq(nodes[0].get('norm'), pipe.lower())
+                self.eq(nodes[0].get('norm'), 'mypipe')
 
-                mutex = 'MyMutxex'
-                node = await snap.addNode('it:dev:mutex', mutex)
-                self.eq(node.ndef[1], mutex)
-                nodes = await alist(snap.getNodesBy('it:dev:str', mutex))
+                node = await snap.addNode('it:dev:mutex', 'MyMutex')
+                self.eq(node.ndef[1], 'MyMutex')
+                nodes = await snap.nodes('it:dev:str=MyMutex')
                 self.len(1, nodes)
 
                 key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
                 node = await snap.addNode('it:dev:regkey', key)
                 self.eq(node.ndef[1], key)
-                nodes = await alist(snap.getNodesBy('it:dev:str', key))
+                opts = {'vars': {'key': key}}
+                nodes = await snap.nodes('it:dev:str=$key', opts=opts)
                 self.len(1, nodes)
 
                 fbyts = 'sha256:' + 64 * 'f'
@@ -298,17 +297,18 @@ class InfotechModelTest(s_t_utils.SynTest):
                     ('bytes', fbyts),
                 ]
                 for prop, valu in valus:
-                    guid = s_common.guid((key, valu))
+
+                    iden = s_common.guid((key, valu))
                     props = {
                         'key': key,
                         prop: valu,
                     }
-                    node = await snap.addNode('it:dev:regval', guid, props)
-                    self.eq(node.ndef[1], guid)
+                    node = await snap.addNode('it:dev:regval', iden, props)
+                    self.eq(node.ndef[1], iden)
                     self.eq(node.get('key'), key)
                     self.eq(node.get(prop), valu)
 
-                nodes = await alist(snap.getNodesBy('it:dev:str', key))
+                nodes = await snap.nodes('it:dev:str=HKEY_LOCAL_MACHINE\\Foo\\Bar')
                 self.len(1, nodes)
 
     async def test_it_semvertype(self):
@@ -630,7 +630,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('path:base'), 'yourfiles.rar')
                 self.eq(node.get('path:ext'), 'rar')
 
-                # FIXME - This test would be cleaner with stable guid generation
                 rprops = {
                     'host': host,
                     'proc': proc,
@@ -660,14 +659,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             rule = s_common.guid()
             opts = {'vars': {'rule': rule}}
 
-            nodes = await core.eval('[ it:app:yara:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts).list()
+            nodes = await core.nodes('[ it:app:yara:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts)
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
             self.eq(0x10000200003, nodes[0].get('version'))
 
-            nodes = await core.eval('[ it:app:yara:match=($rule, "*") :version=1.2.3 ]', opts=opts).list()
+            nodes = await core.nodes('[ it:app:yara:match=($rule, "*") :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
             self.eq(rule, nodes[0].get('rule'))
@@ -683,14 +682,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             host = s_common.guid()
             opts = {'vars': {'rule': rule, 'flow': flow, 'host': host, 'hit': hit}}
 
-            nodes = await core.eval('[ it:app:snort:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts).list()
+            nodes = await core.nodes('[ it:app:snort:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts)
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
             self.eq(0x10000200003, nodes[0].get('version'))
 
-            nodes = await core.eval('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts).list()
+            nodes = await core.nodes('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)
             self.eq(rule, nodes[0].get('rule'))
             self.eq(flow, nodes[0].get('flow'))
@@ -721,8 +720,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             vstr = 'VertexBrandArtisanalBinaries'
             sopt = {'vars': {'func': fopt['vars']['func'],
                              'string': vstr}}
-            fnode = await core.eval('[it:reveng:filefunc=($file, $func) :va=$fva]', opts=fopt).list()
-            snode = await core.eval('[it:reveng:funcstr=($func, $string)]', opts=sopt).list()
+            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva]', opts=fopt)
+            snode = await core.nodes('[it:reveng:funcstr=($func, $string)]', opts=sopt)
             self.len(1, fnode)
             self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
             self.eq(fva, fnode[0].get('va'))
@@ -731,11 +730,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(fnode[0].get('function'), snode[0].get('function'))
             self.eq(vstr, snode[0].get('string'))
 
-            funcnode = await core.eval('it:reveng:function [ :name="FunkyFunction" :description="Test Function" ]').list()
+            funcnode = await core.nodes('it:reveng:function [ :name="FunkyFunction" :description="Test Function" ]')
             self.len(1, funcnode)
             self.eq("FunkyFunction", funcnode[0].get('name'))
             self.eq("Test Function", funcnode[0].get('description'))
 
-            nodes = await core.eval(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function').list()
+            nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function')
             self.len(1, nodes)
             self.eq(vstr, nodes[0].get('string'))

@@ -10,6 +10,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
@@ -19,42 +20,43 @@ Manage permissions of users, roles, and objects in a remote cell.
 outp = None
 
 min_authgate_vers = (0, 1, 33)
+reqver = '>=0.2.0,<0.3.0'
 
 denyallow = ['deny', 'allow']
-def reprrule(rule, authgater=None):
+def reprrule(rule):
     head = denyallow[rule[0]]
     text = '.'.join(rule[1])
-    if authgater is None:
-        return f'{head}: {text}'
-
-    return f'{head}: {text} on {authgater}'
+    return f'{head}: {text}'
 
 async def printuser(user, details=False, cell=None):
 
-    admin = user[1].get('admin')
-    authtype = user[1].get('type')
+    iden = user.get('iden')
+    name = user.get('name')
+    admin = user.get('admin')
+    authtype = user.get('type')
 
-    outp.printf(f'{user[0]}')
+    outp.printf(f'{name} ({iden})')
     outp.printf(f'type: {authtype}')
     if admin is not None:
         outp.printf(f'admin: {admin}')
 
     if authtype == 'user':
-        locked = user[1].get('locked')
+        locked = user.get('locked')
         outp.printf(f'locked: {locked}')
 
     outp.printf('rules:')
 
     i = 0
 
-    for rule in user[1].get('rules'):
+    for rule in user.get('rules'):
         i += 1
         rrep = reprrule(rule)
         outp.printf(f'    {i} {rrep}')
 
-    for authgater, rules in user[1].get('gaterules', {}).items():
-        for rule in rules:
-            rrep = reprrule(rule, authgater=authgater)
+    for gateiden, gateinfo in user.get('authgates', {}).items():
+        outp.printf(f'  auth gate: {gateiden}')
+        for rule in gateinfo.get('rules', ()):
+            rrep = reprrule(rule)
             i += 1
             outp.printf(f'    {i} {rrep}')
 
@@ -63,14 +65,21 @@ async def printuser(user, details=False, cell=None):
     if authtype == 'user':
 
         outp.printf('roles:')
-        for rolename in sorted(user[1].get('roles')):
+        for rolename in sorted(user.get('roles')):
             outp.printf(f'    role: {rolename}')
 
             if details:
                 role = await cell.getAuthInfo(rolename)
-                for i, rule in enumerate(role[1].get('rules', ())):
+                for i, rule in enumerate(role.get('rules', ())):
                     rrep = reprrule(rule)
                     outp.printf(f'        {i} {rrep}')
+
+                for gateiden, gateinfo in role.get('authgates', {}).items():
+                    outp.printf(f'    auth gate: {gateiden}')
+                    for rule in gateinfo.get('rules', ()):
+                        rrep = reprrule(rule)
+                        i += 1
+                        outp.printf(f'      {i} {rrep}')
 
 async def handleModify(opts):
 
@@ -83,36 +92,45 @@ async def handleModify(opts):
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
 
+            async def useriden(name):
+                udef = await cell.getUserDefByName(name)
+                return udef['iden']
+
+            async def roleiden(name):
+                rdef = await cell.getRoleDefByName(name)
+                return rdef['iden']
+
+            s_version.reqVersion(cell._getSynVers(), reqver)
             if cell._getSynVers() >= min_authgate_vers:
                 cell_supports_authgate = True
 
             if opts.adduser:
                 outp.printf(f'adding user: {opts.name}')
-                user = await cell.addAuthUser(opts.name)
+                user = await cell.addUser(opts.name)
 
             if opts.deluser:
                 outp.printf(f'deleting user: {opts.name}')
-                await cell.delAuthUser(opts.name)
+                await cell.delUser(await useriden(opts.name))
 
             if opts.addrole:
                 outp.printf(f'adding role: {opts.name}')
-                user = await cell.addAuthRole(opts.name)
+                user = await cell.addRole(opts.name)
 
             if opts.delrole:
                 outp.printf(f'deleting role: {opts.name}')
-                await cell.delAuthRole(opts.name)
+                await cell.delRole(await roleiden(opts.name))
 
             if opts.passwd:
                 outp.printf(f'setting passwd for: {opts.name}')
-                await cell.setUserPasswd(opts.name, opts.passwd)
+                await cell.setUserPasswd(await useriden(opts.name), opts.passwd)
 
             if opts.grant:
                 outp.printf(f'granting {opts.grant} to: {opts.name}')
-                await cell.addUserRole(opts.name, opts.grant)
+                await cell.addUserRole(await useriden(opts.name), await roleiden(opts.grant))
 
             if opts.revoke:
                 outp.printf(f'revoking {opts.revoke} from: {opts.name}')
-                await cell.delUserRole(opts.name, opts.revoke)
+                await cell.delUserRole(await useriden(opts.name), await roleiden(opts.revoke))
 
             if opts.admin:
                 outp.printf(f'granting admin status: {opts.name}')
@@ -124,11 +142,11 @@ async def handleModify(opts):
 
             if opts.lock:
                 outp.printf(f'locking user: {opts.name}')
-                await cell.setUserLocked(opts.name, True)
+                await cell.setUserLocked(await useriden(opts.name), True)
 
             if opts.unlock:
                 outp.printf(f'unlocking user: {opts.name}')
-                await cell.setUserLocked(opts.name, False)
+                await cell.setUserLocked(await useriden(opts.name), False)
 
             if opts.addrule:
 
@@ -144,13 +162,15 @@ async def handleModify(opts):
 
                 outp.printf(f'adding rule to {opts.name}: {rule!r}')
                 if cell_supports_authgate:
-                    await cell.addAuthRule(opts.name, rule, indx=None, iden=opts.object)
+                    await cell.addAuthRule(opts.name, rule, indx=None, gateiden=opts.object)
                 else:
                     await cell.addAuthRule(opts.name, rule, indx=None)
 
             if opts.delrule is not None:
                 outp.printf(f'deleting rule index: {opts.delrule}')
-                await cell.delAuthRuleIndx(opts.name, opts.delrule)
+                user = await cell.getAuthInfo(opts.name)
+                rule = user.get('rules')[opts.delrule]
+                await cell.delAuthRule(opts.name, rule)
 
             try:
                 user = await cell.getAuthInfo(opts.name)
@@ -159,6 +179,12 @@ async def handleModify(opts):
                 return 1
 
             await printuser(user)
+
+    except s_exc.BadVersion as e:
+        valu = s_version.fmtVersion(*e.get('valu'))
+        outp.printf(f'Cell version {valu} is outside of the cellauth supported range ({reqver}).')
+        outp.printf(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
+        return 1
 
     except Exception as e:  # pragma: no cover
 
@@ -174,15 +200,14 @@ async def handleModify(opts):
 async def handleList(opts):
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
-
+            s_version.reqVersion(cell._getSynVers(), reqver)
             if opts.name:
-                for name in opts.name:
-                    user = await cell.getAuthInfo(name)
-                    if user is None:
-                        outp.printf(f'no such user: {opts.name}')
-                        return 1
+                user = await cell.getAuthInfo(opts.name[0])
+                if user is None:
+                    outp.printf(f'no such user: {opts.name}')
+                    return 1
 
-                    await printuser(user, cell=cell, details=opts.detail)
+                await printuser(user, cell=cell, details=opts.detail)
                 return 0
 
             outp.printf(f'getting users and roles')
@@ -194,6 +219,12 @@ async def handleList(opts):
             outp.printf('roles:')
             for role in await cell.getAuthRoles():
                 outp.printf(f'    {role}')
+
+    except s_exc.BadVersion as e:
+        valu = s_version.fmtVersion(*e.get('valu'))
+        outp.printf(f'Cell version {valu} is outside of the cellauth supported range ({reqver}).')
+        outp.printf(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
+        return 1
 
     except Exception as e:  # pragma: no cover
 

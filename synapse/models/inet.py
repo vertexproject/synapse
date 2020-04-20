@@ -9,6 +9,7 @@ import regex
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop
+import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.module as s_module
@@ -16,7 +17,7 @@ import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
-srv6re = regex.compile(r'^\[([a-f0-9:]+)\]:(\d+)$')
+srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
@@ -40,10 +41,10 @@ def getAddrType(ip):
 
     return 'unicast'
 
-class Addr(s_types.StrBase):
+class Addr(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _getPort(self, valu):
@@ -106,8 +107,8 @@ class Addr(s_types.StrBase):
 
                 return f'{proto}://[{ipv6}]:{port}', {'subs': subs}
 
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='invalid IPv6 w/ port')
+            mesg = f'Invalid IPv6 w/port ({orig})'
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
             ipv6 = self.modl.type('inet:ipv6').norm(valu)[0]
@@ -125,10 +126,10 @@ class Addr(s_types.StrBase):
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs}
 
-class Cidr4(s_types.StrBase):
+class Cidr4(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -156,10 +157,10 @@ class Cidr4(s_types.StrBase):
         }
         return norm, info
 
-class Cidr6(s_types.StrBase):
+class Cidr6(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -178,10 +179,10 @@ class Cidr6(s_types.StrBase):
         }
         return norm, info
 
-class Email(s_types.StrBase):
+class Email(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -205,8 +206,44 @@ class Email(s_types.StrBase):
 
 class Fqdn(s_types.Type):
 
+    stortype = s_layer.STOR_TYPE_FQDN
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
+
+    def _storLiftEq(self, cmpr, valu):
+
+        if type(valu) == str:
+
+            if valu == '':
+                mesg = 'Cannot generate fqdn index bytes for a empty string.'
+                raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
+
+            if valu == '*':
+                return (
+                    ('=', '*', self.stortype),
+                )
+
+            if valu.startswith('*.'):
+                norm, info = self.norm(valu[2:])
+                return (
+                    ('=', f'*.{norm}', self.stortype),
+                )
+
+            if valu.startswith('*'):
+                norm, info = self.norm(valu[1:])
+                return (
+                    ('=', f'*{norm}', self.stortype),
+                )
+
+            if '*' in valu:
+                mesg = 'Wild card may only appear at the beginning.'
+                raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
+
+        return self._storLiftNorm(cmpr, valu)
 
     def _ctorCmprEq(self, text):
         if text == '':
@@ -261,30 +298,9 @@ class Fqdn(s_types.Type):
         if len(parts) == 2:
             subs['domain'] = parts[1]
         else:
-            subs['sfx'] = 1
+            subs['issuffix'] = 1
 
         return valu, {'subs': subs}
-
-    def indx(self, norm):
-        return norm[::-1].encode('utf8')
-
-    def indxByEq(self, valu):
-
-        if valu == '':
-            raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    mesg='Cannot generate fqdn index bytes for a empty string.')
-
-        if valu[0] == '*':
-            indx = valu[1:][::-1].encode('utf8')
-            return (
-                ('pref', indx),
-            )
-
-        if valu.find('*') != -1:
-            raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    mesg='Wild card may only appear at the beginning.')
-
-        return s_types.Type.indxByEq(self, valu)
 
     def repr(self, valu):
         try:
@@ -292,13 +308,21 @@ class Fqdn(s_types.Type):
         except UnicodeError:
             return valu
 
+import synapse.lib.layer as s_layer
+
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
     '''
+    stortype = s_layer.STOR_TYPE_U32
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
+
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
 
     def _ctorCmprEq(self, valu):
 
@@ -367,11 +391,9 @@ class IPv4(s_types.Type):
         norm = int.from_bytes(byts, 'big')
         return self._normPyInt(norm)
 
-    def indx(self, norm):
-        return norm.to_bytes(4, 'big')
-
     def repr(self, norm):
-        return socket.inet_ntoa(self.indx(norm))
+        byts = norm.to_bytes(4, 'big')
+        return socket.inet_ntoa(byts)
 
     def getNetRange(self, text):
         minstr, maxstr = text.split('-')
@@ -388,7 +410,7 @@ class IPv4(s_types.Type):
         minv = norm & mask[0]
         return minv, minv + mask[1]
 
-    def indxByEq(self, valu):
+    def _storLiftEq(self, cmpr, valu):
 
         if type(valu) == str:
 
@@ -396,25 +418,24 @@ class IPv4(s_types.Type):
                 minv, maxv = self.getCidrRange(valu)
                 maxv -= 1
                 return (
-                    ('range', (self.indx(minv), self.indx(maxv))),
+                    ('range=', (minv, maxv), self.stortype),
                 )
 
             if valu.find('-') != -1:
                 minv, maxv = self.getNetRange(valu)
                 return (
-                    ('range', (self.indx(minv), self.indx(maxv))),
+                    ('range=', (minv, maxv), self.stortype),
                 )
 
-        return s_types.Type.indxByEq(self, valu)
+        return self._storLiftNorm(cmpr, valu)
 
 class IPv6(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_IPV6
 
     def postTypeInit(self):
         self.setNormFunc(int, self._normPyStr)
         self.setNormFunc(str, self._normPyStr)
-
-    def indx(self, norm):
-        return ipaddress.IPv6Address(norm).packed
 
     def _normPyStr(self, valu):
 
@@ -485,22 +506,14 @@ class IPv6Range(s_types.Range):
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
-class Rfc2822Addr(s_types.StrBase):
+class Rfc2822Addr(s_types.Str):
     '''
     An RFC 2822 compatible email address parser
     '''
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-
-    def indxByPref(self, valu):
-        valu = valu.replace('"', ' ').replace("'", ' ')
-        valu = valu.strip().lower()
-        valu = ' '.join(valu.split())
-        return (
-            ('pref', valu.encode('utf8', 'surrogatepass')),
-        )
 
     def _normPyStr(self, valu):
 
@@ -536,10 +549,10 @@ class Rfc2822Addr(s_types.StrBase):
 
         return valu, {'subs': subs}
 
-class Url(s_types.StrBase):
+class Url(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _ctorCmprEq(self, text):
@@ -710,8 +723,12 @@ class InetModule(s_module.CoreModule):
         domain = node.get('domain')
 
         if domain is None:
+            await node.set('iszone', False)
             await node.set('issuffix', True)
             return
+
+        if node.get('issuffix') is None:
+            await node.set('issuffix', False)
 
         # almost certainly in the cache anyway....
         parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
@@ -720,6 +737,8 @@ class InetModule(s_module.CoreModule):
             await node.set('iszone', True)
             await node.set('zone', fqdn)
             return
+
+        await node.set('iszone', False)
 
         if parent.get('iszone'):
             await node.set('zone', domain)
@@ -734,7 +753,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
 
         issuffix = node.get('issuffix')
-        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
             await child.set('iszone', issuffix)
 
     async def _onSetFqdnIsZone(self, node, oldv):
@@ -767,7 +786,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
         zone = node.get('zone')
 
-        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
 
             # if they are their own zone level, skip
             if child.get('iszone'):
@@ -1025,6 +1044,23 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An email address associated with an FQDN via whois registration text.',
                     }),
 
+                    ('inet:whois:ipquery', ('guid', {}), {
+                        'doc': 'Query details used to retrieve an IP record.'
+                    }),
+
+                    ('inet:whois:iprec', ('guid', {}), {
+                        'doc': 'An IPv4/IPv6 block registration record.'
+                    }),
+
+                    ('inet:whois:ipcontact', ('guid', {}), {
+                        'doc': 'An individual contact from an IP block record.'
+                    }),
+
+                    ('inet:whois:regid', ('str', {}), {
+                        'doc': 'The registry unique identifier of the registration record.',
+                        'ex': 'NET-10-0-0-0-1'
+                    }),
+
                     ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
                         'doc': 'An SSID/MAC address combination for a wireless access point.'
                     }),
@@ -1110,7 +1146,6 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:asn', {}, (
                         ('name', ('str', {'lower': True}), {
-                            'defval': '??',
                             'doc': 'The name of the organization currently responsible for the ASN.'
                         }),
                         ('owner', ('ou:org', {}), {
@@ -1340,11 +1375,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('issuffix', ('bool', {}), {
                             'doc': 'True if the FQDN is considered a suffix.',
-                            'defval': 0,
                         }),
                         ('iszone', ('bool', {}), {
                             'doc': 'True if the FQDN is considered a zone.',
-                            'defval': 0,
                         }),
                         ('zone', ('inet:fqdn', {}), {
                             'doc': 'The zone level parent for this FQDN.',
@@ -1458,19 +1491,19 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:ipv4', {}, (
 
-                        ('asn', ('inet:asn', {}), {'defval': 0,  # TODO replace with nullval
+                        ('asn', ('inet:asn', {}), {
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the node'}),
 
-                        ('loc', ('loc', {}), {'defval': '??',
+                        ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the IPv4.'}),
 
                         ('place', ('geo:place', {}), {
                             'doc': 'The geo:place assocated with the latlong property.'}),
 
-                        ('type', ('str', {}), {'defval': '??',
+                        ('type', ('str', {}), {
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
 
                         ('dns:rev', ('inet:fqdn', {}), {
@@ -1480,7 +1513,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:ipv6', {}, (
 
                         ('asn', ('inet:asn', {}), {
-                            'defval': 0,  # TODO replace with nullval
                             'doc': 'The ASN to which the IPv6 address is currently assigned.'}),
 
                         ('ipv4', ('inet:ipv4', {}), {
@@ -1496,13 +1528,11 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The most current DNS reverse lookup for the IPv6.'}),
 
                         ('loc', ('loc', {}), {
-                            'defval': '??',
                             'doc': 'The geo-political location string for the IPv6.'}),
                     )),
 
                     ('inet:mac', {}, (
                         ('vendor', ('str', {}), {
-                            'defval': '??',
                             'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'
                         }),
                     )),
@@ -2042,6 +2072,15 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The web account that received the message.'
                         }),
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source address of the message.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address of the message.'
+                        }),
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address of the message.'
+                        }),
                         ('time', ('time', {}), {
                             'ro': True,
                             'doc': 'The date and time at which the message was sent.'
@@ -2065,6 +2104,15 @@ class InetModule(s_module.CoreModule):
                         ('acct:site', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The site or service associated with the account.'
+                        }),
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source address of the post.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address of the post.'
+                        }),
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address of the post.'
                         }),
                         ('acct:user', ('inet:user', {}), {
                             'ro': True,
@@ -2169,11 +2217,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The "expires" time from the whois record.'
                         }),
                         ('registrar', ('inet:whois:rar', {}), {
-                            'defval': '??',
                             'doc': 'The registrar name from the whois record.'
                         }),
                         ('registrant', ('inet:whois:reg', {}), {
-                            'defval': '??',
                             'doc': 'The registrant name from the whois record.'
                         }),
                     )),
@@ -2208,6 +2254,131 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:whois:ipquery', {}, (
+                        ('time', ('time', {}), {
+                            'doc': 'The time the request was made.'
+                        }),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The query URL when using the HTTP RDAP Protocol.'
+                        }),
+                        ('fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'
+                        }),
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address queried.'
+                        }),
+                        ('ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 address queried.'
+                        }),
+                        ('success', ('bool', {}), {
+                            'doc': 'Whether the host returned a valid response for the query.'
+                        }),
+                        ('rec', ('inet:whois:iprec', {}), {
+                            'doc': 'The resulting record from the query.'
+                        }),
+                    )),
+
+                    ('inet:whois:iprec', {}, (
+                        ('net4', ('inet:net4', {}), {
+                            'doc': 'The IPv4 address range assigned.'
+                        }),
+                        ('net4:min', ('inet:ipv4', {}), {
+                            'doc': 'The first IPv4 in the range assigned.'
+                        }),
+                        ('net4:max', ('inet:ipv4', {}), {
+                            'doc': 'The last IPv4 in the range assigned.'
+                        }),
+                        ('net6', ('inet:net6', {}), {
+                            'doc': 'The IPv6 address range assigned.'
+                        }),
+                        ('net6:min', ('inet:ipv6', {}), {
+                            'doc': 'The first IPv6 in the range assigned.'
+                        }),
+                        ('net6:max', ('inet:ipv6', {}), {
+                            'doc': 'The last IPv6 in the range assigned.'
+                        }),
+                        ('asof', ('time', {}), {
+                            'doc': 'The date of the record.'
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The "created" time from the record.'
+                        }),
+                        ('updated', ('time', {}), {
+                            'doc': 'The "last updated" time from the record.'
+                        }),
+                        ('text', ('str', {'lower': True}), {
+                            'doc': 'The full text of the record.'
+                        }),
+                        ('asn', ('inet:asn', {}), {
+                            'doc': 'The associated Autonomous System Number (ASN).'
+                        }),
+                        ('id', ('inet:whois:regid', {}), {
+                            'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
+                        }),
+                        ('name', ('str', {}), {
+                            'doc': 'The name assigned to the network by the registrant.'
+                        }),
+                        ('parentid', ('inet:whois:regid', {}), {
+                            'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
+                        }),
+                        ('registrant', ('inet:whois:ipcontact', {}), {
+                            'doc': 'The registrant contact from the record.'
+                        }),
+                        ('contacts', ('array', {'type': 'inet:whois:ipcontact'}), {
+                            'doc': 'Additional contacts from the record.',
+                        }),
+                        ('country', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
+                            'doc': 'The two-letter ISO 3166 country code.'
+                        }),
+                        ('status', ('str', {'lower': True}), {
+                            'doc': 'The state of the registered network.'
+                        }),
+                        ('type', ('str', {'lower': True}), {
+                            'doc': 'The classification of the registered network (e.g. direct allocation).'
+                        }),
+                        ('links', ('array', {'type': 'inet:url'}), {
+                            'doc': 'URLs provided with the record.',
+                        }),
+                    )),
+
+                    ('inet:whois:ipcontact', {}, (
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'Contact information associated with a registration.'
+                        }),
+                        ('asof', ('time', {}), {
+                            'doc': 'The date of the record.'
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The "created" time from the record.'
+                        }),
+                        ('updated', ('time', {}), {
+                            'doc': 'The "last updated" time from the record.'
+                        }),
+                        ('role', ('str', {'lower': True}), {
+                            'doc': 'The primary role for the contact.'
+                        }),
+                        ('roles', ('array', {'type': 'str'}), {
+                            'doc': 'Additional roles assigned to the contact.',
+                        }),
+                        ('asn', ('inet:asn', {}), {
+                            'doc': 'The associated Autonomous System Number (ASN).'
+                        }),
+                        ('id', ('inet:whois:regid', {}), {
+                            'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
+                        }),
+                        ('links', ('array', {'type': 'inet:url'}), {
+                            'doc': 'URLs provided with the record.',
+                        }),
+                        ('status', ('str', {'lower': True}), {
+                            'doc': 'The state of the registered contact (e.g. validated, obscured).'
+                        }),
+                        ('contacts', ('array', {'type': 'inet:whois:ipcontact'}), {
+                            'doc': 'Additional contacts referenced by this contact.',
+                        }),
+                    )),
+
+                    ('inet:whois:regid', {}, ()),
+
                     ('inet:wifi:ap', {}, (
 
                         ('ssid', ('inet:wifi:ssid', {}), {
@@ -2226,7 +2397,7 @@ class InetModule(s_module.CoreModule):
                         ('place', ('geo:place', {}), {
                             'doc': 'The geo:place assocated with the latlong property.'}),
 
-                        ('loc', ('loc', {}), {'defval': '??',
+                        ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the wireless access point.'}),
                     )),
 

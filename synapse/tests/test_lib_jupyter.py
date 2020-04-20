@@ -75,9 +75,8 @@ class JupyterTest(s_t_utils.SynTest):
                 data = [
                     (('test:int', 137), {}),
                 ]
-                guid = s_common.guid()
-                ret = await cmdrcore.addFeedData('syn.nodes', data, (guid, 1))
-                self.eq(ret, 2)
+
+                await cmdrcore.addFeedData('syn.nodes', data)
                 podes = await cmdrcore.eval('test:int=137',
                                             num=1, cmdr=False)
                 self.len(1, podes)

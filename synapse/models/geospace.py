@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 
 import synapse.lib.gis as s_gis
+import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.grammar as s_grammar
@@ -21,9 +22,10 @@ distrepr = (
     (10.0, 'cm'),
 )
 
-class Dist(s_types.IntBase):
+class Dist(s_types.Int):
 
     def postTypeInit(self):
+        s_types.Int.postTypeInit(self)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
 
@@ -47,9 +49,6 @@ class Dist(s_types.IntBase):
 
         return int(valu * mult), {}
 
-    def indx(self, norm):
-        return norm.to_bytes(8, 'big')
-
     def repr(self, norm):
 
         for base, unit in distrepr:
@@ -59,36 +58,9 @@ class Dist(s_types.IntBase):
 
         return '%d mm' % (norm,)
 
-class Latitude(s_types.Type):
-    SCALE = 10**8  # ~1mm resolution
-    SPACE = 90 * 10**8
-
-    def postTypeInit(self):
-        self.setNormFunc(int, self._normIntStr)
-        self.setNormFunc(str, self._normIntStr)
-        self.setNormFunc(float, self._normFloat)
-
-    def _normFloat(self, valu):
-        if valu > 90.0 or valu < -90.0:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Latitude may only be -90.0 to 90.0')
-
-        valu = int(valu * Latitude.SCALE) / Latitude.SCALE
-
-        return valu, {}
-
-    def _normIntStr(self, valu):
-        try:
-            valu = float(valu)
-        except Exception:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Invalid float format')
-        return self._normFloat(valu)
-
-    def indx(self, norm):
-        return int(norm * Latitude.SCALE + Latitude.SPACE).to_bytes(5, 'big')
-
 class LatLong(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_LATLONG
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
@@ -96,8 +68,9 @@ class LatLong(s_types.Type):
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.setCmprCtor('near=', self._cmprNear)
-        self.setLiftHintCmprCtor('near=', self._cmprNear)
-        self.indxcmpr['near='] = self._indxNear
+        self.storlifts.update({
+            'near=': self._storLiftNear,
+        })
 
     def _normCmprValu(self, valu):
         latlong, dist = valu
@@ -107,25 +80,17 @@ class LatLong(s_types.Type):
 
     def _cmprNear(self, valu):
         latlong, dist = self._normCmprValu(valu)
+
         def cmpr(valu):
             if s_gis.haversine(valu, latlong) <= dist:
                 return True
             return False
         return cmpr
 
-    def _indxNear(self, valu):
-        (lat, long), dist = self._normCmprValu(valu)
-        latmin, latmax, longmin, longmax = s_gis.bbox(lat, long, dist)
-
-        latmin, longmin = self.norm((latmin, longmin))[0]
-        latmax, longmax = self.norm((latmax, longmax))[0]
-
-        minv = self.indx((latmin, longmin))
-        maxv = self.indx((latmax, longmax))
-
-        return (
-            ('range', (minv, maxv)),
-        )
+    def _storLiftNear(self, cmpr, valu):
+        latlong = self.norm(valu[0])[0]
+        dist = self.modl.type('geo:dist').norm(valu[1])[0]
+        return ((cmpr, (latlong, dist), self.stortype),)
 
     def _normPyStr(self, valu):
         valu = tuple(valu.strip().split(','))
@@ -145,41 +110,8 @@ class LatLong(s_types.Type):
 
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 
-    def indx(self, valu):
-        return self.modl.type('geo:latitude').indx(valu[0]) + self.modl.type('geo:longitude').indx(valu[1])
-
     def repr(self, norm):
         return f'{norm[0]},{norm[1]}'
-
-class Longitude(s_types.Type):
-    SCALE = 10**8  # ~1mm resolution
-    SPACE = 180 * 10**8
-
-    def postTypeInit(self):
-        self.setNormFunc(int, self._normIntStr)
-        self.setNormFunc(str, self._normIntStr)
-        self.setNormFunc(float, self._normFloat)
-
-    def _normIntStr(self, valu):
-        try:
-            valu = float(valu)
-        except Exception:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Invalid float format')
-        return self._normFloat(valu)
-
-    def _normFloat(self, valu):
-
-        if valu > 180.0 or valu < -180.0:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Longitude may only be -180.0 to 180.0')
-
-        valu = int(valu * Longitude.SCALE) / Longitude.SCALE
-
-        return valu, {}
-
-    def indx(self, norm):
-        return int(norm * Longitude.SCALE + Longitude.SPACE).to_bytes(5, 'big')
 
 class GeoModule(s_module.CoreModule):
 
@@ -191,8 +123,6 @@ class GeoModule(s_module.CoreModule):
                     ('geo:dist', 'synapse.models.geospace.Dist', {}, {
                         'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'
                     }),
-                    ('geo:latitude', 'synapse.models.geospace.Latitude', {}, {}),
-                    ('geo:longitude', 'synapse.models.geospace.Longitude', {}, {}),
                     ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
                         'doc': 'A Lat/Long string specifying a point on Earth',
                         'ex': '-12.45,56.78'
@@ -211,6 +141,10 @@ class GeoModule(s_module.CoreModule):
                     ('geo:address', ('str', {'lower': 1, 'onespace': 1, 'strip': True}), {
                         'doc': 'A street/mailing address string.',
                     }),
+                    ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
+                                       'minisvalid': False, 'maxisvalid': True}), {}),
+                    ('geo:latitude', ('float', {'min': -90.0, 'max': 90.0,
+                                      'minisvalid': True, 'maxisvalid': True}), {}),
 
                     ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
                                                 ('xmin', 'geo:longitude'),

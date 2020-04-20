@@ -6,7 +6,53 @@ from synapse.tests.utils import alist
 class OuModelTest(s_t_utils.SynTest):
 
     async def test_ou_simple(self):
+
         async with self.getTestCore() as core:
+
+            goal = s_common.guid()
+            org0 = s_common.guid()
+            camp = s_common.guid()
+
+            async with await core.snap() as snap:
+
+                props = {
+                    'name': 'MyGoal',
+                    'type': 'MyType',
+                    'desc': 'MyDesc',
+                    'prev': goal,
+                }
+                node = await snap.addNode('ou:goal', goal, props=props)
+                self.eq(node.get('name'), 'MyGoal')
+                self.eq(node.get('type'), 'MyType')
+                self.eq(node.get('desc'), 'MyDesc')
+                self.eq(node.get('prev'), goal)
+
+                props = {
+                    'stated': True,
+                    'window': '2019,2020',
+                }
+                node = await snap.addNode('ou:hasgoal', (org0, goal), props=props)
+                self.eq(node.get('org'), org0)
+                self.eq(node.get('goal'), goal)
+                self.eq(node.get('stated'), True)
+                self.eq(node.get('window'), (1546300800000, 1577836800000))
+
+                props = {
+                    'org': org0,
+                    'goal': goal,
+                    'goals': (goal,),
+                    'name': 'MyName',
+                    'type': 'MyType',
+                    'desc': 'MyDesc',
+                }
+                node = await snap.addNode('ou:campaign', camp, props=props)
+                self.eq(node.get('org'), org0)
+                self.eq(node.get('goal'), goal)
+                self.eq(node.get('goals'), (goal,))
+                self.eq(node.get('name'), 'MyName')
+                self.eq(node.get('type'), 'MyType')
+                self.eq(node.get('desc'), 'MyDesc')
+
             # type norming first
             # ou:name
             t = core.model.type('ou:name')
@@ -57,7 +103,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'url': 'http://www.arrowinc.link',
                     'us:cage': '7qe71',
                     'founded': '2015',
-                    'disolved': '2019',
+                    'dissolved': '2019',
                 }
                 node = await snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
@@ -71,15 +117,16 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('url'), 'http://www.arrowinc.link')
                 self.eq(node.get('us:cage'), '7qe71')
                 self.eq(node.get('founded'), 1420070400000)
-                self.eq(node.get('disolved'), 1546300800000)
+                self.eq(node.get('dissolved'), 1546300800000)
 
-                nodes = (await alist(snap.getNodesBy('ou:name')))
+                nodes = await snap.nodes('ou:name')
                 self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
 
-                nodes = await alist(snap.getNodesBy('ou:org:names', 'otheraltarrow', cmpr='contains='))
+                nodes = await snap.nodes('ou:org:names*[=otheraltarrow]')
                 self.len(1, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:names', name, cmpr='contains='))
+                opts = {'var': {'name': name}}
+                nodes = await snap.nodes('ou:org:names*contains=$name', opts=opts)
                 self.len(0, nodes)  # primary ou:org:name is not in ou:org:names
 
                 person0 = s_common.guid()
@@ -105,8 +152,8 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('perc'), 50)
                 self.eq(node.get('current'), 1)
 
-                await self.asyncraises(s_exc.BadPropValu, node.set('perc', -1))
-                await self.asyncraises(s_exc.BadPropValu, node.set('perc', 101))
+                await self.asyncraises(s_exc.BadTypeValu, node.set('perc', -1))
+                await self.asyncraises(s_exc.BadTypeValu, node.set('perc', 101))
 
                 # ou:user
                 node = await snap.addNode('ou:user', (guid0, 'arrowman'))
@@ -190,6 +237,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'departed': '201803021500',
                     'role:staff': False,
                     'role:speaker': True,
+                    'roles': ['usher', 'coatcheck'],
                 }
                 node = await snap.addNode('ou:conference:attendee', (c0, person0), cprops)
                 self.eq(node.ndef[1], (c0, person0))
@@ -197,6 +245,62 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('departed'), 1520002800000)
                 self.eq(node.get('role:staff'), 0)
                 self.eq(node.get('role:speaker'), 1)
+                self.eq(node.get('roles'), ('usher', 'coatcheck'))
+
+                # ou:conference:event
+                confguid = c0
+
+                con0 = s_common.guid()
+                cprops = {
+                    'org': guid0,
+                    'name': 'Steve Rogers',
+                    'title': 'The First Avenger',
+                    'orgname': 'Avengers',
+                    'user': 'cap',
+                    'web:acct': ('twitter.com', 'captainamerica'),
+                    'dob': '1918-07-04',
+                    'url': 'https://captainamerica.com/',
+                    'email': 'steve.rogers@gmail.com',
+                    'email:work': 'cap@avengers.com',
+                    'phone': '12345678910',
+                    'phone:fax': '12345678910',
+                    'phone:work': '12345678910',
+                    'address': '222 Avenger Row, Washington, DCSan Francisco, CA, 22222, USA',
+                }
+                pscon = await snap.addNode('ps:contact', con0, cprops)
+
+                c0 = s_common.guid()
+                cprops = {
+                    'conference': confguid,
+                    'name': 'arrowcon 2018 dinner',
+                    'desc': 'arrowcon dinner',
+                    'start': '201803011900',
+                    'end': '201803012200',
+                    'contact': con0,
+                    'place': place0,
+                    'url': 'http://arrowcon.org/2018/dinner',
+                }
+                node = await snap.addNode('ou:conference:event', c0, cprops)
+                self.eq(node.ndef[1], c0)
+                self.eq(node.get('name'), 'arrowcon 2018 dinner')
+                self.eq(node.get('desc'), 'arrowcon dinner')
+                self.eq(node.get('conference'), confguid)
+                self.eq(node.get('start'), 1519930800000)
+                self.eq(node.get('end'), 1519941600000)
+                self.eq(node.get('contact'), con0)
+                self.eq(node.get('place'), place0)
+                self.eq(node.get('url'), 'http://arrowcon.org/2018/dinner')
+
+                cprops = {
+                    'arrived': '201803011923',
+                    'departed': '201803012300',
+                    'roles': ['staff', 'speaker'],
+                }
+                node = await snap.addNode('ou:conference:event:attendee', (c0, person0), cprops)
+                self.eq(node.ndef[1], (c0, person0))
+                self.eq(node.get('arrived'), 1519932180000)
+                self.eq(node.get('departed'), 1519945200000)
+                self.eq(node.get('roles'), ('staff', 'speaker'))
 
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
@@ -217,20 +321,21 @@ class OuModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 for g, props in omap.items():
                     await snap.addNode('ou:org', g, props)
-                nodes = await alist(snap.getNodesBy('ou:org:sic', '01', cmpr='^='))
+
+                nodes = await snap.nodes('ou:org:sic^=01')
                 self.len(3, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:sic', '011', cmpr='^='))
+                nodes = await snap.nodes('ou:org:sic^=011')
                 self.len(2, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:naics', '22', cmpr='^='))
+                nodes = await snap.nodes('ou:org:naics^=22')
                 self.len(4, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:naics', '221', cmpr='^='))
+                nodes = await snap.nodes('ou:org:naics^=221')
                 self.len(4, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:naics', '2211', cmpr='^='))
+                nodes = await snap.nodes('ou:org:naics^=2211')
                 self.len(3, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:naics', '22112', cmpr='^='))
+                nodes = await snap.nodes('ou:org:naics^=22112')
                 self.len(2, nodes)

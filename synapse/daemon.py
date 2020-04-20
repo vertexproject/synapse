@@ -119,6 +119,99 @@ dmonwrap = (
     (types.GeneratorType, Genr),
 )
 
+async def t2call(link, meth, args, kwargs):
+    '''
+    Call the given meth(*args, **kwargs) and handle the response
+    to provide telepath task v2 events to the given link.
+    '''
+    try:
+
+        valu = meth(*args, **kwargs)
+
+        if s_coro.iscoro(valu):
+            valu = await valu
+
+        try:
+
+            first = True
+            if isinstance(valu, types.AsyncGeneratorType):
+
+                async for item in valu:
+
+                    if first:
+                        await link.tx(('t2:genr', {}))
+                        first = False
+
+                    await link.tx(('t2:yield', {'retn': (True, item)}))
+
+                if first:
+                    await link.tx(('t2:genr', {}))
+
+                await link.tx(('t2:yield', {'retn': None}))
+                return
+
+            elif isinstance(valu, types.GeneratorType):
+
+                for item in valu:
+
+                    if first:
+                        await link.tx(('t2:genr', {}))
+                        first = False
+
+                    await link.tx(('t2:yield', {'retn': (True, item)}))
+
+                if first:
+                    await link.tx(('t2:genr', {}))
+
+                await link.tx(('t2:yield', {'retn': None}))
+                return
+
+        except s_exc.DmonSpawn as e:
+            context = e.__context__
+            if context:
+                if not isinstance(context, asyncio.CancelledError):
+                    logger.error('Error during DmonSpawn call: %r', context)
+                await link.fini()
+            return
+
+        except Exception as e:
+
+            if isinstance(e, asyncio.CancelledError):
+                logger.info('t2call task %s cancelled', meth.__name__)
+            else:
+                logger.exception('error during task %s', meth.__name__)
+
+            if not link.isfini:
+
+                if first:
+                    await link.tx(('t2:genr', {}))
+
+                retn = s_common.retnexc(e)
+                await link.tx(('t2:yield', {'retn': retn}))
+
+            return
+
+        if isinstance(valu, s_share.Share):
+
+            info = s_reflect.getShareInfo(valu)
+            await link.tx(('t2:share', {'iden': valu.iden, 'sharinfo': info}))
+            return valu
+
+        await link.tx(('t2:fini', {'retn': (True, valu)}))
+
+    except s_exc.DmonSpawn as e:
+        context = e.__context__
+        if context:
+            logger.error('Error during DmonSpawn call: %r', context)
+            await link.fini()
+        return
+
+    except Exception as e:
+        logger.exception('error during task: %s', meth.__name__)
+        if not link.isfini:
+            retn = s_common.retnexc(e)
+            await link.tx(('t2:fini', {'retn': retn}))
+
 class Daemon(s_base.Base):
 
     async def __anit__(self, certdir=None):
@@ -169,7 +262,7 @@ class Daemon(s_base.Base):
                 server = await s_link.unixlisten(path, self._onLinkInit)
             except Exception as e:
                 if 'path too long' in str(e):
-                    logger.error(f'unix:// exceeds OS supported UNIX socket path length: {path}')
+                    logger.error('unix:// exceeds OS supported UNIX socket path length: %s', path)
                 raise
 
         else:
@@ -208,7 +301,7 @@ class Daemon(s_base.Base):
             self.shared[name] = item
 
         except Exception:
-            logger.exception(f'onTeleShare() error for: {name}')
+            logger.exception('onTeleShare() error for: %s)', name)
 
     async def getSessInfo(self):
         return [sess.pack() for sess in self.sessions.values()]
@@ -220,10 +313,6 @@ class Daemon(s_base.Base):
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
 
-        for name, share in self.shared.items():
-            if isinstance(share, s_base.Base):
-                await share.fini()
-
         finis = [sess.fini() for sess in self.sessions.values()]
         if finis:
             await asyncio.wait(finis)
@@ -231,6 +320,10 @@ class Daemon(s_base.Base):
         finis = [link.fini() for link in self.connectedlinks]
         if finis:
             await asyncio.wait(finis)
+
+        for _, share in self.shared.items():
+            if isinstance(share, s_base.Base):
+                await share.fini()
 
     async def _onLinkInit(self, link):
 
@@ -240,6 +333,7 @@ class Daemon(s_base.Base):
 
                 mesg = await link.rx()
                 if mesg is None:
+                    await link.fini()
                     return
 
                 coro = self._onLinkMesg(link, mesg)
@@ -256,6 +350,12 @@ class Daemon(s_base.Base):
                 return
 
             await func(link, mesg)
+
+        except asyncio.CancelledError: # pragma: no cover
+            raise
+
+        except ConnectionResetError:
+            logger.debug('Dmon.onLinkMesg Handler: connection reset')
 
         except Exception:
             logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
@@ -305,6 +405,7 @@ class Daemon(s_base.Base):
                 raise s_exc.NoSuchName(name=name)
 
             sess = await Sess.anit()
+
             async def sessfini():
                 self.sessions.pop(sess.iden, None)
 
@@ -319,7 +420,7 @@ class Daemon(s_base.Base):
             if isinstance(item, s_telepath.Aware):
                 item = await s_coro.ornot(item.getTeleApi, link, mesg, path)
                 if isinstance(item, s_base.Base):
-                    link.onfini(item.fini)
+                    link.onfini(item)
 
             reply[1]['sharinfo'] = s_reflect.getShareInfo(item)
 
@@ -377,6 +478,7 @@ class Daemon(s_base.Base):
                 raise s_exc.NoSuchObj(name=name)
 
             s_scope.set('sess', sess)
+            s_scope.set('link', link)
 
             methname, args, kwargs = todo
 
@@ -385,57 +487,15 @@ class Daemon(s_base.Base):
 
             meth = getattr(item, methname, None)
             if meth is None:
-                logger.warning(f'{item!r} has no method: {methname}')
+                logger.warning('%r has no method: %r', item, methname)
                 raise s_exc.NoSuchMeth(name=methname)
 
-            valu = meth(*args, **kwargs)
-
-            if s_coro.iscoro(valu):
-                valu = await valu
-
-            try:
-                if isinstance(valu, types.AsyncGeneratorType):
-                    desc = 'async generator'
-
-                    await link.tx(('t2:genr', {}))
-
-                    async for item in valu:
-                        await link.tx(('t2:yield', {'retn': (True, item)}))
-
-                    await link.tx(('t2:yield', {'retn': None}))
-                    return
-
-                elif isinstance(valu, types.GeneratorType):
-                    desc = 'generator'
-
-                    await link.tx(('t2:genr', {}))
-
-                    for item in valu:
-                        await link.tx(('t2:yield', {'retn': (True, item)}))
-
-                    await link.tx(('t2:yield', {'retn': None}))
-                    return
-
-            except Exception as e:
-                logger.exception(f'error during {desc} task: {methname}')
-                if not link.isfini:
-                    retn = s_common.retnexc(e)
-                    await link.tx(('t2:yield', {'retn': retn}))
-
-                return
-
-            if isinstance(valu, s_share.Share):
-                sess.onfini(valu)
-                info = s_reflect.getShareInfo(valu)
-                await link.tx(('t2:share', {'iden': valu.iden, 'sharinfo': info}))
-                return
-
-            await link.tx(('t2:fini', {'retn': (True, valu)}))
+            sessitem = await t2call(link, meth, args, kwargs)
+            if sessitem is not None:
+                sess.onfini(sessitem)
 
         except Exception as e:
-
             logger.exception('on t2:init: %r' % (mesg,))
-
             if not link.isfini:
                 retn = s_common.retnexc(e)
                 await link.tx(('t2:fini', {'retn': retn}))
@@ -462,7 +522,7 @@ class Daemon(s_base.Base):
 
             meth = getattr(item, methname, None)
             if meth is None:
-                logger.warning(f'{item!r} has no method: {methname}')
+                logger.warning('%r has no method: %s', item, methname)
                 raise s_exc.NoSuchMeth(name=methname)
 
             valu = await self._runTodoMeth(link, meth, args, kwargs)
@@ -491,7 +551,7 @@ class Daemon(s_base.Base):
 
         except Exception as e:
 
-            logger.exception('on task:init: %r' % (mesg,))
+            logger.exception('on task:init: %r', mesg)
 
             retn = s_common.retnexc(e)
 

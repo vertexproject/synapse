@@ -20,6 +20,7 @@ class MediaModelTest(s_t_utils.SynTest):
                     'summary': 'I forget ',
                     'published': 0,
                     'org': 'verteX',
+                    'rss:feed': 'http://vertex.link/rss',
                 }
                 expected_props = {
                     'url': 'https://vertex.link/synapse',
@@ -28,8 +29,8 @@ class MediaModelTest(s_t_utils.SynTest):
                     'title': 'synapse is awesome! ',
                     'summary': 'I forget ',
                     'published': 0,
-                    'author': '?,?',
                     'org': 'vertex',
+                    'rss:feed': 'http://vertex.link/rss',
                 }
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))

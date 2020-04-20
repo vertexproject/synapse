@@ -69,7 +69,7 @@ The following docker-compose.yml file can be used to deploy a Cortex server usin
 
         core00:
 
-            image: vertexproject/synapse-cortex:v0.1.x
+            image: vertexproject/synapse-cortex:v0.2.x
 
             volumes:
                 - /path/to/storage:/vertex/storage
@@ -92,10 +92,6 @@ To prepare for sharing a Cortex via telepath or HTTP, roles and users should be 
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:add
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule prop:set
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule tag:add
-
-Additionally, users may be granted the ``storm.cmd.sudo`` permission to allow them to use the Storm ``sudo`` command to execute queries as a super-user.  Keep in mind that any user with access to the ``sudo`` command can bypass all Storm permissions.::
-
-    python -m synapse.tools.cellauth cell://cortex modify visi --addrule storm.cmd.sudo
 
 To allow remote access for the default root user account, a password can be set using the following command::
 

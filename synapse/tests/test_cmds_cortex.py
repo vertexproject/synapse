@@ -72,6 +72,17 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm --show-nodeedits [test:int=42]')
+            outp.expect('node:edits')
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm --editformat count [test:int=43]')
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags test:str=abcd')
             outp.expect(':tick = 2015/01/01 00:00:00.000')
             self.false(outp.expect('#cool', throw=False))
@@ -131,7 +142,9 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            await cmdr.runCmdLine('storm [ test:str=foo +#bar.baz=(2015,?) ]')
+            await cmdr.runCmdLine('storm --show-prov [ test:str=foo +#bar.baz=(2015,?) ]')
+            self.true(outp.expect('prov:new'))
+            self.true(outp.expect('....\ntest:str'))
             self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
             self.false(outp.expect('#bar ', throw=False))
             outp.expect('complete. 1 nodes')
@@ -147,8 +160,8 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             # Warning test
             guid = s_common.guid()
-            podes = await alist(core.eval(f'[test:guid={guid}]'))
-            podes = await alist(core.eval(f'[test:edge=(("test:guid", {guid}), ("test:str", abcd))]'))
+            await alist(core.eval(f'[test:guid={guid}]'))
+            await alist(core.eval(f'[test:edge=(("test:guid", {guid}), ("test:str", abcd))]'))
 
             q = 'storm test:str=abcd <- test:edge :n1:form -> *'
             outp = self.getTestOutp()
@@ -220,6 +233,14 @@ class CmdCoreTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('storm test:str=foo')
             self.true(1)
 
+            await realcore.nodes('[ inet:ipv4=1.2.3.4 +#visi.woot ]')
+
+            # test that the storm --spawn option
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm --spawn inet:ipv4=1.2.3.4')
+            outp.expect('#visi.woot')
+
     async def test_log(self):
 
         def check_locs_cleanup(cobj):
@@ -236,7 +257,10 @@ class CmdCoreTest(s_t_utils.SynTest):
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --format jsonl')
                 fp = cmdr.locs.get('log:fp')
-                await cmdr.runCmdLine('storm [test:str=hi :tick=2018 +#haha.hehe]')
+                await cmdr.runCmdLine('storm --editformat splices [test:str=hi :tick=2018 +#haha.hehe]')
+
+                await cmdr.runCmdLine('storm --editformat nodeedits [test:str=hi2 :tick=2018 +#haha.hehe]')
+                await cmdr.runCmdLine('storm [test:comp=(42, bar)]')
 
                 # Try calling on a second time - this has no effect on the
                 # state of cmdr, but prints a warning
@@ -258,11 +282,14 @@ class CmdCoreTest(s_t_utils.SynTest):
                     objs = list(genr)
                 self.eq(objs[0][0], 'init')
 
+                nodeedits = [m for m in objs if m[0] == 'node:edits']
+                self.ge(len(nodeedits), 2)
+
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 # Our default format is mpk
                 fp = os.path.join(dirn, 'loggyMcLogFace.mpk')
-                await cmdr.runCmdLine(f'log --on --splices-only --path {fp}')
+                await cmdr.runCmdLine(f'log --on --edits-only --path {fp}')
                 fp = cmdr.locs.get('log:fp')
                 await cmdr.runCmdLine('storm [test:str="I am a message!" :tick=1999 +#oh.my] ')
                 await cmdr.runCmdLine('log --off')
@@ -273,7 +300,6 @@ class CmdCoreTest(s_t_utils.SynTest):
                 with s_common.genfile(fp) as fd:
                     genr = s_encoding.iterdata(fd, close_fd=False, format='mpk')
                     objs = list(genr)
-                self.eq(objs[0][0], 'node:add')
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -306,9 +332,9 @@ class CmdCoreTest(s_t_utils.SynTest):
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-                await cmdr.runCmdLine('log --on --splices-only --nodes-only')
+                await cmdr.runCmdLine('log --on --edits-only --nodes-only')
                 await cmdr.fini()
-                e = 'log: error: argument --nodes-only: not allowed with argument --splices-only'
+                e = 'log: error: argument --nodes-only: not allowed with argument --edits-only'
                 self.true(outp.expect(e))
 
                 # Bad internal state
@@ -317,7 +343,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('log --on --nodes-only')
                 cmdr.locs['log:fmt'] = 'newp'
                 with self.getAsyncLoggerStream('synapse.cmds.cortex',
-                                                     'Unknown encoding format: newp') as stream:
+                                               'Unknown encoding format: newp') as stream:
                     await cmdr.runCmdLine('storm test:str')
                     self.true(await stream.wait(2))
 
@@ -345,21 +371,27 @@ class CmdCoreTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
+            test_opts = {'vars': {'hehe': 'woot.com'}}
             dirn = s_common.gendir(core.dirn, 'junk')
 
             optsfile = os.path.join(dirn, 'woot.json')
+            optsfile_yaml = os.path.join(dirn, 'woot.yaml')
             stormfile = os.path.join(dirn, 'woot.storm')
 
             with s_common.genfile(stormfile) as fd:
                 fd.write(b'[ inet:fqdn=$hehe ]')
 
-            with s_common.genfile(optsfile) as fd:
-                fd.write(b'{"vars": {"hehe": "woot.com"}}')
+            s_common.jssave(test_opts, optsfile)
+            s_common.yamlsave(test_opts, optsfile_yaml)
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
-
             await cmdr.runCmdLine(f'storm --optsfile {optsfile} --file {stormfile}')
+            self.true(outp.expect('inet:fqdn=woot.com'))
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+            await cmdr.runCmdLine(f'storm --optsfile {optsfile_yaml} --file {stormfile}')
             self.true(outp.expect('inet:fqdn=woot.com'))
 
             # Sad path cases

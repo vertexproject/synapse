@@ -36,9 +36,6 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('org'), oguid)
                 # defvals
                 node = await snap.addNode('tel:mob:tac', 2)
-                self.eq(node.get('manu'), '??')
-                self.eq(node.get('model'), '??')
-                self.eq(node.get('internal'), '??')
 
                 # tel:mob:imid
                 node = await snap.addNode('tel:mob:imid', (490154203237518, 310150123456789))
@@ -143,9 +140,9 @@ class TelcoModelTest(s_t_utils.SynTest):
                 node = await snap.addNode('tel:mob:imei', '39015420323751')
                 self.eq(node.ndef[1], 390154203237519)
                 # Invalid checksum
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:mob:imei', 490154203237519))
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:mob:imei', '20'))
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:mob:imei', 'hehe'))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:mob:imei', 490154203237519))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:mob:imei', '20'))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:mob:imei', 'hehe'))
 
     async def test_telco_imsi(self):
         async with self.getTestCore() as core:
@@ -153,8 +150,8 @@ class TelcoModelTest(s_t_utils.SynTest):
                 node = await snap.addNode('tel:mob:imsi', '310150123456789')
                 self.eq(node.ndef[1], 310150123456789)
                 self.eq(node.get('mcc'), '310')
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:mob:imsi', 'hehe'))
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:mob:imsi', 1111111111111111))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:mob:imsi', 'hehe'))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:mob:imsi', 1111111111111111))
 
     async def test_telco_phone(self):
         async with self.getTestCore() as core:
@@ -186,9 +183,77 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('loc'), 'us')
                 node = await snap.addNode('tel:phone', '+1 (703) 555-2424')
                 # Esnap search
-                nodes = await alist(snap.getNodesBy('tel:phone', 17035552424))
+                nodes = await snap.nodes('tel:phone=17035552424')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef[1], '17035552424')
                 # Prefix search
-                nodes = await alist(snap.getNodesBy('tel:phone', '1703555*'))
+                nodes = await snap.nodes('tel:phone=1703555*')
                 self.len(2, nodes)
+
+    async def test_telco_call(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                props = {
+                    'src': '+1 (703) 555-1212',
+                    'dst': '123 456 7890',
+                    'time': '2001',
+                    'duration': 90,
+                    'connected': True,
+                    'text': 'I said some stuff',
+                    'file': 'sha256:' + 64 * 'f',
+                }
+                node = await snap.addNode('tel:call', guid, props)
+                self.eq(node.ndef[1], guid)
+                self.eq(node.get('src'), '17035551212')
+                self.eq(node.get('dst'), '1234567890')
+                self.eq(node.get('time'), 978307200000)
+                self.eq(node.get('duration'), 90)
+                self.eq(node.get('connected'), True)
+                self.eq(node.get('text'), 'I said some stuff')
+                self.eq(node.get('file'), 'sha256:' + 64 * 'f')
+
+    async def test_telco_txtmesg(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                props = {
+                    'from': '+1 (703) 555-1212',
+                    'to': '123 456 7890',
+                    'recipients': ('567 890 1234', '555 444 3333'),
+                    'svctype': 'sms',
+                    'time': '2001',
+                    'text': 'I wrote some stuff',
+                    'file': 'sha256:' + 64 * 'b',
+                }
+                node = await snap.addNode('tel:txtmesg', guid, props)
+                self.eq(node.ndef[1], guid)
+                self.eq(node.get('from'), '17035551212')
+                self.eq(node.get('to'), '1234567890')
+                self.eq(node.get('recipients'), ('5678901234', '5554443333'))
+                self.eq(node.get('svctype'), 'sms')
+                self.eq(node.get('time'), 978307200000)
+                self.eq(node.get('text'), 'I wrote some stuff')
+                self.eq(node.get('file'), 'sha256:' + 64 * 'b')
+
+                # add other valid message types
+                guid = s_common.guid()
+                node = await snap.addNode('tel:txtmesg', guid, {'svctype': 'mms'})
+                self.eq(node.ndef[1], guid)
+
+                guid = s_common.guid()
+                node = await snap.addNode('tel:txtmesg', guid, {'svctype': ' MMS'})
+                self.eq(node.ndef[1], guid)
+
+                guid = s_common.guid()
+                node = await snap.addNode('tel:txtmesg', guid, {'svctype': 'rcs'})
+                self.eq(node.ndef[1], guid)
+
+                # no message type specified
+                guid = s_common.guid()
+                node = await snap.addNode('tel:txtmesg', guid, {'text': 'no message type'})
+                self.eq(node.ndef[1], guid)
+
+                # add bad svc type
+                guid = s_common.guid()
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:txtmesg', guid, {'svctype': 'foo'}))

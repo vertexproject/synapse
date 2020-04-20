@@ -126,11 +126,11 @@ class CmdrCore(s_base.Base):
         self.onfini(self._onCmdrCoreFini)
         self.acm = None  # A placeholder for the context manager
 
-    async def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, *, viewiden=None):
         '''
         Add feed data to the cortex.
         '''
-        return await self.core.addFeedData(name, items, seqn)
+        return await self.core.addFeedData(name, items, viewiden=viewiden)
 
     async def runCmdLine(self, text):
         '''
@@ -200,12 +200,15 @@ class CmdrCore(s_base.Base):
             list: A list of packed nodes.
         '''
         mesgs = await self._runStorm(text, opts, cmdr)
+        for mesg in mesgs:
+            if mesg[0] == 'err': # pragma: no cover
+                raise AssertionError(f'Query { {text} } got err: {mesg!r}')
 
         nodes = [m[1] for m in mesgs if m[0] == 'node']
 
         if num is not None:
-            if len(nodes) != num:
-                raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
+            if len(nodes) != num: # pragma: no cover
+                raise AssertionError(f'Query { {text} } expected {num} nodes, got {len(nodes)}')
 
         return nodes
 
@@ -233,6 +236,7 @@ async def getTempCoreProx(mods=None):
     prox = await acm.__aenter__()
     # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
     object.__setattr__(prox, '_acm', acm)
+
     async def onfini():
         await prox._acm.__aexit__(None, None, None)
     prox.onfini(onfini)

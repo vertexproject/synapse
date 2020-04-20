@@ -1,3 +1,5 @@
+import unittest.mock as mock
+
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.cellauth as s_cellauth
@@ -19,6 +21,20 @@ class CellAuthTest(s_t_utils.SynTest):
             argv = [coreurl, 'modify', '--adduser', 'foo', '--object', 'foo:bar']
             await s_cellauth.main(argv, outp)
             outp.expect('only valid with --addrule')
+
+            def fakevers(self):
+                return (0, 0, 0)
+
+            with mock.patch('synapse.telepath.Proxy._getSynVers', fakevers):
+                argv = [coreurl, 'modify', '--adduser', 'foo']
+                outp = self.getTestOutp()
+                await s_cellauth.main(argv, outp)
+                outp.expect('Cell version 0.0.0 is outside of the cellauth supported range')
+
+                argv = [coreurl, 'list']
+                outp = self.getTestOutp()
+                await s_cellauth.main(argv, outp)
+                outp.expect('Cell version 0.0.0 is outside of the cellauth supported range')
 
     async def test_cellauth_list(self):
 
@@ -43,7 +59,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('icanadd')
             outp.expect('admin: False')
             outp.expect('role: creator')
-            self.false(outp.expect('allow: node:add', throw=False))
+            self.false(outp.expect('allow: node.add', throw=False))
 
             argv = [coreurl, 'list', 'creator']
             outp = self.getTestOutp()
@@ -57,7 +73,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('icanadd')
             outp.expect('admin: False')
             outp.expect('role: creator')
-            outp.expect('allow: node:add', throw=False)
+            outp.expect('allow: node.add', throw=False)
 
     async def test_cellauth_user(self):
 
@@ -68,7 +84,6 @@ class CellAuthTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', 'root']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('type: user')
             outp.expect('admin: True')
             outp.expect('locked: False')
@@ -83,37 +98,31 @@ class CellAuthTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--adduser', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('adding user: foo')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--addrole', 'frole']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('adding role: frole')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--admin', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('admin: True')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--noadmin', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('admin: False')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--delrole', 'frole']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('deleting role: frole')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--deluser', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('deleting user: foo')
 
     async def test_cellauth_lock(self):
@@ -129,14 +138,12 @@ class CellAuthTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--lock', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('locking user: foo')
             outp.expect('locked: True')
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--unlock', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('unlocking user: foo')
             outp.expect('locked: False')
 
@@ -153,7 +160,6 @@ class CellAuthTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--passwd', 'mysecret', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('setting passwd for: foo')
 
     async def test_cellauth_grants(self):
@@ -172,13 +178,11 @@ class CellAuthTest(s_t_utils.SynTest):
 
             argv = [coreurl, 'modify', '--grant', 'bar', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('granting bar to: foo')
             outp.expect('role: bar')
 
             argv = [coreurl, 'modify', '--revoke', 'bar', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect('revoking bar from: foo')
 
     async def test_cellauth_rules(self):
@@ -187,8 +191,10 @@ class CellAuthTest(s_t_utils.SynTest):
 
             coreurl = core.getLocalUrl()
 
-            rule = 'node:add'
-            nrule = '!node:add'
+            rule = 'node.add'
+            rulerepr = repr((True, ['node', 'add']))
+            nrule = '!node.add'
+            nrulerepr = repr((False, ['node', 'add']))
             name = 'foo'
 
             outp = self.getTestOutp()
@@ -198,24 +204,62 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.clear()
             argv = [coreurl, 'modify', '--addrule', rule, name]
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
-            outp.expect(f'adding rule to {name}: (True, [{rule!r}])')
-            user = await prox.getAuthInfo(name)
-            self.eq(user[1].get('rules'),
-                    ((True, ('node:add',)),))
+            outp.expect(f'adding rule to {name}: {rulerepr}')
+            user = await prox.getUserInfo(name)
+            self.eq(user.get('rules'),
+                    ((True, ('node', 'add',)),))
 
             outp.clear()
             argv = [coreurl, 'modify', '--delrule', '0', 'foo']
             await s_cellauth.main(argv, outp)
-            # print(str(outp))
             outp.expect(f'deleting rule index: 0')
-            user = await prox.getAuthInfo(name)
-            self.eq(user[1].get('rules'), ())
+            user = await prox.getUserInfo(name)
+            self.eq(user.get('rules'), ())
 
             outp.clear()
             viewiden = core.view.iden
             argv = [coreurl, 'modify', '--addrule', nrule, name, '--object', viewiden]
             await s_cellauth.main(argv, outp)
 
-            outp.expect(f'adding rule to {name}: (False, [{rule!r}])')
-            outp.expect(f'deny: node:add on {viewiden}')
+            outp.expect(f'adding rule to {name}: {nrulerepr}')
+
+    async def test_cellauth_gates(self):
+
+        async with self.getTestCore() as core:
+
+            lurl = core.getLocalUrl()
+
+            viewiden = core.view.iden
+            layriden = core.view.layers[0].iden
+
+            visi = await core.auth.addUser('visi')
+            ninjas = await core.auth.addRole('ninjas')
+
+            outp = self.getTestOutp()
+            argv = [lurl, 'modify', '--addrule', 'node.add', '--object', layriden, 'visi']
+            await s_cellauth.main(argv, outp)
+
+            outp = self.getTestOutp()
+            argv = [lurl, 'modify', '--admin', '--object', layriden, 'visi']
+            await s_cellauth.main(argv, outp)
+
+            outp = self.getTestOutp()
+            argv = [lurl, 'modify', '--addrule', 'view.read', '--object', viewiden, 'ninjas']
+            await s_cellauth.main(argv, outp)
+
+            outp = self.getTestOutp()
+            argv = [lurl, 'list', '--detail', 'ninjas']
+            await s_cellauth.main(argv, outp)
+
+            outp.expect(f'auth gate: {viewiden}')
+            outp.expect('allow: view.read')
+
+            outp = self.getTestOutp()
+            argv = [lurl, 'list', '--detail', 'visi']
+            await s_cellauth.main(argv, outp)
+
+            outp.expect(f'auth gate: {layriden}')
+            outp.expect('allow: node.add')
+
+            outp.expect(f'auth gate: {viewiden}')
+            outp.expect('allow: view.read')

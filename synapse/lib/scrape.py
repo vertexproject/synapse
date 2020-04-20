@@ -10,7 +10,7 @@ tldlist.reverse()
 tldcat = '|'.join(tldlist)
 fqdn_re = regex.compile(r'((?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))' % tldcat)
 
-scrape_types = [
+scrape_types = [  # type: ignore
     ('hash:md5', r'(?=(?:[^A-Za-z0-9]|^)([A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)([A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)([A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
@@ -18,8 +18,8 @@ scrape_types = [
     ('inet:url', r'[a-zA-Z][a-zA-Z0-9]*://[^ \'\"\t\n\r\f\v]+', {}),
     ('inet:ipv4', r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)', {}),
     ('inet:server', r'((?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):[0-9]{1,5})', {}),
-    ('inet:fqdn', r'(?:[^a-z0-9_.-]|^)((?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|$)' % tldcat, {}),
-    ('inet:email', r'(?:[^a-z0-9_.+-]|^)([a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|$)' % tldcat, {}),
+    ('inet:fqdn', r'(?=(?:[^a-z0-9_.-]|^)((?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
+    ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)([a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
 ]
 
 regexes = {name: regex.compile(rule, regex.IGNORECASE) for (name, rule, opts) in scrape_types}
@@ -36,7 +36,7 @@ def scrape(text, ptype=None):
         (str, str): Yield tuples of type, valu strings.
     '''
 
-    for ruletype, rule, info in scrape_types:
+    for ruletype, _, _ in scrape_types:
         if ptype and ptype != ruletype:
             continue
         regx = regexes.get(ruletype)
