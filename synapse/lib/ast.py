@@ -289,6 +289,7 @@ class SubGraph:
             for _, ndef in node.getNodeRefs():
                 pivonode = await node.snap.getNodeByNdef(ndef)
                 if pivonode is None:
+                    await asyncio.sleep(0)
                     continue
 
                 yield (pivonode, path.fork(pivonode))
@@ -2187,6 +2188,9 @@ class FiltOper(Oper):
             answ = await cond(node, path)
             if (must and answ) or (not must and not answ):
                 yield node, path
+            else:
+                # all filters must sleep
+                await asyncio.sleep(0)
 
 class FiltByArray(FiltOper):
     '''
@@ -2919,6 +2923,7 @@ class N1Walk(Oper):
 
                 async for walknode in self.walkNodeEdges(runt, node, verb=verb):
                     if not isDestForm(walknode.form.name, dest):
+                        await asyncio.sleep(0)
                         continue
                     yield walknode, path.fork(walknode)
 
@@ -2929,6 +2934,7 @@ class N1Walk(Oper):
 
                     async for walknode in self.walkNodeEdges(runt, node, verb=verb):
                         if not isDestForm(walknode.form.name, dest):
+                            await asyncio.sleep(0)
                             continue
                         yield walknode, path.fork(walknode)
 
