@@ -12,6 +12,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.spawn as s_spawn
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_test
 
@@ -267,10 +268,9 @@ class CoreSpawnTest(s_test.SynTest):
                 # Test launching a bunch of spawn queries at the same time
                 donecount = 0
 
-                waiter = core.view.layers[0].layrslab.waiter(1, 'commit')
                 await self.runCoreNodes(core, '[test:int=1]')
-                # wait for commit
-                self.nn(await waiter.wait(timeout=6))
+                # force a commit
+                await s_lmdbslab.Slab.syncLoopOnce()
 
                 async def taskfunc(i):
                     nonlocal donecount
@@ -367,7 +367,7 @@ class CoreSpawnTest(s_test.SynTest):
                 nodes = await core.nodes(q)
                 self.len(1, nodes)
 
-                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+                await s_lmdbslab.Slab.syncLoopOnce()
 
                 q = '$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4'
                 msgs = await prox.storm(q, opts=opts).list()
@@ -381,7 +381,7 @@ class CoreSpawnTest(s_test.SynTest):
                 nodes = await core.nodes(q)
                 self.len(2, nodes)
 
-                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+                await s_lmdbslab.Slab.syncLoopOnce()
 
                 # Put a value into the queue that doesn't exist in the cortex so the lift can nop
                 q = '$q = $lib.queue.get(blah) $q.put("8.8.8.8")'
@@ -564,7 +564,7 @@ class CoreSpawnTest(s_test.SynTest):
             # Adding model extensions must work
             await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
             await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
-            await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+            await s_lmdbslab.Slab.syncLoopOnce()
             msgs = await prox.storm('inet:ipv4=1.2.3.4', opts=opts).list()
             self.len(3, msgs)
             self.eq(msgs[1][1][1]['props'].get('_woot'), 10)

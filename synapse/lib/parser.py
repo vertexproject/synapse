@@ -463,6 +463,7 @@ ruleClassMap = {
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
+    'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,
     'relprop': s_ast.RelProp,
     'relpropcond': s_ast.RelPropCond,

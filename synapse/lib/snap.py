@@ -186,11 +186,7 @@ class Snap(s_base.Base):
             Optional[s_node.Node]: The node object or None.
 
         '''
-        node = await self._joinStorNode(buid, {})
-
-        await asyncio.sleep(0)
-
-        return node
+        return await self._joinStorNode(buid, {})
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -240,6 +236,8 @@ class Snap(s_base.Base):
 
         node = self.livenodes.get(buid)
         if node is not None:
+            # moved here from getNodeByBuid() to cover more
+            await asyncio.sleep(0)
             return node
 
         ndef = None
@@ -303,6 +301,8 @@ class Snap(s_base.Base):
         self.livenodes[buid] = node
         self.buidcache.append(node)
 
+        # moved here from getNodeByBuid() to cover more
+        await asyncio.sleep(0)
         return node
 
     async def _joinStorGenr(self, layr, genr):
@@ -835,7 +835,6 @@ class Snap(s_base.Base):
         return await self.addNode('syn:tag', name)
 
     async def _raiseOnStrict(self, ctor, mesg, **info):
-        await self.warn(f'{ctor.__name__}: {mesg} {info!r}')
         if self.strict:
             raise ctor(mesg=mesg, **info)
         return False
