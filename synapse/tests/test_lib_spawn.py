@@ -363,11 +363,12 @@ class CoreSpawnTest(s_test.SynTest):
                 self.stormIsInPrint('visi', msgs)
 
                 # Make a node and put it into the queue
+                waiter = core.view.layers[0].layrslab.waiter(1, 'commit')
                 q = '$q = $lib.queue.get(visi) [ inet:ipv4=1.2.3.4 ] $q.put( $node.repr() )'
                 nodes = await core.nodes(q)
                 self.len(1, nodes)
 
-                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+                self.nn(await waiter.wait(timeout=2))
 
                 q = '$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4'
                 msgs = await prox.storm(q, opts=opts).list()
@@ -377,11 +378,12 @@ class CoreSpawnTest(s_test.SynTest):
                 self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
 
                 # test iter use case
+                waiter = core.view.layers[0].layrslab.waiter(1, 'commit')
                 q = '$q = $lib.queue.add(blah) [ inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5 ] $q.put( $node.repr() )'
                 nodes = await core.nodes(q)
                 self.len(2, nodes)
 
-                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+                self.nn(await waiter.wait(timeout=2))
 
                 # Put a value into the queue that doesn't exist in the cortex so the lift can nop
                 q = '$q = $lib.queue.get(blah) $q.put("8.8.8.8")'
@@ -563,8 +565,10 @@ class CoreSpawnTest(s_test.SynTest):
             opts = {'spawn': True}
             # Adding model extensions must work
             await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
+            waiter = core.view.layers[0].layrslab.waiter(1, 'commit')
             await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
-            await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+            self.nn(await waiter.wait(timeout=2))
+
             msgs = await prox.storm('inet:ipv4=1.2.3.4', opts=opts).list()
             self.len(3, msgs)
             self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
