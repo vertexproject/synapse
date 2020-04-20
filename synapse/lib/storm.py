@@ -1736,6 +1736,8 @@ class UniqCmd(Cmd):
         async for node, path in genr:
 
             if node.buid in buidset:
+                # all filters must sleep
+                await asyncio.sleep(0)
                 continue
 
             buidset.add(node.buid)
@@ -2027,14 +2029,8 @@ class SpinCmd(Cmd):
         if False:  # make this method an async generator function
             yield None
 
-        i = 0
-
         async for node, path in genr:
-            i += 1
-
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
+            await asyncio.sleep(0)
 
 class CountCmd(Cmd):
     '''
@@ -2052,12 +2048,9 @@ class CountCmd(Cmd):
 
         i = 0
         async for item in genr:
+
             yield item
             i += 1
-
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
 
         await runt.printf(f'Counted {i} nodes.')
 

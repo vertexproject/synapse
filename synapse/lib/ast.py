@@ -288,7 +288,8 @@ class SubGraph:
 
             for _, ndef in node.getNodeRefs():
                 pivonode = await node.snap.getNodeByNdef(ndef)
-                if pivonode is None:
+                if pivonode is None: # pragma: no cover
+                    await asyncio.sleep(0)
                     continue
 
                 yield (pivonode, path.fork(pivonode))
@@ -1142,6 +1143,29 @@ class PivotOper(Oper):
 
     def __repr__(self):
         return self.repr()
+
+class RawPivot(PivotOper):
+    '''
+    -> { <varsfrompath> }
+    '''
+    async def run(self, runt, genr):
+        query = self.kids[0]
+
+        async for node, path in genr:
+
+            varz = {}
+            varz.update(runt.vars)
+            varz.update(path.vars)
+
+            opts = {
+                'vars': varz,
+            }
+
+            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+                async for subn, subp in subr.iterStormQuery(query):
+                    realpath = path.fork(subn)
+                    realpath.vars.update(subp.vars)
+                    yield subn, realpath
 
 class PivotOut(PivotOper):
     '''
@@ -2166,6 +2190,9 @@ class FiltOper(Oper):
             answ = await cond(node, path)
             if (must and answ) or (not must and not answ):
                 yield node, path
+            else:
+                # all filters must sleep
+                await asyncio.sleep(0)
 
 class FiltByArray(FiltOper):
     '''
@@ -2864,22 +2891,42 @@ class N1Walk(Oper):
 
     async def run(self, runt, genr):
 
-        const = None
-        if isinstance(self.kids[0], Const):
-            const = self.kids[0].value()
+        @s_cache.memoize(size=100)
+        def isDestForm(formname, destforms):
+
+            if not isinstance(destforms, tuple):
+                destforms = (destforms, )
+
+            for destform in destforms:
+
+                if not isinstance(destform, str):
+                    mesg = f'walk operation expected a string or list for dest. got: {destform!r}'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+
+                if destform == '*':
+                    return True
+
+                if formname == destform:
+                    return True
+
+            return False
 
         async for node, path in genr:
 
-            verb = const
-            if verb is None:
-                verb = await self.kids[0].compute(path)
-                verb = await s_stormtypes.toprim(verb)
+            verb = await self.kids[0].compute(path)
+            verb = await s_stormtypes.toprim(verb)
+
+            dest = await self.kids[1].compute(path)
+            dest = await s_stormtypes.toprim(dest)
 
             if isinstance(verb, str):
                 if verb == '*':
                     verb = None
 
                 async for walknode in self.walkNodeEdges(runt, node, verb=verb):
+                    if not isDestForm(walknode.form.name, dest):
+                        await asyncio.sleep(0)
+                        continue
                     yield walknode, path.fork(walknode)
 
             elif isinstance(verb, (list, tuple)):
@@ -2888,6 +2935,9 @@ class N1Walk(Oper):
                         verb = None
 
                     async for walknode in self.walkNodeEdges(runt, node, verb=verb):
+                        if not isDestForm(walknode.form.name, dest):
+                            await asyncio.sleep(0)
+                            continue
                         yield walknode, path.fork(walknode)
 
             else:
