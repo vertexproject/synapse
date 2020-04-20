@@ -835,7 +835,6 @@ class Snap(s_base.Base):
         return await self.addNode('syn:tag', name)
 
     async def _raiseOnStrict(self, ctor, mesg, **info):
-        await self.warn(f'{ctor.__name__}: {mesg} {info!r}')
         if self.strict:
             raise ctor(mesg=mesg, **info)
         return False
