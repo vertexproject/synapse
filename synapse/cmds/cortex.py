@@ -356,7 +356,11 @@ class StormCmd(s_cli.Cmd):
         self.printf(mesg[1].get('mesg'))
 
     def _onWarn(self, mesg, opts):
-        warn = mesg[1].get('mesg')
+        info = mesg[1]
+        warn = info.pop('mesg', '')
+        xtra = ', '.join([f'{k}={v}' for k, v in info.items()])
+        if xtra:
+            warn = ' '.join([warn, xtra])
         self.printf(f'WARNING: {warn}', color=WARNING_COLOR)
 
     def _onErr(self, mesg, opts):
