@@ -228,7 +228,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.isin(('#6faef2', 'test:str ->'), clines)
             self.isin(('#6faef2', '           ^'), clines)
 
-            # Test that trying to print an \r doesn't assert (prompt_toolkit bug)
+            # Trying to print an \r doesn't assert (prompt_toolkit bug)
             # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/915
             await core.addNode('test:str', 'foo', props={'hehe': 'windows\r\nwindows\r\n'})
             await cmdr.runCmdLine('storm test:str=foo')
@@ -237,7 +237,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             await realcore.nodes('[ inet:ipv4=1.2.3.4 +#visi.woot ]')
             await s_lmdbslab.Slab.syncLoopOnce()
 
-            # test that the storm --spawn option
+            # The storm --spawn option works
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --spawn inet:ipv4=1.2.3.4')
