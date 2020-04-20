@@ -288,7 +288,7 @@ class SubGraph:
 
             for _, ndef in node.getNodeRefs():
                 pivonode = await node.snap.getNodeByNdef(ndef)
-                if pivonode is None:
+                if pivonode is None: # pragma: no cover
                     await asyncio.sleep(0)
                     continue
 
@@ -1161,9 +1161,11 @@ class RawPivot(PivotOper):
                 'vars': varz,
             }
 
-            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
-                async for subn, subp in runt.iterStormQuery(query):
-                    yield subn, subp
+            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+                async for subn, subp in subr.iterStormQuery(query):
+                    realpath = path.fork(subn)
+                    realpath.vars.update(subp.vars)
+                    yield subn, realpath
 
 class PivotOut(PivotOper):
     '''
@@ -2892,13 +2894,13 @@ class N1Walk(Oper):
         @s_cache.memoize(size=100)
         def isDestForm(formname, destforms):
 
-            if not isinstance(destforms, (list, tuple)):
+            if not isinstance(destforms, tuple):
                 destforms = (destforms, )
 
             for destform in destforms:
 
                 if not isinstance(destform, str):
-                    mesg = 'walk operation expected a string or list for dest. got: {destform!r}'
+                    mesg = f'walk operation expected a string or list for dest. got: {destform!r}'
                     raise s_exc.StormRuntimeError(mesg=mesg)
 
                 if destform == '*':

@@ -98,6 +98,8 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('media:news -(*)> mat:spec'))
             self.len(0, await core.nodes('inet:ipv4 <(*)- (mat:spec)'))
             self.len(0, await core.nodes('media:news -(*)> (mat:spec)'))
+            self.len(0, await core.nodes('media:news -((refs,foos))> mat:spec'))
+            self.len(0, await core.nodes('inet:ipv4 <((refs,foos))- mat:spec'))
 
             with self.raises(s_exc.StormRuntimeError):
                 self.len(0, await core.nodes('inet:ipv4 <(*)- $(0)'))
