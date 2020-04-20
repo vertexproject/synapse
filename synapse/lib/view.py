@@ -86,6 +86,9 @@ class View(s_nexus.Pusher):  # type: ignore
         # isolate some initialization to easily override for SpawnView.
         await self._initViewLayers()
 
+    def isafork(self):
+        return self.parent is not None
+
     def pack(self):
         d = {'iden': self.iden}
         d.update(self.info.pack())

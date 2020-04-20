@@ -56,7 +56,7 @@ class Snap(s_base.Base):
         self.view = view
         self.user = user
 
-        self.buidprefetch = self.core.conf.get('buid:prefetch')
+        self.buidprefetch = self.view.isafork()
 
         self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]

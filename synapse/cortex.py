@@ -749,11 +749,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Logging log level to emit storm logs at.',
             'type': 'integer'
         },
-        'buid:prefetch': {
-            'default': True,
-            'type': 'boolean',
-            'description': 'EXPERIMENTAL: Controls BUID pre-fetch behavior in the snap.',
-        },
     }
 
     cellapi = CoreApi
