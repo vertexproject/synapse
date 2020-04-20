@@ -5,6 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.encoding as s_encoding
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
 
@@ -234,6 +235,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.true(1)
 
             await realcore.nodes('[ inet:ipv4=1.2.3.4 +#visi.woot ]')
+            await s_lmdbslab.Slab.syncLoopOnce()
 
             # test that the storm --spawn option
             outp = self.getTestOutp()
