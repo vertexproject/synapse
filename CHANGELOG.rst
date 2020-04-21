@@ -108,7 +108,8 @@ Why make the change
 What you need to do
     Update any code that consumes/indexes the various splice events to handle the new ``node:edits`` format.
     Additionally, callers may specify ``editformat: "splices"`` within their storm runtime options to enable
-    backward-compatible splice generation.
+    backward-compatible splice generation. External APIs for retrieving splices have been marked as deprecated adn will
+    be removed in v0.3.0.
 
 Removed Remote Layers
 ~~~~~~~~~~~~~~~~~~~~~
