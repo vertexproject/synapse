@@ -827,6 +827,17 @@ class StormTest(s_t_utils.SynTest):
         helptext = '\n'.join(pars.mesgs)
         self.isin('--ques [ques]', helptext)
 
+        # Check formatting for store_true / store_false optargs
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs=2, type=int)
+        pars.add_argument('--beep', action='store_true', help='beep beep')
+        pars.add_argument('--boop', action='store_true', help='boop boop')
+        pars.help()
+        helptext = '\n'.join(pars.mesgs)
+        self.isin('--ques <ques>               : No help available', helptext)
+        self.isin('--beep                      : beep beep', helptext)
+        self.isin('--boop                      : boop boop', helptext)
+
         # test some nargs type intersections
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='?', type=int)
