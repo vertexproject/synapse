@@ -831,7 +831,7 @@ class StormTest(s_t_utils.SynTest):
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs=2, type=int)
         pars.add_argument('--beep', action='store_true', help='beep beep')
-        pars.add_argument('--boop', action='store_true', help='boop boop')
+        pars.add_argument('--boop', action='store_false', help='boop boop')
         pars.help()
         helptext = '\n'.join(pars.mesgs)
         self.isin('--ques <ques>               : No help available', helptext)
