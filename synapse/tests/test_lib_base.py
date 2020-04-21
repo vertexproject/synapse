@@ -477,11 +477,3 @@ class BaseTest(s_t_utils.SynTest):
             self.true(await s_coro.event_wait(event, 3.0))
 
         await self.asyncraises(asyncio.CancelledError, task)
-
-    async def test_ctx(self):
-
-        async with Hehe.ctx(1138) as hehe:
-            self.eq(1138, hehe.foo)
-            self.eq(1148, hehe.bar)
-            self.false(hehe.isfini)
-        self.true(hehe.isfini)
