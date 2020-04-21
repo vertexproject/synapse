@@ -261,6 +261,8 @@ Additional Changes
 - The CellApi ``@adminapi`` decorator now must be called as a function, ``@adminapi()``.
 - The CellApi's used for managing users and roles have been updated to be iden oriented, as opposed to being name
   oriented. User and Role management APIs have also been exposed via Storm.
+- The ``CoreApi.splices()`` method now takes a nodeedit offset tuple instead of an integer. It now yields a offset,
+  splice tuple together instead of just splices.
 
 v0.1.X Changelog
 ================
