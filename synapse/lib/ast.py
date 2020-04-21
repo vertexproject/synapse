@@ -322,8 +322,8 @@ class SubGraph:
 
         async with contextlib.AsyncExitStack() as stack:
 
-            done = await stack.enter_async_context(s_spooled.Set.ctx())
-            intodo = await stack.enter_async_context(s_spooled.Set.ctx())
+            done = await stack.enter_async_context(await s_spooled.Set.anit())
+            intodo = await stack.enter_async_context(await s_spooled.Set.anit())
 
             async def todogenr():
 
