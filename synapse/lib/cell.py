@@ -380,6 +380,14 @@ class CellApi(s_base.Base):
         return await self.cell.getUserDef(iden)
 
     @adminapi()
+    async def getAuthGate(self, iden):
+        await self.cell.getAuthGate(iden)
+
+    @adminapi()
+    async def getAuthGates(self):
+        await self.cell.getAuthGates()
+
+    @adminapi()
     async def getRoleDef(self, iden):
         return await self.cell.getRoleDef(iden)
 
@@ -673,6 +681,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = self.auth.user(iden)
         if user is not None:
             return user.pack(packroles=True)
+
+    async def getAuthGate(self, iden):
+        gate = self.auth.getAuthGate(iden)
+        if gate is None:
+            return None
+        return gate.pack()
+
+    async def getAuthGates(self):
+        return [g.pack() for g in self.auth.getAuthGates()]
 
     async def getRoleDef(self, iden):
         role = self.auth.role(iden)

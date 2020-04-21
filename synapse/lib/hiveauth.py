@@ -290,6 +290,9 @@ class Auth(s_nexus.Pusher):
     def getAuthGate(self, iden):
         return self.authgates.get(iden)
 
+    def getAuthGates(self):
+        return self.authgates.values()
+
     def reqAuthGate(self, iden):
         gate = self.authgates.get(iden)
         if gate is None:
@@ -468,6 +471,40 @@ class AuthGate(s_base.Base):
             role.clearAuthCache()
 
         await self.node.pop()
+
+    def pack(self):
+
+        users = []
+        for user in self.gateusers.values():
+
+            gateinfo = user.authgates.get(self.iden)
+            if gateinfo is None:
+                continue
+
+            users.append({
+                'iden': user.iden,
+                'rules': gateinfo.get('rules', ()),
+                'admin': gateinfo.get('admin', False),
+            })
+
+        roles = []
+        for role in self.gateroles.values():
+
+            gateinfo = role.authgates.get(self.iden)
+            if gateinfo is None:
+                continue
+
+            roles.append({
+                'iden': role.iden,
+                'rules': gateinfo.get('rules', ()),
+                'admin': gateinfo.get('admin', False),
+            })
+
+        return {
+            'iden': self.iden,
+            'users': users,
+            'roles': roles,
+        }
 
 class HiveRuler(s_base.Base):
     '''

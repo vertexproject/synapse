@@ -978,6 +978,12 @@ class Runtime:
     async def getStormQuery(self, text):
         return self.snap.core.getStormQuery(text)
 
+    async def coreDynCall(self, todo, perm=None):
+        gatekeys = ()
+        if perm is not None:
+            gatekeys = ((self.user.iden, perm, None),)
+        return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)
+
     async def getTeleProxy(self, url, **opts):
 
         flat = tuple(sorted(opts.items()))
