@@ -33,7 +33,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             path = os.path.join(dirn, 'test.lmdb')
 
-            async with s_lmdbslab.Slab.ctx(path) as slab:
+            async with await s_lmdbslab.Slab.anit(path) as slab:
 
                 testdb = slab.initdb('test')
                 dupsdb = slab.initdb('dups', dupsort=True)
