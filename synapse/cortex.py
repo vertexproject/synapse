@@ -505,6 +505,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices at the given offset.
         '''
+        s_common.deprecated('splices')
         layr = self.cell.getLayer(layriden)
         count = 0
         async for mesg in layr.splices(offs=offs, size=size):
@@ -518,6 +519,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices backwards from the given offset.
         '''
+        s_common.deprecated('splicesBack')
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
             count += 1
@@ -531,6 +533,7 @@ class CoreApi(s_cell.CellApi):
 
         Will only return the user's own splices unless they are an admin.
         '''
+        s_common.deprecated('spliceHistory')
         async for splice in self.cell.spliceHistory(self.user):
             yield splice
 

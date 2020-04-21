@@ -1426,7 +1426,11 @@ class Parser:
 
     def _print_optarg(self, names, argdef):
         dest = self._get_dest_str(argdef)
-        base = f'  {names[0]} {dest}'.ljust(30)
+        oact = argdef.get('action', 'store')
+        if oact in ('store_true', 'store_false'):
+            base = f'  {names[0]}'.ljust(30)
+        else:
+            base = f'  {names[0]} {dest}'.ljust(30)
         helpstr = argdef.get('help', 'No help available')
         self._printf(f'{base}: {helpstr}')
 
