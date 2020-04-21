@@ -246,6 +246,39 @@ What you need to do
     scrape     Argument convention refactored.          ``scrape --props foo``          ``scrape :foo``
     ========== ======================================== =============================== ======================================
 
+Centralized Cortex Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+What changed
+    Standing up a Cortex was previously configured with a pair of files, ``cell.yaml`` and ``boot.yaml``, in addition to
+    command line arguments provided to to the server, ``synapse.servers.cortex``. The Cortex (and other Cell) startup
+    configuration data has been centralized. The ``boot.yaml`` file has been removed, along with the ``auth:admin``
+    value. ``auth:passwd`` has been added to the ``cell.yaml`` file that can be used to set the password for the
+    ``root`` user. In addition, the command line server can be used to pass various configuration elements, and may
+    also be used to pass configuration elements in via environment variables. Configuration structures are also schema
+    validated, to prevent erroneous values from being set by users.
+
+Why make the change
+    This change reduced the overhead in managing and running a Cortex (and other Cells) by centralizing configuration to
+    a single location, as well as supporting environment variables for all boot-time configuration options.
+
+What you need to do
+    The ``auth:admin`` value in any ``boot.yaml``, after splitting off the username, would need to be moved to a
+    ``cell.yaml`` file.
+
+    ::
+
+        $cat boot.yaml
+        ---
+        auth:admin: root:superSekri7!
+        ...
+
+        # Updated into the new cell.yaml file
+        $cat cell.yaml
+        ---
+        auth:passwd: superSekri7!
+        ...
+
 Additional Changes
 ------------------
 
