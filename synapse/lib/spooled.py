@@ -1,6 +1,8 @@
 import shutil
 import tempfile
 
+import synapse.common as s_common
+
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
@@ -14,11 +16,16 @@ class Spooled(s_base.Base):
     together. Under memory pressure, these objects have a better shot of getting paged out.
     '''
 
-    async def __anit__(self, size=10000):
-
+    async def __anit__(self, dirn=None, size=10000):
+        '''
+        Args:
+            dirn(Optional[str]): base directory used for backing slab.  If None, system temporary directory is used
+            size(int):  maximum number of items stored in RAM before spooled to disk
+        '''
         await s_base.Base.__anit__(self)
 
         self.size = size
+        self.dirn = dirn
         self.slab = None
         self.slabpath = None
         self.fallback = False
@@ -35,7 +42,14 @@ class Spooled(s_base.Base):
 
     async def _initFallBack(self):
         self.fallback = True
-        self.slabpath = tempfile.mkdtemp()
+
+        dirn = self.dirn
+        if dirn is not None:
+            # Consolidate the spooled slabs underneath 'tmp' to make it easy for backup tool to avoid copying
+            dirn = s_common.gendir(self.dirn, 'tmp')
+
+        self.slabpath = tempfile.mkdtemp(dir=dirn, prefix='spooled_', suffix='.lmdb')
+
         self.slab = await s_lmdbslab.Slab.anit(self.slabpath,
                                                map_size=s_const.mebibyte * 32)
 
@@ -44,8 +58,8 @@ class Set(Spooled):
     A minimal set-like implementation that will spool to a slab on large growth.
     '''
 
-    async def __anit__(self, size=10000):
-        await Spooled.__anit__(self, size=size)
+    async def __anit__(self, dirn=None, size=10000):
+        await Spooled.__anit__(self, dirn=dirn, size=size)
         self.realset = set()
         self.len = 0
 
@@ -55,8 +69,12 @@ class Set(Spooled):
         return valu in self.realset
 
     def __len__(self):
+        '''
+        Returns how many items are in the set, regardless of whether in RAM or backed to slab
+        '''
         if self.fallback:
             return self.len
+
         return len(self.realset)
 
     async def add(self, valu):
