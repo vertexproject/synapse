@@ -400,12 +400,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def merge(self, useriden=None):
         '''
-        Merge this view into its parent.  All changes made to this view will be applied to the parent.
-
-        When complete, delete this view.
-
-        Note:
-            The view's own write layer will *not* be deleted.
+        Merge this view into it's parent. All changes made to this view will be applied to the parent.
         '''
         fromlayr = self.layers[0]
 
