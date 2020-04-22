@@ -26,6 +26,40 @@ DAYSECS = 24 * HOURSECS
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_stormlib_yield_query(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                function foo(x) {
+                    return(${
+                        [ inet:ipv4=$x ]
+                    })
+                }
+
+                [it:dev:str=1.2.3.4]
+
+                $genr = $foo($node.repr())
+
+                -> { yield $genr }
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('''
+                function foo(x) {
+                    return(${
+                        [ inet:ipv4=$x ]
+                    })
+                }
+
+                [it:dev:str=5.5.5.5]
+
+                $genr = $foo($node.repr())
+
+                $genr.exec()
+            ''')
+
+            self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
+
     async def test_storm_node_tags(self):
         async with self.getTestCore() as core:
             await core.nodes('[ test:comp=(20, haha) +#foo +#bar test:comp=(30, hoho) ]')

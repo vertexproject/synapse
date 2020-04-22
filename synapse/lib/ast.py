@@ -935,6 +935,10 @@ class YieldValu(Oper):
                 yield node
             return
 
+        if isinstance(valu, s_stormtypes.Query):
+            async for node in valu.nodes():
+                yield node
+
 class LiftTag(LiftOper):
 
     async def lift(self, runt):
@@ -2236,12 +2240,12 @@ class EmbedQuery(RunValue):
         return True
 
     async def runtval(self, runt):
-        opts = {'vars': dict(runt.vars)}
-        return s_stormtypes.Query(self.text, opts, runt)
+        varz = dict(runt.vars)
+        return s_stormtypes.Query(self.text, varz, runt)
 
     async def compute(self, path):
-        opts = {'vars': dict(path.vars)}
-        return s_stormtypes.Query(self.text, opts, path.runt, path=path)
+        varz = dict(path.vars)
+        return s_stormtypes.Query(self.text, varz, path.runt, path=path)
 
 class Value(RunValue):
 
@@ -3259,7 +3263,7 @@ class Return(Oper):
 
         # no items in pipeline... execute
         if self.kids:
-            valu = await self.kids[0].compute(runt)
+            valu = await self.kids[0].runtval(runt)
 
         raise StormReturn(valu)
 
