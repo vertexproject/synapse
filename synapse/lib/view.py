@@ -107,7 +107,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdgeVerbs(self):
 
-        async with await s_spooled.Set.anit() as vset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as vset:
 
             for layr in self.layers:
 
@@ -121,7 +121,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdges(self, verb=None):
 
-        async with await s_spooled.Set.anit() as eset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as eset:
 
             for layr in self.layers:
 
