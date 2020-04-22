@@ -381,11 +381,11 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def getAuthGate(self, iden):
-        await self.cell.getAuthGate(iden)
+        return await self.cell.getAuthGate(iden)
 
     @adminapi()
     async def getAuthGates(self):
-        await self.cell.getAuthGates()
+        return await self.cell.getAuthGates()
 
     @adminapi()
     async def getRoleDef(self, iden):
