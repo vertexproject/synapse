@@ -51,18 +51,6 @@ class StormTypesTest(s_test.SynTest):
             gates = await core.callStorm('return($lib.auth.gates.list())')
             self.isin(viewiden, [g['iden'] for g in gates])
 
-            async with core.getLocalProxy() as proxy:
-
-                gate = await proxy.getAuthGate(viewiden)
-                self.eq(gate['users'][0], {
-                    'iden': core.auth.rootuser.iden,
-                    'admin': True,
-                    'rules': (),
-                })
-
-                gates = await proxy.getAuthGates()
-                self.isin(viewiden, [g['iden'] for g in gates])
-
     async def test_storm_node_tags(self):
         async with self.getTestCore() as core:
             await core.nodes('[ test:comp=(20, haha) +#foo +#bar test:comp=(30, hoho) ]')
