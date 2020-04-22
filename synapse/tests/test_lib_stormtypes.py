@@ -57,8 +57,15 @@ class StormTypesTest(s_test.SynTest):
 
                 $genr.exec()
             ''')
-
             self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
+
+            msgs = await core.stormlist('''
+                $embed = ${[inet:ipv4=1.2.3.4]}
+                for $xnode in $embed {
+                    $lib.print($xnode.repr())
+                }
+            ''')
+            self.stormIsInPrint('1.2.3.4', msgs)
 
     async def test_storm_node_tags(self):
         async with self.getTestCore() as core:
