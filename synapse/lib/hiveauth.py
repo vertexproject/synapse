@@ -291,7 +291,7 @@ class Auth(s_nexus.Pusher):
         return self.authgates.get(iden)
 
     def getAuthGates(self):
-        return self.authgates.values()
+        return list(self.authgates.values())
 
     def reqAuthGate(self, iden):
         gate = self.authgates.get(iden)
