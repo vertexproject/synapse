@@ -1861,8 +1861,6 @@ class View(Prim):
     async def _methViewMerge(self):
         '''
         Merge a forked view back into its parent.
-
-        When complete, the view is deleted.
         '''
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
@@ -2146,6 +2144,40 @@ class LibRoles(Lib):
         self.runt.user.confirm(('auth', 'role', 'del'))
         await self.runt.snap.core.delRole(iden)
 
+class LibGates(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'get': self._methGatesGet,
+            'list': self._methGatesList,
+        })
+
+    async def _methGatesList(self):
+        todo = s_common.todo('getAuthGates')
+        gates = await self.runt.coreDynCall(todo)
+        return [Gate(self.runt, g) for g in gates]
+
+    async def _methGatesGet(self, iden):
+        iden = await toprim(iden)
+        todo = s_common.todo('getAuthGate', iden)
+        gate = await self.runt.coreDynCall(todo)
+        if gate is None:
+            return None
+        return Gate(self.runt, gate)
+
+class Gate(Prim):
+
+    def __init__(self, runt, valu, path=None):
+
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+        self.locls.update({
+            'iden': valu.get('iden'),
+            'users': valu.get('users'),
+            'roles': valu.get('roles'),
+        })
+
 class User(Prim):
 
     def __init__(self, runt, valu, path=None):
@@ -2182,9 +2214,9 @@ class User(Prim):
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
 
-    async def _methUserAllowed(self, permname):
+    async def _methUserAllowed(self, permname, gateiden=None):
         perm = tuple(permname.split('.'))
-        return await self.runt.snap.core.isUserAllowed(self.valu, perm)
+        return await self.runt.snap.core.isUserAllowed(self.valu, perm, gateiden=gateiden)
 
     async def _methUserGrant(self, iden):
         self.runt.user.confirm(('auth', 'user', 'grant'))
