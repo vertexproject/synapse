@@ -119,17 +119,38 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('syn:tag=aaa.barbarella.ddd'))
 
         # Move a tag with tagprops
-        async with self.getTestCore() as core:
+        async def seed_tagprops(core):
             await core.addTagProp('test', ('int', {}), {})
-            nodes = await core.nodes('[test:int=1 +#hehe.haha +#hehe.beep:test=10]')
-            self.eq(nodes[0].tagprops.get('hehe.beep'), {'test': 10})
+            await core.addTagProp('note', ('str', {}), {})
+            q = '[test:int=1 +#hehe.haha +#hehe:test=1138 +#hehe.beep:test=8080 +#hehe.beep:note="oh my"]'
+            nodes = await core.nodes(q)
+            self.eq(nodes[0].tagprops.get(('hehe', 'test')), 1138)
+            self.eq(nodes[0].tagprops.get(('hehe.beep', 'test')), 8080)
+            self.eq(nodes[0].tagprops.get(('hehe.beep', 'note')), 'oh my')
 
+        async with self.getTestCore() as core:
+            await seed_tagprops(core)
             await core.nodes('movetag hehe woah')
 
             self.len(0, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0].tagprops.get('woah.beep'), {'test': 10})
+            self.eq(nodes[0].tagprops, {('woah', 'test'): 1138,
+                                        ('woah.beep', 'test'): 8080,
+                                        ('woah.beep', 'note'): 'oh my',
+                                        })
+
+        async with self.getTestCore() as core:
+            await seed_tagprops(core)
+            await core.nodes('movetag hehe.beep woah.beep')
+
+            self.len(1, await core.nodes('#hehe'))
+            nodes = await core.nodes('#woah')
+            self.len(1, nodes)
+            self.eq(nodes[0].tagprops, {('hehe', 'test'): 1138,
+                                        ('woah.beep', 'test'): 8080,
+                                        ('woah.beep', 'note'): 'oh my',
+                                        })
 
         # Sad path
         async with self.getTestCore() as core:

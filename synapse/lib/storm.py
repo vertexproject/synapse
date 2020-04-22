@@ -2014,8 +2014,16 @@ class MoveTagCmd(Cmd):
                 if newt is None:
                     continue
 
+                # Capture tagprop information before moving tags
+                tgfo = {tagp: node.getTagProp(name, tagp) for tagp in node.getTagProps(name)}
+
+                # Move the tags
                 await node.delTag(name)
                 await node.addTag(newt, valu=valu)
+
+                # re-apply any captured tagprop data
+                for tagp, tagp_valu in tgfo.items():
+                    await node.setTagProp(newt, tagp, tagp_valu)
 
         await snap.printf(f'moved tags on {count} nodes.')
 
