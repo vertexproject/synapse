@@ -118,6 +118,19 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('syn:tag=aaa.barbarella.ccc'))
             self.len(1, await core.nodes('syn:tag=aaa.barbarella.ddd'))
 
+        # Move a tag with tagprops
+        async with self.getTestCore() as core:
+            await core.addTagProp('test', ('int', {}), {})
+            nodes = await core.nodes('[test:int=1 +#hehe.haha +#hehe.beep:test=10]')
+            self.eq(nodes[0].tagprops.get('hehe.beep'), {'test': 10})
+
+            await core.nodes('movetag hehe woah')
+
+            self.len(0, await core.nodes('#hehe'))
+            nodes = await core.nodes('#woah')
+            self.len(1, nodes)
+            self.eq(nodes[0].tagprops.get('woah.beep'), {'test': 10})
+
         # Sad path
         async with self.getTestCore() as core:
             # Test moving a tag to itself
