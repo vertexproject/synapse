@@ -1846,8 +1846,6 @@ class View(Prim):
     async def _methViewMerge(self):
         '''
         Merge a forked view back into its parent.
-
-        When complete, the view is deleted.
         '''
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
