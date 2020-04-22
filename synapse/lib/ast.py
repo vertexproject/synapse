@@ -322,8 +322,8 @@ class SubGraph:
 
         async with contextlib.AsyncExitStack() as stack:
 
-            done = await stack.enter_async_context(await s_spooled.Set.anit())
-            intodo = await stack.enter_async_context(await s_spooled.Set.anit())
+            done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
+            intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
 
             async def todogenr():
 
@@ -2698,8 +2698,8 @@ class EditNodeAdd(Edit):
         vals = await self.kids[2].compute(path)
 
         # for now, we have a conflict with a Node instance and prims
-        #if not isinstance(vals, s_stormtypes.Node):
-            #vals = await s_stormtypes.toprim(vals)
+        # if not isinstance(vals, s_stormtypes.Node):
+        #     vals = await s_stormtypes.toprim(vals)
 
         for valu in self.form.type.getTypeVals(vals):
             try:
@@ -2961,10 +2961,11 @@ class EditEdgeAdd(Edit):
 
     async def run(self, runt, genr):
 
-        #SubQuery -> Query
+        # SubQuery -> Query
         query = self.kids[1].kids[0]
 
         hits = set()
+
         def allowed(x):
             if x in hits:
                 return
@@ -2976,7 +2977,7 @@ class EditEdgeAdd(Edit):
 
             iden = node.iden()
             verb = await self.kids[0].compute(path)
-            #TODO this will need a toprim once Str is in play
+            # TODO this will need a toprim once Str is in play
 
             allowed(verb)
 
@@ -2989,7 +2990,7 @@ class EditEdgeAdd(Edit):
             }
 
             with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
-                #TODO perhaps chunk the edge edits?
+                # TODO perhaps chunk the edge edits?
                 async for subn, subp in runt.iterStormQuery(query):
                     if self.n2:
                         await subn.addEdge(verb, iden)
@@ -3008,6 +3009,7 @@ class EditEdgeDel(Edit):
         query = self.kids[1].kids[0]
 
         hits = set()
+
         def allowed(x):
             if x in hits:
                 return
@@ -3019,7 +3021,7 @@ class EditEdgeDel(Edit):
 
             iden = node.iden()
             verb = await self.kids[0].compute(path)
-            #TODO this will need a toprim once Str is in play
+            # TODO this will need a toprim once Str is in play
 
             allowed(verb)
 
@@ -3032,7 +3034,7 @@ class EditEdgeDel(Edit):
             }
 
             with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
-                #TODO perhaps chunk the edge edits?
+                # TODO perhaps chunk the edge edits?
                 async for subn, subp in runt.iterStormQuery(query):
                     if self.n2:
                         await subn.delEdge(verb, iden)

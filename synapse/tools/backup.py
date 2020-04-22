@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def backup(srcdir, dstdir, compact=True):
     '''
     Args:
-        compact (bool):  whether to optimize the destination
+        compact (bool):  whether to optimize storage while copying to the destination
     '''
     tick = s_common.now()
 
@@ -29,6 +29,11 @@ def backup(srcdir, dstdir, compact=True):
         relpath = os.path.relpath(root, start=srcdir)
 
         for name in list(dnames):
+
+            # Explicitly skip directory names of 'tmp' to avoid backing up temporary files
+            if name == 'tmp':
+                dnames.remove(name)
+                continue
 
             srcpath = s_common.genpath(root, name)
             dstpath = s_common.genpath(dstdir, relpath, name)
