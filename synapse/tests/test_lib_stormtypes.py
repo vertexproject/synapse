@@ -26,6 +26,31 @@ DAYSECS = 24 * HOURSECS
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_stormtypes_gates(self):
+
+        async with self.getTestCore() as core:
+            viewiden = await core.callStorm('return($lib.view.get().iden)')
+            gate = await core.callStorm('return($lib.auth.gates.get($lib.view.get().iden))')
+
+            self.eq(gate.get('iden'), viewiden)
+            # default view should only have root user as admin and all as read
+            self.eq(gate['users'][0], {
+                'iden': core.auth.rootuser.iden,
+                'admin': True,
+                'rules': (),
+            })
+
+            self.eq(gate['roles'][0], {
+                'iden': core.auth.allrole.iden,
+                'admin': False,
+                'rules': [
+                    (True, ('view', 'read'))
+                ],
+            })
+
+            gates = await core.callStorm('return($lib.auth.gates.list())')
+            self.isin(viewiden, [g['iden'] for g in gates])
+
     async def test_storm_node_tags(self):
         async with self.getTestCore() as core:
             await core.nodes('[ test:comp=(20, haha) +#foo +#bar test:comp=(30, hoho) ]')
