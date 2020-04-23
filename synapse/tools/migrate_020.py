@@ -724,16 +724,14 @@ class Migrator(s_base.Base):
             self.migrsplices.model.update(self.model.getModelDict())
             self.onfini(self.migrsplices.fini)
 
-        deflayriden = await self._getDefLayrIden()
+        if 'queues' in self.migrops:
+            await self._migrQueues()
 
         # full layer data migration
         for iden, migrlyrinfo in lyrs.items():
             logger.info(f'Starting migration for layer {iden}')
 
             async with self._destGetWlyr(self.dest, iden, migrlyrinfo) as wlyr:
-
-                if iden == deflayriden and 'queues' in self.migrops:
-                    await self._migrQueues(wlyr)
 
                 if 'nodes' in self.migrops:
                     await self._migrNodes(iden, wlyr)
@@ -747,20 +745,7 @@ class Migrator(s_base.Base):
         await self._dumpOffsets()
         await self._dumpVers()
 
-    async def _getDefLayrIden(self):
-        '''
-        Returns the iden of the write layer of the default view
-        '''
-        defaultview = await self.hive.get(('cellinfo', 'defaultview'))
-        node = await self.hive.open(('cortex', 'views', defaultview))
-        info = await node.dict()
-
-        for iden in info.get('layers'):
-            return iden
-
-        raise Exception('layer from default view not found')  # pragma: no cover
-
-    async def _migrQueues(self, wlyr):
+    async def _migrQueues(self):
         path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
         async with await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False) as qslab:
             multiqueue = await qslab.getMultiQueue('cortex:queue')
