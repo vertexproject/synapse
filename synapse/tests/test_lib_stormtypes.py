@@ -304,37 +304,19 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('test:str=theevalthatmendo')
             self.len(1, nodes)
 
-            # make sure our scope goes down
-            q = '''
-            $bar = ${ [test:str=$foo] }
-
-            $foo = "this little node went to market"
-            $bar.exec()
-            $foo = "this little node stayed home"
-            $bar.exec()
-            $foo = "this little node had roast beef"
-            $bar.exec()
-            '''
-            opts = {'editformat': 'splices'}
-            msgs = await core.stormlist(q, opts=opts)
-            nodes = [m for m in msgs if m[0] == 'node:add']
-            self.len(3, nodes)
-            self.eq(nodes[0][1]['ndef'], ('test:str', 'this little node went to market'))
-            self.eq(nodes[1][1]['ndef'], ('test:str', 'this little node stayed home'))
-            self.eq(nodes[2][1]['ndef'], ('test:str', 'this little node had roast beef'))
-
-            # but that it doesn't come back up
+            # exec vars do not populate upwards
             q = '''
             $foo = "that is one neato burrito"
-            $baz = ${ $bar=$lib.str.concat(wompwomp, $lib.guid()) }
+            $baz = ${ $bar=$lib.str.concat(wompwomp, $lib.guid()) $lib.print("in exec") }
             $baz.exec()
-            $lib.print($bar)
+            $lib.print("post exec {bar}", bar=$bar)
             [ test:str=$foo ]
             '''
 
             msgs = await core.stormlist(q)
+            self.stormIsInPrint("in exec", msgs)
             prints = [m for m in msgs if m[0] == 'print']
-            self.len(0, prints)
+            self.len(1, prints)
 
             # make sure returns work
             q = '''

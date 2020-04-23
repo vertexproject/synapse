@@ -1277,22 +1277,14 @@ class Query(StormType):
             yield Node(node)
 
     async def _methQueryExec(self):
-        query = await self.runt.getStormQuery(self.text)
-        subrunt = await self.runt.getScopeRuntime(query)
-
         logger.info(f'Executing storm query via exec() {{{self.text}}} as [{self.runt.user.name}]')
-        cancelled = False
         try:
             async for item in self._getRuntGenr():
                 await asyncio.sleep(0)
         except s_ast.StormReturn as e:
             return e.item
         except asyncio.CancelledError:  # pragma: no cover
-            cancelled = True
             raise
-        finally:
-            if not cancelled:
-                await self.runt.propBackGlobals(subrunt)
 
 class NodeProps(Prim):
 
