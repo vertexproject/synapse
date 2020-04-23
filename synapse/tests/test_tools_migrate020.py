@@ -3,8 +3,11 @@ import copy
 import glob
 import json
 import shutil
+import asyncio
+import binascii
 import itertools
 import contextlib
+import collections
 
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
@@ -13,14 +16,16 @@ import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.migrate_020 as s_migr
 
-REGR_VER = '0.1.53-migr'
+REGR_VER = '0.1.56-migr'
 REGR_VER_OLD = '0.1.51-migr'
 
 # Nodes that are expected to be unmigratable
@@ -116,6 +121,8 @@ class MigrationTest(s_t_utils.SynTest):
         with self.getRegrDir('assets', REGR_VER) as assetdir:
             podesj = getAssetJson(assetdir, 'podes.json')
             ndj = getAssetJson(assetdir, 'nodedata.json')
+            splicej = getAssetJson(assetdir, 'splices.json')
+            splicepodesj = getAssetJson(assetdir, 'splicepodes.json')
 
         # strip out data we don't expect to migrate
         podesj = [p for p in podesj if p[0] not in NOMIGR_NDEF]
@@ -123,6 +130,9 @@ class MigrationTest(s_t_utils.SynTest):
 
         tdata['podes'] = tupleize(podesj)
         tdata['nodedata'] = tupleize(ndj)
+
+        tdata['splices'] = splicej
+        tdata['splicepodes'] = splicepodesj
 
         # initialize migration tool
         with self.getRegrDir('cortexes', REGR_VER) as src:
@@ -187,7 +197,7 @@ class MigrationTest(s_t_utils.SynTest):
 
         self.eq(nodedata_cnt, totnodedata_migr)
 
-    async def _checkCore(self, core, tdata):
+    async def _checkCore(self, core, tdata, nodesonly=False):
         '''
         Verify data in the migrated to 0.2.x cortex.
         '''
@@ -208,34 +218,78 @@ class MigrationTest(s_t_utils.SynTest):
         except AssertionError:
             # print a more useful diff on error
             notincore = list(itertools.filterfalse(lambda x: x in podes, tpodes))
-            self.eq([], notincore)
             notintest = list(itertools.filterfalse(lambda x: x in tpodes, podes))
+            self.eq([], notincore)
             self.eq([], notintest)
             raise
 
-        nodedata = []
-        for n in nodes:
-            nodedata.append([n.ndef, [nd async for nd in n.iterData()]])
-        nodedata = tupleize(nodedata)
-        try:
-            self.eq(nodedata, tnodedata)
-        except AssertionError:
-            # print a more useful diff on error
-            notincore = list(itertools.filterfalse(lambda x: x in nodedata, tnodedata))
-            self.eq([], notincore)
-            notintest = list(itertools.filterfalse(lambda x: x in tnodedata, nodedata))
-            self.eq([], notintest)
-            raise
+        if not nodesonly:
+            nodedata = []
+            for n in nodes:
+                nodedata.append([n.ndef, [nd async for nd in n.iterData()]])
+            nodedata = tupleize(nodedata)
+            try:
+                self.eq(nodedata, tnodedata)
+            except AssertionError:
+                # print a more useful diff on error
+                notincore = list(itertools.filterfalse(lambda x: x in nodedata, tnodedata))
+                notintest = list(itertools.filterfalse(lambda x: x in tnodedata, nodedata))
+                self.eq([], notincore)
+                self.eq([], notintest)
+                raise
 
         # manually check node subset
         self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
         self.len(2, await core.nodes('inet:dns:a:ipv4=1.2.3.4'))
 
-        # check that triggers are active
-        await core.auth.getUserByName('root')
-        self.len(2, await core.nodes('syn:trigger'))
-        tnodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
-        self.nn(tnodes[0].tags.get('trgtag'))
+        if not nodesonly:
+            # check that triggers are active
+            await core.auth.getUserByName('root')
+            self.len(5, await core.nodes('syn:trigger'))
+            self.len(5, await core.callStorm('return ($lib.trigger.list())'))
+            tnodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
+            self.nn(tnodes[0].tags.get('trgtag'))
+
+            # make sure trigger conditions don't exist with a None value
+            conds = ['form', 'prop', 'tag']
+            trigs = await core.view.listTriggers()
+            self.true(all([trig[1].pack().get(x, 'empty') is not None for trig in trigs for x in conds]))
+
+    async def _checkSplices(self, core0, tdata):
+        '''
+        Validate splices by feeding into a fresh cortex and evaluating as if it was the original migrated cortex
+        '''
+        with self.getTestDir() as dirn:
+            conf = {
+                'layer:lmdb:map_async': True,
+                'provenance:en': False,
+                'nexslog:en': False,
+                'layers:logedits': False,
+            }
+            async with self.getTestCore(dirn=dirn) as core1:
+                # give the new core the same hive for datamodel, triggers, etc.
+                tree0 = await core0.hive.saveHiveTree()
+                await core1.loadHiveTree(copy.deepcopy(tree0))
+
+            async with self.getTestCore(dirn=dirn, conf=conf) as core1:
+                # primary layer
+                lyr00 = core0.getLayer()
+                lyr01 = core1.getLayer()
+
+                nes0 = [nodeedits for offs, nodeedits in lyr00.nodeeditlog.iter(0)]
+                sodes0 = [await lyr01.storNodeEdits(nes[0], None) for nes in nes0]
+                self.lt(len(nes0), tdata['splices'][lyr00.iden]['nextoffs'])
+
+                # secondary layer
+                lyr10 = [lyr for lyr in core0.listLayers() if lyr.iden != lyr00.iden][0]
+                lyr11def = await core1.addLayer()
+                lyr11 = core1.getLayer(lyr11def['iden'])
+
+                nes1 = [nodeedits for offs, nodeedits in lyr10.nodeeditlog.iter(0)]
+                sodes1 = [await lyr11.storNodeEdits(nes[0], None) for nes in nes1]
+                self.lt(len(nes1), tdata['splices'][lyr10.iden]['nextoffs'])
+
+                await self._checkCore(core1, tdata, nodesonly=True)
 
     async def _checkAuth(self, core):
         defview = await core.hive.get(('cellinfo', 'defaultview'))
@@ -248,7 +302,7 @@ class MigrationTest(s_t_utils.SynTest):
         self.sorteq(list(core.auth.usersbyname.keys()), ['root', 'fred', 'bobo'])
         self.sorteq(list(core.auth.rolesbyname.keys()), ['all', 'cowboys', 'ninjas', 'friends'])
 
-        self.len(12, core.auth.authgates)  # 2 views, 2 layers, 2 triggers, 1 cortex, 3 queues, 2 crons
+        self.len(15, core.auth.authgates)  # 2 views, 2 layers, 5 triggers, 1 cortex, 3 queues, 2 crons
         self.len(2, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'view'])
         self.len(2, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'layer'])
         self.len(1, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'cortex'])
@@ -271,8 +325,9 @@ class MigrationTest(s_t_utils.SynTest):
         fred = core.auth.usersbyname['fred']
         self.false(fred.info.get('admin'))
         self.sorteq(['all', 'ninjas'], [core.auth.rolesbyiden[riden].name for riden in fred.info.get('roles')])
-        fredrules = [(True, ('node', 'tag', 'add', 'trgtag')), (True, ('trigger', 'add')), (True, ('trigger', 'get')),
-                     (True, ('queue', 'get')), (True, ('queue', 'add')), (True, ('cron',))]
+        fredrules = [(True, ('node', 'tag', 'add', 'trgtag')), (True, ('node', 'tag', 'add', 'trgtagdel')),
+                     (True, ('trigger', 'add')), (True, ('trigger', 'get')), (True, ('queue', 'get')),
+                     (True, ('queue', 'add')), (True, ('cron',))]
         self.sorteq(fredrules, fred.info.get('rules', []))
 
         # role attributes
@@ -302,12 +357,12 @@ class MigrationTest(s_t_utils.SynTest):
             self.gt(await proxy.count('inet:ipv4'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('[inet:ipv4=10.10.10.10]'))
 
-            self.eq(2, await proxy.count('syn:trigger'))
+            self.eq(5, await proxy.count('syn:trigger'))
             await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'trigger.del {tagtrg}'))
             await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'trigger.del {nodetrg}'))
             trigadd = 'trigger.add node:add --form file:bytes --query {[+#bobotag]}'
             await self.asyncraises(s_exc.AuthDeny, proxy.count(f'{trigadd}'))
-            self.eq(2, await proxy.count('syn:trigger'))
+            self.eq(5, await proxy.count('syn:trigger'))
 
             self.gt(await proxy.count('inet:ipv4 [+#bobotag]'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('#trgtag [-#trgtag]'))
@@ -342,14 +397,14 @@ class MigrationTest(s_t_utils.SynTest):
             self.gt(await proxy.count('inet:ipv4'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('[inet:ipv4=10.10.10.10]'))
 
-            self.eq(2, await proxy.count('syn:trigger'))
+            self.eq(5, await proxy.count('syn:trigger'))
 
             await self.asyncraises(s_exc.AuthDeny, proxy.count(f'trigger.del {tagtrg}'))
             await proxy.count(f'trigger.del {nodetrg}')
-            self.eq(1, await proxy.count('syn:trigger'))
+            self.eq(4, await proxy.count('syn:trigger'))
 
-            await proxy.eval('trigger.add node:add --form file:bytes --query {[+#trgtag]}').list()
-            self.eq(2, await proxy.count('syn:trigger'))
+            await proxy.count('trigger.add node:add --form file:bytes --query {[+#trgtag]}')
+            self.eq(5, await proxy.count('syn:trigger'))
 
             self.gt(await proxy.count('inet:ipv4 [+#trgtag]'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('#trgtag [-#bobotag]'))
@@ -387,9 +442,23 @@ class MigrationTest(s_t_utils.SynTest):
             self.gt(await proxy.count('inet:ipv4'), 0)
             self.gt(await proxy.count('[inet:ipv4=10.10.10.11]'), 0)
 
-            self.eq(2, await proxy.count('syn:trigger'))
-            await proxy.eval(f'$lib.trigger.del({tagtrg})').list()
-            self.eq(1, await proxy.count('syn:trigger'))
+            self.eq(5, await proxy.count('syn:trigger'))
+            await proxy.count(f'$lib.trigger.del({tagtrg})')
+            self.eq(4, await proxy.count('syn:trigger'))
+
+            self.gt(await proxy.count('#faz.baz'), 0)
+            self.eq(0, await proxy.count('#trgtagdel'))
+            await proxy.count('#faz.baz -#faz.baz.* | [-#faz.baz]')
+            self.gt(await proxy.count('#trgtagdel'), 0)
+
+            await proxy.count('inet:ipv4=7.7.7.7 | delnode')
+            self.eq(0, await proxy.count('inet:ipv4=7.7.7.7'))
+            await proxy.count(f'file:bytes | limit 1 | delnode')
+            self.eq(1, await proxy.count('inet:ipv4=7.7.7.7'))
+
+            self.eq(0, await proxy.count('#proptrgtag'))
+            await proxy.count(f'file:bytes | limit 1 | [:name=foofaz]')
+            self.eq(1, await proxy.count('file:bytes:name=foofaz +#proptrgtag'))
 
             self.gt(await proxy.count('inet:ipv4', opts={'view': secview}), 0)
             self.gt(await proxy.count('[inet:ipv4=10.9.10.1]', opts={'view': secview}), 0)
@@ -446,6 +515,7 @@ class MigrationTest(s_t_utils.SynTest):
                 self.gt(core.nexsroot._nexuslog.index(), 1)
 
                 # check core data
+                await self._checkSplices(core, tdata)
                 await self._checkCore(core, tdata)
                 await self._checkAuth(core)
 
@@ -485,6 +555,7 @@ class MigrationTest(s_t_utils.SynTest):
                 self.eq(core.nexsroot._nexuslog.index(), 0)
 
                 # check core data
+                await self._checkSplices(core, tdata)
                 await self._checkCore(core, tdata)
                 await self._checkAuth(core)
 
@@ -510,6 +581,7 @@ class MigrationTest(s_t_utils.SynTest):
                 self.eq(core.nexsroot._nexuslog.index(), 0)
 
                 # check core data
+                await self._checkSplices(core, tdata)
                 await self._checkCore(core, tdata)
                 await self._checkAuth(core)
 
@@ -557,6 +629,7 @@ class MigrationTest(s_t_utils.SynTest):
                 # startup 0.2.0 core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     # check core data
+                    await self._checkSplices(core, tdata)
                     await self._checkCore(core, tdata)
                     await self._checkAuth(core)
 
@@ -593,7 +666,7 @@ class MigrationTest(s_t_utils.SynTest):
             # check the saved version file
             versyaml = s_common.yamlload(dest0, 'migration', 'migrvers.yaml')
             self.eq([(0, 1, 3), (0, 1, 3)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
-            self.eq((0, 1, 53), versyaml.get('src:cortex'))
+            self.eq((0, 1, 56), versyaml.get('src:cortex'))
             self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr0.migrops})
 
             await migr0.fini()
@@ -614,7 +687,7 @@ class MigrationTest(s_t_utils.SynTest):
                 self.true(os.path.exists(lyrslab))
 
                 # add a boot.yaml file
-                s_common.yamlsave({'auth:admin': 'root:root'}, migr0.src, 'boot.yaml')
+                s_common.yamlsave({'auth:admin': 'root:root'}, migr.src, 'boot.yaml')
 
                 await migr.migrate()
 
@@ -638,7 +711,7 @@ class MigrationTest(s_t_utils.SynTest):
                 # check the saved version file
                 versyaml = s_common.yamlload(dest, 'migration', 'migrvers.yaml')
                 self.eq([(0, 1, 3), (0, 1, 3)], [tuple(v) for v in versyaml.get('src:model', {}).values()])
-                self.eq((0, 1, 53), versyaml.get('src:cortex'))
+                self.eq((0, 1, 56), versyaml.get('src:cortex'))
                 self.eq({s_version.version}, {tuple(versyaml.get('dest:cortex').get(op)) for op in migr.migrops})
 
                 # check the boot.yaml
@@ -651,6 +724,7 @@ class MigrationTest(s_t_utils.SynTest):
                 # startup 0.2.0 core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     # check core data
+                    await self._checkSplices(core, tdata)
                     await self._checkCore(core, tdata)
                     await self._checkAuth(core)
 
@@ -830,10 +904,14 @@ class MigrationTest(s_t_utils.SynTest):
                         elif uname == 'fred':
                             fred = uiden
 
+                    await usersd.set(fred, None)  # no username
+
                     await migr.hive.rename(('auth', 'users', root), ('auth', 'users', newroot))
                     await migr.hive.rename(('auth', 'users', fred), ('auth', 'users', newfred))
 
-                    migr.migrops = [op for op in migr.migrops if op != 'dirn']
+                    # by not migrating the actual crons and triggers, the auth migration
+                    # will create new auth gates but won't have a matching user
+                    migr.migrops = [op for op in s_migr.ALL_MIGROPS if op not in ('dirn', 'cron')]
 
                     await migr.migrate()
 
@@ -945,6 +1023,101 @@ class MigrationTest(s_t_utils.SynTest):
                 async with await s_migr.Migrator.anit(conf) as migr:
                     await self.asyncraises(Exception, migr.migrate())
 
+    async def test_migr_splices(self):
+        conf = {
+            'src': None,
+            'dest': None,
+            'migrops': [op for op in s_migr.ALL_MIGROPS if op not in ('nodes', 'splices')],
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            await migr.migrate()
+
+            path = os.path.join(migr.dest, migr.migrdir, 'splices')
+            conf = {
+                'queue_size': 15,  # make artificially small to simulate read waiting
+            }
+            migr.migrsplices = await s_migr.MigrSplices.anit(path, conf=conf)
+            migr.onfini(migr.migrsplices)
+
+            migr.migrsplices.model.update(migr.model.getModelDict())
+            await migr._migrSplices(locallyrs[0])
+            await migr._migrSplices(locallyrs[1])
+
+            await migr.fini()
+
+            # startup 0.2.0 core
+            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                # we should be able to iterate over the nodeedits, store them,
+                # and bring the cortex to the same state as a node migration
+                # this will generate a duplicate set of nodeedits in the layer
+                self.len(0, await core.nodes('.created -meta:source:name=test'))
+                self.eq(0, await core.count('.created'))
+
+                lyr0 = core.layers[locallyrs[0]]
+                nes0 = [nodeedits for offs, nodeedits in lyr0.nodeeditlog.iter(0)]
+                sodes0 = [await lyr0.storNodeEdits(nes[0], None) for nes in nes0]
+
+                lyr1 = core.layers[locallyrs[1]]
+                nes1 = [nodeedits for offs, nodeedits in lyr1.nodeeditlog.iter(0)]
+                sodes1 = [await lyr1.storNodeEdits(nes[0], None) for nes in nes1]
+
+                await self._checkCore(core, tdata)
+
+    async def test_migr_splice_errs(self):
+        conf = {
+            'src': None,
+            'dest': None,
+            'migrops': [op for op in s_migr.ALL_MIGROPS if op != 'splices'],
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            await migr.migrate()
+
+            path = os.path.join(migr.dest, migr.migrdir, 'splices')
+            conf = {
+                'queue_size': 15,
+                'err_lim': 100,
+            }
+            migr.migrsplices = await s_migr.MigrSplices.anit(path, conf=conf)
+            migr.onfini(migr.migrsplices)
+
+            # load a partial datamodel which will generate errors
+            # also add a few forms / props to old model chk
+            migr.migrsplices.model = {
+                'forms': {'inet:fqdn': {'stortype': 1, 'props': {}}},
+                'tagprops': {},
+            }
+            migr.migrsplices.form_chk['inet:ipv4'] = 0
+            migr.migrsplices.prop_chk['inet:fqdn:host'] = 0
+
+            await migr._migrSplices(locallyrs[0])
+            await migr._migrSplices(locallyrs[1])
+
+            # remove the genr and run src iteration
+            migr.migrsplices.src_genrs[locallyrs[1]] = None
+            migr.migrsplices._queues[locallyrs[1]].isfini = False
+            task = migr.migrsplices.schedCoro(migr.migrsplices._srcPullLyrSplices(locallyrs[1]))
+            await asyncio.wait_for(task, timeout=10)
+            res = task.result()
+            self.false(res.get('status'))
+
+            await migr.fini()
+
+            # startup 0.2.0 core and check that partial nodeedits were stored
+            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                lyr0 = core.getLayer()  # primary layer
+
+                # the only nodeedits should be for file:byte node adds
+                exp = len([x for x in tdata['podes'] if x[0][0] == 'inet:fqdn'])
+                offs = lyr0.getNodeEditOffset()
+                self.eq(exp, offs)
+                nes = [nodeedits for offs, nodeedits in lyr0.nodeeditlog.iter(0)]
+                self.len(exp, nes)
+
+                # even though there were splice migration errors, nodes and nodedata are still intact
+                await self._checkCore(core, tdata)
+
     async def test_migr_cell(self):
         conf = {
             'src': None,
@@ -996,6 +1169,113 @@ class MigrationTest(s_t_utils.SynTest):
                     self.sorteq(srcglob, [x for x in glob.glob(src + '/**', recursive=True) if 'lock' not in x])
                     self.true(os.path.exists(nexpath))
 
+    async def test_migr_partiallayer(self):
+        podemap = {}
+        with self.getRegrDir('assets', REGR_VER) as assetdir:
+            podesj = getAssetJson(assetdir, 'podes.json')
+
+            # map by iden and strip out data that wont migrate
+            for pode in podesj:
+                if pode[0] in NOMIGR_NDEF:
+                    continue
+                podemap[pode[1]['iden']] = {k: v for k, v in pode[1].get('props', {}).items()}
+
+            podemap = tupleize(podemap)
+
+        with self.getRegrDir('cortexes', REGR_VER) as src:
+            with self.getTestDir() as dest:
+                os.listdir(os.path.join(src, 'layers'))
+
+                conf = {
+                    'src': src,
+                    'dest': dest,
+                    'mappartial': True,
+                }
+
+                # strip out primary prop rows
+                for lyriden in os.listdir(os.path.join(src, 'layers')):
+
+                    lyrdirn = os.path.join(src, 'layers', lyriden, 'layer.lmdb')
+
+                    async with await s_lmdbslab.Slab.anit(lyrdirn) as slab:
+                        bybuid = slab.initdb('bybuid')
+                        for lkey, lval in slab.scanByFull(db=bybuid):
+                            prop = lkey[32:].decode('utf8')
+                            if prop[0] == '*':
+                                slab.delete(lkey, db=bybuid)
+
+                async with await s_migr.Migrator.anit(conf) as migr:
+                    await migr.migrate()
+
+                # startup 0.2.0 core and check layer values
+                async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                    layer = core.getLayer()
+
+                    newpodemap = collections.defaultdict(dict)
+                    for lkey, lval in layer.layrslab.scanByFull(db='bybuid'):
+                        buid = lkey[:32]
+                        iden = binascii.hexlify(buid).decode('utf8')
+
+                        flag = lkey[32]
+                        self.ne(0, flag)
+
+                        # prop sets only
+                        if flag == 1:
+                            name = lkey[33:].decode()
+                            valu, stortype = s_msgpack.un(lval)
+
+                            newpodemap[iden][name] = valu
+
+                    self.eq(podemap, newpodemap)
+
+    async def test_migr_partiallayer_errors(self):
+        with self.getRegrDir('cortexes', REGR_VER) as src:
+            with self.getTestDir() as dest:
+                os.listdir(os.path.join(src, 'layers'))
+
+                conf = {
+                    'src': src,
+                    'dest': dest,
+                    'mappartial': False,
+                }
+
+                # strip out primary prop rows
+                for lyriden in os.listdir(os.path.join(src, 'layers')):
+
+                    lyrdirn = os.path.join(src, 'layers', lyriden, 'layer.lmdb')
+
+                    async with await s_lmdbslab.Slab.anit(lyrdirn) as slab:
+                        bybuid = slab.initdb('bybuid')
+                        for lkey, lval in slab.scanByFull(db=bybuid):
+                            prop = lkey[32:].decode('utf8')
+                            if prop[0] == '*':
+                                slab.delete(lkey, db=bybuid)
+
+                async with await s_migr.Migrator.anit(conf) as migr:
+                    # every node will generate an error, but is survivable
+                    await migr.migrate()
+
+                # startup 0.2.0 core and check layer values
+                async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                    layer = core.getLayer()
+
+                    newpodemap = collections.defaultdict(dict)
+                    for lkey, lval in layer.layrslab.scanByFull(db='bybuid'):
+                        buid = lkey[:32]
+                        iden = binascii.hexlify(buid).decode('utf8')
+
+                        flag = lkey[32]
+                        self.ne(0, flag)
+
+                        # prop sets only
+                        if flag == 1:
+                            name = lkey[33:].decode()
+                            valu, stortype = s_msgpack.un(lval)
+
+                            newpodemap[iden][name] = valu
+
+                    self.len(0, newpodemap.keys())
+
     async def test_migr_migrTriggers(self):
         conf = {
             'src': None,
@@ -1031,61 +1311,109 @@ class MigrationTest(s_t_utils.SynTest):
             ndef = ('foo:bar', '1.2.3.3')
             buid = s_common.buid(ndef)
             node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Unable to parse form name', err['mesg'])
 
             ndef = ('*inet:fqdn', 123)
             buid = s_common.buid(ndef)
             node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Buid/norming exception', err['mesg'])
 
             ndef = ('*inet:fqdn', 'foo.com.')
             buid = s_common.buid(('inet:fqdn', 'foo.com.'))
             node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Normed form val does not match inbound', err['mesg'])
 
             ndef = ('*inet:fqdn', 'foo.com.')
             buid = s_common.buid(('inet:fqdn', 'foo.com'))
             node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Calculated buid does not match inbound', err['mesg'])
 
             ndef = ('*inet:fqdn', 'foo.com')
             buid = s_common.buid(('inet:fqdn', 'foo.com'))
             node = await migr._srcPackNode(buid, ndef, {'foo:bar': 'ham'}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Unable to determine stortype for sprop foo:bar', err['mesg'])
 
             ndef = ('*inet:fqdn', 'foo.com')
             buid = s_common.buid(('inet:fqdn', 'foo.com'))
             node = await migr._srcPackNode(buid, ndef, {'inet:ipv4': 'ham'}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Unable to determine stortype for sprop inet:ipv4', err['mesg'])
 
             ndef = ('*inet:fqdn', 'foo.com')
             buid = s_common.buid(('inet:fqdn', 'foo.com'))
             node = await migr._srcPackNode(buid, ndef, {}, {}, {'newp': {'ahh': 37}})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
             self.none(ne)
             self.isin('Unable to determine stortype for tagprop ahh', err['mesg'])
 
-            # continue on bad nodeedits
-            ndef = ('*inet:fqdn', 'foo.com')
-            buid = s_common.buid(('inet:fqdn', 'foo.com'))
-            node = await migr._srcPackNode(buid, ndef, {}, {}, {})
-            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
-            self.none(err)
-            ne = (ne[0], 'foo:bar', ne[2])
-
             lyrinfo = await migr._migrHiveLayerInfo(locallyrs[0])
-            wlyr = await migr._destGetWlyr(migr.dest, locallyrs[0], lyrinfo)
-            res = await migr._destAddNodes(wlyr, ne, 'nexus')
-            self.isin('Unable to store nodeedits', res.get('mesg', ''))
+            async with migr._destGetWlyr(migr.dest, locallyrs[0], lyrinfo) as wlyr:
+
+                # continue on bad nodeedits
+                ndef = ('*inet:fqdn', 'foo.com')
+                buid = s_common.buid(('inet:fqdn', 'foo.com'))
+                node = await migr._srcPackNode(buid, ndef, {}, {}, {})
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
+                self.none(err)
+                ne = ('badbuid', 'foo:bar', ne[2])
+
+                res = await migr._destAddNodes(wlyr, [ne], 'nexus')
+                self.isin('Unable to store nodeedits', res.get('mesg', ''))
+
+                # test array types
+                mdef = {
+                    'types': (
+                        ('test:array', ('array', {'type': 'inet:ipv4'}), {}),
+                    ),
+                    'forms': (
+                        ('test:array', {}, (
+                        )),
+                    ),
+                }
+                migr.model.addDataModels([('asdf', mdef)])
+
+                ndef = ('*test:array', (16909060, 84281096))
+                buid = s_common.buid(('test:array', (16909060, 84281096)))
+                node = await migr._srcPackNode(buid, ndef, {}, {}, {})
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
+                res = await migr._destAddNodes(wlyr, [ne], 'editor')
+                self.none(res)
+
+                ndef = ('*ou:org', '4386f6146f3eb3be784d3e0d44cede5e')
+                buid = s_common.buid(('ou:org', '4386f6146f3eb3be784d3e0d44cede5e'))
+                node = await migr._srcPackNode(buid, ndef, {'names': ('foo', 'bar')}, {}, {})
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, fname=None, chknodes=True)
+                res = await migr._destAddNodes(wlyr, [ne], 'editor')
+                self.none(res)
+
+                # test inet:server:proto=host
+                # original valu was host://fazbaz.com
+                ndef = ('*inet:server', 'host://1144e562c90bf6d2bbb3a80b1982b84f')
+                buid = s_common.buid(('inet:server', 'host://1144e562c90bf6d2bbb3a80b1982b84f'))
+                props = {'proto': 'host', 'host': '1144e562c90bf6d2bbb3a80b1982b84f', '.created': 1586437148551}
+                node = await migr._srcPackNode(buid, ndef, props, {}, {})
+
+                # no safety check
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=False)
+                self.none(err)
+                sodes = await wlyr.storNodeEdits([ne], meta=None)  # returns sode
+                self.len(1, sodes)
+                self.eq(buid, sodes[0][0])
+
+                # safety check on to exercise re-norming bypass
+                err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+                self.none(err)
+                sodes = await wlyr.storNodeEdits([ne], meta=None)  # returns sode
+                self.len(1, sodes)
+                self.eq(buid, sodes[0][0])

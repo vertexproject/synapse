@@ -37,11 +37,15 @@ def intify(x):
 
         try:
             return int(x, 0)
+        except ValueError as e:
+            mesg = f'Failed to make an integer from "{x}".'
+            raise s_exc.BadCast(mesg=mesg) from e
 
-        except ValueError:
-            return len(x) > 0
-
-    return int(x)
+    try:
+        return int(x)
+    except Exception as e:
+        mesg = f'Failed to make an integer from "{x}".'
+        raise s_exc.BadCast(mesg=mesg) from e
 
 def intOrNoneify(x):
     if x is None:
@@ -78,10 +82,13 @@ class StormType:
 
         ctor = self.ctors.get(name)
         if ctor is not None:
-            return ctor(path=self.path)
+            item = ctor(path=self.path)
+            self.locls[name] = item
+            return item
 
         valu = await self._derefGet(name)
         if valu is not s_common.novalu:
+            self.locls[name] = valu
             return valu
 
         raise s_exc.NoSuchName(name=name, styp=self.__class__.__name__)
@@ -152,6 +159,7 @@ class LibDmon(Lib):
         self.locls.update({
             'add': self._libDmonAdd,
             'del': self._libDmonDel,
+            'log': self._libDmonLog,
             'list': self._libDmonList,
         })
 
@@ -169,6 +177,10 @@ class LibDmon(Lib):
 
     async def _libDmonList(self):
         return await self.runt.snap.core.getStormDmons()
+
+    async def _libDmonLog(self, iden):
+        self.runt.user.confirm(('dmon', 'log'))
+        return await self.runt.snap.core.getStormDmonLog(iden)
 
     async def _libDmonAdd(self, quer, name='noname'):
         '''
@@ -263,6 +275,8 @@ class LibBase(Lib):
             'true': True,
             'false': False,
             'text': self._text,
+            'cast': self._cast,
+            'warn': self._warn,
             'print': self._print,
             'sorted': self._sorted,
             'import': self._libBaseImport,
@@ -289,6 +303,21 @@ class LibBase(Lib):
         modlib.locls['__module__'] = mdef
         return modlib
 
+    async def _cast(self, name, valu):
+
+        name = await toprim(name)
+        valu = await toprim(valu)
+
+        typeitem = self.runt.snap.core.model.type(name)
+        if typeitem is None:
+            mesg = f'No type found for name {name}.'
+            raise s_exc.NoSuchType(mesg=mesg)
+
+        #TODO an eventual mapping between model types and storm prims
+
+        norm, info = typeitem.norm(valu)
+        return fromprim(norm, basetypes=False)
+
     async def _sorted(self, valu):
         for item in sorted(valu):
             yield item
@@ -309,7 +338,14 @@ class LibBase(Lib):
         return s_common.guid()
 
     async def _len(self, item):
-        return len(item)
+        try:
+            return len(item)
+        except TypeError:
+            name = f'{item.__class__.__module__}.{item.__class__.__name__}'
+            raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name) from None
+        except Exception as e:  # pragma: no cover
+            name = f'{item.__class__.__module__}.{item.__class__.__name__}'
+            raise s_exc.StormRuntimeError(mesg=f'Unknown error during len(): {repr(e)}', name=name)
 
     async def _min(self, *args):
         # allow passing in a list of ints
@@ -336,12 +372,21 @@ class LibBase(Lib):
         ints = [intify(x) for x in vals]
         return max(*ints)
 
-    async def _print(self, mesg, **kwargs):
+    @staticmethod
+    def _get_mesg(mesg, **kwargs):
         if not isinstance(mesg, str):
             mesg = repr(mesg)
         elif kwargs:
             mesg = kwarg_format(mesg, **kwargs)
+        return mesg
+
+    async def _print(self, mesg, **kwargs):
+        mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
+
+    async def _warn(self, mesg, **kwargs):
+        mesg = self._get_mesg(mesg, **kwargs)
+        await self.runt.warn(mesg, log=False)
 
     async def _dict(self, **kwargs):
         return Dict(kwargs)
@@ -632,10 +677,12 @@ class Queue(StormType):
 
         self.locls.update({
             'get': self._methQueueGet,
+            'pop': self._methQueuePop,
             'put': self._methQueuePut,
             'puts': self._methQueuePuts,
             'gets': self._methQueueGets,
             'cull': self._methQueueCull,
+            'size': self._methQueueSize,
         })
 
     async def _methQueueCull(self, offs):
@@ -643,6 +690,11 @@ class Queue(StormType):
         todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
         await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+
+    async def _methQueueSize(self):
+        todo = s_common.todo('coreQueueSize', self.name)
+        gatekeys = self._getGateKeys('get')
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = intify(wait)
@@ -671,6 +723,20 @@ class Queue(StormType):
         gatekeys = self._getGateKeys('get')
 
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+
+    async def _methQueuePop(self, offs=0, cull=True, wait=True):
+
+        offs = intify(offs)
+        wait = intify(wait)
+
+        todo = s_common.todo('coreQueueGet', self.name, offs, cull=cull, wait=wait)
+        gatekeys = self._getGateKeys('get')
+
+        valu = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if valu is not None:
+            await self._methQueueCull(valu[0])
+
+        return valu
 
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
@@ -772,6 +838,13 @@ class Prim(StormType):
         StormType.__init__(self, path=path)
         self.valu = valu
 
+    def __bool__(self):
+        return bool(self.valu)
+
+    def __len__(self):
+        name = f'{self.__class__.__module__}.{self.__class__.__name__}'
+        raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
+
     def value(self):
         return self.valu
 
@@ -787,6 +860,9 @@ class Str(Prim):
             'rjust': self._methStrRjust,
             'encode': self._methEncode,
         })
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methEncode(self, encoding='utf8'):
         '''
@@ -835,6 +911,9 @@ class Bytes(Prim):
             'gzip': self._methGzip,
             'json': self._methJsonLoad,
         })
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methDecode(self, encoding='utf8'):
         '''
@@ -907,6 +986,9 @@ class Dict(Prim):
         for item in self.valu.items():
             yield item
 
+    def __len__(self):
+        return len(self.valu)
+
     async def setitem(self, name, valu):
         self.valu[name] = valu
 
@@ -930,9 +1012,6 @@ class Set(Prim):
             'size': self._methSetSize,
         })
 
-    def __len__(self):
-        return len(self.valu)
-
     def __iter__(self):
         for item in self.valu:
             yield item
@@ -940,6 +1019,9 @@ class Set(Prim):
     async def __aiter__(self):
         for item in self.valu:
             yield item
+
+    def __len__(self):
+        return len(self.valu)
 
     async def _methSetSize(self):
         return len(self)
@@ -969,14 +1051,12 @@ class List(Prim):
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
+            'has': self._methListHas,
             'size': self._methListSize,
             'index': self._methListIndex,
             'length': self._methListLength,
             'append': self._methListAppend,
         })
-
-    def __len__(self):
-        return len(self.valu)
 
     def __iter__(self):
         for item in self.valu:
@@ -985,6 +1065,20 @@ class List(Prim):
     async def __aiter__(self):
         for item in self:
             yield item
+
+    def __len__(self):
+        return len(self.valu)
+
+    async def _methListHas(self, valu):
+
+        if valu in self.valu:
+            return True
+
+        prim = await toprim(valu)
+        if prim == valu:
+            return False
+
+        return prim in self.valu
 
     async def _methListAppend(self, valu):
         self.valu.append(valu)
@@ -1124,11 +1218,11 @@ class LibVars(Lib):
             'list': self._libVarsList,
         })
 
-    async def _libVarsGet(self, name):
+    async def _libVarsGet(self, name, defv=None):
         '''
         Resolve a variable in a storm query
         '''
-        return self.runt.getVar(name, defv=s_common.novalu)
+        return self.runt.getVar(name, defv=defv)
 
     async def _libVarsSet(self, name, valu):
         '''
@@ -1194,6 +1288,9 @@ class NodeProps(Prim):
             'list': self.list,
             # TODO implement set()
         })
+
+    async def _derefGet(self, name):
+        return self.valu.get(name)
 
     async def get(self, name, defv=None):
         return self.valu.get(name)
@@ -1261,9 +1358,9 @@ class Node(Prim):
             'pack': self._methNodePack,
             'repr': self._methNodeRepr,
             'tags': self._methNodeTags,
+            'edges': self._methNodeEdges,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
-
             'isform': self._methNodeIsForm,
         })
 
@@ -1287,6 +1384,14 @@ class Node(Prim):
             (tuple): An (ndef, info) node tuple.
         '''
         return self.valu.pack(dorepr=dorepr)
+
+    async def _methNodeEdges(self, verb=None):
+        '''
+        Yields the (verb, iden) tuples for this nodes edges.
+        '''
+        verb = await toprim(verb)
+        async for edge in self.valu.iterEdgesN1(verb=verb):
+            yield edge
 
     async def _methNodeIsForm(self, name):
         return self.valu.form.name == name
@@ -1339,17 +1444,7 @@ class Node(Prim):
         Raises:
             s_exc.StormRuntimeError: If the secondary property does not exist for the Node form.
         '''
-        try:
-            return self.valu.repr(name=name)
-
-        except s_exc.NoPropValu:
-            return defv
-
-        except s_exc.NoSuchProp as e:
-            form = e.get('form')
-            prop = e.get('prop')
-            mesg = f'Requested property [{prop}] does not exist for the form [{form}].'
-            raise s_exc.StormRuntimeError(mesg=mesg, form=form, prop=prop) from None
+        return self.valu.repr(name=name, defv=defv)
 
     async def _methNodeIden(self):
         return self.valu.iden()
@@ -1432,6 +1527,9 @@ class Text(Prim):
             'str': self._methTextStr,
         })
 
+    def __len__(self):
+        return len(self.valu)
+
     async def _methTextAdd(self, text, **kwargs):
         text = kwarg_format(text, **kwargs)
         self.valu += text
@@ -1475,6 +1573,9 @@ class StatTally(Prim):
     async def __aiter__(self):
         for name, valu in self.counters.items():
             yield name, valu
+
+    def __len__(self):
+        return len(self.counters)
 
     async def inc(self, name, valu=1):
         valu = intify(valu)
@@ -1662,17 +1763,40 @@ class View(Prim):
             'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
+            'getEdges': self._methGetEdges,
+            'getEdgeVerbs': self._methGetEdgeVerbs,
         })
+
+    async def _methGetEdges(self, verb=None):
+        verb = await toprim(verb)
+        todo = s_common.todo('getEdges', verb=verb)
+        async for edge in self.viewDynIter(todo, ('view', 'read')):
+            yield edge
+
+    async def _methGetEdgeVerbs(self):
+        todo = s_common.todo('getEdgeVerbs')
+        async for verb in self.viewDynIter(todo, ('view', 'read')):
+            yield verb
+
+    async def viewDynIter(self, todo, perm):
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        gatekeys = ((useriden, perm, viewiden),)
+        async for item in self.runt.dyniter(viewiden, todo, gatekeys=gatekeys):
+            yield item
+
+    async def viewDynCall(self, todo, perm):
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        gatekeys = ((useriden, perm, viewiden),)
+        return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
     async def _methViewGet(self, name, defv=None):
         return self.valu.get(name, defv)
 
     async def _methViewSet(self, name, valu):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, ('view', 'set', name), viewiden),)
         todo = s_common.todo('setViewInfo', name, valu)
-        valu = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        valu = await self.viewDynCall(todo, ('view', 'set', name))
         self.valu[name] = valu
 
     async def _methViewRepr(self):
@@ -1722,8 +1846,6 @@ class View(Prim):
     async def _methViewMerge(self):
         '''
         Merge a forked view back into its parent.
-
-        When complete, the view is deleted.
         '''
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
@@ -1774,6 +1896,8 @@ class LibTrigger(Lib):
         '''
         Add a trigger to the cortex.
         '''
+        tdef = await toprim(tdef)
+
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
@@ -1955,11 +2079,13 @@ class LibUsers(Lib):
 
     async def _methUsersGet(self, iden):
         udef = await self.runt.snap.core.getUserDef(iden)
-        return User(self.runt, udef['iden'])
+        if udef is not None:
+            return User(self.runt, udef['iden'])
 
     async def _methUsersByName(self, name):
         udef = await self.runt.snap.core.getUserDefByName(name)
-        return User(self.runt, udef['iden'])
+        if udef is not None:
+            return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None):
         self.runt.user.confirm(('auth', 'user', 'add'))
@@ -1986,11 +2112,13 @@ class LibRoles(Lib):
 
     async def _methRolesGet(self, iden):
         rdef = await self.runt.snap.core.getRoleDef(iden)
-        return Role(self.runt, rdef['iden'])
+        if rdef is not None:
+            return Role(self.runt, rdef['iden'])
 
     async def _methRolesByName(self, name):
         rdef = await self.runt.snap.core.getRoleDefByName(name)
-        return Role(self.runt, rdef['iden'])
+        if rdef is not None:
+            return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
         self.runt.user.confirm(('auth', 'role', 'add'))
@@ -2000,6 +2128,40 @@ class LibRoles(Lib):
     async def _methRolesDel(self, iden):
         self.runt.user.confirm(('auth', 'role', 'del'))
         await self.runt.snap.core.delRole(iden)
+
+class LibGates(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'get': self._methGatesGet,
+            'list': self._methGatesList,
+        })
+
+    async def _methGatesList(self):
+        todo = s_common.todo('getAuthGates')
+        gates = await self.runt.coreDynCall(todo)
+        return [Gate(self.runt, g) for g in gates]
+
+    async def _methGatesGet(self, iden):
+        iden = await toprim(iden)
+        todo = s_common.todo('getAuthGate', iden)
+        gate = await self.runt.coreDynCall(todo)
+        if gate is None:
+            return None
+        return Gate(self.runt, gate)
+
+class Gate(Prim):
+
+    def __init__(self, runt, valu, path=None):
+
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+        self.locls.update({
+            'iden': valu.get('iden'),
+            'users': valu.get('users'),
+            'roles': valu.get('roles'),
+        })
 
 class User(Prim):
 
@@ -2037,9 +2199,9 @@ class User(Prim):
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
 
-    async def _methUserAllowed(self, permname):
+    async def _methUserAllowed(self, permname, gateiden=None):
         perm = tuple(permname.split('.'))
-        return await self.runt.snap.core.isUserAllowed(self.valu, perm)
+        return await self.runt.snap.core.isUserAllowed(self.valu, perm, gateiden=gateiden)
 
     async def _methUserGrant(self, iden):
         self.runt.user.confirm(('auth', 'user', 'grant'))
@@ -2620,15 +2782,72 @@ class LibModel(Lib):
     def addLibFuncs(self):
         self.locls.update({
             'type': self._methType,
+            'prop': self._methProp,
+            'form': self._methForm,
         })
 
     @s_cache.memoize(size=100)
-    def _getmodeltypeobject(self, typename):
-        modeltype = self.model.type(typename)
-        return ModelType(modeltype)
+    async def _methType(self, name):
+        type_ = self.model.type(name)
+        if type_ is not None:
+            return ModelType(type_)
 
-    async def _methType(self, typename):
-        return self._getmodeltypeobject(typename)
+    @s_cache.memoize(size=100)
+    async def _methProp(self, name):
+        prop = self.model.prop(name)
+        if prop is not None:
+            return ModelProp(prop)
+
+    @s_cache.memoize(size=100)
+    async def _methForm(self, name):
+        form = self.model.form(name)
+        if form is not None:
+            return ModelForm(form)
+
+class ModelForm(Prim):
+
+    def __init__(self, form, path=None):
+
+        Prim.__init__(self, form, path=path)
+
+        self.locls.update({
+            'name': form.name,
+            'prop': self._getFormProp,
+        })
+
+        self.ctors.update({
+            'type': self._ctorFormType,
+        })
+
+    def _ctorFormType(self, path=None):
+        return ModelType(self.valu.type, path=path)
+
+    def _getFormProp(self, name):
+        prop = self.valu.prop(name)
+        if prop is not None:
+            return ModelProp(prop)
+
+class ModelProp(Prim):
+
+    def __init__(self, prop, path=None):
+
+        Prim.__init__(self, prop, path=path)
+
+        self.locls.update({
+            'name': prop.name,
+            'full': prop.full,
+        })
+
+        self.ctors.update({
+            'form': self._ctorPropForm,
+            'type': self._ctorPropType,
+        })
+
+    def _ctorPropType(self, path=None):
+        return ModelType(self.valu.type, path=path)
+
+    def _ctorPropForm(self, path=None):
+        return ModelForm(self.valu.form, path=path)
 
 class ModelType(Prim):
     '''
@@ -2637,17 +2856,22 @@ class ModelType(Prim):
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
+            'name': valu.name,
             'repr': self._methRepr,
+            'norm': self._methNorm,
         })
 
     async def _methRepr(self, valu):
         nval = self.valu.norm(valu)
         return self.valu.repr(nval[0])
 
+    async def _methNorm(self, valu):
+        return self.valu.norm(valu)
+
 # These will go away once we have value objects in storm runtime
 async def toprim(valu, path=None):
 
-    if isinstance(valu, (str, int, bool)) or valu is None:
+    if isinstance(valu, (str, int, bool, float, bytes)) or valu is None:
         return valu
 
     if isinstance(valu, (tuple, list)):
@@ -2665,10 +2889,15 @@ async def toprim(valu, path=None):
     mesg = 'Unable to convert object to Storm primitive.'
     raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)
 
-def fromprim(valu, path=None):
+def fromprim(valu, path=None, basetypes=True):
 
-    if isinstance(valu, str):
-        return Str(valu, path=path)
+    if valu is None:
+        return valu
+
+    if basetypes:
+
+        if isinstance(valu, str):
+            return Str(valu, path=path)
 
     # TODO: make s_node.Node a storm type itself?
     if isinstance(valu, s_node.Node):
@@ -2695,5 +2924,8 @@ def fromprim(valu, path=None):
     if isinstance(valu, StormType):
         return valu
 
-    mesg = 'Unable to convert python primitive to StormType.'
-    raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+    if basetypes:
+        mesg = 'Unable to convert python primitive to StormType.'
+        raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+
+    return valu

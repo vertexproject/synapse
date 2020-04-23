@@ -4,10 +4,19 @@ import datetime
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.storm as s_storm
+
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
+
+    async def test_storm_tree(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:fqdn=www.vertex.link ] | tree { :domain -> inet:fqdn }')
+            vals = [n.ndef[1] for n in nodes]
+            self.eq(('www.vertex.link', 'vertex.link', 'link'), vals)
 
     async def test_storm_movetag(self):
 
@@ -22,13 +31,13 @@ class StormTest(s_t_utils.SynTest):
                 await tagnode.set('doc', 'haha doc')
                 await tagnode.set('title', 'haha title')
 
-            await s_common.aspin(core.eval('movetag #hehe #woot'))
+            await core.nodes('movetag hehe woot')
 
-            await self.agenlen(0, core.eval('#hehe'))
-            await self.agenlen(0, core.eval('#hehe.haha'))
+            self.len(0, await core.nodes('#hehe'))
+            self.len(0, await core.nodes('#hehe.haha'))
 
-            await self.agenlen(1, core.eval('#woot'))
-            await self.agenlen(1, core.eval('#woot.haha'))
+            self.len(1, await core.nodes('#woot'))
+            self.len(1, await core.nodes('#woot.haha'))
 
             async with await core.snap() as snap:
 
@@ -70,10 +79,10 @@ class StormTest(s_t_utils.SynTest):
 
                 await tagnode.set('doc', 'haha doc')
 
-            await s_common.aspin(core.eval('movetag #hehe #woot'))
+            await core.nodes('movetag hehe woot')
 
-            await self.agenlen(0, core.eval('#hehe'))
-            await self.agenlen(1, core.eval('#woot'))
+            self.len(0, await core.nodes('#hehe'))
+            self.len(1, await core.nodes('#woot'))
 
             async with await core.snap() as snap:
                 newt = await core.getNodeByNdef(('syn:tag', 'woot'))
@@ -88,18 +97,10 @@ class StormTest(s_t_utils.SynTest):
                 tnode = await snap.getNodeByNdef(('syn:tag', 'a.b'))
                 await tnode.addTag('foo', (None, None))
 
-            await alist(core.eval('movetag #a.b #a.m'))
-            await self.agenlen(2, core.eval('#foo'))
-            await self.agenlen(1, core.eval('syn:tag=a.b +#foo'))
-            await self.agenlen(1, core.eval('syn:tag=a.m +#foo'))
-
-        # Test moving a tag to itself
-        async with self.getTestCore() as core:
-            await self.agenraises(s_exc.BadOperArg, core.eval('movetag #foo.bar #foo.bar'))
-
-        # Test moving a tag which does not exist
-        async with self.getTestCore() as core:
-            await self.agenraises(s_exc.BadOperArg, core.eval('movetag #foo.bar #duck.knight'))
+            await core.nodes('movetag a.b a.m')
+            self.len(2, await core.nodes('#foo'))
+            self.len(1, await core.nodes('syn:tag=a.b +#foo'))
+            self.len(1, await core.nodes('syn:tag=a.m +#foo'))
 
         # Test moving a tag to another tag which is a string prefix of the source
         async with self.getTestCore() as core:
@@ -111,11 +112,54 @@ class StormTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', 'Q')
                 await node.addTag('aaa.barbarella.ccc', (None, None))
 
-            await alist(core.eval('movetag #aaa.b #aaa.barbarella'))
+            await core.nodes('movetag aaa.b aaa.barbarella')
 
-            await self.agenlen(7, core.eval('syn:tag'))
-            await self.agenlen(1, core.eval('syn:tag=aaa.barbarella.ccc'))
-            await self.agenlen(1, core.eval('syn:tag=aaa.barbarella.ddd'))
+            self.len(7, await core.nodes('syn:tag'))
+            self.len(1, await core.nodes('syn:tag=aaa.barbarella.ccc'))
+            self.len(1, await core.nodes('syn:tag=aaa.barbarella.ddd'))
+
+        # Move a tag with tagprops
+        async def seed_tagprops(core):
+            await core.addTagProp('test', ('int', {}), {})
+            await core.addTagProp('note', ('str', {}), {})
+            q = '[test:int=1 +#hehe.haha +#hehe:test=1138 +#hehe.beep:test=8080 +#hehe.beep:note="oh my"]'
+            nodes = await core.nodes(q)
+            self.eq(nodes[0].tagprops.get(('hehe', 'test')), 1138)
+            self.eq(nodes[0].tagprops.get(('hehe.beep', 'test')), 8080)
+            self.eq(nodes[0].tagprops.get(('hehe.beep', 'note')), 'oh my')
+
+        async with self.getTestCore() as core:
+            await seed_tagprops(core)
+            await core.nodes('movetag hehe woah')
+
+            self.len(0, await core.nodes('#hehe'))
+            nodes = await core.nodes('#woah')
+            self.len(1, nodes)
+            self.eq(nodes[0].tagprops, {('woah', 'test'): 1138,
+                                        ('woah.beep', 'test'): 8080,
+                                        ('woah.beep', 'note'): 'oh my',
+                                        })
+
+        async with self.getTestCore() as core:
+            await seed_tagprops(core)
+            await core.nodes('movetag hehe.beep woah.beep')
+
+            self.len(1, await core.nodes('#hehe'))
+            nodes = await core.nodes('#woah')
+            self.len(1, nodes)
+            self.eq(nodes[0].tagprops, {('hehe', 'test'): 1138,
+                                        ('woah.beep', 'test'): 8080,
+                                        ('woah.beep', 'note'): 'oh my',
+                                        })
+
+        # Sad path
+        async with self.getTestCore() as core:
+            # Test moving a tag to itself
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag foo.bar foo.bar')
+            # Test moving a tag which does not exist
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag foo.bar duck.knight')
 
     async def test_storm_spin(self):
 
@@ -230,24 +274,6 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
-            # Full paths
-            nodes = await core.nodes('test:guid | max test:guid:tick')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), maxval)
-
-            nodes = await core.nodes('test:guid | min test:guid:tick')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), minval)
-
-            # Implicit form filtering with a full path
-            nodes = await core.nodes('.created | max test:str:tick')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), midval)
-
-            nodes = await core.nodes('.created | min test:str:tick')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), midval)
-
             # Universal prop for relative path
             nodes = await core.nodes('.created>=$minc | max .created',
                                     {'vars': {'minc': minc}})
@@ -258,17 +284,6 @@ class StormTest(s_t_utils.SynTest):
                                     {'vars': {'minc': minc}})
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
-
-            # Universal prop for full paths
-            nodes = await core.nodes('.created>=$minc  | max test:str.created',
-                                    {'vars': {'minc': minc}})
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), midval)
-
-            nodes = await core.nodes('.created>=$minc  | min test:str.created',
-                                    {'vars': {'minc': minc}})
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), midval)
 
             # Variables nodesuated
             nodes = await core.nodes('test:guid ($tick, $tock) = .seen | min $tick')
@@ -297,130 +312,67 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(0x05060708, nodes[0].ndef[1])
 
-            # Sad paths where there are no nodes which match the specified values.
-            self.len(0, await core.nodes('test:guid | max :newp'))
-            self.len(0, await core.nodes('test:guid | min :newp'))
+            # Sad paths where the specify an invalid property name
+            with self.raises(s_exc.NoSuchProp):
+                self.len(0, await core.nodes('test:guid | max :newp'))
 
-            # Sad path for a form, not a property; and does not exist at all
-            with self.raises(s_exc.BadSyntax):
-                await core.nodes('test:guid | max test:newp')
-            with self.raises(s_exc.BadSyntax):
-                await core.nodes('test:guid | min test:newp')
+            with self.raises(s_exc.NoSuchProp):
+                self.len(0, await core.nodes('test:guid | min :newp'))
 
-            # Ensure that max evaluates ival properties as the upper bound.
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:guid', '*', {'tick': '2015',
-                                                             '.seen': (minval, maxval)})
-                await node.addTag('maxtest')
-                node = await snap.addNode('test:guid', '*', {'tick': '2016',
-                                                             '.seen': (midval, midval + 1)})
-                await node.addTag('maxtest')
+            # test that intervals work
+            maxnodes = await core.nodes('[ ou:org=* ]')
+            maxnodes = await core.nodes('[ ou:org=* +#minmax ]')
+            minnodes = await core.nodes('[ ou:org=* +#minmax=(1981, 2010) ]')
+            midnodes = await core.nodes('[ ou:org=* +#minmax=(1982, 2018) ]')
+            maxnodes = await core.nodes('[ ou:org=* +#minmax=(1997, 2020) ]')
 
-            nodes = await core.nodes('#maxtest | max .seen')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), minval)
+            testmin = await core.nodes('ou:org | min #minmax')
+            self.eq(testmin[0].ndef, minnodes[0].ndef)
 
-    async def test_getstormeval(self):
-
-        # Use testechocmd to exercise all of Cmd.getStormEval
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                await snap.addNode('test:str', 'fancystr', {'tick': 1234, 'hehe': 'haha', '.seen': '3001'})
-
-            q = 'test:str $foo=:tick | testechocmd $foo'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[1234]', mesgs)
-
-            q = 'test:str| testechocmd :tick'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[1234]', mesgs)
-
-            q = 'test:str| testechocmd .seen'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[(32535216000000, 32535216000001)]', mesgs)
-
-            q = 'test:str| testechocmd test:str'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[fancystr]', mesgs)
-
-            q = 'test:str| testechocmd test:str:hehe'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[haha]', mesgs)
-
-            q = 'test:str| testechocmd test:int'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[None]', mesgs)
-
-            q = 'test:str| testechocmd test:int:loc'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('[None]', mesgs)
-
-            q = 'test:str| testechocmd test:newp'
-            mesgs = await core.stormlist(q)
-            errs = [m for m in mesgs if m[0] == 'err']
-            self.len(1, errs)
-            self.eq(errs[0][1][0], 'BadSyntax')
+            testmax = await core.nodes('ou:org | max #minmax')
+            self.eq(testmax[0].ndef, maxnodes[0].ndef)
 
     async def test_scrape(self):
+
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                guid = s_common.guid()
-                snode = await snap.addNode('inet:search:query', guid,
-                                           {'text': 'what about 1.2.3.4',
-                                            'time': '2019-04-04 17:03',
-                                            'engine': 'google',
-                                            })
-                await snap.addNode('inet:banner', ('tcp://2.4.6.8:80', 'this is a test foo@bar.com'))
 
-            q = 'inet:search:query | scrape -p :text engine'
-            nodes = await core.nodes(q)
+            # runtsafe tests
+            nodes = await core.nodes('$foo=6.5.4.3 | scrape $foo')
+            self.len(0, nodes)
+
+            self.len(1, await core.nodes('inet:ipv4=6.5.4.3'))
+
+            nodes = await core.nodes('$foo=6.5.4.3 | scrape $foo --yield')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x06050403))
 
-            q = 'inet:search:query | scrape --refs'
-            nodes = await core.nodes(q)
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.eq(nodes[1].ndef, ('edge:refs', (snode.ndef, nodes[0].ndef)))
-
-            q = 'inet:search:query | scrape --join'
-            nodes = await core.nodes(q)
-            self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.eq(nodes[1].ndef, snode.ndef)
-
-            # invalid prop
-            q = 'inet:search:query | scrape -p engine foobarbaz'
-            await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
-
-            # different forms, same prop name
-            q = 'inet:search:query inet:banner | scrape -p text'
-            nodes = await core.nodes(q)
-            self.len(3, nodes)
-
-            # one has it, but the other doesn't, so boom
-            q = 'inet:search:query inet:banner | scrape -p engine'
-            await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
-
-            await core.nodes('[inet:search:query="*"]')
-            mesgs = await core.stormlist('inet:search:query | scrape --props text')
-            self.stormIsInPrint('No prop ":text" for', mesgs)
-
-            # make sure we handle .seen(i.e. non-str reprs)
-            qtxt = 'ns1.twiter-statics.info'
-            async with await core.snap() as snap:
-                guid = s_common.guid()
-                snode = await snap.addNode('inet:search:query', guid,
-                                           {'text': qtxt,
-                                               'time': '2019-04-04 17:03',
-                                               '.seen': ('2018/11/08 18:21:15.423', '2018/11/08 18:21:15.424'),
-                                               'engine': 'google',
-                                            })
-
-            q = f'inet:search:query:text={qtxt} | scrape'
-            nodes = await core.nodes(q)
+            nodes = await core.nodes('[inet:ipv4=9.9.9.9 ] $foo=6.5.4.3 | scrape $foo')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:fqdn', qtxt))
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x09090909))
+
+            nodes = await core.nodes('[inet:ipv4=9.9.9.9 ] $foo=6.5.4.3 | scrape $foo --yield')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x06050403))
+
+            # per-node tests
+
+            guid = s_common.guid()
+
+            await core.nodes(f'[ inet:search:query={guid} :text="hi there 5.5.5.5" ]')
+            # test the special runtsafe but still per-node invocation
+            nodes = await core.nodes('inet:search:query | scrape')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:search:query')
+
+            self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
+
+            nodes = await core.nodes('inet:search:query | scrape :text --yield')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+
+            nodes = await core.nodes('inet:search:query | scrape :text --refs --yield')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('edge:refs', (('inet:search:query', guid), ('inet:ipv4', 0x05050505))))
 
     async def test_storm_tee(self):
 
@@ -853,3 +805,114 @@ class StormTest(s_t_utils.SynTest):
                 nodes = await alist(asvisi.eval(q))
                 nodes = await alist(asvisi.eval("test:cycle0"))
                 self.len(0, nodes)
+
+    async def test_storm_argv_parser(self):
+
+        pars = s_storm.Parser(prog='hehe')
+        pars.add_argument('--hehe')
+        self.none(pars.parse_args(['--lol']))
+        self.isin("ERROR: Expected 0 positional arguments. Got 1: ['--lol']", pars.mesgs)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--no-foo', default=True, action='store_false')
+        opts = pars.parse_args(['--no-foo'])
+        self.false(opts.no_foo)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada')
+        self.none(pars.parse_args(['--yada']))
+        self.true(pars.exited)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', action='append')
+        self.none(pars.parse_args(['--yada']))
+        self.true(pars.exited)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', nargs='?')
+        opts = pars.parse_args(['--yada'])
+        self.none(opts.yada)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', nargs='+')
+        self.none(pars.parse_args(['--yada']))
+        self.true(pars.exited)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', type=int)
+        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.true(pars.exited)
+
+        # check help output formatting of optargs
+        pars = s_storm.Parser()
+        pars.add_argument('--star', nargs='*')
+        pars.help()
+        helptext = '\n'.join(pars.mesgs)
+        self.isin('--star [<star> ...]', helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--plus', nargs='+')
+        pars.help()
+        helptext = '\n'.join(pars.mesgs)
+        self.isin('--plus <plus> [<plus> ...]', helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs='?')
+        pars.help()
+        helptext = '\n'.join(pars.mesgs)
+        self.isin('--ques [ques]', helptext)
+
+        # Check formatting for store_true / store_false optargs
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs=2, type=int)
+        pars.add_argument('--beep', action='store_true', help='beep beep')
+        pars.add_argument('--boop', action='store_false', help='boop boop')
+        pars.help()
+        helptext = '\n'.join(pars.mesgs)
+        self.isin('--ques <ques>               : No help available', helptext)
+        self.isin('--beep                      : beep beep', helptext)
+        self.isin('--boop                      : boop boop', helptext)
+
+        # test some nargs type intersections
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs='?', type=int)
+        self.none(pars.parse_args(['--ques', 'asdf']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs='*', type=int)
+        self.none(pars.parse_args(['--ques', 'asdf']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs='+', type=int)
+        self.none(pars.parse_args(['--ques', 'asdf']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('foo', type=int)
+        self.none(pars.parse_args(['asdf']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+
+        # argument count mismatch
+        pars = s_storm.Parser()
+        pars.add_argument('--ques')
+        self.none(pars.parse_args(['--ques']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("An argument is required for --ques", helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs=2)
+        self.none(pars.parse_args(['--ques', 'lolz']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("2 arguments are required for --ques", helptext)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs=2, type=int)
+        self.none(pars.parse_args(['--ques', 'lolz', 'hehe']))
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<class 'int'>): lolz", helptext)

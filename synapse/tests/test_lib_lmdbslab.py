@@ -27,6 +27,63 @@ def getFileMapCount(filename):
 
 class LmdbSlabTest(s_t_utils.SynTest):
 
+    async def test_lmdbslab_scankeys(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                testdb = slab.initdb('test')
+                dupsdb = slab.initdb('dups', dupsort=True)
+                editdb = slab.initdb('edit')
+
+                self.eq((), list(slab.scanKeys(db=testdb)))
+
+                slab.put(b'hehe', b'haha', db=dupsdb)
+                slab.put(b'hehe', b'lolz', db=dupsdb)
+                slab.put(b'hoho', b'asdf', db=dupsdb)
+
+                slab.put(b'hehe', b'haha', db=testdb)
+                slab.put(b'hoho', b'haha', db=testdb)
+
+                testgenr = slab.scanKeys(db=testdb)
+                dupsgenr = slab.scanKeys(db=testdb)
+
+                testlist = [next(testgenr)]
+                dupslist = [next(dupsgenr)]
+
+                slab.put(b'derp', b'derp', db=editdb)
+
+                # bump them both...
+                await s_lmdbslab.Slab.syncLoopOnce()
+
+                testlist.extend(testgenr)
+                dupslist.extend(dupsgenr)
+
+                self.eq(testlist, (b'hehe', b'hoho'))
+                self.eq(dupslist, (b'hehe', b'hoho'))
+
+                # now lets delete the key we're on
+                testgenr = slab.scanKeys(db=testdb)
+                dupsgenr = slab.scanKeys(db=testdb)
+
+                testlist = [next(testgenr)]
+                dupslist = [next(dupsgenr)]
+
+                slab.delete(b'hehe', db=testdb)
+                for lkey, lval in slab.scanByDups(b'hehe', db=dupsdb):
+                    slab.delete(lkey, lval, db=dupsdb)
+
+                await s_lmdbslab.Slab.syncLoopOnce()
+
+                testlist.extend(testgenr)
+                dupslist.extend(dupsgenr)
+
+                self.eq(testlist, (b'hehe', b'hoho'))
+                self.eq(dupslist, (b'hehe', b'hoho'))
+
     async def test_lmdbslab_base(self):
 
         with self.getTestDir() as dirn:
@@ -70,6 +127,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             items = list(slab.scanByDups(b'\x00\x02', db=bar))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
+
+            items = list(slab.scanByDups(b'\x00\x04', db=bar))
+            self.eq(items, ())
 
             # backwards scan tests
 
@@ -284,6 +344,178 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.raises(StopIteration, next, iterback5)
                 self.raises(StopIteration, next, iterback6)
+
+    async def test_lmdbslab_scanbump2(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+
+                dupydb = slab.initdb('dup', dupsort=True)
+                dupndb = slab.initdb('ndup', dupsort=False)
+
+                for db in (dupndb, dupydb):
+                    slab.put(b'1', b'', db=db)
+                    slab.put(b'2', b'', db=db)
+                    slab.put(b'3', b'', db=db)
+
+                    # forwards, bump after 2nd entry
+                    it = slab.scanByFull(db=db)
+                    self.eq((b'1', b''), next(it))
+                    self.eq((b'2', b''), next(it))
+                    slab.forcecommit()
+                    self.eq((b'3', b''), next(it))
+                    self.raises(StopIteration, next, it)
+
+                    # backwards, bump after 2nd entry
+                    it = slab.scanByFullBack(db=db)
+                    self.eq((b'3', b''), next(it))
+                    self.eq((b'2', b''), next(it))
+                    slab.forcecommit()
+                    self.eq((b'1', b''), next(it))
+                    self.raises(StopIteration, next, it)
+
+                    # forwards, bump/delete after 2nd entry
+                    it = slab.scanByFull(db=db)
+                    self.eq((b'1', b''), next(it))
+                    self.eq((b'2', b''), next(it))
+                    slab.forcecommit()
+                    slab.delete(b'2', db=db)
+                    self.eq((b'3', b''), next(it))
+                    self.raises(StopIteration, next, it)
+
+                    it = slab.scanByFull(db=db)
+                    self.eq((b'1', b''), next(it))
+                    slab.forcecommit()
+                    slab.delete(b'3', db=db)
+                    self.raises(StopIteration, next, it)
+
+                    slab.put(b'2', b'', db=db)
+                    slab.put(b'3', b'', db=db)
+
+                    # backwards, bump/delete after 2nd entry
+                    it = slab.scanByFullBack(db=db)
+                    self.eq((b'3', b''), next(it))
+                    self.eq((b'2', b''), next(it))
+                    slab.forcecommit()
+                    slab.delete(b'2', db=db)
+                    self.eq((b'1', b''), next(it))
+                    self.raises(StopIteration, next, it)
+
+                    it = slab.scanByFullBack(db=db)
+                    slab.forcecommit()
+                    slab.delete(b'3', db=db)
+                    self.eq((b'1', b''), next(it))
+                    self.raises(StopIteration, next, it)
+
+                slab.delete(b'1', db=dupydb)
+                slab.delete(b'2', db=dupydb)
+                slab.delete(b'3', db=dupydb)
+                slab.put(b'0', b'', db=dupydb)
+                slab.put(b'1', b'1', db=dupydb)
+                slab.put(b'1', b'2', db=dupydb)
+                slab.put(b'1', b'3', db=dupydb)
+                slab.put(b'2', b'', db=dupydb)
+
+                # dupsort=yes, forwards, same keys, bump after 2nd entry
+                it = slab.scanByFull(db=dupydb)
+                self.eq((b'0', b''), next(it))
+                self.eq((b'1', b'1'), next(it))
+                self.eq((b'1', b'2'), next(it))
+                slab.forcecommit()
+                self.eq((b'1', b'3'), next(it))
+                self.eq((b'2', b''), next(it))
+                self.raises(StopIteration, next, it)
+
+                # forwards, bump/delete after 2nd entry
+                it = slab.scanByFull(db=dupydb)
+                self.eq((b'0', b''), next(it))
+                self.eq((b'1', b'1'), next(it))
+                slab.forcecommit()
+                slab.delete(b'1', val=b'2', db=dupydb)
+                self.eq((b'1', b'3'), next(it))
+                self.eq((b'2', b''), next(it))
+                self.raises(StopIteration, next, it)
+
+                it = slab.scanByFull(db=dupydb)
+                self.eq((b'0', b''), next(it))
+                self.eq((b'1', b'1'), next(it))
+                self.eq((b'1', b'3'), next(it))
+                slab.forcecommit()
+                slab.delete(b'1', val=b'3', db=dupydb)
+                self.eq((b'2', b''), next(it))
+                self.raises(StopIteration, next, it)
+
+                slab.put(b'1', b'2', db=dupydb)
+                slab.put(b'1', b'3', db=dupydb)
+
+                # dupsort=yes, backwards, same keys, bump after 2nd entry
+                it = slab.scanByFullBack(db=dupydb)
+                self.eq((b'2', b''), next(it))
+                self.eq((b'1', b'3'), next(it))
+                self.eq((b'1', b'2'), next(it))
+                slab.forcecommit()
+                self.eq((b'1', b'1'), next(it))
+                self.eq((b'0', b''), next(it))
+                self.raises(StopIteration, next, it)
+
+                # dupsort=yes, backwards, same keys, bump/delete after 2nd entry
+                it = slab.scanByFullBack(db=dupydb)
+                self.eq((b'2', b''), next(it))
+                self.eq((b'1', b'3'), next(it))
+                self.eq((b'1', b'2'), next(it))
+                slab.forcecommit()
+                slab.delete(b'1', val=b'2', db=dupndb)
+                self.eq((b'1', b'1'), next(it))
+                self.eq((b'0', b''), next(it))
+                self.raises(StopIteration, next, it)
+
+                slab.put(b'1', b'2', db=dupydb)
+                slab.put(b'1', b'3', db=dupydb)
+
+                # single key, forwards, bump after 2nd entry
+                it = slab.scanByDups(db=dupydb, lkey=b'1')
+                self.eq((b'1', b'1'), next(it))
+                self.eq((b'1', b'2'), next(it))
+                slab.forcecommit()
+                self.eq((b'1', b'3'), next(it))
+                self.raises(StopIteration, next, it)
+
+                # single key, forwards, bump/delete after 2nd entry
+                it = slab.scanByDups(db=dupydb, lkey=b'1')
+                self.eq((b'1', b'1'), next(it))
+                slab.forcecommit()
+                slab.delete(b'1', val=b'2', db=dupydb)
+                self.eq((b'1', b'3'), next(it))
+                self.raises(StopIteration, next, it)
+
+                it = slab.scanByDups(db=dupydb, lkey=b'1')
+                self.eq((b'1', b'1'), next(it))
+                slab.forcecommit()
+                slab.delete(b'1', val=b'3', db=dupydb)
+                self.raises(StopIteration, next, it)
+
+                slab.put(b'1', b'2', db=dupydb)
+                slab.put(b'1', b'3', db=dupydb)
+
+                # dupsort=yes, backwards, same keys, bump after 2nd entry
+                it = slab.scanByDupsBack(db=dupydb, lkey=b'1')
+                self.eq((b'1', b'3'), next(it))
+                self.eq((b'1', b'2'), next(it))
+                slab.forcecommit()
+                self.eq((b'1', b'1'), next(it))
+                self.raises(StopIteration, next, it)
+
+                # dupsort=yes, backwards, same keys, bump/delete after 2nd entry
+                it = slab.scanByDupsBack(db=dupydb, lkey=b'1')
+                self.eq((b'1', b'3'), next(it))
+                self.eq((b'1', b'2'), next(it))
+                slab.forcecommit()
+                slab.delete(b'1', val=b'2', db=dupndb)
+                self.eq((b'1', b'1'), next(it))
+                self.raises(StopIteration, next, it)
 
     async def test_lmdbslab_grow(self):
 
@@ -708,6 +940,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 valu = abrv.nameToAbrv('haha')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
+                self.eq('haha', abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01'))
+
                 # And we still have no valu for 02
                 self.none(abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
 
@@ -735,6 +969,18 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq({'foo': 1, 'bar': 42}, ctr.pack())
                 ctr.sync()
                 self.eq({'foo': 1, 'bar': 42}, ctr.pack())
+
+                ctr.inc('foo')
+                ctr.inc('foo')
+                ctr.set('bar', 37)
+                ctr.sync()
+
+                cache = []
+                for lkey, lval in slab.scanByFull(db='counts'):
+                    cache.append((lkey, s_common.int64un(lval)))
+
+                self.len(1, [k for k, v in cache if k == b'foo'])
+                self.len(1, [k for k, v in cache if k == b'bar'])
 
     async def test_lmdbslab_doubleopen(self):
 

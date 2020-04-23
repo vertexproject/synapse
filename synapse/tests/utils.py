@@ -314,23 +314,7 @@ class TestCmd(s_storm.Cmd):
 
     async def execStormCmd(self, runt, genr):
         async for node, path in genr:
-            yield node, path
-
-class TestEchoCmd(s_storm.Cmd):
-    '''A command to echo a using getStormEval'''
-    name = 'testechocmd'
-
-    def getArgParser(self):
-        pars = s_storm.Cmd.getArgParser(self)
-        pars.add_argument('valu', help='valu to echo')
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-        func = self.getStormEval(runt, self.opts.valu)
-
-        async for node, path in genr:
-            ret = func(path)
-            await runt.snap.printf(f'Echo: [{ret}]')
+            await runt.printf(f'{self.name}: {node.ndef}')
             yield node, path
 
 class TestModule(s_module.CoreModule):
@@ -423,7 +407,7 @@ class TestModule(s_module.CoreModule):
         if curv == valu:
             return False
         if not valu.endswith('.sys'):
-            raise s_exc.BadPropValu(mesg='test:runt:lulz must end with ".sys"',
+            raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
                                     valu=valu, name=prop.full)
         node.props[prop.name] = valu
         # In this test helper, we do NOT persist the change to our in-memory
@@ -448,7 +432,6 @@ class TestModule(s_module.CoreModule):
 
     def getStormCmds(self):
         return (TestCmd,
-                TestEchoCmd,
                 )
 
 class TstEnv:
@@ -729,7 +712,7 @@ class SynTest(unittest.TestCase):
         regr = s_common.genpath(regr)
 
         if not os.path.isdir(regr): # pragma: no cover
-            raise Exception('SYN_REGREGSSION_REPO is not a dir')
+            raise Exception('SYN_REGRESSION_REPO is not a dir')
 
         dirn = os.path.join(regr, *path)
 

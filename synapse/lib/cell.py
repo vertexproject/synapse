@@ -380,6 +380,14 @@ class CellApi(s_base.Base):
         return await self.cell.getUserDef(iden)
 
     @adminapi()
+    async def getAuthGate(self, iden):
+        return await self.cell.getAuthGate(iden)
+
+    @adminapi()
+    async def getAuthGates(self):
+        return await self.cell.getAuthGates()
+
+    @adminapi()
     async def getRoleDef(self, iden):
         return await self.cell.getRoleDef(iden)
 
@@ -451,6 +459,12 @@ class CellApi(s_base.Base):
     async def getNexusChanges(self, offs):
         async for item in self.cell.getNexusChanges(offs):
             yield item
+
+    @adminapi()
+    async def getDiagInfo(self):
+        return {
+            'slabs': await s_lmdbslab.Slab.getSlabStats(),
+        }
 
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
@@ -664,20 +678,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.fire('user:mod', act='archived', user=iden, archived=archived)
 
     async def getUserDef(self, iden):
-        user = await self.auth.reqUser(iden)
-        return user.pack(packroles=True)
+        user = self.auth.user(iden)
+        if user is not None:
+            return user.pack(packroles=True)
+
+    async def getAuthGate(self, iden):
+        gate = self.auth.getAuthGate(iden)
+        if gate is None:
+            return None
+        return gate.pack()
+
+    async def getAuthGates(self):
+        return [g.pack() for g in self.auth.getAuthGates()]
 
     async def getRoleDef(self, iden):
-        role = await self.auth.reqRole(iden)
-        return role.pack()
+        role = self.auth.role(iden)
+        if role is not None:
+            return role.pack()
 
     async def getUserDefByName(self, name):
-        user = await self.auth.reqUserByName(name)
-        return user.pack(packroles=True)
+        user = await self.auth.getUserByName(name)
+        if user is not None:
+            return user.pack(packroles=True)
 
     async def getRoleDefByName(self, name):
-        role = await self.auth.reqRoleByName(name)
-        return role.pack()
+        role = await self.auth.getRoleByName(name)
+        if role is not None:
+            return role.pack()
 
     async def getUserDefs(self):
         return [u.pack(packroles=True) for u in self.auth.users()]
@@ -758,7 +785,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
                 with s_common.getTempDir() as dirn:
                     cdir = s_certdir.CertDir(dirn)
-                    pkey, cert = cdir.genHostCert('cortex')
+                    pkey, cert = cdir.genHostCert(self.getCellType())
                     cdir.savePkeyPem(pkey, pkeypath)
                     cdir.saveCertPem(cert, certpath)
 

@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 RED = '#ff0066'
 YELLOW = '#f4e842'
 BLUE = '#6faef2'
+DARKBLUE = '#4842f5'
 
+PROVNEW_COLOR = DARKBLUE
 UNKNOWN_COLOR = BLUE
 NODEEDIT_COLOR = "lightblue"
 WARNING_COLOR = YELLOW
@@ -215,17 +217,18 @@ class StormCmd(s_cli.Cmd):
         --hide-tags: Do not print tags.
         --hide-props: Do not print secondary properties.
         --hide-unknown: Do not print messages which do not have known handlers.
-        --show-nodeedits:  Show full nodeedits (otherwise printed as a single . per edit)
+        --show-nodeedits:  Show full nodeedits (otherwise printed as a single . per edit).
         --editformat <format>: What format of edits the server shall emit.
                 Options are
                    * nodeedits (default),
                    * splices (similar to < 0.2.0),
                    * count (just counts of nodeedits), or
                    * none (no such messages emitted).
+        --show-prov:  Show provenance messages.
         --raw: Print the nodes in their raw format. This overrides --hide-tags and --hide-props.
         --debug: Display cmd debug information along with nodes in raw format. This overrides other display arguments.
         --path: Get path information about returned nodes.
-        --show <names>: Limit storm events (server-side) to the comma sep list)
+        --show <names>: Limit storm events (server-side) to the comma-separated list.
         --file <path>: Run the storm query specified in the given file path.
         --optsfile <path>: Run the query with the given options from a JSON/YAML file.
         --spawn: (EXPERIMENTAL!) Run the query within a spawned sub-process runtime (read-only).
@@ -235,7 +238,6 @@ class StormCmd(s_cli.Cmd):
         storm --debug inet:ipv4=1.2.3.4
 
     '''
-
     _cmd_name = 'storm'
 
     editformat_enums = ('nodeedits', 'splices', 'count', 'none')
@@ -243,6 +245,7 @@ class StormCmd(s_cli.Cmd):
         ('--hide-tags', {}),  # type: ignore
         ('--show', {'type': 'valu'}),
         ('--show-nodeedits', {}),
+        ('--show-prov', {}),
         ('--editformat', {'type': 'enum', 'defval': 'nodeedits', 'enum:vals': editformat_enums}),
         ('--file', {'type': 'valu'}),
         ('--optsfile', {'type': 'valu'}),
@@ -267,20 +270,34 @@ class StormCmd(s_cli.Cmd):
             'err': self._onErr,
             'node:edits': self._onNodeEdits,
             'node:edits:count': self._onNodeEditsCount,
+            'prov:new': self._onProvNew,
         }
+        self._indented = False
+
+    def printf(self, mesg, addnl=True, color=None):
+        if self._indented:
+            s_cli.Cmd.printf(self, '')
+            self._indented = False
+        return s_cli.Cmd.printf(self, mesg, addnl=addnl, color=color)
 
     def _onNodeEdits(self, mesg, opts):
         edit = mesg[1]
         if not opts.get('show-nodeedits'):
             count = sum(len(e[2]) for e in edit.get('edits', ()))
-            self.printf('.' * count, addnl=False, color=NODEEDIT_COLOR)
+            s_cli.Cmd.printf(self, '.' * count, addnl=False, color=NODEEDIT_COLOR)
+            self._indented = True
             return
 
         self.printf(repr(mesg), color=NODEEDIT_COLOR)
 
     def _onNodeEditsCount(self, mesg, opts):
         count = mesg[1].get('count', 1)
-        self.printf('.' * count, addnl=False, color=NODEEDIT_COLOR)
+        s_cli.Cmd.printf(self, '.' * count, addnl=False, color=NODEEDIT_COLOR)
+        self._indented = True
+
+    def _onProvNew(self, mesg, opts):
+        if opts.get('show-prov'):
+            self.printf(repr(mesg), color=PROVNEW_COLOR)
 
     def _onNode(self, mesg, opts):
         node = mesg[1]
@@ -339,7 +356,11 @@ class StormCmd(s_cli.Cmd):
         self.printf(mesg[1].get('mesg'))
 
     def _onWarn(self, mesg, opts):
-        warn = mesg[1].get('mesg')
+        info = mesg[1]
+        warn = info.pop('mesg', '')
+        xtra = ', '.join([f'{k}={v}' for k, v in info.items()])
+        if xtra:
+            warn = ' '.join([warn, xtra])
         self.printf(f'WARNING: {warn}', color=WARNING_COLOR)
 
     def _onErr(self, mesg, opts):

@@ -176,6 +176,17 @@ class AuthTest(s_test.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
+            # We can retrieve the hivegate information
+            gate = await prox.getAuthGate(core.view.iden)
+            self.eq(gate['users'][0], {
+                'iden': core.auth.rootuser.iden,
+                'admin': True,
+                'rules': (),
+            })
+
+            gates = await prox.getAuthGates()
+            self.isin(core.view.iden, [g['iden'] for g in gates])
+
             fred = await prox.addUser('fred')
             bobo = await prox.addUser('bobo')
             await prox.setUserPasswd(fred['iden'], 'secret')

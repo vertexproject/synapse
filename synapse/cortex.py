@@ -505,6 +505,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices at the given offset.
         '''
+        s_common.deprecated('splices')
         layr = self.cell.getLayer(layriden)
         count = 0
         async for mesg in layr.splices(offs=offs, size=size):
@@ -518,6 +519,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices backwards from the given offset.
         '''
+        s_common.deprecated('splicesBack')
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
             count += 1
@@ -531,6 +533,7 @@ class CoreApi(s_cell.CellApi):
 
         Will only return the user's own splices unless they are an admin.
         '''
+        s_common.deprecated('spliceHistory')
         async for splice in self.cell.spliceHistory(self.user):
             yield splice
 
@@ -649,21 +652,27 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('storm', 'pkg', 'del'))
         return await self.cell.delStormPkg(iden)
 
+    @s_cell.adminapi()
     async def getStormPkgs(self):
         return await self.cell.getStormPkgs()
 
+    @s_cell.adminapi()
     async def getStormPkg(self, name):
         return await self.cell.getStormPkg(name)
 
+    @s_cell.adminapi()
     async def addStormDmon(self, ddef):
         return await self.cell.addStormDmon(ddef)
 
+    @s_cell.adminapi()
     async def getStormDmons(self):
         return await self.cell.getStormDmons()
 
-    async def getStormDmon(self, iden):
-        return await self.cell.getStormDmon(iden)
+    @s_cell.adminapi()
+    async def getStormDmonLog(self, iden):
+        return await self.cell.getStormDmonLog(iden)
 
+    @s_cell.adminapi()
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
@@ -742,7 +751,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             'default': 30,
             'description': 'Logging log level to emit storm logs at.',
             'type': 'integer'
-        }
+        },
     }
 
     cellapi = CoreApi
@@ -958,6 +967,9 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def coreQueueCull(self, name, offs):
         await self.multiqueue.cull(name, offs)
 
+    async def coreQueueSize(self, name):
+        return self.multiqueue.size(name)
+
     async def getSpawnInfo(self):
         return {
             'iden': self.iden,
@@ -1077,7 +1089,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             'name': <name>,
 
-            'cmdopts': [
+            'cmdargs': [
                 (<name>, <opts>),
             ]
 
@@ -1109,8 +1121,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self._reqStormCmd(cdef)
 
-        def ctor(argv):
-            return s_storm.PureCmd(cdef, argv)
+        def ctor(runt, runtsafe):
+            return s_storm.PureCmd(cdef, runt, runtsafe)
 
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
@@ -1777,6 +1789,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.MaxCmd)
         self.addStormCmd(s_storm.MinCmd)
         self.addStormCmd(s_storm.TeeCmd)
+        self.addStormCmd(s_storm.TreeCmd)
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)
@@ -1851,6 +1864,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('base64',), s_stormtypes.LibBase64)
 
         self.addStormLib(('auth', ), s_stormtypes.LibAuth)
+        self.addStormLib(('auth', 'gates'), s_stormtypes.LibGates)
         self.addStormLib(('auth', 'users'), s_stormtypes.LibUsers)
         self.addStormLib(('auth', 'roles'), s_stormtypes.LibRoles)
 
@@ -2429,6 +2443,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def getStormDmons(self):
         return list(d.pack() for d in self.stormdmons.values())
+
+    async def getStormDmonLog(self, iden):
+        dmon = self.stormdmons.get(iden)
+        if dmon is not None:
+            return dmon._getRunLog()
+        return ()
 
     def addStormLib(self, path, ctor):
 

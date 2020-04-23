@@ -4,6 +4,7 @@ import fnmatch
 import logging
 import binascii
 import itertools
+import contextlib
 import collections
 
 import synapse.exc as s_exc
@@ -14,6 +15,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
+import synapse.lib.spooled as s_spooled
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -205,6 +207,9 @@ class SubGraph:
 
                     'degrees': 1,
 
+                    'filterinput': True,
+                    'yieldfiltered': False,
+
                     'filters': [
                         '-(#foo or #bar)',
                         '-(foo:bar or baz:faz)',
@@ -247,6 +252,9 @@ class SubGraph:
         self.rules.setdefault('refs', False)
         self.rules.setdefault('degrees', 1)
 
+        self.rules.setdefault('filterinput', True)
+        self.rules.setdefault('yieldfiltered', False)
+
     async def omit(self, node):
 
         answ = self.omits.get(node.buid)
@@ -280,7 +288,8 @@ class SubGraph:
 
             for _, ndef in node.getNodeRefs():
                 pivonode = await node.snap.getNodeByNdef(ndef)
-                if pivonode is None:
+                if pivonode is None: # pragma: no cover
+                    await asyncio.sleep(0)
                     continue
 
                 yield (pivonode, path.fork(pivonode))
@@ -303,52 +312,70 @@ class SubGraph:
 
     async def run(self, runt, genr):
 
-        done = {}
         degrees = self.rules.get('degrees')
+        filterinput = self.rules.get('filterinput')
+        yieldfiltered = self.rules.get('yieldfiltered')
 
         self.user = runt.user
 
-        async for node, path in genr:
+        todo = collections.deque()
 
-            if await self.omit(node):
-                continue
+        async with contextlib.AsyncExitStack() as stack:
 
-            path.meta('graph:seed', True)
+            done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
+            intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
 
-            todo = collections.deque([(node, path, 0)])
+            async def todogenr():
 
-            while todo:
+                async for node, path in genr:
+                    path.meta('graph:seed', True)
+                    yield node, path, 0
 
-                tnode, tpath, tdist = todo.popleft()
+                while todo:
+                    yield todo.popleft()
 
-                # filter out nodes that we've already done at
-                # the given distance or less... (best possible)
-                donedist = done.get(tnode.buid)
-                if donedist is not None and donedist <= tdist:
+            async for node, path, dist in todogenr():
+
+                if node.buid in done:
                     continue
 
-                done[tnode.buid] = tdist
+                await done.add(node.buid)
+                intodo.discard(node.buid)
+
+                omitted = False
+                if dist > 0 or filterinput:
+                    omitted = await self.omit(node)
+
+                if omitted and not yieldfiltered:
+                    continue
+
+                # we must traverse the pivots for the node *regardless* of degrees
+                # due to needing to tie any leaf nodes to nodes that were already yielded
 
                 edges = set()
-                ndist = tdist + 1
-
-                async for pivn, pivp in self.pivots(runt, tnode, tpath):
-
-                    if await self.omit(pivn):
-                        continue
+                async for pivn, pivp in self.pivots(runt, node, path):
 
                     edges.add(pivn.iden())
 
-                    if degrees is not None and ndist > degrees:
+                    # we dont pivot from omitted nodes
+                    if omitted:
                         continue
 
-                    todo.append((pivn, pivp, ndist))
+                    # no need to pivot to nodes we already did
+                    if pivn.buid in done:
+                        continue
 
-                edgelist = [(iden, {}) for iden in edges]
-                tpath.meta('edges', edgelist)
+                    # no need to queue up todos that are already in todo
+                    if pivn.buid in intodo:
+                        continue
 
-                if donedist is None:
-                    yield tnode, tpath
+                    # do we have room to go another degree out?
+                    if degrees is None or dist < degrees:
+                        todo.append((pivn, pivp, dist + 1))
+                        await intodo.add(pivn.buid)
+
+                path.meta('edges', [(iden, {}) for iden in edges])
+                yield node, path
 
 class Oper(AstNode):
     pass
@@ -586,26 +613,64 @@ class WhileLoop(Oper):
 
                 await asyncio.sleep(0)  # give other tasks some CPU
 
+async def pullone(genr):
+    gotone = None
+    async for gotone in genr:
+        break
+
+    async def pullgenr():
+
+        if gotone is None:
+            return
+
+        yield gotone
+        async for item in genr:
+            yield item
+
+    return pullgenr()
+
 class CmdOper(Oper):
 
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
-        argv = self.kids[1].value()
 
         ctor = runt.snap.core.getStormCmd(name)
         if ctor is None:
             mesg = 'Storm command not found.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
-        scmd = ctor(argv)
+        runtsafe = self.kids[1].isRuntSafe(runt)
 
-        if not await scmd.hasValidOpts(runt.snap):
-            return
+        scmd = ctor(runt, runtsafe)
 
-        with s_provenance.claim('stormcmd', name=name, argv=argv):
+        with s_provenance.claim('stormcmd', name=name):
 
-            async for item in scmd.execStormCmd(runt, genr):
+            if runtsafe:
+
+                genr = await pullone(genr)
+
+                argv = await self.kids[1].runtval(runt)
+                if not await scmd.setArgv(argv):
+                    return
+
+                async for item in scmd.execStormCmd(runt, genr):
+                    yield item
+
+                return
+
+            async def optsgenr():
+
+                async for node, path in genr:
+
+                    argv = await self.kids[1].compute(path)
+                    if not await scmd.setArgv(argv):
+                        return
+
+                    yield node, path
+
+            scmd = ctor(runt, runtsafe)
+            async for item in scmd.execStormCmd(runt, optsgenr()):
                 yield item
 
 class SetVarOper(Oper):
@@ -647,7 +712,7 @@ class SetItemOper(Oper):
 
             count += 1
 
-            item = s_stormtypes.fromprim(await self.kids[0].compute(path))
+            item = s_stormtypes.fromprim(await self.kids[0].compute(path), basetypes=False)
 
             name = await self.kids[1].compute(path)
             valu = await self.kids[2].compute(path)
@@ -659,7 +724,7 @@ class SetItemOper(Oper):
 
         if count == 0 and vkid.isRuntSafe(runt):
 
-            item = s_stormtypes.fromprim(await self.kids[0].compute(runt))
+            item = s_stormtypes.fromprim(await self.kids[0].compute(runt), basetypes=False)
 
             name = await self.kids[1].compute(runt)
             valu = await self.kids[2].compute(runt)
@@ -1079,6 +1144,29 @@ class PivotOper(Oper):
     def __repr__(self):
         return self.repr()
 
+class RawPivot(PivotOper):
+    '''
+    -> { <varsfrompath> }
+    '''
+    async def run(self, runt, genr):
+        query = self.kids[0]
+
+        async for node, path in genr:
+
+            varz = {}
+            varz.update(runt.vars)
+            varz.update(path.vars)
+
+            opts = {
+                'vars': varz,
+            }
+
+            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+                async for subn, subp in subr.iterStormQuery(query):
+                    realpath = path.fork(subn)
+                    realpath.vars.update(subp.vars)
+                    yield subn, realpath
+
 class PivotOut(PivotOper):
     '''
     -> *
@@ -1090,58 +1178,78 @@ class PivotOut(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            # <syn:tag> -> * is "from tags to nodes with tags"
-            if node.form.name == 'syn:tag':
+            async for item in self.getPivsOut(runt, node, path):
+                yield item
 
-                async for pivo in runt.snap.nodesByTag(node.ndef[1]):
-                    yield pivo, path.fork(pivo)
+    async def getPivsOut(self, runt, node, path):
 
-                continue
+        # <syn:tag> -> * is "from tags to nodes with tags"
+        if node.form.name == 'syn:tag':
 
-            if isinstance(node.form.type, s_types.Edge):
-                n2def = node.get('n2')
-                pivo = await runt.snap.getNodeByNdef(n2def)
-                if pivo is None:
-                    logger.warning(f'Missing node corresponding to ndef {n2def} on edge')
-                    continue
+            async for pivo in runt.snap.nodesByTag(node.ndef[1]):
                 yield pivo, path.fork(pivo)
+
+            return
+
+        if isinstance(node.form.type, s_types.Edge):
+            n2def = node.get('n2')
+            pivo = await runt.snap.getNodeByNdef(n2def)
+            if pivo is None:  # pragma: no cover
+                logger.warning(f'Missing node corresponding to ndef {n2def} on edge')
+                return
+
+            yield pivo, path.fork(pivo)
+            return
+
+        for name, prop in node.form.props.items():
+
+            valu = node.get(name)
+            if valu is None:
                 continue
 
-            for name, prop in node.form.props.items():
-
-                valu = node.get(name)
-                if valu is None:
-                    continue
-
-                # if the outbound prop is an ndef...
-                if isinstance(prop.type, s_types.Ndef):
-                    pivo = await runt.snap.getNodeByNdef(valu)
-                    if pivo is None:
-                        continue
-
-                    yield pivo, path.fork(pivo)
-                    continue
-
-                if isinstance(prop.type, s_types.Array):
-                    typename = prop.type.opts.get('type')
-                    if runt.model.forms.get(typename) is not None:
-                        for item in valu:
-                            async for pivo in runt.snap.nodesByPropValu(typename, '=', item):
-                                yield pivo, path.fork(pivo)
-
-                form = runt.model.forms.get(prop.type.name)
-                if form is None:
-                    continue
-
-                pivo = await runt.snap.getNodeByNdef((form.name, valu))
+            # if the outbound prop is an ndef...
+            if isinstance(prop.type, s_types.Ndef):
+                pivo = await runt.snap.getNodeByNdef(valu)
                 if pivo is None:
                     continue
 
-                # avoid self references
-                if pivo.buid == node.buid:
-                    continue
-
                 yield pivo, path.fork(pivo)
+                continue
+
+            if isinstance(prop.type, s_types.Array):
+                typename = prop.type.opts.get('type')
+                if runt.model.forms.get(typename) is not None:
+                    for item in valu:
+                        async for pivo in runt.snap.nodesByPropValu(typename, '=', item):
+                            yield pivo, path.fork(pivo)
+
+            form = runt.model.forms.get(prop.type.name)
+            if form is None:
+                continue
+
+            pivo = await runt.snap.getNodeByNdef((form.name, valu))
+            if pivo is None:  # pragma: no cover
+                continue
+
+            # avoid self references
+            if pivo.buid == node.buid:
+                continue
+
+            yield pivo, path.fork(pivo)
+
+class N1WalkNPivo(PivotOut):
+
+    async def run(self, runt, genr):
+
+        async for node, path in genr:
+
+            async for item in self.getPivsOut(runt, node, path):
+                yield item
+
+            async for (verb, iden) in node.iterEdgesN1():
+                wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
+                if wnode is not None:
+                    yield wnode, path.fork(wnode)
 
 class PivotToTags(PivotOper):
     '''
@@ -1221,28 +1329,45 @@ class PivotIn(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            # if it's a graph edge, use :n1
-            if isinstance(node.form.type, s_types.Edge):
+            async for item in self.getPivsIn(runt, node, path):
+                yield item
 
-                ndef = node.get('n1')
+    async def getPivsIn(self, runt, node, path):
 
-                pivo = await runt.snap.getNodeByNdef(ndef)
-                if pivo is None:
-                    continue
+        # if it's a graph edge, use :n1
+        if isinstance(node.form.type, s_types.Edge):
 
+            ndef = node.get('n1')
+
+            pivo = await runt.snap.getNodeByNdef(ndef)
+            if pivo is not None:
                 yield pivo, path.fork(pivo)
 
-                continue
+            return
 
-            name, valu = node.ndef
+        name, valu = node.ndef
 
-            for prop in runt.model.propsbytype.get(name, ()):
-                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
-                    yield pivo, path.fork(pivo)
+        for prop in runt.model.propsbytype.get(name, ()):
+            async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
+                yield pivo, path.fork(pivo)
 
-            for prop in runt.model.arraysbytype.get(name, ()):
-                async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
-                    yield pivo, path.fork(pivo)
+        for prop in runt.model.arraysbytype.get(name, ()):
+            async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
+                yield pivo, path.fork(pivo)
+
+class N2WalkNPivo(PivotIn):
+
+    async def run(self, runt, genr):
+
+        async for node, path in genr:
+
+            async for item in self.getPivsIn(runt, node, path):
+                yield item
+
+            async for (verb, iden) in node.iterEdgesN2():
+                wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
+                if wnode is not None:
+                    yield wnode, path.fork(wnode)
 
 class PivotInFrom(PivotOper):
     '''
@@ -2065,6 +2190,9 @@ class FiltOper(Oper):
             answ = await cond(node, path)
             if (must and answ) or (not must and not answ):
                 yield node, path
+            else:
+                # all filters must sleep
+                await asyncio.sleep(0)
 
 class FiltByArray(FiltOper):
     '''
@@ -2556,7 +2684,7 @@ class EditNodeAdd(Edit):
         if self.form is None:
             raise s_exc.NoSuchForm(name=self.name)
 
-        self.excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
+        self.excignore = (s_exc.BadTypeValu, s_exc.BadTypeValu) if oper == '?=' else ()
 
     def isruntsafe(self, runt):
         return self.kids[2].isRuntSafe(runt)
@@ -2568,6 +2696,10 @@ class EditNodeAdd(Edit):
         NOTE: CALLER MUST CHECK PERMS
         '''
         vals = await self.kids[2].compute(path)
+
+        # for now, we have a conflict with a Node instance and prims
+        # if not isinstance(vals, s_stormtypes.Node):
+        #     vals = await s_stormtypes.toprim(vals)
 
         for valu in self.form.type.getTypeVals(vals):
             try:
@@ -2619,6 +2751,7 @@ class EditNodeAdd(Edit):
                 runt.layerConfirm(('node', 'add', self.name))
 
                 valu = await self.kids[2].runtval(runt)
+                valu = await s_stormtypes.toprim(valu)
 
                 for valu in self.form.type.getTypeVals(valu):
                     try:
@@ -2641,11 +2774,17 @@ class EditPropSet(Edit):
     async def run(self, runt, genr):
 
         oper = self.kids[1].value()
-        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
+        excignore = (s_exc.BadTypeValu,) if oper in ('?=', '?+=', '?-=') else ()
+
+        isadd = oper in ('+=', '?+=')
+        issub = oper in ('-=', '?-=')
 
         async for node, path in genr:
+
             name = await self.kids[0].compute(path)
+
             valu = await self.kids[2].compute(path)
+            valu = await s_stormtypes.toprim(valu)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -2656,7 +2795,37 @@ class EditPropSet(Edit):
                 runt.layerConfirm(('node', 'prop', 'set', prop.full))
 
             try:
+
+                if isadd or issub:
+
+                    if not isinstance(prop.type, s_types.Array):
+                        mesg = f'Property set using ({oper}) is only valid on arrays.'
+                        raise s_exc.StormRuntimeError(mesg)
+
+                    arry = node.get(name)
+                    if arry is None:
+                        arry = ()
+
+                    if isadd:
+                        # this new valu will get normed by the array prop
+                        valu = arry + (valu,)
+
+                    else:
+                        # make arry mutable
+                        arry = list(arry)
+
+                        # we cant remove something we cant norm...
+                        # but that also means it can't be in the array so...
+                        norm, info = prop.type.arraytype.norm(valu)
+                        try:
+                            arry.remove(norm)
+                        except ValueError:
+                            pass
+
+                        valu = arry
+
                 await node.set(name, valu)
+
             except excignore:
                 pass
 
@@ -2711,6 +2880,169 @@ class EditUnivDel(Edit):
 
             await asyncio.sleep(0)
 
+class N1Walk(Oper):
+
+    async def walkNodeEdges(self, runt, node, verb=None):
+        async for _, iden in node.iterEdgesN1(verb=verb):
+            buid = s_common.uhex(iden)
+            walknode = await runt.snap.getNodeByBuid(buid)
+            if walknode is not None:
+                yield walknode
+
+    async def run(self, runt, genr):
+
+        @s_cache.memoize(size=100)
+        def isDestForm(formname, destforms):
+
+            if not isinstance(destforms, tuple):
+                destforms = (destforms, )
+
+            for destform in destforms:
+
+                if not isinstance(destform, str):
+                    mesg = f'walk operation expected a string or list for dest. got: {destform!r}'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+
+                if destform == '*':
+                    return True
+
+                if formname == destform:
+                    return True
+
+            return False
+
+        async for node, path in genr:
+
+            verb = await self.kids[0].compute(path)
+            verb = await s_stormtypes.toprim(verb)
+
+            dest = await self.kids[1].compute(path)
+            dest = await s_stormtypes.toprim(dest)
+
+            if isinstance(verb, str):
+                if verb == '*':
+                    verb = None
+
+                async for walknode in self.walkNodeEdges(runt, node, verb=verb):
+                    if not isDestForm(walknode.form.name, dest):
+                        await asyncio.sleep(0)
+                        continue
+                    yield walknode, path.fork(walknode)
+
+            elif isinstance(verb, (list, tuple)):
+                for verb in verb:
+                    if verb == '*':
+                        verb = None
+
+                    async for walknode in self.walkNodeEdges(runt, node, verb=verb):
+                        if not isDestForm(walknode.form.name, dest):
+                            await asyncio.sleep(0)
+                            continue
+                        yield walknode, path.fork(walknode)
+
+            else:
+                mesg = f'walk operation expected a string or list.  got: {verb!r}.'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+
+class N2Walk(N1Walk):
+
+    async def walkNodeEdges(self, runt, node, verb=None):
+        async for _, iden in node.iterEdgesN2(verb=verb):
+            buid = s_common.uhex(iden)
+            walknode = await runt.snap.getNodeByBuid(buid)
+            if walknode is not None:
+                yield walknode
+
+class EditEdgeAdd(Edit):
+
+    def __init__(self, kids=(), n2=False):
+        Edit.__init__(self, kids=kids)
+        self.n2 = n2
+
+    async def run(self, runt, genr):
+
+        # SubQuery -> Query
+        query = self.kids[1].kids[0]
+
+        hits = set()
+
+        def allowed(x):
+            if x in hits:
+                return
+
+            runt.layerConfirm(('node', 'edge', 'add', x))
+            hits.add(x)
+
+        async for node, path in genr:
+
+            iden = node.iden()
+            verb = await self.kids[0].compute(path)
+            # TODO this will need a toprim once Str is in play
+
+            allowed(verb)
+
+            varz = {}
+            varz.update(runt.vars)
+            varz.update(path.vars)
+
+            opts = {
+                'vars': varz,
+            }
+
+            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
+                # TODO perhaps chunk the edge edits?
+                async for subn, subp in runt.iterStormQuery(query):
+                    if self.n2:
+                        await subn.addEdge(verb, iden)
+                    else:
+                        await node.addEdge(verb, subn.iden())
+
+            yield node, path
+
+class EditEdgeDel(Edit):
+
+    def __init__(self, kids=(), n2=False):
+        Edit.__init__(self, kids=kids)
+        self.n2 = n2
+
+    async def run(self, runt, genr):
+        query = self.kids[1].kids[0]
+
+        hits = set()
+
+        def allowed(x):
+            if x in hits:
+                return
+
+            runt.layerConfirm(('node', 'edge', 'del', x))
+            hits.add(x)
+
+        async for node, path in genr:
+
+            iden = node.iden()
+            verb = await self.kids[0].compute(path)
+            # TODO this will need a toprim once Str is in play
+
+            allowed(verb)
+
+            varz = {}
+            varz.update(runt.vars)
+            varz.update(path.vars)
+
+            opts = {
+                'vars': varz,
+            }
+
+            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
+                # TODO perhaps chunk the edge edits?
+                async for subn, subp in runt.iterStormQuery(query):
+                    if self.n2:
+                        await subn.delEdge(verb, iden)
+                    else:
+                        await node.delEdge(verb, subn.iden())
+
+            yield node, path
+
 class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
@@ -2719,7 +3051,7 @@ class EditTagAdd(Edit):
         else:
             oper_offset = 0
 
-        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper_offset == 1 else ()
+        excignore = (s_exc.BadTypeValu, s_exc.BadTypeValu) if oper_offset == 1 else ()
 
         hasval = len(self.kids) > 1 + oper_offset
 
@@ -2738,6 +3070,7 @@ class EditTagAdd(Edit):
 
                 if hasval:
                     valu = await self.kids[1 + oper_offset].compute(path)
+                    valu = await s_stormtypes.toprim(valu)
                 try:
                     await node.addTag(name, valu=valu)
                 except excignore:
@@ -2771,12 +3104,14 @@ class EditTagPropSet(Edit):
     async def run(self, runt, genr):
 
         oper = self.kids[1].value()
-        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
+        excignore = s_exc.BadTypeValu if oper == '?=' else ()
 
         async for node, path in genr:
 
             tag, prop = await self.kids[0].compute(path)
+
             valu = await self.kids[2].compute(path)
+            valu = await s_stormtypes.toprim(valu)
 
             tagparts = tag.split('.')
 

@@ -12,6 +12,7 @@ import synapse.cortex as s_cortex
 
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
+import synapse.lib.layer as s_layer
 import synapse.lib.version as s_version
 
 import synapse.tools.backup as s_tools_backup
@@ -34,11 +35,220 @@ class CortexTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
 
+    async def test_cortex_rawpivot(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[inet:ipv4=1.2.3.4] $ipv4=$node.value() -> { [ inet:dns:a=(woot.com, $ipv4) ] }')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:dns:a', ('woot.com', 0x01020304)))
+
+    async def test_cortex_edges(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                news = await snap.addNode('media:news', '*')
+                ipv4 = await snap.addNode('inet:ipv4', '1.2.3.4')
+
+                await news.addEdge('refs', ipv4.iden())
+
+                n1edges = await alist(news.iterEdgesN1())
+                n2edges = await alist(ipv4.iterEdgesN2())
+
+                self.eq(n1edges, (('refs', ipv4.iden()),))
+                self.eq(n2edges, (('refs', news.iden()),))
+
+                await news.delEdge('refs', ipv4.iden())
+
+                self.len(0, await alist(news.iterEdgesN1()))
+                self.len(0, await alist(ipv4.iterEdgesN2()))
+
+            nodes = await core.nodes('media:news [ +(refs)> {inet:ipv4=1.2.3.4} ]')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            # check all the walk from N1 syntaxes
+            nodes = await core.nodes('media:news -(refs)> *')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            self.len(0, await core.nodes('media:news -(refs)> mat:spec'))
+
+            nodes = await core.nodes('media:news -(refs)> inet:ipv4')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('media:news -(refs)> (inet:ipv4,inet:ipv6)')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('media:news -(*)> *')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('$types = (refs,hehe) media:news -($types)> *')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('$types = (*) media:news -($types)> *')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # check all the walk from N2 syntaxes
+            nodes = await core.nodes('inet:ipv4 <(refs)- *')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('inet:ipv4 <(*)- *')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            # coverage for isDestForm()
+            self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
+            self.len(0, await core.nodes('media:news -(*)> mat:spec'))
+            self.len(0, await core.nodes('inet:ipv4 <(*)- (mat:spec)'))
+            self.len(0, await core.nodes('media:news -(*)> (mat:spec)'))
+            self.len(0, await core.nodes('media:news -((refs,foos))> mat:spec'))
+            self.len(0, await core.nodes('inet:ipv4 <((refs,foos))- mat:spec'))
+
+            with self.raises(s_exc.StormRuntimeError):
+                self.len(0, await core.nodes('inet:ipv4 <(*)- $(0)'))
+
+            with self.raises(s_exc.StormRuntimeError):
+                self.len(0, await core.nodes('media:news -(*)> $(0)'))
+
+            nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)- *')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('$types = (*) inet:ipv4 <($types)- *')
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            # get the edge using stormtypes
+            msgs = await core.stormlist('media:news for $edge in $node.edges() { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+
+            msgs = await core.stormlist('media:news for $edge in $node.edges(verb=refs) { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+
+            # remove the refs edge
+            nodes = await core.nodes('media:news [ -(refs)> {inet:ipv4=1.2.3.4} ]')
+            self.len(1, nodes)
+
+            # no walking now...
+            self.len(0, await core.nodes('media:news -(refs)> *'))
+
+            # now lets add the edge using the n2 syntax
+            nodes = await core.nodes('inet:ipv4 [ <(refs)+ { media:news } ]')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('media:news -(refs)> *')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('inet:ipv4 [ <(refs)- { media:news } ]')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # test refs+pivs in and out
+            nodes = await core.nodes('media:news [ +(refs)> { inet:ipv4=1.2.3.4 } ]')
+            nodes = await core.nodes('media:news [ :rss:feed=http://www.vertex.link/rss ]')
+            nodes = await core.nodes('[ inet:dns:a=(woot.com, 1.2.3.4) ]')
+
+            # we should now be able to edge walk *and* refs out
+            nodes = await core.nodes('media:news --> *')
+            self.eq(nodes[0].ndef[0], 'inet:url')
+            self.eq(nodes[1].ndef[0], 'inet:ipv4')
+
+            # we should now be able to edge walk *and* refs in
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 <-- *')
+            self.eq(nodes[0].ndef[0], 'inet:dns:a')
+            self.eq(nodes[1].ndef[0], 'media:news')
+
+            msgs = await core.stormlist('for $verb in $lib.view.get().getEdgeVerbs() { $lib.print($verb) }')
+            self.stormIsInPrint('refs', msgs)
+
+            msgs = await core.stormlist('for $edge in $lib.view.get().getEdges() { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+            self.stormIsInPrint(ipv4.iden(), msgs)
+            self.stormIsInPrint(news.iden(), msgs)
+
+            msgs = await core.stormlist('for $edge in $lib.view.get().getEdges(verb=refs) { $lib.print($edge) }')
+            self.stormIsInPrint('refs', msgs)
+            self.stormIsInPrint(ipv4.iden(), msgs)
+            self.stormIsInPrint(news.iden(), msgs)
+
+            # delete an edge that doesn't exist to bounce off the layer
+            await core.nodes('media:news [ -(refs)> { [ inet:ipv4=5.5.5.5 ] } ]')
+
+            # add an edge that exists already to bounce off the layer
+            await core.nodes('media:news [ +(refs)> { inet:ipv4=1.2.3.4 } ]')
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('media:news -(refs)> $(10)')
+
+            self.eq(1, await core.callStorm('''
+                $list = $lib.list()
+                for $edge in $lib.view.get().getEdges() { $list.append($edge) }
+                return($list.size())
+            '''))
+
+            # check that auto-deleting a node's edges works
+            await core.nodes('media:news | delnode')
+            self.eq(0, await core.callStorm('''
+                $list = $lib.list()
+                for $edge in $lib.view.get().getEdges() { $list.append($edge) }
+                return($list.size())
+            '''))
+
+            # check that edge node edits dont bork up legacy splice generation
+            nodeedits = [(ipv4.buid, 'inet:ipv4', (
+                (s_layer.EDIT_EDGE_ADD, (), ()),
+                (s_layer.EDIT_EDGE_DEL, (), ()),
+            ))]
+
+            self.eq((), list(core.view.layers[0].makeSplices(0, nodeedits, {})))
+
+            # Run multiple nodes through edge creation/deletion ( test coverage for perm caching )
+            await core.nodes('inet:ipv4 [ <(test)+ { meta:source:name=test }]')
+            self.len(2, await core.nodes('meta:source:name=test -(test)> *'))
+
+            await core.nodes('inet:ipv4 [ <(test)-{ meta:source:name=test }]')
+            self.len(0, await core.nodes('meta:source:name=test -(test)> *'))
+
+            # Sad path - edges must be a str/list of strs
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                q = 'inet:ipv4 $edges=$(0) -($edges)> *'
+                await core.nodes(q)
+            self.eq(cm.exception.get('mesg'),
+                    'walk operation expected a string or list.  got: 0.')
+
     async def test_cortex_callstorm(self):
         async with self.getTestCore() as core:
             self.eq('asdf', await core.callStorm('return (asdf)'))
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
+
+    async def test_cortex_storm_dmon_log(self):
+
+        async with self.getTestCore() as core:
+
+            iden = await core.callStorm('''
+                $que = $lib.queue.add(que)
+
+                $ddef = $lib.dmon.add(${
+                    $lib.print(hi)
+                    $lib.warn(omg)
+                    $que = $lib.queue.get(que)
+                    $que.put(done)
+                })
+
+                $que.get()
+                return($ddef.iden)
+            ''')
+
+            opts = {'vars': {'iden': iden}}
+            logs = await core.callStorm('return($lib.dmon.log($iden))', opts=opts)
+            self.eq(logs[0][1][0], 'print')
+            self.eq(logs[0][1][1]['mesg'], 'hi')
+            self.eq(logs[1][1][0], 'warn')
+            self.eq(logs[1][1][1]['mesg'], 'omg')
+
+            async with core.getLocalProxy() as prox:
+                logs = await prox.getStormDmonLog(iden)
+                self.eq(logs[0][1][0], 'print')
+                self.eq(logs[0][1][1]['mesg'], 'hi')
+                self.eq(logs[1][1][0], 'warn')
+                self.eq(logs[1][1][1]['mesg'], 'omg')
+
+                self.len(0, await prox.getStormDmonLog('newp'))
 
     async def test_storm_impersonate(self):
 
@@ -158,7 +368,7 @@ class CortexTest(s_t_utils.SynTest):
                 q = 'test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'
                 self.len(1, await core.nodes(q))
 
-                with self.raises(s_exc.BadPropValu):
+                with self.raises(s_exc.BadTypeValu):
                     self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=asdf ]'))
 
                 self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score?=asdf ] +#foo.bar:score=40'))
@@ -1648,7 +1858,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # test invalid option syntax
             msgs = await alist(core.storm('inet:user | limit --woot'))
-            self.printed(msgs, 'usage: limit [-h] count')
+            self.printed(msgs, 'Usage: limit [options] <count>')
             self.len(0, [m for m in msgs if m[0] == 'node'])
 
     async def test_onsetdel(self):
@@ -1786,7 +1996,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', 'foo')
 
                 await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
-                await self.asyncraises(s_exc.BadPropValu, node.set('tick', (20, 30)))
+                await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
 
                 snap.strict = False
                 self.none(await snap.addNode('test:str', s_common.novalu))
@@ -2086,6 +2296,84 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(alldefs.get(('syn:tag', 'nope')))
             self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
 
+            # filterinput=false behavior
+            rules['filterinput'] = False
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            # our TLDs are no longer omits
+            self.len(4, seeds)
+            self.len(6, alldefs)
+            self.isin(('inet:fqdn', 'com'), seeds)
+            self.isin(('inet:fqdn', 'link'), seeds)
+            self.isin(('inet:fqdn', 'woot.com'), seeds)
+            self.isin(('inet:fqdn', 'vertex.link'), seeds)
+
+            # yieldfiltered = True
+            rules.pop('filterinput', None)
+            rules['yieldfiltered'] = True
+
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            # The tlds are omitted, but since we are yieldfiltered=True,
+            # we still get the seeds. We also get an inet:dns:a node we
+            # previously omitted.
+            self.len(4, seeds)
+            self.len(7, alldefs)
+            self.isin(('inet:dns:a', ('vertex.link', 84215045)), alldefs)
+
+            # refs
+            rules = {
+                'degrees': 2,
+                'refs': True,
+            }
+
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('inet:dns:a:fqdn=woot.com',
+                                                   opts={'graph': rules}):
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            self.len(1, seeds)
+            self.len(5, alldefs)
+            # We did make it automatically away 2 degrees with just model refs
+            self.eq({('inet:dns:a', ('woot.com', 16909060)),
+                     ('inet:fqdn', 'woot.com'),
+                     ('inet:ipv4', 16909060),
+                     ('inet:fqdn', 'com'),
+                     ('inet:asn', 20)}, set(alldefs.keys()))
+
+            # Construct a test that encounters nodes which are already
+            # in the to-do queue. This is mainly a coverage test.
+            q = '[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 :asn=1138 +#deathstar]'
+            await core.nodes(q)
+
+            q = '#deathstar | graph --degrees 2 --refs'
+            ndefs = set()
+            async with await core.snap() as snap:
+                async for node, path in snap.storm(q):
+                    ndefs.add(node.ndef)
+            self.isin(('inet:asn', 1138), ndefs)
+
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
             q = '$foo=baz $bar=$foo [test:str=$bar]'
@@ -2288,7 +2576,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('lulz'), 'woah.sys')
 
             # A edit may throw an exception due to some prop-specific normalization reason.
-            await self.asyncraises(s_exc.BadPropValu, core.nodes('test:runt=woah [:lulz=no.way]'))
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:runt=woah [:lulz=no.way]'))
 
             # Setting a property which has no callback or ro fails.
             await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=woah [:newp=pennywise]'))
@@ -2553,13 +2841,15 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore(conf=conf) as core:
             async with await core.snap() as snap:
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
-            await self.agenlen(2, core.eval('test:str'))
+            self.len(2, await core.nodes('test:str'))
 
             layr = core.getLayer()
             await self.agenlen(0, layr.splices())
             await self.agenlen(0, layr.splicesBack())
             await self.agenlen(0, layr.syncNodeEdits(0))
             self.eq(0, layr.getNodeEditOffset())
+
+            self.nn(await core.stat())
 
     async def test_feed_syn_nodes(self):
         async with self.getTestCore() as core0:
@@ -3700,10 +3990,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchIden):
                         await prox.delStormDmon(iden)
 
-                    with self.raises(fastjsonschema.exceptions.JsonSchemaException):
+                    with self.raises(s_exc.SchemaViolation):
                         await core.runStormDmon(iden, {})
 
-                    with self.raises(fastjsonschema.exceptions.JsonSchemaException):
+                    with self.raises(s_exc.SchemaViolation):
                         await core.runStormDmon(iden, {'user': 'XXX'})
 
             async with await s_cortex.Cortex.anit(dirn) as core:
@@ -3833,7 +4123,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             ''')
             # wait for him to exit once and loop...
             await core.nodes('for $x in $lib.queue.get(visi).gets(size=2) {}')
-            mesgs = await core.stormlist('for $x in $lib.queue.get(visi).gets(size=2) { $lib.print(hehe) }')
+            await core.stormlist('for $x in $lib.queue.get(visi).gets(size=2) { $lib.print(hehe) }')
 
     async def test_cortex_ext_model(self):
 
@@ -4057,7 +4347,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with core.getLocalProxy(user='root') as prox:
 
-                fred = await prox.addUser('fred', passwd='secret')
+                await prox.addUser('fred', passwd='secret')
 
                 self.true(core.agenda.enabled)
                 self.true(core.trigson)
@@ -4174,23 +4464,23 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # await core.addStormPkg(base_pkg)
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('name')
-                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
+                with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.message,
+                self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
-                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
+                with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.message,
+                self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['modules'][0].pop('name')
-                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
+                with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.message,
+                self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain ['name', 'storm'] properties")
 
                 pkg = copy.deepcopy(base_pkg)

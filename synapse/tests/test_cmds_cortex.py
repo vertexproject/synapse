@@ -5,6 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.encoding as s_encoding
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
 
@@ -142,7 +143,9 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            await cmdr.runCmdLine('storm [ test:str=foo +#bar.baz=(2015,?) ]')
+            await cmdr.runCmdLine('storm --show-prov [ test:str=foo +#bar.baz=(2015,?) ]')
+            self.true(outp.expect('prov:new'))
+            self.true(outp.expect('....\ntest:str'))
             self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
             self.false(outp.expect('#bar ', throw=False))
             outp.expect('complete. 1 nodes')
@@ -225,15 +228,16 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.isin(('#6faef2', 'test:str ->'), clines)
             self.isin(('#6faef2', '           ^'), clines)
 
-            # Test that trying to print an \r doesn't assert (prompt_toolkit bug)
+            # Trying to print an \r doesn't assert (prompt_toolkit bug)
             # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/915
             await core.addNode('test:str', 'foo', props={'hehe': 'windows\r\nwindows\r\n'})
             await cmdr.runCmdLine('storm test:str=foo')
             self.true(1)
 
             await realcore.nodes('[ inet:ipv4=1.2.3.4 +#visi.woot ]')
+            await s_lmdbslab.Slab.syncLoopOnce()
 
-            # test that the storm --spawn option
+            # The storm --spawn option works
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --spawn inet:ipv4=1.2.3.4')

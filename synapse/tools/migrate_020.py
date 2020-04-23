@@ -7,6 +7,7 @@ import shutil
 import asyncio
 import logging
 import argparse
+import contextlib
 import collections
 
 import synapse.cortex as s_cortex
@@ -30,6 +31,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 
 import synapse.tools.backup as s_backup
+import synapse.tools.sync_020 as s_sync
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ ALL_MIGROPS = (
     'nodedata',
     'cron',
     'triggers',
+    'splices',
 )
 
 ADD_MODES = (
@@ -52,7 +55,134 @@ ADD_MODES = (
     'editor',   # Layer.editors[<op>]() w/o nexus
 )
 
+# We are already checking that the layer is at the max 01x vers
+# so unmigrated forms and props would be "known" issues that are
+# not currently liftable.
+OLDMODEL_FORMS = (
+    'seen',
+    'source',
+    'has',
+    'refs',
+    'wentto',
+    'event',
+    'cluster',
+    'graph:link',
+    'graph:timelink',
+    'inet:whois:regmail',
+    'inet:web:actref', 'inet:web:postref',
+    'file:ref',
+)
+
+OLDMODEL_PROPS = (
+    'ou:org:disolved',
+    'it:exec:reg:get:reg:key', 'it:exec:reg:get:reg:int', 'it:exec:reg:get:reg:str', 'it:exec:reg:get:reg:bytes',
+    'it:exec:reg:set:reg:key', 'it:exec:reg:set:reg:int', 'it:exec:reg:set:reg:str', 'it:exec:reg:set:reg:bytes',
+    'it:exec:reg:del:reg:key', 'it:exec:reg:del:reg:int', 'it:exec:reg:del:reg:str', 'it:exec:reg:del:reg:bytes',
+    'inet:fqdn:created', 'inet:fqdn:expires', 'inet:fqdn:updated',
+)
+
 MAX_01X_VERS = (0, 1, 3)
+
+class MigrSplices(s_sync.SyncMigrator):
+    '''
+    Migrate splices to nodeedits across local storage as one-time activity.
+    '''
+    async def __anit__(self, dirn, conf=None):
+        await s_sync.SyncMigrator.__anit__(self, dirn, conf=conf)
+        self.src_genrs = {}
+        self.dest_writers = {}
+        await self.loadOldModelItems()
+
+    async def loadOldModelItems(self):
+        self.form_chk = {k: 0 for k in OLDMODEL_FORMS}
+        self.prop_chk = {k: 0 for k in OLDMODEL_PROPS}
+
+    async def _loadDatamodel(self):
+        '''
+        Model will be loaded directly by Migrator
+        '''
+        pass
+
+    async def disableMigrationMode(self):  # pragma: no cover
+        pass
+
+    async def enableMigrationMode(self):  # pragma: no cover
+        pass
+
+    async def _initCellDmon(self):
+        pass
+
+    async def _srcPullLyrSplices(self, lyriden):
+        '''
+        Overrides sync method to use local reader and read until exhausted instead of polling.
+        '''
+        genr = self.src_genrs.get(lyriden)
+        startoffs = self.pull_offs.get(lyriden)
+        nextoffs = None
+        queue = self._queues[lyriden]
+
+        retn = {
+            'status': False,
+            'nextoffs': None,
+            'err': None,
+        }
+
+        while not self.isfini:
+            try:
+                if queue.isfini:
+                    retn['err'] = 'queue_fini'
+                    break
+
+                nextoffs, islive = await self._srcIterLyrSplices(genr, startoffs, queue)
+                self.pull_offs.set(lyriden, nextoffs)
+
+                if islive:
+                    retn['status'] = True
+                    break
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+            except Exception as e:
+                exc = s_common.excinfo(e)
+                retn['err'] = exc
+                logger.exception(f'Splice pull encountered an exception; queue will be finid')
+                break
+
+        # fini the queue; writer should continue until the queue is empty
+        await queue.fini()
+
+        retn['nextoffs'] = nextoffs
+        return retn
+
+    async def _destPushLyrNodeedits(self, lyriden):
+        '''
+        Overrides sync method to use local writer instead of proxy.
+        '''
+        writer = self.dest_writers.get(lyriden)
+        queue = self._queues.get(lyriden)
+
+        retn = {
+            'status': False,
+            'err': None,
+        }
+
+        isdone = False
+        while not self.isfini and not isdone:
+            try:
+                if queue.isfini:
+                    isdone = True  # one last pass to empty the queue
+                await self._destIterLyrNodeedits(writer, queue, lyriden)
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+            except Exception as e:
+                exc = s_common.excinfo(e)
+                retn['err'] = exc
+                logger.exception(f'Splice push encountered an exception')
+                await queue.fini()
+                break
+
+        retn['status'] = isdone
+        return retn
 
 class MigrAuth:
     '''
@@ -395,6 +525,7 @@ class MigrAuth:
             uname = uname_lookup.get(uiden)
             if uname is None:
                 logger.warning(f'Unable to match user iden to name: {uiden}')
+                continue
             userkids[uiden] = {
                 'kids': {k: {'value': v} for k, v in uvals.items()},
                 'value': uname,
@@ -438,7 +569,8 @@ class MigrAuth:
             for uiden, uvals in avals['usersbyiden'].items():
                 uname = uname_lookup.get(uiden)
                 if uname is None:
-                    logger.warning(f'Unable to match user iden to name: {uiden}')
+                    logger.warning(f'Unable to match user iden to name: {uiden} user for {aiden}')
+                    continue
                 ausers['kids'][uiden] = {
                     'kids': {k: {'value': v} for k, v in uvals.items()},
                     'value': uname
@@ -514,6 +646,8 @@ class Migrator(s_base.Base):
         self.fromlast = conf.get('fromlast', False)
         self.savechkpnt = 100000  # save a restart marker every this many nodes
 
+        self.mappartial = conf.get('mappartial', False)
+
         self.srcdedicated = conf.get('srcdedicated', False)
 
         self.destdedicated = conf.get('destdedicated', False)
@@ -523,6 +657,13 @@ class Migrator(s_base.Base):
             'map_async': True,
             'readahead': False,
             'lockmemory': self.srcdedicated,
+        }
+
+        self.migrsplices = None
+        self.spliceconf = {
+            'err_lim': -1,
+            'queue_size': 100000,
+            'offs_logging': 1000000,
         }
 
         # data model
@@ -575,16 +716,27 @@ class Migrator(s_base.Base):
         if 'hiveauth' in self.migrops:
             await self._migrHiveAuth()
 
+        # prepare splice sync (MigrSplices is multi-layer aware)
+        if 'splices' in self.migrops:
+            path = os.path.join(self.dest, self.migrdir, 'splices')
+            self.migrsplices = await MigrSplices.anit(path, conf=self.spliceconf)
+            self.migrsplices.model.update(self.model.getModelDict())
+            self.onfini(self.migrsplices.fini)
+
         # full layer data migration
         for iden, migrlyrinfo in lyrs.items():
             logger.info(f'Starting migration for layer {iden}')
-            wlyr = await self._destGetWlyr(self.dest, iden, migrlyrinfo)
 
-            if 'nodes' in self.migrops:
-                await self._migrNodes(iden, wlyr)
+            async with self._destGetWlyr(self.dest, iden, migrlyrinfo) as wlyr:
 
-            if 'nodedata' in self.migrops:
-                await self._migrNodeData(iden, wlyr)
+                if 'nodes' in self.migrops:
+                    await self._migrNodes(iden, wlyr)
+
+                if 'nodedata' in self.migrops:
+                    await self._migrNodeData(iden, wlyr)
+
+            if 'splices' in self.migrops:
+                await self._migrSplices(iden)
 
         await self._dumpOffsets()
         await self._dumpVers()
@@ -921,6 +1073,9 @@ class Migrator(s_base.Base):
                 await self._migrlogAdd(migrop, 'error', 'bootyaml_authadmin', s_common.now())
 
             # move to migration dir as backup
+            bubootpath = os.path.join(self.dest, self.migrdir, 'boot.yaml')
+            if os.path.exists(bubootpath):
+                os.remove(bubootpath)
             shutil.move(bootpath, os.path.join(self.dest, self.migrdir))
 
         # confdefs
@@ -1174,6 +1329,11 @@ class Migrator(s_base.Base):
             trgiden = s_common.guid(ruledict)
             ruledict['iden'] = trgiden
 
+            # strip out nonexistent conditions
+            for cond in ('form', 'prop', 'tag'):
+                if cond in ruledict and ruledict[cond] is None:
+                    del ruledict[cond]
+
             trgdict = viewtrgs.get(viewiden)
             if trgdict is None:
                 trgnode = await self.hive.open(('cortex', 'views', viewiden, 'triggers'))
@@ -1208,26 +1368,46 @@ class Migrator(s_base.Base):
         addmode = self.addmode
         model = self.model
 
+        logger.info(f'Starting node migration for {iden}')
+
         # see if there is a checkpoint to start from
         lastcnt = 0
         lmin = None
         if fromlast:
             log = await self._migrlogGetOne(migrop, 'chkpnt', iden)
             if log is None:
-                logger.warning(f'Start from checkpoint was specified but no log found for layer {iden}')
+                logger.warning(f'Start from checkpoint was specified but no {migrop} log found for layer {iden}')
                 fromlast = False
             else:
                 lmin = log['val'][0]
                 startfrom = log['val'][1]
                 savetime = s_time.repr(log['val'][2])
-                logger.info(f'Resuming migration from {startfrom} saved on {savetime} for layer {iden}')
+                logger.info(f'Resuming {migrop} migration from {startfrom} saved on {savetime} for layer {iden}')
                 lastcnt = startfrom - 1 if startfrom > 0 else 0
 
         # open storage
         path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
+        logger.debug(f'Opening src layer slab: {path}')
         src_slab = await s_lmdbslab.Slab.anit(path, **self.srcslabopts)
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
+        src_byprop = src_slab.initdb('byprop')  # <form>00<prop>00<indx>=<buid>
         self.onfini(src_slab.fini)
+
+        # optionally create the buid:form map
+        # will run the scan to load the map if the slab doesn't exist or not resuming from a checkpoint
+        map_slab = None
+        map_bybuid = None
+        if self.mappartial:
+            path = os.path.join(self.dest, self.migrdir, 'layermaps', iden, 'layermap.lmdb')
+            logger.debug(f'Opening layermap slab: {path}')
+            map_slab = await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False, readonly=False)
+            map_bybuid = map_slab.initdb('bybuid')
+            self.onfini(map_slab.fini)
+
+            if not os.path.exists or lmin is None:
+                logger.info(f'Starting partial layer map load for {iden}')
+                await self._srcLoadBuidFormMap(src_slab, src_byprop, map_slab, map_bybuid)
+                logger.info(f'Finished partial layer map load for {iden}')
 
         # check and store model vers
         versbyts = src_slab.get(b'layer:model:version')
@@ -1237,6 +1417,8 @@ class Migrator(s_base.Base):
             vers = s_msgpack.un(versbyts)
         await self._migrlogAdd(migrop, 'vers', iden, vers)
 
+        logger.debug(f'Layer {iden} model version {vers}')
+
         # even after a partial migration this vers should not be updated to 020 since
         # layer:model:version is no longer used
         if vers != MAX_01X_VERS:
@@ -1245,7 +1427,8 @@ class Migrator(s_base.Base):
         # record offset
         path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')
         if os.path.exists(path):
-            spliceslab = await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False)
+            logger.debug(f'Opening src splice slab: {path}')
+            spliceslab = await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False, readonly=True)
             self.onfini(spliceslab.fini)
             splicelog = s_slabseqn.SlabSeqn(spliceslab, 'splices')
             nextindx = splicelog.index()
@@ -1258,12 +1441,14 @@ class Migrator(s_base.Base):
         await self._migrlogAdd(migrop, 'nextoffs', iden, (nextindx, s_common.now()))
 
         # migrate data
+        fnd_emptyform = False
         src_fcnt = collections.defaultdict(int)
         nodeedits = []
         buid = None
         t_strt = s_common.now()
         stot = 0
         dtot = 0
+        logger.debug('Starting node migration iteration')
         async for node in self._srcIterNodes(src_slab, src_bybuid, lmin):
             stot += 1
 
@@ -1275,8 +1460,27 @@ class Migrator(s_base.Base):
                 await asyncio.sleep(0)
 
             buid = node[0]
-            form = node[1]['ndef'][0].replace('*', '')
-            src_fcnt[form] += 1
+
+            form = None
+            if node[1]['ndef'] is not None:
+                form = node[1]['ndef'][0].replace('*', '')
+                src_fcnt[form] += 1
+
+            # if no form associated with the node attempt to get from buid map
+            # otherwise node will not migrate
+            if form is None:
+                if map_slab is not None:
+                    bform = map_slab.get(buid, db=map_bybuid)
+                    form = bform.decode('utf8') if bform is not None else None
+
+                    if form is None:  # pragma: no cover
+                        logger.warning(f'Unable to locate form from buid map: {buid}')
+
+                elif not fnd_emptyform:
+                    fnd_emptyform = True
+                    msg = f'No form returned for node; ' \
+                          f'if this is a partial layer consider running with --partial-map option: {buid}'
+                    logger.warning(msg)
 
             if nodelim is not None and stot >= nodelim:
                 logger.warning(f'Stopping node migration due to reaching nodelim {stot}')
@@ -1288,7 +1492,7 @@ class Migrator(s_base.Base):
             if stot % savechkpnt == 0:
                 await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot_inc + 1, s_common.now()))
 
-            err, nodeedit = await self._trnNodeToNodeedit(node, model, chknodes)
+            err, nodeedit = await self._trnNodeToNodeedit(node, model, form, chknodes)
             if err is not None:
                 logger.warning(err)
                 err['node'] = node
@@ -1346,6 +1550,9 @@ class Migrator(s_base.Base):
 
         await src_slab.fini()
 
+        if map_slab is not None:
+            await map_slab.fini()
+
         return
 
     async def _migrNodeData(self, iden, wlyr):
@@ -1362,6 +1569,8 @@ class Migrator(s_base.Base):
         editchnks = self.editbatchsize
         fairiter = self.fairiter
         addmode = self.addmode
+
+        logger.info(f'Starting nodedata migration for {iden}')
 
         # open storage
         path = os.path.join(self.src, 'layers', iden, 'nodedata.lmdb')
@@ -1433,6 +1642,105 @@ class Migrator(s_base.Base):
         await src_slab.fini()
 
         return
+
+    async def _migrSplices(self, iden):
+        '''
+        Migrate 01x splices from the splices slab directly to the 02x nodeedits slab.
+
+        Args:
+            iden: Layer iden to migate
+        '''
+        migrop = 'splices'
+        fromlast = self.fromlast
+
+        logger.info(f'Starting splice migration for {iden}')
+
+        # Open src slab, return if it doesn't exist
+        path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')
+        if os.path.exists(path):
+            spliceslab = await s_lmdbslab.Slab.anit(path, readonly=True, map_async=True, lockmemory=False)
+            self.onfini(spliceslab.fini)
+            splicelog = s_slabseqn.SlabSeqn(spliceslab, 'splices')
+            lastindx = splicelog.index() - 1
+            logger.info(f'Found {lastindx + 1:,} splices to migrate for {iden}')
+        else:
+            await self._migrlogAdd(migrop, 'error', iden, 'noexist')
+            logger.warning(f'Splice slab not found for {iden}, unable to migrate')
+            return
+
+        # Open dest slab
+        path = s_common.genpath(self.dest, 'layers', iden, 'nodeedits.lmdb')
+        nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=False, map_async=True, lockmemory=False)
+        self.onfini(nodeeditslab.fini)
+        nodeeditlog = s_slabseqn.SlabSeqn(nodeeditslab, 'nodeedits')
+
+        # create the source genr to use in splice sync
+        async def genr(offs):
+            for indx, valu in splicelog.iter(offs):
+                yield valu
+            return
+
+        self.migrsplices.src_genrs[iden] = genr
+
+        # create the dest writer to use in splice sync
+        # assumes that every nodeedit is a change
+        async def writer(nodeedits, meta):
+            nodeeditlog.add((nodeedits, meta))
+
+        self.migrsplices.dest_writers[iden] = writer
+
+        # Handle restart
+        synccoro = None
+        if fromlast:
+            synclyriden = self.migrsplices.layers.get(iden)
+            pushoffs = self.migrsplices.push_offs.get(iden)
+
+            if synclyriden is None or pushoffs is None:
+                logger.warning(f'Migration restart specified but no splice checkpoint found; restarting from 0')
+                fromlast = False
+
+            else:
+                logger.info(f'Found splice migration checkpoint for {iden} at offset {pushoffs}')
+                synccoro = self.migrsplices.startSyncFromLast(lyridens=[iden])
+
+        if not fromlast:
+            await self.migrsplices.resetLyrErrs(iden)
+            synccoro = self.migrsplices.startLyrSync(iden, 0)
+            nodeeditlog.indx = 0  # to overwrite any previous partial migrations in dest
+
+        # start the migration and wait for the tasks to complete
+        await synccoro
+        await asyncio.sleep(0)
+
+        pulltask = self.migrsplices.pull_tasks[iden]
+        await asyncio.wait_for(pulltask, timeout=None)
+
+        pushtask = self.migrsplices.push_tasks[iden]
+        await asyncio.wait_for(pushtask, timeout=None)
+
+        status = (await self.migrsplices.status()).get(iden)
+
+        if status is None:  # pragma: no cover
+            logger.error(f'Failed to report splice migration status: {iden}')
+        else:
+            errcnt = status.get('errcnt', 0)
+            if errcnt > 0:
+                model_errs = sum(self.migrsplices.form_chk.values()) + sum(self.migrsplices.prop_chk.values())
+                errmesg = f'Splice migration encountered {errcnt:,} errors ' \
+                          f'of which {model_errs:,} were due to old datamodel entries'
+                logger.warning(errmesg)
+                logger.debug(f'Source splice read task summary: {status.get("src:task")}')
+                logger.debug(f'Destination splice push task summary: {status.get("dest:task")}')
+
+            src_lastoffs = status.get('src:nextoffs') - 1
+            dest_lastoffs = status.get('dest:nextoffs') - 1
+            logger.info(f'For target offset {lastindx:,}: read up to {src_lastoffs:,}, wrote up to {dest_lastoffs:,}')
+
+        await nodeeditslab.fini()
+        await spliceslab.fini()
+
+        logger.info(f'Completed splice migration for {iden}')
+        await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
     #############################################################
     # Migration logging / record keeping
@@ -1598,6 +1906,23 @@ class Migrator(s_base.Base):
         if buid is not None:
             yield await self._srcPackNode(buid, ndef, props, tags, tagprops)
 
+    async def _srcLoadBuidFormMap(self, propslab, propdb, mapslab, mapdb):
+        '''
+        Create a map of buid to primary form for a given layer slab.
+        Stores data into a dedicated map slab located in migr directory.
+        '''
+        cnt = 0
+        for lkey, lval in propslab.scanByFull(db=propdb):
+            cnt += 1
+            buid = s_msgpack.un(lval)[0]
+            bform = lkey.split(b'\x00')[0]
+
+            mapslab.put(buid, bform, db=mapdb)
+
+            if cnt % 10000000 == 0:  # pragma: no cover
+                logger.info(f'...on entry {cnt:,} for partial layer map load')
+                await asyncio.sleep(0)
+
     async def _srcIterNodedata(self, buidslab, buiddb):
         '''
         Iterate over 0.1.0 nodedata
@@ -1612,85 +1937,103 @@ class Migrator(s_base.Base):
     # Translation operations
     #############################################################
 
-    async def _trnNodeToNodeedit(self, node, model, chknodes=True):
+    async def _trnNodeToNodeedit(self, node, model, fname=None, chknodes=True):
         '''
         Create translation of node info to an 0.2.0 node edit.
 
         Args:
             node (tuple): (<buid>, {'ndef': ..., 'props': ..., 'tags': ..., 'tagprops': ...}
             model (Obj): Datamodel instance
+            fname (str or None): Optional form name to associate with the node
             chknodes (bool): Whether to require valid node norming and buid comparisons in order to add
 
         Returns:
             (tuple): (cond, nodedit)
                 cond: None or error dict
-                nodeedit: (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
+                nodeedit: (<buid>, <form>, [edits]) where edits is list of (<type>, <info>, subedits)
         '''
         buid = node[0]
-        fname = node[1]['ndef'][0]
-        fval = node[1]['ndef'][1]
 
-        if fname[0] == '*':
-            fname = fname[1:]
-        else:
-            err = {'mesg': f'Unable to parse form name {fname}', 'node': node}
-            return err, None
-
+        ndef = node[1]['ndef']
         edits = []
+        if ndef is not None:
+            fname = ndef[0]
+            fval = ndef[1]
 
-        # setup storage type
-        if chknodes:
-            try:
-                mform = model.form(fname)
-                stortype = mform.type.stortype
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-            except Exception as e:
-                err = {'mesg': f'Unable to determine stortype for {fname}: {e}'}
-                return err, None
-        else:
-            mform = None
-            stortype = self._destGetFormStype(fname)
-            if stortype is None:
-                err = {'mesg': f'Unable to determine stortype for {fname}'}
+            if fname[0] == '*':
+                fname = fname[1:]
+            else:
+                err = {'mesg': f'Unable to parse form name {fname}', 'node': node}
                 return err, None
 
-        # safety check for buid/norming
-        if chknodes:
-            normerr = None
-            try:
-                formnorm, _ = mform.type.norm(fval)
-                if fval != formnorm:
-                    normerr = {'mesg': f'Normed form val does not match inbound {fname}, {fval}, {formnorm}'}
-                if buid != s_common.buid((fname, fval)):
-                    normerr = {'mesg': f'Calculated buid does not match inbound {buid}, {fname}, {fval}'}
+            # setup storage type
+            if chknodes:
+                try:
+                    mform = model.form(fname)
+                    stortype = mform.type.stortype
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+                except Exception as e:
+                    err = {'mesg': f'Unable to determine stortype for {fname}: {e}'}
+                    return err, None
+            else:
+                mform = None
+                stortype = self._destGetFormStype(fname)
+                if stortype is None:
+                    err = {'mesg': f'Unable to determine stortype for {fname}'}
+                    return err, None
 
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-            except Exception as e:
-                normerr = {'mesg': f'Buid/norming exception {e}: {buid}, {fname}, {fval}'}
-                pass
+            # safety check for buid/norming
+            if chknodes:
+                normerr = None
+                try:
+                    formnorm, _ = mform.type.norm(fval)
 
-            if normerr is not None:
-                normerr['node'] = node
-                return normerr, None
+                    if fval != formnorm:
+                        # check if its a special case where we can't renorm a norm'd value
+                        if mform.type.subof == 'inet:addr' and fval.startswith('host://'):
+                            logger.debug(f'Skipping norm failure on inet:addr type host: {fval}')
+                        else:
+                            normerr = {'mesg': f'Normed form val does not match inbound {fname}, {fval}, {formnorm}'}
 
-        edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype)))  # name, stype
+                    if buid != s_common.buid((fname, fval)):
+                        normerr = {'mesg': f'Calculated buid does not match inbound {buid}, {fname}, {fval}'}
+
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+                except Exception as e:
+                    normerr = {'mesg': f'Buid/norming exception {e}: {buid}, {fname}, {fval}'}
+                    pass
+
+                if normerr is not None:
+                    normerr['node'] = node
+                    return normerr, None
+
+            edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype), ()))  # name, stype
+
+        if fname is None:
+            err = {'mesg': f'No form name available for {buid}'}
+            return err, None
 
         # iterate over secondary properties
         for sprop, sval in node[1]['props'].items():
             sprop = sprop.replace('*', '')
-            stortype = self._destGetPropStype(fname, sprop)
+
+            if sprop[0] == '.':
+                stortype = self._destGetPropStype(None, sprop)
+            else:
+                stortype = self._destGetPropStype(fname, sprop)
+
             if stortype is None:
-                err = {'mesg': f'Unable to determine stortype for sprop {sprop}'}
+                err = {'mesg': f'Unable to determine stortype for sprop {sprop}, form {fname}'}
                 return err, None
 
-            edits.append((s_layer.EDIT_PROP_SET, (sprop, sval, None, stortype)))  # name, valu, oldv, stype
+            edits.append((s_layer.EDIT_PROP_SET, (sprop, sval, None, stortype), ()))  # name, valu, oldv, stype
 
         # set tags
         for tname, tval in node[1]['tags'].items():
             tnamenorm = tname[1:]
-            edits.append((s_layer.EDIT_TAG_SET, (tnamenorm, tval, None)))  # tag, valu, oldv
+            edits.append((s_layer.EDIT_TAG_SET, (tnamenorm, tval, None), ()))  # tag, valu, oldv
 
         # tagprops
         for tname, tprops in node[1]['tagprops'].items():
@@ -1707,7 +2050,7 @@ class Migrator(s_base.Base):
                     return err, None
 
                 edits.append((s_layer.EDIT_TAGPROP_SET,
-                              (tnamenorm, tpname, tpval, None, stortype)))  # tag, prop, valu, oldv, stype
+                              (tnamenorm, tpname, tpval, None, stortype), ()))  # tag, prop, valu, oldv, stype
 
         return None, (buid, fname, edits)
 
@@ -1725,7 +2068,7 @@ class Migrator(s_base.Base):
         name = nodedata[1]
         valu = nodedata[2]
 
-        edits = [(s_layer.EDIT_NODEDATA_SET, (name, valu, None))]
+        edits = [(s_layer.EDIT_NODEDATA_SET, (name, valu, None), ())]
 
         return buid, None, edits
 
@@ -1748,14 +2091,18 @@ class Migrator(s_base.Base):
     def _destGetPropStype(self, form, sprop):
         stortype = None
         try:
-            mform = self.model.form(form)
-            prop = mform.prop(sprop)
+            if form is None:
+                prop = self.model.univ(sprop)
+            else:
+                mform = self.model.form(form)
+                prop = mform.prop(sprop)
             stortype = prop.type.stortype
         except Exception as e:
             logger.debug(f'Secondary prop stortype exception: {form}, {sprop}, {e}')
             pass
         return stortype
 
+    @contextlib.asynccontextmanager
     async def _destGetWlyr(self, dirn, iden, migrlyrinfo):
         '''
         Get the write Layer object for the destination.
@@ -1773,10 +2120,13 @@ class Migrator(s_base.Base):
         await migrlyrinfo.set('logedits', False)  # only matters if addmode=nexus, but we never want to store edits
 
         path = os.path.join(dirn, 'layers', iden)
-        wlyr = await s_layer.Layer.anit(migrlyrinfo, path, nexsroot=self.nexusroot)
-        self.onfini(wlyr.fini)
+        async with await s_layer.Layer.anit(migrlyrinfo, path, nexsroot=self.nexusroot) as wlyr:
 
-        return wlyr
+            yield wlyr
+
+            await asyncio.sleep(0)
+
+        return
 
     async def _destAddNodes(self, wlyr, nodeedits, addmode):
         '''
@@ -1803,6 +2153,7 @@ class Migrator(s_base.Base):
                     await wlyr._storNodeEdit(ne)
 
             elif addmode == 'editor':
+                # NOTE: This code must mirror Layer._editNodeAdd in synapse.lib.layer
                 for ne in nodeedits:
                     buid, form, edits = ne
                     for edit in edits:
@@ -1815,8 +2166,19 @@ class Migrator(s_base.Base):
                                 continue
 
                             abrv = wlyr.getPropAbrv(form, None)
-                            for indx in wlyr.getStorIndx(stortype, valu):
-                                wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byprop)
+
+                            if stortype & s_layer.STOR_FLAG_ARRAY:
+
+                                for indx in wlyr.getStorIndx(stortype, valu):
+                                    wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byarray)
+
+                                for indx in wlyr.getStorIndx(s_layer.STOR_TYPE_MSGP, valu):
+                                    wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byprop)
+
+                            else:
+
+                                for indx in wlyr.getStorIndx(stortype, valu):
+                                    wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byprop)
 
                             wlyr.formcounts.inc(form)
 
@@ -1824,7 +2186,7 @@ class Migrator(s_base.Base):
                             # which would then be overwritten by EDIT_PROP_SET
 
                         else:
-                            wlyr.editors[editor](buid, form, edit)
+                            wlyr.editors[editor](buid, form, edit, None)
 
             else:
                 err = {'mesg': f'Unrecognized addmode {addmode}'}
@@ -1863,6 +2225,8 @@ async def main(argv, outp=s_output.stdout):
                       help='Open source layer slab as dedicated (lockmemory=True).')
     pars.add_argument('--dest-dedicated', required=False, action='store_true',
                       help='Open destination layer slab as dedicated (lockmemory=True).')
+    pars.add_argument('--map-partial', required=False, action='store_true',
+                      help='For layers containing partial node information, create a form lookup map.')
     pars.add_argument('--log-level', required=False, default='info', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
     pars.add_argument('--form-counts', required=False, action='store_true',
@@ -1890,6 +2254,7 @@ async def main(argv, outp=s_output.stdout):
         'fromlast': opts.from_last,
         'srcdedicated': opts.src_dedicated,
         'destdedicated': opts.dest_dedicated,
+        'mappartial': opts.map_partial,
         'formcounts': formcounts,
     }
 

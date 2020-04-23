@@ -22,7 +22,9 @@ terminalEnglishMap = {
     'BREAK': 'break',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
+    'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
+    'CMDRTOKN': 'An unquoted string parsed as a cmdr arg',
     'CMPR': 'comparison operator',
     'BYNAME': 'named comparison operator',
     'COLON': ':',
@@ -46,12 +48,13 @@ terminalEnglishMap = {
     'FILTPREFIX': '+ or -',
     'FOR': 'for',
     'FUNCTION': 'function',
+    'HEXNUMBER': 'number',
     'IF': 'if',
     'IN': 'in',
     'LBRACE': '[',
+    'LISTTOKN': 'An unquoted list-compatible string.',
     'LPAR': '(',
     'LSQB': '{',
-    'NONCMDQUOTE': 'unquoted command argument',
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
     'NUMBER': 'number',
@@ -73,12 +76,28 @@ terminalEnglishMap = {
     'VARTOKN': 'variable',
     'VBAR': '|',
     'WHILE': 'while',
+    'WORDTOKN': 'A whitespace tokenized string',
     'YIELD': 'yield',
+    '_ARRAYCONDSTART': '*[',
     '_DEREF': '*',
+    '_EDGEADDN1INIT': '+(',
+    '_EDGEADDN1FINI': ')>',
+    '_EDGEDELN1INIT': '-(',
+    '_EDGEDELN1FINI': ')>',
+    '_EDGEADDN2INIT': '<(',
+    '_EDGEADDN2FINI': ')+',
+    '_EDGEDELN2INIT': '<(',
+    '_EDGEDELN2FINI': ')-',
     '_EMBEDQUERYSTART': '${',
     '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
+    '_WALKNPIVON1': '-->',
+    '_WALKNPIVON2': '<--',
+    '_N1WALKINIT': '-(',
+    '_N1WALKFINI': ')>',
+    '_N2WALKINIT': '<(',
+    '_N2WALKFINI': ')-',
     '_ONLYTAGPROP': '#:',
     '_RETURN': 'return',
     '_RIGHTJOIN': '-+>',
@@ -192,15 +211,36 @@ class AstConverter(lark.Transformer):
         argv = []
 
         for kid in kids:
-            if isinstance(kid, s_ast.Const):
-                newkid = kid.valu
-            elif isinstance(kid, s_ast.SubQuery):
-                newkid = kid.text
+            if isinstance(kid, s_ast.SubQuery):
+                argv.append(s_ast.Const(kid.text))
             else:
-                raise AssertionError('Unexpected rule')  # pragma: no cover
-            argv.append(newkid)
+                argv.append(self._convert_child(kid))
 
-        return s_ast.Const(tuple(argv))
+        return s_ast.List(None, kids=argv)
+
+    def cmdrargs(self, kids):
+        argv = []
+
+        for kid in kids:
+
+            if isinstance(kid, s_ast.SubQuery):
+                argv.append(kid.text)
+                continue
+
+            # this one should never happen, but is here in case
+            if isinstance(kid, s_ast.Const): # pragma: no cover
+                argv.append(kid.valu)
+                continue
+
+            if isinstance(kid, lark.lexer.Token):
+                argv.append(str(kid))
+                continue
+
+            # pragma: no cover
+            mesg = f'Unhandled AST node type in cmdrargs: {kid!r}'
+            raise s_exc.BadSyntax(mesg=mesg)
+
+        return argv
 
     @classmethod
     def _tagsplit(cls, tag):
@@ -272,8 +312,8 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 QueryParser = lark.Lark(_grammar, start='query', propagate_positions=True)
-CmdrParser = lark.Lark(_grammar, start='query', propagate_positions=True, keep_all_tokens=True)
 StormCmdParser = lark.Lark(_grammar, start='stormcmdargs', propagate_positions=True)
+CmdrParser = lark.Lark(_grammar, start='cmdrargs', propagate_positions=True)
 
 _eofre = regex.compile(r'''Terminal\('(\w+)'\)''')
 
@@ -324,17 +364,15 @@ class Parser:
         newtree.text = self.text
         return newtree
 
-    def stormcmdargs(self):
+    def cmdrargs(self):
         '''
         Parse command args that might have storm queries as arguments
         '''
         try:
-            tree = StormCmdParser.parse(self.text)
+            tree = CmdrParser.parse(self.text)
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
-        newtree = AstConverter(self.text).transform(tree)
-        assert isinstance(newtree, s_ast.Const)
-        return newtree.valu
+        return AstConverter(self.text).transform(tree)
 
 @s_cache.memoize(size=100)
 def parseQuery(text):
@@ -356,6 +394,7 @@ terminalClassMap = {
     'DEREFMATCHNOSEP': massage_vartokn,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
+    'HEXNUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
     'VARTOKN': massage_vartokn,
@@ -368,6 +407,10 @@ ruleClassMap = {
     'andexpr': s_ast.AndCond,
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
+    'edgeaddn1': s_ast.EditEdgeAdd,
+    'edgedeln1': s_ast.EditEdgeDel,
+    'edgeaddn2': lambda kids: s_ast.EditEdgeAdd(kids, n2=True),
+    'edgedeln2': lambda kids: s_ast.EditEdgeDel(kids, n2=True),
     'editnodeadd': s_ast.EditNodeAdd,
     'editparens': s_ast.EditParens,
     'initblock': s_ast.InitBlock,
@@ -413,9 +456,14 @@ ruleClassMap = {
     'liftbyarray': s_ast.LiftByArray,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
+    'n1walk': s_ast.N1Walk,
+    'n2walk': s_ast.N2Walk,
+    'n1walknpivo': s_ast.N1WalkNPivo,
+    'n2walknpivo': s_ast.N2WalkNPivo,
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
+    'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,
     'relprop': s_ast.RelProp,
     'relpropcond': s_ast.RelPropCond,

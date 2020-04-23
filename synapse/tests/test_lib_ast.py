@@ -1,6 +1,8 @@
 import json
 import synapse.exc as s_exc
 
+import synapse.common as s_common
+
 import synapse.lib.ast as s_ast
 import synapse.tests.utils as s_test
 
@@ -168,11 +170,13 @@ class AstTest(s_test.SynTest):
         '''
         async with self.getTestCore() as core:
             q = '''
-            [test:str=another]
-            $s = $lib.text("Foo")
-            $newvar=:hehe -.created
-            $s.add("yar {x}", x=$newvar)
-            $lib.print($s.str())'''
+                [test:str=another :hehe=asdf]
+                $s = $lib.text("Foo")
+                $newvar=:hehe
+                -.created
+                $s.add("yar {x}", x=$newvar)
+                $lib.print($s.str())
+            '''
             mesgs = await core.stormlist(q)
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
             self.eq(['Foo'], prints)
@@ -529,6 +533,56 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:arrayprop +:ints*[=100]')
             self.len(1, nodes)
             self.eq(nodes[0].get('ints'), (100, 101, 102))
+
+    async def test_ast_array_addsub(self):
+
+        async with self.getTestCore() as core:
+
+            guid = s_common.guid()
+            nodes = await core.nodes(f'[ test:arrayprop={guid} ]')
+
+            # test starting with the property unset
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints+=99 ]')
+            self.eq((99,), nodes[0].get('ints'))
+
+            # test that removing a non-existant item is ok...
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints-=22 ]')
+
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints-=99 ]')
+            self.eq((), nodes[0].get('ints'))
+
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints=(1, 2, 3) ]')
+
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints+=4 ]')
+            self.eq((1, 2, 3, 4), nodes[0].get('ints'))
+
+            nodes = await core.nodes(f'test:arrayprop={guid} [ :ints-=3 ]')
+            self.eq((1, 2, 4), nodes[0].get('ints'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(f'test:arrayprop={guid} [ :ints+=asdf ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(f'test:arrayprop={guid} [ :ints-=asdf ]')
+
+            await core.nodes(f'test:arrayprop={guid} [ :ints?-=asdf ]')
+            self.eq((1, 2, 4), nodes[0].get('ints'))
+
+            await core.nodes(f'test:arrayprop={guid} [ :ints?+=asdf ]')
+            self.eq((1, 2, 4), nodes[0].get('ints'))
+
+            # ensure that we get a proper exception when using += (et al) on non-array props
+            with self.raises(s_exc.StormRuntimeError):
+                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn+=10 ]')
+
+            with self.raises(s_exc.StormRuntimeError):
+                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn?+=10 ]')
+
+            with self.raises(s_exc.StormRuntimeError):
+                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn-=10 ]')
+
+            with self.raises(s_exc.StormRuntimeError):
+                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn?-=10 ]')
 
     async def test_ast_del_array(self):
 
@@ -1147,17 +1201,6 @@ class AstTest(s_test.SynTest):
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('mesg'), 'Set does not support assignment.')
 
-            # Some types we have in the runtime cannot be converted to StormTypes
-            q = '''
-            function f(a){ return() }
-            $f.newp="newp"
-            '''
-            msgs = await core.stormlist(q)
-            erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'NoSuchType')
-            self.eq(erfo[1][1].get('mesg'),
-                    'Unable to convert python primitive to StormType.')
-
     async def test_ast_initfini(self):
 
         async with self.getTestCore() as core:
@@ -1273,3 +1316,71 @@ class AstTest(s_test.SynTest):
             self.len(1, firs)
             evnt = firs[0]
             self.eq(evnt[1].get('data'), {'total': 3})
+
+    async def test_ast_cmdargs(self):
+
+        async with self.getTestCore() as core:
+
+            scmd = {
+                'name': 'foo',
+                'cmdargs': (
+                    ('--bar', {}),
+                ),
+                'storm': '''
+                    $ival = $lib.cast(ival, $cmdopts.bar)
+                    [ inet:ipv4=1.2.3.4 +#foo=$ival ]
+                ''',
+            }
+
+            await core.setStormCmd(scmd)
+
+            nodes = await core.nodes('foo --bar (2020,2021) | +#foo@=202002')
+            self.len(1, nodes)
+
+            scmd = {
+                'name': 'baz',
+                'cmdargs': (
+                    ('--faz', {}),
+                ),
+                'storm': '''
+                    // subquery forces per-node evaluation of even runt safe vars
+                    {
+                        $ival = $lib.cast(ival, $cmdopts.faz)
+                        [ inet:ipv4=5.5.5.5 +#foo=$ival ]
+                    }
+                ''',
+            }
+
+            await core.setStormCmd(scmd)
+
+            await core.nodes('[ inet:ipv4=5.6.7.8 +#foo=(2018, 2021) ]')
+            await core.nodes('[ inet:ipv4=1.1.1.1 +#foo=(1977, 2019) ]')
+
+            nodes = await core.nodes('inet:ipv4 | baz --faz #foo | +inet:ipv4=5.5.5.5 +#foo@=1984 +#foo@=202002')
+
+            self.len(1, nodes)
+
+    async def test_ast_pullone(self):
+
+        async def genr():
+            yield 1
+            yield 2
+            yield 3
+
+        vals = [x async for x in await s_ast.pullone(genr())]
+        self.eq((1, 2, 3), vals)
+
+        data = {}
+        async def empty():
+            data['executed'] = True
+            if 0: yield None
+
+        vals = [x async for x in await s_ast.pullone(empty())]
+        self.eq([], vals)
+        self.true(data.get('executed'))
+
+        async def hasone():
+            yield 1
+
+        vals = [x async for x in await s_ast.pullone(hasone())]
+        self.eq((1,), vals)

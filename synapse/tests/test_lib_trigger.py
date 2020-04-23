@@ -229,20 +229,27 @@ class TrigTest(s_t_utils.SynTest):
 
             root = await core.auth.getUserByName('root')
 
-            tdef = {'iden': '1', 'user': root.iden, 'cond': 'tag:add', 'storm': '[ +#count0 ]',
+            tdef = {'iden': '1', 'user': root.iden, 'cond': 'tag:add', 'storm': '$lib.queue.get(foo).put(count0)',
                     'tag': 'foo.*.bar', 'enabled': True}
             trig1 = core.view.triggers.load(tdef)
 
-            tdef = {'iden': '2', 'user': root.iden, 'cond': 'tag:del', 'storm': '[ +#count1 ]',
+            tdef = {'iden': '2', 'user': root.iden, 'cond': 'tag:del', 'storm': '$lib.queue.get(foo).put(count1)',
                     'tag': 'baz.*.faz', 'form': 'test:guid', 'enabled': True}
             trig2 = core.view.triggers.load(tdef)
+
+            await core.nodes('$lib.queue.add(foo)')
+
+            async def popNextFoo():
+                return await core.callStorm('''
+                    return ($lib.queue.get(foo).pop().index(1))
+                ''')
 
             await core.nodes('[ test:guid="*" +#foo.asdf.bar ]')
             await core.nodes('[ test:guid="*" +#baz.asdf.faz ]')
             await core.nodes('#baz.asdf.faz [ -#baz.asdf.faz ]')
 
-            self.len(1, await core.nodes('#count0'))
-            self.len(1, await core.nodes('#count1'))
+            self.eq('count0', await popNextFoo())
+            self.eq('count1', await popNextFoo())
 
             core.view.triggers.pop(trig1.iden)
             core.view.triggers.pop(trig2.iden)
@@ -253,10 +260,10 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('[ test:guid="*" +#foo.asdf.bar ]')
             await core.nodes('[ test:guid="*" +#baz.asdf.faz ]')
+
             await core.nodes('#baz.asdf.faz [ -#baz.asdf.faz ]')
 
-            self.len(0, await core.nodes('#count0'))
-            self.len(0, await core.nodes('#count1'))
+            self.eq(0, await core.callStorm('return ($lib.queue.get(foo).size())'))
 
     async def test_trigger_perms(self):
 

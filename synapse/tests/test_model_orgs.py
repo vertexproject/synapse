@@ -6,7 +6,53 @@ from synapse.tests.utils import alist
 class OuModelTest(s_t_utils.SynTest):
 
     async def test_ou_simple(self):
+
         async with self.getTestCore() as core:
+
+            goal = s_common.guid()
+            org0 = s_common.guid()
+            camp = s_common.guid()
+
+            async with await core.snap() as snap:
+
+                props = {
+                    'name': 'MyGoal',
+                    'type': 'MyType',
+                    'desc': 'MyDesc',
+                    'prev': goal,
+                }
+                node = await snap.addNode('ou:goal', goal, props=props)
+                self.eq(node.get('name'), 'MyGoal')
+                self.eq(node.get('type'), 'MyType')
+                self.eq(node.get('desc'), 'MyDesc')
+                self.eq(node.get('prev'), goal)
+
+                props = {
+                    'stated': True,
+                    'window': '2019,2020',
+                }
+                node = await snap.addNode('ou:hasgoal', (org0, goal), props=props)
+                self.eq(node.get('org'), org0)
+                self.eq(node.get('goal'), goal)
+                self.eq(node.get('stated'), True)
+                self.eq(node.get('window'), (1546300800000, 1577836800000))
+
+                props = {
+                    'org': org0,
+                    'goal': goal,
+                    'goals': (goal,),
+                    'name': 'MyName',
+                    'type': 'MyType',
+                    'desc': 'MyDesc',
+                }
+                node = await snap.addNode('ou:campaign', camp, props=props)
+                self.eq(node.get('org'), org0)
+                self.eq(node.get('goal'), goal)
+                self.eq(node.get('goals'), (goal,))
+                self.eq(node.get('name'), 'MyName')
+                self.eq(node.get('type'), 'MyType')
+                self.eq(node.get('desc'), 'MyDesc')
+
             # type norming first
             # ou:name
             t = core.model.type('ou:name')
@@ -106,8 +152,8 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('perc'), 50)
                 self.eq(node.get('current'), 1)
 
-                await self.asyncraises(s_exc.BadPropValu, node.set('perc', -1))
-                await self.asyncraises(s_exc.BadPropValu, node.set('perc', 101))
+                await self.asyncraises(s_exc.BadTypeValu, node.set('perc', -1))
+                await self.asyncraises(s_exc.BadTypeValu, node.set('perc', 101))
 
                 # ou:user
                 node = await snap.addNode('ou:user', (guid0, 'arrowman'))

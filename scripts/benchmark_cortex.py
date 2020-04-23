@@ -5,7 +5,10 @@ import time
 import random
 import asyncio
 import logging
+import pathlib
+import tempfile
 import argparse
+import datetime
 import contextlib
 import statistics
 import collections
@@ -30,6 +33,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.time as s_time
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tools.backup as s_tools_backup
 
@@ -39,6 +43,7 @@ SimpleConf = {'layers:lockmemory': False, 'layer:lmdb:map_async': False, 'nexslo
 MapAsyncConf = {**SimpleConf, 'layer:lmdb:map_async': True}
 DedicatedConf = {**SimpleConf, 'layers:lockmemory': True}
 DefaultConf = {**MapAsyncConf, 'layers:lockmemory': True}
+DefaultNoBuidConf = {**MapAsyncConf, 'layers:lockmemory': True, 'buid:prefetch': False}
 DedicatedAsyncLogConf = {**DefaultConf, 'nexslog:en': True, 'layers:logedits': True}
 
 Configs: Dict[str, Dict] = {
@@ -46,6 +51,7 @@ Configs: Dict[str, Dict] = {
     'mapasync': MapAsyncConf,
     'dedicated': DedicatedConf,
     'default': DefaultConf,
+    'defaultnobuid': DefaultNoBuidConf,
     'dedicatedasynclogging': DedicatedAsyncLogConf,
 }
 
@@ -95,6 +101,7 @@ class TestData(s_base.Base):
         def oe(num):
             return 'odd' if num % 2 else 'even'
 
+        # Ip addresses with an all tag with half having an 'even' tag and the other an 'odd' tag
         self.ips = [(('inet:ipv4', ip), {'tags': {'all': (None, None), oe(ip): (None, None)}}) for ip in ips]
         self.dnsas = [(('inet:dns:a', dnsas), {}) for dnsas in dnsas]
 
@@ -102,6 +109,12 @@ class TestData(s_base.Base):
         self.asns2 = [(('inet:asn', asn * 2 + 1), {}) for asn in range(num_records)]
         random.shuffle(self.asns)
         random.shuffle(self.asns2)
+
+        self.asns2prop = [(asn[0], {'props': {'name': 'x'}}) for asn in self.asns]
+
+        fredguid = s_common.guid('fred')
+        self.asns2formexist = [(asn[0], {'props': {'owner': fredguid}}) for asn in self.asns]
+        self.asns2formnoexist = [(asn[0], {'props': {'owner': '*'}}) for asn in self.asns]
 
         self.urls = [(('inet:url', f'http://{hex(n)}.ninja'), {}) for n in range(num_records)]
         random.shuffle(self.urls)
@@ -113,18 +126,29 @@ class TestData(s_base.Base):
             await s_common.aspin(core.addNodes(self.ips))
             await s_common.aspin(core.addNodes(self.dnsas))
             await s_common.aspin(core.addNodes(self.urls))
+            await s_common.aspin(core.addNodes(self.asns))
+            await s_common.aspin(core.addNodes([(('ou:org', fredguid), {})]))
 
-def isatrial(meth):
-    '''
-    Mark a method as being a trial
-    '''
-    meth._isatrial = True
-    return meth
+def benchmark(tags=None):
+
+    def _inner(meth):
+        '''
+        Mark a method as being a benchmark
+        '''
+        meth._benchmark = True
+
+        mytags = set() if tags is None else tags
+        mytags.add('all')
+
+        meth._tags = mytags
+        return meth
+
+    return _inner
 
 class Benchmarker:
 
     def __init__(self, config: Dict[Any, Any], testdata: TestData, workfactor: int, num_iters=4, tmpdir=None,
-                 bench=None):
+                 bench=None, tag=None):
         '''
         Args:
             config: the cortex config
@@ -142,6 +166,7 @@ class Benchmarker:
         self.testdata = testdata
         self.tmpdir = tmpdir
         self.bench = bench
+        self.tag = tag
 
     def printreport(self, configname: str):
         print(f'Config {configname}: {self.coreconfig}, Num Iters: {self.num_iters} Debug: {__debug__}')
@@ -182,7 +207,6 @@ class Benchmarker:
                 assert not core.inaugural
 
                 lockmemory = self.coreconfig.get('layers:lockmemory', False)
-                nexuslogen = self.coreconfig.get('nexslog:en', True)
                 logedits = self.coreconfig.get('layers:logedits', True)
 
                 await core.view.layers[0].layrinfo.set('lockmemory', lockmemory)
@@ -193,12 +217,11 @@ class Benchmarker:
                     if lockmemory:
                         await core.view.layers[0].layrslab.lockdoneevent.wait()
 
-                    if nexuslogen:
-                        core.nexsroot._nexusslab.forcecommit()
+                    await s_lmdbslab.Slab.syncLoopOnce()
 
                     yield core, prox
 
-    @isatrial
+    @benchmark()
     async def do00EmptyQuery(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         for _ in range(self.workfactor // 10):
             count = await acount(prox.eval(''))
@@ -206,98 +229,132 @@ class Benchmarker:
         assert count == 0
         return self.workfactor // 10
 
-    @isatrial
+    @benchmark({'official'})
     async def do01SimpleCount(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4 | count | spin'))
         assert count == 0
         return self.workfactor
 
-    @isatrial
+    @benchmark({'official'})
     async def do02LiftSimple(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4'))
         assert count == self.workfactor
         return count
 
-    @isatrial
+    @benchmark({'official'})
     async def do02LiftFilterAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4 | +#newp'))
         assert count == 0
         return 1
 
-    @isatrial
+    @benchmark({'official'})
     async def do02LiftFilterPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4 | +#all'))
         assert count == self.workfactor
         return count
 
-    @isatrial
+    @benchmark({'official'})
     async def do03LiftBySecondaryAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:dns:a:fqdn=newp'))
         assert count == 0
         return 1
 
-    @isatrial
+    @benchmark({'official'})
     async def do03LiftBySecondaryPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:dns:a:fqdn=blackhole.website'))
         assert count == self.workfactor // 10
         return count
 
-    @isatrial
+    @benchmark({'official'})
     async def do04LiftByTagAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4#newp'))
         assert count == 0
         return 1
 
-    @isatrial
+    @benchmark({'official'})
     async def do04LiftByTagPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4#even'))
         assert count == self.workfactor // 2
         return count
 
-    @isatrial
+    @benchmark({'official'})
     async def do05PivotAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4#odd -> inet:dns:a'))
         assert count == 0
         return self.workfactor // 2
 
-    @isatrial
+    @benchmark({'official'})
     async def do06PivotPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4#even -> inet:dns:a'))
         assert count == self.workfactor // 2 + self.workfactor // 10
         return count
 
-    @isatrial
-    async def do07AddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+    @benchmark({'official', 'addnodes'})
+    async def do07AAddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.addNodes(self.testdata.asns2))
         assert count == self.workfactor
         return count
 
-    @isatrial
-    async def do07AddNodesPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.addNodes(self.testdata.ips))
+    @benchmark({'addnodes'})
+    async def do07AAddNodesSync(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acount(prox.addNodes(self.testdata.asns2))
+        core.view.layers[0].layrslab.lenv.sync()
         assert count == self.workfactor
         return count
 
-    @isatrial
+    @benchmark({'official', 'addnodes'})
+    async def do07BAddNodesSimpleProp(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        '''
+        Add simple node with a single non-form secondary prop
+        '''
+        count = await acount(prox.addNodes(self.testdata.asns2prop))
+        assert count == self.workfactor
+        return count
+
+    @benchmark({'official', 'addnodes'})
+    async def do07CAddNodesFormProp(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        '''
+        Add simple node with a single form secondary prop and that secondary prop form doesn't exist
+        '''
+        count = await acount(prox.addNodes(self.testdata.asns2formnoexist))
+        assert count == self.workfactor
+        return count
+
+    @benchmark({'official', 'addnodes'})
+    async def do07DAddNodesFormPropExists(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        '''
+        Add simple node with a single form secondary prop and that secondary prop form already exists
+        '''
+        count = await acount(prox.addNodes(self.testdata.asns2formexist))
+        assert count == self.workfactor
+        return count
+
+    @benchmark({'official', 'addnodes'})
+    async def do07EAddNodesPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        count = await acount(prox.addNodes(self.testdata.asns))
+        assert count == self.workfactor
+        return count
+
+    @benchmark({'official', 'addnodes'})
     async def do08LocalAddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(core.addNodes(self.testdata.asns))
+        count = await acount(core.addNodes(self.testdata.asns2))
         assert count == self.workfactor
         return count
 
-    @isatrial
+    @benchmark({'official'})
     async def do09DelNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:url | delnode'))
         assert count == 0
         return self.workfactor
 
-    @isatrial
+    @benchmark()
     async def do10AutoAdds(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         q = "inet:ipv4 $val=$lib.str.format('{num}.rev', num=$(1000000-$node.value())) [:dns:rev=$val]"
         count = await acount(prox.eval(q))
         assert count == self.workfactor
         return self.workfactor
 
-    @isatrial
+    @benchmark()
     async def do10Formatting(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         '''
         The same as do10AutoAdds without the adds (to isolate the autoadd part)
@@ -319,6 +376,7 @@ class Benchmarker:
                     yappi.start()
                 start = time.time()
                 count = await coro(core, prox)
+                await s_lmdbslab.Slab.syncLoopOnce()
                 self.measurements[name].append((time.time() - start, count))
                 if do_profiling:
                     yappi.stop()
@@ -330,10 +388,13 @@ class Benchmarker:
         funcnames = sorted(f for f in dir(self))
         for funcname in funcnames:
             func = getattr(self, funcname)
-            if not hasattr(func, '_isatrial'):
+            if not hasattr(func, '_benchmark'):
                 continue
             if self.bench is not None:
                 if not any(funcname.startswith(b) for b in self.bench):
+                    continue
+            if self.tag is not None:
+                if self.tag not in func._tags:
                     continue
             funcs.append((funcname, func))
         return funcs
@@ -377,6 +438,7 @@ async def benchmarkAll(confignames: List = None,
                        niters: int = 4,
                        bench=None,
                        do_profiling=False,
+                       tag=None,
                        ) -> None:
 
     if jsondir:
@@ -395,25 +457,32 @@ async def benchmarkAll(confignames: List = None,
             for configname in confignames:
                 tick = s_common.now()
                 config = Configs[configname]
-                bench = Benchmarker(config, testdata, workfactor, num_iters=niters, tmpdir=tmpdir, bench=bench)
+                bencher = Benchmarker(config, testdata, workfactor, num_iters=niters, tmpdir=tmpdir, bench=bench,
+                                      tag=tag)
                 print(f'{num_procs}-process benchmarking: {configname}')
-                initProgress(niters * len(bench._getTrialFuncs()))
+                initProgress(niters * len(bencher._getTrialFuncs()))
                 try:
-                    await bench.runSuite(num_procs, do_profiling=do_profiling)
+                    await bencher.runSuite(num_procs, do_profiling=do_profiling)
                     endProgress()
 
                     if do_profiling:
-                        yappi.get_func_stats().print_all()
+                        stats = yappi.get_func_stats()
+                        stats.print_all()
+                        perfdir = tmpdir or tempfile.gettempdir()
+                        perffn = pathlib.Path(perfdir) / f'{configname}_{datetime.datetime.now().isoformat()}.out'
+                        print(f'Callgrind stats output to {str(perffn)}')
+                        stats.save(perffn, 'CALLGRIND')
+                        yappi.clear_stats()
 
-                    bench.printreport(configname)
+                    bencher.printreport(configname)
 
                     if jsondir:
                         data = {'time': tick,
                                 'config': config,
                                 'configname': configname,
                                 'workfactor': workfactor,
-                                'niters': bench.num_iters,
-                                'results': bench.reportdata()
+                                'niters': niters,
+                                'results': bencher.reportdata()
                                 }
                         fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
                         if jsonprefix:
@@ -436,6 +505,8 @@ def getParser():
                         help='Prefix to append to the autogenerated filename for json output.')
     parser.add_argument('--bench', '-b', nargs='*', default=None,
                         help='Prefixes of which benchmarks to run (defaults to run all)')
+    parser.add_argument('--tag', '-t', default='official',
+                        help='Tag of which suite to run (defaults to "official")')
     parser.add_argument('--do-profiling', action='store_true')
     return parser
 
@@ -450,4 +521,4 @@ if __name__ == '__main__':
 
     asyncio.run(benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir,
                              jsondir=opts.jsondir, jsonprefix=opts.jsonprefix,
-                             niters=opts.niters, bench=opts.bench, do_profiling=opts.do_profiling))
+                             niters=opts.niters, bench=opts.bench, do_profiling=opts.do_profiling, tag=opts.tag))

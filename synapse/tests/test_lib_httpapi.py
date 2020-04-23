@@ -160,7 +160,7 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/delrole', data=b'asdf') as resp:
                     item = await resp.json()
                     self.eq('err', item.get('status'))
-                    self.eq('BadJson', item.get('code'))
+                    self.eq('SchemaViolation', item.get('code'))
 
                 info = {'name': 'newp'}
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/delrole', json=info) as resp:
@@ -438,31 +438,31 @@ class HttpApiTest(s_tests.SynTest):
 
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', data=b'asdf') as resp:
                     item = await resp.json()
-                    self.eq('BadJson', item.get('code'))
+                    self.eq('SchemaViolation', item.get('code'))
 
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', data=b'asdf') as resp:
                     item = await resp.json()
-                    self.eq('BadJson', item.get('code'))
+                    self.eq('SchemaViolation', item.get('code'))
 
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/grant', data=b'asdf') as resp:
                     item = await resp.json()
-                    self.eq('BadJson', item.get('code'))
+                    self.eq('SchemaViolation', item.get('code'))
 
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/revoke', data=b'asdf') as resp:
                     item = await resp.json()
-                    self.eq('BadJson', item.get('code'))
+                    self.eq('SchemaViolation', item.get('code'))
 
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{visiiden}', data=b'asdf') as resp:
                     item = await resp.json()
-                    self.eq('BadJson', item.get('code'))
+                    self.eq('SchemaViolation', item.get('code'))
 
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/role/{analystiden}', data=b'asdf') as resp:
                     item = await resp.json()
-                    self.eq('BadJson', item.get('code'))
+                    self.eq('SchemaViolation', item.get('code'))
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', data=b'asdf') as resp:
                     item = await resp.json()
-                    self.eq('BadJson', item.get('code'))
+                    self.eq('SchemaViolation', item.get('code'))
 
                 rules = [(True, ('node', 'add',))]
                 info = {'name': 'derpuser', 'passwd': 'derpuser', 'rules': rules}
@@ -494,7 +494,7 @@ class HttpApiTest(s_tests.SynTest):
 
                 async with sess.post(f'https://localhost:{port}/api/v1/login', data=b'asdf') as resp:
                     retn = await resp.json()
-                    self.eq('BadJson', retn.get('code'))
+                    self.eq('SchemaViolation', retn.get('code'))
 
                 async with sess.post(f'https://localhost:{port}/api/v1/login',
                                      json={'user': 'derpuser', 'passwd': 'derpuser'}) as resp:
@@ -711,7 +711,7 @@ class HttpApiTest(s_tests.SynTest):
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', data=b'asdf') as resp:
                     item = await resp.json()
-                    self.eq('BadJson', item.get('code'))
+                    self.eq('SchemaViolation', item.get('code'))
 
                 node = None
                 body = {'query': '[ inet:ipv4=1.2.3.4 ]'}

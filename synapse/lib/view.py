@@ -11,6 +11,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
+import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -85,6 +86,9 @@ class View(s_nexus.Pusher):  # type: ignore
         # isolate some initialization to easily override for SpawnView.
         await self._initViewLayers()
 
+    def isafork(self):
+        return self.parent is not None
+
     def pack(self):
         d = {'iden': self.iden}
         d.update(self.info.pack())
@@ -100,6 +104,34 @@ class View(s_nexus.Pusher):  # type: ignore
             for name, valu in (await layr.getFormCounts()).items():
                 counts[name] += valu
         return counts
+
+    async def getEdgeVerbs(self):
+
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as vset:
+
+            for layr in self.layers:
+
+                for verb in layr.getEdgeVerbs():
+
+                    if verb in vset:
+                        continue
+
+                    await vset.add(verb)
+                    yield verb
+
+    async def getEdges(self, verb=None):
+
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as eset:
+
+            for layr in self.layers:
+
+                for edge in layr.getEdges(verb=verb):
+
+                    if edge in eset:
+                        continue
+
+                    await eset.add(edge)
+                    yield edge
 
     async def _initViewLayers(self):
 
@@ -286,7 +318,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if name not in ('name',):
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
-        #TODO when we can set more props, we may need to parse values.
+        # TODO when we can set more props, we may need to parse values.
         await self.info.set(name, valu)
         return valu
 
@@ -368,12 +400,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def merge(self, useriden=None):
         '''
-        Merge this view into its parent.  All changes made to this view will be applied to the parent.
-
-        When complete, delete this view.
-
-        Note:
-            The view's own write layer will *not* be deleted.
+        Merge this view into it's parent. All changes made to this view will be applied to the parent.
         '''
         fromlayr = self.layers[0]
 
