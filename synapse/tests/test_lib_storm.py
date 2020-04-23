@@ -155,9 +155,11 @@ class StormTest(s_t_utils.SynTest):
         # Sad path
         async with self.getTestCore() as core:
             # Test moving a tag to itself
-            await self.agenraises(s_exc.BadOperArg, core.eval('movetag foo.bar foo.bar'))
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag foo.bar foo.bar')
             # Test moving a tag which does not exist
-            await self.agenraises(s_exc.BadOperArg, core.eval('movetag foo.bar duck.knight'))
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag foo.bar duck.knight')
 
     async def test_storm_spin(self):
 
