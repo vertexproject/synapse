@@ -828,6 +828,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchName):
                     mque.status('woot')
 
+                with self.raises(s_exc.NoSuchName):
+                    await mque.cull('woot', -1)
+
                 await mque.add('woot', {'some': 'info'})
 
                 self.true(mque.exists('woot'))

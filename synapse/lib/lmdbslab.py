@@ -157,7 +157,7 @@ class SlabAbrv:
     A utility for translating arbitrary bytes into fixed with id bytes
     '''
 
-    def __init__(self, slab, name, readonly=False):
+    def __init__(self, slab, name):
 
         self.slab = slab
         self.name2abrv = slab.initdb(f'{name}:byts2abrv')
@@ -658,7 +658,7 @@ class Slab(s_base.Base):
         return item
 
     def getNameAbrv(self, name):
-        return SlabAbrv(self, name, readonly=self.readonly)
+        return SlabAbrv(self, name)
 
     async def getMultiQueue(self, name, nexsroot=None):
         mq = await MultiQueue.anit(self, name, nexsroot=None)

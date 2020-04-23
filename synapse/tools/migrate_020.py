@@ -758,7 +758,7 @@ class Migrator(s_base.Base):
         for iden in info.get('layers'):
             return iden
 
-        raise Exception('layer from default view not found')
+        raise Exception('layer from default view not found')  # pragma: no cover
 
     async def _migrQueues(self, wlyr):
         path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
