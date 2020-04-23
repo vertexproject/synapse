@@ -978,6 +978,12 @@ class Runtime:
     async def getStormQuery(self, text):
         return self.snap.core.getStormQuery(text)
 
+    async def coreDynCall(self, todo, perm=None):
+        gatekeys = ()
+        if perm is not None:
+            gatekeys = ((self.user.iden, perm, None),)
+        return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)
+
     async def getTeleProxy(self, url, **opts):
 
         flat = tuple(sorted(opts.items()))
@@ -2008,8 +2014,16 @@ class MoveTagCmd(Cmd):
                 if newt is None:
                     continue
 
+                # Capture tagprop information before moving tags
+                tgfo = {tagp: node.getTagProp(name, tagp) for tagp in node.getTagProps(name)}
+
+                # Move the tags
                 await node.delTag(name)
                 await node.addTag(newt, valu=valu)
+
+                # re-apply any captured tagprop data
+                for tagp, tagp_valu in tgfo.items():
+                    await node.setTagProp(newt, tagp, tagp_valu)
 
         await snap.printf(f'moved tags on {count} nodes.')
 

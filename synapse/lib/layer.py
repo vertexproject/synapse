@@ -1020,6 +1020,7 @@ class Layer(s_nexus.Pusher):
         self.nodedata = self.dataslab.initdb('nodedata')
         self.dataname = self.dataslab.initdb('dataname', dupsort=True)
 
+        self.nodeeditlog = None
         if self.logedits:
             self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
@@ -1042,10 +1043,11 @@ class Layer(s_nexus.Pusher):
         return valu
 
     async def stat(self):
-        return {
-            'nodeeditlog_indx': (self.nodeeditlog.index(), 0, 0),
-            **self.layrslab.statinfo()
-        }
+        ret = {**self.layrslab.statinfo(),
+               }
+        if self.logedits:
+            ret['nodeeditlog_indx'] = (self.nodeeditlog.index(), 0, 0)
+        return ret
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
