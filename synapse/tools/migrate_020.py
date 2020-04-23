@@ -47,6 +47,7 @@ ALL_MIGROPS = (
     'cron',
     'triggers',
     'splices',
+    'queues'
 )
 
 ADD_MODES = (
@@ -723,11 +724,16 @@ class Migrator(s_base.Base):
             self.migrsplices.model.update(self.model.getModelDict())
             self.onfini(self.migrsplices.fini)
 
+        deflayriden = await self._getDefLayrIden()
+
         # full layer data migration
         for iden, migrlyrinfo in lyrs.items():
             logger.info(f'Starting migration for layer {iden}')
 
             async with self._destGetWlyr(self.dest, iden, migrlyrinfo) as wlyr:
+
+                if iden == deflayriden and 'queues' in self.migrops:
+                    await self._migrQueues(wlyr)
 
                 if 'nodes' in self.migrops:
                     await self._migrNodes(iden, wlyr)
@@ -740,6 +746,28 @@ class Migrator(s_base.Base):
 
         await self._dumpOffsets()
         await self._dumpVers()
+
+    async def _getDefLayrIden(self):
+        '''
+        Returns the iden of the write layer of the default view
+        '''
+        defaultview = await self.hive.get(('cellinfo', 'defaultview'))
+        node = await self.hive.open(('cortex', 'views', defaultview))
+        info = await node.dict()
+
+        for iden in info.get('layers'):
+            return iden
+
+        raise Exception('layer from default view not found')
+
+    async def _migrQueues(self, wlyr):
+        path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
+        async with await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False) as qslab:
+            multiqueue = await qslab.getMultiQueue('cortex:queue')
+
+            for q in multiqueue.list():
+                name = q.get('name')
+                multiqueue.abrv.setBytsToAbrv(name.encode())
 
     async def _dumpOffsets(self):
         '''
@@ -1231,55 +1259,55 @@ class Migrator(s_base.Base):
 
         # get queues that need authgates added (no data migration/translation required)
         path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
-        qslab = await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False)
-        self.onfini(qslab.fini)
+        async with await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False) as qslab:
 
-        queues = []  # list of (<queue name>, <user iden>)
-        multiqueue = await qslab.getMultiQueue('cortex:queue')
-        for q in multiqueue.list():
-            name = q.get('name')
-            uiden = q.get('meta', {}).get('user')
+            queues = []  # list of (<queue name>, <user iden>)
+            multiqueue = await qslab.getMultiQueue('cortex:queue')
 
-            if name is None or uiden is None:
-                err = {'err': f'Missing iden values for queue', 'queue': q}
-                logger.warning(err)
-                await self._migrlogAdd(migrop, 'error', f'queue:{name}', err)
-                continue
+            for q in multiqueue.list():
+                name = q.get('name')
+                uiden = q.get('meta', {}).get('user')
 
-            queues.append((name, uiden))
+                if name is None or uiden is None:
+                    err = {'err': f'Missing iden values for queue', 'queue': q}
+                    logger.warning(err)
+                    await self._migrlogAdd(migrop, 'error', f'queue:{name}', err)
+                    continue
 
-        logger.info(f'Found {len(queues)} queues to migrate to AuthGates')
+                queues.append((name, uiden))
 
-        # get triggers that will need authgates added (in 020 format)
-        triggers = collections.defaultdict(set)
-        for _, viewnode in await self.hive.open(('cortex', 'views')):
-            for trigiden, trignode in await viewnode.open(('triggers',)):
-                triggers[trigiden].add(trignode.valu.get('user'))
+            logger.info(f'Found {len(queues)} queues to migrate to AuthGates')
 
-        # get cron jobs that need authgates added (in 020 format)
-        crons = []  # list of (<cron iden>, <user iden>)
-        for croniden, cronvals in (await self.hive.dict(('agenda', 'appts'))).items():
-            crons.append((croniden, cronvals.get('creator')))
+            # get triggers that will need authgates added (in 020 format)
+            triggers = collections.defaultdict(set)
+            for _, viewnode in await self.hive.open(('cortex', 'views')):
+                for trigiden, trignode in await viewnode.open(('triggers',)):
+                    triggers[trigiden].add(trignode.valu.get('user'))
 
-        defaultview = await self.hive.get(('cellinfo', 'defaultview'))
+            # get cron jobs that need authgates added (in 020 format)
+            crons = []  # list of (<cron iden>, <user iden>)
+            for croniden, cronvals in (await self.hive.dict(('agenda', 'appts'))).items():
+                crons.append((croniden, cronvals.get('creator')))
 
-        srctree = await self.hive.saveHiveTree(('auth',))
+            defaultview = await self.hive.get(('cellinfo', 'defaultview'))
 
-        migrauth = MigrAuth(srctree, defaultview, triggers, queues, crons)
-        desttree = await migrauth.translate()
+            srctree = await self.hive.saveHiveTree(('auth',))
 
-        # save a backup then replace
-        await self.hive.loadHiveTree(srctree, ('auth01x',))
-        await self.hive.loadHiveTree(desttree, ('auth',))
+            migrauth = MigrAuth(srctree, defaultview, triggers, queues, crons)
+            desttree = await migrauth.translate()
 
-        # save user hierarchy
-        dumpf = os.path.join(self.dest, self.migrdir, f'authhier_{s_common.now()}.mpk')
-        with open(dumpf, 'wb') as fd:
-            fd.write(s_msgpack.en(migrauth.userhierarchy))
-        logger.info(f'Saved msgpackd user hierarchy to {dumpf}')
+            # save a backup then replace
+            await self.hive.loadHiveTree(srctree, ('auth01x',))
+            await self.hive.loadHiveTree(desttree, ('auth',))
 
-        logger.info('Completed HiveAuth migration')
-        await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
+            # save user hierarchy
+            dumpf = os.path.join(self.dest, self.migrdir, f'authhier_{s_common.now()}.mpk')
+            with open(dumpf, 'wb') as fd:
+                fd.write(s_msgpack.en(migrauth.userhierarchy))
+            logger.info(f'Saved msgpackd user hierarchy to {dumpf}')
+
+            logger.info('Completed HiveAuth migration')
+            await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
 
     async def _migrCron(self):
         '''
@@ -2165,7 +2193,7 @@ class Migrator(s_base.Base):
                             if not wlyr.layrslab.put(buid + b'\x00', byts, db=wlyr.bybuid, overwrite=False):
                                 continue
 
-                            abrv = wlyr.getPropAbrv(form, None)
+                            abrv = wlyr.setPropAbrv(form, None)
 
                             if stortype & s_layer.STOR_FLAG_ARRAY:
 

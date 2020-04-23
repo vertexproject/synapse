@@ -157,7 +157,7 @@ class SlabAbrv:
     A utility for translating arbitrary bytes into fixed with id bytes
     '''
 
-    def __init__(self, slab, name):
+    def __init__(self, slab, name, readonly=False):
 
         self.slab = slab
         self.name2abrv = slab.initdb(f'{name}:byts2abrv')
@@ -169,18 +169,29 @@ class SlabAbrv:
         if item is not None:
             self.offs = s_common.int64un(item[0]) + 1
 
-    @s_cache.memoize(10000)
+    @s_cache.memoize()
     def abrvToByts(self, abrv):
         byts = self.slab.get(abrv, db=self.abrv2name)
         if byts is not None:
             return byts
 
-    @s_cache.memoize(10000)
+        raise s_exc.NoSuchAbrv
+
+    @s_cache.memoize()
     def bytsToAbrv(self, byts):
 
         abrv = self.slab.get(byts, db=self.name2abrv)
         if abrv is not None:
             return abrv
+
+        raise s_exc.NoSuchAbrv
+
+    def setBytsToAbrv(self, byts):
+
+        try:
+            return self.bytsToAbrv(byts)
+        except s_exc.NoSuchAbrv:
+            pass
 
         abrv = s_common.int64en(self.offs)
 
@@ -191,11 +202,9 @@ class SlabAbrv:
 
         return abrv
 
-    @s_cache.memoize(10000)
     def nameToAbrv(self, name):
         return self.bytsToAbrv(name.encode())
 
-    @s_cache.memoize(10000)
     def abrvToName(self, byts):
         return self.abrvToByts(byts).decode()
 
@@ -300,6 +309,8 @@ class MultiQueue(s_base.Base):
             mesg = f'A queue already exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
+        self.abrv.setBytsToAbrv(name.encode())
+
         self.queues.set(name, info)
         self.sizes.set(name, 0)
         self.offsets.set(name, 0)
@@ -398,10 +409,15 @@ class MultiQueue(s_base.Base):
         '''
         Remove up-to (and including) the queue entry at offs.
         '''
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
         if offs < 0:
             return
 
         indx = s_common.int64en(offs)
+
         abrv = self.abrv.nameToAbrv(name)
 
         for lkey, _ in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
@@ -642,7 +658,7 @@ class Slab(s_base.Base):
         return item
 
     def getNameAbrv(self, name):
-        return SlabAbrv(self, name)
+        return SlabAbrv(self, name, readonly=self.readonly)
 
     async def getMultiQueue(self, name, nexsroot=None):
         mq = await MultiQueue.anit(self, name, nexsroot=None)
