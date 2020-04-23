@@ -785,7 +785,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
                 with s_common.getTempDir() as dirn:
                     cdir = s_certdir.CertDir(dirn)
-                    pkey, cert = cdir.genHostCert('cortex')
+                    pkey, cert = cdir.genHostCert(self.getCellType())
                     cdir.savePkeyPem(pkey, pkeypath)
                     cdir.saveCertPem(cert, certpath)
 
