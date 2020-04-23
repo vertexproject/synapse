@@ -2841,13 +2841,15 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore(conf=conf) as core:
             async with await core.snap() as snap:
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
-            await self.agenlen(2, core.eval('test:str'))
+            self.len(2, await core.nodes('test:str'))
 
             layr = core.getLayer()
             await self.agenlen(0, layr.splices())
             await self.agenlen(0, layr.splicesBack())
             await self.agenlen(0, layr.syncNodeEdits(0))
             self.eq(0, layr.getNodeEditOffset())
+
+            self.nn(await core.stat())
 
     async def test_feed_syn_nodes(self):
         async with self.getTestCore() as core0:
