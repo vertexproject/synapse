@@ -1014,10 +1014,10 @@ class Layer(s_nexus.Pusher):
         return valu
 
     async def stat(self):
-        return {
-            'nodeeditlog_indx': (self.nodeeditlog.index(), 0, 0),
-            **self.layrslab.statinfo()
-        }
+        ret = {**self.layrslab.statinfo()}
+        if hasattr(self, 'nodeeditlog'):
+            ret['nodeeditlog_indx'] = (self.nodeeditlog.index(), 0, 0)
+        return ret
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
