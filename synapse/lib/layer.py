@@ -1206,12 +1206,8 @@ class Layer(s_nexus.Pusher):
     async def liftByTagPropValu(self, form, tag, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
 
-            try:
-                for buid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu):
-                    yield await self.getStorNode(buid)
-
-            except s_exc.NoSuchAbrv:
-                continue
+            for buid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu):
+                yield await self.getStorNode(buid)
 
     async def liftByProp(self, form, prop):
         try:
