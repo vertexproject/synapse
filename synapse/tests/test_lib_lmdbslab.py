@@ -828,6 +828,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchName):
                     mque.status('woot')
 
+                with self.raises(s_exc.NoSuchName):
+                    await mque.cull('woot', -1)
+
                 await mque.add('woot', {'some': 'info'})
 
                 self.true(mque.exists('woot'))
@@ -914,15 +917,15 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 abrv = s_lmdbslab.SlabAbrv(slab, 'test')
 
-                valu = abrv.nameToAbrv('hehe')
+                valu = abrv.setBytsToAbrv('hehe'.encode())
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
-                valu = abrv.nameToAbrv('haha')
+                valu = abrv.setBytsToAbrv('haha'.encode())
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
                 name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x01')
                 self.eq(name, b'haha')
 
-                self.none(abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+                self.raises(s_exc.NoSuchAbrv, abrv.abrvToByts, b'\x00\x00\x00\x00\x00\x00\x00\x02')
 
             # And persistence
             async with await s_lmdbslab.Slab.anit(path) as slab:
@@ -943,10 +946,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq('haha', abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01'))
 
                 # And we still have no valu for 02
-                self.none(abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+                self.raises(s_exc.NoSuchAbrv, abrv.abrvToByts, b'\x00\x00\x00\x00\x00\x00\x00\x02')
 
                 # And we don't overwrite existing values on restart
-                valu = abrv.nameToAbrv('hoho')
+                valu = abrv.setBytsToAbrv('hoho'.encode())
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x02')
 
                 valu = abrv.nameToAbrv('haha')
