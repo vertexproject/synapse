@@ -186,7 +186,7 @@ class LibDmon(Lib):
         '''
         Add a storm dmon (persistent background task) to the cortex.
 
-        $lib.dmon.add(${ myquery })
+        $lib.dmon.add({ myquery })
         '''
         self.runt.user.confirm(('dmon', 'add'))
 
