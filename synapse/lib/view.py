@@ -72,10 +72,6 @@ class View(s_nexus.Pusher):  # type: ignore
         self.invalid = None
         self.parent = None  # The view this view was forked from
 
-        parent = self.info.get('parent')
-        if parent is not None:
-            self.parent = self.core.getView(parent)
-
         self.permCheck = {
             'node:add': self._nodeAddConfirm,
             'prop:set': self._propSetConfirm,
@@ -85,6 +81,15 @@ class View(s_nexus.Pusher):  # type: ignore
 
         # isolate some initialization to easily override for SpawnView.
         await self._initViewLayers()
+
+    def init2(self):
+        '''
+        We have a second round of initialization so the views can get a handle to their parents which might not
+        be initialized yet
+        '''
+        parent = self.info.get('parent')
+        if parent is not None:
+            self.parent = self.core.getView(parent)
 
     def isafork(self):
         return self.parent is not None

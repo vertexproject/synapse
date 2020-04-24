@@ -2105,6 +2105,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             if iden == defiden:
                 self.view = view
 
+        for view in self.views.values():
+            view.init2()
+
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
             ldef = await self.addLayer()
@@ -2155,6 +2158,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await info.set(name, valu)
 
         view = await self._loadView(node)
+        view.init2()
 
         await self.bumpSpawnPool()
 
