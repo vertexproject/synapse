@@ -2260,14 +2260,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             # now do the same options via the command...
             text = '''
                 inet:fqdn | graph
-                                --degrees 2
-                                --filter { -#nope }
-                                --pivot { <- meta:seen <- meta:source }
-                                --form-pivot inet:fqdn {<- * | limit 20}
-                                --form-pivot inet:fqdn {-> * | limit 20}
-                                --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
-                                --form-pivot syn:tag {-> *}
-                                --form-pivot * {-> #}
+                --degrees 2
+                --filter { -#nope }
+                --pivot { <- meta:seen <- meta:source }
+                --form-pivot inet:fqdn {<- * | limit 20}
+                --form-pivot inet:fqdn {-> * | limit 20}
+                --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
+                --form-pivot syn:tag {-> *}
+                --form-pivot * {-> #}
             '''
 
             seeds = []

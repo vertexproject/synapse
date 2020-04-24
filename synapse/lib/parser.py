@@ -400,6 +400,10 @@ terminalClassMap = {
     'VARTOKN': massage_vartokn,
 }
 
+def wow(kids):
+    print(kids)
+    return s_ast.Const(kids[0].text)
+
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
     'abspropcond': s_ast.AbsPropCond,
@@ -464,6 +468,7 @@ ruleClassMap = {
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'rawpivot': s_ast.RawPivot,
+    'rawquery': lambda kids: wow(kids),
     'return': s_ast.Return,
     'relprop': s_ast.RelProp,
     'relpropcond': s_ast.RelPropCond,
