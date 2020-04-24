@@ -1689,7 +1689,7 @@ class Layer(s_nexus.Pusher):
 
             return
 
-        for lkey, lval in self.layrslab.scanByDups(verb.encode(), db=self.byverb):
+        for _, lval in self.layrslab.scanByDups(verb.encode(), db=self.byverb):
             yield (s_common.ehex(lval[:32]), verb, s_common.ehex(lval[32:]))
 
     def _delNodeEdges(self, buid):
