@@ -394,18 +394,20 @@ class MigrAuth:
         Generic rule translations that need to occur for any rule set.
 
         Actions:
-            - Convert ('storm', 'queue', ...) rules to ('queue', ...)
+            - Convert ('storm', 'foo', ...) rules to ('foo', ...) *except* storm.impersonate, storm.pkg
             - Convert node/prop/tag rules to node.foo.bar format (assumes these are in 0th position)
         '''
         for i, rule in enumerate(rules):
-            if rule[1][:2] == ('storm', 'queue'):
+            prntrule = rule[1][0]
+
+            if len(rule[1]) > 1 and prntrule == 'storm' and rule[1][1] not in ('pkg', 'impersonate'):
                 rules[i] = (rule[0], rule[1][1:])
 
-            elif any([rule[1][0].startswith(m) for m in ('prop:', 'tag:')]):
-                rules[i] = (rule[0], tuple(['node'] + rule[1][0].split(':') + list(rule[1][1:])))
+            elif any([prntrule.startswith(m) for m in ('prop:', 'tag:')]):
+                rules[i] = (rule[0], tuple(['node'] + prntrule.split(':') + list(rule[1][1:])))
 
-            elif any([rule[1][0].startswith(m) for m in ('node:', 'layer:')]):
-                rules[i] = (rule[0], tuple(rule[1][0].split(':') + list(rule[1][1:])))
+            elif any([prntrule.startswith(m) for m in ('node:', 'layer:')]):
+                rules[i] = (rule[0], tuple(prntrule.split(':') + list(rule[1][1:])))
 
         return rules
 
