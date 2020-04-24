@@ -1165,8 +1165,8 @@ class MigrationTest(s_t_utils.SynTest):
             (True, ('storm',)),
             (True, ('queue', 'get')),
             (True, ('lib', 'queue', 'list')),
-            (True, ('storm', 'pkg', 'get')),
-            (True, ('storm', 'impersonate')),
+            (True, ('pkg', 'get')),
+            (True, ('impersonate',)),
             (True, ('service', 'get')),
             (True, ('node', 'data')),
         ]

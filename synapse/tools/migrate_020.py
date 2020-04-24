@@ -395,13 +395,13 @@ class MigrAuth:
         Generic rule translations that need to occur for any rule set.
 
         Actions:
-            - Convert ('storm', 'foo', ...) rules to ('foo', ...) *except* storm.impersonate, storm.pkg
+            - Convert all ('storm', 'foo', ...) rules to ('foo', ...)
             - Convert node/prop/tag rules to node.foo.bar format (assumes these are in 0th position)
         '''
         for i, rule in enumerate(rules):
             prntrule = rule[1][0]
 
-            if len(rule[1]) > 1 and prntrule == 'storm' and rule[1][1] not in ('pkg', 'impersonate'):
+            if len(rule[1]) > 1 and prntrule == 'storm':
                 rules[i] = (rule[0], rule[1][1:])
 
             elif any([prntrule.startswith(m) for m in ('prop:', 'tag:')]):
