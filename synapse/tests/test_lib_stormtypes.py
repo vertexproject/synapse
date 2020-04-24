@@ -26,47 +26,6 @@ DAYSECS = 24 * HOURSECS
 
 class StormTypesTest(s_test.SynTest):
 
-    async def test_stormlib_yield_query(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('''
-                function foo(x) {
-                    return(${
-                        [ inet:ipv4=$x ]
-                    })
-                }
-
-                [it:dev:str=1.2.3.4]
-
-                $genr = $foo($node.repr())
-
-                -> { yield $genr }
-            ''')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-
-            nodes = await core.nodes('''
-                function foo(x) {
-                    return(${
-                        [ inet:ipv4=$x ]
-                    })
-                }
-
-                [it:dev:str=5.5.5.5]
-
-                $genr = $foo($node.repr())
-
-                $genr.exec()
-            ''')
-            self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
-
-            msgs = await core.stormlist('''
-                $embed = ${[inet:ipv4=1.2.3.4]}
-                for $xnode in $embed {
-                    $lib.print($xnode.repr())
-                }
-            ''')
-            self.stormIsInPrint('1.2.3.4', msgs)
-
     async def test_stormtypes_gates(self):
 
         async with self.getTestCore() as core:
@@ -343,6 +302,51 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('look ma, my runt', msgs)
             self.stormIsInPrint('bing is now 99', msgs)
+
+            # vars may be captured for each node flowing through them
+            q = '''[(test:int=100 :loc=us.va) (test:int=200 :loc=us.ca)] $foo=:loc
+            $q = ${ $lib.print($foo) } $q.exec()'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('us.va', msgs)
+            self.stormIsInPrint('us.ca', msgs)
+
+            # Yield/iterator behavior
+            nodes = await core.nodes('''
+                function foo(x) {
+                    return(${
+                        [ inet:ipv4=$x ]
+                    })
+                }
+
+                [it:dev:str=1.2.3.4]
+
+                $genr = $foo($node.repr())
+
+                -> { yield $genr }
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('''
+                function foo(x) {
+                    return( ${ [ inet:ipv4=$x ] } )
+                }
+
+                [it:dev:str=5.5.5.5]
+
+                $genr = $foo($node.repr())
+
+                $genr.exec()
+            ''')
+            self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
+
+            msgs = await core.stormlist('''
+                $embed = ${[inet:ipv4=1.2.3.4]}
+                for $xnode in $embed {
+                    $lib.print($xnode.repr())
+                }
+            ''')
+            self.stormIsInPrint('1.2.3.4', msgs)
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
