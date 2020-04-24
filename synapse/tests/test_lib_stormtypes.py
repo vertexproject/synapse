@@ -312,7 +312,6 @@ class StormTypesTest(s_test.SynTest):
             $lib.print("post exec {bar}", bar=$bar)
             [ test:str=$foo ]
             '''
-
             msgs = await core.stormlist(q)
             self.stormIsInPrint("in exec", msgs)
             prints = [m for m in msgs if m[0] == 'print']
@@ -324,10 +323,9 @@ class StormTypesTest(s_test.SynTest):
             $bar = ${ return ( $($foo+1) ) }
             [test:int=$bar.exec()]
             '''
-            msgs = await core.stormlist(q)
-            nodes = [m for m in msgs if m[0] == 'node']
+            nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0][1][0], ('test:int', 11))
+            self.eq(nodes[0].ndef, ('test:int', 11))
 
             # make sure it inherits the runt it's created in, not exec'd in
             q = '''
