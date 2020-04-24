@@ -386,6 +386,9 @@ class SpawnCore(s_base.Base):
 
             self.views[iden] = view
 
+        for view in self.views.values():
+            view.init2()
+
         self.addStormDmon = self.prox.addStormDmon
         self.delStormDmon = self.prox.delStormDmon
         self.getStormDmon = self.prox.getStormDmon
