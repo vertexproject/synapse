@@ -172,22 +172,20 @@ class SlabAbrv:
     @s_cache.memoize()
     def abrvToByts(self, abrv):
         byts = self.slab.get(abrv, db=self.abrv2name)
-        if byts is not None:
-            return byts
+        if byts is None:
+            raise s_exc.NoSuchAbrv
 
-        raise s_exc.NoSuchAbrv
+        return byts
 
     @s_cache.memoize()
     def bytsToAbrv(self, byts):
-
         abrv = self.slab.get(byts, db=self.name2abrv)
-        if abrv is not None:
-            return abrv
+        if abrv is None:
+            raise s_exc.NoSuchAbrv
 
-        raise s_exc.NoSuchAbrv
+        return abrv
 
     def setBytsToAbrv(self, byts):
-
         try:
             return self.bytsToAbrv(byts)
         except s_exc.NoSuchAbrv:
