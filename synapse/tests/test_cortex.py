@@ -2,7 +2,6 @@ import copy
 import time
 import shutil
 import asyncio
-import fastjsonschema
 
 from unittest.mock import patch
 
@@ -4498,3 +4497,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                                            'Error loading pkg') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     self.true(await stream.wait(6))
+
+    async def test_cortex_view_persistence(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                view = core.view
+                NKIDS = 20
+                for _ in range(NKIDS):
+                    await view.fork()
+
+                self.len(NKIDS + 1, core.layers)
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.len(NKIDS + 1, core.layers)
+                for view in core.views.values():
+                    if view == core.view:
+                        continue
+                    self.eq(core.view, view.parent)
