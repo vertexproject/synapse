@@ -148,6 +148,16 @@ class AstConverter(lark.Transformer):
         return kid
 
     @lark.v_args(meta=True)
+    def rawquery(self, kids, meta):
+        assert len(kids) == 1
+
+        spos = getattr(meta, 'start_pos', 0) + 1
+        epos = getattr(meta, 'end_pos', 0) - 1
+
+        text = self.text[spos:epos]
+        return s_ast.Const(text)
+
+    @lark.v_args(meta=True)
     def baresubquery(self, kids, meta):
         assert len(kids) == 1
 
@@ -401,7 +411,7 @@ terminalClassMap = {
 }
 
 def wow(kids):
-    print(kids)
+    print('*******', kids)
     return s_ast.Const(kids[0].text)
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -468,7 +478,6 @@ ruleClassMap = {
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'rawpivot': s_ast.RawPivot,
-    'rawquery': lambda kids: wow(kids),
     'return': s_ast.Return,
     'relprop': s_ast.RelProp,
     'relpropcond': s_ast.RelPropCond,
