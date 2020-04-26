@@ -894,6 +894,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
+        await self.anit2()
+
         if mirror is not None:
             await self.initCoreMirror(mirror)
 

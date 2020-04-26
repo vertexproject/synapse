@@ -136,6 +136,34 @@ class NexsRoot(s_base.Base):
         finally:
             self._futures.pop(iden, None)
 
+    async def recover(self) -> None:
+        '''
+        Replays the last entry in the nexus log in case we crashed between writing the log and applying it.
+
+        Notes:
+            This must be called at cell startup after subsystems are initialized but before any write transactions
+            might happen.
+
+            The log can only have recorded 1 entry ahead of what is applied.  All log actions are idempotent, so
+            replaying the last action that (might have) already happened is harmless.
+        '''
+        if not self.donexslog:
+            return
+
+        indxitem: Optional[Tuple[int, NexusLogEntryT]] = self._nexuslog.last()
+        if indxitem is None:
+            # Log must be new
+            return
+
+        try:
+            await self._apply(indxitem[1])
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception:
+            logger.exception('Exception while replaying log')
+
     async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
                     meta: Optional[Dict] = None) -> Any:
         '''
@@ -170,15 +198,13 @@ class NexsRoot(s_base.Base):
         item: NexusLogEntryT = (nexsiden, event, args, kwargs, meta)
 
         if self.donexslog:
-            indx = self._nexuslog.add(item)
-        else:
-            indx = 0
+            self._nexuslog.add(item)
 
         [dist.update() for dist in tuple(self._mirrors)]
 
-        return await self._apply(indx, item)
+        return await self._apply(item)
 
-    async def _apply(self, indx, item):
+    async def _apply(self, item: NexusLogEntryT):
         nexsiden, event, args, kwargs, _ = item
 
         nexus = self._nexskids[nexsiden]
