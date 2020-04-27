@@ -177,7 +177,7 @@ stormfunc: "function" _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (("=" | _WS?) _cmdargv)*
 CMDOPT: /-[a-zA-Z0-9_-]+/
-_cmdargv: CMDOPT | _toknvalu
+_cmdargv: baresubquery | CMDOPT | _toknvalu
 
 // an argv parser for cmdr commands which may contain embedded queries
 cmdrargs: _WS? _cmdrargv (("=" | _WS?) _cmdrargv)*
