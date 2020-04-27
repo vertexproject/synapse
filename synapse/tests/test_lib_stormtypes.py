@@ -1089,7 +1089,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             await core.nodes('''
                 $lib.queue.add(visi)
-                $lib.dmon.add({
+                $lib.dmon.add(${
                     $visi=$lib.queue.get(visi)
                     for $tick in $lib.time.ticker(0.01) {
                         $visi.put($tick)

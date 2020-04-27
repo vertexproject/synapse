@@ -589,7 +589,7 @@ class CoreSpawnTest(s_test.SynTest):
                 $q = $lib.queue.add(visi)
                 $lib.queue.add(boom)
 
-                $lib.dmon.add({
+                $lib.dmon.add(${
                     $lib.print('Starting wootdmon')
                     $lib.queue.get(visi).put(blah)
                     for ($offs, $item) in $lib.queue.get(boom).gets(wait=1) {

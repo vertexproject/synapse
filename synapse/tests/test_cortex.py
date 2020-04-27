@@ -223,7 +223,7 @@ class CortexTest(s_t_utils.SynTest):
             iden = await core.callStorm('''
                 $que = $lib.queue.add(que)
 
-                $ddef = $lib.dmon.add({
+                $ddef = $lib.dmon.add(${
                     $lib.print(hi)
                     $lib.warn(omg)
                     $que = $lib.queue.get(que)
@@ -3915,7 +3915,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $tx = $lib.queue.add(tx)
                 $rx = $lib.queue.add(rx)
 
-                $ddef = $lib.dmon.add({
+                $ddef = $lib.dmon.add(${
 
                     $rx = $lib.queue.get(tx)
                     $tx = $lib.queue.get(rx)
@@ -4010,7 +4010,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 view2_iden = vdef2.get('iden')
 
                 q = '''
-                $lib.dmon.add({
+                $lib.dmon.add(${
                     $q = $lib.queue.get(dmon)
                      for ($offs, $item) in $q.gets(size=3, wait=12)
                         {
@@ -4066,7 +4066,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $q = $lib.queue.add(visi)
                 $lib.queue.add(boom)
 
-                $lib.dmon.add({
+                $lib.dmon.add(${
                     $lib.print('Starting wootdmon')
                     $lib.queue.get(visi).put(blah)
                     for ($offs, $item) in $lib.queue.get(boom).gets(wait=1) {
@@ -4104,7 +4104,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $q = $lib.queue.add(visi)
                 $lib.user.vars.set(foo, $(10))
 
-                $lib.dmon.add({
+                $lib.dmon.add(${
 
                     $foo = $lib.user.vars.get(foo)
 
