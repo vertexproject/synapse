@@ -2236,6 +2236,9 @@ class EmbedQuery(RunValue):
         AstNode.__init__(self, kids=kids)
         self.text = text
 
+    def isRuntSafe(self, runt):
+        return True
+
     async def runtval(self, runt):
         varz = dict(runt.vars)
         return s_stormtypes.Query(self.text, varz, runt)

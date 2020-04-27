@@ -2190,10 +2190,10 @@ class GraphCmd(Cmd):
         }
 
         for pivo in self.opts.pivot:
-            rules['pivots'].append(pivo)
+            rules['pivots'].append(pivo[1:-1])
 
         for filt in self.opts.filter:
-            rules['filters'].append(filt)
+            rules['filters'].append(filt[1:-1])
 
         for name, pivo in self.opts.form_pivot:
 
