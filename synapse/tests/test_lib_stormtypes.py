@@ -348,6 +348,16 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.stormIsInPrint('1.2.3.4', msgs)
 
+            q = '''[test:int=1 test:int=2]
+            $currentNode = $node
+            $q=${ [test:str=$currentNode.value()] }
+            yield $q
+            '''
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            self.eq({n.ndef for n in nodes},
+                    {('test:int', 1), ('test:int', 2), ('test:str', '1'), ('test:str', '2')})
+
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:str=woot :tick=2001] [ test:int=$node.isform(test:str) ] +test:int')
