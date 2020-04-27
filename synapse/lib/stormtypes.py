@@ -197,7 +197,7 @@ class LibDmon(Lib):
                 'view': self.runt.snap.view.iden,  # Capture the current view iden.
                 }
 
-        print(f'adding {type(quer)} type({quer[0]}) {quer}')
+        print(f'adding {type(quer)} type({quer}) {quer}')  # FIXME Remove me!
         ddef = {
             'name': name,
             'user': self.runt.user.iden,

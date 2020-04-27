@@ -400,10 +400,6 @@ terminalClassMap = {
     'VARTOKN': massage_vartokn,
 }
 
-def wow(kids):
-    print('*******', kids)
-    return s_ast.Const(kids[0].text)
-
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
     'abspropcond': s_ast.AbsPropCond,
