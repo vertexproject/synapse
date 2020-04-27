@@ -596,12 +596,6 @@ class StormSvcTest(s_test.SynTest):
                         pkg = await core.getStormPkg('old')
                         self.eq(pkg.get('version'), (0, 1, 0))
 
-                    cdef = OldServiceAPI._storm_svc_pkgs[0].get('commands')[-1]
-                    cdef['cmdconf'] = {'svciden': 'fakeiden'}
-                    breakpoint()
-                    await core.setStormCmd(cdef)
-                    self.nn(core.getStormCmd('oldcmd'))
-
             async with await s_cortex.Cortex.anit(dirn) as core:
                 self.nn(core.getStormCmd('newcmd'))
                 self.nn(core.getStormCmd('new.baz'))
