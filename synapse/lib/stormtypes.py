@@ -186,7 +186,7 @@ class LibDmon(Lib):
         '''
         Add a storm dmon (persistent background task) to the cortex.
 
-        $lib.dmon.add({ myquery })
+        $lib.dmon.add(${ myquery })
         '''
         self.runt.user.confirm(('dmon', 'add'))
 
@@ -197,7 +197,7 @@ class LibDmon(Lib):
                 'view': self.runt.snap.view.iden,  # Capture the current view iden.
                 }
 
-        print(f'adding {type(quer)} type({quer[0]}) {quer}')
+        print(f'adding {type(quer)} type({quer}) {quer}')  # FIXME Remove me!
         ddef = {
             'name': name,
             'user': self.runt.user.iden,
@@ -1961,6 +1961,13 @@ class LibTrigger(Lib):
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
+        if not query.startswith('{'):
+            mesg = 'Expected second argument to start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
+
+        # Remove the curly braces
+        query = query[1:-1]
+
         trig = await self._matchIdens(prefix)
         iden = trig.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
@@ -2470,6 +2477,10 @@ class LibCron(Lib):
             mesg = 'Query parameter is required.'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
+        if not query.startswith('{'):
+            mesg = 'Query parameter must start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
         try:
             alias_opts = self._parseAlias(kwargs)
         except ValueError as e:
@@ -2559,7 +2570,7 @@ class LibCron(Lib):
             incunit = valinfo[requnit][1]
             incval = 1
 
-        cdef = {'storm': query,
+        cdef = {'storm': query[1:-1],
                 'reqs': reqdict,
                 'incunit': incunit,
                 'incvals': incval,

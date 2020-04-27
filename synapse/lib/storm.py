@@ -2190,10 +2190,10 @@ class GraphCmd(Cmd):
         }
 
         for pivo in self.opts.pivot:
-            rules['pivots'].append(pivo)
+            rules['pivots'].append(pivo[1:-1])
 
         for filt in self.opts.filter:
-            rules['filters'].append(filt)
+            rules['filters'].append(filt[1:-1])
 
         for name, pivo in self.opts.form_pivot:
 
@@ -2202,7 +2202,7 @@ class GraphCmd(Cmd):
                 formrule = {'pivots': [], 'filters': []}
                 rules['forms'][name] = formrule
 
-            formrule['pivots'].append(pivo)
+            formrule['pivots'].append(pivo[1:-1])
 
         for name, filt in self.opts.form_filter:
 
@@ -2211,9 +2211,8 @@ class GraphCmd(Cmd):
                 formrule = {'pivots': [], 'filters': []}
                 rules['forms'][name] = formrule
 
-            formrule['filters'].append(filt)
+            formrule['filters'].append(filt[1:-1])
 
-        print(rules)
         subg = s_ast.SubGraph(rules)
 
         async for node, path in subg.run(runt, genr):

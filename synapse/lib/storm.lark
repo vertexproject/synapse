@@ -76,8 +76,6 @@ forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _valu _WS? baresubquery
 whileloop: "while" _WS _valu _WS? baresubquery
 subquery: [YIELD _WS?] baresubquery
 baresubquery: "{" query "}"
-// A barequery which is converted back into a string for use in our AST
-rawquery: "{" query "}"
 
 YIELD: "yield"
 switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) _WSCOMM? ":" _WSCOMM? baresubquery)* _WSCOMM? "}"
@@ -179,7 +177,7 @@ stormfunc: "function" _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (("=" | _WS?) _cmdargv)*
 CMDOPT: /-[a-zA-Z0-9_-]+/
-_cmdargv: CMDOPT | _toknvalu
+_cmdargv: baresubquery | CMDOPT | _toknvalu
 
 // an argv parser for cmdr commands which may contain embedded queries
 cmdrargs: _WS? _cmdrargv (("=" | _WS?) _cmdrargv)*
@@ -204,7 +202,7 @@ CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
 _safe_cmpr: BYNAME | CMPR
 
 _basevalu.1: valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu
-    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr | embedquery | rawquery
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr | embedquery
 
 _valu: _basevalu | NONQUOTEWORD
 _toknvalu: _basevalu | WORDTOKN
