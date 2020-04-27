@@ -902,7 +902,7 @@ class YieldValu(Oper):
             try:
                 buid = s_common.uhex(valu)
             except binascii.Error:
-                mesg = 'Yield string must by hex node iden. Got: %r' % (valu,)
+                mesg = 'Yield string must be iden in hexdecimal. Got: %r' % (valu,)
                 raise s_exc.BadLiftValu(mesg=mesg)
 
             node = await runt.snap.getNodeByBuid(buid)
