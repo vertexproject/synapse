@@ -967,6 +967,8 @@ class Layer(s_nexus.Pusher):
 
     async def truncate(self):
 
+        self.buidcache.clear()
+
         await self.layrslab.trash()
         await self.nodeeditslab.trash()
         await self.dataslab.trash()
