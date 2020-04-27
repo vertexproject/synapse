@@ -148,16 +148,6 @@ class AstConverter(lark.Transformer):
         return kid
 
     @lark.v_args(meta=True)
-    def rawquery(self, kids, meta):
-        assert len(kids) == 1
-
-        spos = getattr(meta, 'start_pos', 0) + 1
-        epos = getattr(meta, 'end_pos', 0) - 1
-
-        text = self.text[spos:epos]
-        return s_ast.Const(text)
-
-    @lark.v_args(meta=True)
     def baresubquery(self, kids, meta):
         assert len(kids) == 1
 
