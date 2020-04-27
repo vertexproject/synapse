@@ -267,7 +267,7 @@ class CortexTest(s_t_utils.SynTest):
                     opts = {'user': core.auth.rootuser.iden}
                     await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list()
 
-                await visi.addRule((True, ('storm', 'impersonate')))
+                await visi.addRule((True, ('impersonate',)))
 
                 opts = {'user': core.auth.rootuser.iden}
                 self.len(1, await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list())
