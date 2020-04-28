@@ -359,9 +359,7 @@ class StormTypesTest(s_test.SynTest):
                     {('test:int', 1), ('test:int', 2), ('test:str', '1'), ('test:str', '2')})
 
             # You can toprim() as Query object.
-            q = '''
-            $q=${ $lib.print('fire in the hole') }
-            $lib.fire('test', q=$q)
+            q = '''$q=${ $lib.print('fire in the hole') } $lib.fire('test', q=$q)
             '''
             msgs = await core.stormlist(q)
             fires = [m for m in msgs if m[0] == 'storm:fire']
