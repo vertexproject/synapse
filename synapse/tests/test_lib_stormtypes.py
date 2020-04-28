@@ -253,7 +253,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
     async def test_storm_lib_query(self):
-        async with self.getTestCore({'storm:log': True}) as core:
+        async with self.getTestCore() as core:
             # basic
             q = '''
             $foo = ${ [test:str=theevalthatmendo] }
