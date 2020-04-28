@@ -1242,16 +1242,16 @@ class LibVars(Lib):
         '''
         return list(self.runt.vars.items())
 
-class Query(StormType):
+class Query(Prim):
     '''
     A storm primitive representing an embedded query.
     '''
-    def __init__(self, text, opts, runt, path=None):
+    def __init__(self, text, varz, runt, path=None):
 
-        StormType.__init__(self, path=path)
+        Prim.__init__(self, text, path=path)
 
         self.text = text
-        self.opts = opts
+        self.varz = varz
         self.runt = runt
 
         self.locls.update({
@@ -1261,23 +1261,30 @@ class Query(StormType):
     def __str__(self):
         return self.text
 
-    async def _methQueryExec(self):
+    async def _getRuntGenr(self):
+        opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
-        subrunt = await self.runt.getScopeRuntime(query)
+        with self.runt.snap.getStormRuntime(opts=opts) as runt:
+            async for item in query.run(runt, s_ast.agen()):
+                yield item
 
+    async def nodes(self):
+        async for node, path in self._getRuntGenr():
+            yield node
+
+    async def __aiter__(self):
+        async for node, path in self._getRuntGenr():
+            yield Node(node)
+
+    async def _methQueryExec(self):
         logger.info(f'Executing storm query via exec() {{{self.text}}} as [{self.runt.user.name}]')
-        cancelled = False
         try:
-            async for item in query.run(subrunt, genr=s_ast.agen()):
-                pass  # pragma: no cover
+            async for item in self._getRuntGenr():
+                await asyncio.sleep(0)
         except s_ast.StormReturn as e:
             return e.item
         except asyncio.CancelledError:  # pragma: no cover
-            cancelled = True
             raise
-        finally:
-            if not cancelled:
-                await self.runt.propBackGlobals(subrunt)
 
 class NodeProps(Prim):
 
