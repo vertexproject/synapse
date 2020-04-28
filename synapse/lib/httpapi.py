@@ -260,7 +260,7 @@ class Handler(HandlerBase, t_web.RequestHandler):
 
         opts.setdefault('user', user.iden)
         if opts.get('user') != user.iden:
-            user.confirm(('storm', 'impersonate'))
+            user.confirm(('impersonate',))
 
         return opts
 

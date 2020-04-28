@@ -2671,6 +2671,9 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ inet:ipv4=5.5.5.5 ]')
             await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(hehe, haha) $node.data.set(lulz, rofl)')
 
+            nodes = await core.nodes('yield $lib.lift.byNodeData(newp) $node.data.load(lulz)')
+            self.len(0, nodes)
+
             nodes = await core.nodes('yield $lib.lift.byNodeData(hehe) $node.data.load(lulz)')
             self.len(1, nodes)
             self.eq(('inet:ipv4', 0x01020304), nodes[0].ndef)

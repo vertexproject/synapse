@@ -2,7 +2,6 @@ import copy
 import time
 import shutil
 import asyncio
-import fastjsonschema
 
 from unittest.mock import patch
 
@@ -268,7 +267,7 @@ class CortexTest(s_t_utils.SynTest):
                     opts = {'user': core.auth.rootuser.iden}
                     await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list()
 
-                await visi.addRule((True, ('storm', 'impersonate')))
+                await visi.addRule((True, ('impersonate',)))
 
                 opts = {'user': core.auth.rootuser.iden}
                 self.len(1, await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list())
@@ -329,6 +328,10 @@ class CortexTest(s_t_utils.SynTest):
                 await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
                 await core.addTagProp('at', ('geo:latlong', {}), {'doc':
                                                                   'Where the node was when the tag was applied.'})
+
+                # Lifting by a tagprop works before any writes happened
+                self.len(0, await core.nodes('#foo.bar:score'))
+                self.len(0, await core.nodes('#foo.bar:score=20'))
 
                 await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')
                 await core.nodes('[ test:str=lulz +#blah:user=visi ]')
@@ -893,7 +896,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = [n.pack() async for n in core.eval(qstr)]
             self.len(1, nodes)
 
-            # Seed new nodes via nodedesf
+            # Seed new nodes via nodedefs
             ndef = ('test:comp', (10, 'haha'))
             opts = {'ndefs': (ndef,)}
             # Seed nodes in the query with ndefs
@@ -948,6 +951,9 @@ class CortexTest(s_t_utils.SynTest):
 
             async for node in core.eval('test:str=$foo', opts=opts):
                 self.eq('bar', node.ndef[1])
+
+            # Make sure a tag=valu comparison before the tag is accessed works
+            self.len(0, await core.nodes('#newp=2020'))
 
     async def test_cortex_delnode(self):
 
@@ -4491,3 +4497,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                                            'Error loading pkg') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     self.true(await stream.wait(6))
+
+    async def test_cortex_view_persistence(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                view = core.view
+                NKIDS = 20
+                for _ in range(NKIDS):
+                    await view.fork()
+
+                self.len(NKIDS + 1, core.layers)
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.len(NKIDS + 1, core.layers)
+                for view in core.views.values():
+                    if view == core.view:
+                        continue
+                    self.eq(core.view, view.parent)

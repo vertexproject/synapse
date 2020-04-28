@@ -103,7 +103,7 @@ class CoreApi(s_cell.CellApi):
 
         opts.setdefault('user', self.user.iden)
         if opts.get('user') != self.user.iden:
-            self.user.confirm(('storm', 'impersonate'))
+            self.user.confirm(('impersonate',))
 
         return opts
 
@@ -212,14 +212,14 @@ class CoreApi(s_cell.CellApi):
         '''
         Set the definition of a pure storm command in the cortex.
         '''
-        self.user.confirm(('storm', 'admin', 'cmds'))
+        self.user.confirm(('admin', 'cmds'))
         return await self.cell.setStormCmd(cdef)
 
     async def delStormCmd(self, name):
         '''
         Remove a pure storm command from the cortex.
         '''
-        self.user.confirm(('storm', 'admin', 'cmds'))
+        self.user.confirm(('admin', 'cmds'))
         return await self.cell.delStormCmd(name)
 
     async def _reqDefLayerAllowed(self, perms):
@@ -645,11 +645,11 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.delTagProp(name)
 
     async def addStormPkg(self, pkgdef):
-        self.user.confirm(('storm', 'pkg', 'add'))
+        self.user.confirm(('pkg', 'add'))
         return await self.cell.addStormPkg(pkgdef)
 
     async def delStormPkg(self, iden):
-        self.user.confirm(('storm', 'pkg', 'del'))
+        self.user.confirm(('pkg', 'del'))
         return await self.cell.delStormPkg(iden)
 
     @s_cell.adminapi()
@@ -2105,6 +2105,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             if iden == defiden:
                 self.view = view
 
+        for view in self.views.values():
+            view.init2()
+
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
             ldef = await self.addLayer()
@@ -2155,6 +2158,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await info.set(name, valu)
 
         view = await self._loadView(node)
+        view.init2()
 
         await self.bumpSpawnPool()
 
