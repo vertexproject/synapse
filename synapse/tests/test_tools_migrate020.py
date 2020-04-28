@@ -1143,6 +1143,37 @@ class MigrationTest(s_t_utils.SynTest):
                 # check core data
                 await self._checkCore(core, tdata)
 
+    async def test_migr_auth(self):
+        '''
+        Smaller unit tests for auth migration
+        '''
+        migrauth = s_migr.MigrAuth(None, None, None, None, None)
+
+        rules_in = [
+            (True, ('foo', 'baz')),
+            (True, ('storm',)),
+            (True, ('storm', 'queue', 'get')),
+            (True, ('storm', 'lib', 'queue', 'list')),
+            (True, ('storm', 'pkg', 'get')),
+            (True, ('storm', 'impersonate')),
+            (True, ('storm', 'service', 'get')),
+            (True, ('storm', 'node', 'data')),
+        ]
+
+        rules_out_exp = [
+            (True, ('foo', 'baz')),
+            (True, ('storm',)),
+            (True, ('queue', 'get')),
+            (True, ('lib', 'queue', 'list')),
+            (True, ('pkg', 'get')),
+            (True, ('impersonate',)),
+            (True, ('service', 'get')),
+            (True, ('node', 'data')),
+        ]
+
+        rules_out = await migrauth._trnAuthRules(rules_in)
+        self.sorteq(rules_out_exp, rules_out)
+
     async def test_migr_dirn(self):
         with self.getRegrDir('cortexes', REGR_VER) as src:
             with self.getTestDir() as dest:

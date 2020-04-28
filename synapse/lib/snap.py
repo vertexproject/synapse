@@ -236,7 +236,6 @@ class Snap(s_base.Base):
 
         node = self.livenodes.get(buid)
         if node is not None:
-            # moved here from getNodeByBuid() to cover more
             await asyncio.sleep(0)
             return node
 

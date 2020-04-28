@@ -87,11 +87,30 @@ class ViewTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await prox.eval('test:int=12', opts={'view': view2.iden}).list()
 
+            # The parent count is correct
+            self.eq(2, (await core.view.getFormCounts()).get('test:int'))
+
             # Merge the child back into the parent
             await view2.merge()
 
-            # Now, the node added to the child is seen in the parent
+            # The parent couns includes all the nodes that were merged
+            self.eq(1003, (await core.view.getFormCounts()).get('test:int'))
+
+            # A node added to the child is now present in the parent
             nodes = await core.nodes('test:int=12')
+            self.len(1, nodes)
+
+            # The child can still see the parent's pre-existing node
+            nodes = await view2.nodes('test:int=10')
+            self.len(1, nodes)
+
+            # The child count includes all the nodes in the view
+            self.eq(1003, (await view2.getFormCounts()).get('test:int'))
+
+            # The child can see nodes that got merged
+            nodes = await view2.nodes('test:int=12')
+            self.len(1, nodes)
+            nodes = await view2.nodes('test:int=1000')
             self.len(1, nodes)
 
     async def test_view_trigger(self):
