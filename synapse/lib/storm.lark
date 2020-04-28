@@ -76,7 +76,6 @@ forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _valu _WS? baresubquery
 whileloop: "while" _WS _valu _WS? baresubquery
 subquery: [YIELD _WS?] baresubquery
 baresubquery: "{" query "}"
-
 YIELD: "yield"
 switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) _WSCOMM? ":" _WSCOMM? baresubquery)* _WSCOMM? "}"
 DEFAULTCASE: "*"
