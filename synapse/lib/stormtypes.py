@@ -1242,13 +1242,13 @@ class LibVars(Lib):
         '''
         return list(self.runt.vars.items())
 
-class Query(StormType):
+class Query(Prim):
     '''
     A storm primitive representing an embedded query.
     '''
     def __init__(self, text, varz, runt, path=None):
 
-        StormType.__init__(self, path=path)
+        Prim.__init__(self, text, path=path)
 
         self.text = text
         self.varz = varz

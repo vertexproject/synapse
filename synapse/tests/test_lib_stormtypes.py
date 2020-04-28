@@ -253,7 +253,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
     async def test_storm_lib_query(self):
-        async with self.getTestCore() as core:
+        async with self.getTestCore({'storm:log': True}) as core:
             # basic
             q = '''
             $foo = ${ [test:str=theevalthatmendo] }
@@ -357,6 +357,17 @@ class StormTypesTest(s_test.SynTest):
             self.len(4, nodes)
             self.eq({n.ndef for n in nodes},
                     {('test:int', 1), ('test:int', 2), ('test:str', '1'), ('test:str', '2')})
+
+            # You can toprim() as Query object.
+            q = '''
+            $q=${ $lib.print('fire in the hole') }
+            $lib.fire('test', q=$q)
+            '''
+            msgs = await core.stormlist(q)
+            fires = [m for m in msgs if m[0] == 'storm:fire']
+            self.len(1, fires)
+            self.eq(fires[0][1].get('data').get('q'),
+                    "$lib.print('fire in the hole')")
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:

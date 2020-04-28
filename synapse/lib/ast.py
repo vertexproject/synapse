@@ -2234,7 +2234,7 @@ class EmbedQuery(RunValue):
 
     def __init__(self, text, kids=()):
         AstNode.__init__(self, kids=kids)
-        self.text = text
+        self.text = text.strip()
 
     def isRuntSafe(self, runt):
         return True
