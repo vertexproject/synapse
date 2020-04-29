@@ -236,7 +236,7 @@ class Triggers:
 
         trig = self.triggers.pop(iden, None)
         if trig is None:
-            self.get(iden)
+            return None
 
         cond = trig.tdef.get('cond')
 

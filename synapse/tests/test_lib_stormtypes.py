@@ -1912,7 +1912,8 @@ class StormTypesTest(s_test.SynTest):
 
                 # Owner can 'get' the forked view
                 q = f'$lib.view.get({forkediden})'
-                await asvisi.storm(q).list()
+                vals = await asvisi.storm(q).list()
+                self.len(2, vals)
 
                 # Del and Merge require 'del' permission unless performed by the owner
                 # Delete a view the user owns
@@ -2270,6 +2271,7 @@ class StormTypesTest(s_test.SynTest):
                         guid = mesg[1]['mesg'].split(' ')[-1]
 
                 await core.nodes('$lib.queue.add(foo)')
+
                 async def getNextFoo():
                     return await core.callStorm('''
                         $foo = $lib.queue.get(foo)
@@ -2277,6 +2279,7 @@ class StormTypesTest(s_test.SynTest):
                         $foo.cull($offs)
                         return($valu)
                     ''')
+
                 async def getFooSize():
                     return await core.callStorm('''
                         return($lib.queue.get(foo).size())
@@ -2301,6 +2304,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint(':type=m1', mesgs)
 
                 # Make sure it ran
+                await asyncio.sleep(0)
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
 
                 # Make sure the provenance of the new splices looks right
@@ -2410,7 +2414,7 @@ class StormTypesTest(s_test.SynTest):
                     unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
 
-                    #self.eq('d3', await getNextFoo())
+                    # self.eq('d3', await getNextFoo())
                     self.eq(0, await getFooSize())
 
                     unixtime += DAYSECS
@@ -2704,7 +2708,8 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('return($lib.auth.roles.byname(newp))'))
 
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('$user = $lib.auth.users.byname(visi) $lib.auth.users.del($user.iden)', opts=asvisi)
+                await core.callStorm('$user = $lib.auth.users.byname(visi) $lib.auth.users.del($user.iden)',
+                                     opts=asvisi)
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$user = $lib.auth.users.add(newp)', opts=asvisi)
@@ -2777,8 +2782,10 @@ class StormTypesTest(s_test.SynTest):
                 $lib.auth.users.byname(visi).revoke($role.iden)
             ''')
 
-            self.nn(await core.callStorm('for $user in $lib.auth.users.list() { if $($user.get(email) = "visi@vertex.link") { return($user) } }'))
-            self.nn(await core.callStorm('for $role in $lib.auth.roles.list() { if $( $role.name = "all") { return($role) } }'))
+            q = 'for $user in $lib.auth.users.list() { if $($user.get(email) = "visi@vertex.link") { return($user) } }'
+            self.nn(await core.callStorm(q))
+            q = 'for $role in $lib.auth.roles.list() { if $( $role.name = "all") { return($role) } }'
+            self.nn(await core.callStorm(q))
             self.nn(await core.callStorm('return($lib.auth.roles.byname(all))'))
 
             self.nn(await core.callStorm(f'return($lib.auth.roles.get({core.auth.allrole.iden}))'))
@@ -2934,9 +2941,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq(valu['none'], None)
             self.eq(valu['bool'], True)
 
-            self.eq(('foo', 'bar'), await core.callStorm('$list = $lib.list() $list.append(foo) $list.append(bar) return($list)'))
+            q = '$list = $lib.list() $list.append(foo) $list.append(bar) return($list)'
+            self.eq(('foo', 'bar'), await core.callStorm(q))
             self.eq({'foo': 'bar'}, await core.callStorm('$dict = $lib.dict() $dict.foo = bar return($dict)'))
-            self.eq({'foo': 2}, await core.callStorm('$tally = $lib.stats.tally() $tally.inc(foo) $tally.inc(foo) return($tally)'))
+            q = '$tally = $lib.stats.tally() $tally.inc(foo) $tally.inc(foo) return($tally)'
+            self.eq({'foo': 2}, await core.callStorm(q))
 
     async def test_print_warn(self):
         async with self.getTestCore() as core:

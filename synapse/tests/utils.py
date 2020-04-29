@@ -53,6 +53,7 @@ import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
+import synapse.lib.nexus as s_nexus
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
@@ -66,6 +67,9 @@ logger = logging.getLogger(__name__)
 
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
+
+# Patch so that getTestCore cortices' nexi apply everything twice.  Useful to verify idempotency.
+NEXUS_STUTTER = os.environ.get('SYNDEV_NEXUS_STUTTER', False)
 
 async def alist(coro):
     return [x async for x in coro]
@@ -652,6 +656,24 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
 
+async def _doubleapply(self, indx, item):
+    '''
+    Just like NexusRoot._apply, but calls the function twice.  Patched in when global variable NEXUS_STUTTER is set.
+    '''
+    nexsiden, event, args, kwargs, _ = item
+
+    nexus = self._nexskids[nexsiden]
+    func, passoff = nexus._nexshands[event]
+
+    if passoff:
+        retn = await func(nexus, *args, nexsoff=indx, **kwargs)
+        await func(nexus, *args, nexsoff=indx, **kwargs)
+        return retn
+
+    retn = await func(nexus, *args, **kwargs)
+    await func(nexus, *args, **kwargs)
+    return retn
+
 class SynTest(unittest.TestCase):
     '''
     Mark all async test methods as s_glob.synchelp decorated.
@@ -959,16 +981,20 @@ class SynTest(unittest.TestCase):
 
         mods.append(('synapse.tests.utils.TestModule', {'key': 'valu'}))
 
-        if dirn is not None:
+        with contextlib.ExitStack() as stack:
+            if NEXUS_STUTTER:
+                stack.enter_context(mock.patch.object(s_nexus.NexsRoot, '_apply', _doubleapply))
 
-            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                yield core
+            if dirn is not None:
 
-            return
+                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                    yield core
 
-        with self.getTestDir() as dirn:
-            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                yield core
+                return
+
+            with self.getTestDir() as dirn:
+                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                    yield core
 
     @contextlib.asynccontextmanager
     async def getTestCoreAndProxy(self, conf=None, dirn=None):

@@ -152,11 +152,11 @@ class NexsRoot(s_base.Base):
 
         indxitem: Optional[Tuple[int, NexusLogEntryT]] = self._nexuslog.last()
         if indxitem is None:
-            # Log must be new
+            # We have a brand new log
             return
 
         try:
-            await self._apply(indxitem[1])
+            await self._apply(*indxitem)
 
         except asyncio.CancelledError:
             raise
@@ -198,17 +198,23 @@ class NexsRoot(s_base.Base):
         item: NexusLogEntryT = (nexsiden, event, args, kwargs, meta)
 
         if self.donexslog:
-            self._nexuslog.add(item)
+            indx = self._nexuslog.add(item)
+        else:
+            indx = None
 
         [dist.update() for dist in tuple(self._mirrors)]
 
-        return await self._apply(item)
+        retn = await self._apply(indx, item)
 
-    async def _apply(self, item: NexusLogEntryT):
+        return retn
+
+    async def _apply(self, indx: Optional[int], item: NexusLogEntryT):
         nexsiden, event, args, kwargs, _ = item
 
         nexus = self._nexskids[nexsiden]
-        func = nexus._nexshands[event]
+        func, passoff = nexus._nexshands[event]
+        if passoff:
+            return await func(nexus, *args, nexsoff=indx, **kwargs)
 
         return await func(nexus, *args, **kwargs)
 
@@ -349,12 +355,12 @@ class Pusher(s_base.Base, metaclass=RegMethType):
     '''
     A mixin-class to manage distributing changes where one might plug in mirroring or consensus protocols
     '''
-    _regclstupls: List[Tuple[str, Callable]] = []
+    _regclstupls: List[Tuple[str, Callable, bool]] = []
 
     async def __anit__(self, iden: str, nexsroot: NexsRoot = None):  # type: ignore
 
         await s_base.Base.__anit__(self)
-        self._nexshands: Dict[str, Callable] = {}
+        self._nexshands: Dict[str, Tuple[Callable, bool]] = {}
 
         self.nexsiden = iden
         self.nexsroot = None
@@ -362,8 +368,8 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         if nexsroot is not None:
             self.setNexsRoot(nexsroot)
 
-        for event, func in self._regclstupls:  # type: ignore
-            self._nexshands[event] = func
+        for event, func, passoff in self._regclstupls:  # type: ignore
+            self._nexshands[event] = func, passoff
 
     def setNexsRoot(self, nexsroot):
 
@@ -378,28 +384,34 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         self.nexsroot = nexsroot
 
     @classmethod
-    def onPush(cls, event: str) -> Callable:
+    def onPush(cls, event: str, passoff=False) -> Callable:
         '''
         Decorator that registers a method to be a handler for a named event
 
-        event: string that distinguishes one handler from another.  Must be unique per Pusher subclass
+        Args:
+            event: string that distinguishes one handler from another.  Must be unique per Pusher subclass
+            passoff:  whether to pass the log offset as the parameter "nexsoff" into the handler
         '''
         def decorator(func):
-            func._regme = (event, func)
+            func._regme = (event, func, passoff)
             return func
 
         return decorator
 
     @classmethod
-    def onPushAuto(cls, event: str) -> Callable:
+    def onPushAuto(cls, event: str, passoff=False) -> Callable:
         '''
         Decorator that does the same as onPush, except automatically creates the top half method
+
+        Args:
+            event: string that distinguishes one handler from another.  Must be unique per Pusher subclass
+            passoff:  whether to pass the log offset as the parameter "nexsoff" into the handler
         '''
         async def pushfunc(self, *args, **kwargs):
             return await self._push(event, *args, **kwargs)
 
         def decorator(func):
-            pushfunc._regme = (event, func)
+            pushfunc._regme = (event, func, passoff)
             setattr(cls, '_hndl' + func.__name__, func)
             functools.update_wrapper(pushfunc, func)
             return pushfunc
@@ -418,5 +430,5 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         if self.nexsroot is not None:  # Distribute through the change root
             return await self.nexsroot.issue(nexsiden, event, args, kwargs, None)
 
-        # There's no change distribution, so directly execute
-        return await self._nexshands[event](self, *args, **kwargs)
+        #  here's no change distribution, so directly execute
+        return await self._nexshands[event][0](self, *args, **kwargs)

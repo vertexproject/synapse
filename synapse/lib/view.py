@@ -327,8 +327,14 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.info.set(name, valu)
         return valu
 
-    @s_nexus.Pusher.onPushAuto('view:addlayer')
     async def addLayer(self, layriden, indx=None):
+        if any(layriden == layr.iden for layr in self.layers):
+            raise s_exc.DupIden(mesg='May not have the same layer in a view twice')
+
+        return await self._push('view:addlayer', layriden, indx)
+
+    @s_nexus.Pusher.onPush('view:addlayer')
+    async def _addLayer(self, layriden, indx=None):
 
         for view in self.core.views.values():
             if view.parent is self:
@@ -340,6 +346,9 @@ class View(s_nexus.Pusher):  # type: ignore
         layr = self.core.layers.get(layriden)
         if layr is None:
             raise s_exc.NoSuchLayer(iden=layriden)
+
+        if layr in self.layers:
+            return
 
         if indx is None:
             self.layers.append(layr)
@@ -580,6 +589,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         s_trigger.reqValidTdef(tdef)
 
+        trig = self.trigdict.get(tdef['iden'])
+        if trig is not None:
+            return self.triggers.get(tdef['iden']).pack()
+
         user = self.core.auth.user(tdef['user'])
         self.core.getStormQuery(tdef['storm'])
 
@@ -594,12 +607,22 @@ class View(s_nexus.Pusher):  # type: ignore
     async def getTrigger(self, iden):
         return self.triggers.get(iden)
 
-    @s_nexus.Pusher.onPushAuto('trigger:del')
     async def delTrigger(self, iden):
+        trig = self.triggers.get(iden)
+        if trig is None:
+            raise s_exc.NoSuchIden("Trigger not found")
+
+        return await self._push('trigger:del', iden)
+
+    @s_nexus.Pusher.onPush('trigger:del')
+    async def _delTrigger(self, iden):
         '''
         Delete a trigger from the view.
         '''
         trig = self.triggers.pop(iden)
+        if trig is None:
+            return
+
         await self.trigdict.pop(trig.iden)
         await self.core.auth.delAuthGate(trig.iden)
 
