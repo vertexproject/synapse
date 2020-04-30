@@ -46,7 +46,7 @@ commands:
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
-  do_stutter_test_execution:
+  do_replay_test_execution:
     description: "Execute unit tests via pytest"
     steps:
       - run:
@@ -139,7 +139,7 @@ commands:
       - store_artifacts:
           path: test-reports
 
-  test_steps_python_stutter:
+  test_steps_python_replay:
     description: "Python test steps"
     steps:
       - checkout
@@ -172,7 +172,7 @@ commands:
             if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
             if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
 
-      - do_stutter_test_execution
+      - do_replay_test_execution
       - do_report_coverage
 
       - store_test_results:
@@ -360,22 +360,22 @@ jobs:
     steps:
       - test_steps_python
 
-  python37_stutter:
+  python37_replay:
     parallelism: 2
     docker:
       - image: circleci/python:3.7
         environment:
           PYVERS: 3.7
           RUN_SYNTAX: 1
-          CODECOV_FLAG: linux_stutter
+          CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-          SYNDEV_NEXUS_STUTTER: 1
+          SYNDEV_NEXUS_replay: 1
 
     working_directory: ~/repo
 
     steps:
-      - test_steps_python_stutter
+      - test_steps_python_replay
 
   doctests:
     parallelism: 1
@@ -440,7 +440,7 @@ workflows:
             branches:
               only: /.*/
 
-      - python37_stutter:
+      - python37_replay:
           filters:
             tags:
               only: /.*/

@@ -655,7 +655,7 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
 
 async def _doubleapply(self, indx, item):
     '''
-    Just like NexusRoot._apply, but calls the function twice.  Patched in when global variable NEXUS_STUTTER is set.
+    Just like NexusRoot._apply, but calls the function twice.  Patched in when global variable NEXUS_s_common.tuplify is set.
     '''
     nexsiden, event, args, kwargs, _ = item
 
@@ -954,22 +954,21 @@ class SynTest(unittest.TestCase):
             yield core, core
 
     @contextlib.contextmanager
-    def withNexusStutter(self, stutter=False):
+    def withNexusReplay(self, replay=False):
         '''
         Patch so that the Nexus apply log is applied twice. Useful to verify idempotency.
 
         Notes:
-            This is applied if the environment variable SYNDEV_NEXUS_STUTTER is set
-            or the stutter argument is set to True.
+            This is applied if the environment variable SYNDEV_NEXUS_REPLAY is set
+            or the replay argument is set to True.
 
         Returns:
             contextlib.ExitStack: An exitstack object.
         '''
-        # Patch so that getTestCore cortices' nexi apply everything twice.
-        stutter = os.environ.get('SYNDEV_NEXUS_STUTTER', default=stutter)
+        replay = os.environ.get('SYNDEV_NEXUS_REPLAY', default=replay)
 
         with contextlib.ExitStack() as stack:
-            if stutter:
+            if replay:
                 stack.enter_context(mock.patch.object(s_nexus.NexsRoot, '_apply', _doubleapply))
             yield stack
 
@@ -998,7 +997,7 @@ class SynTest(unittest.TestCase):
 
         mods.append(('synapse.tests.utils.TestModule', {'key': 'valu'}))
 
-        with self.withNexusStutter() as cm:
+        with self.withNexusReplay() as cm:
 
             if dirn is not None:
 
