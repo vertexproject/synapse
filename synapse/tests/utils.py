@@ -68,9 +68,6 @@ logger = logging.getLogger(__name__)
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
 
-# Patch so that getTestCore cortices' nexi apply everything twice.  Useful to verify idempotency.
-NEXUS_STUTTER = os.environ.get('SYNDEV_NEXUS_STUTTER', False)
-
 async def alist(coro):
     return [x async for x in coro]
 
@@ -956,6 +953,26 @@ class SynTest(unittest.TestCase):
         async with self.getTestCore(conf=conf, dirn=dirn) as core:
             yield core, core
 
+    @contextlib.contextmanager
+    def withNexusStutter(self, stutter=False):
+        '''
+        Patch so that the Nexus apply log is applied twice. Useful to verify idempotency.
+
+        Notes:
+            This is applied if the environment variable SYNDEV_NEXUS_STUTTER is set
+            or the stutter argument is set to True.
+
+        Returns:
+            contextlib.ExitStack: An exitstack object.
+        '''
+        # Patch so that getTestCore cortices' nexi apply everything twice.
+        stutter = os.environ.get('SYNDEV_NEXUS_STUTTER', default=stutter)
+
+        with contextlib.ExitStack() as stack:
+            if stutter:
+                stack.enter_context(mock.patch.object(s_nexus.NexsRoot, '_apply', _doubleapply))
+            yield stack
+
     @contextlib.asynccontextmanager
     async def getTestCore(self, conf=None, dirn=None):
         '''
@@ -981,9 +998,7 @@ class SynTest(unittest.TestCase):
 
         mods.append(('synapse.tests.utils.TestModule', {'key': 'valu'}))
 
-        with contextlib.ExitStack() as stack:
-            if NEXUS_STUTTER:
-                stack.enter_context(mock.patch.object(s_nexus.NexsRoot, '_apply', _doubleapply))
+        with self.withNexusStutter() as cm:
 
             if dirn is not None:
 
