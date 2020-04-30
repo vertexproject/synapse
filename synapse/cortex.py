@@ -755,6 +755,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     }
 
     cellapi = CoreApi
+    layerapi = s_layer.LayerApi
+    hiveapi = s_hive.HiveApi
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
@@ -1911,21 +1913,21 @@ class Cortex(s_cell.Cell):  # type: ignore
         # allow an admin to directly open the cortex hive
         # (perhaps this should be a Cell() level pattern)
         if path[0] == 'hive' and user.isAdmin():
-            return await s_hive.HiveApi.anit(self.hive, user)
+            return await self.hiveapi.anit(self.hive, user)
 
         if path[0] == 'layer':
 
             if len(path) == 1:
                 # get the top layer for the default view
                 layr = self.getLayer()
-                return await s_layer.LayerApi.anit(self, link, user, layr)
+                return await self.layerapi.anit(self, link, user, layr)
 
             if len(path) == 2:
                 layr = self.getLayer(path[1])
                 if layr is None:
                     raise s_exc.NoSuchLayer(iden=path[1])
 
-                return await s_layer.LayerApi.anit(self, link, user, layr)
+                return await self.layerapi.anit(self, link, user, layr)
 
         raise s_exc.NoSuchPath(path=path)
 
