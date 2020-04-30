@@ -733,7 +733,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.addTagProp('score', ('int', {}), {})
 
             layr = core.getLayer()
-            self.eq(str(layr), f'Layer (Layer): {layr.iden}')
+            self.isin(f'Layer (Layer): {layr.iden}', str(layr))
 
             nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
             buid = nodes[0].buid
