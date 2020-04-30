@@ -370,7 +370,7 @@ jobs:
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-          SYNDEV_NEXUS_replay: 1
+          SYNDEV_NEXUS_REPLAY: 1
 
     working_directory: ~/repo
 
