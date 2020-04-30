@@ -59,7 +59,7 @@ class FakeCore(s_cell.Cell):
 
     async def loadSplicelog(self, splicelog):
         for lyriden, items in splicelog.items():
-            self.splicelog[lyriden] = tupleize(items)
+            self.splicelog[lyriden] = s_common.tuplify(items)
 
     async def setSplicelim(self, lim):
         self.splicelim = lim
