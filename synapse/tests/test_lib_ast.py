@@ -1357,11 +1357,12 @@ class AstTest(s_test.SynTest):
             await core.nodes('[ test:int=5678 +#foo=(2018, 2021) ]')
             await core.nodes('[ test:int=1111 +#foo=(1977, 2019) ]')
 
-            # Validate we got edits for the test:str having foo applied to it
             nodes = await core.nodes('test:int | baz --faz #foo')
             self.len(2, nodes)
+
             nodes = await core.nodes('test:str +#foo@=1984 +#foo@=202002')
             self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'beep'))
 
     async def test_ast_pullone(self):
 
