@@ -65,16 +65,6 @@ def getAssetJson(*paths):
     obj = json.loads(byts.decode())
     return obj
 
-def tupleize(obj):
-    '''
-    Convert list objects to tuples in a nested python struct.
-    '''
-    if isinstance(obj, (list, tuple)):
-        return tuple([tupleize(o) for o in obj])
-    if isinstance(obj, dict):
-        return {k: tupleize(v) for k, v in obj.items()}
-    return obj
-
 # NOTE: This service is identical to the regression repo except the confdef has been
 # updated for jsonschema and a new test value
 class MigrSvcApi(s_stormsvc.StormSvc, s_cell.CellApi):
@@ -128,8 +118,8 @@ class MigrationTest(s_t_utils.SynTest):
         podesj = [p for p in podesj if p[0] not in NOMIGR_NDEF]
         ndj = [nd for nd in ndj if nd[0] not in NOMIGR_NDEF]
 
-        tdata['podes'] = tupleize(podesj)
-        tdata['nodedata'] = tupleize(ndj)
+        tdata['podes'] = s_common.tuplify(podesj)
+        tdata['nodedata'] = s_common.tuplify(ndj)
 
         tdata['splices'] = splicej
         tdata['splicepodes'] = splicepodesj
@@ -227,7 +217,7 @@ class MigrationTest(s_t_utils.SynTest):
             nodedata = []
             for n in nodes:
                 nodedata.append([n.ndef, [nd async for nd in n.iterData()]])
-            nodedata = tupleize(nodedata)
+            nodedata = s_common.tuplify(nodedata)
             try:
                 self.eq(nodedata, tnodedata)
             except AssertionError:
@@ -1211,7 +1201,7 @@ class MigrationTest(s_t_utils.SynTest):
                     continue
                 podemap[pode[1]['iden']] = {k: v for k, v in pode[1].get('props', {}).items()}
 
-            podemap = tupleize(podemap)
+            podemap = s_common.tuplify(podemap)
 
         with self.getRegrDir('cortexes', REGR_VER) as src:
             with self.getTestDir() as dest:
