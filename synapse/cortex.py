@@ -1906,7 +1906,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def getCellApi(self, link, user, path):
 
         if not path:
-            return await CoreApi.anit(self, link, user)
+            return await self.cellapi.anit(self, link, user)
 
         # allow an admin to directly open the cortex hive
         # (perhaps this should be a Cell() level pattern)
