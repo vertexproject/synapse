@@ -1,9 +1,10 @@
 import json
-import synapse.exc as s_exc
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
+
 import synapse.tests.utils as s_test
 
 foo_stormpkg = {
@@ -1328,7 +1329,7 @@ class AstTest(s_test.SynTest):
                 ),
                 'storm': '''
                     $ival = $lib.cast(ival, $cmdopts.bar)
-                    [ inet:ipv4=1.2.3.4 +#foo=$ival ]
+                    [ test:str=1234 +#foo=$ival ]
                 ''',
             }
 
@@ -1346,18 +1347,20 @@ class AstTest(s_test.SynTest):
                     // subquery forces per-node evaluation of even runt safe vars
                     {
                         $ival = $lib.cast(ival, $cmdopts.faz)
-                        [ inet:ipv4=5.5.5.5 +#foo=$ival ]
+                        [ test:str=beep +#foo=$ival ]
                     }
                 ''',
             }
 
             await core.setStormCmd(scmd)
 
-            await core.nodes('[ inet:ipv4=5.6.7.8 +#foo=(2018, 2021) ]')
-            await core.nodes('[ inet:ipv4=1.1.1.1 +#foo=(1977, 2019) ]')
+            await core.nodes('[ test:int=5678 +#foo=(2018, 2021) ]')
+            await core.nodes('[ test:int=1111 +#foo=(1977, 2019) ]')
 
-            nodes = await core.nodes('inet:ipv4 | baz --faz #foo | +inet:ipv4=5.5.5.5 +#foo@=1984 +#foo@=202002')
-
+            # Validate we got edits for the test:str having foo applied to it
+            nodes = await core.nodes('test:int | baz --faz #foo')
+            self.len(2, nodes)
+            nodes = await core.nodes('test:str +#foo@=1984 +#foo@=202002')
             self.len(1, nodes)
 
     async def test_ast_pullone(self):
