@@ -163,12 +163,10 @@ def todo(name, *args, **kwargs):
     return (name, args, kwargs)
 
 def tuplify(obj):
-    '''Convert a nested set of python primitives into tupleized forms'''
-    if isinstance(obj, (list, tuple)):
-        return tuple(map(tuplify, obj))
-    if isinstance(obj, dict):
-        return {k: tuplify(v) for k, v in obj.items()}
-    return obj
+    '''
+    Convert a nested set of python primitives into tupleized forms via msgpack.
+    '''
+    return s_msgpack.un(s_msgpack.en(obj))
 
 def genpath(*paths):
     path = os.path.join(*paths)
