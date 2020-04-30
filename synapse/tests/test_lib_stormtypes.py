@@ -43,9 +43,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(gate['roles'][0], {
                 'iden': core.auth.allrole.iden,
                 'admin': False,
-                'rules': [
-                    (True, ('view', 'read'))
-                ],
+                'rules': (
+                    (True, ('view', 'read')),
+                ),
             })
 
             gates = await core.callStorm('return($lib.auth.gates.list())')

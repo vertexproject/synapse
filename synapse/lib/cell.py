@@ -893,7 +893,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if tree is not None:
                     # Pack and unpack the tree to avoid tuple/list issues
                     # for in-memory structures.
-                    tree = s_msgpack.un(s_msgpack.en(tree))
+                    tree = s_common.tuplify(tree)
                     await hive.loadHiveTree(tree)
 
         return hive
