@@ -158,7 +158,7 @@ class NexsRoot(s_base.Base):
         try:
             await self._apply(*indxitem)
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
         except Exception:
