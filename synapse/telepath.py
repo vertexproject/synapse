@@ -201,6 +201,7 @@ class GenrIter:
 
         async for item in genr:
             yield item
+            await asyncio.sleep(0)
 
     def __iter__(self):
         genr = s_glob.sync(self.proxy.task(self.todo, name=self.share))

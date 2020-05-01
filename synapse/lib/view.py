@@ -287,7 +287,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 assert editformat == 'splices'
 
                 nodeedits = mesg[1].get('edits', [()])
-                for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
+                async for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
                     if not show or splice[0] in show:
                         yield splice
                 continue

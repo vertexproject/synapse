@@ -733,15 +733,15 @@ class LayerTest(s_t_utils.SynTest):
             await core.addTagProp('score', ('int', {}), {})
 
             layr = core.getLayer()
-            self.eq(str(layr), f'Layer (Layer): {layr.iden}')
+            self.isin(f'Layer (Layer): {layr.iden}', str(layr))
 
             nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
             buid = nodes[0].buid
 
-            self.eq('foo', layr.getNodeValu(buid))
-            self.eq((1420070400000, 1451606400000), layr.getNodeValu(buid, '.seen'))
-            self.none(layr.getNodeValu(buid, 'noprop'))
-            self.none(layr.getNodeTag(buid, 'faketag'))
+            self.eq('foo', await layr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
+            self.none(await layr.getNodeValu(buid, 'noprop'))
+            self.none(await layr.getNodeTag(buid, 'faketag'))
 
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
