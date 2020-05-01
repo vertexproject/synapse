@@ -1076,7 +1076,7 @@ class Layer(s_nexus.Pusher):
 
         return s_msgpack.un(byts)
 
-    def getNodeValu(self, buid, prop=None):
+    async def getNodeValu(self, buid, prop=None):
         '''
         Retrieve either the form valu or a prop valu for the given node by buid.
         '''
@@ -1096,7 +1096,7 @@ class Layer(s_nexus.Pusher):
         valu, stortype = s_msgpack.un(byts)
         return valu
 
-    def getNodeTag(self, buid, tag):
+    async def getNodeTag(self, buid, tag):
         tenc = tag.encode()
         byts = self.layrslab.get(buid + b'\x02' + tenc, db=self.bybuid)
         if byts is None:
@@ -1173,7 +1173,7 @@ class Layer(s_nexus.Pusher):
 
         for _, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
             # filter based on the ival value before lifting the node...
-            valu = self.getNodeTag(buid, tag)
+            valu = await self.getNodeTag(buid, tag)
             if filt(valu):
                 yield await self.getStorNode(buid)
 
@@ -2074,7 +2074,7 @@ class Layer(s_nexus.Pusher):
 
             count = 0
             for offset, (nodeedits, meta) in self.nodeeditlog.iter(offs[0]):
-                for splice in self.makeSplices(offset, nodeedits, meta):
+                async for splice in self.makeSplices(offset, nodeedits, meta):
 
                     if splice[0] < offs:
                         continue
@@ -2086,7 +2086,7 @@ class Layer(s_nexus.Pusher):
                     count = count + 1
         else:
             for offset, (nodeedits, meta) in self.nodeeditlog.iter(offs[0]):
-                for splice in self.makeSplices(offset, nodeedits, meta):
+                async for splice in self.makeSplices(offset, nodeedits, meta):
 
                     if splice[0] < offs:
                         continue
@@ -2105,7 +2105,7 @@ class Layer(s_nexus.Pusher):
 
             count = 0
             for offset, (nodeedits, meta) in self.nodeeditlog.iterBack(offs[0]):
-                for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
+                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
 
                     if splice[0] > offs:
                         continue
@@ -2117,7 +2117,7 @@ class Layer(s_nexus.Pusher):
                     count += 1
         else:
             for offset, (nodeedits, meta) in self.nodeeditlog.iterBack(offs[0]):
-                for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
+                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
 
                     if splice[0] > offs:
                         continue
@@ -2140,7 +2140,7 @@ class Layer(s_nexus.Pusher):
             async for offs, splice in wind:
                 yield (offs, splice)
 
-    def makeSplices(self, offs, nodeedits, meta, reverse=False):
+    async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''
         Flatten a set of nodeedits into splices.
         '''
@@ -2195,7 +2195,7 @@ class Layer(s_nexus.Pusher):
                     continue
 
                 if formvalu is None:
-                    formvalu = self.getNodeValu(buid)
+                    formvalu = await self.getNodeValu(buid)
 
                 props['ndef'] = (form, formvalu)
 
