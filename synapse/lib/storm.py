@@ -1626,7 +1626,7 @@ class PureCmd(Cmd):
             subr.loadRuntVars(query)
 
             async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
-                path.finiframe()
+                path.finiframe(subr)
                 yield node, path
 
 class HelpCmd(Cmd):
