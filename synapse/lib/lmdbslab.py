@@ -210,6 +210,9 @@ class HotKeyVal(s_base.Base):
     '''
     A hot-loop capable keyval that only syncs on commit.
     '''
+    EncFunc = staticmethod(s_msgpack.en)
+    DecFunc = staticmethod(s_msgpack.un)
+
     async def __anit__(self, slab, name):
         await s_base.Base.__anit__(self)
 
@@ -217,7 +220,6 @@ class HotKeyVal(s_base.Base):
         self.cache = collections.defaultdict(int)
         self.dirty = set()
         self.db = self.slab.initdb(name)
-        self.EncFunc, self.DecFunc = self._getEncDecFuncs()
 
         for lkey, lval in self.slab.scanByFull(db=self.db):
             self.cache[lkey] = self.DecFunc(lval)
@@ -225,12 +227,6 @@ class HotKeyVal(s_base.Base):
         slab.on('commit', self._onSlabCommit)
 
         self.onfini(self.sync)
-
-    def _getEncDecFuncs(self):
-        '''
-        Workaround that you can't set class attributes that are functions with them getting bound
-        '''
-        return s_msgpack.en, s_msgpack.un
 
     async def _onSlabCommit(self, mesg):
         if self.dirty:
@@ -259,8 +255,8 @@ class HotCount(HotKeyVal):
     '''
     Like HotKeyVal, but optimized for integer/count vals
     '''
-    def _getEncDecFuncs(self):
-        return s_common.int64en, s_common.int64un
+    EncFunc = staticmethod(s_common.int64en)
+    DecFunc = staticmethod(s_common.int64un)
 
     def inc(self, name: str, valu=1):
         byts = name.encode()
