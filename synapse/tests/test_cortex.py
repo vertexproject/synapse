@@ -193,7 +193,7 @@ class CortexTest(s_t_utils.SynTest):
                 (s_layer.EDIT_EDGE_DEL, (), ()),
             ))]
 
-            self.eq((), list(core.view.layers[0].makeSplices(0, nodeedits, {})))
+            self.eq((), await alist(core.view.layers[0].makeSplices(0, nodeedits, {})))
 
             # Run multiple nodes through edge creation/deletion ( test coverage for perm caching )
             await core.nodes('inet:ipv4 [ <(test)+ { meta:source:name=test }]')
