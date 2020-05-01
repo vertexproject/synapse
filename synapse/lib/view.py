@@ -605,7 +605,11 @@ class View(s_nexus.Pusher):  # type: ignore
         return trig.pack()
 
     async def getTrigger(self, iden):
-        return self.triggers.get(iden)
+        trig = self.triggers.get(iden)
+        if trig is None:
+            raise s_exc.NoSuchIden("Trigger not found")
+
+        return trig
 
     async def delTrigger(self, iden):
         trig = self.triggers.get(iden)
@@ -629,6 +633,8 @@ class View(s_nexus.Pusher):  # type: ignore
     @s_nexus.Pusher.onPushAuto('trigger:set')
     async def setTriggerInfo(self, iden, name, valu):
         trig = self.triggers.get(iden)
+        if trig is None:
+            raise s_exc.NoSuchIden("Trigger not found")
         await trig.set(name, valu)
 
     async def listTriggers(self):

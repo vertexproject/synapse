@@ -3752,7 +3752,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, await core01.nodes('inet:fqdn=www.vertex.link'))
 
                     # Exceptions shall raise from the followerLoop
-                    await self.asyncraises(s_exc.NoSuchView, core01.delView('xxx'))
+                    await self.asyncraises(s_exc.SynErr, core01.delView(core01.view.iden))
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 

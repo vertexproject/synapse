@@ -158,7 +158,7 @@ class NexsRoot(s_base.Base):
         try:
             await self._apply(*indxitem)
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
         except Exception:
@@ -430,5 +430,5 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         if self.nexsroot is not None:  # Distribute through the change root
             return await self.nexsroot.issue(nexsiden, event, args, kwargs, None)
 
-        #  here's no change distribution, so directly execute
+        # There's no change distribution, so directly execute
         return await self._nexshands[event][0](self, *args, **kwargs)

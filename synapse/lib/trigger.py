@@ -284,12 +284,7 @@ class Triggers:
         raise AssertionError('trigger has invalid condition')
 
     def get(self, iden):
-        trig = self.triggers.get(iden)
-        if trig is None:
-            mesg = f'No trigger with iden {iden}'
-            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
-        return trig
-
+        return self.triggers.get(iden)
 
 class Trigger:
 

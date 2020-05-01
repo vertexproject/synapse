@@ -1992,7 +1992,7 @@ class LibTrigger(Lib):
 
     async def _methTriggerGet(self, iden):
         trigger = await self.runt.snap.view.getTrigger(iden)
-        if iden is None:
+        if trigger is None:
             return None
 
         self.runt.user.confirm(('trigger', 'get'), gateiden=iden)

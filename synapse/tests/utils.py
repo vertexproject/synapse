@@ -68,7 +68,7 @@ logger = logging.getLogger(__name__)
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
 
-# Patch so that getTestCore cortices' nexi apply everything twice.  Useful to verify idempotency.
+# Patch so that getTestCore cortices' nexus apply everything twice.  Useful to verify idempotency.
 NEXUS_STUTTER = os.environ.get('SYNDEV_NEXUS_STUTTER', False)
 
 async def alist(coro):
@@ -658,7 +658,8 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
 
 async def _doubleapply(self, indx, item):
     '''
-    Just like NexusRoot._apply, but calls the function twice.  Patched in when global variable NEXUS_STUTTER is set.
+    Just like NexusRoot._apply, but calls the function twice.  Patched in when global variable SYNDEV_NEXUS_STUTTER
+    is set.
     '''
     nexsiden, event, args, kwargs, _ = item
 
