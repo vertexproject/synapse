@@ -1610,6 +1610,8 @@ class LibLayer(Lib):
         '''
         if ldef is None:
             ldef = {}
+        else:
+            ldef = await toprim(ldef)
 
         ldef['creator'] = self.runt.user.iden
 

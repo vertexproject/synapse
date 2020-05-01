@@ -1591,6 +1591,14 @@ class StormTypesTest(s_test.SynTest):
 
             self.sorteq(idens, core.layers)
 
+            # Create a new layer with a name
+            q = f'$lib.print($lib.layer.add($lib.dict(name=foo)).iden)'
+            for mesg in await core.stormlist(q):
+                if mesg[0] == 'print':
+                    namedlayer = mesg[1]['mesg']
+
+            self.eq(core.layers.get(namedlayer).layrinfo.get('name'), 'foo')
+
             # Delete a layer
             q = f'$lib.print($lib.layer.del({newlayr}))'
             mesgs = await core.stormlist(q)
