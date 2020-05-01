@@ -340,8 +340,6 @@ class NexsRoot(s_base.Base):
                             if respfutu is not None:
                                 respfutu.set_result(retn)
 
-                        # TODO:  persist applied offset
-
             except asyncio.CancelledError: # pragma: no cover
                 return
 

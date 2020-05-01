@@ -693,6 +693,11 @@ class Cortex(s_cell.Cell):  # type: ignore
     callers to manage transaction boundaries explicitly and dramatically
     increases performance.
     '''
+
+    # For the cortex, nexslog:en defaults to True
+    confbase = copy.deepcopy(s_cell.Cell.confbase)
+    confbase['nexslog:en']['default'] = True  # type: ignore
+
     confdefs = {
         'axon': {
             'description': 'A telepath URL for a remote axon.',
@@ -896,7 +901,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
-        await self.anit2()
+        await self.postNexsAnit()
 
         if mirror is not None:
             await self.initCoreMirror(mirror)
