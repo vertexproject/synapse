@@ -902,7 +902,7 @@ class YieldValu(Oper):
             try:
                 buid = s_common.uhex(valu)
             except binascii.Error:
-                mesg = 'Yield string must by hex node iden. Got: %r' % (valu,)
+                mesg = 'Yield string must be iden in hexdecimal. Got: %r' % (valu,)
                 raise s_exc.BadLiftValu(mesg=mesg)
 
             node = await runt.snap.getNodeByBuid(buid)
@@ -934,6 +934,10 @@ class YieldValu(Oper):
             if node is not None:
                 yield node
             return
+
+        if isinstance(valu, s_stormtypes.Query):
+            async for node in valu.nodes():
+                yield node
 
 class LiftTag(LiftOper):
 
@@ -2230,18 +2234,18 @@ class EmbedQuery(RunValue):
 
     def __init__(self, text, kids=()):
         AstNode.__init__(self, kids=kids)
-        self.text = text
+        self.text = text.strip()
 
     def isRuntSafe(self, runt):
         return True
 
     async def runtval(self, runt):
-        opts = {'vars': dict(runt.vars)}
-        return s_stormtypes.Query(self.text, opts, runt)
+        varz = dict(runt.vars)
+        return s_stormtypes.Query(self.text, varz, runt)
 
     async def compute(self, path):
-        opts = {'vars': dict(path.vars)}
-        return s_stormtypes.Query(self.text, opts, path.runt, path=path)
+        varz = dict(path.vars)
+        return s_stormtypes.Query(self.text, varz, path.runt, path=path)
 
 class Value(RunValue):
 
@@ -3259,7 +3263,7 @@ class Return(Oper):
 
         # no items in pipeline... execute
         if self.kids:
-            valu = await self.kids[0].compute(runt)
+            valu = await self.kids[0].runtval(runt)
 
         raise StormReturn(valu)
 

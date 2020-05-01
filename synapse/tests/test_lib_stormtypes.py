@@ -43,9 +43,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(gate['roles'][0], {
                 'iden': core.auth.allrole.iden,
                 'admin': False,
-                'rules': [
-                    (True, ('view', 'read'))
-                ],
+                'rules': (
+                    (True, ('view', 'read')),
+                ),
             })
 
             gates = await core.callStorm('return($lib.auth.gates.list())')
@@ -263,37 +263,18 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('test:str=theevalthatmendo')
             self.len(1, nodes)
 
-            # make sure our scope goes down
-            q = '''
-            $bar = ${ [test:str=$foo] }
-
-            $foo = "this little node went to market"
-            $bar.exec()
-            $foo = "this little node stayed home"
-            $bar.exec()
-            $foo = "this little node had roast beef"
-            $bar.exec()
-            '''
-            opts = {'editformat': 'splices'}
-            msgs = await core.stormlist(q, opts=opts)
-            nodes = [m for m in msgs if m[0] == 'node:add']
-            self.len(3, nodes)
-            self.eq(nodes[0][1]['ndef'], ('test:str', 'this little node went to market'))
-            self.eq(nodes[1][1]['ndef'], ('test:str', 'this little node stayed home'))
-            self.eq(nodes[2][1]['ndef'], ('test:str', 'this little node had roast beef'))
-
-            # but that it doesn't come back up
+            # exec vars do not populate upwards
             q = '''
             $foo = "that is one neato burrito"
-            $baz = ${ $bar=$lib.str.concat(wompwomp, $lib.guid()) }
+            $baz = ${ $bar=$lib.str.concat(wompwomp, $lib.guid()) $lib.print("in exec") }
             $baz.exec()
-            $lib.print($bar)
+            $lib.print("post exec {bar}", bar=$bar)
             [ test:str=$foo ]
             '''
-
             msgs = await core.stormlist(q)
+            self.stormIsInPrint("in exec", msgs)
             prints = [m for m in msgs if m[0] == 'print']
-            self.len(0, prints)
+            self.len(1, prints)
 
             # make sure returns work
             q = '''
@@ -301,10 +282,9 @@ class StormTypesTest(s_test.SynTest):
             $bar = ${ return ( $($foo+1) ) }
             [test:int=$bar.exec()]
             '''
-            msgs = await core.stormlist(q)
-            nodes = [m for m in msgs if m[0] == 'node']
+            nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0][1][0], ('test:int', 11))
+            self.eq(nodes[0].ndef, ('test:int', 11))
 
             # make sure it inherits the runt it's created in, not exec'd in
             q = '''
@@ -322,6 +302,70 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('look ma, my runt', msgs)
             self.stormIsInPrint('bing is now 99', msgs)
+
+            # vars may be captured for each node flowing through them
+            q = '''[(test:int=100 :loc=us.va) (test:int=200 :loc=us.ca)] $foo=:loc
+            $q = ${ $lib.print($foo) } $q.exec()'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('us.va', msgs)
+            self.stormIsInPrint('us.ca', msgs)
+
+            # Yield/iterator behavior
+            nodes = await core.nodes('''
+                function foo(x) {
+                    return(${
+                        [ inet:ipv4=$x ]
+                    })
+                }
+
+                [it:dev:str=1.2.3.4]
+
+                $genr = $foo($node.repr())
+
+                -> { yield $genr }
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('''
+                function foo(x) {
+                    return( ${ [ inet:ipv4=$x ] } )
+                }
+
+                [it:dev:str=5.5.5.5]
+
+                $genr = $foo($node.repr())
+
+                $genr.exec()
+            ''')
+            self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
+
+            msgs = await core.stormlist('''
+                $embed = ${[inet:ipv4=1.2.3.4]}
+                for $xnode in $embed {
+                    $lib.print($xnode.repr())
+                }
+            ''')
+            self.stormIsInPrint('1.2.3.4', msgs)
+
+            q = '''[test:int=1 test:int=2]
+            $currentNode = $node
+            $q=${ [test:str=$currentNode.value()] }
+            yield $q
+            '''
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            self.eq({n.ndef for n in nodes},
+                    {('test:int', 1), ('test:int', 2), ('test:str', '1'), ('test:str', '2')})
+
+            # You can toprim() as Query object.
+            q = '''$q=${ $lib.print('fire in the hole') } $lib.fire('test', q=$q)
+            '''
+            msgs = await core.stormlist(q)
+            fires = [m for m in msgs if m[0] == 'storm:fire']
+            self.len(1, fires)
+            self.eq(fires[0][1].get('data').get('q'),
+                    "$lib.print('fire in the hole')")
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:

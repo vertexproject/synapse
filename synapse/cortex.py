@@ -103,7 +103,7 @@ class CoreApi(s_cell.CellApi):
 
         opts.setdefault('user', self.user.iden)
         if opts.get('user') != self.user.iden:
-            self.user.confirm(('storm', 'impersonate'))
+            self.user.confirm(('impersonate',))
 
         return opts
 
@@ -212,14 +212,14 @@ class CoreApi(s_cell.CellApi):
         '''
         Set the definition of a pure storm command in the cortex.
         '''
-        self.user.confirm(('storm', 'admin', 'cmds'))
+        self.user.confirm(('admin', 'cmds'))
         return await self.cell.setStormCmd(cdef)
 
     async def delStormCmd(self, name):
         '''
         Remove a pure storm command from the cortex.
         '''
-        self.user.confirm(('storm', 'admin', 'cmds'))
+        self.user.confirm(('admin', 'cmds'))
         return await self.cell.delStormCmd(name)
 
     async def _reqDefLayerAllowed(self, perms):
@@ -645,11 +645,11 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.delTagProp(name)
 
     async def addStormPkg(self, pkgdef):
-        self.user.confirm(('storm', 'pkg', 'add'))
+        self.user.confirm(('pkg', 'add'))
         return await self.cell.addStormPkg(pkgdef)
 
     async def delStormPkg(self, iden):
-        self.user.confirm(('storm', 'pkg', 'del'))
+        self.user.confirm(('pkg', 'del'))
         return await self.cell.delStormPkg(iden)
 
     @s_cell.adminapi()
@@ -755,6 +755,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     }
 
     cellapi = CoreApi
+    layerapi = s_layer.LayerApi
+    hiveapi = s_hive.HiveApi
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
@@ -1906,26 +1908,26 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def getCellApi(self, link, user, path):
 
         if not path:
-            return await CoreApi.anit(self, link, user)
+            return await self.cellapi.anit(self, link, user)
 
         # allow an admin to directly open the cortex hive
         # (perhaps this should be a Cell() level pattern)
         if path[0] == 'hive' and user.isAdmin():
-            return await s_hive.HiveApi.anit(self.hive, user)
+            return await self.hiveapi.anit(self.hive, user)
 
         if path[0] == 'layer':
 
             if len(path) == 1:
                 # get the top layer for the default view
                 layr = self.getLayer()
-                return await s_layer.LayerApi.anit(self, link, user, layr)
+                return await self.layerapi.anit(self, link, user, layr)
 
             if len(path) == 2:
                 layr = self.getLayer(path[1])
                 if layr is None:
                     raise s_exc.NoSuchLayer(iden=path[1])
 
-                return await s_layer.LayerApi.anit(self, link, user, layr)
+                return await self.layerapi.anit(self, link, user, layr)
 
         raise s_exc.NoSuchPath(path=path)
 

@@ -5,6 +5,7 @@ import itertools
 import contextlib
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
@@ -37,16 +38,6 @@ def getAssetJson(*paths):
     obj = json.loads(byts.decode())
     return obj
 
-def tupleize(obj):
-    '''
-    Convert list objects to tuples in a nested python struct.
-    '''
-    if isinstance(obj, (list, tuple)):
-        return tuple([tupleize(o) for o in obj])
-    if isinstance(obj, dict):
-        return {k: tupleize(v) for k, v in obj.items()}
-    return obj
-
 class FakeCoreApi(s_cell.CellApi):
     async def splices(self, offs, size):
         async for splice in self.cell.splices(offs, size):
@@ -68,7 +59,7 @@ class FakeCore(s_cell.Cell):
 
     async def loadSplicelog(self, splicelog):
         for lyriden, items in splicelog.items():
-            self.splicelog[lyriden] = tupleize(items)
+            self.splicelog[lyriden] = s_common.tuplify(items)
 
     async def setSplicelim(self, lim):
         self.splicelim = lim
@@ -170,7 +161,7 @@ class SyncTest(s_t_utils.SynTest):
         with self.getRegrDir('assets', REGR_VER) as assetdir:
             podesj = getAssetJson(assetdir, 'splicepodes.json')
             podesj = [p for p in podesj if p[0] not in NOMIGR_NDEF]
-            tpodes = tupleize(podesj)
+            tpodes = s_common.tuplify(podesj)
 
             # check all nodes (removing empty nodedata key)
             nodes = await core.nodes('.created -meta:source:name=test')

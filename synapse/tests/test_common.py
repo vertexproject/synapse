@@ -7,6 +7,31 @@ import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 class CommonTest(s_t_utils.SynTest):
+    def test_tuplify(self):
+        tv = ['node', [['test:str', 'test'],
+                       {'tags': {
+                           'beep': [None, None],
+                           'beep.boop': [0x01020304, 0x01020305]
+                       },
+                       'props': {
+                           'tick': 0x01020304,
+                           'tock': ['hehe', ['haha', 1]]
+                       }}]]
+        ev = ('node', (('test:str', 'test'),
+                       {'tags': {
+                           'beep': (None, None),
+                           'beep.boop': (0x01020304, 0x01020305)
+                       },
+                       'props': {
+                           'tick': 0x01020304,
+                           'tock': ('hehe', ('haha', 1))
+                       }}))
+
+        self.eq(ev, s_common.tuplify(tv))
+        tv = ('foo', ['bar', 'bat'])
+        ev = ('foo', ('bar', 'bat'))
+        self.eq(ev, s_common.tuplify(tv))
+
     def test_common_vertup(self):
         self.eq(s_common.vertup('1.3.30'), (1, 3, 30))
         self.true(s_common.vertup('30.40.50') > (9, 0))
