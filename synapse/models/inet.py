@@ -1855,15 +1855,12 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The action performed by the account.'
                         }),
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': True,
                             'doc': 'The web account associated with the action.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('time', ('time', {}), {
@@ -1882,15 +1879,12 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:chprofile', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': True,
                             'doc': 'The web account associated with the change.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('client', ('inet:client', {}), {
@@ -1906,12 +1900,10 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date and time when the account change occurred.'
                         }),
                         ('pv', ('nodeprop', {}), {
-                            'ro': True,
                             'doc': 'The prop=valu of the account property that was changed. Valu should be '
                                    'the old / original value, while the new value should be updated on the '
                                    'inet:web:acct form.'}),
                         ('pv:prop', ('str', {}), {
-                            'ro': True,
                             'doc': 'The property that was changed.'
                         }),
                     )),
@@ -2098,11 +2090,9 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:post', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': True,
                             'doc': 'The web account that made the post.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('client', ('inet:client', {}), {
@@ -2115,11 +2105,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The source IPv6 address of the post.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('text', ('str', {}), {
-                            'ro': True,
                             'doc': 'The text of the post.'
                         }),
                         ('time', ('time', {}), {
