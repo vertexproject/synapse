@@ -68,9 +68,6 @@ logger = logging.getLogger(__name__)
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
 
-# Patch so that getTestCore cortices' nexus apply everything twice.  Useful to verify idempotency.
-NEXUS_STUTTER = os.environ.get('SYNDEV_NEXUS_STUTTER', False)
-
 async def alist(coro):
     return [x async for x in coro]
 
@@ -658,7 +655,7 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
 
 async def _doubleapply(self, indx, item):
     '''
-    Just like NexusRoot._apply, but calls the function twice.  Patched in when global variable SYNDEV_NEXUS_STUTTER
+    Just like NexusRoot._apply, but calls the function twice.  Patched in when global variable SYNDEV_NEXUS_REPLAY
     is set.
     '''
     nexsiden, event, args, kwargs, _ = item
@@ -957,6 +954,25 @@ class SynTest(unittest.TestCase):
         async with self.getTestCore(conf=conf, dirn=dirn) as core:
             yield core, core
 
+    @contextlib.contextmanager
+    def withNexusReplay(self, replay=False):
+        '''
+        Patch so that the Nexus apply log is applied twice. Useful to verify idempotency.
+
+        Notes:
+            This is applied if the environment variable SYNDEV_NEXUS_REPLAY is set
+            or the replay argument is set to True.
+
+        Returns:
+            contextlib.ExitStack: An exitstack object.
+        '''
+        replay = os.environ.get('SYNDEV_NEXUS_REPLAY', default=replay)
+
+        with contextlib.ExitStack() as stack:
+            if replay:
+                stack.enter_context(mock.patch.object(s_nexus.NexsRoot, '_apply', _doubleapply))
+            yield stack
+
     @contextlib.asynccontextmanager
     async def getTestCore(self, conf=None, dirn=None):
         '''
@@ -982,9 +998,7 @@ class SynTest(unittest.TestCase):
 
         mods.append(('synapse.tests.utils.TestModule', {'key': 'valu'}))
 
-        with contextlib.ExitStack() as stack:
-            if NEXUS_STUTTER:
-                stack.enter_context(mock.patch.object(s_nexus.NexsRoot, '_apply', _doubleapply))
+        with self.withNexusReplay() as cm:
 
             if dirn is not None:
 
