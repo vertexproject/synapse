@@ -135,6 +135,10 @@ class RealService(s_stormsvc.StormSvc):
                     ),
                     'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
                 },
+                {
+                    'name': 'yoyo',
+                    'storm': 'for $ipv4 in $lib.service.get($cmdconf.svciden).ipv4s() { [inet:ipv4=$ipv4] }',
+                },
             )
         },
     )
@@ -155,6 +159,23 @@ class RealService(s_stormsvc.StormSvc):
         yield '1.2.3.4'
         yield '5.5.5.5'
         yield '123.123.123.123'
+
+class NodeCreateService(s_stormsvc.StormSvc):
+    _storm_svc_name = 'ncreate'
+    _storm_svc_pkgs = (
+        {
+            'name': 'ncreate',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'baz',
+                    'storm': '''
+                    [inet:ipv4=8.8.8.8]
+                    ''',
+                },
+            )
+        },
+    )
 
 class BoomService(s_stormsvc.StormSvc):
     _storm_svc_name = 'boom'
@@ -369,6 +390,37 @@ class StormSvcTest(s_test.SynTest):
             async with await s_cortex.Cortex.anit(dirn) as core:
                 nodes = await core.nodes('foobar')
                 self.eq(nodes[0].ndef, ('inet:asn', 30))
+
+    async def test_storm_svc_nodecreate(self):
+        '''
+        Regression test for var leakage
+        '''
+        with self.getTestDir() as dirn:
+
+            async with self.getTestDmon() as dmon:
+
+                dmon.share('real', RealService())
+                dmon.share('ncreate', NodeCreateService())
+
+                host, port = dmon.addr
+
+                lurl = f'tcp://127.0.0.1:{port}/real'
+                murl = f'tcp://127.0.0.1:{port}/ncreate'
+
+                async with await s_cortex.Cortex.anit(dirn) as core:
+
+                    await core.nodes(f'service.add real {lurl}')
+                    await core.nodes(f'service.add ncreate {murl}')
+
+                    await core.nodes('$lib.service.wait(real)')
+                    await core.nodes('$lib.service.wait(ncreate)')
+
+                    await core.nodes('[inet:ipv4=1.2.3.3]')
+
+                    # baz yields inbound *and* a new node
+                    # yoyo calls cmdconf.svciden in an iterator
+                    nodes = await core.nodes('inet:ipv4=1.2.3.3 | baz | yoyo')
+                    self.len(5, {n.ndef for n in nodes})
 
     async def test_storm_svcs(self):
 

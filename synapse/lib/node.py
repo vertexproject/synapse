@@ -775,9 +775,11 @@ class Path:
         self.runt = initrunt
         self.vars = framevars
 
-    def finiframe(self):
+    def finiframe(self, runt):
 
         if not self.frames:
+            self.vars.clear()
+            self.runt = runt
             return
 
         (self.vars, self.runt) = self.frames.pop()
