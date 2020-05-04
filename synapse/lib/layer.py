@@ -1912,10 +1912,10 @@ class Layer(s_nexus.Pusher):
                 nodeedits[2].append(edit)
                 continue
 
-            if flag == 1:
-                if not nodeedits[0] == buid:
-                    continue
+            if not nodeedits[0] == buid:
+                nodeedits = (buid, None, [])
 
+            if flag == 1:
                 name = lkey[33:].decode()
                 valu, stortype = s_msgpack.un(lval)
 
@@ -1924,9 +1924,6 @@ class Layer(s_nexus.Pusher):
                 continue
 
             if flag == 2:
-                if not nodeedits[0] == buid:
-                    continue
-
                 name = lkey[33:].decode()
                 tagv = s_msgpack.un(lval)
 
@@ -1935,9 +1932,6 @@ class Layer(s_nexus.Pusher):
                 continue
 
             if flag == 3:
-                if not nodeedits[0] == buid:
-                    continue
-
                 tag, prop = lkey[33:].decode().split(':')
                 valu, stortype = s_msgpack.un(lval)
 

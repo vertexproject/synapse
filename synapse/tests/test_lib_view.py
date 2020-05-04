@@ -39,6 +39,16 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, nodes)
             self.eq(2, (await core.view.getFormCounts()).get('test:int'))
 
+            # Set a prop in the child
+            await alist(view2.eval('test:int=11 [:loc=us]'))
+            self.len(1, await alist(view2.eval('test:int=11 +:loc=us')))
+            self.len(0, await core.nodes('test:int=11 +:loc=us'))
+
+            # Check that we can get the prop-only nodeedit out
+            lyr2 = view2.layers[0]
+            edits = [e async for ne in lyr2.iterLayerNodeEdits() for e in ne[2]]
+            self.isin((2, ('loc', 'us', None, 15), ()), edits)
+
             # Deleting nodes from the child view should not affect the main
             await alist(view2.eval('test:int | delnode'))
 
