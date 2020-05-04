@@ -134,7 +134,8 @@ class ApptRec:
     Represents a single element of a single combination of an appointment
     '''
     def __init__(self, reqdict, incunit=None, incval=1):
-        self.reqdict = reqdict
+        if incunit is not None:
+            incunit = TimeUnit(incunit)
         self.incunit = incunit
         self.incval = incval if incunit is not None else None
 
@@ -158,9 +159,10 @@ class ApptRec:
             if not boundmin <= incval <= boundmax:
                 raise s_exc.BadTime(mesg='Out of bounds incval')
 
+        reqdict = {TimeUnit(k): v for k, v in reqdict.items()}
+        self.reqdict = reqdict
+
         for reqkey, reqval in reqdict.items():
-            if reqkey not in TimeUnit:
-                raise s_exc.BadTime(mesg='Keys of reqdict parameter must be valid TimeUnit values')
             boundmin, boundmax = _UnitBounds[reqkey][0]
             if not boundmin <= reqval <= boundmax:
                 raise s_exc.BadTime(mesg='Out of bounds reqdict value')
@@ -584,6 +586,9 @@ class Agenda(s_base.Base):
         recur = incunit is not None
         indx = self._next_indx
         self._next_indx += 1
+
+        if iden in self.appts:
+            raise s_exc.DupIden()
 
         if not query:
             raise ValueError('empty query')

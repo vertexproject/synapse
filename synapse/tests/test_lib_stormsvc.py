@@ -80,13 +80,13 @@ new_pkg = {
 class OldServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'chng'
     _storm_svc_pkgs = (
-        old_pkg,
+        old_pkg,  # type: ignore
     )
 
 class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'chng'
     _storm_svc_pkgs = (
-        new_old_pkg,
+        new_old_pkg,  # type: ignore
         new_pkg,
     )
 
@@ -111,7 +111,7 @@ class ChangingService(s_cell.Cell):
 class RealService(s_stormsvc.StormSvc):
     _storm_svc_name = 'real'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'foo',
             'version': (0, 0, 1),
             'modules': (
@@ -180,7 +180,7 @@ class NodeCreateService(s_stormsvc.StormSvc):
 class BoomService(s_stormsvc.StormSvc):
     _storm_svc_name = 'boom'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'boom',
             'version': (0, 0, 1),
             'modules': (
@@ -210,7 +210,7 @@ class BoomService(s_stormsvc.StormSvc):
 class DeadService(s_stormsvc.StormSvc):
     _storm_svc_name = 'dead'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'dead',
             'version': (0, 0, 1),
             'commands': (
@@ -237,7 +237,7 @@ class NoService:
 class LifterService(s_stormsvc.StormSvc):
     _storm_svc_name = 'lifter'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'lifter',
             'version': (0, 0, 1),
             'commands': (
@@ -261,7 +261,7 @@ class LifterService(s_stormsvc.StormSvc):
 class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'stormvar'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'stormvar',
             'version': (0, 0, 1),
             'commands': (
@@ -368,7 +368,7 @@ class StormSvcTest(s_test.SynTest):
 
             await core.setStormCmd(cdef)
 
-            nodes = await core.nodes('[ test:str=asdf ] | lulz')
+            await core.nodes('[ test:str=asdf ] | lulz')
 
     async def test_storm_pkg_persist(self):
 
@@ -564,6 +564,7 @@ class StormSvcTest(s_test.SynTest):
                     self.eq(ans, reprs)
 
                     badiden = []
+
                     async def badSetStormSvcEvents(iden, evts):
                         badiden.append(iden)
                         raise s_exc.SynErr('Kaboom')
@@ -628,7 +629,7 @@ class StormSvcTest(s_test.SynTest):
                     self.true(await waiter.wait(10))
                     async with await ChangingService.anit(svcd, {'updated': True}) as chng:
                         chng.dmon.share('chng', chng)
-                        _ = await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
+                        await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
 
                         await core.nodes('$lib.service.wait(chng)')
 
@@ -646,11 +647,6 @@ class StormSvcTest(s_test.SynTest):
                         self.notin('old.baz', core.stormmods)
                         pkg = await core.getStormPkg('old')
                         self.eq(pkg.get('version'), (0, 1, 0))
-
-                    cdef = OldServiceAPI._storm_svc_pkgs[0].get('commands')[-1]
-                    cdef['cmdconf'] = {'svciden': 'fakeiden'}
-                    await core.setStormCmd(cdef)
-                    self.nn(core.getStormCmd('oldcmd'))
 
             async with await s_cortex.Cortex.anit(dirn) as core:
                 self.nn(core.getStormCmd('newcmd'))

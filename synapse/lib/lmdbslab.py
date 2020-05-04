@@ -206,21 +206,23 @@ class SlabAbrv:
     def abrvToName(self, byts):
         return self.abrvToByts(byts).decode()
 
-class HotCount(s_base.Base):
+class HotKeyVal(s_base.Base):
     '''
-    A hot-loop capable counter that only sync's on commit.
+    A hot-loop capable keyval that only syncs on commit.
     '''
+    EncFunc = staticmethod(s_msgpack.en)
+    DecFunc = staticmethod(s_msgpack.un)
+
     async def __anit__(self, slab, name):
         await s_base.Base.__anit__(self)
 
         self.slab = slab
         self.cache = collections.defaultdict(int)
         self.dirty = set()
+        self.db = self.slab.initdb(name)
 
-        self.countdb = self.slab.initdb(name)
-
-        for lkey, lval in self.slab.scanByFull(db=self.countdb):
-            self.cache[lkey] = s_common.int64un(lval)
+        for lkey, lval in self.slab.scanByFull(db=self.db):
+            self.cache[lkey] = self.DecFunc(lval)
 
         slab.on('commit', self._onSlabCommit)
 
@@ -230,30 +232,39 @@ class HotCount(s_base.Base):
         if self.dirty:
             self.sync()
 
+    def get(self, name: str, defv=None):
+        return self.cache.get(name.encode(), defv)
+
+    def set(self, name: str, valu):
+        byts = name.encode()
+        self.cache[byts] = valu
+        self.dirty.add(byts)
+
+    def sync(self):
+        tups = [(p, self.EncFunc(self.cache[p])) for p in self.dirty]
+        if not tups:
+            return
+
+        self.slab.putmulti(tups, db=self.db)
+        self.dirty.clear()
+
+    def pack(self):
+        return {n.decode(): v for (n, v) in self.cache.items()}
+
+class HotCount(HotKeyVal):
+    '''
+    Like HotKeyVal, but optimized for integer/count vals
+    '''
+    EncFunc = staticmethod(s_common.int64en)
+    DecFunc = staticmethod(s_common.int64un)
+
     def inc(self, name: str, valu=1):
         byts = name.encode()
         self.cache[byts] += valu
         self.dirty.add(byts)
 
-    def set(self, name: str, valu: int):
-        byts = name.encode()
-        self.cache[byts] = valu
-        self.dirty.add(byts)
-
     def get(self, name: str, defv=0):
         return self.cache.get(name.encode(), defv)
-
-    def sync(self):
-
-        tups = [(p, s_common.int64en(self.cache[p])) for p in self.dirty]
-        if not tups:
-            return
-
-        self.slab.putmulti(tups, db=self.countdb)
-        self.dirty.clear()
-
-    def pack(self):
-        return {n.decode(): v for (n, v) in self.cache.items()}
 
 class MultiQueue(s_base.Base):
     '''
@@ -272,6 +283,8 @@ class MultiQueue(s_base.Base):
         self.sizes = SlabDict(self.slab, db=self.slab.initdb(f'{name}:sizes'))
         self.queues = SlabDict(self.slab, db=self.slab.initdb(f'{name}:meta'))
         self.offsets = SlabDict(self.slab, db=self.slab.initdb(f'{name}:offs'))
+        self.lastreqid = await HotKeyVal.anit(self.slab, 'reqid')
+        self.onfini(self.lastreqid)
 
         self.waiters = collections.defaultdict(asyncio.Event)  # type: ignore
 
@@ -336,10 +349,10 @@ class MultiQueue(s_base.Base):
             return itemoffs, item
         return -1, None
 
-    async def put(self, name, item):
-        return await self.puts(name, (item,))
+    async def put(self, name, item, reqid=None):
+        return await self.puts(name, (item,), reqid=reqid)
 
-    async def puts(self, name, items):
+    async def puts(self, name, items, reqid=None):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -348,6 +361,12 @@ class MultiQueue(s_base.Base):
         abrv = self.abrv.nameToAbrv(name)
 
         offs = retn = self.offsets.get(name, 0)
+
+        if reqid is not None:
+            if reqid == self.lastreqid.get(name):
+                return retn
+
+        self.lastreqid.set(name, reqid)
 
         for item in items:
 

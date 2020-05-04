@@ -415,7 +415,7 @@ class CellTest(s_t_utils.SynTest):
 
                 self.true(cell00.nexsroot.donexslog)
 
-                testuser = await prox00.addUser('test')
+                await prox00.addUser('test')
 
                 # We should have a set of auth:auth changes to find
                 task = cell00.schedCoro(coro(prox00, 0))
@@ -430,7 +430,7 @@ class CellTest(s_t_utils.SynTest):
                     cell01.getLocalProxy() as prox01:
                 self.false(cell01.nexsroot.donexslog)
 
-                testuser01 = await prox01.addUser('test')
+                await prox01.addUser('test')
 
                 task = cell01.schedCoro(coro(prox01, 0))
                 yielded, data = await asyncio.wait_for(task, 6)
