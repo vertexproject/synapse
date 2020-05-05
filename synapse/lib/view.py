@@ -116,7 +116,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             for layr in self.layers:
 
-                for verb in layr.getEdgeVerbs():
+                async for verb in layr.getEdgeVerbs():
 
                     if verb in vset:
                         continue
@@ -130,7 +130,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             for layr in self.layers:
 
-                for edge in layr.getEdges(verb=verb):
+                async for edge in layr.getEdges(verb=verb):
 
                     if edge in eset:
                         continue
