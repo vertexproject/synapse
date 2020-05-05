@@ -185,7 +185,10 @@ class Auth(s_nexus.Pusher):
     @s_nexus.Pusher.onPushAuto('user:name')
     async def setUserName(self, iden, name):
 
-        if self.usersbyname.get(name) is not None:
+        user = self.usersbyname.get(name)
+        if user is not None:
+            if user.iden == iden:
+                return
             raise s_exc.DupUserName(name=name)
 
         user = await self.reqUser(iden)
@@ -199,7 +202,10 @@ class Auth(s_nexus.Pusher):
     @s_nexus.Pusher.onPushAuto('role:name')
     async def setRoleName(self, iden, name):
 
-        if self.rolesbyname.get(name) is not None:
+        role = self.rolesbyname.get(name)
+        if role is not None:
+            if role.iden == iden:
+                return
             raise s_exc.DupRoleName(name=name)
 
         role = await self.reqRole(iden)
@@ -302,6 +308,9 @@ class Auth(s_nexus.Pusher):
 
     async def addUser(self, name, passwd=None, email=None):
 
+        if self.usersbyname.get(name) is not None:
+            raise s_exc.DupUserName(name=name)
+
         iden = s_common.guid()
         user = await self._push('user:add', iden, name)
 
@@ -319,8 +328,9 @@ class Auth(s_nexus.Pusher):
     @s_nexus.Pusher.onPush('user:add')
     async def _addUser(self, iden, name):
 
-        if self.usersbyname.get(name) is not None:
-            raise s_exc.DupUserName(name=name)
+        user = self.usersbyname.get(name)
+        if user is not None:
+            return user
 
         node = await self.node.open(('users', iden))
         await node.set(name)
@@ -328,28 +338,39 @@ class Auth(s_nexus.Pusher):
         return await self._addUserNode(node)
 
     async def addRole(self, name):
+        if self.rolesbyname.get(name) is not None:
+            raise s_exc.DupRoleName(name=name)
+
         iden = s_common.guid()
         return await self._push('role:add', iden, name)
 
     @s_nexus.Pusher.onPush('role:add')
     async def _addRole(self, iden, name):
 
-        if self.rolesbyname.get(name) is not None:
-            raise s_exc.DupRoleName(name=name)
+        role = self.rolesbyname.get(name)
+        if role is not None:
+            return role
 
         node = await self.node.open(('roles', iden))
         await node.set(name)
 
         return await self._addRoleNode(node)
 
-    @s_nexus.Pusher.onPushAuto('user:del')
     async def delUser(self, iden):
+
+        await self.reqUser(iden)
+        return await self._push('user:del', iden)
+
+    @s_nexus.Pusher.onPush('user:del')
+    async def _delUser(self, iden):
 
         if iden == self.rootuser.iden:
             mesg = 'User "root" may not be deleted.'
             raise s_exc.BadArg(mesg=mesg)
 
-        user = await self.reqUser(iden)
+        user = self.user(iden)
+        if user is None:
+            return
 
         self.usersbyiden.pop(user.iden)
         self.usersbyname.pop(user.name)
@@ -367,14 +388,20 @@ class Auth(s_nexus.Pusher):
             if role.iden in user.info.get('roles', ()):
                 yield user
 
-    @s_nexus.Pusher.onPushAuto('role:del')
     async def delRole(self, iden):
+        await self.reqRole(iden)
+        return await self._push('role:del', iden)
+
+    @s_nexus.Pusher.onPush('role:del')
+    async def _delRole(self, iden):
 
         if iden == self.allrole.iden:
             mesg = 'Role "all" may not be deleted.'
             raise s_exc.BadArg(mesg=mesg)
 
-        role = await self.reqRole(iden)
+        role = self.role(iden)
+        if role is None:
+            return
 
         for user in self._getUsersInRole(role):
             await user.revoke(role.iden)

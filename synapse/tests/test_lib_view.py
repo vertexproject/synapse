@@ -70,7 +70,8 @@ class ViewTest(s_t_utils.SynTest):
                 await self.agenlen(1, view2.eval('[test:int=$val]', opts={'vars': {'val': i + 1000}}))
 
             # Forker and forkee have their layer configuration frozen
-            tmpiden = await core.addLayer()
+            tmplayr = await core.addLayer()
+            tmpiden = tmplayr['iden']
             await self.asyncraises(s_exc.ReadOnlyLayer, core.view.addLayer(tmpiden))
             await self.asyncraises(s_exc.ReadOnlyLayer, view2.addLayer(tmpiden))
             await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmpiden]))
@@ -84,13 +85,17 @@ class ViewTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.ReadOnlyLayer, view2.merge())
             view2.parent.layers[0].readonly = False
 
-            # You can't delete a view or merge it if it has children
             vdef3 = await view2.fork()
             view3_iden = vdef3.get('iden')
             view3 = core.getView(view3_iden)
 
+            # You can't delete a view or merge it if it has children
             await self.asyncraises(s_exc.SynErr, view2.merge())
             await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
+            await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
+            layr = await core.addLayer()
+            layriden = layr['iden']
+            await self.asyncraises(s_exc.SynErr, view2.addLayer(layriden))
             await view3.core.delView(view3.iden)
 
             async with core.getLocalProxy(user='visi') as prox:
@@ -103,7 +108,7 @@ class ViewTest(s_t_utils.SynTest):
             # Merge the child back into the parent
             await view2.merge()
 
-            # The parent couns includes all the nodes that were merged
+            # The parent counts includes all the nodes that were merged
             self.eq(1003, (await core.view.getFormCounts()).get('test:int'))
 
             # A node added to the child is now present in the parent
@@ -122,6 +127,12 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await view2.nodes('test:int=1000')
             self.len(1, nodes)
+
+            await core.delView(view2.iden)
+            await core.view.addLayer(layriden)
+
+            # But not the same layer twice
+            await self.asyncraises(s_exc.DupIden, core.view.addLayer(layriden))
 
     async def test_view_trigger(self):
         async with self.getTestCore() as core:

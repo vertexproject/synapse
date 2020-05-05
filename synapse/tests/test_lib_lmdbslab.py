@@ -832,6 +832,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     await mque.cull('woot', -1)
 
                 await mque.add('woot', {'some': 'info'})
+                await self.asyncraises(s_exc.DupName, mque.add('woot', {}))
 
                 self.true(mque.exists('woot'))
 
@@ -841,36 +842,44 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.eq(3, mque.size('woot'))
 
+                self.eq(3, await mque.put('woot', 'lol', reqid='foo'))
+                self.eq(4, await mque.put('woot', 'lol', reqid='foo'))
+                self.eq(4, await mque.put('woot', 'lol', reqid='foo'))
+
+                self.eq(4, await mque.puts('woot', ('lol2', 'lol3'), reqid='foo2'))
+                self.eq(6, await mque.puts('woot', ('lol2', 'lol3'), reqid='foo2'))
+                self.eq(6, await mque.puts('woot', ('lol2', 'lol3'), reqid='foo2'))
+
                 self.eq((0, 'hehe'), await mque.get('woot', 0))
                 self.eq((1, 'haha'), await mque.get('woot', 1))
                 self.eq((1, 'haha'), await mque.get('woot', 0))
 
                 self.eq((-1, None), await mque.get('woot', 1000, cull=False))
 
-                self.eq(2, mque.size('woot'))
+                self.eq(5, mque.size('woot'))
 
                 status = mque.list()
                 self.len(1, status)
                 self.eq(status[0], {'name': 'woot',
                                     'meta': {'some': 'info'},
-                                    'size': 2,
-                                    'offs': 3,
+                                    'size': 5,
+                                    'offs': 6,
                                     })
 
                 await mque.cull('woot', -1)
                 self.eq(mque.status('woot'), status[0])
 
-                await self.asyncraises(s_exc.DupName, mque.add('woot', {}))
-
             async with await s_lmdbslab.Slab.anit(path) as slab:
 
                 mque = await slab.getMultiQueue('test')
 
-                self.eq(2, mque.size('woot'))
-                self.eq(3, mque.offset('woot'))
+                self.eq(5, mque.size('woot'))
+                self.eq(6, mque.offset('woot'))
 
                 self.eq(((1, 'haha'), ), [x async for x in mque.gets('woot', 0, size=1)])
-                self.eq(((1, 'haha'), (2, 'hoho')), [x async for x in mque.gets('woot', 0)])
+
+                correct = ((1, 'haha'), (2, 'hoho'), (3, 'lol'), (4, 'lol2'), (5, 'lol3'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
 
                 data = []
                 evnt = asyncio.Event()
@@ -888,16 +897,16 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 task = slab.schedCoro(getswait())
 
-                await asyncio.wait_for(evnt.wait(), 2)
+                await asyncio.wait_for(evnt.wait(), 5)
 
-                self.eq(data, ((1, 'haha'), (2, 'hoho')))
+                self.eq(data, correct)
 
                 await mque.put('woot', 'lulz')
                 await mque.put('woot', None)
 
                 await asyncio.wait_for(task, 2)
 
-                self.eq(data, ((1, 'haha'), (2, 'hoho'), (3, 'lulz')))
+                self.eq(data, (*correct, (6, 'lulz')))
 
                 self.true(mque.exists('woot'))
 
@@ -954,6 +963,24 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 valu = abrv.nameToAbrv('haha')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
+    async def test_lmdbslab_hotkeyval(self):
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab, \
+                    await s_lmdbslab.HotKeyVal.anit(slab, 'counts') as ctr:
+                self.eq(None, ctr.get('foo'))
+                self.eq({}, ctr.pack())
+                ctr.set('foo', 1)
+                ctr.set('bar', {'val': 42})
+                self.eq({'foo': 1, 'bar': {'val': 42}}, ctr.pack())
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab, \
+                    await s_lmdbslab.HotKeyVal.anit(slab, 'counts') as ctr:
+                self.eq({'foo': 1, 'bar': {'val': 42}}, ctr.pack())
+                self.eq({'val': 42}, ctr.get('bar'))
 
     async def test_lmdbslab_hotcount(self):
 

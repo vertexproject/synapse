@@ -115,8 +115,12 @@ class AuthTest(s_test.SynTest):
                 self.false(user.allowed(('baz', 'faz')))
 
                 role = await auth.addRole('lolusers')
+                role2 = await auth.addRole('lolusers2')
+
+                self.none(await role.setName('lolusers'))
+
                 with self.raises(s_exc.DupRoleName):
-                    await role.setName('lolusers')
+                    await role2.setName('lolusers')
 
                 await role.setName('roflusers')
 
@@ -124,8 +128,13 @@ class AuthTest(s_test.SynTest):
                 self.none(await auth.getRoleByName('lolusers'))
 
                 user = await auth.addUser('user1')
+                user2 = await auth.addUser('user')
+
+                # No problem if the user sets her own name to herself
+                self.none(await user.setName('user1'))
+
                 with self.raises(s_exc.DupUserName):
-                    await user.setName('user1')
+                    await user2.setName('user1')
 
                 await user.setName('user2')
 
