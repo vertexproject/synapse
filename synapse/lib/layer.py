@@ -1076,6 +1076,28 @@ class Layer(s_nexus.Pusher):
 
         return s_msgpack.un(byts)
 
+    async def getFormInByProp(self, buid):
+        '''
+        Retrieve form name for a buid using prop index.
+        '''
+        for lkey, lval in self.layrslab.scanByFull(db=self.byprop):
+            if lval == buid:
+                form, _ = self.getAbrvProp(lkey[:8])
+                return form
+
+        return None
+
+    async def getFormInByTag(self, buid):
+        '''
+        Retrieve form name for a buid using tag index.
+        '''
+        for lkey, lval in self.layrslab.scanByFull(db=self.bytag):
+            if lval == buid:
+                form, _ = self.getAbrvProp(lkey[8:])
+                return form
+
+        return None
+
     async def getNodeValu(self, buid, prop=None):
         '''
         Retrieve either the form valu or a prop valu for the given node by buid.
@@ -1414,6 +1436,10 @@ class Layer(s_nexus.Pusher):
 
     def _editPropSet(self, buid, form, edit, sode):
 
+        if form is None:
+            logger.warning(f'Invalid prop set edit, form is None: {edit}')
+            return ()
+
         prop, valu, oldv, stortype = edit[1]
 
         oldv = None
@@ -1543,6 +1569,10 @@ class Layer(s_nexus.Pusher):
         )
 
     def _editTagSet(self, buid, form, edit, sode):
+
+        if form is None:
+            logger.warning(f'Invalid tag set edit, form is None: {edit}')
+            return ()
 
         tag, valu, oldv = edit[1]
 
@@ -1885,6 +1915,23 @@ class Layer(s_nexus.Pusher):
             prop = self.getAbrvProp(abrv)
             yield prop[0], valu
 
+    async def iterIsoNodeData(self):
+        '''
+        Return a generator of node data where the associated buid is not in this layer.
+        '''
+        for lkey, byts in self.dataslab.scanByFull(db=self.nodedata):
+            buid = lkey[:32]
+
+            nvalu = await self.getNodeValu(buid)
+            if nvalu is not None:
+                continue
+
+            abrv = lkey[32:]
+
+            valu = s_msgpack.un(byts)
+            prop = self.getAbrvProp(abrv)
+            yield buid, prop[0], valu
+
     async def iterLayerNodeEdits(self):
         '''
         Scan the full layer and yield artificial sets of nodeedits.
@@ -1912,10 +1959,11 @@ class Layer(s_nexus.Pusher):
                 nodeedits[2].append(edit)
                 continue
 
-            if not nodeedits[0] == buid:
-                nodeedits = (buid, None, [])
-
             if flag == 1:
+                if not nodeedits[0] == buid:
+                    form = await self.getFormInByProp(buid)
+                    nodeedits = (buid, form, [])
+
                 name = lkey[33:].decode()
                 valu, stortype = s_msgpack.un(lval)
 
@@ -1924,6 +1972,10 @@ class Layer(s_nexus.Pusher):
                 continue
 
             if flag == 2:
+                if not nodeedits[0] == buid:
+                    form = await self.getFormInByTag(buid)
+                    nodeedits = (buid, form, [])
+
                 name = lkey[33:].decode()
                 tagv = s_msgpack.un(lval)
 
@@ -1932,6 +1984,9 @@ class Layer(s_nexus.Pusher):
                 continue
 
             if flag == 3:
+                if not nodeedits[0] == buid:
+                    continue
+
                 tag, prop = lkey[33:].decode().split(':')
                 valu, stortype = s_msgpack.un(lval)
 
@@ -1949,6 +2004,9 @@ class Layer(s_nexus.Pusher):
                 nodeedits[2].append(edit)
 
             yield nodeedits
+
+        async for buid, prop, valu in self.iterIsoNodeData():
+            yield (buid, None, [(EDIT_NODEDATA_SET, (prop, valu, None), ())])
 
     async def initUpstreamSync(self, url):
         self.schedCoro(self._initUpstreamSync(url))
