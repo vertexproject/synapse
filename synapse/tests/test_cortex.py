@@ -641,6 +641,9 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(2, await snap.nodes('#foo.bar'))
                 self.len(1, await snap.nodes('test:str#foo.bar'))
 
+                with self.raises(s_exc.NoSuchProp):
+                    await snap.nodes('test:newp#foo.bar')
+
             async with await wcore.snap() as snap:
 
                 node = await snap.addNode('test:str', 'one')
