@@ -1844,6 +1844,20 @@ class Layer(s_nexus.Pusher):
             verb = lkey[32:].decode()
             yield verb, s_common.ehex(n1buid)
 
+    async def iterIsoNodeEdgesN1(self):
+        '''
+        Return a generator of edges where the associated buid is not in this layer.
+        '''
+        for lkey, n2buid in self.layrslab.scanByFull(db=self.edgesn1):
+            n1buid = lkey[:32]
+
+            nvalu = await self.getNodeValu(n1buid)
+            if nvalu is not None:
+                continue
+
+            verb = lkey[32:].decode()
+            yield n1buid, verb, s_common.ehex(n2buid)
+
     async def iterPropRows(self, form, prop):
 
         penc = prop.encode()
@@ -1948,6 +1962,10 @@ class Layer(s_nexus.Pusher):
                         edit = (EDIT_NODEDATA_SET, (prop, valu, None), ())
                         nodeedits[2].append(edit)
 
+                    async for verb, n2iden in self.iterNodeEdgesN1(nodeedits[0]):
+                        edit = (EDIT_EDGE_ADD, (verb, n2iden), ())
+                        nodeedits[2].append(edit)
+
                     yield nodeedits
 
             if flag == 0:
@@ -2003,10 +2021,17 @@ class Layer(s_nexus.Pusher):
                 edit = (EDIT_NODEDATA_SET, (prop, valu, None), ())
                 nodeedits[2].append(edit)
 
+            async for verb, n2iden in self.iterNodeEdgesN1(nodeedits[0]):
+                edit = (EDIT_EDGE_ADD, (verb, n2iden), ())
+                nodeedits[2].append(edit)
+
             yield nodeedits
 
         async for buid, prop, valu in self.iterIsoNodeData():
             yield (buid, None, [(EDIT_NODEDATA_SET, (prop, valu, None), ())])
+
+        async for n1buid, verb, n2iden in self.iterIsoNodeEdgesN1():
+            yield (n1buid, None, [(EDIT_EDGE_ADD, (verb, n2iden), ())])
 
     async def initUpstreamSync(self, url):
         self.schedCoro(self._initUpstreamSync(url))

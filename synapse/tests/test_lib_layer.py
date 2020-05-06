@@ -71,12 +71,14 @@ class LayerTest(s_t_utils.SynTest):
                 async with await core00.snap() as snap:
 
                     props = {'tick': 12345}
-                    node = await snap.addNode('test:str', 'foo', props=props)
-                    await node.setTagProp('bar', 'score', 10)
-                    await node.setData('baz', 'nodedataiscool')
+                    node1 = await snap.addNode('test:str', 'foo', props=props)
+                    await node1.setTagProp('bar', 'score', 10)
+                    await node1.setData('baz', 'nodedataiscool')
 
-                    node = await snap.addNode('test:str', 'bar', props=props)
-                    await node.setData('baz', 'nodedataiscool')
+                    node2 = await snap.addNode('test:str', 'bar', props=props)
+                    await node2.setData('baz', 'nodedataiscool')
+
+                    await node1.addEdge('refs', node2.iden())
 
                 async with self.getTestCore(dirn=path01) as core01:
 
@@ -106,6 +108,7 @@ class LayerTest(s_t_utils.SynTest):
                         self.eq(node.props.get('tick'), 12345)
                         self.eq(node.tagprops.get(('bar', 'score')), 10)
                         self.eq(await node.getData('baz'), 'nodedataiscool')
+                        self.len(1, await alist(node.iterEdgesN1()))
 
                     # make sure updates show up
                     await core00.nodes('[ inet:fqdn=vertex.link ]')

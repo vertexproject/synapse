@@ -76,6 +76,12 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await view2.callStorm('test:int=9 return($node.data.list())'))
             self.len(0, await core.callStorm('test:int=9 return($node.data.list())'))
 
+            # Add edges that will only exist in the child
+            await alist(view2.eval('test:int=9 [ +(refs)> {test:int=10} ]'))
+            await alist(view2.eval('test:int=12 [ +(refs)> {test:int=11} ]'))
+            self.len(2, await alist(view2.eval('test:int -(refs)> *')))
+            self.len(0, await core.nodes('test:int -(refs)> *'))
+
             # Forker and forkee have their layer configuration frozen
             tmplayr = await core.addLayer()
             tmpiden = tmplayr['iden']
@@ -137,6 +143,9 @@ class ViewTest(s_t_utils.SynTest):
             # Node data that was only set in child is present in parent
             self.len(1, await core.callStorm('test:int=9 return($node.data.list())'))
             self.len(1, await core.nodes('yield $lib.lift.byNodeData(spam)'))
+
+            # Edge that was only set in child present in parent
+            self.len(2, await core.nodes('test:int -(refs)> *'))
 
             # The child count includes all the nodes in the view
             self.eq(1004, (await view2.getFormCounts()).get('test:int'))
