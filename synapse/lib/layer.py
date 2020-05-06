@@ -1085,8 +1085,6 @@ class Layer(s_nexus.Pusher):
                 form, _ = self.getAbrvProp(lkey[:8])
                 return form
 
-        return None
-
     async def getFormInByTag(self, buid):
         '''
         Retrieve form name for a buid using tag index.
@@ -1095,8 +1093,6 @@ class Layer(s_nexus.Pusher):
             if lval == buid:
                 form, _ = self.getAbrvProp(lkey[8:])
                 return form
-
-        return None
 
     async def getNodeValu(self, buid, prop=None):
         '''
