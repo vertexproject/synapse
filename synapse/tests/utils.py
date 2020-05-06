@@ -663,7 +663,7 @@ async def _doubleapply(self, indx, item):
     '''
     try:
         nestitem = s_task.varget('applynest')
-        assert nestitem is None, f'Failure: have nested nexus actions, previous was {nestitem}'
+        assert nestitem is None, f'Failure: have nested nexus actions, inner item is {item},  outer item was {nestitem}'
         s_task.varset('applynest', item)
 
         nexsiden, event, args, kwargs, _ = item
