@@ -1768,12 +1768,12 @@ class Layer(s_nexus.Pusher):
             (EDIT_EDGE_DEL, (verb, n2iden), ()),
         )
 
-    def getEdgeVerbs(self):
+    async def getEdgeVerbs(self):
 
         for lkey in self.layrslab.scanKeys(db=self.byverb):
             yield lkey.decode()
 
-    def getEdges(self, verb=None):
+    async def getEdges(self, verb=None):
 
         if verb is None:
 
