@@ -39,6 +39,8 @@ import synapse.lib.stormwhois as s_stormwhois
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.stormlib.macro as s_stormlib_macro
+
 logger = logging.getLogger(__name__)
 
 '''
@@ -1878,10 +1880,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.SpliceListCmd)
         self.addStormCmd(s_storm.SpliceUndoCmd)
 
+        self.addStormCmd(s_stormlib_macro.MacroExecCmd)
+
         for cdef in s_stormsvc.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_storm.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_stormlib_macro.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
@@ -1921,6 +1928,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
         self.addStormLib(('view',), s_stormtypes.LibView)
+        self.addStormLib(('macro',), s_stormlib_macro.LibMacro)
         self.addStormLib(('model',), s_stormtypes.LibModel)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('stats',), s_stormtypes.LibStats)
