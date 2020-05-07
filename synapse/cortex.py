@@ -2210,6 +2210,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         s_view.reqValidVdef(vdef)
 
         iden = vdef['iden']
+        if iden in self.views:
+            return
+
         creator = vdef.get('creator', self.auth.rootuser.iden)
         user = await self.auth.reqUser(creator)
 
