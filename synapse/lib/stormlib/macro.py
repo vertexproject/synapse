@@ -78,6 +78,10 @@ stormcmds = [
 ]
 
 class MacroExecCmd(s_storm.Cmd):
+    # FIXME Give a description of use.
+    '''
+    Execute a named macro.
+    '''
 
     name = 'macro.exec'
 
@@ -151,8 +155,12 @@ class LibMacro(s_stormtypes.Lib):
         name = await s_stormtypes.toprim(name)
         storm = await s_stormtypes.toprim(storm)
 
-        # syntax validation
+        # validation
         await self.runt.getStormQuery(storm)
+
+        if not isinstance(name, str):
+            raise s_exc.StormRuntimeError(mesg='Name must be a str',
+                                          name=repr(name))
 
         path = ('cortex', 'storm', 'macros', name)
 
