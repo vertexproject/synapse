@@ -77,6 +77,11 @@ stormcmds = [
     },
 ]
 
+def _req_str(name):
+    if not isinstance(name, str):
+        raise s_exc.StormRuntimeError(mesg='Macro name must be a str',
+                                      name=repr(name))
+
 class MacroExecCmd(s_storm.Cmd):
     # FIXME Give a description of use.
     '''
@@ -92,9 +97,12 @@ class MacroExecCmd(s_storm.Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        # FIXME unsafe self.opts use in this function
+        _req_str(self.opts.name)
         path = ('cortex', 'storm', 'macros', self.opts.name)
         mdef = await runt.snap.core.getHiveKey(path)
         if mdef is None:
+            # FIXME Bad ref "name"
             mesg = f'Macro name not found: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
 
@@ -130,11 +138,14 @@ class LibMacro(s_stormtypes.Lib):
 
     async def _funcMacroGet(self, name):
         name = await s_stormtypes.toprim(name)
+        _req_str(name)
+
         path = ('cortex', 'storm', 'macros', name)
         return await self.runt.snap.core.getHiveKey(path)
 
     async def _funcMacroDel(self, name):
         name = await s_stormtypes.toprim(name)
+        _req_str(name)
 
         path = ('cortex', 'storm', 'macros', name)
 
@@ -157,10 +168,7 @@ class LibMacro(s_stormtypes.Lib):
 
         # validation
         await self.runt.getStormQuery(storm)
-
-        if not isinstance(name, str):
-            raise s_exc.StormRuntimeError(mesg='Name must be a str',
-                                          name=repr(name))
+        _req_str(name)
 
         path = ('cortex', 'storm', 'macros', name)
 
