@@ -88,6 +88,10 @@ class MacroExecCmd(s_storm.Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        if not self.runtsafe:
+            mesg = 'macro.exec does not support per-node invocation'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         path = ('cortex', 'storm', 'macros', self.opts.name)
         mdef = await runt.snap.core.getHiveKey(path)
         if mdef is None:

@@ -28,6 +28,9 @@ class MacroTest(s_test.SynTest):
             nodes = await core.nodes('macro.exec hehe | macro.exec hoho', opts=asvisi)
             self.len(0, nodes)
 
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('[ test:str=hehe ] $name=$node.value() | macro.exec $name')
+
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('$lib.macro.del(haha)')
 
