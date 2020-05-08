@@ -1076,7 +1076,7 @@ class Layer(s_nexus.Pusher):
 
         return s_msgpack.un(byts)
 
-    async def getFormInByProp(self, buid):
+    async def _getFormInByProp(self, buid):
         '''
         Retrieve form name for a buid using prop index.
         '''
@@ -1085,7 +1085,7 @@ class Layer(s_nexus.Pusher):
                 form, _ = self.getAbrvProp(lkey[:8])
                 return form
 
-    async def getFormInByTag(self, buid):
+    async def _getFormInByTag(self, buid):
         '''
         Retrieve form name for a buid using tag index.
         '''
@@ -1840,7 +1840,7 @@ class Layer(s_nexus.Pusher):
             verb = lkey[32:].decode()
             yield verb, s_common.ehex(n1buid)
 
-    async def iterIsoNodeEdgesN1(self):
+    async def _iterIsoNodeEdgesN1(self):
         '''
         Return a generator of edges where the associated buid is not in this layer.
         '''
@@ -1925,7 +1925,7 @@ class Layer(s_nexus.Pusher):
             prop = self.getAbrvProp(abrv)
             yield prop[0], valu
 
-    async def iterIsoNodeData(self):
+    async def _iterIsoNodeData(self):
         '''
         Return a generator of node data where the associated buid is not in this layer.
         '''
@@ -1975,7 +1975,7 @@ class Layer(s_nexus.Pusher):
 
             if flag == 1:
                 if not nodeedits[0] == buid:
-                    form = await self.getFormInByProp(buid)
+                    form = await self._getFormInByProp(buid)
                     nodeedits = (buid, form, [])
 
                 name = lkey[33:].decode()
@@ -1987,7 +1987,7 @@ class Layer(s_nexus.Pusher):
 
             if flag == 2:
                 if not nodeedits[0] == buid:
-                    form = await self.getFormInByTag(buid)
+                    form = await self._getFormInByTag(buid)
                     nodeedits = (buid, form, [])
 
                 name = lkey[33:].decode()
@@ -2023,10 +2023,10 @@ class Layer(s_nexus.Pusher):
 
             yield nodeedits
 
-        async for buid, prop, valu in self.iterIsoNodeData():
+        async for buid, prop, valu in self._iterIsoNodeData():
             yield (buid, None, [(EDIT_NODEDATA_SET, (prop, valu, None), ())])
 
-        async for n1buid, verb, n2iden in self.iterIsoNodeEdgesN1():
+        async for n1buid, verb, n2iden in self._iterIsoNodeEdgesN1():
             yield (n1buid, None, [(EDIT_EDGE_ADD, (verb, n2iden), ())])
 
     async def initUpstreamSync(self, url):
