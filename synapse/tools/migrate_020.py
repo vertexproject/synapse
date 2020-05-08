@@ -1691,7 +1691,7 @@ class Migrator(s_base.Base):
 
         # create the source genr to use in splice sync
         async def genr(offs):
-            for indx, valu in splicelog.iter(offs):
+            for _, valu in splicelog.iter(offs):
                 yield valu
             return
 
