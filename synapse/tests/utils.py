@@ -51,6 +51,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
+import synapse.lib.task as s_task
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
@@ -653,24 +654,34 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
 
+s_task.vardefault('applynest', lambda: None)
+
 async def _doubleapply(self, indx, item):
     '''
     Just like NexusRoot._apply, but calls the function twice.  Patched in when global variable SYNDEV_NEXUS_REPLAY
     is set.
     '''
-    nexsiden, event, args, kwargs, _ = item
+    try:
+        nestitem = s_task.varget('applynest')
+        assert nestitem is None, f'Failure: have nested nexus actions, inner item is {item},  outer item was {nestitem}'
+        s_task.varset('applynest', item)
 
-    nexus = self._nexskids[nexsiden]
-    func, passoff = nexus._nexshands[event]
+        nexsiden, event, args, kwargs, _ = item
 
-    if passoff:
-        retn = await func(nexus, *args, nexsoff=indx, **kwargs)
-        await func(nexus, *args, nexsoff=indx, **kwargs)
+        nexus = self._nexskids[nexsiden]
+        func, passoff = nexus._nexshands[event]
+
+        if passoff:
+            retn = await func(nexus, *args, nexsoff=indx, **kwargs)
+            await func(nexus, *args, nexsoff=indx, **kwargs)
+            return retn
+
+        retn = await func(nexus, *args, **kwargs)
+        await func(nexus, *args, **kwargs)
         return retn
 
-    retn = await func(nexus, *args, **kwargs)
-    await func(nexus, *args, **kwargs)
-    return retn
+    finally:
+        s_task.varset('applynest', None)
 
 class SynTest(unittest.TestCase):
     '''
@@ -998,7 +1009,7 @@ class SynTest(unittest.TestCase):
 
         mods.append(('synapse.tests.utils.TestModule', {'key': 'valu'}))
 
-        with self.withNexusReplay() as cm:
+        with self.withNexusReplay():
 
             if dirn is not None:
 
