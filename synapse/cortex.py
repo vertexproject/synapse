@@ -987,7 +987,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         return self.multiqueue.size(name)
 
     async def getSpawnInfo(self):
-        return {
+        ret = {
             'iden': self.iden,
             'dirn': self.dirn,
             'conf': {
@@ -1010,6 +1010,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             'model': await self.getModelDefs(),
             'spawncorector': await self.getSpawncoreCtor()
         }
+        addl = await self._addlSpawnInfo()
+        ret.update(**addl)
+        return ret
+
+    async def _addlSpawnInfo(self):
+        '''
+        Additional spawninfo data.
+        '''
+        return {}
 
     async def getSpawncoreCtor(self):
         if self.spawncorector:
