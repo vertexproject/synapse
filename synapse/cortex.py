@@ -1011,7 +1011,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             'spawncorector': await self.getSpawncoreCtor()
         }
 
-    await def getSpawncoreCtor(self):
+    async def getSpawncoreCtor(self):
         if self.spawncorector:
             return self.spawncorector
         import synapse.lib.spawn as s_spawn

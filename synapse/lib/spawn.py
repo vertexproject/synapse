@@ -361,20 +361,7 @@ class SpawnCore(s_base.Base):
         self.auth = await s_hiveauth.Auth.anit(node)
         self.onfini(self.auth.fini)
         for layrinfo in self.spawninfo.get('layers'):
-
-            iden = layrinfo.get('iden')
-            ctorname = layrinfo.get('ctor')
-
-            ctor = s_dyndeps.tryDynLocal(ctorname)
-
-            layrinfo['readonly'] = True
-
-            layrdirn = s_common.genpath(self.dirn, 'layers', iden)
-
-            layr = await ctor.anit(layrinfo, layrdirn)
-            self.onfini(layr)
-
-            self.layers[iden] = layr
+            await self._initLayr(layrinfo)
 
         for viewinfo in self.spawninfo.get('views'):
 
@@ -395,6 +382,26 @@ class SpawnCore(s_base.Base):
         self.delStormDmon = self.prox.delStormDmon
         self.getStormDmon = self.prox.getStormDmon
         self.getStormDmons = self.prox.getStormDmons
+
+    async def _initLayr(self, layrinfo):
+        iden = layrinfo.get('iden')
+        ctorname = layrinfo.get('ctor')
+
+        ctor = s_dyndeps.tryDynLocal(ctorname)
+
+        layrinfo['readonly'] = True
+
+        layr = await self._ctorLayr(ctor, layrinfo)
+
+        self.onfini(layr)
+
+        self.layers[iden] = layr
+
+    async def _ctorLayr(self, ctor, layrinfo):
+        iden = layrinfo.get('iden')
+        layrdirn = s_common.genpath(self.dirn, 'layers', iden)
+        layr = await ctor.anit(layrinfo, layrdirn)
+        return layr
 
     async def dyncall(self, iden, todo, gatekeys=()):
         return await self.prox.dyncall(iden, todo, gatekeys=gatekeys)
