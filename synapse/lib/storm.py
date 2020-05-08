@@ -1144,7 +1144,7 @@ class Runtime:
             runt.modulefuncs = dict(self.modulefuncs)
             for name, oper in self.modulefuncs.items():
                 runt.runtvars.add(name)
-                async for item in oper.run(runt, s_ast.agen()):
+                async for item in oper.run(runt, s_common.agen()):
                     pass  # pragma: no cover
 
         runt.loadRuntVars(query)

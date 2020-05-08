@@ -78,6 +78,10 @@ stormcmds = [
 ]
 
 class MacroExecCmd(s_storm.Cmd):
+    # FIXME Give a description of use.
+    '''
+    Execute a named macro.
+    '''
 
     name = 'macro.exec'
 
@@ -92,9 +96,12 @@ class MacroExecCmd(s_storm.Cmd):
             mesg = 'macro.exec does not support per-node invocation'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        path = ('cortex', 'storm', 'macros', self.opts.name)
+        name = await s_stormtypes.tostr(self.opts.name)
+        path = ('cortex', 'storm', 'macros', name)
+
         mdef = await runt.snap.core.getHiveKey(path)
         if mdef is None:
+            # FIXME Bad ref "name"
             mesg = f'Macro name not found: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
 
@@ -129,13 +136,13 @@ class LibMacro(s_stormtypes.Lib):
         return await self.runt.snap.core.getHiveKeys(path)
 
     async def _funcMacroGet(self, name):
-        name = await s_stormtypes.toprim(name)
+        name = await s_stormtypes.tostr(name)
+
         path = ('cortex', 'storm', 'macros', name)
         return await self.runt.snap.core.getHiveKey(path)
 
     async def _funcMacroDel(self, name):
-        name = await s_stormtypes.toprim(name)
-
+        name = await s_stormtypes.tostr(name)
         path = ('cortex', 'storm', 'macros', name)
 
         mdef = await self.runt.snap.core.getHiveKey(path)
@@ -152,10 +159,10 @@ class LibMacro(s_stormtypes.Lib):
 
     async def _funcMacroSet(self, name, storm):
 
-        name = await s_stormtypes.toprim(name)
-        storm = await s_stormtypes.toprim(storm)
+        name = await s_stormtypes.tostr(name)
+        storm = await s_stormtypes.tostr(storm)
 
-        # syntax validation
+        # validation
         await self.runt.getStormQuery(storm)
 
         path = ('cortex', 'storm', 'macros', name)

@@ -14,7 +14,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
@@ -46,11 +45,6 @@ def intify(x):
     except Exception as e:
         mesg = f'Failed to make an integer from "{x}".'
         raise s_exc.BadCast(mesg=mesg) from e
-
-def intOrNoneify(x):
-    if x is None:
-        return None
-    return intify(x)
 
 def kwarg_format(text, **kwargs):
     '''
@@ -295,7 +289,7 @@ class LibBase(Lib):
         runt = await self.runt.getScopeRuntime(query, impd=True)
 
         # execute the query in a module scope
-        async for item in query.run(runt, s_ast.agen()):
+        async for item in query.run(runt, s_common.agen()):
             pass  # pragma: no cover
 
         modlib = Lib(self.runt)
@@ -356,7 +350,7 @@ class LibBase(Lib):
                 continue
             vals.append(arg)
 
-        ints = [intify(x) for x in vals]
+        ints = [await toint(x) for x in vals]
         return min(*ints)
 
     async def _max(self, *args):
@@ -369,7 +363,7 @@ class LibBase(Lib):
                 continue
             vals.append(arg)
 
-        ints = [intify(x) for x in vals]
+        ints = [await toint(x) for x in vals]
         return max(*ints)
 
     @staticmethod
@@ -514,7 +508,7 @@ class LibTime(Lib):
     async def ticker(self, tick, count=None):
 
         if count is not None:
-            count = intify(count)
+            count = await toint(count)
 
         tick = float(tick)
 
@@ -686,7 +680,7 @@ class Queue(StormType):
         })
 
     async def _methQueueCull(self, offs):
-        offs = intify(offs)
+        offs = await toint(offs)
         todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
         await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -697,11 +691,11 @@ class Queue(StormType):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
-        wait = intify(wait)
-        offs = intify(offs)
+        wait = await toint(wait)
+        offs = await toint(offs)
 
         if size is not None:
-            size = intify(size)
+            size = await toint(size)
 
         todo = s_common.todo('coreQueueGets', self.name, offs, wait=wait, size=size)
         gatekeys = self._getGateKeys('get')
@@ -716,8 +710,8 @@ class Queue(StormType):
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
 
-        offs = intify(offs)
-        wait = intify(wait)
+        offs = await toint(offs)
+        wait = await toint(wait)
 
         todo = s_common.todo('coreQueueGet', self.name, offs, cull=cull, wait=wait)
         gatekeys = self._getGateKeys('get')
@@ -726,8 +720,8 @@ class Queue(StormType):
 
     async def _methQueuePop(self, offs=0, cull=True, wait=True):
 
-        offs = intify(offs)
-        wait = intify(wait)
+        offs = await toint(offs)
+        wait = await toint(wait)
 
         todo = s_common.todo('coreQueueGet', self.name, offs, cull=cull, wait=wait)
         gatekeys = self._getGateKeys('get')
@@ -838,8 +832,12 @@ class Prim(StormType):
         StormType.__init__(self, path=path)
         self.valu = valu
 
+    def __int__(self):
+        mesg = 'Storm type {__class__.__name__.lower()} cannot be cast to an int'
+        raise s_exc.BadCast(mesg)
+
     def __bool__(self):
-        return bool(self.valu)
+        return bool(self.value())
 
     def __len__(self):
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
@@ -860,6 +858,12 @@ class Str(Prim):
             'rjust': self._methStrRjust,
             'encode': self._methEncode,
         })
+
+    def __int__(self):
+        return int(self.value(), 0)
+
+    def __str__(self):
+        return self.value()
 
     def __len__(self):
         return len(self.valu)
@@ -894,10 +898,10 @@ class Str(Prim):
         return self.valu.startswith(text)
 
     async def _methStrRjust(self, size):
-        return self.valu.rjust(intify(size))
+        return self.valu.rjust(await toint(size))
 
     async def _methStrLjust(self, size):
-        return self.valu.ljust(intify(size))
+        return self.valu.ljust(await toint(size))
 
 class Bytes(Prim):
 
@@ -914,6 +918,12 @@ class Bytes(Prim):
 
     def __len__(self):
         return len(self.valu)
+
+    def __bool__(self):
+        return bool(self.valu)
+
+    def __str__(self):
+        return self.valu.decode()
 
     async def _methDecode(self, encoding='utf8'):
         '''
@@ -1087,7 +1097,7 @@ class List(Prim):
         '''
         Return a single field from the list by index.
         '''
-        indx = intify(valu)
+        indx = await toint(valu)
         try:
             return self.valu[indx]
         except IndexError as e:
@@ -1111,7 +1121,15 @@ class List(Prim):
         return tuple([await toprim(v) for v in self.valu])
 
 class Bool(Prim):
-    pass
+
+    def __bool__(self):
+        return self.value()
+
+    def __str__(self):
+        return str(self.value().lower())
+
+    def __int__(self):
+        return int(self.value())
 
 class LibUser(Lib):
 
@@ -1265,7 +1283,7 @@ class Query(Prim):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
         with self.runt.snap.getStormRuntime(opts=opts) as runt:
-            async for item in query.run(runt, s_ast.agen()):
+            async for item in query.run(runt, s_common.agen()):
                 yield item
 
     async def nodes(self):
@@ -1281,7 +1299,7 @@ class Query(Prim):
         try:
             async for item in self._getRuntGenr():
                 await asyncio.sleep(0)
-        except s_ast.StormReturn as e:
+        except s_exc.StormReturn as e:
             return e.item
         except asyncio.CancelledError:  # pragma: no cover
             raise
@@ -1585,7 +1603,7 @@ class StatTally(Prim):
         return len(self.counters)
 
     async def inc(self, name, valu=1):
-        valu = intify(valu)
+        valu = await toint(valu)
         self.counters[name] += valu
 
     async def get(self, name):
@@ -2244,7 +2262,7 @@ class User(Prim):
     async def _methUserSetAdmin(self, admin, gateiden=None):
 
         self.runt.user.confirm(('auth', 'user', 'set', 'admin'))
-        admin = bool(intify(admin))
+        admin = await tobool(admin)
 
         await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
 
@@ -2258,7 +2276,7 @@ class User(Prim):
 
     async def _methUserSetLocked(self, locked):
         self.runt.user.confirm(('auth', 'user', 'set', 'locked'))
-        return await self.runt.snap.core.setUserLocked(self.valu, bool(intify(locked)))
+        return await self.runt.snap.core.setUserLocked(self.valu, await tobool(locked))
 
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)
@@ -2938,3 +2956,43 @@ def fromprim(valu, path=None, basetypes=True):
         raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
 
     return valu
+
+async def tostr(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    try:
+        return str(valu)
+    except Exception as e:
+        mesg = f'Failed to make an string from "{x}".'
+        raise s_exc.BadCast(mesg=mesg) from e
+
+async def tobool(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    try:
+        return bool(valu)
+    except Exception as e:
+        mesg = f'Failed to make an boolean from "{x}".'
+        raise s_exc.BadCast(mesg=mesg) from e
+
+async def toint(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    if isinstance(valu, str):
+        try:
+            return int(valu, 0)
+        except ValueError as e:
+            mesg = f'Failed to make an integer from "{valu}".'
+            raise s_exc.BadCast(mesg=mesg) from e
+
+    try:
+        return int(valu)
+    except Exception as e:
+        mesg = f'Failed to make an integer from "{valu}".'
+        raise s_exc.BadCast(mesg=mesg) from e

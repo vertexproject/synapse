@@ -2969,8 +2969,29 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInWarn('hello moto', msgs)
 
-    async def test_stormtypes_intify(self):
+    async def test_stormtypes_tofoo(self):
+
+        boolprim = s_stormtypes.Bool(True)
+
+        self.eq(20, await s_stormtypes.toint(20))
+        self.eq(20, await s_stormtypes.toint('20'))
+        self.eq(20, await s_stormtypes.toint(s_stormtypes.Str('20')))
+
+        self.eq('asdf', await s_stormtypes.tostr('asdf'))
+        self.eq('asdf', await s_stormtypes.tostr(s_stormtypes.Str('asdf')))
+        self.eq('asdf', await s_stormtypes.tostr(s_stormtypes.Bytes(b'asdf')))
+
+        self.true(await s_stormtypes.tobool(boolprim))
+        self.true(await s_stormtypes.tobool(1))
+        self.false(await s_stormtypes.tobool(0))
+        # no bool <- int <- str
+        self.true(await s_stormtypes.tobool('1'))
+        self.true(await s_stormtypes.tobool(s_stormtypes.Str('0')))
+        self.true(await s_stormtypes.tobool(s_stormtypes.Str('asdf')))
+        self.false(await s_stormtypes.tobool(s_stormtypes.Str('')))
+
         with self.raises(s_exc.BadCast):
-            s_stormtypes.intify('asdf')
+            await s_stormtypes.toint(s_stormtypes.Prim(()))
+
         with self.raises(s_exc.BadCast):
-            s_stormtypes.intify(None)
+            self.eq(20, await s_stormtypes.toint(s_stormtypes.Str('asdf')))

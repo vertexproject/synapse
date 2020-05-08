@@ -171,7 +171,7 @@ class View(s_nexus.Pusher):  # type: ignore
             async for item in self.eval(text, opts=opts):
                 await asyncio.sleep(0)  # pragma: no cover
 
-        except s_ast.StormReturn as e:
+        except s_exc.StormReturn as e:
 
             return await s_stormtypes.toprim(e.item)
 

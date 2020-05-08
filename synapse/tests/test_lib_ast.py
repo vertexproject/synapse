@@ -1139,12 +1139,12 @@ class AstTest(s_test.SynTest):
                     '''
                     query = core.getStormQuery(q)
                     runt.loadRuntVars(query)
-                    async for item in query.run(runt, s_ast.agen()):
+                    async for item in query.run(runt, s_common.agen()):
                         pass
                     func = list(filter(lambda o: isinstance(o, s_ast.Function), query.kids))[0]
                     oldfunc = runt.vars['lolol']
                     funcrunt = await runt.getScopeRuntime(func.kids[2])
-                    async for item in func.run(funcrunt, s_ast.agen()):
+                    async for item in func.run(funcrunt, s_common.agen()):
                         pass
                     funcrunt.globals.add('nope')
                     funcrunt.globals.add('lolol')
