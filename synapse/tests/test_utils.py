@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-synapse - test_utils.py.py
-Created on 10/21/17.
-
-Test for synapse.tests.utils classes
-"""
 import os
 import time
 import logging
