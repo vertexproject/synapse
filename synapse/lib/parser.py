@@ -90,7 +90,6 @@ terminalEnglishMap = {
     '_EDGEDELN2INIT': '<(',
     '_EDGEDELN2FINI': ')-',
     '_EMBEDQUERYSTART': '${',
-    '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
     '_WALKNPIVON1': '-->',
