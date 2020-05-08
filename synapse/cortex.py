@@ -2224,7 +2224,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if worldread:
             role = await self.auth.getRoleByName('all')
-            await role.addRule((True, ('view', 'read')), gateiden=iden, dopush=False)
+            await role.addRule((True, ('view', 'read')), gateiden=iden, nexs=False)
 
         node = await self.hive.open(('cortex', 'views', iden))
 
