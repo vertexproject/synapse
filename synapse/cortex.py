@@ -1025,7 +1025,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             return self.spawncorector
         import synapse.lib.spawn as s_spawn
         self.spawncorector = f'{s_spawn.__name__}.{s_spawn.SpawnCore.__name__}'
-        print(self.spawncorector)
         return self.spawncorector
 
     async def _finiStor(self):
