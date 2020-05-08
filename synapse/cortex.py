@@ -765,6 +765,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
+    spawncorector = 'synapse.lib.spawn.SpawnCore'
 
     async def __anit__(self, dirn, conf=None):
 
@@ -890,7 +891,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         import synapse.lib.spawn as s_spawn  # get around circular dependency
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
-        self.spawncorector = None
         self.on('user:mod', self._onEvtBumpSpawnPool)
 
         self.dynitems.update({
@@ -1008,24 +1008,9 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'pkgs': await self.getStormPkgs(),
             },
             'model': await self.getModelDefs(),
-            'spawncorector': await self.getSpawncoreCtor()
+            'spawncorector': self.spawncorector,
         }
-        addl = await self._addlSpawnInfo()
-        ret.update(**addl)
         return ret
-
-    async def _addlSpawnInfo(self):
-        '''
-        Additional spawninfo data.
-        '''
-        return {}
-
-    async def getSpawncoreCtor(self):
-        if self.spawncorector:
-            return self.spawncorector
-        import synapse.lib.spawn as s_spawn
-        self.spawncorector = f'{s_spawn.__name__}.{s_spawn.SpawnCore.__name__}'
-        return self.spawncorector
 
     async def _finiStor(self):
         await asyncio.gather(*[view.fini() for view in self.views.values()])
