@@ -101,9 +101,10 @@ async def _workloop(spawninfo, todo, done):
     '''
     s_glob.iAmLoop()
 
-    spawncorector = spawninfo.get('spawncorector')
+    ctorname = spawninfo.get('spawncorector')
+    ctor = s_dyndeps.tryDynLocal(ctorname)
 
-    async with await spawncorector(spawninfo) as core:
+    async with await ctor.anit(spawninfo) as core:
 
         while not core.isfini:
 
