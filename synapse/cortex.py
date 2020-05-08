@@ -1008,10 +1008,10 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'pkgs': await self.getStormPkgs(),
             },
             'model': await self.getModelDefs(),
-            'spawncorector': self.getSpawncoreCtor()
+            'spawncorector': await self.getSpawncoreCtor()
         }
 
-    def getSpawncoreCtor(self):
+    await def getSpawncoreCtor(self):
         if self.spawncorector:
             return self.spawncorector
         import synapse.lib.spawn as s_spawn
