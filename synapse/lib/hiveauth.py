@@ -404,7 +404,7 @@ class Auth(s_nexus.Pusher):
             return
 
         for user in self._getUsersInRole(role):
-            await user.revoke(role.iden)
+            await user.revoke(role.iden, nexs=False)
 
         for gate in self.authgates.values():
             await gate._delGateRole(role.iden)
@@ -567,10 +567,10 @@ class HiveRuler(s_base.Base):
 
         return list(gateinfo.get('rules', ()))
 
-    async def setRules(self, rules, gateiden=None):
-        return await self._setRulrInfo('rules', rules, gateiden=gateiden)
+    async def setRules(self, rules, gateiden=None, nexs=True):
+        return await self._setRulrInfo('rules', rules, gateiden=gateiden, nexs=nexs)
 
-    async def addRule(self, rule, indx=None, gateiden=None):
+    async def addRule(self, rule, indx=None, gateiden=None, nexs=True):
 
         rules = self.getRules(gateiden=gateiden)
         assert len(rule) == 2
@@ -580,7 +580,7 @@ class HiveRuler(s_base.Base):
         else:
             rules.insert(indx, rule)
 
-        await self.setRules(rules, gateiden=gateiden)
+        await self.setRules(rules, gateiden=gateiden, nexs=nexs)
 
     async def delRule(self, rule, gateiden=None):
 
@@ -608,8 +608,11 @@ class HiveRole(HiveRuler):
             'authgates': {name: info.pack() for (name, info) in self.authgates.items()},
         }
 
-    async def _setRulrInfo(self, name, valu, gateiden=None):
-        return await self.auth.setRoleInfo(self.iden, name, valu, gateiden=gateiden)
+    async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True):
+        if nexs:
+            return await self.auth.setRoleInfo(self.iden, name, valu, gateiden=gateiden)
+        else:
+            return await self.auth._hndlsetRoleInfo(self.iden, name, valu, gateiden=gateiden)
 
     async def setName(self, name):
         return await self.auth.setRoleName(self.iden, name)
@@ -670,8 +673,11 @@ class HiveUser(HiveRuler):
             'authgates': {name: info.pack() for (name, info) in self.authgates.items()},
         }
 
-    async def _setRulrInfo(self, name, valu, gateiden=None):
-        return await self.auth.setUserInfo(self.iden, name, valu, gateiden=gateiden)
+    async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True):
+        if nexs:
+            return await self.auth.setUserInfo(self.iden, name, valu, gateiden=gateiden)
+        else:
+            return await self.auth._hndlsetUserInfo(self.iden, name, valu, gateiden=gateiden)
 
     async def setName(self, name):
         return await self.auth.setUserName(self.iden, name)
@@ -779,7 +785,7 @@ class HiveUser(HiveRuler):
 
         await self.auth.setUserInfo(self.iden, 'roles', roles)
 
-    async def revoke(self, iden):
+    async def revoke(self, iden, nexs=True):
 
         role = await self.auth.reqRole(iden)
 
@@ -792,7 +798,10 @@ class HiveUser(HiveRuler):
             return
 
         roles.remove(role.iden)
-        await self.auth.setUserInfo(self.iden, 'roles', roles)
+        if nexs:
+            await self.auth.setUserInfo(self.iden, 'roles', roles)
+        else:
+            await self.auth._hndlsetUserInfo(self.iden, 'roles', roles)
 
     def isLocked(self):
         return self.info.get('locked')
