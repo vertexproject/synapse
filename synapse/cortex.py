@@ -890,6 +890,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         import synapse.lib.spawn as s_spawn  # get around circular dependency
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
+        self.spawncorector = None
         self.on('user:mod', self._onEvtBumpSpawnPool)
 
         self.dynitems.update({
@@ -1007,7 +1008,15 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'pkgs': await self.getStormPkgs(),
             },
             'model': await self.getModelDefs(),
+            'spawncorector': self.getSpawncoreCtor()
         }
+
+    def getSpawncoreCtor(self):
+        if self.spawncorector:
+            return self.spawncorector
+        import synapse.lib.spawn as s_spawn
+        self.spawncorector = s_spawn.SpawnCore.anit
+        return self.spawncorector
 
     async def _finiStor(self):
         await asyncio.gather(*[view.fini() for view in self.views.values()])

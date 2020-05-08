@@ -101,7 +101,9 @@ async def _workloop(spawninfo, todo, done):
     '''
     s_glob.iAmLoop()
 
-    async with await SpawnCore.anit(spawninfo) as core:
+    spawncorector = spawninfo.get('spawncorector')
+
+    async with await spawncorector(spawninfo) as core:
 
         while not core.isfini:
 
