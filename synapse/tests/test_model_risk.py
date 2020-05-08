@@ -5,7 +5,7 @@ import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
 
-class AuthModelTest(s_t_utils.SynTest):
+class RiskModelTest(s_t_utils.SynTest):
 
     async def test_model_risk(self):
 

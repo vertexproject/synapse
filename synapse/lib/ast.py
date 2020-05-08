@@ -1071,6 +1071,9 @@ class LiftFormTag(LiftOper):
     async def lift(self, runt):
 
         form = self.kids[0].value()
+        if not runt.model.form(form):
+            raise s_exc.NoSuchProp(name=form)
+
         tag = await self.kids[1].compute(runt)
 
         if len(self.kids) == 4:
