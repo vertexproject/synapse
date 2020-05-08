@@ -103,4 +103,4 @@ class CortexServerTest(s_t_utils.SynTest):
                                                'has different iden') as stream:
                     async with await s_cortex.Cortex.initFromArgv(argv1, outp=out1) as core01:
                         await stream.wait(timeout=2)
-                        self.true(core01.isfini)
+                        self.true(await core01.waitfini(6))
