@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import datetime
 from datetime import timezone as tz
 from unittest import mock
@@ -11,6 +12,8 @@ import synapse.tests.utils as s_t_utils
 MINSECS = 60
 HOURSECS = 60 * MINSECS
 DAYSECS = 24 * HOURSECS
+
+logger = logging.getLogger(__name__)
 
 class CmdCronTest(s_t_utils.SynTest):
 
