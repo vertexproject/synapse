@@ -767,6 +767,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
+    spawncorector = 'synapse.lib.spawn.SpawnCore'
 
     async def __anit__(self, dirn, conf=None):
 
@@ -988,7 +989,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         return self.multiqueue.size(name)
 
     async def getSpawnInfo(self):
-        return {
+        ret = {
             'iden': self.iden,
             'dirn': self.dirn,
             'conf': {
@@ -1009,7 +1010,9 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'pkgs': await self.getStormPkgs(),
             },
             'model': await self.getModelDefs(),
+            'spawncorector': self.spawncorector,
         }
+        return ret
 
     async def _finiStor(self):
         await asyncio.gather(*[view.fini() for view in self.views.values()])
@@ -1446,7 +1449,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for pkg in oldpkgs:
             name = pkg.get('name')
             if name:
-                await self.delStormPkg(name)
+                await self._delStormPkg(name)
 
     async def setStormSvcEvents(self, iden, edef):
         '''
@@ -2218,6 +2221,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         s_view.reqValidVdef(vdef)
 
         iden = vdef['iden']
+        if iden in self.views:
+            return
+
         creator = vdef.get('creator', self.auth.rootuser.iden)
         user = await self.auth.reqUser(creator)
 
@@ -2229,7 +2235,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if worldread:
             role = await self.auth.getRoleByName('all')
-            await role.addRule((True, ('view', 'read')), gateiden=iden)
+            await role.addRule((True, ('view', 'read')), gateiden=iden, nexs=False)
 
         node = await self.hive.open(('cortex', 'views', iden))
 
@@ -2523,7 +2529,6 @@ class Cortex(s_cell.Cell):  # type: ignore
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
 
-    @s_nexus.Pusher.onPushAuto('storm:dmon:run')
     async def runStormDmon(self, iden, ddef):
 
         # validate ddef before firing task

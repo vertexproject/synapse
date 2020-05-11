@@ -1784,6 +1784,7 @@ class View(Prim):
 
             'iden': vdef.get('iden'),
             'layers': [Layer(runt, ldef, path=path) for ldef in vdef.get('layers')],
+            'triggers': [Trigger(runt, tdef) for tdef in vdef.get('triggers')],
             'set': self._methViewSet,
             'get': self._methViewGet,
             'fork': self._methViewFork,

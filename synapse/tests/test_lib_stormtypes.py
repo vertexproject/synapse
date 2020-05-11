@@ -2002,6 +2002,17 @@ class StormTypesTest(s_test.SynTest):
 
                 self.notin(rootfork, core.views)
 
+                # Test getting the view's triggers
+                tdef = await core.view.addTrigger({
+                    'cond': 'node:add',
+                    'form': 'test:str',
+                    'storm': '[ test:int=1 ]',
+                })
+
+                triggers = await core.callStorm('return($lib.view.get().triggers)')
+                self.len(1, triggers)
+                self.eq(triggers[0]['iden'], tdef['iden'])
+
     async def test_storm_lib_trigger(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):

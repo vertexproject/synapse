@@ -101,6 +101,9 @@ class View(s_nexus.Pusher):  # type: ignore
         layrinfo = [l.pack() for l in self.layers]
         d['layers'] = layrinfo
 
+        triginfo = [t.pack() for _, t in self.triggers.list()]
+        d['triggers'] = triginfo
+
         return d
 
     async def getFormCounts(self):
