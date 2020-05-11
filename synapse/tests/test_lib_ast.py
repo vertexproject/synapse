@@ -44,8 +44,8 @@ foo_stormpkg = {
         {
             'name': 'importnest',
             'storm': '''
-            $counter = 0
-            $foobar = 0
+            $foobar = $(0)
+            $counter = $(0)
 
             function inner(arg2, add) {
                 $foobar = $( $foobar + $add )
@@ -905,13 +905,13 @@ class AstTest(s_test.SynTest):
             # call an import and have it's module local variables be mapped in to its own scope
             q = '''
             $test = $lib.import(importnest)
-            $haha = $test.outer(False, $(33))
+            $haha = $test.outer($lib.false, $(33))
             $lib.print($haha)
-            $hehe = $test.outer(True, $(17))
+            $hehe = $test.outer($lib.true, $(17))
             $lib.print($hehe)
-            $retn = $lib.import(importnest).outer(True, $(90))
+            $retn = $lib.import(importnest).outer($lib.true, $(90))
             $lib.print($retn)
-            $lib.print("counter is {c}", c$counter)
+            $lib.print("counter is {c}", c=$counter)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
