@@ -53,7 +53,7 @@ class ModelRev:
 
         for revvers, revmeth in self.revs:
 
-            todo = [lyr for lyr in layers if await l.getModelVers() < revvers]
+            todo = [lyr for lyr in layers if await lyr.getModelVers() < revvers]
             if not todo:
                 continue
 
