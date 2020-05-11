@@ -714,6 +714,9 @@ class Agenda(s_base.Base):
                 if not appt.enabled or not self.enabled:
                     continue
 
+                # TODO - This should be removed because the Agenda
+                # object should never even be started on a non-master
+                # Cortex object.
                 if self.core.mirror:
                     continue
 
@@ -761,8 +764,11 @@ class Agenda(s_base.Base):
             starttime = time.time()
             try:
                 opts = {'user': user.iden}
-                async for _ in self.core.eval(appt.query, opts=opts):
-                    count += 1
+                # TODO - Find a better pattern which doesn't require us to
+                # do message formulation?
+                async for mesg in self.core.storm(appt.query, opts=opts):
+                    if mesg[0] == 'node':
+                        count += 1
             except asyncio.CancelledError:
                 result = 'cancelled'
                 raise
