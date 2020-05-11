@@ -778,7 +778,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('inet:ipv4=1.2.3.4 | delnode')
             self.none(await layr00._getFormByBuid(buid0))
 
-            nodes = await core.nodes('[ inet:ipv4=5.6.7.8 ]')
+            await core.nodes('[ inet:ipv4=5.6.7.8 ]')
 
             # fork a view
             info = await core.view.fork()

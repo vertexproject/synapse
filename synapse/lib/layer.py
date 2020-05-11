@@ -1766,6 +1766,9 @@ class Layer(s_nexus.Pusher):
         '''
         Evaluates whether any tables hold a reference to a buid and adds/removes a buid:form entry.
         '''
+        if not edittypes:
+            return
+
         hasref = True
         deltypes = {EDIT_NODE_DEL, EDIT_PROP_DEL, EDIT_TAG_DEL, EDIT_TAGPROP_DEL, EDIT_NODEDATA_DEL, EDIT_EDGE_DEL}
 
