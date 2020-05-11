@@ -1009,6 +1009,8 @@ class Layer(s_nexus.Pusher):
 
         self.bybuid = self.layrslab.initdb('bybuid')
 
+        self.formbybuid = self.layrslab.initdb('formbybuid')
+
         self.byverb = self.layrslab.initdb('byverb', dupsort=True)
         self.edgesn1 = self.layrslab.initdb('edgesn1', dupsort=True)
         self.edgesn2 = self.layrslab.initdb('edgesn2', dupsort=True)
@@ -1076,23 +1078,16 @@ class Layer(s_nexus.Pusher):
 
         return s_msgpack.un(byts)
 
-    async def _getFormInByProp(self, buid):
+    async def _getFormByBuid(self, buid):
         '''
-        Retrieve form name for a buid using prop index.
+        Retrieve form name for a buid
         '''
-        for lkey, lval in self.layrslab.scanByFull(db=self.byprop):
-            if lval == buid:
-                form, _ = self.getAbrvProp(lkey[:8])
-                return form
+        byts = self.layrslab.get(buid, db=self.formbybuid)
 
-    async def _getFormInByTag(self, buid):
-        '''
-        Retrieve form name for a buid using tag index.
-        '''
-        for lkey, lval in self.layrslab.scanByFull(db=self.bytag):
-            if lval == buid:
-                form, _ = self.getAbrvProp(lkey[8:])
-                return form
+        if byts is None:
+            return None
+
+        return byts.decode()
 
     async def getNodeValu(self, buid, prop=None):
         '''
@@ -1349,6 +1344,9 @@ class Layer(s_nexus.Pusher):
                             postedits.extend(subpostnodeedit[2])
                         else:
                             retn.append(subpostnodeedit)
+
+        postetypes = {e[0] for e in postedits}
+        await self._updateFormByBuid(buid, form, postetypes)
 
         return retn
 
@@ -1764,6 +1762,36 @@ class Layer(s_nexus.Pusher):
             (EDIT_EDGE_DEL, (verb, n2iden), ()),
         )
 
+    async def _updateFormByBuid(self, buid, form, edittypes):
+        '''
+        Evaluates whether any tables hold a reference to a buid and adds/removes a buid:form entry.
+        '''
+        hasref = True
+        deltypes = {EDIT_NODE_DEL, EDIT_PROP_DEL, EDIT_TAG_DEL, EDIT_TAGPROP_DEL, EDIT_NODEDATA_DEL, EDIT_EDGE_DEL}
+
+        if deltypes & edittypes:
+            hasref = False
+
+            for _ in self.layrslab.scanByPref(buid, db=self.bybuid):
+                hasref = True
+                break
+
+            if not hasref:
+                for _ in self.dataslab.scanByPref(buid, db=self.nodedata):
+                    hasref = True
+                    break
+
+            if not hasref:
+                for _ in self.layrslab.scanByPref(buid, db=self.edgesn1):
+                    hasref = True
+                    break
+
+        if not hasref:
+            self.layrslab.delete(buid, db=self.formbybuid)
+        elif form is not None:
+            fenc = form.encode()
+            self.layrslab.put(buid, fenc, db=self.formbybuid, overwrite=False)
+
     async def getEdgeVerbs(self):
 
         for lkey in self.layrslab.scanKeys(db=self.byverb):
@@ -1953,6 +1981,7 @@ class Layer(s_nexus.Pusher):
             flag = lkey[32]
 
             if not buid == nodeedits[0]:
+                await asyncio.sleep(0)
                 if nodeedits[0] is not None:
                     async for prop, valu in self.iterNodeData(nodeedits[0]):
                         edit = (EDIT_NODEDATA_SET, (prop, valu, None), ())
@@ -1975,7 +2004,7 @@ class Layer(s_nexus.Pusher):
 
             if flag == 1:
                 if not nodeedits[0] == buid:
-                    form = await self._getFormInByProp(buid)
+                    form = await self._getFormByBuid(buid)
                     nodeedits = (buid, form, [])
 
                 name = lkey[33:].decode()
@@ -1987,7 +2016,7 @@ class Layer(s_nexus.Pusher):
 
             if flag == 2:
                 if not nodeedits[0] == buid:
-                    form = await self._getFormInByTag(buid)
+                    form = await self._getFormByBuid(buid)
                     nodeedits = (buid, form, [])
 
                 name = lkey[33:].decode()
@@ -2024,10 +2053,12 @@ class Layer(s_nexus.Pusher):
             yield nodeedits
 
         async for buid, prop, valu in self._iterIsoNodeData():
-            yield (buid, None, [(EDIT_NODEDATA_SET, (prop, valu, None), ())])
+            form = await self._getFormByBuid(buid)
+            yield (buid, form, [(EDIT_NODEDATA_SET, (prop, valu, None), ())])
 
         async for n1buid, verb, n2iden in self._iterIsoNodeEdgesN1():
-            yield (n1buid, None, [(EDIT_EDGE_ADD, (verb, n2iden), ())])
+            form = await self._getFormByBuid(n1buid)
+            yield (n1buid, form, [(EDIT_EDGE_ADD, (verb, n2iden), ())])
 
     async def initUpstreamSync(self, url):
         self.schedCoro(self._initUpstreamSync(url))

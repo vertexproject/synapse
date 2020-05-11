@@ -747,6 +747,76 @@ class LayerTest(s_t_utils.SynTest):
                     for nodeedit in layr.nodeeditlog.sliceBack(lastoffs, 2):
                         self.eq(meta, nodeedit[1][1])
 
+    async def test_layer_form_by_buid(self):
+
+        async with self.getTestCore() as core:
+
+            layr00 = core.view.layers[0]
+
+            # add node - buid:form exists
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            buid0 = nodes[0].buid
+            self.eq('inet:ipv4', await layr00._getFormByBuid(buid0))
+
+            # add edge and nodedata
+            nodes = await core.nodes('[ inet:ipv4=2.3.4.5 ]')
+            buid1 = nodes[0].buid
+            self.eq('inet:ipv4', await layr00._getFormByBuid(buid1))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ +(refs)> {inet:ipv4=2.3.4.5} ] $node.data.set(spam, ham)')
+            self.eq('inet:ipv4', await layr00._getFormByBuid(buid0))
+
+            # remove edge, map still exists
+            await core.nodes('inet:ipv4=1.2.3.4 [ -(refs)> {inet:ipv4=2.3.4.5} ]')
+            self.eq('inet:ipv4', await layr00._getFormByBuid(buid0))
+
+            # remove nodedata, map still exists
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(spam)')
+            self.eq('inet:ipv4', await layr00._getFormByBuid(buid0))
+
+            # delete node - buid:form removed
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode')
+            self.none(await layr00._getFormByBuid(buid0))
+
+            nodes = await core.nodes('[ inet:ipv4=5.6.7.8 ]')
+
+            # fork a view
+            info = await core.view.fork()
+            layr01 = core.getLayer(info['layers'][0]['iden'])
+            view01 = core.getView(info['iden'])
+
+            await alist(view01.eval('[ inet:ipv4=6.7.8.9 ]'))
+
+            # buid:form for a node in child doesn't exist
+            self.none(await layr01._getFormByBuid(buid1))
+
+            # add prop, buid:form map exists
+            nodes = await alist(view01.eval('inet:ipv4=2.3.4.5 [ :loc=ru ]'))
+            self.len(1, nodes)
+            self.eq('inet:ipv4', await layr01._getFormByBuid(buid1))
+
+            # add nodedata and edge
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ +(refs)> {inet:ipv4=6.7.8.9} ] $node.data.set(faz, baz)'))
+
+            # remove prop, map still exists due to nodedata
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -:loc ]'))
+            self.eq('inet:ipv4', await layr01._getFormByBuid(buid1))
+
+            # remove nodedata, map still exists due to edge
+            await alist(view01.eval('inet:ipv4=2.3.4.5 $node.data.pop(faz)'))
+            self.eq('inet:ipv4', await layr01._getFormByBuid(buid1))
+
+            # remove edge, map is deleted
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -(refs)> {inet:ipv4=6.7.8.9} ]'))
+            self.none(await layr01._getFormByBuid(buid1))
+
+            # edges between two nodes in parent
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ +(refs)> {inet:ipv4=5.6.7.8} ]'))
+            self.eq('inet:ipv4', await layr01._getFormByBuid(buid1))
+
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -(refs)> {inet:ipv4=5.6.7.8} ]'))
+            self.none(await layr01._getFormByBuid(buid1))
+
     async def test_layer(self):
 
         async with self.getTestCore() as core:
