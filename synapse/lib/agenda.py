@@ -490,6 +490,14 @@ class Agenda(s_base.Base):
         self._schedtask = self.schedCoro(self._scheduleLoop())
         self.enabled = True
 
+    # async def stop(self):
+    #     "Cancel the scheduler loop, and set self.enabled to False."
+    #     self._schedtask.cancel()
+    #     await asyncio.sleep(0)
+    #     # FIXME this leaks running tasks :(
+    #
+    #     self.enabled = False
+
     async def _load_all(self):
         '''
         Load all the appointments from persistent storage
