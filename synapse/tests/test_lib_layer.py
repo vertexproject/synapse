@@ -531,69 +531,69 @@ class LayerTest(s_t_utils.SynTest):
                 layr.layrslab.put(key[0], val, db=tmpdb)
 
             # = -99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '=', -99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', -99999.9)]
             self.eq(retn, [-99999.9])
 
             # <= -99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', -99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', -99999.9)]
             self.eq(retn, [-math.inf, -99999.9])
 
             # < -99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<', -99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', -99999.9)]
             self.eq(retn, [-math.inf])
 
             # > 99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>', 99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', 99999.9)]
             self.eq(retn, [math.inf])
 
             # >= 99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>=', 99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', 99999.9)]
             self.eq(retn, [99999.9, math.inf])
 
             # <= 0.0
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', 0.0)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', 0.0)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0])
 
             # >= -0.0
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>=', -0.0)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', -0.0)]
             self.eq(retn, [-0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # >= -42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>=', -42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', -42.1)]
             self.eq(retn, [-42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # > -42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>', -42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', -42.1)]
             self.eq(retn, [-0.0000000001, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # < 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<', 42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', 42.1)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0, 0.000001])
 
             # <= 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', 42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', 42.1)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1])
 
             # -42.1 to 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (-42.1, 42.1))]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (-42.1, 42.1))]
             self.eq(retn, [-42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1])
 
             # 1 to 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (1.0, 42.1))]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (1.0, 42.1))]
             self.eq(retn, [42.1])
 
             # -99999.9 to -0.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
             self.eq(retn, [-99999.9, -42.1])
 
             # <= NaN
-            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, '<=', math.nan)
+            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '<=', math.nan))
 
             # >= NaN
-            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, '>=', math.nan)
+            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '>=', math.nan))
 
             # 1.0 to NaN
-            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, 'range=', (1.0, math.nan))
+            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, 'range=', (1.0, math.nan)))
 
     async def test_layer_stortype_merge(self):
 
