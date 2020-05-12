@@ -321,6 +321,7 @@ class View(s_nexus.Pusher):  # type: ignore
     @s_nexus.Pusher.onPushAuto('view:set')
     async def setViewInfo(self, name, valu):
         '''
+
         Set a mutable view property.
         '''
         if name not in ('name',):
@@ -499,7 +500,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 splicecount = 0
                 offs = (0, 0, 0)
                 async for nodedit in fromlayr.iterLayerNodeEdits():
-                    async for splice in fromlayr.makeSplices(offs, [nodedit]):
+                    async for splice in fromlayr.makeSplices(offs, [nodedit], None):
                         check = self.permCheck.get(splice[0])
                         if check is None:
                             raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
