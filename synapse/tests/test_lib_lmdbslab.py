@@ -131,6 +131,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(slab.scanByDups(b'\x00\x04', db=bar))
             self.eq(items, ())
 
+            self.true(slab.prefexists(b'\x00', db=baz))
+            self.true(slab.prefexists(b'\x00\x01', db=baz))
+            self.false(slab.prefexists(b'\x00\x03', db=baz))
+            self.false(slab.prefexists(b'\x02', db=baz))
+            self.true(slab.prefexists(b'\xff\xff', db=baz))
+            self.false(slab.prefexists(b'\xff\xff', db=foo))
+
             # backwards scan tests
 
             items = list(slab.scanByPrefBack(b'\x00', db=foo))

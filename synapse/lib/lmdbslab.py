@@ -976,6 +976,23 @@ class Slab(s_base.Base):
         with self.xact.cursor(db=realdb) as curs:
             return curs.set_key_dup(lkey, lval)
 
+    def prefexists(self, byts, db=None):
+        '''
+        Returns bool for whether a prefix exists in the db.
+        '''
+        with Scan(self, db) as scan:
+
+            if not scan.set_range(byts):
+                return False
+
+            size = len(byts)
+            for lkey, lval in scan.iternext():
+                if lkey[:size] == byts:
+                    return True
+                break
+
+            return False
+
     def stat(self, db=None):
         self._acqXactForReading()
         realdb, dupsort = self.dbnames[db]

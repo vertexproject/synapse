@@ -1813,28 +1813,21 @@ class Layer(s_nexus.Pusher):
         if not edittypes:
             return
 
-        hasref = True
         deltypes = {EDIT_NODE_DEL, EDIT_PROP_DEL, EDIT_TAG_DEL, EDIT_TAGPROP_DEL, EDIT_NODEDATA_DEL, EDIT_EDGE_DEL}
 
-        if deltypes & edittypes:
-            hasref = False
-
-            for _ in self.layrslab.scanByPref(buid, db=self.bybuid):
-                hasref = True
-                break
+        # check refs if edits are only deletes
+        if all(e in deltypes for e in edittypes):
+            hasref = self.layrslab.prefexists(buid, db=self.bybuid)
 
             if not hasref:
-                for _ in self.dataslab.scanByPref(buid, db=self.nodedata):
-                    hasref = True
-                    break
+                hasref = self.dataslab.prefexists(buid, self.nodedata)
 
-            if not hasref:
-                for _ in self.layrslab.scanByPref(buid, db=self.edgesn1):
-                    hasref = True
-                    break
+                if not hasref:
+                    hasref = self.layrslab.prefexists(buid, db=self.edgesn1)
 
-        if not hasref:
-            self.layrslab.delete(buid, db=self.formbybuid)
+                    if not hasref:
+                        self.layrslab.delete(buid, db=self.formbybuid)
+
         elif form is not None:
             fenc = form.encode()
             self.layrslab.put(buid, fenc, db=self.formbybuid, overwrite=False)
@@ -1922,8 +1915,7 @@ class Layer(s_nexus.Pusher):
         for lkey, n2buid in self.layrslab.scanByFull(db=self.edgesn1):
             n1buid = lkey[:32]
 
-            nvalu = await self.getNodeValu(n1buid)
-            if nvalu is not None:
+            if self.layrslab.prefexists(n1buid, db=self.bybuid):
                 continue
 
             verb = lkey[32:].decode()
@@ -2007,8 +1999,7 @@ class Layer(s_nexus.Pusher):
         for lkey, byts in self.dataslab.scanByFull(db=self.nodedata):
             buid = lkey[:32]
 
-            nvalu = await self.getNodeValu(buid)
-            if nvalu is not None:
+            if self.layrslab.prefexists(buid, db=self.bybuid):
                 continue
 
             abrv = lkey[32:]
