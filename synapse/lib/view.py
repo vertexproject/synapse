@@ -492,27 +492,25 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         CHUNKSIZE = 1000
-        fromoff = (0, 0, 0)
         async with await self.parent.snap(user=user) as snap:
             while True:
 
+                meta = {}
                 splicecount = 0
-                async for offs, splice in fromlayr.splices(fromoff, CHUNKSIZE):
-                    check = self.permCheck.get(splice[0])
-                    if check is None:
-                        raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
-                                           splicetype=splice[0])
+                offs = (0, 0, 0)
+                async for nodedit in fromlayr.iterLayerNodeEdits():
+                    async for splice in fromlayr.makeSplices(offs, [nodedit]):
+                        check = self.permCheck.get(splice[0])
+                        if check is None:
+                            raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
+                                               splicetype=splice[0])
 
-                    await check(user, snap, splice[1])
+                        await check(user, snap, splice[1])
 
-                    splicecount += 1
+                        splicecount += 1
 
-                if splicecount < CHUNKSIZE:
-                    break
-
-                fromoff = (offs[0], offs[1], offs[2] + 1)
-
-                await asyncio.sleep(0)
+                    if splicecount % 1000 == 0:
+                        await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu):
 
