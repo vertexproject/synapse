@@ -883,10 +883,18 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._initPureStormCmds()
 
         # Now start agenda and dmons after all coremodules have finished
-        # loading and services have gotten a shot to be registerd.
+        # loading and services have gotten a shot to be registered.
+        amleader = mirror is None
         if self.conf.get('cron:enable'):
-            await self.agenda.start()
-        await self._initStormDmons()
+            if amleader:
+                await self.agenda.start()
+            self.nexsroot.onleading(self.agenda.start)
+            self.nexsroot.onfollowing(self.agenda.stop)
+
+        if amleader:
+            await self._initStormDmons()
+        self.nexsroot.onleading(self._initStormDmons)
+        self.nexsroot.onfollowing(finidmon)
 
         import synapse.lib.spawn as s_spawn  # get around circular dependency
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
@@ -2497,9 +2505,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             user = await self.auth.getUserByName('root')
             ddef['user'] = user.iden
 
-        dmon = await self.runStormDmon(iden, ddef)
+        dmon = None
+        if self.nexsroot.amLeader():
+            dmon = await self.runStormDmon(iden, ddef)
+
         await self.stormdmonhive.set(iden, ddef)
-        return dmon.pack()
+        return None if dmon is None else dmon.pack()
 
     async def delStormDmon(self, iden):
         '''

@@ -26,7 +26,6 @@ import synapse.lib.health as s_health
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 

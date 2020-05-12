@@ -86,6 +86,9 @@ class NexsRoot(s_base.Base):
         self._mirrors: List[ChangeDist] = []
         self.donexslog = donexslog
 
+        self._leader_funcs: List[Callable] = []
+        self._follow_funcs: List[Callable] = []
+
         # These are used when this cell is a mirror.
         self._ldrurl: Optional[str] = None
         self._ldr: Optional[s_telepath.Proxy] = None  # only set by looptask
@@ -256,6 +259,9 @@ class NexsRoot(s_base.Base):
 
             yield dist
 
+    def amLeader(self):
+        return self._ldrurl is None
+
     async def setLeader(self, url: Optional[str], iden: str) -> None:
         '''
         Args:
@@ -265,7 +271,9 @@ class NexsRoot(s_base.Base):
         if url is not None and not self.donexslog:
             raise s_exc.BadConfValu(mesg='Mirroring incompatible without nexslog:en')
 
-        if self._ldrurl == url:
+        former = self._ldrurl
+
+        if former == url:
             return
 
         self._ldrurl = url
@@ -279,9 +287,34 @@ class NexsRoot(s_base.Base):
             self._ldr = None
 
         if self._ldrurl is None:
+            if former is not None:
+                await self._leading()
             return
 
+        if former is None:
+            await self._following()
+
         self._looptask = self.schedCoro(self._followerLoop(iden))
+
+    async def _leading(self):
+        for func in self._leader_funcs:
+            await s_coro.ornot(func)
+
+    async def _following(self):
+        for func in self._follow_funcs:
+            await s_coro.ornot(func)
+
+    def onleading(self, func):
+        '''
+        Add a callback to be called when this nexus root changes from being follower to leader
+        '''
+        self._leader_funcs.append(func)
+
+    def onfollowing(self, func):
+        '''
+        Add a callback to be called when this nexus root changes from being leader to follower
+        '''
+        self._follow_funcs.append(func)
 
     async def _followerLoop(self, iden) -> None:
 

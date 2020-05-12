@@ -468,6 +468,8 @@ class Agenda(s_base.Base):
 
         self.enabled = False
         self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
+
+        self._running_tasks = []  # The actively running cron job tasks
         await self._load_all()
 
     async def start(self):
@@ -490,13 +492,14 @@ class Agenda(s_base.Base):
         self._schedtask = self.schedCoro(self._scheduleLoop())
         self.enabled = True
 
-    # async def stop(self):
-    #     "Cancel the scheduler loop, and set self.enabled to False."
-    #     self._schedtask.cancel()
-    #     await asyncio.sleep(0)
-    #     # FIXME this leaks running tasks :(
-    #
-    #     self.enabled = False
+    async def stop(self):
+        "Cancel the scheduler loop, and set self.enabled to False."
+        self._schedtask.cancel()
+        await asyncio.sleep(0)
+        for task in self._running_tasks:
+            task.cancel()
+
+        self.enabled = False
 
     async def _load_all(self):
         '''
@@ -722,12 +725,6 @@ class Agenda(s_base.Base):
                 if not appt.enabled or not self.enabled:
                     continue
 
-                # TODO - This should be removed because the Agenda
-                # object should never even be started on a non-master
-                # Cortex object.
-                if self.core.mirror:
-                    continue
-
                 if appt.isrunning:
                     logger.warning(
                         'Appointment %s is still running from previous time when scheduled to run.  Skipping.',
@@ -744,10 +741,10 @@ class Agenda(s_base.Base):
             logger.warning('Unknown user %s in stored appointment', appt.creator)
             await self._markfailed(appt)
             return
-        await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user,
-                                     info={'iden': appt.iden,
-                                           'query': appt.query,
-                                           })
+        info = {'iden': appt.iden, 'query': appt.query}
+        task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
+        self._running_tasks.append(task)
+        task.add_done_callback(self._running_tasks.remove)
 
     async def _markfailed(self, appt):
         appt.lastfinishtime = appt.laststarttime = time.time()
@@ -772,11 +769,8 @@ class Agenda(s_base.Base):
             starttime = time.time()
             try:
                 opts = {'user': user.iden}
-                # TODO - Find a better pattern which doesn't require us to
-                # do message formulation?
-                async for mesg in self.core.storm(appt.query, opts=opts):
-                    if mesg[0] == 'node':
-                        count += 1
+                async for _ in self.core.eval(appt.query, opts=opts):
+                    count += 1
             except asyncio.CancelledError:
                 result = 'cancelled'
                 raise
