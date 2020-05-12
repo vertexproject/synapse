@@ -5,6 +5,7 @@ import asyncio
 import logging
 import calendar
 import datetime
+import functools
 import itertools
 from datetime import timezone as tz
 from collections.abc import Iterable, Mapping
@@ -744,7 +745,8 @@ class Agenda(s_base.Base):
         info = {'iden': appt.iden, 'query': appt.query}
         task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
         self._running_tasks.append(task)
-        task.add_done_callback(self._running_tasks.remove)
+
+        task.onfini(functools.partial(self._running_tasks.remove, task))
 
     async def _markfailed(self, appt):
         appt.lastfinishtime = appt.laststarttime = time.time()
