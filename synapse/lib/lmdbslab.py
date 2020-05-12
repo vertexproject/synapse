@@ -980,16 +980,15 @@ class Slab(s_base.Base):
         '''
         Returns bool for whether a prefix exists in the db.
         '''
-        with Scan(self, db) as scan:
-
-            if not scan.set_range(byts):
+        realdb, _ = self.dbnames[db]
+        with self.xact.cursor(db=realdb) as curs:
+            if not curs.set_range(byts):
                 return False
 
-            size = len(byts)
-            for lkey, lval in scan.iternext():
-                if lkey[:size] == byts:
-                    return True
-                break
+            lkey = curs.key()
+
+            if lkey[:len(byts)] == byts:
+                return True
 
             return False
 
