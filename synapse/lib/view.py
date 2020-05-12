@@ -98,7 +98,7 @@ class View(s_nexus.Pusher):  # type: ignore
         d = {'iden': self.iden}
         d.update(self.info.pack())
 
-        layrinfo = [l.pack() for l in self.layers]
+        layrinfo = [lyr.pack() for lyr in self.layers]
         d['layers'] = layrinfo
 
         triginfo = [t.pack() for _, t in self.triggers.list()]
@@ -358,7 +358,7 @@ class View(s_nexus.Pusher):  # type: ignore
         else:
             self.layers.insert(indx, layr)
 
-        await self.info.set('layers', [l.iden for l in self.layers])
+        await self.info.set('layers', [lyr.iden for lyr in self.layers])
 
     @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
@@ -411,7 +411,7 @@ class View(s_nexus.Pusher):  # type: ignore
         layriden = ldef.get('iden')
 
         vdef['parent'] = self.iden
-        vdef['layers'] = [layriden] + [l.iden for l in self.layers]
+        vdef['layers'] = [layriden] + [lyr.iden for lyr in self.layers]
 
         return await self.core.addView(vdef)
 
