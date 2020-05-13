@@ -47,7 +47,7 @@ def main(argv, outp=s_output.stdout):
                 tank.puts(items)
                 return 0
 
-            items = [json.loads(l) for l in sys.stdin]
+            items = [json.loads(line) for line in sys.stdin]
             tank.puts(items)
             return 0
 
