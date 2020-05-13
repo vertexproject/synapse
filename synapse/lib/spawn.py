@@ -468,8 +468,8 @@ class SpawnCore(s_base.Base):
     async def _delStormSvcPkgs(self, iden):
         '''
         For now don't actually run this in the spawn case. This only needs to be
-        done in the master Cortex, not in spawns. Deleting a package from a spawn
-        should not be making persistent changes.
+        done in the master Cortex, not in spawns. Deleting a storm service package
+        from a spawn should not be making persistent changes.
         '''
         pass
 
