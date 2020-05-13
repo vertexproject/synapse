@@ -492,23 +492,19 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
             return
 
-        CHUNKSIZE = 1000
         async with await self.parent.snap(user=user) as snap:
-            while True:
+            splicecount = 0
+            offs = (0, 0, 0)
+            async for nodedit in fromlayr.iterLayerNodeEdits():
+                async for offs, splice in fromlayr.makeSplices(offs, [nodedit], None):
+                    check = self.permCheck.get(splice[0])
+                    if check is None:
+                        raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
+                                           splicetype=splice[0])
 
-                meta = {}
-                splicecount = 0
-                offs = (0, 0, 0)
-                async for nodedit in fromlayr.iterLayerNodeEdits():
-                    async for splice in fromlayr.makeSplices(offs, [nodedit], None):
-                        check = self.permCheck.get(splice[0])
-                        if check is None:
-                            raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
-                                               splicetype=splice[0])
+                    await check(user, snap, splice[1])
 
-                        await check(user, snap, splice[1])
-
-                        splicecount += 1
+                    splicecount += 1
 
                     if splicecount % 1000 == 0:
                         await asyncio.sleep(0)
