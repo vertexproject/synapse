@@ -1401,7 +1401,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         sdef = self.stormservices.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
-            raise s_exc.NoSuchStormSvc(mesg=mesg)
+            raise s_exc.NoSuchStormSvc(mesg=mesg, iden=iden)
 
         return await self._push('svc:del', iden)
 
