@@ -2324,6 +2324,7 @@ class StormTypesTest(s_test.SynTest):
 
                 # Make sure it ran
                 await asyncio.sleep(0)
+                await asyncio.sleep(0)
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
 
                 # Make sure the provenance of the new splices looks right
