@@ -466,11 +466,18 @@ class SpawnCore(s_base.Base):
         return ssvc.sdef
 
     async def _delStormSvcPkgs(self, iden):
+        '''
+        For now don't actually run this in the spawn case. This only needs to be
+        done in the master Cortex, not in spawns. Deleting a service from a spawn
+        should not be making persistent changes.
+        '''
         pass
 
     async def _runStormSvcAdd(self, iden):
         '''
-        For now don't actually run this in the spawn case
+        For now don't actually run this in the spawn case. This only needs to be
+        done in the master Cortex, not in spawns. Loading a service here should not
+        be making persistent changes.
         '''
         pass
 
