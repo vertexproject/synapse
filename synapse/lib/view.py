@@ -493,8 +493,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async with await self.parent.snap(user=user) as snap:
             splicecount = 0
-            async for nodedit in fromlayr.iterLayerNodeEdits():
-                async for offs, splice in fromlayr.makeSplices(0, [nodedit], None):
+            async for nodeedit in fromlayr.iterLayerNodeEdits():
+                async for offs, splice in fromlayr.makeSplices(0, [nodeedit], None):
                     check = self.permCheck.get(splice[0])
                     if check is None:
                         raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
