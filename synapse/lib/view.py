@@ -321,7 +321,6 @@ class View(s_nexus.Pusher):  # type: ignore
     @s_nexus.Pusher.onPushAuto('view:set')
     async def setViewInfo(self, name, valu):
         '''
-
         Set a mutable view property.
         '''
         if name not in ('name',):
