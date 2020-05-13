@@ -1006,6 +1006,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'libs': tuple(self.libroot),
                 'mods': await self.getStormMods(),
                 'pkgs': await self.getStormPkgs(),
+                'svcs': [svc.sdef for svc in self.getStormSvcs()],
             },
             'model': await self.getModelDefs(),
             'spawncorector': self.spawncorector,
@@ -1383,7 +1384,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         return await self._push('svc:add', sdef)
 
     @s_nexus.Pusher.onPush('svc:add')
-    async def _onAddStormSvc(self, sdef):
+    async def _addStormSvc(self, sdef):
 
         iden = sdef.get('iden')
         ssvc = self.svcsbyiden.get(iden)
@@ -1400,7 +1401,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         sdef = self.stormservices.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
-            raise s_exc.NoSuchStormSvc(mesg=mesg)
+            raise s_exc.NoSuchStormSvc(mesg=mesg, iden=iden)
 
         return await self._push('svc:del', iden)
 
