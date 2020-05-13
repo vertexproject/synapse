@@ -12,7 +12,6 @@ import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.scope as s_scope
-import synapse.lib.types as s_types
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
@@ -1285,7 +1284,7 @@ class Parser:
             self.help(mesg)
             return
 
-        for names, argdef in self.allargs:
+        for _, argdef in self.allargs:
             if 'default' in argdef:
                 opts.setdefault(argdef['dest'], argdef['default'])
 
@@ -1375,7 +1374,7 @@ class Parser:
             opts[dest] = vals
             return True
 
-        for i in range(nargs):
+        for _ in range(nargs):
 
             if not todo or self._is_opt(todo[0]):
                 mesg = f'{nargs} arguments are required for {name}.'
@@ -2359,7 +2358,7 @@ class ScrapeCmd(Cmd):
 
             refs = await s_stormtypes.toprim(self.opts.refs)
 
-            #TODO some kind of repr or as-string option on toprims
+            # TODO some kind of repr or as-string option on toprims
             todo = await s_stormtypes.toprim(self.opts.values)
 
             # if a list of props haven't been specified, then default to ALL of them
