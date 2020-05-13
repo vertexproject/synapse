@@ -1005,7 +1005,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             },
             'loglevel': logger.getEffectiveLevel(),
             'views': [v.getSpawnInfo() for v in self.views.values()],
-            'layers': [l.getSpawnInfo() for l in self.layers.values()],
+            'layers': [lyr.getSpawnInfo() for lyr in self.layers.values()],
             'storm': {
                 'cmds': {
                     'cdefs': list(self.storm_cmd_cdefs.items()),
@@ -2352,7 +2352,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return layr.pack()
 
     async def getLayerDefs(self):
-        return [l.pack() for l in self.layers.values()]
+        return [lyr.pack() for lyr in self.layers.values()]
 
     def getView(self, iden=None, user=None):
         '''
