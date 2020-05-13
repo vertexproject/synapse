@@ -495,10 +495,13 @@ class Agenda(s_base.Base):
 
     async def stop(self):
         "Cancel the scheduler loop, and set self.enabled to False."
+        if not self.enabled:
+            return
         self._schedtask.cancel()
         await asyncio.sleep(0)
         for task in self._running_tasks:
             task.cancel()
+            await asyncio.sleep(0)
 
         self.enabled = False
 
