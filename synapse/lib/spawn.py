@@ -326,13 +326,24 @@ class SpawnCore(s_base.Base):
 
         self.trigson = self.conf.get('trigger:enable')
 
+        self.svcsbyiden = {}
+        self.svcsbyname = {}
+
         self.stormcmds = {}
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
         self.stormmods = spawninfo['storm']['mods']
         self.pkginfo = spawninfo['storm']['pkgs']
+        self.svcinfo = spawninfo['storm']['svcs']
+
+        self.model = s_datamodel.Model()
+        self.model.addDataModels(spawninfo.get('model'))
 
         self.stormpkgs = {}     # name: pkgdef
+        await self._initStormCmds()
+
+        for sdef in self.svcinfo:
+            await self._addStormSvc(sdef)
 
         for pkgdef in self.pkginfo:
             await self._tryLoadStormPkg(pkgdef)
@@ -341,16 +352,12 @@ class SpawnCore(s_base.Base):
             self.stormcmds[name] = ctor
 
         for name, cdef in spawninfo['storm']['cmds']['cdefs']:
-            ctor = functools.partial(s_storm.PureCmd, cdef)
-            self.stormcmds[name] = ctor
+            self.storm_cmd_cdefs[name] = cdef
 
         self.libroot = spawninfo.get('storm').get('libs')
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss.fini)
-
-        self.model = s_datamodel.Model()
-        self.model.addDataModels(spawninfo.get('model'))
 
         self.prox = await s_telepath.openurl(f'cell://{self.dirn}')
         self.onfini(self.prox.fini)
@@ -447,21 +454,65 @@ class SpawnCore(s_base.Base):
     async def getStormPkgs(self):
         return list(self.stormpkgs.values())
 
+    async def _addStormSvc(self, sdef):
+
+        iden = sdef.get('iden')
+        ssvc = self.svcsbyiden.get(iden)
+        if ssvc is not None:
+            return ssvc.sdef
+
+        ssvc = await self._setStormSvc(sdef)
+
+        return ssvc.sdef
+
+    async def _delStormSvcPkgs(self, iden):
+        '''
+        For now don't actually run this in the spawn case. This only needs to be
+        done in the master Cortex, not in spawns. Deleting a storm service package
+        from a spawn should not be making persistent changes.
+        '''
+        pass
+
+    async def _runStormSvcAdd(self, iden):
+        '''
+        For now don't actually run this in the spawn case. This only needs to be
+        done in the master Cortex, not in spawns. Loading a service here should not
+        be making persistent changes.
+        '''
+        pass
+
+    async def setStormSvcEvents(self, iden, edef):
+        svc = self.svcsbyiden.get(iden)
+        if svc is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        sdef = svc.sdef
+
+        sdef['evts'] = edef
+        return sdef
+
     # A little selective inheritance
     # TODO:  restructure cortex to avoid this hackery
+    _setStormSvc = s_cortex.Cortex._setStormSvc
     _confirmStormPkg = s_cortex.Cortex._confirmStormPkg
     _dropStormPkg = s_cortex.Cortex._dropStormPkg
     _reqStormCmd = s_cortex.Cortex._reqStormCmd
     _setStormCmd = s_cortex.Cortex._setStormCmd
     _tryLoadStormPkg = s_cortex.Cortex._tryLoadStormPkg
+    _trySetStormCmd = s_cortex.Cortex._trySetStormCmd
+    addStormCmd = s_cortex.Cortex.addStormCmd
     getDataModel = s_cortex.Cortex.getDataModel
     getStormCmd = s_cortex.Cortex.getStormCmd
+    getStormCmds = s_cortex.Cortex.getStormCmds
     getStormLib = s_cortex.Cortex.getStormLib
     getStormMods = s_cortex.Cortex.getStormMods
     getStormPkg = s_cortex.Cortex.getStormPkg
     getStormQuery = s_cortex.Cortex.getStormQuery
+    getStormSvc = s_cortex.Cortex.getStormSvc
     loadStormPkg = s_cortex.Cortex.loadStormPkg
 
+    _initStormCmds = s_cortex.Cortex._initStormCmds
     _initStormOpts = s_cortex.Cortex._initStormOpts
 
     _viewFromOpts = s_cortex.Cortex._viewFromOpts
