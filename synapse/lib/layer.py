@@ -1650,12 +1650,13 @@ class Layer(s_nexus.Pusher):
 
         tenc = tag.encode()
 
-        tagabrv = self.tagabrv.bytsToAbrv(tenc)
         formabrv = self.setPropAbrv(form, None)
 
         oldb = self.layrslab.pop(buid + b'\x02' + tenc, db=self.bybuid)
         if oldb is None:
             return ()
+
+        tagabrv = self.tagabrv.bytsToAbrv(tenc)
 
         self.layrslab.delete(tagabrv + formabrv, buid, db=self.bytag)
 
@@ -2065,7 +2066,8 @@ class Layer(s_nexus.Pusher):
 
             if flag == 3:
                 if not nodeedits[0] == buid:
-                    continue
+                    form = await self._getFormByBuid(buid)
+                    nodeedits = (buid, form, [])
 
                 tag, prop = lkey[33:].decode().split(':')
                 valu, stortype = s_msgpack.un(lval)
