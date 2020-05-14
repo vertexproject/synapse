@@ -15,6 +15,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
+import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -176,8 +177,7 @@ class Query(AstNode):
         if genr is None:
             genr = runt.getInput()
 
-        for oper in self.kids:
-            genr = oper.run(runt, genr)
+        genr = self.run(runt, genr)
 
         if subgraph is not None:
             genr = subgraph.run(runt, genr)
@@ -194,6 +194,38 @@ class Query(AstNode):
             if limit is not None and count >= limit:
                 await runt.printf('limit reached: %d' % (limit,))
                 break
+
+class Lookup(Query):
+    '''
+    When storm input mode is "lookup"
+    '''
+    def __init__(self, kids, autoadd=False):
+        Query.__init__(self, kids=kids)
+        self.autoadd = autoadd
+
+    async def run(self, runt, genr):
+
+        async def lookgenr():
+
+            async for item in genr:
+                yield item
+
+            for kid in self.kids[0]:
+                tokn = await kid.runtval(runt)
+                for form, _, _ in s_scrape.scrape_types:
+                    regx = s_scrape.regexes.get(form)
+                    if regx.match(tokn):
+                        norm, info = runt.model.form(form).type.norm(tokn)
+                        node = await runt.snap.getNodeByNdef((form, norm))
+                        if node is not None:
+                            yield node, runt.initPath(node)
+
+        realgenr = lookgenr()
+        if len(self.kids) > 1:
+            realgenr = self.kids[1].run(runt, realgenr)
+
+        async for node, path in realgenr:
+            yield node, path
 
 class SubGraph:
     '''

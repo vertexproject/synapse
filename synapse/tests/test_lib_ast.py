@@ -131,6 +131,26 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), 1546300800000)
 
+    async def test_ast_lookup(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                inet:ipv4=1.2.3.4
+                inet:fqdn=foo.bar.com
+                inet:email=visi@vertex.link
+                inet:url="https://[ff::00]:4443/hehe?foo=bar&baz=faz"
+            ]''')
+            ndefs = [n.ndef for n in nodes]
+            self.len(4, ndefs)
+
+            opts = {'mode': 'lookup'}
+            nodes = await core.nodes('1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz', opts=opts)
+            self.eq(ndefs, [n.ndef for n in nodes])
+
+            nodes = await core.nodes('1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz | [ +#hehe ]', opts=opts)
+            self.eq(ndefs, [n.ndef for n in nodes])
+            self.true(all(n.tags.get('hehe') is not None for n in nodes))
+
     async def test_ast_subq_vars(self):
 
         async with self.getTestCore() as core:
