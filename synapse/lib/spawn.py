@@ -517,3 +517,4 @@ class SpawnCore(s_base.Base):
 
     _viewFromOpts = s_cortex.Cortex._viewFromOpts
     _userFromOpts = s_cortex.Cortex._userFromOpts
+    getView = s_cortex.Cortex.getView
