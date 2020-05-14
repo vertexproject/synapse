@@ -881,20 +881,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._initStormSvcs()
         await self._initPureStormCmds()
 
-        # Now start agenda and dmons after all coremodules have finished
-        # loading and services have gotten a shot to be registered.
-        amleader = mirror is None
-        if self.conf.get('cron:enable'):
-            if amleader:
-                await self.agenda.start()
-            self.nexsroot.onleading(self.agenda.start)
-            self.nexsroot.onfollowing(self.agenda.stop)
-
-        if amleader:
-            await self._initStormDmons()
-        self.nexsroot.onleading(self._initStormDmons)
-        self.nexsroot.onfollowing(finidmon)
-
         import synapse.lib.spawn as s_spawn  # get around circular dependency
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
@@ -913,6 +899,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if self.mirror is not None:
             await self.initCoreMirror(self.mirror_url)
+
         await self.iamLeaderHook()
 
     async def iamLeaderHook(self):
