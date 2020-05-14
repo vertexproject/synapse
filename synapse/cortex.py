@@ -915,6 +915,29 @@ class Cortex(s_cell.Cell):  # type: ignore
         if mirror is not None:
             await self.initCoreMirror(mirror)
 
+    async def iamLeaderHook(self):
+
+        await self.doLeaderStuff()
+
+    async def iamNotLeaderHook(self):
+        await self.noLongerLeaderStuff()
+
+    async def doLeaderStuff(self):
+        # Do stuff when you know that you are the leader cortex
+        # based on whatever configuration data is relevant.
+        # Things we want to do
+        # 1. Start the agenda if cron is enabled
+        # 2. Start the storm dmons
+        pass
+
+    async def noLongerLeaderStuff(self):
+        # Do stuff when you know that you are no longer
+        # the leader cortex based on whatever configuration data is relevant.
+        # Things we want to do
+        # 1. Stop the agenda if cron is enabled
+        # 2. Stop any storm dmons we have!
+        pass
+
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
 
