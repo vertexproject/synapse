@@ -789,9 +789,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.feedfuncs = {}
         self.stormcmds = {}
 
-        self.mirror = False
         self.spawnpool = None
-        self.mirror_url = None
+        self.mirror = self.conf.get('mirror')
 
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
@@ -849,11 +848,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Initialize our storage and views
         await self._initCoreAxon()
 
-        mirror = self.conf.get('mirror')
-        if mirror is not None:
-            self.mirror = True
-            self.mirror_url = mirror
-
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
@@ -898,15 +892,21 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.postNexsAnit()
 
         if self.mirror is not None:
-            await self.initCoreMirror(self.mirror_url)
+            await self.initCoreMirror(self.mirror)
 
         await self.iamLeaderHook()
 
-    async def iamLeaderHook(self):
+    # I really kind of want this to be a sync method; it really
+    # should be an atomic right-now thing to know if you're the
+    # leader or not.
+    def amITheLeaderNow(self):
         if self.mirror:
-            # Mirror cortexes do not do leader stuff.
-            return
-        await self.doLeaderStuff()
+            return False
+        return True
+
+    async def iamLeaderHook(self):
+        if self.amITheLeaderNow():
+            await self.doLeaderStuff()
 
     async def iamNotLeaderHook(self):
         await self.noLongerLeaderStuff()
@@ -1843,6 +1843,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             This cortex *must* be initialized from a backup of the target cortex!
         '''
         await self.nexsroot.setLeader(url, self.iden)
+        # a mirror cannot be the master...so, if we're a master,
+        # and someone calls this API, what do?
+        # it feels odd.
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
