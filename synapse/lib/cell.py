@@ -575,6 +575,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         nexsroot.onfini(self)
         return nexsroot
 
+    async def iamLeaderHook(self):
+        if self.amITheLeaderNow():
+            return await self.doLeaderStuff()
+        return self.doNonLeaderStuff()
+
+    async def doLeaderStuff(self):
+        pass
+
+    async def doNonLeaderStuff(self):
+        pass
+
     async def getNexusChanges(self, offs):
         async for item in self.nexsroot.iter(offs):
             yield item

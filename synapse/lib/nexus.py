@@ -86,8 +86,7 @@ class NexsRoot(s_base.Base):
         self._mirrors: List[ChangeDist] = []
         self.donexslog = donexslog
 
-        self._leader_funcs: List[Callable] = []
-        self._follow_funcs: List[Callable] = []
+        self._state_funcs: List[Callable] = [] # External Callbacks for state changes
 
         # These are used when this cell is a mirror.
         self._ldrurl: Optional[str] = None
@@ -286,35 +285,16 @@ class NexsRoot(s_base.Base):
                 await self._ldr.fini()
             self._ldr = None
 
-        if self._ldrurl is None:
-            if former is not None:
-                await self._leading()
-            return
-
-        if former is None:
-            await self._following()
+        await self._dostatechange()
 
         self._looptask = self.schedCoro(self._followerLoop(iden))
 
-    async def _leading(self):
-        for func in self._leader_funcs:
+    def onStateChange(self, func):
+        self._state_funcs.append(func)
+
+    async def _dostatechange(self):
+        for func in self._state_funcs:
             await s_coro.ornot(func)
-
-    async def _following(self):
-        for func in self._follow_funcs:
-            await s_coro.ornot(func)
-
-    def onleading(self, func):
-        '''
-        Add a callback to be called when this nexus root changes from being follower to leader
-        '''
-        self._leader_funcs.append(func)
-
-    def onfollowing(self, func):
-        '''
-        Add a callback to be called when this nexus root changes from being leader to follower
-        '''
-        self._follow_funcs.append(func)
 
     async def _followerLoop(self, iden) -> None:
 

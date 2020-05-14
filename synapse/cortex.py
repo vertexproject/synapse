@@ -892,31 +892,16 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.postNexsAnit()
 
         if self.mirror is not None:
-            await self.initCoreMirror(self.mirror)
+            await self._initCoreMirror(self.mirror)
 
         await self.iamLeaderHook()
-
-    # I really kind of want this to be a sync method; it really
-    # should be an atomic right-now thing to know if you're the
-    # leader or not.
-    def amITheLeaderNow(self):
-        if self.mirror:
-            return False
-        return True
-
-    async def iamLeaderHook(self):
-        if self.amITheLeaderNow():
-            await self.doLeaderStuff()
-
-    async def iamNotLeaderHook(self):
-        await self.noLongerLeaderStuff()
 
     async def doLeaderStuff(self):
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self._initStormDmons()
 
-    async def noLongerLeaderStuff(self):
+    async def doNonLeaderStuff(self):
         await self.agenda.stop()
         await self._finiStormDmons()
 
@@ -1835,7 +1820,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if user.iden == mesg[1]['user'] or user.isAdmin():
                 yield mesg
 
-    async def initCoreMirror(self, url):
+    async def _initCoreMirror(self, url):
         '''
         Initialize this cortex as a down-stream/follower mirror from a telepath url.
 
