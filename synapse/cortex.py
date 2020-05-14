@@ -791,6 +791,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.mirror = False
         self.spawnpool = None
+        self.mirror_url = None
 
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
@@ -851,6 +852,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         mirror = self.conf.get('mirror')
         if mirror is not None:
             self.mirror = True
+            self.mirror_url = mirror
 
         await self._initCoreLayers()
         await self._initCoreViews()
@@ -860,10 +862,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.addHealthFunc(self._cortexHealth)
 
-        async def finidmon():
-            await asyncio.gather(*[dmon.fini() for dmon in self.stormdmons.values()])
-
-        self.onfini(finidmon)
+        self.onfini(self._finiStormDmons)
 
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
@@ -912,31 +911,27 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.postNexsAnit()
 
-        if mirror is not None:
-            await self.initCoreMirror(mirror)
+        if self.mirror is not None:
+            await self.initCoreMirror(self.mirror_url)
+        await self.iamLeaderHook()
 
     async def iamLeaderHook(self):
-
+        if self.mirror:
+            # Mirror cortexes do not do leader stuff.
+            return
         await self.doLeaderStuff()
 
     async def iamNotLeaderHook(self):
         await self.noLongerLeaderStuff()
 
     async def doLeaderStuff(self):
-        # Do stuff when you know that you are the leader cortex
-        # based on whatever configuration data is relevant.
-        # Things we want to do
-        # 1. Start the agenda if cron is enabled
-        # 2. Start the storm dmons
-        pass
+        if self.conf.get('cron:enable'):
+            await self.agenda.start()
+        await self._initStormDmons()
 
     async def noLongerLeaderStuff(self):
-        # Do stuff when you know that you are no longer
-        # the leader cortex based on whatever configuration data is relevant.
-        # Things we want to do
-        # 1. Stop the agenda if cron is enabled
-        # 2. Stop any storm dmons we have!
-        pass
+        await self.agenda.stop()
+        await self._finiStormDmons()
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
@@ -1087,6 +1082,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.addRuntPropSet('syn:trigger:doc', onSetTrigDoc)
         self.addRuntPropSet('syn:trigger:name', onSetTrigName)
+
+    async def _finiStormDmons(self):
+        await asyncio.gather(*[dmon.fini() for dmon in self.stormdmons.values()])
 
     async def _initStormDmons(self):
 
