@@ -1908,19 +1908,6 @@ class Layer(s_nexus.Pusher):
             verb = lkey[32:].decode()
             yield verb, s_common.ehex(n1buid)
 
-    async def _iterIsoNodeEdgesN1(self):
-        '''
-        Return a generator of edges where the associated buid is not in this layer.
-        '''
-        for lkey, n2buid in self.layrslab.scanByFull(db=self.edgesn1):
-            n1buid = lkey[:32]
-
-            if self.layrslab.prefexists(n1buid, db=self.bybuid):
-                continue
-
-            verb = lkey[32:].decode()
-            yield n1buid, verb, s_common.ehex(n2buid)
-
     async def iterPropRows(self, form, prop):
 
         penc = prop.encode()
@@ -1992,27 +1979,13 @@ class Layer(s_nexus.Pusher):
             prop = self.getAbrvProp(abrv)
             yield prop[0], valu
 
-    async def _iterIsoNodeData(self):
-        '''
-        Return a generator of node data where the associated buid is not in this layer.
-        '''
-        for lkey, byts in self.dataslab.scanByFull(db=self.nodedata):
-            buid = lkey[:32]
-
-            if self.layrslab.prefexists(buid, db=self.bybuid):
-                continue
-
-            abrv = lkey[32:]
-
-            valu = s_msgpack.un(byts)
-            prop = self.getAbrvProp(abrv)
-            yield buid, prop[0], valu
-
     async def iterLayerNodeEdits(self):
         '''
         Scan the full layer and yield artificial sets of nodeedits.
         '''
         nodeedits = (None, None, None)
+
+        nextbuid = b'\x00'
 
         for lkey, lval in self.layrslab.scanByFull(db=self.bybuid):
             buid = lkey[:32]
@@ -2020,14 +1993,40 @@ class Layer(s_nexus.Pusher):
 
             if not buid == nodeedits[0]:
                 await asyncio.sleep(0)
-                if nodeedits[0] is not None:
-                    async for prop, valu in self.iterNodeData(nodeedits[0]):
-                        edit = (EDIT_NODEDATA_SET, (prop, valu, None), ())
-                        nodeedits[2].append(edit)
 
-                    async for verb, n2iden in self.iterNodeEdgesN1(nodeedits[0]):
+                if nodeedits[0] is not None:
+                    for ndlkey, ndbyts in self.dataslab.scanByRange(nextbuid, nodeedits[0], db=self.nodedata):
+                        ndatabuid = ndlkey[:32]
+                        ndabrv = ndlkey[32:]
+                        valu = s_msgpack.un(ndbyts)
+                        prop = self.getAbrvProp(ndabrv)
+
+                        edit = (EDIT_NODEDATA_SET, (prop[0], valu, None), ())
+
+                        if ndatabuid == nodeedits[0]:
+                            nodeedits[2].append(edit)
+                        else:
+                            form = await self._getFormByBuid(ndatabuid)
+                            yield (ndatabuid, form, [edit])
+
+                    for edgelkey, n2buid in self.layrslab.scanByRange(nextbuid, nodeedits[0], db=self.edgesn1):
+                        edgebuid = edgelkey[:32]
+                        verb = edgelkey[32:].decode()
+                        n2iden = s_common.ehex(n2buid)
+
                         edit = (EDIT_EDGE_ADD, (verb, n2iden), ())
-                        nodeedits[2].append(edit)
+
+                        if edgebuid == nodeedits[0]:
+                            nodeedits[2].append(edit)
+                        else:
+                            form = await self._getFormByBuid(edgebuid)
+                            yield (edgebuid, form, [edit])
+
+                    try:
+                        nextbuidint = int.from_bytes(nodeedits[0], 'big') + 1
+                        nextbuid = nextbuidint.to_bytes(len(nodeedits[0]), 'big')
+                    except OverflowError:
+                        nextbuid = None
 
                     yield nodeedits
 
@@ -2079,24 +2078,36 @@ class Layer(s_nexus.Pusher):
 
             logger.warning(f'unrecognized storage row: {flag}')
 
-        if nodeedits[0] is not None:
-            async for prop, valu in self.iterNodeData(nodeedits[0]):
-                edit = (EDIT_NODEDATA_SET, (prop, valu, None), ())
-                nodeedits[2].append(edit)
+        if nextbuid is not None:
+            for ndlkey, ndbyts in self.dataslab.scanByRange(lmin=nextbuid, lmax=None, db=self.nodedata):
+                ndatabuid = ndlkey[:32]
+                ndabrv = ndlkey[32:]
+                valu = s_msgpack.un(ndbyts)
+                prop = self.getAbrvProp(ndabrv)
 
-            async for verb, n2iden in self.iterNodeEdgesN1(nodeedits[0]):
+                edit = (EDIT_NODEDATA_SET, (prop[0], valu, None), ())
+
+                if ndatabuid == nodeedits[0]:
+                    nodeedits[2].append(edit)
+                else:
+                    form = await self._getFormByBuid(ndatabuid)
+                    yield (ndatabuid, form, [edit])
+
+            for edgelkey, n2buid in self.layrslab.scanByRange(lmin=nextbuid, lmax=None, db=self.edgesn1):
+                edgebuid = edgelkey[:32]
+                verb = edgelkey[32:].decode()
+                n2iden = s_common.ehex(n2buid)
+
                 edit = (EDIT_EDGE_ADD, (verb, n2iden), ())
-                nodeedits[2].append(edit)
 
+                if edgebuid == nodeedits[0]:
+                    nodeedits[2].append(edit)
+                else:
+                    form = await self._getFormByBuid(edgebuid)
+                    yield (edgebuid, form, [edit])
+
+        if nodeedits[0] is not None:
             yield nodeedits
-
-        async for buid, prop, valu in self._iterIsoNodeData():
-            form = await self._getFormByBuid(buid)
-            yield (buid, form, [(EDIT_NODEDATA_SET, (prop, valu, None), ())])
-
-        async for n1buid, verb, n2iden in self._iterIsoNodeEdgesN1():
-            form = await self._getFormByBuid(n1buid)
-            yield (n1buid, form, [(EDIT_EDGE_ADD, (verb, n2iden), ())])
 
     async def initUpstreamSync(self, url):
         self.schedCoro(self._initUpstreamSync(url))
