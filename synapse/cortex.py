@@ -2518,11 +2518,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             ddef['user'] = user.iden
 
         dmon = None
-        if self.nexsroot.amLeader():
+        if self.amITheLeaderNow():
             dmon = await self.runStormDmon(iden, ddef)
 
         await self.stormdmonhive.set(iden, ddef)
-        return None if dmon is None else dmon.pack()
+        return dict(ddef) if dmon is None else dmon.pack()
 
     async def delStormDmon(self, iden):
         '''
