@@ -293,9 +293,7 @@ class NexsRoot(s_base.Base):
         self._state_funcs.append(func)
 
     async def _dostatechange(self):
-        logger.info('Executing _dostatechange')
         for func in self._state_funcs:
-            logger.info(f'Executing {func}')
             await s_coro.ornot(func)
 
     async def _followerLoop(self, iden) -> None:
