@@ -1690,6 +1690,10 @@ class Layer(s_nexus.Pusher):
 
     def _editTagPropSet(self, buid, form, edit, sode):
 
+        if form is None:
+            logger.warning(f'Invalid tagprop set edit, form is None: {edit}')
+            return ()
+
         tag, prop, valu, oldv, stortype = edit[1]
 
         tenc = tag.encode()
@@ -1761,6 +1765,10 @@ class Layer(s_nexus.Pusher):
 
     def _editNodeDataSet(self, buid, form, edit, sode):
 
+        if form is None:
+            logger.warning(f'Invalid nodedata set edit, form is None: {edit}')
+            return ()
+
         name, valu, oldv = edit[1]
         abrv = self.setPropAbrv(name, None)
 
@@ -1798,6 +1806,10 @@ class Layer(s_nexus.Pusher):
         )
 
     def _editNodeEdgeAdd(self, buid, form, edit, sode):
+
+        if form is None:
+            logger.warning(f'Invalid node edge edit, form is None: {edit}')
+            return ()
 
         verb, n2iden = edit[1]
 

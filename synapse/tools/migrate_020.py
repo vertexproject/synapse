@@ -1612,7 +1612,18 @@ class Migrator(s_base.Base):
             if stot % fairiter == 0:
                 await asyncio.sleep(0)
 
-            nodeedit = await self._trnNodedataToNodeedit(nodedata)
+            # resolve form for nodeedit
+            # if nodes have not already been migrated these lookups will not resolve
+            fenc = wlyr.layrslab.get(nodedata[0] + b'\x09', db=wlyr.bybuid)
+            if fenc is None:
+                err = f'Nodedata form not resolved from migrated node slab'
+                logger.warning(err)
+                await self._migrlogAdd(migrop, 'error', nodedata[0], err)
+                continue
+
+            form = fenc.decode()
+
+            nodeedit = await self._trnNodedataToNodeedit(nodedata, form)
             if nodeedit is None:
                 continue
 
@@ -2069,12 +2080,13 @@ class Migrator(s_base.Base):
 
         return None, (buid, fname, edits)
 
-    async def _trnNodedataToNodeedit(self, nodedata):
+    async def _trnNodedataToNodeedit(self, nodedata, form):
         '''
         Create translation of node info to an 0.2.0 node edit.
 
         Args:
             nodedata (tuple): (<buid>, <name>, <val>)
+            form (str): Form name associated with the buid
 
         Returns:
             nodeedit (tuple): (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
@@ -2085,7 +2097,7 @@ class Migrator(s_base.Base):
 
         edits = [(s_layer.EDIT_NODEDATA_SET, (name, valu, None), ())]
 
-        return buid, None, edits
+        return buid, form, edits
 
     #############################################################
     # Destination (0.2.0) operations
