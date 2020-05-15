@@ -827,7 +827,7 @@ class DmonManager(s_base.Base):
     async def popDmon(self, iden):
         '''Remove the dmon and fini it if its exists.'''
         logger.debug(f'Poping dmon {iden}')
-        dmon = self.dmons.pop(iden)
+        dmon = self.dmons.pop(iden, None)
         if dmon:
             await dmon.fini()
 
@@ -837,7 +837,6 @@ class DmonManager(s_base.Base):
         '''
         if self.enabled:
             return
-        logger.debug('Starting dmons.')
         for dmon in list(self.dmons.values()):
             await dmon.run()
         self.enabled = True
@@ -848,7 +847,6 @@ class DmonManager(s_base.Base):
         '''
         if not self.enabled:
             return
-        logger.debug('Stopping dmons.')
         await self._stopAllDmons()
         await asyncio.sleep(0)
 
