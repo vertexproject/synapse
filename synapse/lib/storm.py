@@ -794,10 +794,13 @@ class DmonManager(s_base.Base):
         self.dmons = {}
         self.enabled = False
 
-        self.onfini(self._stopAllDmons)
+        self.onfini(self._finiAllDmons)
+
+    async def _finiAllDmons(self):
+        await asyncio.gather(*[dmon.fini() for dmon in self.dmons.values()])
 
     async def _stopAllDmons(self):
-        await asyncio.gather(*[dmon.fini() for dmon in self.dmons.values()])
+        await asyncio.gather(*[dmon.stop() for dmon in self.dmons.values()])
 
     async def addDmon(self, iden, ddef):
         dmon = await StormDmon.anit(self.core, iden, ddef)
@@ -876,17 +879,18 @@ class StormDmon(s_base.Base):
         self.user = core.auth.user(ddef.get('user'))
 
         self.count = 0
-        self.status = 'initializing'
+        self.status = 'initialized'
         self.err_evnt = asyncio.Event()
         self.runlog = collections.deque((), 2000)
 
-        async def fini():
-            if self.task is not None:
-                self.task.cancel()
-            if self.loop_task is not None:
-                self.loop_task.cancel()
+        self.onfini(self.stop)
 
-        self.onfini(fini)
+    async def stop(self):
+        if self.task is not None:
+            self.task.cancel()
+        if self.loop_task is not None:
+            self.loop_task.cancel()
+        self.status = 'stopped'
 
     async def run(self):
         self.task = self.schedCoro(self._run())
