@@ -905,11 +905,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         return await self.doNonLeaderStuff()
 
     async def doLeaderStuff(self):
+        '''
+        Indempotent actions that are done when a Cortex is a leader.
+        '''
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
 
     async def doNonLeaderStuff(self):
+        '''
+        Indempotent actions that are done when a Cortex is not a leader.
+        '''
         await self.agenda.stop()
         await self.stormdmons.stop()
 
