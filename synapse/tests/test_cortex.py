@@ -2,6 +2,7 @@ import copy
 import time
 import shutil
 import asyncio
+import logging
 
 from unittest.mock import patch
 
@@ -18,6 +19,8 @@ import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
+
+logger = logging.getLogger(__name__)
 
 class CortexTest(s_t_utils.SynTest):
     '''
@@ -3794,16 +3797,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:
                     self.len(1, await core01.nodes('[ inet:ipv4=7.7.7.8 ]'))
 
-                # Epiphyte: I don't think this is a valid test
-                # # remove the mirrorness from the cortex
-                # await core01.nexsroot.setLeader(None, None)
-                # core01.mirror = False
+                logger.info('Mirror hot-swap test.')
+                # remove the mirrorness from the cortex
+                await core01.nexsroot.setLeader(None, None)
+                core01.mirror = None
                 #
-                # async with await s_cortex.Cortex.anit(dirn=path00) as core00:
-                #     self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
-                #     # add it back
-                #     await core01.initCoreMirror(url)
-                #     self.len(1, await core01.nodes('[inet:ipv4=9.9.9.9]'))
+                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                    self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
+                    # add it back
+                    await core01._initCoreMirror(url)
+                    await asyncio.sleep(0)
+                    self.len(1, await core01.nodes('[inet:ipv4=9.9.9.9]'))
+                    logger.info('done with core00?')
+                logger.info('test fin?')
 
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
