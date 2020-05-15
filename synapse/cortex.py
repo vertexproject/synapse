@@ -790,6 +790,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.stormcmds = {}
 
         self.spawnpool = None
+        self.leaderchangeaware = True
         self.mirror = self.conf.get('mirror')
 
         self.storm_cmd_ctors = {}
