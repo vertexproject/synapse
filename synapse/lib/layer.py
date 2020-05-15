@@ -1053,8 +1053,6 @@ class Layer(s_nexus.Pusher):
 
         self.bybuid = self.layrslab.initdb('bybuid')
 
-        self.formbybuid = self.layrslab.initdb('formbybuid')
-
         self.byverb = self.layrslab.initdb('byverb', dupsort=True)
         self.edgesn1 = self.layrslab.initdb('edgesn1', dupsort=True)
         self.edgesn2 = self.layrslab.initdb('edgesn2', dupsort=True)
@@ -1195,6 +1193,9 @@ class Layer(s_nexus.Pusher):
                 tag, prop = lkey[33:].decode().split(':')
                 valu, stortype = s_msgpack.un(lval)
                 info['tagprops'][(tag, prop)] = valu
+                continue
+
+            if flag == 9:
                 continue
 
             logger.warning(f'unrecognized storage row: {flag}')
@@ -1389,8 +1390,18 @@ class Layer(s_nexus.Pusher):
                         else:
                             retn.append(subpostnodeedit)
 
-        postetypes = {e[0] for e in postedits}
-        await self._updateFormByBuid(buid, form, postetypes)
+        deltypes = {EDIT_NODE_DEL, EDIT_PROP_DEL, EDIT_TAG_DEL, EDIT_TAGPROP_DEL, EDIT_NODEDATA_DEL, EDIT_EDGE_DEL}
+        if postedits and all(e[0] in deltypes for e in postedits):
+            hasref = self.layrslab.rangeexists(buid + b'\x00', buid + b'\x03', db=self.bybuid)
+
+            if not hasref:
+                hasref = self.dataslab.prefexists(buid, self.nodedata)
+
+                if not hasref:
+                    hasref = self.layrslab.prefexists(buid, db=self.edgesn1)
+
+                    if not hasref:
+                        self.layrslab.delete(buid + b'\x09', db=self.bybuid)
 
         return retn
 
@@ -1532,6 +1543,10 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
 
+        else:
+            fenc = form.encode()
+            self.layrslab.put(buid + b'\x09', fenc, db=self.bybuid, overwrite=False)
+
         if stortype & STOR_FLAG_ARRAY:
 
             for indx in self.getStorIndx(stortype, valu):
@@ -1635,6 +1650,10 @@ class Layer(s_nexus.Pusher):
             if oldv == valu:
                 return ()
 
+        else:
+            fenc = form.encode()
+            self.layrslab.put(buid + b'\x09', fenc, db=self.bybuid, overwrite=False)
+
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
         if sode is not None:
@@ -1692,6 +1711,10 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
                 self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
+        else:
+            fenc = form.encode()
+            self.layrslab.put(buid + b'\x09', fenc, db=self.bybuid, overwrite=False)
+
         kvpairs = []
 
         for indx in self.getStorIndx(stortype, valu):
@@ -1748,6 +1771,10 @@ class Layer(s_nexus.Pusher):
             if oldv == valu:
                 return ()
 
+        else:
+            fenc = form.encode()
+            self.layrslab.put(buid + b'\x09', fenc, db=self.bybuid, overwrite=False)
+
         self.dataslab.put(abrv, buid, db=self.dataname)
 
         return (
@@ -1782,6 +1809,9 @@ class Layer(s_nexus.Pusher):
         if self.layrslab.hasdup(n1key, n2buid, db=self.edgesn1):
             return ()
 
+        fenc = form.encode()
+        self.layrslab.put(buid + b'\x09', fenc, db=self.bybuid, overwrite=False)
+
         self.layrslab.put(venc, buid + n2buid, db=self.byverb)
         self.layrslab.put(n1key, n2buid, db=self.edgesn1)
         self.layrslab.put(n2buid + venc, buid, db=self.edgesn2)
@@ -1806,32 +1836,6 @@ class Layer(s_nexus.Pusher):
         return (
             (EDIT_EDGE_DEL, (verb, n2iden), ()),
         )
-
-    async def _updateFormByBuid(self, buid, form, edittypes):
-        '''
-        Evaluates whether any tables hold a reference to a buid and adds/removes a buid:form entry.
-        '''
-        if not edittypes:
-            return
-
-        deltypes = {EDIT_NODE_DEL, EDIT_PROP_DEL, EDIT_TAG_DEL, EDIT_TAGPROP_DEL, EDIT_NODEDATA_DEL, EDIT_EDGE_DEL}
-
-        # check refs if edits are only deletes
-        if all(e in deltypes for e in edittypes):
-            hasref = self.layrslab.prefexists(buid, db=self.bybuid)
-
-            if not hasref:
-                hasref = self.dataslab.prefexists(buid, self.nodedata)
-
-                if not hasref:
-                    hasref = self.layrslab.prefexists(buid, db=self.edgesn1)
-
-                    if not hasref:
-                        self.layrslab.delete(buid, db=self.formbybuid)
-
-        elif form is not None:
-            fenc = form.encode()
-            self.layrslab.put(buid, fenc, db=self.formbybuid, overwrite=False)
 
     async def getEdgeVerbs(self):
 
@@ -1986,8 +1990,6 @@ class Layer(s_nexus.Pusher):
         '''
         nodeedits = (None, None, None)
 
-        nextbuid = b'\x00'
-
         for lkey, lval in self.layrslab.scanByFull(db=self.bybuid):
             buid = lkey[:32]
             flag = lkey[32]
@@ -1996,38 +1998,13 @@ class Layer(s_nexus.Pusher):
                 await asyncio.sleep(0)
 
                 if nodeedits[0] is not None:
-                    for ndlkey, ndbyts in self.dataslab.scanByRange(nextbuid, nodeedits[0], db=self.nodedata):
-                        ndatabuid = ndlkey[:32]
-                        ndabrv = ndlkey[32:]
-                        valu = s_msgpack.un(ndbyts)
-                        prop = self.getAbrvProp(ndabrv)
+                    async for prop, valu in self.iterNodeData(nodeedits[0]):
+                        edit = (EDIT_NODEDATA_SET, (prop, valu, None), ())
+                        nodeedits[2].append(edit)
 
-                        edit = (EDIT_NODEDATA_SET, (prop[0], valu, None), ())
-
-                        if ndatabuid == nodeedits[0]:
-                            nodeedits[2].append(edit)
-                        else:
-                            form = await self._getFormByBuid(ndatabuid)
-                            yield (ndatabuid, form, [edit])
-
-                    for edgelkey, n2buid in self.layrslab.scanByRange(nextbuid, nodeedits[0], db=self.edgesn1):
-                        edgebuid = edgelkey[:32]
-                        verb = edgelkey[32:].decode()
-                        n2iden = s_common.ehex(n2buid)
-
+                    async for verb, n2iden in self.iterNodeEdgesN1(nodeedits[0]):
                         edit = (EDIT_EDGE_ADD, (verb, n2iden), ())
-
-                        if edgebuid == nodeedits[0]:
-                            nodeedits[2].append(edit)
-                        else:
-                            form = await self._getFormByBuid(edgebuid)
-                            yield (edgebuid, form, [edit])
-
-                    try:
-                        nextbuidint = int.from_bytes(nodeedits[0], 'big') + 1
-                        nextbuid = nextbuidint.to_bytes(len(nodeedits[0]), 'big')
-                    except OverflowError:
-                        nextbuid = None
+                        nodeedits[2].append(edit)
 
                     yield nodeedits
 
@@ -2042,8 +2019,7 @@ class Layer(s_nexus.Pusher):
 
             if flag == 1:
                 if not nodeedits[0] == buid:
-                    form = await self._getFormByBuid(buid)
-                    nodeedits = (buid, form, [])
+                    nodeedits = (buid, None, [])
 
                 name = lkey[33:].decode()
                 valu, stortype = s_msgpack.un(lval)
@@ -2054,8 +2030,7 @@ class Layer(s_nexus.Pusher):
 
             if flag == 2:
                 if not nodeedits[0] == buid:
-                    form = await self._getFormByBuid(buid)
-                    nodeedits = (buid, form, [])
+                    nodeedits = (buid, None, [])
 
                 name = lkey[33:].decode()
                 tagv = s_msgpack.un(lval)
@@ -2066,49 +2041,37 @@ class Layer(s_nexus.Pusher):
 
             if flag == 3:
                 if not nodeedits[0] == buid:
-                    form = await self._getFormByBuid(buid)
-                    nodeedits = (buid, form, [])
+                    nodeedits = (buid, None, [])
 
                 tag, prop = lkey[33:].decode().split(':')
                 valu, stortype = s_msgpack.un(lval)
-
-                buid = lkey[:32]
 
                 edit = (EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ())
                 nodeedits[2].append(edit)
                 continue
 
+            if flag == 9:
+                if not nodeedits[0] == buid:
+                    form = lval.decode()
+                    nodeedits = (buid, form, [])
+                    continue
+
+                if nodeedits[1] is None:
+                    form = lval.decode()
+                    nodeedits = (nodeedits[0], form, nodeedits[2])
+                    continue
+
             logger.warning(f'unrecognized storage row: {flag}')
 
-        if nextbuid is not None:
-            for ndlkey, ndbyts in self.dataslab.scanByRange(lmin=nextbuid, lmax=None, db=self.nodedata):
-                ndatabuid = ndlkey[:32]
-                ndabrv = ndlkey[32:]
-                valu = s_msgpack.un(ndbyts)
-                prop = self.getAbrvProp(ndabrv)
-
-                edit = (EDIT_NODEDATA_SET, (prop[0], valu, None), ())
-
-                if ndatabuid == nodeedits[0]:
-                    nodeedits[2].append(edit)
-                else:
-                    form = await self._getFormByBuid(ndatabuid)
-                    yield (ndatabuid, form, [edit])
-
-            for edgelkey, n2buid in self.layrslab.scanByRange(lmin=nextbuid, lmax=None, db=self.edgesn1):
-                edgebuid = edgelkey[:32]
-                verb = edgelkey[32:].decode()
-                n2iden = s_common.ehex(n2buid)
-
-                edit = (EDIT_EDGE_ADD, (verb, n2iden), ())
-
-                if edgebuid == nodeedits[0]:
-                    nodeedits[2].append(edit)
-                else:
-                    form = await self._getFormByBuid(edgebuid)
-                    yield (edgebuid, form, [edit])
-
         if nodeedits[0] is not None:
+            async for prop, valu in self.iterNodeData(nodeedits[0]):
+                edit = (EDIT_NODEDATA_SET, (prop, valu, None), ())
+                nodeedits[2].append(edit)
+
+            async for verb, n2iden in self.iterNodeEdgesN1(nodeedits[0]):
+                edit = (EDIT_EDGE_ADD, (verb, n2iden), ())
+                nodeedits[2].append(edit)
+
             yield nodeedits
 
     async def initUpstreamSync(self, url):

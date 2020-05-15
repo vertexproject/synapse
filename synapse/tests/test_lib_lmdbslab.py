@@ -138,6 +138,14 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.true(slab.prefexists(b'\xff\xff', db=baz))
             self.false(slab.prefexists(b'\xff\xff', db=foo))
 
+            self.true(slab.rangeexists(b'\x00', b'\x01', db=baz))
+            self.true(slab.rangeexists(b'\x00\x00', b'\x00\x04', db=baz))
+            self.false(slab.rangeexists(b'\x00\x04', b'\x01', db=baz))
+            self.true(slab.rangeexists(b'\x05', None, db=baz))
+            self.false(slab.rangeexists(b'\xfa', b'\xfc', db=baz))
+            self.false(slab.rangeexists(b'\x00\x00', b'\x00\x00', db=foo))
+            self.false(slab.rangeexists(b'\x01\x04', b'\x01\x05', db=foo))
+
             # backwards scan tests
 
             items = list(slab.scanByPrefBack(b'\x00', db=foo))

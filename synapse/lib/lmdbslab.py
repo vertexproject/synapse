@@ -978,7 +978,7 @@ class Slab(s_base.Base):
 
     def prefexists(self, byts, db=None):
         '''
-        Returns bool for whether a prefix exists in the db.
+        Returns True if a prefix exists in the db.
         '''
         realdb, _ = self.dbnames[db]
         with self.xact.cursor(db=realdb) as curs:
@@ -988,6 +988,22 @@ class Slab(s_base.Base):
             lkey = curs.key()
 
             if lkey[:len(byts)] == byts:
+                return True
+
+            return False
+
+    def rangeexists(self, lmin, lmax=None, db=None):
+        '''
+        Returns True if at least one key exists in the range.
+        '''
+        realdb, _ = self.dbnames[db]
+        with self.xact.cursor(db=realdb) as curs:
+            if not curs.set_range(lmin):
+                return False
+
+            lkey = curs.key()
+
+            if lkey[:len(lmin)] >= lmin and (lmax is None or lkey[:len(lmax)] <= lmax):
                 return True
 
             return False
