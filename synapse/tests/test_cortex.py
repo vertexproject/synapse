@@ -3805,8 +3805,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:
                     self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
                     # add it back
+                    logger.info('Fireing mirror loop')
                     await core01._initCoreMirror(url)
+                    logger.info('Fired mirror loop?')
                     await asyncio.sleep(0)
+                    await asyncio.sleep(0)
+                    await asyncio.sleep(5)
+                    logger.info('Making 9.9.9.9 ???')
                     self.len(1, await core01.nodes('[inet:ipv4=9.9.9.9]'))
                     logger.info('done with core00?')
                 logger.info('test fin?')

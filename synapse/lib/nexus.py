@@ -287,6 +287,9 @@ class NexsRoot(s_base.Base):
 
         await self._dostatechange()
 
+        if self._ldrurl is None:
+            return
+
         self._looptask = self.schedCoro(self._followerLoop(iden))
 
     def onStateChange(self, func):
