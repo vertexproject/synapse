@@ -904,17 +904,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         return await self.doNonLeaderStuff()
 
     async def doLeaderStuff(self):
-        logger.info(f'Cortex {self.dirn} leader setup')
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
-        logger.info(f'Cortex {self.dirn} leader setup completed')
 
     async def doNonLeaderStuff(self):
-        logger.info(f'Cortex {self.dirn} leader teardown')
         await self.agenda.stop()
         await self.stormdmons.stop()
-        logger.info(f'Cortex {self.dirn} leader teardown complete')
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
@@ -1835,9 +1831,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Note:
             This cortex *must* be initialized from a backup of the target cortex!
         '''
-        logger.info(f'{self.dirn} Initializing core mirror via setleader!')
         await self.nexsroot.setLeader(url, self.iden)
-        logger.info(f'{self.dirn} done initializing the loop!')
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
@@ -2509,12 +2503,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             user = await self.auth.getUserByName('root')
             ddef['user'] = user.iden
 
-        dmon = None
-        if self.nexsroot.amLeader():
-            dmon = await self.runStormDmon(iden, ddef)
+        dmon = await self.runStormDmon(iden, ddef)
 
         await self.stormdmonhive.set(iden, ddef)
-        return dict(ddef) if dmon is None else dmon.pack()
+        return dmon.pack()
 
     async def delStormDmon(self, iden):
         '''
