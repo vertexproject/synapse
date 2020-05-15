@@ -4041,8 +4041,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
                 # Kill the dmon and remove view2
-                for dmon in list(core.stormdmons.values()):
-                    await dmon.fini()
+                await core.stormdmons.stop()
 
                 await core.delView(view2_iden)
                 with self.raises(s_exc.NoSuchView):
@@ -4088,7 +4087,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('dmon.list')
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
-            dmon = list(core.stormdmons.values())[0]
+            dmon = list(core.stormdmons.dmons.values())[0]
 
             # make the dmon blow up
             await core.nodes('''

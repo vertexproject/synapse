@@ -783,6 +783,81 @@ stormcmds = (
     },
 )
 
+class DmonManager(s_base.Base):
+    '''
+    Manager for StormDmon objects.
+    '''
+    async def __anit__(self, core):
+        await s_base.Base.__anit__(self)
+        self.core = core
+        self.dmons = {}
+        self.enabled = False
+
+        self.onfini(self._stopAllDmons)
+
+    async def _stopAllDmons(self):
+        await asyncio.gather(*[dmon.fini() for dmon in self.dmons.values()])
+
+    async def addDmon(self, iden, ddef):
+        dmon = await StormDmon.anit(self.core, iden, ddef)
+        self.dmons[iden] = dmon
+        if self.enabled:
+            await dmon.run()
+        return dmon
+
+    def getDmonRunlog(self, iden):
+        dmon = self.dmons.get(iden)
+        if dmon is not None:
+            return dmon._getRunLog()
+        return ()
+
+    def getDmon(self, iden):
+        return self.dmons.get(iden)
+
+    def getDmonPacked(self, iden):
+        dmon = self.dmons.get(iden)
+        if dmon:
+            return dmon.pack()
+
+    def getDmonsPacked(self):
+        return list(d.pack() for d in self.dmons.values())
+
+    async def popDmon(self, iden):
+        '''Remove the dmon and fini it if its exists.'''
+        logger.debug(f'Poping dmon {iden}')
+        dmon = self.dmons.pop(iden)
+        if dmon:
+            await dmon.fini()
+
+    async def start(self):
+        '''
+        Start all the dmons.
+        '''
+        if self.enabled:
+            return
+        logger.debug('Starting dmons.')
+        for dmon in list(self.dmons.values()):
+            await dmon.run()
+        self.enabled = True
+
+    async def stop(self):
+        '''
+        Stop all the dmons.
+        '''
+        if not self.enabled:
+            return
+        logger.debug('Stopping dmons.')
+        await self._stopAllDmons()
+        await asyncio.sleep(0)
+
+    # TODO write enable/disable APIS.
+    # 1. Set dmon.status to 'disabled'
+    # 2. Be aware of ddef enabled flag to set status to 'disabled'.
+    # async def enableDmon(self, iden):
+    #     pass
+    # async def disableDmon(self, iden):
+    #     pass
+
 class StormDmon(s_base.Base):
     '''
     A background storm runtime which is restarted by the cortex.

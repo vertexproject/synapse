@@ -519,6 +519,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellSlab(readonly=readonly)
 
         self.setNexsRoot(await self._initNexsRoot())
+        self.nexsroot.onStateChange(self.iamLeaderHook)
 
         self.hive = await self._initCellHive()
 
@@ -576,11 +577,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return nexsroot
 
     async def iamLeaderHook(self):
-        if self.amITheLeaderNow():
+        if self.nexsroot.amLeader():
             return await self.doLeaderStuff()
-        return self.doNonLeaderStuff()
+        return await self.doNonLeaderStuff()
 
     async def doLeaderStuff(self):
+        ''''''
         pass
 
     async def doNonLeaderStuff(self):

@@ -799,8 +799,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_hive.HiveDict
 
-        self.stormdmons = {}
-
         self.svcsbyiden = {}
         self.svcsbyname = {}
 
@@ -856,10 +854,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.addHealthFunc(self._cortexHealth)
 
-        self.onfini(self._finiStormDmons)
-
+        self.stormdmons = await s_storm.DmonManager.anit(self)
+        self.onfini(self.stormdmons)
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
+        await self._initStormDmons()
 
         self.trigson = self.conf.get('trigger:enable')
 
@@ -897,13 +896,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.iamLeaderHook()
 
     async def doLeaderStuff(self):
+        logger.info(f'Cortex {self.dirn} leader setup')
         if self.conf.get('cron:enable'):
             await self.agenda.start()
-        await self._initStormDmons()
+        await self.stormdmons.start()
+        logger.info(f'Cortex {self.dirn} leader setup completed')
 
     async def doNonLeaderStuff(self):
+        logger.info(f'Cortex {self.dirn} leader teardown')
         await self.agenda.stop()
-        await self._finiStormDmons()
+        await self.stormdmons.stop()
+        logger.info(f'Cortex {self.dirn} leader teardown complete')
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
@@ -1054,9 +1057,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.addRuntPropSet('syn:trigger:doc', onSetTrigDoc)
         self.addRuntPropSet('syn:trigger:name', onSetTrigName)
-
-    async def _finiStormDmons(self):
-        await asyncio.gather(*[dmon.fini() for dmon in self.stormdmons.values()])
 
     async def _initStormDmons(self):
 
@@ -1827,10 +1827,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         Note:
             This cortex *must* be initialized from a backup of the target cortex!
         '''
+        logger.info(f'{self.dirn} Initializing core mirror via setleader!')
         await self.nexsroot.setLeader(url, self.iden)
-        # a mirror cannot be the master...so, if we're a master,
-        # and someone calls this API, what do?
-        # it feels odd.
+        logger.info(f'{self.dirn} done initializing the loop!')
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
@@ -2494,7 +2493,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _onAddStormDmon(self, ddef):
         iden = ddef['iden']
 
-        dmon = self.stormdmons.get(iden)
+        dmon = self.stormdmons.getDmon(iden)
         if dmon is not None:
             return dmon.pack()
 
@@ -2503,7 +2502,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             ddef['user'] = user.iden
 
         dmon = None
-        if self.amITheLeaderNow():
+        if self.nexsroot.amLeader():
             dmon = await self.runStormDmon(iden, ddef)
 
         await self.stormdmonhive.set(iden, ddef)
@@ -2522,9 +2521,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:dmon:del')
     async def _delStormDmon(self, iden):
-        dmon = self.stormdmons.pop(iden, None)
-        if dmon is not None:
-            await dmon.fini()
+        await self.stormdmons.popDmon(iden)
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
@@ -2534,7 +2531,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # validate ddef before firing task
         s_storm.reqValidDdef(ddef)
 
-        dmon = self.stormdmons.get(iden)
+        dmon = self.stormdmons.getDmon(iden)
         if dmon is not None:
             return dmon
 
@@ -2543,31 +2540,18 @@ class Cortex(s_cell.Cell):  # type: ignore
         # raises if parser failure
         self.getStormQuery(ddef.get('storm'))
 
-        dmon = await s_storm.StormDmon.anit(self, iden, ddef)
-
-        self.stormdmons[iden] = dmon
-
-        def fini():
-            self.stormdmons.pop(iden, None)
-
-        dmon.onfini(fini)
-        await dmon.run()
+        dmon = await self.stormdmons.addDmon(iden, ddef)
 
         return dmon
 
     async def getStormDmon(self, iden):
-        dmon = self.stormdmons.get(iden)
-        if dmon is not None:
-            return dmon.pack()
+        return self.stormdmons.getDmonPacked(iden)
 
     async def getStormDmons(self):
-        return list(d.pack() for d in self.stormdmons.values())
+        return self.stormdmons.getDmonsPacked()
 
     async def getStormDmonLog(self, iden):
-        dmon = self.stormdmons.get(iden)
-        if dmon is not None:
-            return dmon._getRunLog()
-        return ()
+        return self.stormdmons.getDmonRunlog(iden)
 
     def addStormLib(self, path, ctor):
 
