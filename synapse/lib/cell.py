@@ -469,6 +469,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
     '''
+    leaderchangeaware = False
     cellapi = CellApi
 
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
@@ -519,7 +520,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellSlab(readonly=readonly)
 
         self.setNexsRoot(await self._initNexsRoot())
-        self.nexsroot.onStateChange(self.iamLeaderHook)
+        self.nexsroot.onStateChange(self._leaderHookGate)
 
         self.hive = await self._initCellHive()
 
@@ -576,16 +577,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         nexsroot.onfini(self)
         return nexsroot
 
+    async def _leaderHookGate(self):
+        if self.leaderchangeaware:
+            await self.iamLeaderHook()
+
     async def iamLeaderHook(self):
-        if self.nexsroot.amLeader():
-            return await self.doLeaderStuff()
-        return await self.doNonLeaderStuff()
-
-    async def doLeaderStuff(self):
-        ''''''
-        pass
-
-    async def doNonLeaderStuff(self):
         pass
 
     async def getNexusChanges(self, offs):

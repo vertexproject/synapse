@@ -202,6 +202,7 @@ reqValidDdef = s_config.getJsValidator({
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'enabled': {'type': 'boolean', 'default': True},
         'stormopts': {
             'oneOf': [
                 {'type': 'null'},
@@ -801,7 +802,8 @@ class DmonManager(s_base.Base):
     async def addDmon(self, iden, ddef):
         dmon = await StormDmon.anit(self.core, iden, ddef)
         self.dmons[iden] = dmon
-        if self.enabled:
+        # TODO Remove default=True when dmon enabled CRUD is implemented
+        if self.enabled and ddef.get('enabled', True):
             await dmon.run()
         return dmon
 
@@ -872,6 +874,7 @@ class StormDmon(s_base.Base):
 
         self.task = None
         self.loop_task = None
+        self.enabled = ddef.get('enabled')
         self.user = core.auth.user(ddef.get('user'))
 
         self.count = 0

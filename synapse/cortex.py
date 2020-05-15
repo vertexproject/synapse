@@ -893,7 +893,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.mirror is not None:
             await self._initCoreMirror(self.mirror)
 
+        # Enable leadership change awareness and fire
+        # the leakership hook once at boot
+        self.leaderchangeaware = True
         await self.iamLeaderHook()
+
+    async def iamLeaderHook(self):
+        if self.nexsroot.amLeader():
+            return await self.doLeaderStuff()
+        return await self.doNonLeaderStuff()
 
     async def doLeaderStuff(self):
         logger.info(f'Cortex {self.dirn} leader setup')
