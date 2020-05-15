@@ -894,7 +894,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self._initCoreMirror(self.mirror)
 
         # Enable leadership change awareness and fire
-        # the leakership hook once at boot
+        # the leadership hook once at boot
         self.leaderchangeaware = True
         await self.iamLeaderHook()
 
