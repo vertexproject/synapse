@@ -3802,6 +3802,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Bring the leader back up and try again
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:
                     self.len(1, await core00.nodes('[ inet:ipv4=7.7.7.8 ]'))
+                    await core01.sync()
+
+                self.len(1, await core01.nodes('inet:ipv4=7.7.7.8'))
 
                 # remove the mirrorness from the cortex
 
