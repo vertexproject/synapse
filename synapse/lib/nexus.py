@@ -229,13 +229,14 @@ class NexsRoot(s_base.Base):
             raise s_exc.IsFini()
 
         maxoffs = offs
-
+        print(f'offs={offs}')
         for item in self._nexuslog.iter(offs):
+            print(f'item={item}')
             if self.isfini:
                 raise s_exc.IsFini()
             maxoffs = item[0] + 1
             yield item
-
+        print(f'maxoffs={maxoffs}')
         async with self.getChangeDist(maxoffs) as dist:
             async for item in dist:
                 if self.isfini:

@@ -19,6 +19,10 @@ import synapse.tools.backup as s_tools_backup
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
@@ -3800,14 +3804,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, await core00.nodes('[ inet:ipv4=7.7.7.8 ]'))
 
                 # remove the mirrorness from the cortex
+
+                logger.info('hotswap test')
+
                 await core01.nexsroot.setLeader(None, None)
                 core01.mirror = False
 
+                logger.info('disabled the mirror')
+
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                    logger.info('adding 9.9.9.8')
                     self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
+                    self.len(0, await core00.nodes('inet:ipv4=9.9.9.8'))
                     # add it back
+                    logger.info('Adding the mirror back')
                     await core01.initCoreMirror(url)
+                    logger.info('Adding 9.9.9.9')
                     self.len(1, await core01.nodes('[inet:ipv4=9.9.9.9]'))
+                    self.len(0, await core00.nodes('inet:ipv4=9.9.9.8'))
 
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
