@@ -272,6 +272,7 @@ class NexsRoot(s_base.Base):
         self._ldrurl = url
 
         if self._looptask is not None:
+            logger.info('Cancelling the looptask!')
             self._looptask.cancel()
             self._looptask = None
             self._ldrready.clear()
@@ -285,7 +286,7 @@ class NexsRoot(s_base.Base):
         self._looptask = self.schedCoro(self._followerLoop(iden))
 
     async def _followerLoop(self, iden) -> None:
-
+        logger.info('Starting _followerLoop')
         while not self.isfini:
 
             try:
@@ -343,13 +344,19 @@ class NexsRoot(s_base.Base):
                                 respfutu.set_result(retn)
 
             except asyncio.CancelledError: # pragma: no cover
+                logger.info('Cancelled _followerLoop')
                 return
 
             except Exception:
                 logger.exception('error in initCoreMirror loop')
 
             self._ldrready.clear()
-            await self.waitfini(1)
+            try:
+                await self.waitfini(1)
+            except asyncio.CancelledError:
+                logger.info('Canceled in waitfini?')
+                return
+        logger.info('Done _followerLoop')
 
 class Pusher(s_base.Base, metaclass=RegMethType):
     '''

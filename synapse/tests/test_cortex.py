@@ -3807,8 +3807,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 logger.info('hotswap test')
 
+                looptask = core01.nexsroot._looptask
+                print(looptask)
                 await core01.nexsroot.setLeader(None, None)
                 core01.mirror = False
+                await asyncio.sleep(1)
+                print(looptask)
+                try:
+                    await looptask
+                except asyncio.CancelledError:
+                    pass
 
                 logger.info('disabled the mirror')
 
