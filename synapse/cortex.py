@@ -900,11 +900,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.iamLeaderHook()
 
     async def iamLeaderHook(self):
-        logger.info(f'{self.dirn} executing iamleaderhoook')
         if self.nexsroot.amLeader():
-            logger.info(f'{self.dirn} executing leader!')
             return await self.doLeaderStuff()
-        logger.info(f'{self.dirn} executing follower!')
         return await self.doNonLeaderStuff()
 
     async def doLeaderStuff(self):

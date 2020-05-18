@@ -231,17 +231,15 @@ class NexsRoot(s_base.Base):
             raise s_exc.IsFini()
 
         maxoffs = offs
-        print(f'offs={offs}')
+
         for item in self._nexuslog.iter(offs):
-            print(f'item={item}')
             if self.isfini:
                 raise s_exc.IsFini()
             maxoffs = item[0] + 1
             yield item
-        print(f'maxoffs={maxoffs}')
+
         async with self.getChangeDist(maxoffs) as dist:
             async for item in dist:
-                print(f'maxoffs item={item}')
                 if self.isfini:
                     raise s_exc.IsFini()
                 yield item
@@ -302,7 +300,6 @@ class NexsRoot(s_base.Base):
             await s_coro.ornot(func)
 
     async def _followerLoop(self, iden) -> None:
-        logger.info(f'current task: {asyncio.current_task()}')
         while not self.isfini:
 
             try:
@@ -325,10 +322,9 @@ class NexsRoot(s_base.Base):
                 while not proxy.isfini:
 
                     offs = self._nexuslog.index()
-                    logger.info(f'Calling proxy.getNexusChanges({offs})')
+
                     genr = proxy.getNexusChanges(offs)
                     async for item in genr:
-                        logger.info(f'genr: -> {item}')
 
                         if proxy.isfini:
                             break
@@ -344,7 +340,6 @@ class NexsRoot(s_base.Base):
                         respfutu = self._futures.get(respiden)
 
                         try:
-                            logger.info(f'awaiting')
                             retn = await self.eat(*args)
 
                         except asyncio.CancelledError:
@@ -369,7 +364,6 @@ class NexsRoot(s_base.Base):
 
             self._ldrready.clear()
             await self.waitfini(1)
-        logger.info('Exiting follower loop!')
 
 class Pusher(s_base.Base, metaclass=RegMethType):
     '''

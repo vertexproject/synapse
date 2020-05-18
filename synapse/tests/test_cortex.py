@@ -3797,24 +3797,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:
                     self.len(1, await core01.nodes('[ inet:ipv4=7.7.7.8 ]'))
 
-                logger.info('Mirror hot-swap test.')
-                # remove the mirrorness from the cortex
+                # remove the mirrorness from the Cortex and ensure that we can
+                # write to the Cortex. This will move the core01 ahead of
+                # core00 & core01 can become the leader.
                 await core01.nexsroot.setLeader(None, None)
                 core01.mirror = None
-                #
-                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
-                    self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
-                    # add it back
-                    logger.info('Fireing mirror loop')
-                    await core01._initCoreMirror(url)
-                    logger.info('Fired mirror loop?')
-                    await asyncio.sleep(0)
-                    await asyncio.sleep(0)
-                    await asyncio.sleep(0)
-                    logger.info('Making 9.9.9.9 ???')
-                    self.len(1, await core01.nodes('[inet:ipv4=9.9.9.9]'))
-                    logger.info('done with core00?')
-                logger.info('test fin?')
+                self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
+                new_url = core01.getLocalUrl()
+                new_conf = {'mirror': new_url}
+                async with await s_cortex.Cortex.anit(dirn=path00, conf=new_conf) as core00:
+                    await core00.sync()
+                    self.len(1, await core00.nodes('inet:ipv4=9.9.9.8'))
 
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
