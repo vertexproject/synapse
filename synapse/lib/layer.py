@@ -159,7 +159,7 @@ class LayerApi(s_cell.CellApi):
 
     async def getNodeEditOffset(self):
         await self._reqUserAllowed(self.liftperm)
-        return self.layr.getNodeEditOffset()
+        return await self.layr.getNodeEditOffset()
 
     async def getIden(self):
         await self._reqUserAllowed(self.liftperm)
@@ -2313,7 +2313,7 @@ class Layer(s_nexus.Pusher):
 
             yield wind
 
-    def getNodeEditOffset(self):
+    async def getNodeEditOffset(self):
         if not self.logedits:
             return 0
 

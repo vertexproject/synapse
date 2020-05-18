@@ -2859,7 +2859,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.agenlen(0, layr.splices())
             await self.agenlen(0, layr.splicesBack())
             await self.agenlen(0, layr.syncNodeEdits(0))
-            self.eq(0, layr.getNodeEditOffset())
+            self.eq(0, await layr.getNodeEditOffset())
 
             self.nn(await core.stat())
 
