@@ -309,7 +309,7 @@ class NexsRoot(s_base.Base):
                 while not proxy.isfini:
 
                     offs = self._nexuslog.index()
-
+                    logger.info(f'Calling proxy.getNexusChanges({offs})')
                     genr = proxy.getNexusChanges(offs)
                     async for item in genr:
 
