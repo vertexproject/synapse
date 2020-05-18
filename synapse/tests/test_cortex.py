@@ -3810,7 +3810,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     logger.info('Fired mirror loop?')
                     await asyncio.sleep(0)
                     await asyncio.sleep(0)
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(0)
                     logger.info('Making 9.9.9.9 ???')
                     self.len(1, await core01.nodes('[inet:ipv4=9.9.9.9]'))
                     logger.info('done with core00?')

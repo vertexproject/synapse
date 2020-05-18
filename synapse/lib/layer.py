@@ -1302,9 +1302,9 @@ class Layer(s_nexus.Pusher):
             yield sode
 
     async def storNodeEdits(self, nodeedits, meta):
-
+        logger.info(f'pushing edits: {nodeedits}')
         results = await self._push('edits', nodeedits, meta)
-
+        logger.info(f'pushed edits: {nodeedits}')
         retn = []
         for buid, form, edits in results:
             sode = await self.getStorNode(buid)
