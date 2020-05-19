@@ -169,6 +169,13 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('[+#thebeforetimes] | foo.bar.com', opts)
 
+            # And it works remotely
+            async with core.getLocalProxy() as prox:
+                msgs = await s_test.alist(prox.storm('1.2.3.4', opts))
+                nodes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(1, nodes)
+                self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
+
     async def test_ast_subq_vars(self):
 
         async with self.getTestCore() as core:
