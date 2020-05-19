@@ -2229,6 +2229,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if iden in self.views:
             return
 
+        for lyriden in vdef['layers']:
+            if lyriden not in self.layers:
+                raise s_exc.NoSuchLayer(iden=lyriden)
+
         creator = vdef.get('creator', self.auth.rootuser.iden)
         user = await self.auth.reqUser(creator)
 
