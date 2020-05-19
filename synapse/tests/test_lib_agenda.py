@@ -166,7 +166,7 @@ class AgendaTest(s_t_utils.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        async def myeval(query, user=None):
+        async def myeval(query, opts=None):
             nonlocal lastquery
             lastquery = query
             sync.set()
@@ -350,6 +350,47 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appt.isrunning, False)
                 self.eq(appt.lastresult, 'raised exception test exception')
 
+                # Test setting the global enable/disable flag
+                # reset
+                await agenda.delete(guid)
+                lastquery = None
+                self.len(0, agenda.apptheap)
+                agenda._schedtask.cancel()
+                agenda._schedtask = agenda.schedCoro(agenda._scheduleLoop())
+
+                # schedule a query to run every Wednesday and Friday at 10:15am
+                cdef = {'useriden': rootiden, 'iden': 'IDEN6', 'storm': '[test:str=bar]',
+                        'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                        'incunit': s_agenda.TimeUnit.DAYOFWEEK,
+                        'incvals': (2, 4)}
+                adef = await agenda.add(cdef)
+                guid = adef.get('iden')
+
+                self.len(1, agenda.apptheap)
+
+                # disable crons and advance time
+                agenda.enabled = False
+
+                unixtime = datetime.datetime(year=2019, month=2, day=6, hour=10, minute=16, tzinfo=tz.utc).timestamp()
+                nexttime = datetime.datetime(year=2019, month=2, day=8, hour=10, minute=15, tzinfo=tz.utc).timestamp()
+
+                await asyncio.sleep(0)
+                self.none(lastquery)
+
+                appt = await agenda.get(guid)
+                self.eq(nexttime, appt.nexttime)
+                self.true(appt.enabled)
+                self.eq(0, appt.startcount)
+
+                # enable crons and advance time
+                agenda.enabled = True
+
+                unixtime = datetime.datetime(year=2019, month=2, day=13, hour=10, minute=16, tzinfo=tz.utc).timestamp()
+                await sync.wait()
+                sync.clear()
+                self.eq(lastquery, '[test:str=bar]')
+                self.eq(1, appt.startcount)
+
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:
@@ -371,6 +412,25 @@ class AgendaTest(s_t_utils.SynTest):
                         'incvals': 1}
                 await agenda.add(cdef)
 
+                # Add an appt with an invalid query
+                cdef = {'useriden': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
+                        'reqs': {s_tu.HOUR: (7, 8)},
+                        'incunit': s_agenda.TimeUnit.MONTH,
+                        'incvals': 1}
+                adef = await agenda.add(cdef)
+                badguid1 = adef.get('iden')
+
+                # Add an appt with a bad version in storage
+                cdef = {'useriden': 'visi', 'iden': 'BAD2', 'storm': '[test:str=foo]',
+                        'reqs': {s_tu.HOUR: (7, 8)},
+                        'incunit': s_agenda.TimeUnit.MONTH,
+                        'incvals': 1}
+                adef = await agenda.add(cdef)
+                badguid2 = adef.get('iden')
+
+                adef['ver'] = 1337
+                await agenda._hivedict.set(badguid2, adef)
+
                 xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2099}
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2099}
 
@@ -385,10 +445,17 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.mod(guid3, '#bahhumbug')
 
             async with self.getTestCore(dirn=fdir) as core:
+                agenda = core.agenda
+
                 appts = agenda.list()
-                self.len(2, appts)
+                self.len(3, appts)
                 last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
                 self.eq(last_appt.query, '#bahhumbug')
+
+                bad_appt = [appt for (iden, appt) in appts if iden == badguid1][0]
+                self.false(bad_appt.enabled)
+
+                self.len(0, [appt for (iden, appt) in appts if iden == badguid2])
 
     async def test_cron_perms(self):
 

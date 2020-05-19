@@ -141,7 +141,13 @@ class Base:
         self._active_tasks = set()  # the free running tasks associated with me
 
     async def enter_context(self, item):
+        '''
+        Modeled on Python's contextlib.ExitStack.enter_context.  Enters a new context manager and adds its __exit__()
+        and __aexit__ method to its onfini handlers.
 
+        Returns:
+            The result of item’s own __aenter__ or __enter__() method.
+        '''
         async def fini():
             meth = getattr(item, '__aexit__', None)
             if meth is not None:
@@ -161,11 +167,12 @@ class Base:
             return await entr()
 
         entr = getattr(item, '__enter__', None)
-        if entr is not None:
-            async def fini():
-                item.__exit__(None, None, None)
-            self.onfini(fini)
-            return entr()
+        assert entr is not None
+
+        async def fini():
+            item.__exit__(None, None, None)
+        self.onfini(fini)
+        return entr()
 
     def onfini(self, func):
         '''
@@ -385,11 +392,6 @@ class Base:
 
         self.isfini = True
 
-        fevt = self.finievt
-
-        if fevt is not None:
-            fevt.set()
-
         for base in list(self.tofini):
             await base.fini()
 
@@ -408,6 +410,12 @@ class Base:
 
         self._syn_funcs.clear()
         self._fini_funcs.clear()
+
+        fevt = self.finievt
+
+        if fevt is not None:
+            fevt.set()
+
         return 0
 
     @contextlib.contextmanager
@@ -477,11 +485,12 @@ class Base:
         def taskDone(task):
             self._active_tasks.remove(task)
             try:
-                task.result()
+                if not task.done():
+                    task.result()
             except asyncio.CancelledError:
                 pass
             except Exception:
-                logger.exception('Task scheduled through Base.schedCoro raised exception')
+                logger.exception('Task %s scheduled through Base.schedCoro raised exception', task)
 
         self._active_tasks.add(task)
         task.add_done_callback(taskDone)
@@ -750,15 +759,19 @@ async def schedGenr(genr, maxsize=100):
 
             await q.put((False, None))
 
-        except Exception as e:
+        except asyncio.CancelledError:
+            raise
+
+        except Exception:
             if not base.isfini:
-                await q.put((False, e))
+                await q.put((False, None))
+            raise
 
     async with await Base.anit() as base:
 
-        base.schedCoro(genrtask(base))
+        task = base.schedCoro(genrtask(base))
 
-        while True:
+        while not base.isfini:
 
             ok, retn = await q.get()
 
@@ -768,10 +781,8 @@ async def schedGenr(genr, maxsize=100):
                 await asyncio.sleep(0)
                 continue
 
-            if retn is None:
-                return
-
-            raise retn
+            await task
+            return
 
 async def main(coro): # pragma: no cover
     base = await coro

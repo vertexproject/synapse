@@ -43,8 +43,36 @@ class Node:
         if self.tagprops is None:
             self.tagprops = {}
 
+        self.nodedata = sode[1].get('nodedata')
+        if self.nodedata is None:
+            self.nodedata = {}
+
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
+
+    async def addEdge(self, verb, n2iden):
+        nodeedits = (
+            (self.buid, self.form.name, (
+                (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
+            )),
+        )
+        await self.snap.applyNodeEdits(nodeedits)
+
+    async def delEdge(self, verb, n2iden):
+        nodeedits = (
+            (self.buid, self.form.name, (
+                (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
+            )),
+        )
+        await self.snap.applyNodeEdits(nodeedits)
+
+    async def iterEdgesN1(self, verb=None):
+        async for edge in self.snap.iterNodeEdgesN1(self.buid, verb=verb):
+            yield edge
+
+    async def iterEdgesN2(self, verb=None):
+        async for edge in self.snap.iterNodeEdgesN2(self.buid, verb=verb):
+            yield edge
 
     async def storm(self, text, opts=None, user=None, path=None):
         '''
@@ -107,6 +135,7 @@ class Node:
             'tags': self.tags,
             'props': self.props,
             'tagprops': tagprops,
+            'nodedata': self.nodedata,
         })
 
         if dorepr:
@@ -204,7 +233,7 @@ class Node:
 
         except Exception as e:
             mesg = f'Bad property value: {prop.full}={valu!r}'
-            return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, name=prop.name, valu=valu, emesg=str(e))
+            return await self.snap._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
 
         # do we already have the value?
         if curv == norm:
@@ -226,9 +255,9 @@ class Node:
                 return False
 
         props = {prop.name: norm}
-        nodeedits = self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
+        nodeedits = await self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
 
-        await self.snap.addNodeEdits(nodeedits)
+        await self.snap.applyNodeEdits(nodeedits)
 
         return True
 
@@ -279,12 +308,12 @@ class Node:
             return False
 
         edits = (
-            (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype)),
+            (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
         )
 
-        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
-    def repr(self, name=None):
+    def repr(self, name=None, defv=None):
 
         if name is None:
             return self.form.type.repr(self.ndef[1])
@@ -295,7 +324,7 @@ class Node:
 
         valu = self.props.get(name)
         if valu is None:
-            raise s_exc.NoPropValu(prop=name, form=self.form.name)
+            return defv
 
         return prop.type.repr(valu)
 
@@ -418,7 +447,7 @@ class Node:
 
                 await self.snap.addTagNode(tag)
 
-                edits.append((s_layer.EDIT_TAG_SET, (tag, (None, None), None)))
+                edits.append((s_layer.EDIT_TAG_SET, (tag, (None, None), None), ()))
 
         else:
             # merge values into one interval
@@ -427,11 +456,11 @@ class Node:
         if valu == curv:
             return
 
-        edits.append((s_layer.EDIT_TAG_SET, (name, valu, None)))
+        edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
 
         nodeedit = (self.buid, self.form.name, edits)
 
-        await self.snap.addNodeEdit(nodeedit)
+        await self.snap.applyNodeEdit(nodeedit)
 
     async def delTag(self, tag, init=False):
         '''
@@ -460,14 +489,14 @@ class Node:
         for _, subtag in subtags:
 
             edits.extend(self._getTagPropDel(subtag))
-            edits.append((s_layer.EDIT_TAG_DEL, (subtag, None)))
+            edits.append((s_layer.EDIT_TAG_DEL, (subtag, None), ()))
 
         edits.extend(self._getTagPropDel(name))
-        edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
+        edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
 
         nodeedit = (self.buid, self.form.name, edits)
 
-        await self.snap.addNodeEdit(nodeedit)
+        await self.snap.applyNodeEdit(nodeedit)
 
     def _getTagPropDel(self, tag):
 
@@ -480,7 +509,7 @@ class Node:
                 logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
                 continue
 
-            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, None, prop.type.stortype)))
+            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, None, prop.type.stortype), ()))
 
         return edits
 
@@ -515,15 +544,15 @@ class Node:
             norm, info = prop.type.norm(valu)
         except Exception as e:
             mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
-            return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, name=prop.name, valu=valu, emesg=str(e))
+            return await self.snap._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
 
         tagkey = (tag, name)
 
         edits = (
-            (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype)),
+            (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype), ()),
         )
 
-        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
         self.tagprops[tagkey] = norm
 
@@ -538,10 +567,10 @@ class Node:
             return False
 
         edits = (
-            (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)),
+            (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()),
         )
 
-        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
     async def delete(self, force=False):
         '''
@@ -604,29 +633,32 @@ class Node:
             await self.pop(name, init=True)
 
         edits = (
-            (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype)),
+            (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),
         )
 
-        await self.snap.addNodeEdit((self.buid, formname, edits))
+        await self.snap.applyNodeEdit((self.buid, formname, edits))
 
         self.snap.livenodes.pop(self.buid, None)
 
     async def getData(self, name):
+        valu = self.nodedata.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
         return await self.snap.getNodeData(self.buid, name)
 
     async def setData(self, name, valu):
         edits = (
-            (s_layer.EDIT_NODEDATA_SET, (name, valu, None)),
+            (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
         )
-        await self.snap.issueNodeEdits(((self.buid, self.form.name, edits),))
+        await self.snap.applyNodeEdits(((self.buid, self.form.name, edits),))
 
     async def popData(self, name):
         retn = await self.snap.getNodeData(self.buid, name)
 
         edits = (
-            (s_layer.EDIT_NODEDATA_DEL, (name, None)),
+            (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
         )
-        await self.snap.issueNodeEdits(((self.buid, self.form.name, edits),))
+        await self.snap.applyNodeEdits(((self.buid, self.form.name, edits),))
 
         return retn
 
@@ -743,9 +775,11 @@ class Path:
         self.runt = initrunt
         self.vars = framevars
 
-    def finiframe(self):
+    def finiframe(self, runt):
 
         if not self.frames:
+            self.vars.clear()
+            self.runt = runt
             return
 
         (self.vars, self.runt) = self.frames.pop()

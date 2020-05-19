@@ -98,6 +98,8 @@ class EconModule(s_module.CoreModule):
                     ('paid:time', ('time', {}), {
                         'doc': 'The point in time where the purchase was paid in full.'}),
 
+                    ('campaign', ('ou:campaign', {}), {
+                        'doc': 'The campaign that the purchase was in support of'}),
                     # TODO price
                 )),
 

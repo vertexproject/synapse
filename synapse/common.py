@@ -103,7 +103,7 @@ def buid(valu=None):
 
 def ehex(byts):
     '''
-    Encode a set of bytes to a string using binascii.hexlify.
+    Encode a bytes variable to a string using binascii.hexlify.
 
     Args:
         byts (bytes): Bytes to encode.
@@ -161,6 +161,12 @@ def todo(name, *args, **kwargs):
     Construct and return a todo tuple of (name, args, kwargs).
     '''
     return (name, args, kwargs)
+
+def tuplify(obj):
+    '''
+    Convert a nested set of python primitives into tupleized forms via msgpack.
+    '''
+    return s_msgpack.un(s_msgpack.en(obj))
 
 def genpath(*paths):
     path = os.path.join(*paths)
@@ -648,3 +654,35 @@ def config(conf, confdefs):
 def deprecated(name):
     mesg = f'"{name}" is deprecated in 0.2.0.'
     warnings.warn(mesg, DeprecationWarning)
+
+def reqjsonsafe(item):
+    '''
+    Returns None if item is json serializable, otherwise raises an exception
+    '''
+    try:
+        json.dumps(item)
+    except TypeError as e:
+        raise s_exc.MustBeJsonSafe(mesg={str(e)}) from None
+
+def jsonsafe_nodeedits(nodeedits):
+    '''
+    Hexlify the buid of each node:edits
+    '''
+    retn = []
+    for nodeedit in nodeedits:
+        newedit = (ehex(nodeedit[0]), *nodeedit[1:])
+        retn.append(newedit)
+
+    return retn
+
+def unjsonsafe_nodeedits(nodeedits):
+    retn = []
+    for nodeedit in nodeedits:
+        buid = nodeedit[0]
+        if isinstance(buid, str):
+            newedit = (uhex(buid), *nodeedit[1:])
+        else:
+            newedit = nodeedit
+        retn.append(newedit)
+
+    return retn

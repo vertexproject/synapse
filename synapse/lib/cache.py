@@ -10,7 +10,7 @@ import regex
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-def memoize(size=10000):
+def memoize(size=16384):
     return functools.lru_cache(maxsize=size)
 
 class FixedCache:

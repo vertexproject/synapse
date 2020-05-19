@@ -67,7 +67,7 @@ class CmdBossTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            await realcore.auth.addUser('bond')
+            bond = await realcore.auth.addUser('bond')
 
             async with realcore.getLocalProxy(user='bond') as tcore:
 
@@ -115,7 +115,7 @@ class CmdBossTest(s_t_utils.SynTest):
                 self.true(toutp.expect('unrecognized arguments', False))
 
                 # Give user explicit permissions to list
-                await core.addUserRule('bond', (True, ('task', 'get')))
+                await core.addUserRule(bond.iden, (True, ('task', 'get')))
 
                 # List now that the user has permissions
                 toutp.clear()
@@ -123,7 +123,7 @@ class CmdBossTest(s_t_utils.SynTest):
                 self.true(toutp.expect('1 tasks found.'))
 
                 # Give user explicit license to kill
-                await core.addUserRule('bond', (True, ('task', 'del')))
+                await core.addUserRule(bond.iden, (True, ('task', 'del')))
 
                 # Kill the task as the user
                 toutp.clear()

@@ -6,11 +6,14 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
+import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,7 @@ reqValidVdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
         'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
     },
@@ -68,10 +72,6 @@ class View(s_nexus.Pusher):  # type: ignore
         self.invalid = None
         self.parent = None  # The view this view was forked from
 
-        parent = self.info.get('parent')
-        if parent is not None:
-            self.parent = self.core.getView(parent)
-
         self.permCheck = {
             'node:add': self._nodeAddConfirm,
             'prop:set': self._propSetConfirm,
@@ -82,12 +82,27 @@ class View(s_nexus.Pusher):  # type: ignore
         # isolate some initialization to easily override for SpawnView.
         await self._initViewLayers()
 
+    def init2(self):
+        '''
+        We have a second round of initialization so the views can get a handle to their parents which might not
+        be initialized yet
+        '''
+        parent = self.info.get('parent')
+        if parent is not None:
+            self.parent = self.core.getView(parent)
+
+    def isafork(self):
+        return self.parent is not None
+
     def pack(self):
         d = {'iden': self.iden}
         d.update(self.info.pack())
 
-        layrinfo = [l.pack() for l in self.layers]
+        layrinfo = [lyr.pack() for lyr in self.layers]
         d['layers'] = layrinfo
+
+        triginfo = [t.pack() for _, t in self.triggers.list()]
+        d['triggers'] = triginfo
 
         return d
 
@@ -97,6 +112,34 @@ class View(s_nexus.Pusher):  # type: ignore
             for name, valu in (await layr.getFormCounts()).items():
                 counts[name] += valu
         return counts
+
+    async def getEdgeVerbs(self):
+
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as vset:
+
+            for layr in self.layers:
+
+                async for verb in layr.getEdgeVerbs():
+
+                    if verb in vset:
+                        continue
+
+                    await vset.add(verb)
+                    yield verb
+
+    async def getEdges(self, verb=None):
+
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as eset:
+
+            for layr in self.layers:
+
+                async for edge in layr.getEdges(verb=verb):
+
+                    if edge in eset:
+                        continue
+
+                    await eset.add(edge)
+                    yield edge
 
     async def _initViewLayers(self):
 
@@ -111,88 +154,76 @@ class View(s_nexus.Pusher):  # type: ignore
 
             self.layers.append(layr)
 
-    async def eval(self, text, opts=None, user=None):
+    async def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        if user is None:
-            user = await self.core.auth.getUserByName('root')
+        opts = self.core._initStormOpts(opts)
+        user = self.core._userFromOpts(opts)
 
-        info = {'query': text}
-        if opts is not None:
-            info['opts'] = opts
-
+        info = {'query': text, 'opts': opts}
         await self.core.boss.promote('storm', user=user, info=info)
 
         async with await self.snap(user=user) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
                 yield node
 
-    async def storm(self, text, opts=None, user=None):
-        '''
-        Evaluate a storm query and yield (node, path) tuples.
+    async def callStorm(self, text, opts=None):
+        try:
 
-        Yields:
-            (Node, Path) tuples
-        '''
-        if user is None:
-            user = await self.core.auth.getUserByName('root')
+            async for item in self.eval(text, opts=opts):
+                await asyncio.sleep(0)  # pragma: no cover
 
-        info = {'query': text}
-        if opts is not None:
-            info['opts'] = opts
+        except s_ast.StormReturn as e:
 
-        await self.core.boss.promote('storm', user=user, info=info)
+            return await s_stormtypes.toprim(e.item)
 
-        async with await self.snap(user=user) as snap:
-            async for mesg in snap.storm(text, opts=opts, user=user):
-                yield mesg
-
-    async def nodes(self, text, opts=None, user=None):
+    async def nodes(self, text, opts=None):
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        return [n async for n in self.eval(text, opts=opts, user=user)]
+        return [n async for n in self.eval(text, opts=opts)]
 
-    async def streamstorm(self, text, opts=None, user=None):
+    async def storm(self, text, opts=None):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
             ((str,dict)): Storm messages.
         '''
-        info = {'query': text}
-        if opts is not None:
-            info['opts'] = opts
+        opts = self.core._initStormOpts(opts)
 
-        if opts is None:
-            opts = {}
+        user = self.core._userFromOpts(opts)
 
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
-        if user is None:
-            user = await self.core.auth.getUserByName('root')
-
+        info = {'query': text, 'opts': opts}
         synt = await self.core.boss.promote('storm', user=user, info=info)
 
-        show = opts.get('show')
+        show = opts.get('show', set())
+
+        editformat = opts.get('editformat', 'nodeedits')
+        if editformat not in ('nodeedits', 'splices', 'count', 'none'):
+            raise s_exc.BadConfValu(mesg='editformat')
 
         async def runStorm():
             cancelled = False
             tick = s_common.now()
             count = 0
             try:
-                # First, try text parsing. If this fails, we won't be able to get
-                # a storm runtime in the snap, so catch and pass the `err` message
-                # before handing a `fini` message along.
-                self.core.getStormQuery(text)
 
+                # Always start with an init message.
                 await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
 
-                shownode = (show is None or 'node' in show)
+                # Try text parsing. If this fails, we won't be able to get a storm
+                # runtime in the snap, so catch and pass the `err` message
+                self.core.getStormQuery(text)
+
+                shownode = (not show or 'node' in show)
+
                 async with await self.snap(user=user) as snap:
 
-                    if show is None:
+                    if not show:
                         snap.link(chan.put)
 
                     else:
@@ -227,23 +258,53 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await synt.worker(runStorm())
 
+        editformat = opts.get('editformat', 'nodeedits')
+
         while True:
 
             mesg = await chan.get()
+            kind = mesg[0]
+
+            if kind == 'node':
+                yield mesg
+                continue
+
+            if kind == 'node:edits':
+                if editformat == 'nodeedits':
+
+                    nodeedits = s_common.jsonsafe_nodeedits(mesg[1]['edits'])
+                    mesg[1]['edits'] = nodeedits
+                    yield mesg
+
+                    continue
+
+                if editformat == 'none':
+                    continue
+
+                if editformat == 'count':
+                    count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
+                    mesg = ('node:edits:count', {'count': count})
+                    yield mesg
+                    continue
+
+                assert editformat == 'splices'
+
+                nodeedits = mesg[1].get('edits', [()])
+                async for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
+                    if not show or splice[0] in show:
+                        yield splice
+                continue
+
+            if kind == 'fini':
+                yield mesg
+                break
 
             yield mesg
 
-            if mesg[0] == 'fini':
-                break
-
-    async def iterStormPodes(self, text, opts=None, user=None):
-        if user is None:
-            user = await self.core.auth.getUserByName('root')
-
-        info = {'query': text}
-        if opts is not None:
-            info['opts'] = opts
-
+    async def iterStormPodes(self, text, opts=None):
+        opts = self.core._initStormOpts(opts)
+        user = self.core._userFromOpts(opts)
+        info = {'query': text, 'opts': opts}
         await self.core.boss.promote('storm', user=user, info=info)
 
         async with await self.snap(user=user) as snap:
@@ -257,8 +318,26 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.snapctor(self, user)
 
-    @s_nexus.Pusher.onPushAuto('view:addlayer')
+    @s_nexus.Pusher.onPushAuto('view:set')
+    async def setViewInfo(self, name, valu):
+        '''
+        Set a mutable view property.
+        '''
+        if name not in ('name',):
+            mesg = f'{name} is not a valid view info key'
+            raise s_exc.BadOptValu(mesg=mesg)
+        # TODO when we can set more props, we may need to parse values.
+        await self.info.set(name, valu)
+        return valu
+
     async def addLayer(self, layriden, indx=None):
+        if any(layriden == layr.iden for layr in self.layers):
+            raise s_exc.DupIden(mesg='May not have the same layer in a view twice')
+
+        return await self._push('view:addlayer', layriden, indx)
+
+    @s_nexus.Pusher.onPush('view:addlayer')
+    async def _addLayer(self, layriden, indx=None):
 
         for view in self.core.views.values():
             if view.parent is self:
@@ -271,12 +350,15 @@ class View(s_nexus.Pusher):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(iden=layriden)
 
+        if layr in self.layers:
+            return
+
         if indx is None:
             self.layers.append(layr)
         else:
             self.layers.insert(indx, layr)
 
-        await self.info.set('layers', [l.iden for l in self.layers])
+        await self.info.set('layers', [lyr.iden for lyr in self.layers])
 
     @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
@@ -329,18 +411,13 @@ class View(s_nexus.Pusher):  # type: ignore
         layriden = ldef.get('iden')
 
         vdef['parent'] = self.iden
-        vdef['layers'] = [layriden] + [l.iden for l in self.layers]
+        vdef['layers'] = [layriden] + [lyr.iden for lyr in self.layers]
 
         return await self.core.addView(vdef)
 
     async def merge(self, useriden=None):
         '''
-        Merge this view into its parent.  All changes made to this view will be applied to the parent.
-
-        When complete, delete this view.
-
-        Note:
-            The view's own write layer will *not* be deleted.
+        Merge this view into it's parent. All changes made to this view will be applied to the parent.
         '''
         fromlayr = self.layers[0]
 
@@ -414,13 +491,10 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
             return
 
-        CHUNKSIZE = 1000
-        fromoff = (0, 0, 0)
         async with await self.parent.snap(user=user) as snap:
-            while True:
-
-                splicecount = 0
-                async for offs, splice in fromlayr.splices(fromoff, CHUNKSIZE):
+            splicecount = 0
+            async for nodeedit in fromlayr.iterLayerNodeEdits():
+                async for offs, splice in fromlayr.makeSplices(0, [nodeedit], None):
                     check = self.permCheck.get(splice[0])
                     if check is None:
                         raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
@@ -430,12 +504,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     splicecount += 1
 
-                if splicecount < CHUNKSIZE:
-                    break
-
-                fromoff = (offs[0], offs[1], offs[2] + 1)
-
-                await asyncio.sleep(0)
+                    if splicecount % 1000 == 0:
+                        await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu):
 
@@ -515,6 +585,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         s_trigger.reqValidTdef(tdef)
 
+        trig = self.trigdict.get(tdef['iden'])
+        if trig is not None:
+            return self.triggers.get(tdef['iden']).pack()
+
         user = self.core.auth.user(tdef['user'])
         self.core.getStormQuery(tdef['storm'])
 
@@ -522,25 +596,41 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.trigdict.set(trig.iden, tdef)
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
-        await user.setAdmin(True, gateiden=tdef.get('iden'))
+        await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
 
         return trig.pack()
 
     async def getTrigger(self, iden):
-        return self.triggers.get(iden)
+        trig = self.triggers.get(iden)
+        if trig is None:
+            raise s_exc.NoSuchIden("Trigger not found")
 
-    @s_nexus.Pusher.onPushAuto('trigger:del')
+        return trig
+
     async def delTrigger(self, iden):
+        trig = self.triggers.get(iden)
+        if trig is None:
+            raise s_exc.NoSuchIden("Trigger not found")
+
+        return await self._push('trigger:del', iden)
+
+    @s_nexus.Pusher.onPush('trigger:del')
+    async def _delTrigger(self, iden):
         '''
         Delete a trigger from the view.
         '''
         trig = self.triggers.pop(iden)
+        if trig is None:
+            return
+
         await self.trigdict.pop(trig.iden)
         await self.core.auth.delAuthGate(trig.iden)
 
     @s_nexus.Pusher.onPushAuto('trigger:set')
     async def setTriggerInfo(self, iden, name, valu):
         trig = self.triggers.get(iden)
+        if trig is None:
+            raise s_exc.NoSuchIden("Trigger not found")
         await trig.set(name, valu)
 
     async def listTriggers(self):

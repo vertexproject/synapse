@@ -5,6 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.encoding as s_encoding
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
 
@@ -72,6 +73,17 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm --show-nodeedits [test:int=42]')
+            outp.expect('node:edits')
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm --editformat count [test:int=43]')
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags test:str=abcd')
             outp.expect(':tick = 2015/01/01 00:00:00.000')
             self.false(outp.expect('#cool', throw=False))
@@ -131,7 +143,9 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            await cmdr.runCmdLine('storm [ test:str=foo +#bar.baz=(2015,?) ]')
+            await cmdr.runCmdLine('storm --show-prov [ test:str=foo +#bar.baz=(2015,?) ]')
+            self.true(outp.expect('prov:new'))
+            self.true(outp.expect('....\ntest:str'))
             self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
             self.false(outp.expect('#bar ', throw=False))
             outp.expect('complete. 1 nodes')
@@ -214,15 +228,16 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.isin(('#6faef2', 'test:str ->'), clines)
             self.isin(('#6faef2', '           ^'), clines)
 
-            # Test that trying to print an \r doesn't assert (prompt_toolkit bug)
+            # Trying to print an \r doesn't assert (prompt_toolkit bug)
             # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/915
             await core.addNode('test:str', 'foo', props={'hehe': 'windows\r\nwindows\r\n'})
             await cmdr.runCmdLine('storm test:str=foo')
             self.true(1)
 
             await realcore.nodes('[ inet:ipv4=1.2.3.4 +#visi.woot ]')
+            await s_lmdbslab.Slab.syncLoopOnce()
 
-            # test that the storm --spawn option
+            # The storm --spawn option works
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --spawn inet:ipv4=1.2.3.4')
@@ -244,7 +259,10 @@ class CmdCoreTest(s_t_utils.SynTest):
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --format jsonl')
                 fp = cmdr.locs.get('log:fp')
-                await cmdr.runCmdLine('storm [test:str=hi :tick=2018 +#haha.hehe]')
+                await cmdr.runCmdLine('storm --editformat splices [test:str=hi :tick=2018 +#haha.hehe]')
+
+                await cmdr.runCmdLine('storm --editformat nodeedits [test:str=hi2 :tick=2018 +#haha.hehe]')
+                await cmdr.runCmdLine('storm [test:comp=(42, bar)]')
 
                 # Try calling on a second time - this has no effect on the
                 # state of cmdr, but prints a warning
@@ -266,11 +284,14 @@ class CmdCoreTest(s_t_utils.SynTest):
                     objs = list(genr)
                 self.eq(objs[0][0], 'init')
 
+                nodeedits = [m for m in objs if m[0] == 'node:edits']
+                self.ge(len(nodeedits), 2)
+
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 # Our default format is mpk
                 fp = os.path.join(dirn, 'loggyMcLogFace.mpk')
-                await cmdr.runCmdLine(f'log --on --splices-only --path {fp}')
+                await cmdr.runCmdLine(f'log --on --edits-only --path {fp}')
                 fp = cmdr.locs.get('log:fp')
                 await cmdr.runCmdLine('storm [test:str="I am a message!" :tick=1999 +#oh.my] ')
                 await cmdr.runCmdLine('log --off')
@@ -313,9 +334,9 @@ class CmdCoreTest(s_t_utils.SynTest):
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-                await cmdr.runCmdLine('log --on --splices-only --nodes-only')
+                await cmdr.runCmdLine('log --on --edits-only --nodes-only')
                 await cmdr.fini()
-                e = 'log: error: argument --nodes-only: not allowed with argument --splices-only'
+                e = 'log: error: argument --nodes-only: not allowed with argument --edits-only'
                 self.true(outp.expect(e))
 
                 # Bad internal state

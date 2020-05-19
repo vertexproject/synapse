@@ -1,5 +1,6 @@
 import os
 import ssl
+import json
 import socket
 import asyncio
 import logging
@@ -16,6 +17,8 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
+import synapse.lib.httpapi as s_httpapi
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
@@ -51,6 +54,7 @@ class Foo:
 
     def __init__(self):
         self.sleepg_evt = asyncio.Event()
+        self.simplesleep_evt = asyncio.Event()
 
     def bar(self, x, y):
         return x + y
@@ -73,6 +77,11 @@ class Foo:
             self.sleepg_evt.set()
             raise
         yield ('fini', {})
+
+    async def simplesleep(self):
+        self.simplesleep_evt.set()
+        await asyncio.sleep(10)
+        return 42
 
     def genr(self):
         yield 10
@@ -156,6 +165,16 @@ class TeleAuth(s_telepath.Aware):
 
     def getFooBar(self, x, y):
         return x + y
+
+class ConsulV1Handler(s_httpapi.Handler):
+    '''Fake Hashicorp Consul /v1/catalog/service/:service: handler'''
+    async def get(self, servicename):
+        data = self.cell.consul_data
+        if servicename != data[0].get('ServiceName'):
+            self.set_header('Content-Type', 'application/json')
+            return self.write(json.dumps([]))
+        self.set_header('Content-Type', 'application/json')
+        return self.write(json.dumps(data))
 
 class TeleTest(s_t_utils.SynTest):
 
@@ -815,7 +834,7 @@ class TeleTest(s_t_utils.SynTest):
             # link not being placed back into the pool
             self.eq(await genr0.list(), (10, 20, 30))
             self.len(2, prox.links)
-            links = set(l for l in prox.links)
+            links = set(lnk for lnk in prox.links)
             self.notin(l0, links)
             # And that link l0 has been fini'd
             self.true(l0.isfini)
@@ -870,3 +889,159 @@ class TeleTest(s_t_utils.SynTest):
                 self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
                 # Ensure we logged the cancellation.
                 self.true(await stream.wait(6))
+
+    async def test_link_fini_breaking_tasks2(self):
+        '''
+        Similar to the previous test, except tears down a proxy that another task is using
+        '''
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+            dmon.share('foo', foo)
+            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+            prox = await s_telepath.openurl(url)  # type: Foo
+
+            async def doit():
+                retn = await prox.simplesleep()
+                return retn
+
+            task = dmon.schedCoro(doit())
+            self.true(await s_coro.event_wait(foo.simplesleep_evt, 2))
+            await prox.fini()
+
+            await self.asyncraises(s_exc.LinkShutDown, task)
+
+    async def test_discovery_consul(self):
+
+        # Example data from https://www.consul.io/api/catalog.html
+        consul_data = [
+            {
+                "ID": "40e4a748-2192-161a-0510-9bf59fe950b5",
+                "Node": "foobar",
+                "Address": "192.168.10.10",
+                "Datacenter": "dc1",
+                "TaggedAddresses": {
+                    "lan": "192.168.10.10",
+                    "wan": "10.0.10.10"
+                },
+                "NodeMeta": {
+                    "somekey": "somevalue"
+                },
+                "CreateIndex": 51,
+                "ModifyIndex": 51,
+                "ServiceAddress": "172.17.0.3",
+                "ServiceEnableTagOverride": False,
+                "ServiceID": "32a2a47f7992:nodea:5000",
+                "ServiceName": "foobar",
+                "ServicePort": 5000,
+                "ServiceMeta": {
+                    "foobar_meta_value": "baz"
+                },
+                "ServiceTaggedAddresses": {
+                    "lan": {
+                        "address": "172.17.0.3",
+                        "port": 5000
+                    },
+                    "wan": {
+                        "address": "198.18.0.1",
+                        "port": 512
+                    }
+                },
+                "ServiceTags": [
+                    "tacos"
+                ],
+                "ServiceProxy": {
+                    "DestinationServiceName": "",
+                    "DestinationServiceID": "",
+                    "LocalServiceAddress": "",
+                    "LocalServicePort": 0,
+                    "Config": None,
+                    "Upstreams": None
+                },
+                "ServiceConnect": {
+                    "Native": False,
+                    "Proxy": None
+                },
+                "Namespace": "default"
+            }
+        ]
+        with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn) as cell:
+                root = await cell.auth.getUserByName('root')
+                await root.setPasswd('root')
+                cell.consul_data = consul_data
+                hhost, hport = await cell.addHttpsPort(0)
+                thost, tport = await cell.dmon.listen('tcp://127.0.0.1:0')
+                cell.addHttpApi('/v1/catalog/service/(.*)', ConsulV1Handler, {'cell': cell})
+
+                consul = f'https://127.0.0.1:{hport}'
+
+                burl = f'tcp+consul://root:root@foobar/*?consul_nosslverify=1&consul={consul}'
+                info = s_urlhelp.chopurl(burl)
+                self.eq(info.get('host'), 'foobar')
+                self.none(info.get('port'))
+
+                # Discovery functions update info dict in place.
+                await s_telepath.disc_consul(info)
+                self.eq(info.get('host'), '192.168.10.10')
+                self.eq(info.get('port'), 5000)
+                self.eq(info.get('original_host'), 'foobar')
+
+                # Support tag_address and service_tag_address
+                url = burl + '&consul_tag_address=wan'
+                info = s_urlhelp.chopurl(url)
+                await s_telepath.disc_consul(info)
+                self.eq(info.get('host'), '10.0.10.10')
+                self.eq(info.get('port'), 5000)
+                self.eq(info.get('original_host'), 'foobar')
+
+                url = burl + '&consul_service_tag_address=wan'
+                info = s_urlhelp.chopurl(url)
+                await s_telepath.disc_consul(info)
+                self.eq(info.get('host'), '198.18.0.1')
+                self.eq(info.get('port'), 512)
+                self.eq(info.get('original_host'), 'foobar')
+
+                # Support servicetag based port finding
+                url = burl + '&consul_tag=tacos'
+                info = s_urlhelp.chopurl(url)
+                await s_telepath.disc_consul(info)
+                self.eq(info.get('host'), '192.168.10.10')
+                self.eq(info.get('port'), 5000)
+                self.eq(info.get('original_host'), 'foobar')
+
+                # Punch in our host/port info into consul_data so we can do a end to end test
+                consul_data[0]['Address'] = thost
+                consul_data[0]['ServicePort'] = tport
+                async with await s_telepath.openurl(burl) as proxy:
+                    self.isin('synapse.lib.cell.CellApi', proxy._getClasses())
+
+                # Sad path - non-existing service name.
+                with self.raises(s_exc.BadUrl) as cm:
+                    url = f'tcp+consul://root:root@newp/*?consul_nosslverify=1&consul={consul}'
+                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                self.eq(cm.exception.get('name'), 'newp')
+
+                # Sad path - multiple tag resolution.
+                with self.raises(s_exc.BadUrl) as cm:
+                    url = burl + '&consul_tag_address=wan'
+                    url = url + '&consul_service_tag_address=lan'
+                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                self.eq(cm.exception.get('consul_tag_address'), 'wan')
+                self.eq(cm.exception.get('consul_service_tag_address'), 'lan')
+
+                # Sad path - ssl verification failure
+                with self.raises(s_exc.BadUrl) as cm:
+                    url = f'tcp+consul://root:root@foobar/*?consul={consul}'
+                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                self.isin('certificate verify failed', cm.exception.get('mesg'))
+                self.isinstance(cm.exception.__context__, ssl.SSLCertVerificationError)
+
+                # Sad path - iterating through results and having a
+                # non-existent consul_tag value.
+                new_data = consul_data[0].copy()
+                new_data['ServiceTags'] = []
+                cell.consul_data.insert(0, new_data)
+                with self.raises(s_exc.BadUrl) as cm:
+                    url = burl + '&consul_tag=burritos'
+                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                self.eq('burritos', cm.exception.get('tag'))

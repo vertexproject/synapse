@@ -3,7 +3,6 @@ import logging
 import collections
 
 import regex
-import xxhash
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -286,7 +285,7 @@ class Type:
         '''
         func = self._type_norms.get(type(valu))
         if func is None:
-            raise s_exc.BadTypeValu(name=self.name, mesg='no norm for type: %r' % (type(valu),))
+            raise s_exc.BadTypeValu(name=self.name, mesg='no norm for type: %r.' % (type(valu),))
 
         return func(valu)
 
@@ -418,12 +417,12 @@ class Array(Type):
         adds = list(set(adds))
 
         if self.isuniq:
-            norms = list(set(norms))
+            norms = tuple(set(norms))
 
         if self.issorted:
-            norms = sorted(norms)
+            norms = tuple(sorted(norms))
 
-        return norms, {'adds': adds}
+        return tuple(norms), {'adds': adds}
 
     def repr(self, valu):
         return [self.arraytype.repr(v) for v in valu]
@@ -986,6 +985,9 @@ class Ival(Type):
         if valu == '?':
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires begin time')
 
+        if ',' in valu:
+            return self._normByTickTock(valu.split(',', 1))
+
         minv, _ = self.timetype.norm(valu)
         # Norm is guaranteed to be a valid time value, but norm +1 may not be
         maxv, info = self.timetype._normPyInt(minv + 1)
@@ -1233,6 +1235,10 @@ class Data(Type):
     stortype = s_layer.STOR_TYPE_MSGP
 
     def norm(self, valu):
+        try:
+            s_common.reqjsonsafe(valu)
+        except s_exc.MustBeJsonSafe as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
 

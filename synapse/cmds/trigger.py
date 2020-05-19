@@ -234,14 +234,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
     async def _get_list(self, core, view):
         opts = {'view': view}
-
-        return await core.callStorm('''
-            $trigs = $lib.list()
-            for $trig in $lib.trigger.list() {
-                $trigs.append($trig.pack())
-            }
-            return ($trigs)
-        ''', opts=opts)
+        return await core.callStorm('return($lib.trigger.list())', opts=opts)
 
     async def _handle_list(self, core, opts):
         triglist = await self._get_list(core, opts.view)
@@ -326,7 +319,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         core = self.getCmdItem()
 
-        argv = s_parser.Parser(line).stormcmdargs()
+        argv = s_parser.Parser(line).cmdrargs()
         try:
             opts = self._make_argparser().parse_args(argv)
         except s_exc.ParserExit:

@@ -40,6 +40,7 @@ class BadCmprType(SynErr):
     Attempt to compare two incomparable values
     '''
 
+class BadCast(SynErr): pass
 class BadConfValu(SynErr):
     '''
     The configuration value provided is not valid.
@@ -74,10 +75,7 @@ class BadOperArg(SynErr):
     ''' Improper storm function arguments '''
     pass
 
-class NoPropValu(SynErr): pass
-
 class BadOptValu(SynErr): pass
-class BadPropValu(SynErr): pass
 class BadVersion(SynErr):
     '''Generic Bad Version exception.'''
     pass
@@ -94,7 +92,6 @@ class CantDelCmd(SynErr): pass
 class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelUniv(SynErr): pass
-class CantDelRootUser(SynErr): pass
 class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
 class CliFini(SynErr):
@@ -151,7 +148,9 @@ class NoCertKey(SynErr):
     pass
 
 class ModAlreadyLoaded(SynErr): pass
+class MustBeJsonSafe(SynErr): pass
 
+class NoSuchAbrv(SynErr): pass
 class NoSuchAct(SynErr): pass
 class NoSuchAuthGate(SynErr): pass
 class NoSuchCmd(SynErr): pass
@@ -205,6 +204,9 @@ class DmonSpawn(SynErr):
     '''
     pass
 
+class SchemaViolation(SynErr): pass
+
+class SlabAlreadyOpen(SynErr): pass
 class SpawnExit(SynErr): pass
 
 class ReadOnlyLayer(SynErr): pass

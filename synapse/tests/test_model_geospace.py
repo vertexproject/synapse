@@ -162,6 +162,12 @@ class GeoTest(s_t_utils.SynTest):
                 nodes = await core.nodes('geo:place=$place', opts=opts)
                 self.len(1, nodes)
 
+            q = '[geo:place=(beep) :latlong=$latlong]'
+            opts = {'vars': {'latlong': (11.38, 20.01)}}
+            nodes = await core.nodes(q, opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('latlong'), (11.38, 20.01))
+
     async def test_eq(self):
 
         async with self.getTestCore() as core:
@@ -291,14 +297,14 @@ class GeoTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
             # Lift behavior for a node whose has a latlong as their primary property
-            nodes = await core.eval('[(test:latlong=(10, 10) :dist=10m) '
+            nodes = await core.nodes('[(test:latlong=(10, 10) :dist=10m) '
                                     '(test:latlong=(10.1, 10.1) :dist=20m) '
-                                    '(test:latlong=(3, 3) :dist=5m)]').list()
+                                    '(test:latlong=(3, 3) :dist=5m)]')
             self.len(3, nodes)
 
-            nodes = await core.eval('test:latlong*near=((10, 10), 5km)').list()
+            nodes = await core.nodes('test:latlong*near=((10, 10), 5km)')
             self.len(1, nodes)
-            nodes = await core.eval('test:latlong*near=((10, 10), 30km)').list()
+            nodes = await core.nodes('test:latlong*near=((10, 10), 30km)')
             self.len(2, nodes)
 
             # Ensure geo:dist inherits from IntBase correctly

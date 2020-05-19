@@ -90,7 +90,8 @@ class ConfTest(s_test.SynTest):
         pars = argparse.ArgumentParser('synapse.tests.test_lib_config.basics')
         pars.add_argument('--beep', type=str, help='beep option', default='beep.sys')
         with self.getLoggerStream('synapse.lib.config', mesg) as stream:
-            pars = conf.getArgumentParser(pars=pars)
+            for optname, optinfo in conf.getArgParseArgs():
+                pars.add_argument(optname, **optinfo)
             self.true(stream.wait(3))
         hmsg = pars.format_help()
 
@@ -110,27 +111,20 @@ class ConfTest(s_test.SynTest):
         # We do not populate options for bools with missing defaults
         self.notin('Key Bool, no default', hmsg)
 
-        # Alternatively, we can have the config object also generate an
-        # argparse.Argument for us if we don't want to make one apriori.
-        pars2 = conf.getArgumentParser()
-        hmsg2 = pars2.format_help()
-        self.isin('--key-string KEY_STRING', hmsg2)
-        self.notin('--beep', hmsg2)
-
         # And we can get the data too!  Unspecified values are set to
         # s_common.novalu so we know that they were NOT set at all.
         # This differs from the default argparse case of defaults being
         # set to None, and allows us to defer the injection of default
         # values to the jsonschema validation phase.
-        args = ['--key-number', '1234.5678', '--key-bool-defvaltrue']
+        args = ['--key-number', '1234.5678', '--key-bool-defvaltrue', 'false']
         opts = pars.parse_args(args)
         vopts = vars(opts)
         edata = {
-            'key_bool_defvalfalse': s_common.novalu,
+            'key_bool_defvalfalse': None,
             'key_bool_defvaltrue': False,
-            'key_integer': s_common.novalu,
+            'key_integer': None,
             'key_number': 1234.5678,
-            'key_string': s_common.novalu,
+            'key_string': None,
             'beep': 'beep.sys'
         }
         self.eq(edata, vopts)
@@ -268,43 +262,39 @@ class ConfTest(s_test.SynTest):
                     pass
             self.eq(cm.exception.get('key'), 'apikey')
 
-    async def test_main_helpers(self):
+    def test_hideconf(self):
+        hide_schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "additionalProperties": False,
+            "properties": {
+                'key:string': {
+                    'description': 'Key String. I have a defval!',
+                    'type': 'string',
+                    'default': 'Default string!'
+                },
+                'key:integer': {
+                    'description': 'Key Integer',
+                    'type': 'integer',
+                    'hideconf': True,
+                },
+            }
+        }
+        conf = s_config.Config(hide_schema)
+        pars = argparse.ArgumentParser('synapse.tests.test_lib_config.test_hideconf')
+        for optname, optinfo in conf.getArgParseArgs():
+            pars.add_argument(optname, **optinfo)
 
-        data = {}
-        outp = self.getTestOutp()
-        async def goodcb(cell, opts, outp):
-            data['cell'] = cell
+        hmsg = pars.format_help()
+        self.isin('--key-string', hmsg)
+        self.notin('--key-integer', hmsg)
 
-        async def badcb(cell, opts, outp):
-            data['cell'] = cell
-            raise s_exc.SynErr(mesg='Nope.')
-
-        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
-            argv = ['--apikey', 'sekrit', dirn,
-                    '--log-level', 'ERROR',
-                    ]
-            async with await s_config.main(SchemaCell, argv,
-                                           cb=goodcb,
-                                           outp=outp,
-                                           ) as cell:
-                # The callback was run
-                self.false(data.get('cell').isfini)
-                self.true(cell is data.get('cell'))
-            self.eq(1, mock.call_count)
-            self.eq(mock.call_args[1], {'defval': 'ERROR'})
-
-            argv = ['--apikey', 'sekrit', dirn,
-                    ]
-            with self.raises(s_exc.SynErr) as cm:
-                await s_config.main(SchemaCell, argv,
-                                    cb=badcb,
-                                    outp=outp,
-                                    )
-                # The callback was run but threw an exception,
-                # which caused the cell to fini.
-                self.true(data.get('cell').isfini)
-            self.eq(cm.exception.get('mesg'), 'Nope.')
-
-            self.eq(2, mock.call_count)
-            # Default value
-            self.eq(mock.call_args[1], {'defval': 'INFO'})
+        s1 = yaml.safe_dump('We all float down here')
+        i1 = yaml.safe_dump(8675309)
+        # Load data from envars next - this shows precedence as well
+        # where data already set won't be set again via this method.
+        with self.setTstEnvars(KEY_STRING=s1,
+                               KEY_INTEGER=i1,
+                               ):
+            conf.setConfFromEnvs()
+        self.eq(conf.get('key:string'), 'We all float down here')
+        self.none(conf.get('key:integer'))

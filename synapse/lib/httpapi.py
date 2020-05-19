@@ -99,7 +99,7 @@ class HandlerBase:
         try:
             return json.loads(byts)
         except Exception:
-            self.sendRestErr('BadJson', 'Invalid JSON content.')
+            self.sendRestErr('SchemaViolation', 'Invalid JSON content.')
             return None
 
     def sendAuthReqired(self):
@@ -251,6 +251,19 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 class Handler(HandlerBase, t_web.RequestHandler):
     pass
 
+    async def _reqValidOpts(self, opts):
+
+        if opts is None:
+            opts = {}
+
+        user = await self.user()
+
+        opts.setdefault('user', user.iden)
+        if opts.get('user') != user.iden:
+            user.confirm(('impersonate',))
+
+        return opts
+
 class StormNodesV1(Handler):
 
     async def post(self):
@@ -273,7 +286,10 @@ class StormNodesV1(Handler):
 
         await self.cell.boss.promote('storm', user=user, info={'query': query})
 
-        async for pode in self.cell.iterStormPodes(query, opts=opts, user=user):
+        opts = await self._reqValidOpts(opts)
+
+        view = self.cell._viewFromOpts(opts)
+        async for pode in view.iterStormPodes(query, opts=opts):
             self.write(json.dumps(pode))
             await self.flush()
 
@@ -293,12 +309,16 @@ class StormV1(Handler):
             return
 
         # dont allow a user to be specified
-        opts = body.get('opts')
+        opts = body.get('opts', {})
         query = body.get('query')
+
+        # Maintain backwards compatibility with 0.1.x output
+        opts = await self._reqValidOpts(opts)
+        opts['editformat'] = 'splices'
 
         await self.cell.boss.promote('storm', user=user, info={'query': query})
 
-        async for mesg in self.cell.streamstorm(query, opts=opts, user=user):
+        async for mesg in self.cell.storm(query, opts=opts):
             self.write(json.dumps(mesg))
             await self.flush()
 
@@ -541,7 +561,7 @@ class AuthGrantV1(Handler):
             self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
             return
 
-        await user.grant(role.name)
+        await user.grant(role.iden)
 
         self.sendRestRetn(user.pack())
 
@@ -575,7 +595,7 @@ class AuthRevokeV1(Handler):
             self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
             return
 
-        await user.revoke(role.name)
+        await user.revoke(role.iden)
         self.sendRestRetn(user.pack())
 
         return
@@ -670,7 +690,7 @@ class AuthDelRoleV1(Handler):
         if role is None:
             return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!')
 
-        await self.cell.auth.delRole(name)
+        await self.cell.auth.delRole(role.iden)
 
         self.sendRestRetn(None)
         return

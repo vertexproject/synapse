@@ -12,8 +12,10 @@ import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.spawn as s_spawn
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_test
+import synapse.tests.test_lib_stormsvc as s_test_svc
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +168,7 @@ class CoreSpawnTest(s_test.SynTest):
                 ),
             }
 
-            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ] -> inet:ipv4 [ :asn=0 ]')
+            await self.runCoreNodes(core, '[ inet:dns:a=(vertex.link, 1.2.3.4) ] -> inet:ipv4 [ :asn=0 ]')
 
             async with core.getLocalProxy() as prox:
 
@@ -210,8 +212,8 @@ class CoreSpawnTest(s_test.SynTest):
                 ))
 
                 # Test a python cmd that came in via a ctor
-                msgs = await prox.storm('inet:ipv4=1.2.3.4 | testechocmd :asn', opts=opts).list()
-                self.stormIsInPrint('Echo: [0]', msgs)
+                msgs = await prox.storm('inet:ipv4=1.2.3.4 | testcmd', opts=opts).list()
+                self.stormIsInPrint("testcmd: ('inet:ipv4', 16909060)", msgs)
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 self.len(1, podes)
 
@@ -267,9 +269,9 @@ class CoreSpawnTest(s_test.SynTest):
                 # Test launching a bunch of spawn queries at the same time
                 donecount = 0
 
-                await prox.storm('[test:int=1]').list()
-                # wait for commit
-                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+                await self.runCoreNodes(core, '[test:int=1]')
+                # force a commit
+                await s_lmdbslab.Slab.syncLoopOnce()
 
                 async def taskfunc(i):
                     nonlocal donecount
@@ -310,7 +312,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                 # Ensure that opts were passed into the task data without spawn: True set
                 task = [task for task in tasks if task.get('iden') == new_idens[0]][0]
-                self.eq(task.get('info').get('opts'), {'vars': {'hehe': 'haha'}})
+                self.none(task.get('info').get('opts').get('spawn'))
 
                 # Ensure the task cancellation tore down the spawnproc
                 self.true(await victimproc.waitfini(6))
@@ -366,7 +368,7 @@ class CoreSpawnTest(s_test.SynTest):
                 nodes = await core.nodes(q)
                 self.len(1, nodes)
 
-                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+                await s_lmdbslab.Slab.syncLoopOnce()
 
                 q = '$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4'
                 msgs = await prox.storm(q, opts=opts).list()
@@ -380,7 +382,7 @@ class CoreSpawnTest(s_test.SynTest):
                 nodes = await core.nodes(q)
                 self.len(2, nodes)
 
-                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+                await s_lmdbslab.Slab.syncLoopOnce()
 
                 # Put a value into the queue that doesn't exist in the cortex so the lift can nop
                 q = '$q = $lib.queue.get(blah) $q.put("8.8.8.8")'
@@ -439,8 +441,8 @@ class CoreSpawnTest(s_test.SynTest):
             # test other users who have access to this queue can do things to it
             async with core.getLocalProxy() as root:
                 # add users
-                await root.addAuthUser('synapse')
-                await root.addAuthUser('wootuser')
+                await root.addUser('synapse')
+                await root.addUser('wootuser')
 
                 synu = await core.auth.getUserByName('synapse')
                 woot = await core.auth.getUserByName('wootuser')
@@ -464,7 +466,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                     # Ensure that the data was put into the queue by the spawnproc
                     q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=False, cull=False))'
-                    msgs = await core.streamstorm(q).list()
+                    msgs = await core.stormlist(q)
                     self.stormIsInPrint("(0, 'bar')", msgs)
 
                 async with core.getLocalProxy(user='wootuser') as prox:
@@ -507,25 +509,39 @@ class CoreSpawnTest(s_test.SynTest):
             'storm:log': True,
             'storm:log:level': logging.INFO,
         }
-        async with self.getTestCore(conf=conf) as core:
-            async with core.getLocalProxy() as prox:
-                opts = {'spawn': True}
+        async with self.getTestDmon() as dmon:
+            dmon.share('real', s_test_svc.RealService())
+            host, port = dmon.addr
 
-                msgs = await prox.storm('pkg.del asdf', opts=opts).list()
-                self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
+            lurl = f'tcp://127.0.0.1:{port}/real'
+            async with self.getTestCore(conf=conf) as core:
 
-                await core.addStormPkg(otherpkg)
-                msgs = await prox.storm('pkg.list', opts=opts).list()
-                self.stormIsInPrint('foosball', msgs)
+                await core.nodes(f'service.add real {lurl}')
+                await core.nodes('$lib.service.wait(real)')
+                msgs = await core.stormlist('help')
+                self.stormIsInPrint('foobar', msgs)
 
-                msgs = await prox.storm(f'pkg.del foosball', opts=opts).list()
-                self.stormIsInPrint('Removing package: foosball', msgs)
+                async with core.getLocalProxy() as prox:
+                    opts = {'spawn': True}
 
-                # Direct add via stormtypes
-                msgs = await prox.storm('$lib.pkg.add($pkg)',
-                                        opts={'vars': {'pkg': stormpkg}, 'spawn': True}).list()
-                msgs = await prox.storm('pkg.list', opts=opts).list()
-                self.stormIsInPrint('stormpkg', msgs)
+                    msgs = await prox.storm('help', opts=opts).list()
+                    self.stormIsInPrint('foobar', msgs)
+
+                    msgs = await prox.storm('pkg.del asdf', opts=opts).list()
+                    self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
+
+                    await core.addStormPkg(otherpkg)
+                    msgs = await prox.storm('pkg.list', opts=opts).list()
+                    self.stormIsInPrint('foosball', msgs)
+
+                    msgs = await prox.storm(f'pkg.del foosball', opts=opts).list()
+                    self.stormIsInPrint('Removing package: foosball', msgs)
+
+                    # Direct add via stormtypes
+                    msgs = await prox.storm('$lib.pkg.add($pkg)',
+                                            opts={'vars': {'pkg': stormpkg}, 'spawn': True}).list()
+                    msgs = await prox.storm('pkg.list', opts=opts).list()
+                    self.stormIsInPrint('stormpkg', msgs)
 
     async def test_spawn_node_data(self):
 
@@ -563,7 +579,7 @@ class CoreSpawnTest(s_test.SynTest):
             # Adding model extensions must work
             await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
             await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
-            await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+            await s_lmdbslab.Slab.syncLoopOnce()
             msgs = await prox.storm('inet:ipv4=1.2.3.4', opts=opts).list()
             self.len(3, msgs)
             self.eq(msgs[1][1][1]['props'].get('_woot'), 10)

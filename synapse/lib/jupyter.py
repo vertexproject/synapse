@@ -200,12 +200,15 @@ class CmdrCore(s_base.Base):
             list: A list of packed nodes.
         '''
         mesgs = await self._runStorm(text, opts, cmdr)
+        for mesg in mesgs:
+            if mesg[0] == 'err': # pragma: no cover
+                raise AssertionError(f'Query { {text} } got err: {mesg!r}')
 
         nodes = [m[1] for m in mesgs if m[0] == 'node']
 
         if num is not None:
-            if len(nodes) != num:
-                raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
+            if len(nodes) != num: # pragma: no cover
+                raise AssertionError(f'Query { {text} } expected {num} nodes, got {len(nodes)}')
 
         return nodes
 

@@ -119,10 +119,11 @@ class Triggers:
             [await trig.execute(node) for trig in self.nodedel.get(node.form.name, ())]
 
     async def runPropSet(self, node, prop, oldv):
+        vars = {'propname': prop.name, 'propfull': prop.full}
         with self._recursion_check():
-            [await trig.execute(node) for trig in self.propset.get(prop.full, ())]
+            [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.full, ())]
             if prop.univ is not None:
-                [await trig.execute(node) for trig in self.propset.get(prop.univ.full, ())]
+                [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.univ.full, ())]
 
     async def runTagAdd(self, node, tag):
 
@@ -235,7 +236,7 @@ class Triggers:
 
         trig = self.triggers.pop(iden, None)
         if trig is None:
-            self.get(iden)
+            return None
 
         cond = trig.tdef.get('cond')
 
@@ -283,12 +284,7 @@ class Triggers:
         raise AssertionError('trigger has invalid condition')
 
     def get(self, iden):
-        trig = self.triggers.get(iden)
-        if trig is None:
-            mesg = f'No trigger with iden {iden}'
-            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
-        return trig
-
+        return self.triggers.get(iden)
 
 class Trigger:
 

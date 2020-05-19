@@ -14,6 +14,8 @@ import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 import synapse.lib.hashitem as s_hashitem
 
+from fastjsonschema.exceptions import JsonSchemaException
+
 logger = logging.getLogger(__name__)
 
 re_iden = '^[0-9a-f]{32}$'
@@ -70,8 +72,15 @@ def getJsValidator(schema):
         return func
 
     func = fastjsonschema.compile(schema)
-    _JsValidators[key] = func
-    return func
+
+    def wrap(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except JsonSchemaException as e:
+            raise s_exc.SchemaViolation(mesg=e.message, name=e.name)
+
+    _JsValidators[key] = wrap
+    return wrap
 
 jsonschematype2argparse = {
     'integer': int,
@@ -142,66 +151,42 @@ class Config(c_abc.MutableMapping):
         schema = getJsSchema(cell.confbase, cell.confdefs)
         return cls(schema, conf=conf, envar_prefix=envar_prefix)
 
-    # Argparse support methods
-    def getArgumentParser(self, pars=None):
-        '''
-        Make or update an argparse.ArgumentParser with configuration switches.
+    def getArgParseArgs(self):
 
-        Args:
-            pars (argparse.ArgumentParser): Optional, an existing argparser to update.
+        argdata = []
 
-        Notes:
-            Configuration data is placed in the argument group called ``config``.
-
-        Returns:
-            argparse.ArgumentParser: Either a new or the existing ArgumentParser.
-        '''
-        if pars is None:
-            pars = argparse.ArgumentParser()
-        agrp = pars.add_argument_group('config', 'Configuration arguments.')
-        self._addArgparseArguments(agrp)
-        return pars
-
-    def _addArgparseArguments(self, pgrp):
-        '''
-        Do the work for adding arguments from the schema to an argumentgroup.
-
-        Args:
-            pgrp (argparse._ArgumentGroup): The argumentgroup which arguments are added to.
-
-        Returns:
-            None: Returns None.
-        '''
         for (name, conf) in self.json_schema.get('properties').items():
+
+            if conf.get('hideconf'):
+                continue
+
             atyp = jsonschematype2argparse.get(conf.get('type'))
             if atyp is None:
                 continue
+
             akwargs = {'help': conf.get('description', ''),
                        'action': 'store',
                        'type': atyp,
-                       'default': s_common.novalu
                        }
 
             if atyp is bool:
-                akwargs.pop('type')
+
                 default = conf.get('default')
                 if default is None:
                     logger.debug(f'Boolean type is missing default information. Will not form argparse for [{name}]')
                     continue
                 default = bool(default)
-                # Do not use the default value!
-                if default:
-                    akwargs['action'] = 'store_false'
-                    akwargs['help'] = akwargs['help'] + ' Set this option to disable this option.'
-                else:
-                    akwargs['action'] = 'store_true'
-                    akwargs['help'] = akwargs['help'] + ' Set this option to enable this option.'
+                akwargs['type'] = yaml.safe_load
+                akwargs['choices'] = [True, False]
+                akwargs['help'] = akwargs['help'] + f' This option defaults to {default}.'
 
             parsed_name = name.replace(':', '-')
             replace_name = name.replace(':', '_')
             self._argparse_conf_names[replace_name] = name
             argname = '--' + parsed_name
-            pgrp.add_argument(argname, **akwargs)
+            argdata.append((argname, akwargs))
+
+        return argdata
 
     def setConfFromOpts(self, opts):
         '''
@@ -216,7 +201,7 @@ class Config(c_abc.MutableMapping):
         '''
         opts_data = vars(opts)
         for k, v in opts_data.items():
-            if v is s_common.novalu:
+            if v is None:
                 continue
             nname = self._argparse_conf_names.get(k)
             if nname is None:
@@ -238,6 +223,9 @@ class Config(c_abc.MutableMapping):
             - If the environment variable is set, set the config value to the results of ``yaml.yaml_safeload()``
               on the value.
 
+            Configuration values which have the ``hideconf`` value set to True are not resolved from environment
+            variables.
+
         Examples:
 
             For the configuration value ``auth:passwd``, the environment variable is resolved as ``AUTH_PASSWD``.
@@ -246,7 +234,10 @@ class Config(c_abc.MutableMapping):
         Returns:
             None: Returns None.
         '''
-        for name, _ in self.json_schema.get('properties', {}).items():
+        for name, conf in self.json_schema.get('properties', {}).items():
+            if conf.get('hideconf'):
+                continue
+
             envar = make_envar_name(name, prefix=self.envar_prefix)
             envv = os.getenv(envar)
             if envv is not None:
@@ -269,7 +260,7 @@ class Config(c_abc.MutableMapping):
         '''
         try:
             self.validator(self.conf)
-        except fastjsonschema.exceptions.JsonSchemaException as e:
+        except s_exc.SchemaViolation as e:
             logger.exception('Configuration is invalid.')
             raise s_exc.BadConfValu(mesg=f'Invalid configuration found: [{str(e)}]') from None
         else:
@@ -334,121 +325,3 @@ class Config(c_abc.MutableMapping):
 
     def __getitem__(self, item):
         return self.conf.__getitem__(item)
-
-def common_argparse(argp, https='4443', telep='tcp://0.0.0.0:27492/',
-                    telen=None, cellname='Cell'):
-    '''
-    Add a set of common arguments to an ArgumentParser that can be used with ``common_cb``.
-
-    Args:
-        argp (argparse.ArgumentParser): ArgumentParser to augment.
-        https (str): Port to listen to HTTPS on.
-        telep (str): Telepath address to listen on.
-        telen (str): Optional, name to share the cell as.
-        cellname (str): Optional, name to inject into the ``--name`` help argument.
-
-    Returns:
-        None: Returns None.
-    '''
-    argp.add_argument('--https', default=https, dest='port',
-                      type=int, help='The port to bind for the HTTPS/REST API.')
-    argp.add_argument('--telepath', default=telep,
-                      help='The telepath URL to listen on.')
-    argp.add_argument('--name', default=telen,
-                      help=f'The (optional) additional name to share the {cellname} as.')
-
-async def common_cb(cell, opts, outp):
-    '''
-    A common base callback that can be used in conjunction with ``common_argparse``.
-
-    Notes:
-        This sets https server port, telepath listening port and a telepath share name if set.
-
-    Args:
-        cell: Synapse Cell.
-        opts (argparse.Namespace): An argparse Namespace object from parsed arguments.
-        outp (s_output.Output): Output object.
-
-    Returns:
-        None: Returns None.
-    '''
-    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
-    await cell.dmon.listen(opts.telepath)
-
-    outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.port,))
-    await cell.addHttpsPort(opts.port)
-
-    if opts.name:
-        outp.printf(f'...{cell.getCellType()} additional share name: {opts.name}')
-        cell.dmon.share(opts.name, cell)
-
-async def main(ctor,
-               argv,
-               pars=None,
-               cb=None,
-               outp=s_output.stdout,
-               envar_prefix=None,
-               ):
-    '''
-    Cell configuration launcher helper.
-
-    Args:
-        ctor: Synapse Cell ctor.
-        argv (list): List of arguments to parse.
-        pars (argparse.ArgumentParser): Optional, a user provided ArgumentParser. Useful when combined with the cb.
-        cb (callable): Optional callback function which takes the cell, opts and outp as arguments.
-        outp (s_output.Output): An output instance for printing output.
-        envar_prefix (str): A envar prefix for collecting envar based configuration data.
-
-    Notes:
-        This does the following items:
-
-            - Create a Config object from the Cell Ctor.
-            - Create (or inject) argument options into an Argument Parser from the Config object.
-            - Parses the provided arguments.
-            - Sets logging for the process.
-            - Loads configuration data from the parsed options and environment variables.
-            - Creates the Cell from the Cell Ctor.
-            - Executes the provided callback function.
-            - Returns the Cell.
-
-        Provided ArgumentParser instances will have the following argument injected into it in order
-        to provide the location where the cell is started from, and to do default logging configuration.
-
-        ::
-
-            pars.add_argument('celldir', type=str,
-                                help='The directory for the Cell to use for storage.')
-            pars.add_argument('--log-level', default='INFO',
-                                choices=s_const.LOG_LEVEL_CHOICES,
-                                help='Specify the Python logging log level.', type=str.upper)
-
-    Returns:
-        The Synapse Cell made from the provided Ctor.
-    '''
-    conf = Config.getConfFromCell(ctor, envar_prefix=envar_prefix)
-    pars = conf.getArgumentParser(pars=pars)
-    # Inject celldir & logging argument so we can rely on having it around.
-    pars.add_argument('celldir', type=str,
-                      help=f'The directory for the {ctor.getCellType()} to use for storage.')
-    pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
-                      help='Specify the Python logging log level.', type=str.upper)
-    opts = pars.parse_args(argv)
-
-    s_common.setlogging(logger, defval=opts.log_level)
-
-    conf.setConfFromOpts(opts)
-    conf.setConfFromEnvs()
-
-    outp.printf(f'starting {ctor.getCellType()}: {opts.celldir}')
-
-    cell = await ctor.anit(opts.celldir, conf=conf)
-
-    try:
-        if cb:
-            await cb(cell, opts, outp)
-    except Exception:
-        await cell.fini()
-        raise
-    else:
-        return cell

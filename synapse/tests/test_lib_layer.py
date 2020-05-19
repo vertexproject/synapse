@@ -9,6 +9,8 @@ import synapse.telepath as s_telepath
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 
+import synapse.tools.backup as s_tools_backup
+
 import synapse.tests.utils as s_t_utils
 
 from synapse.tests.utils import alist
@@ -38,18 +40,18 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             layr = core.getLayer()
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.setPropAbrv('visi', 'foo'))
             # another to check the cache...
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x05', layr.getPropAbrv('whip', None))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x05', layr.setPropAbrv('whip', None))
             self.eq(('visi', 'foo'), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x04'))
             self.eq(('whip', None), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x05'))
-            self.eq(None, layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x06'))
+            self.raises(s_exc.NoSuchAbrv, layr.getAbrvProp, b'\x00\x00\x00\x00\x00\x00\x00\x06')
 
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.setTagPropAbrv('visi', 'foo'))
             # another to check the cache...
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x01', layr.getTagPropAbrv('whip', None))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x01', layr.setTagPropAbrv('whip', None))
 
     async def test_layer_upstream(self):
 
@@ -77,6 +79,10 @@ class LayerTest(s_t_utils.SynTest):
                     await node.setData('baz', 'nodedataiscool')
 
                 async with self.getTestCore(dirn=path01) as core01:
+
+                    # test layer/<iden> mapping
+                    async with core00.getLocalProxy(f'*/layer/{layriden}') as layrprox:
+                        self.eq(layriden, await layrprox.getIden())
 
                     url = core00.getLocalUrl('*/layer')
                     conf = {'upstream': url}
@@ -130,6 +136,65 @@ class LayerTest(s_t_utils.SynTest):
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:ipv4=5.6.7.8'))
+
+                    # make sure time and user are set on the downstream splices
+                    root = await core01.auth.getUserByName('root')
+
+                    splices = await alist(layr.splicesBack(size=1))
+                    self.len(1, splices)
+
+                    splice = splices[0][1][1]
+                    self.nn(splice.get('time'))
+                    self.eq(splice.get('user'), root.iden)
+                    self.none(splice.get('prov'))
+
+    async def test_layer_upstream_with_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')  # layer upstream
+            path01 = s_common.gendir(dirn, 'core01')  # layer downstream, mirror leader
+            path02 = s_common.gendir(dirn, 'core02')  # layer downstream, mirror follower
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                layriden = core00.view.layers[0].iden
+
+                await core00.nodes('[test:str=foobar +#hehe.haha]')
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.addTagProp('score', ('int', {}), {})
+
+                async with self.getTestCore(dirn=path01) as core01:
+                    url = core00.getLocalUrl('*/layer')
+                    conf = {'upstream': url}
+                    ldef = await core01.addLayer(ldef=conf)
+                    layr = core01.getLayer(ldef.get('iden'))
+                    await core01.view.addLayer(layr.iden)
+
+                s_tools_backup.backup(path01, path02)
+
+                async with self.getTestCore(dirn=path01) as core01:
+                    layr = core01.getLayer(ldef.get('iden'))
+
+                    # Sync core01 with core00
+                    offs = core00.getView().layers[0].getNodeEditOffset()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=8.0)
+
+                    self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+
+                    url = core01.getLocalUrl()
+
+                    async with self.getTestCore(dirn=path02, conf={'mirror': url}) as core02:
+                        await core02.sync()
+
+                        layr = core01.getLayer(ldef.get('iden'))
+                        self.true(layr.allow_upstream)
+
+                        layr = core02.getLayer(ldef.get('iden'))
+                        self.false(layr.allow_upstream)
+
+                        self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
 
     async def test_layer_multi_upstream(self):
 
@@ -463,69 +528,69 @@ class LayerTest(s_t_utils.SynTest):
                 layr.layrslab.put(key[0], val, db=tmpdb)
 
             # = -99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '=', -99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', -99999.9)]
             self.eq(retn, [-99999.9])
 
             # <= -99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', -99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', -99999.9)]
             self.eq(retn, [-math.inf, -99999.9])
 
             # < -99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<', -99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', -99999.9)]
             self.eq(retn, [-math.inf])
 
             # > 99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>', 99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', 99999.9)]
             self.eq(retn, [math.inf])
 
             # >= 99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>=', 99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', 99999.9)]
             self.eq(retn, [99999.9, math.inf])
 
             # <= 0.0
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', 0.0)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', 0.0)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0])
 
             # >= -0.0
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>=', -0.0)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', -0.0)]
             self.eq(retn, [-0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # >= -42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>=', -42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', -42.1)]
             self.eq(retn, [-42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # > -42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>', -42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', -42.1)]
             self.eq(retn, [-0.0000000001, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # < 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<', 42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', 42.1)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0, 0.000001])
 
             # <= 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', 42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', 42.1)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1])
 
             # -42.1 to 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (-42.1, 42.1))]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (-42.1, 42.1))]
             self.eq(retn, [-42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1])
 
             # 1 to 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (1.0, 42.1))]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (1.0, 42.1))]
             self.eq(retn, [42.1])
 
             # -99999.9 to -0.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
             self.eq(retn, [-99999.9, -42.1])
 
             # <= NaN
-            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, '<=', math.nan)
+            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '<=', math.nan))
 
             # >= NaN
-            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, '>=', math.nan)
+            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '>=', math.nan))
 
             # 1.0 to NaN
-            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, 'range=', (1.0, math.nan))
+            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, 'range=', (1.0, math.nan)))
 
     async def test_layer_stortype_merge(self):
 
@@ -544,7 +609,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL)),
+                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL), ()),
                 )),
             ]
 
@@ -554,7 +619,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME), ()),
                 )),
             ]
 
@@ -565,7 +630,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME), ()),
                 )),
             ]
 
@@ -579,7 +644,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv)),
+                    (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv), ()),
                 )),
             ]
 
@@ -605,10 +670,13 @@ class LayerTest(s_t_utils.SynTest):
 
             count = 0
             editlist = []
+
+            layr = core0.getLayer(None)
+            necount = layr.nodeeditlog.index()
             async for _, nodeedits in prox0.syncLayerNodeEdits(0):
                 editlist.append(nodeedits)
                 count += 1
-                if count == 7:
+                if count == necount:
                     break
 
             async with self.getTestCore() as core1:
@@ -628,6 +696,9 @@ class LayerTest(s_t_utils.SynTest):
                     self.eq(nodelist0, nodelist1)
 
                 layr = core1.view.layers[0]
+
+                # Empty the layer to try again
+
                 await layr.truncate()
 
                 async with await s_telepath.openurl(url) as layrprox:
@@ -646,6 +717,8 @@ class LayerTest(s_t_utils.SynTest):
                             'time': 0,
                             }
 
+                    await layr.truncate()
+
                     for nodeedits in editlist:
                         self.none(await layrprox.storNodeEditsNoLift(nodeedits, meta=meta))
 
@@ -660,16 +733,38 @@ class LayerTest(s_t_utils.SynTest):
             await core.addTagProp('score', ('int', {}), {})
 
             layr = core.getLayer()
-            self.eq(str(layr), f'Layer (Layer): {layr.iden}')
+            self.isin(f'Layer (Layer): {layr.iden}', str(layr))
 
             nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
             buid = nodes[0].buid
 
-            self.eq('foo', layr.getNodeValu(buid))
-            self.eq((1420070400000, 1451606400000), layr.getNodeValu(buid, '.seen'))
-            self.none(layr.getNodeValu(buid, 'noprop'))
-            self.none(layr.getNodeTag(buid, 'faketag'))
+            self.eq('foo', await layr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
+            self.none(await layr.getNodeValu(buid, 'noprop'))
+            self.none(await layr.getNodeTag(buid, 'faketag'))
 
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
-            self.true(await layr.hasTagProp('score'))
+
+    async def test_layer_no_extra_logging(self):
+
+        async with self.getTestCore() as core:
+            '''
+            For a do-nothing write, don't write new log entries
+            '''
+            await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            layr = core.getLayer(None)
+            lbefore = len(await alist(layr.splices()))
+            await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            lafter = len(await alist(layr.splices()))
+            self.eq(lbefore, lafter)
+
+    async def test_layer_del_then_lift(self):
+        '''
+        Regression test
+        '''
+        async with self.getTestCore() as core:
+            await core.nodes('$x = 0 while $($x < 2000) { [file:bytes="*"] [ou:org="*"] $x = $($x + 1)}')
+            await core.nodes('.created | delnode --force')
+            nodes = await core.nodes('.created')
+            self.len(0, nodes)

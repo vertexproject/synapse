@@ -575,8 +575,8 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             self.printf(f'entries:         {"incunit":10} {"incval":6} {"required"}')
             for reqdict, incunit, incval in recs:
                 reqdict = reqdict or '<None>'
-                incunit = incunit or '<None>'
-                incval = incval or '<None>'
+                incunit = '<None>' if incunit is None else incunit
+                incval = '<None>' if incval is None else incval
                 self.printf(f'                 {incunit:10} {incval:6} {reqdict}')
 
     async def runCmdOpts(self, opts):
@@ -590,7 +590,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         core = self.getCmdItem()
 
-        argv = s_parser.Parser(line).stormcmdargs()
+        argv = s_parser.Parser(line).cmdrargs()
         try:
             opts = self._make_argparser().parse_args(argv)
         except s_exc.ParserExit:
@@ -670,7 +670,7 @@ Examples:
 
         core = self.getCmdItem()
 
-        argv = s_parser.Parser(line).stormcmdargs()
+        argv = s_parser.Parser(line).cmdrargs()
         # Currently, using an argparser is overkill for this command.  Using for future extensibility (and help).
         try:
             opts = self._make_argparser().parse_args(argv)

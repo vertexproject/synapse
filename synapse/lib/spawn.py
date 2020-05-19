@@ -44,6 +44,9 @@ async def storm(core, item):
     opts = storminfo.get('opts')
     text = storminfo.get('query')
 
+    if opts is None:
+        opts = {}
+
     user = core.auth.user(useriden)
     if user is None:
         raise s_exc.NoSuchUser(iden=useriden)
@@ -52,7 +55,8 @@ async def storm(core, item):
     if view is None:
         raise s_exc.NoSuchView(iden=viewiden)
 
-    async for mesg in view.streamstorm(text, opts=opts, user=user):
+    opts['user'] = useriden
+    async for mesg in view.storm(text, opts=opts):
         yield mesg
 
 async def _innerloop(core, todo, done):
@@ -97,7 +101,10 @@ async def _workloop(spawninfo, todo, done):
     '''
     s_glob.iAmLoop()
 
-    async with await SpawnCore.anit(spawninfo) as core:
+    ctorname = spawninfo.get('spawncorector')
+    ctor = s_dyndeps.tryDynLocal(ctorname)
+
+    async with await ctor.anit(spawninfo) as core:
 
         while not core.isfini:
 
@@ -317,13 +324,26 @@ class SpawnCore(s_base.Base):
         self.iden = spawninfo.get('iden')
         self.dirn = spawninfo.get('dirn')
 
+        self.trigson = self.conf.get('trigger:enable')
+
+        self.svcsbyiden = {}
+        self.svcsbyname = {}
+
         self.stormcmds = {}
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
         self.stormmods = spawninfo['storm']['mods']
         self.pkginfo = spawninfo['storm']['pkgs']
+        self.svcinfo = spawninfo['storm']['svcs']
+
+        self.model = s_datamodel.Model()
+        self.model.addDataModels(spawninfo.get('model'))
 
         self.stormpkgs = {}     # name: pkgdef
+        await self._initStormCmds()
+
+        for sdef in self.svcinfo:
+            await self._addStormSvc(sdef)
 
         for pkgdef in self.pkginfo:
             await self._tryLoadStormPkg(pkgdef)
@@ -332,16 +352,12 @@ class SpawnCore(s_base.Base):
             self.stormcmds[name] = ctor
 
         for name, cdef in spawninfo['storm']['cmds']['cdefs']:
-            ctor = functools.partial(s_storm.PureCmd, cdef)
-            self.stormcmds[name] = ctor
+            self.storm_cmd_cdefs[name] = cdef
 
         self.libroot = spawninfo.get('storm').get('libs')
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss.fini)
-
-        self.model = s_datamodel.Model()
-        self.model.addDataModels(spawninfo.get('model'))
 
         self.prox = await s_telepath.openurl(f'cell://{self.dirn}')
         self.onfini(self.prox.fini)
@@ -349,25 +365,11 @@ class SpawnCore(s_base.Base):
         self.hive = await s_hive.openurl(f'cell://{self.dirn}', name='*/hive')
         self.onfini(self.hive)
 
-        # TODO cortex configured for remote auth...
         node = await self.hive.open(('auth',))
         self.auth = await s_hiveauth.Auth.anit(node)
         self.onfini(self.auth.fini)
         for layrinfo in self.spawninfo.get('layers'):
-
-            iden = layrinfo.get('iden')
-            ctorname = layrinfo.get('ctor')
-
-            ctor = s_dyndeps.tryDynLocal(ctorname)
-
-            layrinfo['readonly'] = True
-
-            layrdirn = s_common.genpath(self.dirn, 'layers', iden)
-
-            layr = await ctor.anit(layrinfo, layrdirn)
-            self.onfini(layr)
-
-            self.layers[iden] = layr
+            await self._initLayr(layrinfo)
 
         for viewinfo in self.spawninfo.get('views'):
 
@@ -381,30 +383,33 @@ class SpawnCore(s_base.Base):
 
             self.views[iden] = view
 
-        # initialize pass-through methods from the telepath proxy
-        # Lift
-        # self.runRuntLift = self.prox.runRuntLift
-        # # StormType Queue APIs
-        # self.addCoreQueue = self.prox.addCoreQueue
-        # self.hasCoreQueue = self.prox.hasCoreQueue
-        # self.delCoreQueue = self.prox.delCoreQueue
-        # self.getCoreQueue = self.prox.getCoreQueue
-        # self.getCoreQueues = self.prox.getCoreQueues
-        # self.getsCoreQueue = self.prox.getsCoreQueue
-        # self.putCoreQueue = self.prox.putCoreQueue
-        # self.putsCoreQueue = self.prox.putsCoreQueue
-        # self.cullCoreQueue = self.prox.cullCoreQueue
-        # # Feedfunc support
-        # self.getFeedFuncs = self.prox.getFeedFuncs
-        # # storm pkgfuncs
-        # self.addStormPkg = self.prox.addStormPkg
-        # self.delStormPkg = self.prox.delStormPkg
-        # self.getStormPkgs = self.prox.getStormPkgs
+        for view in self.views.values():
+            view.init2()
 
         self.addStormDmon = self.prox.addStormDmon
         self.delStormDmon = self.prox.delStormDmon
         self.getStormDmon = self.prox.getStormDmon
         self.getStormDmons = self.prox.getStormDmons
+
+    async def _initLayr(self, layrinfo):
+        iden = layrinfo.get('iden')
+        ctorname = layrinfo.get('ctor')
+
+        ctor = s_dyndeps.tryDynLocal(ctorname)
+
+        layrinfo['readonly'] = True
+
+        layr = await self._ctorLayr(ctor, layrinfo)
+
+        self.onfini(layr)
+
+        self.layers[iden] = layr
+
+    async def _ctorLayr(self, ctor, layrinfo):
+        iden = layrinfo.get('iden')
+        layrdirn = s_common.genpath(self.dirn, 'layers', iden)
+        layr = await ctor.anit(layrinfo, layrdirn)
+        return layr
 
     async def dyncall(self, iden, todo, gatekeys=()):
         return await self.prox.dyncall(iden, todo, gatekeys=gatekeys)
@@ -437,10 +442,9 @@ class SpawnCore(s_base.Base):
         todo = s_common.todo('delStormPkg', name)
         await self.dyncall('cortex', todo)
 
-        pkgdef = await self.pkghive.pop(name, None)
+        pkgdef = self.stormpkgs.get(name)
         if pkgdef is None:
-            mesg = f'No storm package: {name}.'
-            raise s_exc.NoSuchPkg(mesg=mesg)
+            return
 
         await self._dropStormPkg(pkgdef)
 
@@ -450,17 +454,66 @@ class SpawnCore(s_base.Base):
     async def getStormPkgs(self):
         return list(self.stormpkgs.values())
 
+    async def _addStormSvc(self, sdef):
+
+        iden = sdef.get('iden')
+        ssvc = self.svcsbyiden.get(iden)
+        if ssvc is not None:
+            return ssvc.sdef
+
+        ssvc = await self._setStormSvc(sdef)
+
+        return ssvc.sdef
+
+    async def _delStormSvcPkgs(self, iden):
+        '''
+        For now don't actually run this in the spawn case. This only needs to be
+        done in the master Cortex, not in spawns. Deleting a storm service package
+        from a spawn should not be making persistent changes.
+        '''
+        pass
+
+    async def _runStormSvcAdd(self, iden):
+        '''
+        For now don't actually run this in the spawn case. This only needs to be
+        done in the master Cortex, not in spawns. Loading a service here should not
+        be making persistent changes.
+        '''
+        pass
+
+    async def setStormSvcEvents(self, iden, edef):
+        svc = self.svcsbyiden.get(iden)
+        if svc is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        sdef = svc.sdef
+
+        sdef['evts'] = edef
+        return sdef
+
     # A little selective inheritance
     # TODO:  restructure cortex to avoid this hackery
+    _setStormSvc = s_cortex.Cortex._setStormSvc
     _confirmStormPkg = s_cortex.Cortex._confirmStormPkg
     _dropStormPkg = s_cortex.Cortex._dropStormPkg
     _reqStormCmd = s_cortex.Cortex._reqStormCmd
     _setStormCmd = s_cortex.Cortex._setStormCmd
     _tryLoadStormPkg = s_cortex.Cortex._tryLoadStormPkg
+    _trySetStormCmd = s_cortex.Cortex._trySetStormCmd
+    addStormCmd = s_cortex.Cortex.addStormCmd
     getDataModel = s_cortex.Cortex.getDataModel
     getStormCmd = s_cortex.Cortex.getStormCmd
+    getStormCmds = s_cortex.Cortex.getStormCmds
     getStormLib = s_cortex.Cortex.getStormLib
     getStormMods = s_cortex.Cortex.getStormMods
     getStormPkg = s_cortex.Cortex.getStormPkg
     getStormQuery = s_cortex.Cortex.getStormQuery
+    getStormSvc = s_cortex.Cortex.getStormSvc
     loadStormPkg = s_cortex.Cortex.loadStormPkg
+
+    _initStormCmds = s_cortex.Cortex._initStormCmds
+    _initStormOpts = s_cortex.Cortex._initStormOpts
+
+    _viewFromOpts = s_cortex.Cortex._viewFromOpts
+    _userFromOpts = s_cortex.Cortex._userFromOpts

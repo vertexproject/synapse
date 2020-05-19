@@ -263,7 +263,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
             HiveDict: A HiveDict for the full path.
         '''
         node = await self.open(full)
-        return await HiveDict.anit(self, node, nexs=False)
+        return await HiveDict.anit(self, node, nexs=nexs)
 
     async def _initNodePath(self, base, path, valu):
 
@@ -332,6 +332,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
         '''
         A set operation at the hive level (full path).
         '''
+        valu = s_common.tuplify(valu)
         if nexs:
             return await self._push('hive:set', full, valu)
 

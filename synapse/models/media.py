@@ -22,17 +22,14 @@ class MediaModule(s_module.CoreModule):
                     'doc': 'The (optional) file blob containing or published as the news',
                 }),
                 ('title', ('str', {'lower': True}), {
-                    'defval': '??',
                     'doc': 'Title/Headline for the news',
                     'ex': 'mars lander reaches mars',
                 }),
                 ('summary', ('str', {}), {
-                    'defval': '??',
                     'doc': 'A brief summary of the news item',
                     'ex': 'lorum ipsum',
                 }),
                 ('published', ('time', {}), {
-                    'defval': 0,
                     'doc': 'The date the news item was published',
                     'ex': '20161201180433',
                 }),
@@ -41,9 +38,11 @@ class MediaModule(s_module.CoreModule):
                     'ex': 'microsoft',
                 }),
                 ('author', ('ps:name', {}), {
-                    'defval': '?,?',
                     'doc': 'The free-form author of the news',
                     'ex': 'stark,anthony'
+                }),
+                ('rss:feed', ('inet:url', {}), {
+                    'doc': 'The RSS feed that published the news',
                 }),
                 # ('doi',{'ptype':'media:issn','doc':'The (optional) ISSN number for the news publication'})
                 # ('issn',{'ptype':'media:issn','doc':'The (optional) ISSN number for the news publication'})

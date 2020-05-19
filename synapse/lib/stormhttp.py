@@ -19,6 +19,10 @@ class LibHttp(s_stormtypes.Lib):
         })
 
     async def _httpEasyGet(self, url, headers=None, ssl_verify=True):
+
+        url = await s_stormtypes.toprim(url)
+        headers = await s_stormtypes.toprim(headers)
+
         kwargs = {}
         if not ssl_verify:
             kwargs['ssl'] = False
@@ -31,9 +35,16 @@ class LibHttp(s_stormtypes.Lib):
                 return HttpResp(info)
 
     async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True):
+
+        url = await s_stormtypes.toprim(url)
+        json = await s_stormtypes.toprim(json)
+        body = await s_stormtypes.toprim(body)
+        headers = await s_stormtypes.toprim(headers)
+
         kwargs = {}
         if not ssl_verify:
             kwargs['ssl'] = False
+
         async with aiohttp.ClientSession() as sess:
             try:
                 async with sess.post(url, headers=headers, json=json, data=body, **kwargs) as resp:

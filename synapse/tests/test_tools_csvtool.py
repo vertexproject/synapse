@@ -33,7 +33,7 @@ csvstorm_missing = b'''
 
 # count is used for test coverage.
 csvstorm_export = b'''
-test:int $lib.csv.emit($node, :loc) | count
+test:int $lib.csv.emit($node, $node.props.loc) | count
 '''
 
 class CsvToolTest(s_t_utils.SynTest):

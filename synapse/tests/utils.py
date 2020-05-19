@@ -24,6 +24,7 @@ import copy
 import types
 import shutil
 import asyncio
+import hashlib
 import inspect
 import logging
 import tempfile
@@ -50,12 +51,15 @@ import synapse.telepath as s_telepath
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
+import synapse.lib.task as s_task
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
+import synapse.lib.nexus as s_nexus
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_slab
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
@@ -312,23 +316,7 @@ class TestCmd(s_storm.Cmd):
 
     async def execStormCmd(self, runt, genr):
         async for node, path in genr:
-            yield node, path
-
-class TestEchoCmd(s_storm.Cmd):
-    '''A command to echo a using getStormEval'''
-    name = 'testechocmd'
-
-    def getArgParser(self):
-        pars = s_storm.Cmd.getArgParser(self)
-        pars.add_argument('valu', help='valu to echo')
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-        func = self.getStormEval(runt, self.opts.valu)
-
-        async for node, path in genr:
-            ret = func(path)
-            await runt.snap.printf(f'Echo: [{ret}]')
+            await runt.printf(f'{self.name}: {node.ndef}')
             yield node, path
 
 class TestModule(s_module.CoreModule):
@@ -421,7 +409,7 @@ class TestModule(s_module.CoreModule):
         if curv == valu:
             return False
         if not valu.endswith('.sys'):
-            raise s_exc.BadPropValu(mesg='test:runt:lulz must end with ".sys"',
+            raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
                                     valu=valu, name=prop.full)
         node.props[prop.name] = valu
         # In this test helper, we do NOT persist the change to our in-memory
@@ -446,7 +434,6 @@ class TestModule(s_module.CoreModule):
 
     def getStormCmds(self):
         return (TestCmd,
-                TestEchoCmd,
                 )
 
 class TstEnv:
@@ -461,20 +448,20 @@ class TstEnv:
             raise AttributeError(prop)
         return item
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, cls, exc, tb):
-        self.fini()
+    async def __aexit__(self, cls, exc, tb):
+        await self.fini()
 
     def add(self, name, item, fini=False):
         self.items[name] = item
         if fini:
             self.tofini.append(item)
 
-    def fini(self):
-        for bus in self.tofini:
-            bus.fini()
+    async def fini(self):
+        for base in self.tofini:
+            await base.fini()
 
 class TstOutPut(s_output.OutPutStr):
 
@@ -667,6 +654,35 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
 
+s_task.vardefault('applynest', lambda: None)
+
+async def _doubleapply(self, indx, item):
+    '''
+    Just like NexusRoot._apply, but calls the function twice.  Patched in when global variable SYNDEV_NEXUS_REPLAY
+    is set.
+    '''
+    try:
+        nestitem = s_task.varget('applynest')
+        assert nestitem is None, f'Failure: have nested nexus actions, inner item is {item},  outer item was {nestitem}'
+        s_task.varset('applynest', item)
+
+        nexsiden, event, args, kwargs, _ = item
+
+        nexus = self._nexskids[nexsiden]
+        func, passoff = nexus._nexshands[event]
+
+        if passoff:
+            retn = await func(nexus, *args, nexsoff=indx, **kwargs)
+            await func(nexus, *args, nexsoff=indx, **kwargs)
+            return retn
+
+        retn = await func(nexus, *args, **kwargs)
+        await func(nexus, *args, **kwargs)
+        return retn
+
+    finally:
+        s_task.varset('applynest', None)
+
 class SynTest(unittest.TestCase):
     '''
     Mark all async test methods as s_glob.synchelp decorated.
@@ -676,6 +692,9 @@ class SynTest(unittest.TestCase):
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
+        self._NextBuid = 0
+        self._NextGuid = 0
+
         for s in dir(self):
             attr = getattr(self, s, None)
             # If s is an instance method and starts with 'test_', synchelp wrap it
@@ -724,7 +743,7 @@ class SynTest(unittest.TestCase):
         regr = s_common.genpath(regr)
 
         if not os.path.isdir(regr): # pragma: no cover
-            raise Exception('SYN_REGREGSSION_REPO is not a dir')
+            raise Exception('SYN_REGRESSION_REPO is not a dir')
 
         dirn = os.path.join(regr, *path)
 
@@ -946,6 +965,25 @@ class SynTest(unittest.TestCase):
         async with self.getTestCore(conf=conf, dirn=dirn) as core:
             yield core, core
 
+    @contextlib.contextmanager
+    def withNexusReplay(self, replay=False):
+        '''
+        Patch so that the Nexus apply log is applied twice. Useful to verify idempotency.
+
+        Notes:
+            This is applied if the environment variable SYNDEV_NEXUS_REPLAY is set
+            or the replay argument is set to True.
+
+        Returns:
+            contextlib.ExitStack: An exitstack object.
+        '''
+        replay = os.environ.get('SYNDEV_NEXUS_REPLAY', default=replay)
+
+        with contextlib.ExitStack() as stack:
+            if replay:
+                stack.enter_context(mock.patch.object(s_nexus.NexsRoot, '_apply', _doubleapply))
+            yield stack
+
     @contextlib.asynccontextmanager
     async def getTestCore(self, conf=None, dirn=None):
         '''
@@ -957,7 +995,7 @@ class SynTest(unittest.TestCase):
         if conf is None:
             conf = {'layer:lmdb:map_async': True,
                     'provenance:en': True,
-                    'logchanges': True,
+                    'nexslog:en': True,
                     'layers:logedits': True,
                     }
 
@@ -971,16 +1009,18 @@ class SynTest(unittest.TestCase):
 
         mods.append(('synapse.tests.utils.TestModule', {'key': 'valu'}))
 
-        if dirn is not None:
+        with self.withNexusReplay():
 
-            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                yield core
+            if dirn is not None:
 
-            return
+                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                    yield core
 
-        with self.getTestDir() as dirn:
-            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                yield core
+                return
+
+            with self.getTestDir() as dirn:
+                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                    yield core
 
     @contextlib.asynccontextmanager
     async def getTestCoreAndProxy(self, conf=None, dirn=None):
@@ -1033,6 +1073,60 @@ class SynTest(unittest.TestCase):
                 with mock.patch('synapse.lib.certdir.defdir', certdir):
                     yield dmon
 
+    @contextlib.asynccontextmanager
+    async def getTestCell(self, ctor, conf=None, dirn=None):
+        '''
+        Get a test Cell.
+        '''
+        if conf is None:
+            conf = {}
+
+        conf = copy.deepcopy(conf)
+
+        if dirn is not None:
+
+            async with await ctor.anit(dirn, conf=conf) as cell:
+                yield cell
+
+            return
+
+        with self.getTestDir() as dirn:
+            async with await ctor.anit(dirn, conf=conf) as cell:
+                yield cell
+
+    @contextlib.asynccontextmanager
+    async def getTestCoreProxSvc(self, ssvc, ssvc_conf=None, core_conf=None):
+        '''
+        Get a test Cortex, the Telepath Proxy to it, and a test service instance.
+
+        Args:
+            ssvc: Ctor to the Test Service.
+            ssvc_conf: Service configuration.
+            core_conf: Cortex configuration.
+
+        Returns:
+            (s_cortex.Cortex, s_cortex.CoreApi, testsvc): The Cortex, Proxy, and service instance.
+        '''
+        async with self.getTestCoreAndProxy(core_conf) as (core, prox):
+            async with self.getTestCell(ssvc, ssvc_conf) as testsvc:
+                await self.addSvcToCore(testsvc, core)
+
+                yield core, prox, testsvc
+
+    async def addSvcToCore(self, svc, core, svcname='svc'):
+        '''
+        Add a service to a Cortex using telepath over tcp.
+        '''
+        svc.dmon.share('svc', svc)
+        root = await svc.auth.getUserByName('root')
+        await root.setPasswd('root')
+        info = await svc.dmon.listen('tcp://127.0.0.1:0/')
+        svc.dmon.test_addr = info
+        host, port = info
+        surl = f'tcp://root:root@127.0.0.1:{port}/svc'
+        await self.runCoreNodes(core, f'service.add {svcname} {surl}')
+        await self.runCoreNodes(core, f'$lib.service.wait({svcname})')
+
     def getTestUrl(self, dmon, name, **opts):
 
         host, port = dmon.addr
@@ -1052,13 +1146,14 @@ class SynTest(unittest.TestCase):
         return s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None, copyfrom=None, chdir=False):
+    def getTestDir(self, mirror=None, copyfrom=None, chdir=False, startdir=None):
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
 
         Args:
             mirror (str): A directory to mirror into the test directory.
+            startdir (str): The directory under which to place the temporary kdirectory
 
         Notes:
             The mirror argument is normally used to mirror test directory
@@ -1073,7 +1168,7 @@ class SynTest(unittest.TestCase):
             str: The path to a temporary directory.
         '''
         curd = os.getcwd()
-        tempdir = tempfile.mkdtemp()
+        tempdir = tempfile.mkdtemp(dir=startdir)
 
         try:
 
@@ -1621,11 +1716,11 @@ class SynTest(unittest.TestCase):
         ))
 
         iadd = await core.auth.addUser('icanadd')
-        await iadd.grant('creator')
+        await iadd.grant(creator.iden)
         await iadd.setPasswd('secret')
 
         idel = await core.auth.addUser('icandel')
-        await idel.grant('deleter')
+        await idel.grant(deleter.iden)
         await idel.setPasswd('secret')
 
     @contextlib.asynccontextmanager
@@ -1664,3 +1759,44 @@ class SynTest(unittest.TestCase):
             async with await s_hive.openurl(turl) as hive:
 
                 yield hive
+
+    def stablebuid(self, valu=None):
+        '''
+        A stable buid generation for testing purposes
+        '''
+        if valu is None:
+            retn = self._NextBuid.to_bytes(32, 'big')
+            self._NextBuid += 1
+            return retn
+
+        byts = s_msgpack.en(valu)
+        return hashlib.sha256(byts).digest()
+
+    def stableguid(self, valu=None):
+        '''
+        A stable guid generation for testing purposes
+        '''
+        if valu is None:
+            retn = s_common.ehex(self._NextGuid.to_bytes(16, 'big'))
+            self._NextGuid += 1
+            return retn
+
+        byts = s_msgpack.en(valu)
+        return hashlib.md5(byts).hexdigest()
+
+    @contextlib.contextmanager
+    def withStableUids(self):
+        '''
+        A context manager that generates guids and buids in sequence so that successive test runs use the same
+        data
+        '''
+        with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
+            yield
+
+    async def runCoreNodes(self, core, query, opts=None):
+        '''
+        Run a storm query through a Cortex as a SchedCoro and return the results.
+        '''
+        async def coro():
+            return await core.nodes(query, opts)
+        return await core.schedCoro(coro())

@@ -6,14 +6,16 @@ import logging
 import argparse
 
 import lmdb
-import lmdb.tool
 
 import synapse.common as s_common
 
 logger = logging.getLogger(__name__)
 
-def backup(srcdir, dstdir):
-
+def backup(srcdir, dstdir, compact=True):
+    '''
+    Args:
+        compact (bool):  whether to optimize storage while copying to the destination
+    '''
     tick = s_common.now()
 
     srcdir = s_common.reqdir(srcdir)
@@ -27,6 +29,11 @@ def backup(srcdir, dstdir):
         relpath = os.path.relpath(root, start=srcdir)
 
         for name in list(dnames):
+
+            # Explicitly skip directory names of 'tmp' to avoid backing up temporary files
+            if name == 'tmp':
+                dnames.remove(name)
+                continue
 
             srcpath = s_common.genpath(root, name)
             dstpath = s_common.genpath(dstdir, relpath, name)
@@ -54,29 +61,26 @@ def backup(srcdir, dstdir):
     logger.info(f'Backup complete. Took [{tock-tick:.2f}] for [{srcdir}]')
     return
 
-def backup_lmdb(envpath, dstdir):
+def backup_lmdb(envpath, dstdir, compact=True):
 
     datafile = os.path.join(envpath, 'data.mdb')
     stat = os.stat(datafile)
     map_size = stat.st_size
 
-    parser = lmdb.tool.make_parser()
-    opts, args = parser.parse_args(['copy', '--compact', '-e', envpath, dstdir])
-
     env = lmdb.open(
-        opts.env,
+        envpath,
         map_size=map_size,
         subdir=True,
-        max_dbs=opts.max_dbs,
+        max_dbs=256,
         create=False,
         readonly='READ'
     )
 
-    lmdb.tool.ENV = env
     tick = time.time()
 
-    # use the builtin lmdb command
-    lmdb.tool.cmd_copy(opts, args[1:])
+    s_common.gendir(dstdir)
+
+    env.copy(dstdir, compact=compact)
 
     tock = time.time()
     logger.info(f'backup took: {tock-tick:.2f} seconds')
