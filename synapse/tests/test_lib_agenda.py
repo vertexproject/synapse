@@ -166,7 +166,7 @@ class AgendaTest(s_t_utils.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        async def myeval(query, opts=None):
+        async def mystorm(query, opts=None):
             nonlocal lastquery
             lastquery = query
             sync.set()
@@ -181,8 +181,7 @@ class AgendaTest(s_t_utils.SynTest):
         loop = asyncio.get_running_loop()
         with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
             core = mock.Mock()
-            core.mirror = False
-            core.eval = myeval
+            core.storm = mystorm
             core.slab = await s_lmdbslab.Slab.anit(dirn, map_size=s_t_utils.TEST_MAP_SIZE, readonly=False)
             db = core.slab.initdb('hive')
             core.hive = await s_hive.SlabHive.anit(core.slab, db=db)
