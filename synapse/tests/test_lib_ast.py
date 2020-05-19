@@ -151,6 +151,24 @@ class AstTest(s_test.SynTest):
             self.eq(ndefs, [n.ndef for n in nodes])
             self.true(all(n.tags.get('hehe') is not None for n in nodes))
 
+            # AST object passes through inbound genrs
+            await core.nodes('[test:str=beep]')
+            beep_opts = {'ndefs': [('test:str', 'beep')], 'mode': 'lookup'}
+            nodes = await core.nodes('foo.bar.com | [+#beep]', beep_opts)
+            self.len(2, nodes)
+            self.eq({('test:str', 'beep'), ('inet:fqdn', 'foo.bar.com')},
+                    {n.ndef for n in nodes})
+            self.true(all([n.tags.get('beep') for n in nodes]))
+
+            # The lookup mode must get *something* to parse.
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('', opts)
+
+            # The lookup must be *before* anything else, otherwise we
+            # parse it as a cmd name.
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('[+#thebeforetimes] | foo.bar.com', opts)
+
     async def test_ast_subq_vars(self):
 
         async with self.getTestCore() as core:
