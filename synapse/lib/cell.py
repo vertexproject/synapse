@@ -519,7 +519,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellSlab(readonly=readonly)
 
         self.setNexsRoot(await self._initNexsRoot())
-        self.nexsroot.onStateChange(self.iamLeaderHook)
+        self.nexsroot.onStateChange(self.onLeaderChange)
 
         self.hive = await self._initCellHive()
 
@@ -576,7 +576,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         nexsroot.onfini(self)
         return nexsroot
 
-    async def iamLeaderHook(self):
+    async def onLeaderChange(self):
+        '''
+        Cell implementers may override this method to be notified when
+        nexusroot leadership changes.
+        '''
         pass
 
     async def getNexusChanges(self, offs):

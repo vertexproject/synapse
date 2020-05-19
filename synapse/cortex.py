@@ -897,14 +897,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Enable leadership change awareness and fire
         # the leadership hook once at boot
         self.leaderchangeaware = True
-        await self.iamLeaderHook()
+        await self.onLeaderChange()
 
-    async def iamLeaderHook(self):
+    async def onLeaderChange(self):
         if self.nexsroot.amLeader():
-            return await self.doLeaderStuff()
-        return await self.doNonLeaderStuff()
+            return await self.startCortexLeader()
+        return await self.stopCortexLeader()
 
-    async def doLeaderStuff(self):
+    async def startCortexLeader(self):
         '''
         Indempotent actions that are done when a Cortex is a leader.
         '''
@@ -912,7 +912,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.agenda.start()
         await self.stormdmons.start()
 
-    async def doNonLeaderStuff(self):
+    async def stopCortexLeader(self):
         '''
         Indempotent actions that are done when a Cortex is not a leader.
         '''
