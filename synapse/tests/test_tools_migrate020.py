@@ -1100,7 +1100,7 @@ class MigrationTest(s_t_utils.SynTest):
 
                 # the only nodeedits should be for file:byte node adds
                 exp = len([x for x in tdata['podes'] if x[0][0] == 'inet:fqdn'])
-                offs = lyr0.getNodeEditOffset()
+                offs = await lyr0.getNodeEditOffset()
                 self.eq(exp, offs)
                 nes = [nodeedits for offs, nodeedits in lyr0.nodeeditlog.iter(0)]
                 self.len(exp, nes)
