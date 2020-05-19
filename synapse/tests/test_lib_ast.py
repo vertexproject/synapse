@@ -148,6 +148,7 @@ class AstTest(s_test.SynTest):
             self.eq(ndefs, [n.ndef for n in nodes])
 
             nodes = await core.nodes('1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz | [ +#hehe ]', opts=opts)
+            self.len(4, nodes)
             self.eq(ndefs, [n.ndef for n in nodes])
             self.true(all(n.tags.get('hehe') is not None for n in nodes))
 
@@ -161,8 +162,7 @@ class AstTest(s_test.SynTest):
             self.true(all([n.tags.get('beep') for n in nodes]))
 
             # The lookup mode must get *something* to parse.
-            with self.raises(s_exc.BadSyntax):
-                await core.nodes('', opts)
+            self.len(0, await core.nodes('', opts))
 
             # The lookup must be *before* anything else, otherwise we
             # parse it as a cmd name.

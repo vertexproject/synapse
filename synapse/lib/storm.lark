@@ -209,7 +209,7 @@ _toknvalu: _basevalu | WORDTOKN
 _listvalu: _basevalu | LISTTOKN
 _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 
-looklist: _lookvalu (_WS _lookvalu)*
+looklist: (_WS* _lookvalu)*
 
 valulist: "(" [_WS? _listvalu (_WS? "," _WS? _listvalu)*] _WS? ["," _WS?] ")"
 tagvalu: tagname
@@ -231,7 +231,7 @@ LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 // A white-space *only* delimited string immediate for use in legacy cmdr parser
 CMDRTOKN: /[^="'\s\{}][^\s\{}]*/
 
-WHITETOKN: /[^\s]+/
+WHITETOKN: /[^\s|]+/
 
 // A value consisting of a name then 0 or more derefs and function calls
 _varvalu: "$" _varvaluatom
