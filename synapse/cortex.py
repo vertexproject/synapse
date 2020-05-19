@@ -999,7 +999,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             },
             'loglevel': logger.getEffectiveLevel(),
             'views': [v.getSpawnInfo() for v in self.views.values()],
-            'layers': [l.getSpawnInfo() for l in self.layers.values()],
+            'layers': [lyr.getSpawnInfo() for lyr in self.layers.values()],
             'storm': {
                 'cmds': {
                     'cdefs': list(self.storm_cmd_cdefs.items()),
@@ -1008,6 +1008,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'libs': tuple(self.libroot),
                 'mods': await self.getStormMods(),
                 'pkgs': await self.getStormPkgs(),
+                'svcs': [svc.sdef for svc in self.getStormSvcs()],
             },
             'model': await self.getModelDefs(),
             'spawncorector': self.spawncorector,
@@ -1385,7 +1386,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         return await self._push('svc:add', sdef)
 
     @s_nexus.Pusher.onPush('svc:add')
-    async def _onAddStormSvc(self, sdef):
+    async def _addStormSvc(self, sdef):
 
         iden = sdef.get('iden')
         ssvc = self.svcsbyiden.get(iden)
@@ -1402,7 +1403,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         sdef = self.stormservices.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
-            raise s_exc.NoSuchStormSvc(mesg=mesg)
+            raise s_exc.NoSuchStormSvc(mesg=mesg, iden=iden)
 
         return await self._push('svc:del', iden)
 
@@ -2224,6 +2225,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if iden in self.views:
             return
 
+        for lyriden in vdef['layers']:
+            if lyriden not in self.layers:
+                raise s_exc.NoSuchLayer(iden=lyriden)
+
         creator = vdef.get('creator', self.auth.rootuser.iden)
         user = await self.auth.reqUser(creator)
 
@@ -2352,7 +2357,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return layr.pack()
 
     async def getLayerDefs(self):
-        return [l.pack() for l in self.layers.values()]
+        return [lyr.pack() for lyr in self.layers.values()]
 
     def getView(self, iden=None, user=None):
         '''

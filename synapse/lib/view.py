@@ -98,7 +98,7 @@ class View(s_nexus.Pusher):  # type: ignore
         d = {'iden': self.iden}
         d.update(self.info.pack())
 
-        layrinfo = [l.pack() for l in self.layers]
+        layrinfo = [lyr.pack() for lyr in self.layers]
         d['layers'] = layrinfo
 
         triginfo = [t.pack() for _, t in self.triggers.list()]
@@ -358,7 +358,7 @@ class View(s_nexus.Pusher):  # type: ignore
         else:
             self.layers.insert(indx, layr)
 
-        await self.info.set('layers', [l.iden for l in self.layers])
+        await self.info.set('layers', [lyr.iden for lyr in self.layers])
 
     @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
@@ -411,7 +411,7 @@ class View(s_nexus.Pusher):  # type: ignore
         layriden = ldef.get('iden')
 
         vdef['parent'] = self.iden
-        vdef['layers'] = [layriden] + [l.iden for l in self.layers]
+        vdef['layers'] = [layriden] + [lyr.iden for lyr in self.layers]
 
         return await self.core.addView(vdef)
 
@@ -491,13 +491,10 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
             return
 
-        CHUNKSIZE = 1000
-        fromoff = (0, 0, 0)
         async with await self.parent.snap(user=user) as snap:
-            while True:
-
-                splicecount = 0
-                async for offs, splice in fromlayr.splices(fromoff, CHUNKSIZE):
+            splicecount = 0
+            async for nodeedit in fromlayr.iterLayerNodeEdits():
+                async for offs, splice in fromlayr.makeSplices(0, [nodeedit], None):
                     check = self.permCheck.get(splice[0])
                     if check is None:
                         raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
@@ -507,12 +504,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     splicecount += 1
 
-                if splicecount < CHUNKSIZE:
-                    break
-
-                fromoff = (offs[0], offs[1], offs[2] + 1)
-
-                await asyncio.sleep(0)
+                    if splicecount % 1000 == 0:
+                        await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu):
 

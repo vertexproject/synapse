@@ -1807,6 +1807,7 @@ class StormTypesTest(s_test.SynTest):
             await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.del(foo)'))
             await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.get(foo)'))
             await self.asyncraises(s_exc.CantMergeView, core.nodes(f'$lib.view.get({mainiden}).merge()'))
+            await self.asyncraises(s_exc.NoSuchLayer, core.nodes(f'view.add --layers {s_common.guid()}'))
 
             q = f'$lib.view.del({mainiden})'
             mesgs = await core.stormlist(q)
