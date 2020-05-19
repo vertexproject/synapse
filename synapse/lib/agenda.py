@@ -466,6 +466,7 @@ class Agenda(s_base.Base):
 
         self._hivedict = await self.core.hive.dict(('agenda', 'appts'))  # Persistent storage
         self.onfini(self._hivedict)
+        self.onfini(self.stop)
 
         self.enabled = False
         self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
@@ -501,7 +502,6 @@ class Agenda(s_base.Base):
         await asyncio.sleep(0)
         for task in self._running_tasks:
             task.cancel()
-            await asyncio.sleep(0)
 
         self.enabled = False
 
