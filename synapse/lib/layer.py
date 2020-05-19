@@ -1120,17 +1120,6 @@ class Layer(s_nexus.Pusher):
 
         return s_msgpack.un(byts)
 
-    async def _getFormByBuid(self, buid):
-        '''
-        Retrieve form name for a buid
-        '''
-        byts = self.layrslab.get(buid, db=self.formbybuid)
-
-        if byts is None:
-            return None
-
-        return byts.decode()
-
     async def getNodeValu(self, buid, prop=None):
         '''
         Retrieve either the form valu or a prop valu for the given node by buid.
