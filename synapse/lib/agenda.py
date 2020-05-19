@@ -499,7 +499,6 @@ class Agenda(s_base.Base):
         if not self.enabled:
             return
         self._schedtask.cancel()
-        await asyncio.sleep(0)
         for task in self._running_tasks:
             task.cancel()
 
