@@ -2556,10 +2556,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         return dmon
 
     async def getStormDmon(self, iden):
-        return self.stormdmons.getDmonPacked(iden)
+        return self.stormdmons.getDmonDef(iden)
 
     async def getStormDmons(self):
-        return self.stormdmons.getDmonsPacked()
+        return self.stormdmons.getDmonDefs()
 
     async def getStormDmonLog(self, iden):
         return self.stormdmons.getDmonRunlog(iden)

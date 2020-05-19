@@ -819,12 +819,12 @@ class DmonManager(s_base.Base):
     def getDmon(self, iden):
         return self.dmons.get(iden)
 
-    def getDmonPacked(self, iden):
+    def getDmonDef(self, iden):
         dmon = self.dmons.get(iden)
         if dmon:
             return dmon.pack()
 
-    def getDmonsPacked(self):
+    def getDmonDefs(self):
         return list(d.pack() for d in self.dmons.values())
 
     async def popDmon(self, iden):
