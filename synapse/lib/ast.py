@@ -558,7 +558,7 @@ class WhileLoop(Oper):
 
         async for node, path in genr:
 
-            while await self.kids[0].compute(path):
+            while await tobool(await self.kids[0].compute(path)):
                 try:
 
                     newg = s_common.agen((node, path))
@@ -579,7 +579,7 @@ class WhileLoop(Oper):
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[0].isRuntSafe(runt):
 
-            while await self.kids[0].runtval(runt):
+            while await tobool(await self.kids[0].runtval(runt)):
 
                 try:
                     async for jtem in subq.inline(runt, s_common.agen()):
@@ -3184,7 +3184,7 @@ class IfStmt(Oper):
             expr, subq = clause.kids
 
             exprvalu = await expr.runtval(runt)
-            if exprvalu:
+            if await tobool(exprvalu):
                 return subq
         else:
             return self.elsequery
@@ -3206,7 +3206,7 @@ class IfStmt(Oper):
                     expr, subq = clause.kids
 
                     exprvalu = await expr.compute(path)
-                    if exprvalu:
+                    if await tobool(exprvalu):
                         break
                 else:
                     subq = self.elsequery
@@ -3222,9 +3222,9 @@ class IfStmt(Oper):
 
         if count != 0 or not allcondsafe:
             return
+
         # no nodes and a runt safe value should execute the winning clause once
         subq = await self._runtsafe_calc(runt)
-
         if subq:
             async for item in subq.inline(runt, s_common.agen()):
                 yield item
