@@ -897,12 +897,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Enable leadership change awareness and fire
         # the leadership hook once at boot
         self.leaderchangeaware = True
-        await self.onLeaderChange()
+        await self.onLeaderChange(self.nexsroot.amLeader())
 
-    async def onLeaderChange(self):
+    async def onLeaderChange(self, leader: bool):
         if not self.leaderchangeaware:
             return
-        if self.nexsroot.amLeader():
+        if leader:
             return await self.startCortexLeader()
         return await self.stopCortexLeader()
 

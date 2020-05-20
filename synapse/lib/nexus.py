@@ -86,6 +86,7 @@ class NexsRoot(s_base.Base):
         self._mirrors: List[ChangeDist] = []
         self.donexslog = donexslog
 
+        self._state_lock = asyncio.Lock()
         self._state_funcs: List[Callable] = [] # External Callbacks for state changes
 
         # These are used when this cell is a mirror.
@@ -293,11 +294,18 @@ class NexsRoot(s_base.Base):
         self._looptask = self.schedCoro(self._followerLoop(iden))
 
     def onStateChange(self, func):
+        '''
+        Add a state change callback. Callbacks take a single argument,
+        ``leader``, which is a boolean representing the leader status
+        at the time the callbacks are executed.
+        '''
         self._state_funcs.append(func)
 
     async def _dostatechange(self):
-        for func in self._state_funcs:
-            await s_coro.ornot(func)
+        amleader = self.amLeader()
+        async with self._state_lock:
+            for func in self._state_funcs:
+                await s_coro.ornot(func, leader=amleader)
 
     async def _followerLoop(self, iden) -> None:
         while not self.isfini:
