@@ -1271,6 +1271,11 @@ class Parser:
             if not self._get_store(item, argdef, todo, opts):
                 return
 
+        # check for help before processing other args
+        if opts.get('help'):
+            self.help()
+            return
+
         # process positional arguments
         todo = collections.deque(posargs)
 
@@ -1287,10 +1292,6 @@ class Parser:
         for _, argdef in self.allargs:
             if 'default' in argdef:
                 opts.setdefault(argdef['dest'], argdef['default'])
-
-        if opts.get('help'):
-            self.help()
-            return
 
         for names, argdef in self.reqopts:
             dest = argdef.get('dest')
