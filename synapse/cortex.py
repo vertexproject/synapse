@@ -899,7 +899,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.leaderchangeaware = True
         await self.onLeaderChange(self.nexsroot.amLeader())
 
-    async def onLeaderChange(self, leader: bool):
+    async def onLeaderChange(self, leader):
         if not self.leaderchangeaware:
             return
         if leader:

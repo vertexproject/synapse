@@ -576,10 +576,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         nexsroot.onfini(self)
         return nexsroot
 
-    async def onLeaderChange(self):
+    async def onLeaderChange(self, leader):
         '''
         Cell implementers may override this method to be notified when
-        nexusroot leadership changes.
+        nexusroot leadership changes. The leader arg will be a bool provided
+        if the Cell is a leader or not.
         '''
         pass
 
