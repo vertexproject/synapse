@@ -1052,7 +1052,7 @@ class MigrationTest(s_t_utils.SynTest):
                 nes1 = [nodeedits for offs, nodeedits in lyr1.nodeeditlog.iter(0)]
                 sodes1 = [await lyr1.storNodeEdits(nes[0], None) for nes in nes1]
 
-                await self._checkCore(core, tdata)
+                await self._checkCore(core, tdata, nodesonly=True)
 
     async def test_migr_splice_errs(self):
         conf = {
