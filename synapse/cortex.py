@@ -765,6 +765,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
+    leaderchangeaware = False
     spawncorector = 'synapse.lib.spawn.SpawnCore'
 
     async def __anit__(self, dirn, conf=None):
@@ -790,7 +791,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.stormcmds = {}
 
         self.spawnpool = None
-        self.leaderchangeaware = True
         self.mirror = self.conf.get('mirror')
 
         self.storm_cmd_ctors = {}
@@ -900,6 +900,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.onLeaderChange()
 
     async def onLeaderChange(self):
+        if not self.leaderchangeaware:
+            return
         if self.nexsroot.amLeader():
             return await self.startCortexLeader()
         return await self.stopCortexLeader()
