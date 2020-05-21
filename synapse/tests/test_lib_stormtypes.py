@@ -13,6 +13,8 @@ from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -1576,6 +1578,10 @@ class StormTypesTest(s_test.SynTest):
                     newlayr = mesg[1]['mesg']
 
             self.isin(newlayr, core.layers)
+
+            # Ensure new layer is set to current model revision
+            newrev = await core.layers[newlayr].getModelVers()
+            self.eq(s_modelrev.maxvers, newrev)
 
             # List the layers in the cortex
             q = '''

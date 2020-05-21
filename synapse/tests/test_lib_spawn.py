@@ -622,3 +622,18 @@ class CoreSpawnTest(s_test.SynTest):
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
             msgs = await prox.storm('$lib.dmon.del($ddef.iden)').list()
+
+    async def test_spawn_forked_view(self):
+        async with self.getTestCoreAndProxy() as (core, prox):
+            await core.nodes('[ test:str=1234 ]')
+            mainview = await core.callStorm('$iden=$lib.view.get().pack().iden '
+                                            'return ( $iden )')
+            forkview = await core.callStorm(f'$fork=$lib.view.get({mainview}).fork() '
+                                            f'return ( $fork.pack().iden )')
+            await core.nodes('[ test:str=beep ]', {'view': forkview})
+
+            opts = {'spawn': True, 'view': forkview}
+            msgs = await prox.storm('test:str $lib.print($node.value()) | spin', opts).list()
+
+            self.stormIsInPrint('1234', msgs)
+            self.stormIsInPrint('beep', msgs)

@@ -19,6 +19,9 @@ class CmdTriggersTest(s_t_utils.SynTest):
             self.true(outp.expect('No triggers found'))
 
             await cmdr.runCmdLine('trigger add node:add test:str {[ test:int=1 ] }')
+            trigs = await realcore.view.listTriggers()
+            self.len(1, trigs)
+            self.true(outp.expect(f'Added trigger {trigs[0][0]}'))
             await s_common.aspin(core.eval('[ test:str=foo ]'))
             await self.agenlen(1, core.eval('test:int'))
 

@@ -8,12 +8,14 @@ from synapse.tests.utils import alist
 class ViewTest(s_t_utils.SynTest):
     async def test_view_fork_merge(self):
         async with self.getTestCore() as core:
-            await core.nodes('[ test:int=10 ]')
+            await core.nodes('[ test:int=8 +#faz ]')
+            await core.nodes('[ test:int=9 test:int=10 ]')
             await core.auth.addUser('visi')
+            await core.addTagProp('score', ('int', {}), {})
 
-            nodes = await alist(core.eval('test:int=10'))
-            self.len(1, nodes)
-            self.eq(1, (await core.getFormCounts()).get('test:int'))
+            self.len(1, await alist(core.eval('test:int=8 +#faz')))
+            self.len(2, await alist(core.eval('test:int=9 test:int=10')))
+            self.eq(3, (await core.getFormCounts()).get('test:int'))
 
             # Fork the main view
             vdef2 = await core.view.fork()
@@ -29,7 +31,7 @@ class ViewTest(s_t_utils.SynTest):
             # A node added to the parent after the fork is still seen by the child
             nodes = await alist(view2.eval('test:int=11'))
             self.len(1, nodes)
-            self.eq(2, (await core.getFormCounts()).get('test:int'))
+            self.eq(4, (await core.getFormCounts()).get('test:int'))
 
             # A node added to the child is not seen by the parent
             nodes = await alist(view2.eval('[ test:int=12 ]'))
@@ -37,16 +39,16 @@ class ViewTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int=12')
             self.len(0, nodes)
-            self.eq(2, (await core.view.getFormCounts()).get('test:int'))
+            self.eq(4, (await core.view.getFormCounts()).get('test:int'))
 
             # Deleting nodes from the child view should not affect the main
             await alist(view2.eval('test:int | delnode'))
 
-            self.eq(2, (await core.view.getFormCounts()).get('test:int'))
+            self.eq(4, (await core.view.getFormCounts()).get('test:int'))
             nodes = await alist(view2.eval('test:int=10'))
             self.len(1, nodes)
 
-            self.eq(2, (await core.getFormCounts()).get('test:int'))
+            self.eq(4, (await core.getFormCounts()).get('test:int'))
             await self.agenlen(0, view2.eval('test:int=12'))
 
             # Until we get tombstoning, the child view can't delete a node in the lower layer
@@ -58,6 +60,32 @@ class ViewTest(s_t_utils.SynTest):
             # Add a bunch of nodes to require chunking of splices when merging
             for i in range(1000):
                 await self.agenlen(1, view2.eval('[test:int=$val]', opts={'vars': {'val': i + 1000}}))
+
+            # Add prop that will only exist in the child
+            await alist(view2.eval('test:int=10 [:loc=us]'))
+            self.len(1, await alist(view2.eval('test:int=10 +:loc=us')))
+            self.len(0, await core.nodes('test:int=10 +:loc=us'))
+
+            # Add tag that will only exist in child
+            await alist(view2.eval('test:int=11 [+#foo.bar:score=20]'))
+            self.len(1, await alist(view2.eval('test:int=11 +#foo.bar:score=20')))
+            self.len(0, await core.nodes('test:int=11 +#foo.bar:score=20'))
+
+            # Add tag prop that will only exist in child
+            await alist(view2.eval('test:int=8 [+#faz:score=55]'))
+            self.len(1, await alist(view2.eval('test:int=8 +#faz:score=55')))
+            self.len(0, await core.nodes('test:int=8 +#faz:score=55'))
+
+            # Add nodedata that will only exist in child
+            await alist(view2.eval('test:int=9 $node.data.set(spam, ham)'))
+            self.len(1, await view2.callStorm('test:int=9 return($node.data.list())'))
+            self.len(0, await core.callStorm('test:int=9 return($node.data.list())'))
+
+            # Add edges that will only exist in the child
+            await alist(view2.eval('test:int=9 [ +(refs)> {test:int=10} ]'))
+            await alist(view2.eval('test:int=12 [ +(refs)> {test:int=11} ]'))
+            self.len(2, await alist(view2.eval('test:int -(refs)> *')))
+            self.len(0, await core.nodes('test:int -(refs)> *'))
 
             # Forker and forkee have their layer configuration frozen
             tmplayr = await core.addLayer()
@@ -93,13 +121,13 @@ class ViewTest(s_t_utils.SynTest):
                     await prox.eval('test:int=12', opts={'view': view2.iden}).list()
 
             # The parent count is correct
-            self.eq(2, (await core.view.getFormCounts()).get('test:int'))
+            self.eq(4, (await core.view.getFormCounts()).get('test:int'))
 
             # Merge the child back into the parent
             await view2.merge()
 
             # The parent counts includes all the nodes that were merged
-            self.eq(1003, (await core.view.getFormCounts()).get('test:int'))
+            self.eq(1005, (await core.view.getFormCounts()).get('test:int'))
 
             # A node added to the child is now present in the parent
             nodes = await core.nodes('test:int=12')
@@ -109,8 +137,27 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await view2.nodes('test:int=10')
             self.len(1, nodes)
 
+            # Prop that was only set in child is present in parent
+            self.len(1, await core.nodes('test:int=10 +:loc=us'))
+            self.len(1, await core.nodes('test:int:loc=us'))
+
+            # Tag that was only set in child is present in parent
+            self.len(1, await core.nodes('test:int=11 +#foo.bar:score=20'))
+            self.len(1, await core.nodes('test:int#foo.bar'))
+
+            # Tagprop that as only set in child is present in parent
+            self.len(1, await core.nodes('test:int=8 +#faz:score=55'))
+            self.len(1, await core.nodes('test:int#faz:score=55'))
+
+            # Node data that was only set in child is present in parent
+            self.len(1, await core.callStorm('test:int=9 return($node.data.list())'))
+            self.len(1, await core.nodes('yield $lib.lift.byNodeData(spam)'))
+
+            # Edge that was only set in child present in parent
+            self.len(2, await core.nodes('test:int -(refs)> *'))
+
             # The child count includes all the nodes in the view
-            self.eq(1003, (await view2.getFormCounts()).get('test:int'))
+            self.eq(1005, (await view2.getFormCounts()).get('test:int'))
 
             # The child can see nodes that got merged
             nodes = await view2.nodes('test:int=12')
