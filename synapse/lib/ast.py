@@ -2560,6 +2560,9 @@ class Cmpr(Value):
 class Const(Value):
     pass
 
+class Bool(Const):
+    pass
+
 class List(Value):
 
     def repr(self):
