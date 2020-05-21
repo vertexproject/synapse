@@ -813,6 +813,16 @@ class StormTest(s_t_utils.SynTest):
         self.none(pars.parse_args(['--lol']))
         self.isin("ERROR: Expected 0 positional arguments. Got 1: ['--lol']", pars.mesgs)
 
+        pars = s_storm.Parser(prog='hehe')
+        pars.add_argument('hehe')
+        opts = pars.parse_args(['-h'])
+        self.notin("ERROR: The argument <hehe> is required.", pars.mesgs)
+        self.isin('Usage: hehe [options] <hehe>', pars.mesgs)
+        self.isin('Options:', pars.mesgs)
+        self.isin('  --help                      : Display the command usage.', pars.mesgs)
+        self.isin('Arguments:', pars.mesgs)
+        self.isin('  <hehe>                      : No help available', pars.mesgs)
+
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
         opts = pars.parse_args(['--no-foo'])

@@ -71,12 +71,14 @@ class LayerTest(s_t_utils.SynTest):
                 async with await core00.snap() as snap:
 
                     props = {'tick': 12345}
-                    node = await snap.addNode('test:str', 'foo', props=props)
-                    await node.setTagProp('bar', 'score', 10)
-                    await node.setData('baz', 'nodedataiscool')
+                    node1 = await snap.addNode('test:str', 'foo', props=props)
+                    await node1.setTagProp('bar', 'score', 10)
+                    await node1.setData('baz', 'nodedataiscool')
 
-                    node = await snap.addNode('test:str', 'bar', props=props)
-                    await node.setData('baz', 'nodedataiscool')
+                    node2 = await snap.addNode('test:str', 'bar', props=props)
+                    await node2.setData('baz', 'nodedataiscool')
+
+                    await node1.addEdge('refs', node2.iden())
 
                 async with self.getTestCore(dirn=path01) as core01:
 
@@ -106,6 +108,7 @@ class LayerTest(s_t_utils.SynTest):
                         self.eq(node.props.get('tick'), 12345)
                         self.eq(node.tagprops.get(('bar', 'score')), 10)
                         self.eq(await node.getData('baz'), 'nodedataiscool')
+                        self.len(1, await alist(node.iterEdgesN1()))
 
                     # make sure updates show up
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
@@ -656,6 +659,24 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar=2015 ]')
             self.eq((1325376000000, 1420070400001), nodes[0].getTag('foo.bar'))
 
+            nodeedits = [
+                (buid, None, (
+                    (s_layer.EDIT_PROP_SET, ('loc', 'us', None, s_layer.STOR_TYPE_LOC), ()),
+                )),
+            ]
+
+            nodeedits_out = await layr.storNodeEdits(nodeedits, {})
+            self.notin('loc', nodeedits_out[0][1]['props'])
+
+            nodeedits = [
+                (buid, None, (
+                    (s_layer.EDIT_TAG_SET, ('faz.baz', (None, None), (None, None)), ()),
+                )),
+            ]
+
+            nodeedits_out = await layr.storNodeEdits(nodeedits, {})
+            self.notin('faz.baz', nodeedits_out[0][1]['tags'])
+
     async def test_layer_nodeedits(self):
 
         async with self.getTestCoreAndProxy() as (core0, prox0):
@@ -725,6 +746,89 @@ class LayerTest(s_t_utils.SynTest):
                     lastoffs = layr.nodeeditlog.index()
                     for nodeedit in layr.nodeeditlog.sliceBack(lastoffs, 2):
                         self.eq(meta, nodeedit[1][1])
+
+    async def test_layer_form_by_buid(self):
+
+        async with self.getTestCore() as core:
+
+            layr00 = core.view.layers[0]
+
+            # add node - buid:form exists
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            buid0 = nodes[0].buid
+            fenc = layr00.layrslab.get(buid0 + b'\x09', db=layr00.bybuid)
+            self.eq('inet:ipv4', fenc.decode())
+
+            # add edge and nodedata
+            nodes = await core.nodes('[ inet:ipv4=2.3.4.5 ]')
+            buid1 = nodes[0].buid
+            fenc = layr00.layrslab.get(buid1 + b'\x09', db=layr00.bybuid)
+            self.eq('inet:ipv4', fenc.decode())
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ +(refs)> {inet:ipv4=2.3.4.5} ] $node.data.set(spam, ham)')
+            fenc = layr00.layrslab.get(buid0 + b'\x09', db=layr00.bybuid)
+            self.eq('inet:ipv4', fenc.decode())
+
+            # remove edge, map still exists
+            await core.nodes('inet:ipv4=1.2.3.4 [ -(refs)> {inet:ipv4=2.3.4.5} ]')
+            fenc = layr00.layrslab.get(buid0 + b'\x09', db=layr00.bybuid)
+            self.eq('inet:ipv4', fenc.decode())
+
+            # remove nodedata, map still exists
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(spam)')
+            fenc = layr00.layrslab.get(buid0 + b'\x09', db=layr00.bybuid)
+            self.eq('inet:ipv4', fenc.decode())
+
+            # delete node - buid:form removed
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode')
+            fenc = layr00.layrslab.get(buid0 + b'\x09', db=layr00.bybuid)
+            self.none(fenc)
+
+            await core.nodes('[ inet:ipv4=5.6.7.8 ]')
+
+            # fork a view
+            info = await core.view.fork()
+            layr01 = core.getLayer(info['layers'][0]['iden'])
+            view01 = core.getView(info['iden'])
+
+            await alist(view01.eval('[ inet:ipv4=6.7.8.9 ]'))
+
+            # buid:form for a node in child doesn't exist
+            fenc = layr01.layrslab.get(buid1 + b'\x09', db=layr01.bybuid)
+            self.none(fenc)
+
+            # add prop, buid:form map exists
+            nodes = await alist(view01.eval('inet:ipv4=2.3.4.5 [ :loc=ru ]'))
+            self.len(1, nodes)
+            fenc = layr01.layrslab.get(buid1 + b'\x09', db=layr01.bybuid)
+            self.eq('inet:ipv4', fenc.decode())
+
+            # add nodedata and edge
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ +(refs)> {inet:ipv4=6.7.8.9} ] $node.data.set(faz, baz)'))
+
+            # remove prop, map still exists due to nodedata
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -:loc ]'))
+            fenc = layr01.layrslab.get(buid1 + b'\x09', db=layr01.bybuid)
+            self.eq('inet:ipv4', fenc.decode())
+
+            # remove nodedata, map still exists due to edge
+            await alist(view01.eval('inet:ipv4=2.3.4.5 $node.data.pop(faz)'))
+            fenc = layr01.layrslab.get(buid1 + b'\x09', db=layr01.bybuid)
+            self.eq('inet:ipv4', fenc.decode())
+
+            # remove edge, map is deleted
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -(refs)> {inet:ipv4=6.7.8.9} ]'))
+            fenc = layr01.layrslab.get(buid1 + b'\x09', db=layr01.bybuid)
+            self.none(fenc)
+
+            # edges between two nodes in parent
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ +(refs)> {inet:ipv4=5.6.7.8} ]'))
+            fenc = layr01.layrslab.get(buid1 + b'\x09', db=layr01.bybuid)
+            self.eq('inet:ipv4', fenc.decode())
+
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -(refs)> {inet:ipv4=5.6.7.8} ]'))
+            fenc = layr01.layrslab.get(buid1 + b'\x09', db=layr01.bybuid)
+            self.none(fenc)
 
     async def test_layer(self):
 
