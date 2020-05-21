@@ -1393,8 +1393,6 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            quer = core.getStormQuery('if $(true) { [inet:ipv4=1.2.3.4] }')
-            print(repr(quer))
             nodes = await core.nodes('if $(true) { [inet:ipv4=1.2.3.4] }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
