@@ -745,7 +745,7 @@ class Path:
         nodes = list(self.nodes)
         nodes.append(node)
 
-        path = Path(self.runt, dict(self.vars), nodes)
+        path = Path(self.runt, dict(self.vars, **self.runt.vars), nodes)
         path.traces.extend(self.traces)
 
         [t.addFork(path) for t in self.traces]

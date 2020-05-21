@@ -367,6 +367,21 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(dict(data),
                     {'valu': {1, 2}, 'x': {2, 3}})
 
+        # Var behavior with path fork()
+        async with self.getTestCore() as core:
+            await core.nodes('[ test:int=1 test:int=2 test:int=3 test:int=4 +#foo ]')
+
+            msgs = await core.stormlist('$x=0 #foo $x=$($x+1) fini { $lib.print("x={x}", x=$x) }')
+            self.stormIsInPrint('x=4', msgs)
+
+            msgs = await core.stormlist('$x=0 syn:tag=foo -> * $x=$($x+1) fini { $lib.print("x={x}", x=$x) }')
+            self.stormIsInPrint('x=4', msgs)
+
+            await core.nodes('[ test:str=dog +#baz ]')
+
+            msgs = await core.stormlist('$x="cat" syn:tag=baz -> * $x=$node.value() fini { $lib.print("x={x}", x=$x) }')
+            self.stormIsInPrint('x=dog', msgs)
+
     async def test_node_repr(self):
 
         async with self.getTestCore() as core:
