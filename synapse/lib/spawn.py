@@ -318,6 +318,7 @@ class SpawnCore(s_base.Base):
         self.views = {}
         self.layers = {}
         self.nexsroot = None
+        self.isleader = False
         self.spawninfo = spawninfo
 
         self.conf = spawninfo.get('conf')
@@ -473,12 +474,14 @@ class SpawnCore(s_base.Base):
         '''
         pass
 
-    async def _runStormSvcAdd(self, iden):
+    async def _hndladdStormPkg(self, pdef):
         '''
-        For now don't actually run this in the spawn case. This only needs to be
-        done in the master Cortex, not in spawns. Loading a service here should not
-        be making persistent changes.
+        For now don't acrtually run this in the spawn case. This only needs to be
+        done in the master Cortex, not in spawns. Adding a storm service package
+        from a spawn should not be making persistent changes.
         '''
+        # Note - this represents the bottom half of addStormPkg which is made
+        # via the @s_nexus.Pusher.onPushAuto('pkg:add') decorator.
         pass
 
     async def setStormSvcEvents(self, iden, edef):

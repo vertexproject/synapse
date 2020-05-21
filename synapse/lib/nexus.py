@@ -325,7 +325,7 @@ class NexsRoot(s_base.Base):
                     await self.fini()
                     return
 
-                logger.warning(f'mirror loop ready ({self._ldrurl}')
+                logger.info(f'mirror loop ready ({self._ldrurl})')
 
                 while not proxy.isfini:
 
