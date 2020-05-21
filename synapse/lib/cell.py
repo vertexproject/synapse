@@ -26,7 +26,6 @@ import synapse.lib.health as s_health
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 
@@ -520,6 +519,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellSlab(readonly=readonly)
 
         self.setNexsRoot(await self._initNexsRoot())
+        self.nexsroot.onStateChange(self.onLeaderChange)
 
         self.hive = await self._initCellHive()
 
@@ -575,6 +575,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(nexsroot.fini)
         nexsroot.onfini(self)
         return nexsroot
+
+    async def onLeaderChange(self, leader):
+        '''
+        Cell implementers may override this method to be notified when
+        nexusroot leadership changes. The leader arg will be a bool provided
+        if the Cell is a leader or not.
+        '''
+        pass
 
     async def getNexusChanges(self, offs):
         async for item in self.nexsroot.iter(offs):

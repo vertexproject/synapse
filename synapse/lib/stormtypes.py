@@ -201,6 +201,7 @@ class LibDmon(Lib):
             'name': name,
             'user': self.runt.user.iden,
             'storm': str(quer),
+            'enabled': True,
             'stormopts': opts,
         }
 

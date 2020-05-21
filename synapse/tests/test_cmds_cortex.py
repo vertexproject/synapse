@@ -367,7 +367,8 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             jsdata = [item for item in s_common.jslines(path)]
             self.len(2, jsdata)
-            self.eq(jsdata[0][0], ('test:int', 20))
+            self.eq({tuple(n[0]) for n in jsdata},
+                    {('test:int', 20), ('test:int', 30)})
 
     async def test_storm_file_optfile(self):
 

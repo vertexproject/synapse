@@ -1,7 +1,6 @@
 import sys
 import pathlib
 import argparse
-import binascii
 
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -27,11 +26,12 @@ def main(argv, outp=None):
     with s_telepath.openurl(opts.axon) as axon:
 
         # reminder: these are the hashes *not* available
-        awants = axon.wants([binascii.unhexlify(h) for h in opts.hashes])
-        for a in awants:
-            outp.printf(f'{binascii.hexlify(a)} not in axon store')
 
-        exists = [h for h in opts.hashes if binascii.unhexlify(h) not in awants]
+        awants = axon.wants([s_common.uhex(h) for h in opts.hashes])
+        for a in awants:
+            outp.printf(f'{s_common.ehex(a)} not in axon store')
+
+        exists = [h for h in opts.hashes if s_common.uhex(h) not in awants]
 
         for h in exists:
 
@@ -39,7 +39,7 @@ def main(argv, outp=None):
                 outp.printf(f'Fetching {h} to file')
 
                 with open(outdir.joinpath(h), 'wb') as fd:
-                    for b in axon.get(binascii.unhexlify(h)):
+                    for b in axon.get(s_common.uhex(h)):
                         fd.write(b)
 
                 outp.printf(f'Fetched {h} to file')
