@@ -790,6 +790,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.feedfuncs = {}
         self.stormcmds = {}
 
+        self.isleader = None
         self.spawnpool = None
         self.mirror = self.conf.get('mirror')
 
@@ -872,7 +873,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # Finalize coremodule loading & give stormservices a shot to load
         await self._initCoreMods()
-        await self._initStormSvcs()
         await self._initPureStormCmds()
 
         import synapse.lib.spawn as s_spawn  # get around circular dependency
@@ -896,12 +896,15 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # Enable leadership change awareness and fire
         # the leadership hook once at boot
+        self.isleader = self.nexsroot.amLeader()
         self.leaderchangeaware = True
-        await self.onLeaderChange(self.nexsroot.amLeader())
+        await self._initStormSvcs()
+        await self.onLeaderChange(self.isleader)
 
     async def onLeaderChange(self, leader):
         if not self.leaderchangeaware:
             return
+        self.isleader = leader
         if leader:
             return await self.startCortexLeader()
         return await self.stopCortexLeader()
@@ -1429,7 +1432,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         try:
-            await self.runStormSvcEvent(iden, 'del')
+            if self.isleader:
+                await self.runStormSvcEvent(iden, 'del')
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:

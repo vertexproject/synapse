@@ -724,9 +724,9 @@ class StormSvcTest(s_test.SynTest):
 
                     url = core00.getLocalUrl()
 
-                    async with await s_cortex.Cortex.anit(dirn=path01) as core01:
+                    conf = {'mirror': url}
+                    async with await s_cortex.Cortex.anit(dirn=path01, conf=conf) as core01:
 
-                        await core01.initCoreMirror(url)
                         await core01.sync()
 
                         self.true(core01.mirror)
