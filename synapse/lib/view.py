@@ -72,10 +72,6 @@ class View(s_nexus.Pusher):  # type: ignore
         self.invalid = None
         self.parent = None  # The view this view was forked from
 
-        parent = self.info.get('parent')
-        if parent is not None:
-            self.parent = self.core.getView(parent)
-
         self.permCheck = {
             'node:add': self._nodeAddConfirm,
             'prop:set': self._propSetConfirm,
@@ -86,12 +82,27 @@ class View(s_nexus.Pusher):  # type: ignore
         # isolate some initialization to easily override for SpawnView.
         await self._initViewLayers()
 
+    def init2(self):
+        '''
+        We have a second round of initialization so the views can get a handle to their parents which might not
+        be initialized yet
+        '''
+        parent = self.info.get('parent')
+        if parent is not None:
+            self.parent = self.core.getView(parent)
+
+    def isafork(self):
+        return self.parent is not None
+
     def pack(self):
         d = {'iden': self.iden}
         d.update(self.info.pack())
 
-        layrinfo = [l.pack() for l in self.layers]
+        layrinfo = [lyr.pack() for lyr in self.layers]
         d['layers'] = layrinfo
+
+        triginfo = [t.pack() for _, t in self.triggers.list()]
+        d['triggers'] = triginfo
 
         return d
 
@@ -104,11 +115,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdgeVerbs(self):
 
-        async with s_spooled.Set.ctx() as vset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as vset:
 
             for layr in self.layers:
 
-                for verb in layr.getEdgeVerbs():
+                async for verb in layr.getEdgeVerbs():
 
                     if verb in vset:
                         continue
@@ -118,11 +129,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdges(self, verb=None):
 
-        async with s_spooled.Set.ctx() as eset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as eset:
 
             for layr in self.layers:
 
-                for edge in layr.getEdges(verb=verb):
+                async for edge in layr.getEdges(verb=verb):
 
                     if edge in eset:
                         continue
@@ -279,7 +290,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 assert editformat == 'splices'
 
                 nodeedits = mesg[1].get('edits', [()])
-                for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
+                async for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
                     if not show or splice[0] in show:
                         yield splice
                 continue
@@ -319,8 +330,14 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.info.set(name, valu)
         return valu
 
-    @s_nexus.Pusher.onPushAuto('view:addlayer')
     async def addLayer(self, layriden, indx=None):
+        if any(layriden == layr.iden for layr in self.layers):
+            raise s_exc.DupIden(mesg='May not have the same layer in a view twice')
+
+        return await self._push('view:addlayer', layriden, indx)
+
+    @s_nexus.Pusher.onPush('view:addlayer')
+    async def _addLayer(self, layriden, indx=None):
 
         for view in self.core.views.values():
             if view.parent is self:
@@ -333,12 +350,15 @@ class View(s_nexus.Pusher):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(iden=layriden)
 
+        if layr in self.layers:
+            return
+
         if indx is None:
             self.layers.append(layr)
         else:
             self.layers.insert(indx, layr)
 
-        await self.info.set('layers', [l.iden for l in self.layers])
+        await self.info.set('layers', [lyr.iden for lyr in self.layers])
 
     @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
@@ -391,18 +411,13 @@ class View(s_nexus.Pusher):  # type: ignore
         layriden = ldef.get('iden')
 
         vdef['parent'] = self.iden
-        vdef['layers'] = [layriden] + [l.iden for l in self.layers]
+        vdef['layers'] = [layriden] + [lyr.iden for lyr in self.layers]
 
         return await self.core.addView(vdef)
 
     async def merge(self, useriden=None):
         '''
-        Merge this view into its parent.  All changes made to this view will be applied to the parent.
-
-        When complete, delete this view.
-
-        Note:
-            The view's own write layer will *not* be deleted.
+        Merge this view into it's parent. All changes made to this view will be applied to the parent.
         '''
         fromlayr = self.layers[0]
 
@@ -476,13 +491,10 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
             return
 
-        CHUNKSIZE = 1000
-        fromoff = (0, 0, 0)
         async with await self.parent.snap(user=user) as snap:
-            while True:
-
-                splicecount = 0
-                async for offs, splice in fromlayr.splices(fromoff, CHUNKSIZE):
+            splicecount = 0
+            async for nodeedit in fromlayr.iterLayerNodeEdits():
+                async for offs, splice in fromlayr.makeSplices(0, [nodeedit], None):
                     check = self.permCheck.get(splice[0])
                     if check is None:
                         raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
@@ -492,12 +504,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     splicecount += 1
 
-                if splicecount < CHUNKSIZE:
-                    break
-
-                fromoff = (offs[0], offs[1], offs[2] + 1)
-
-                await asyncio.sleep(0)
+                    if splicecount % 1000 == 0:
+                        await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu):
 
@@ -577,6 +585,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         s_trigger.reqValidTdef(tdef)
 
+        trig = self.trigdict.get(tdef['iden'])
+        if trig is not None:
+            return self.triggers.get(tdef['iden']).pack()
+
         user = self.core.auth.user(tdef['user'])
         self.core.getStormQuery(tdef['storm'])
 
@@ -589,20 +601,36 @@ class View(s_nexus.Pusher):  # type: ignore
         return trig.pack()
 
     async def getTrigger(self, iden):
-        return self.triggers.get(iden)
+        trig = self.triggers.get(iden)
+        if trig is None:
+            raise s_exc.NoSuchIden("Trigger not found")
 
-    @s_nexus.Pusher.onPushAuto('trigger:del')
+        return trig
+
     async def delTrigger(self, iden):
+        trig = self.triggers.get(iden)
+        if trig is None:
+            raise s_exc.NoSuchIden("Trigger not found")
+
+        return await self._push('trigger:del', iden)
+
+    @s_nexus.Pusher.onPush('trigger:del')
+    async def _delTrigger(self, iden):
         '''
         Delete a trigger from the view.
         '''
         trig = self.triggers.pop(iden)
+        if trig is None:
+            return
+
         await self.trigdict.pop(trig.iden)
         await self.core.auth.delAuthGate(trig.iden)
 
     @s_nexus.Pusher.onPushAuto('trigger:set')
     async def setTriggerInfo(self, iden, name, valu):
         trig = self.triggers.get(iden)
+        if trig is None:
+            raise s_exc.NoSuchIden("Trigger not found")
         await trig.set(name, valu)
 
     async def listTriggers(self):

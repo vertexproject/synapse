@@ -103,7 +103,7 @@ class CoreApi(s_cell.CellApi):
 
         opts.setdefault('user', self.user.iden)
         if opts.get('user') != self.user.iden:
-            self.user.confirm(('storm', 'impersonate'))
+            self.user.confirm(('impersonate',))
 
         return opts
 
@@ -212,14 +212,14 @@ class CoreApi(s_cell.CellApi):
         '''
         Set the definition of a pure storm command in the cortex.
         '''
-        self.user.confirm(('storm', 'admin', 'cmds'))
+        self.user.confirm(('admin', 'cmds'))
         return await self.cell.setStormCmd(cdef)
 
     async def delStormCmd(self, name):
         '''
         Remove a pure storm command from the cortex.
         '''
-        self.user.confirm(('storm', 'admin', 'cmds'))
+        self.user.confirm(('admin', 'cmds'))
         return await self.cell.delStormCmd(name)
 
     async def _reqDefLayerAllowed(self, perms):
@@ -505,6 +505,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices at the given offset.
         '''
+        s_common.deprecated('splices')
         layr = self.cell.getLayer(layriden)
         count = 0
         async for mesg in layr.splices(offs=offs, size=size):
@@ -518,6 +519,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices backwards from the given offset.
         '''
+        s_common.deprecated('splicesBack')
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
             count += 1
@@ -531,6 +533,7 @@ class CoreApi(s_cell.CellApi):
 
         Will only return the user's own splices unless they are an admin.
         '''
+        s_common.deprecated('spliceHistory')
         async for splice in self.cell.spliceHistory(self.user):
             yield splice
 
@@ -642,11 +645,11 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.delTagProp(name)
 
     async def addStormPkg(self, pkgdef):
-        self.user.confirm(('storm', 'pkg', 'add'))
+        self.user.confirm(('pkg', 'add'))
         return await self.cell.addStormPkg(pkgdef)
 
     async def delStormPkg(self, iden):
-        self.user.confirm(('storm', 'pkg', 'del'))
+        self.user.confirm(('pkg', 'del'))
         return await self.cell.delStormPkg(iden)
 
     @s_cell.adminapi()
@@ -690,6 +693,11 @@ class Cortex(s_cell.Cell):  # type: ignore
     callers to manage transaction boundaries explicitly and dramatically
     increases performance.
     '''
+
+    # For the cortex, nexslog:en defaults to True
+    confbase = copy.deepcopy(s_cell.Cell.confbase)
+    confbase['nexslog:en']['default'] = True  # type: ignore
+
     confdefs = {
         'axon': {
             'description': 'A telepath URL for a remote axon.',
@@ -749,17 +757,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Logging log level to emit storm logs at.',
             'type': 'integer'
         },
-        'buid:prefetch': {
-            'default': True,
-            'type': 'boolean',
-            'description': 'EXPERIMENTAL: Controls BUID pre-fetch behavior in the snap.',
-        },
     }
 
     cellapi = CoreApi
+    layerapi = s_layer.LayerApi
+    hiveapi = s_hive.HiveApi
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
+    spawncorector = 'synapse.lib.spawn.SpawnCore'
 
     async def __anit__(self, dirn, conf=None):
 
@@ -896,6 +902,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
+        await self.postNexsAnit()
+
         if mirror is not None:
             await self.initCoreMirror(mirror)
 
@@ -945,6 +953,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('queue:del')
     async def _delCoreQueue(self, name):
+        if not self.multiqueue.exists(name):
+            return
+
         await self.multiqueue.rem(name)
 
     async def coreQueueGet(self, name, offs=0, cull=True, wait=None):
@@ -961,9 +972,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             if size is not None and count >= size:
                 return
 
-    @s_nexus.Pusher.onPushAuto('queue:puts')
     async def coreQueuePuts(self, name, items):
-        await self.multiqueue.puts(name, items)
+        await self._push('queue:puts', name, items)
+
+    @s_nexus.Pusher.onPush('queue:puts', passoff=True)
+    async def _coreQueuePuts(self, name, items, nexsoff):
+        await self.multiqueue.puts(name, items, reqid=nexsoff)
 
     @s_nexus.Pusher.onPushAuto('queue:cull')
     async def coreQueueCull(self, name, offs):
@@ -973,7 +987,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         return self.multiqueue.size(name)
 
     async def getSpawnInfo(self):
-        return {
+        ret = {
             'iden': self.iden,
             'dirn': self.dirn,
             'conf': {
@@ -983,7 +997,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             },
             'loglevel': logger.getEffectiveLevel(),
             'views': [v.getSpawnInfo() for v in self.views.values()],
-            'layers': [l.getSpawnInfo() for l in self.layers.values()],
+            'layers': [lyr.getSpawnInfo() for lyr in self.layers.values()],
             'storm': {
                 'cmds': {
                     'cdefs': list(self.storm_cmd_cdefs.items()),
@@ -992,9 +1006,12 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'libs': tuple(self.libroot),
                 'mods': await self.getStormMods(),
                 'pkgs': await self.getStormPkgs(),
+                'svcs': [svc.sdef for svc in self.getStormSvcs()],
             },
             'model': await self.getModelDefs(),
+            'spawncorector': self.spawncorector,
         }
+        return ret
 
     async def _finiStor(self):
         await asyncio.gather(*[view.fini() for view in self.views.values()])
@@ -1185,7 +1202,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.fire('core:cmd:change', cmd=name, act='del')
 
-    @s_nexus.Pusher.onPushAuto('cmd:del')
     async def delStormCmd(self, name):
         '''
         Remove a previously set pure storm command.
@@ -1194,6 +1210,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         if ctor is None:
             mesg = f'No storm command named {name}.'
             raise s_exc.NoSuchCmd(name=name, mesg=mesg)
+
+        return await self._push('cmd:del', name)
+
+    @s_nexus.Pusher.onPush('cmd:del')
+    async def _delStormCmd(self, name):
+        ctor = self.stormcmds.get(name)
+        if ctor is None:
+            return
 
         cdef = self.cmdhive.get(name)
         if cdef is None:
@@ -1217,15 +1241,22 @@ class Cortex(s_cell.Cell):  # type: ignore
         name = pkgdef.get('name')
         await self.pkghive.set(name, pkgdef)
 
-    @s_nexus.Pusher.onPushAuto('pkg:del')
     async def delStormPkg(self, name):
+        pkgdef = self.pkghive.get(name, None)
+        if pkgdef is None:
+            mesg = f'No storm package: {name}.'
+            raise s_exc.NoSuchPkg(mesg=mesg)
+
+        return await self._push('pkg:del', name)
+
+    @s_nexus.Pusher.onPush('pkg:del')
+    async def _delStormPkg(self, name):
         '''
         Delete a storm package by name.
         '''
         pkgdef = await self.pkghive.pop(name, None)
         if pkgdef is None:
-            mesg = f'No storm package: {name}.'
-            raise s_exc.NoSuchPkg(mesg=mesg)
+            return
 
         await self._dropStormPkg(pkgdef)
 
@@ -1342,18 +1373,23 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Add a registered storm service to the cortex.
         '''
-        if sdef.get('iden') is None:
-            sdef['iden'] = s_common.guid()
+        iden = sdef.get('iden')
+        if iden is None:
+            iden = sdef['iden'] = s_common.guid()
+
+        if self.svcsbyiden.get(iden) is not None:
+            mesg = f'Storm service already exists: {iden}'
+            raise s_exc.DupStormSvc(mesg=mesg)
 
         return await self._push('svc:add', sdef)
 
     @s_nexus.Pusher.onPush('svc:add')
-    async def _onAddStormSvc(self, sdef):
+    async def _addStormSvc(self, sdef):
 
         iden = sdef.get('iden')
-        if self.svcsbyiden.get(iden) is not None:
-            mesg = f'Storm service already exists: {iden}'
-            raise s_exc.DupStormSvc(mesg=mesg)
+        ssvc = self.svcsbyiden.get(iden)
+        if ssvc is not None:
+            return ssvc.sdef
 
         ssvc = await self._setStormSvc(sdef)
         await self.stormservices.set(iden, sdef)
@@ -1361,11 +1397,23 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return ssvc.sdef
 
-    @s_nexus.Pusher.onPushAuto('svc:del')
     async def delStormSvc(self, iden):
+        sdef = self.stormservices.get(iden)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg, iden=iden)
+
+        return await self._push('svc:del', iden)
+
+    @s_nexus.Pusher.onPush('svc:del')
+    async def _delStormSvc(self, iden):
         '''
         Delete a registered storm service from the cortex.
         '''
+        sdef = self.stormservices.get(iden)
+        if sdef is None:
+            return
+
         try:
             await self.runStormSvcEvent(iden, 'del')
         except asyncio.CancelledError:  # pragma: no cover
@@ -1373,10 +1421,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         except Exception as e:
             logger.exception(f'service.del hook for service {iden} failed with error: {e}')
 
-        sdef = await self.stormservices.pop(iden, None)
-        if sdef is None:
-            mesg = f'No storm service with iden: {iden}'
-            raise s_exc.NoSuchStormSvc(mesg=mesg)
+        sdef = await self.stormservices.pop(iden)
 
         await self._delStormSvcPkgs(iden)
 
@@ -1403,7 +1448,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for pkg in oldpkgs:
             name = pkg.get('name')
             if name:
-                await self.delStormPkg(name)
+                await self._delStormPkg(name)
 
     async def setStormSvcEvents(self, iden, edef):
         '''
@@ -1588,8 +1633,18 @@ class Cortex(s_cell.Cell):  # type: ignore
                         form=form, prop=prop, act='add', type='formprop')
         await self.bumpSpawnPool()
 
-    @s_nexus.Pusher.onPushAuto('model:prop:del')
     async def delFormProp(self, form, prop):
+        full = f'{form}:{prop}'
+        pdef = self.extprops.get(full)
+
+        if pdef is None:
+            mesg = f'No ext prop named {full}'
+            raise s_exc.NoSuchProp(form=form, prop=prop, mesg=mesg)
+
+        return await self._push('model:prop:del', form, prop)
+
+    @s_nexus.Pusher.onPush('model:prop:del')
+    async def _delFormProp(self, form, prop):
         '''
         Remove an extended property from the cortex.
         '''
@@ -1597,8 +1652,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         pdef = self.extprops.get(full)
         if pdef is None:
-            mesg = f'No ext prop named {full}'
-            raise s_exc.NoSuchProp(form=form, prop=prop, mesg=mesg)
+            return
 
         for layr in self.layers.values():
             async for item in layr.iterPropRows(form, prop):
@@ -1611,15 +1665,22 @@ class Cortex(s_cell.Cell):  # type: ignore
                         form=form, prop=prop, act='del', type='formprop')
         await self.bumpSpawnPool()
 
-    @s_nexus.Pusher.onPushAuto('model:univ:del')
     async def delUnivProp(self, prop):
+        udef = self.extunivs.get(prop)
+        if udef is None:
+            mesg = f'No ext univ named {prop}'
+            raise s_exc.NoSuchUniv(name=prop, mesg=mesg)
+
+        return await self._push('model:univ:del', prop)
+
+    @s_nexus.Pusher.onPush('model:univ:del')
+    async def _delUnivProp(self, prop):
         '''
         Remove an extended universal property from the cortex.
         '''
         udef = self.extunivs.get(prop)
         if udef is None:
-            mesg = f'No ext univ named {prop}'
-            raise s_exc.NoSuchUniv(name=prop, mesg=mesg)
+            return
 
         univname = '.' + prop
         for layr in self.layers.values():
@@ -1632,10 +1693,16 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
         await self.bumpSpawnPool()
 
-    @s_nexus.Pusher.onPushAuto('model:tagprop:add')
     async def addTagProp(self, name, tdef, info):
         if self.exttagprops.get(name) is not None:
             raise s_exc.DupPropName(name=name)
+
+        return await self._push('model:tagprop:add', name, tdef, info)
+
+    @s_nexus.Pusher.onPush('model:tagprop:add')
+    async def _addTagProp(self, name, tdef, info):
+        if self.exttagprops.get(name) is not None:
+            return
 
         self.model.addTagProp(name, tdef, info)
 
@@ -1643,12 +1710,19 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.fire('core:tagprop:change', name=name, act='add')
         await self.bumpSpawnPool()
 
-    @s_nexus.Pusher.onPushAuto('model:tagprop:del')
     async def delTagProp(self, name):
         pdef = self.exttagprops.get(name)
         if pdef is None:
             mesg = f'No tag prop named {name}'
             raise s_exc.NoSuchProp(mesg=mesg, name=name)
+
+        return await self._push('model:tagprop:del', name)
+
+    @s_nexus.Pusher.onPush('model:tagprop:del')
+    async def _delTagProp(self, name):
+        pdef = self.exttagprops.get(name)
+        if pdef is None:
+            return
 
         for layr in self.layers.values():
             if await layr.hasTagProp(name):
@@ -1866,6 +1940,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('base64',), s_stormtypes.LibBase64)
 
         self.addStormLib(('auth', ), s_stormtypes.LibAuth)
+        self.addStormLib(('auth', 'gates'), s_stormtypes.LibGates)
         self.addStormLib(('auth', 'users'), s_stormtypes.LibUsers)
         self.addStormLib(('auth', 'roles'), s_stormtypes.LibRoles)
 
@@ -1907,26 +1982,26 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def getCellApi(self, link, user, path):
 
         if not path:
-            return await CoreApi.anit(self, link, user)
+            return await self.cellapi.anit(self, link, user)
 
         # allow an admin to directly open the cortex hive
         # (perhaps this should be a Cell() level pattern)
         if path[0] == 'hive' and user.isAdmin():
-            return await s_hive.HiveApi.anit(self.hive, user)
+            return await self.hiveapi.anit(self.hive, user)
 
         if path[0] == 'layer':
 
             if len(path) == 1:
                 # get the top layer for the default view
                 layr = self.getLayer()
-                return await s_layer.LayerApi.anit(self, link, user, layr)
+                return await self.layerapi.anit(self, link, user, layr)
 
             if len(path) == 2:
                 layr = self.getLayer(path[1])
                 if layr is None:
                     raise s_exc.NoSuchLayer(iden=path[1])
 
-                return await s_layer.LayerApi.anit(self, link, user, layr)
+                return await self.layerapi.anit(self, link, user, layr)
 
         raise s_exc.NoSuchPath(path=path)
 
@@ -2106,6 +2181,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             if iden == defiden:
                 self.view = view
 
+        for view in self.views.values():
+            view.init2()
+
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
             ldef = await self.addLayer()
@@ -2136,6 +2214,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         s_view.reqValidVdef(vdef)
 
         iden = vdef['iden']
+        if iden in self.views:
+            return
+
+        for lyriden in vdef['layers']:
+            if lyriden not in self.layers:
+                raise s_exc.NoSuchLayer(iden=lyriden)
+
         creator = vdef.get('creator', self.auth.rootuser.iden)
         user = await self.auth.reqUser(creator)
 
@@ -2147,7 +2232,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if worldread:
             role = await self.auth.getRoleByName('all')
-            await role.addRule((True, ('view', 'read')), gateiden=iden)
+            await role.addRule((True, ('view', 'read')), gateiden=iden, nexs=False)
 
         node = await self.hive.open(('cortex', 'views', iden))
 
@@ -2156,30 +2241,37 @@ class Cortex(s_cell.Cell):  # type: ignore
             await info.set(name, valu)
 
         view = await self._loadView(node)
+        view.init2()
 
         await self.bumpSpawnPool()
 
         return view.pack()
 
-    @s_nexus.Pusher.onPushAuto('view:del')
     async def delView(self, iden):
+        view = self.views.get(iden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=iden)
+
+        return await self._push('view:del', iden)
+
+    @s_nexus.Pusher.onPush('view:del')
+    async def _delView(self, iden):
         '''
         Delete a cortex view by iden.
 
         Note:
             This does not delete any of the view's layers
         '''
+        view = self.views.get(iden, None)
+        if view is None:
+            return
+
         if iden == self.view.iden:
             raise s_exc.SynErr(mesg='Cannot delete the main view')
 
-        for view in self.views.values():
-            if view.parent is not None and view.parent.iden == iden:
+        for cview in self.views.values():
+            if cview.parent is not None and cview.parent.iden == iden:
                 raise s_exc.SynErr(mesg='Cannot delete a view that has children')
-
-        view = self.views.pop(iden, None)
-        if view is None:
-            # TODO probably need a retn convention here...
-            raise s_exc.NoSuchView(iden=iden)
 
         await self.hive.pop(('cortex', 'views', iden))
         await view.delete()
@@ -2188,11 +2280,18 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.bumpSpawnPool()
 
-    @s_nexus.Pusher.onPushAuto('layer:del')
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
+
+        return await self._push('layer:del', iden)
+
+    @s_nexus.Pusher.onPush('layer:del')
+    async def _delLayer(self, iden):
+        layr = self.layers.get(iden, None)
+        if layr is None:
+            return
 
         for view in self.views.values():
             if layr in view.layers:
@@ -2250,7 +2349,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return layr.pack()
 
     async def getLayerDefs(self):
-        return [l.pack() for l in self.layers.values()]
+        return [lyr.pack() for lyr in self.layers.values()]
 
     def getView(self, iden=None, user=None):
         '''
@@ -2316,6 +2415,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         s_layer.reqValidLdef(ldef)
 
         iden = ldef.get('iden')
+        if iden in self.layers:
+            return
+
+        layr = self.layers.get(iden)
+        if layr is not None:
+            return layr.pack()
         creator = ldef.get('creator')
 
         user = await self.auth.reqUser(creator)
@@ -2389,6 +2494,10 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _onAddStormDmon(self, ddef):
         iden = ddef['iden']
 
+        dmon = self.stormdmons.get(iden)
+        if dmon is not None:
+            return dmon.pack()
+
         if ddef.get('user') is None:
             user = await self.auth.getUserByName('root')
             ddef['user'] = user.iden
@@ -2397,7 +2506,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.stormdmonhive.set(iden, ddef)
         return dmon.pack()
 
-    @s_nexus.Pusher.onPushAuto('storm:dmon:del')
     async def delStormDmon(self, iden):
         '''
         Stop and remove a storm dmon.
@@ -2407,6 +2515,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = f'No storm daemon exists with iden {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
 
+        return await self._push('storm:dmon:del', iden)
+
+    @s_nexus.Pusher.onPush('storm:dmon:del')
+    async def _delStormDmon(self, iden):
         dmon = self.stormdmons.pop(iden, None)
         if dmon is not None:
             await dmon.fini()
@@ -2414,11 +2526,14 @@ class Cortex(s_cell.Cell):  # type: ignore
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
 
-    @s_nexus.Pusher.onPushAuto('storm:dmon:run')
     async def runStormDmon(self, iden, ddef):
 
         # validate ddef before firing task
         s_storm.reqValidDdef(ddef)
+
+        dmon = self.stormdmons.get(iden)
+        if dmon is not None:
+            return dmon
 
         await self.auth.reqUser(ddef['user'])
 
@@ -3061,6 +3176,11 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _onAddCronJob(self, cdef):
 
         iden = cdef['iden']
+
+        appt = self.agenda.appts.get(iden)
+        if appt is not None:
+            return appt.pack()
+
         user = await self.auth.reqUser(cdef['creator'])
 
         cdef = await self.agenda.add(cdef)
@@ -3078,7 +3198,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        await self.agenda.delete(iden)
+        try:
+            await self.agenda.delete(iden)
+        except s_exc.NoSuchIden:
+            return
+
         await self.auth.delAuthGate(iden)
 
     @s_nexus.Pusher.onPushAuto('cron:mod')

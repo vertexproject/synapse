@@ -380,6 +380,14 @@ class CellApi(s_base.Base):
         return await self.cell.getUserDef(iden)
 
     @adminapi()
+    async def getAuthGate(self, iden):
+        return await self.cell.getAuthGate(iden)
+
+    @adminapi()
+    async def getAuthGates(self):
+        return await self.cell.getAuthGates()
+
+    @adminapi()
     async def getRoleDef(self, iden):
         return await self.cell.getRoleDef(iden)
 
@@ -471,7 +479,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string'
         },
         'nexslog:en': {
-            'default': True,
+            'default': False,
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
             'type': 'boolean'
         },
@@ -554,6 +562,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'auth': self.auth,
             'cell': self
         }
+
+    async def postNexsAnit(self):
+        '''
+        This must be called near the end of subclass initialization, after all the subsystems that allow nexus log
+        entries to be executed, but before any new changes can be initiated.
+        '''
+        await self.nexsroot.recover()
 
     async def _initNexsRoot(self):
         nexsroot = await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
@@ -674,6 +689,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if user is not None:
             return user.pack(packroles=True)
 
+    async def getAuthGate(self, iden):
+        gate = self.auth.getAuthGate(iden)
+        if gate is None:
+            return None
+        return gate.pack()
+
+    async def getAuthGates(self):
+        return [g.pack() for g in self.auth.getAuthGates()]
+
     async def getRoleDef(self, iden):
         role = self.auth.role(iden)
         if role is not None:
@@ -768,7 +792,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
                 with s_common.getTempDir() as dirn:
                     cdir = s_certdir.CertDir(dirn)
-                    pkey, cert = cdir.genHostCert('cortex')
+                    pkey, cert = cdir.genHostCert(self.getCellType())
                     cdir.savePkeyPem(pkey, pkeypath)
                     cdir.saveCertPem(cert, certpath)
 
@@ -876,7 +900,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if tree is not None:
                     # Pack and unpack the tree to avoid tuple/list issues
                     # for in-memory structures.
-                    tree = s_msgpack.un(s_msgpack.en(tree))
+                    tree = s_common.tuplify(tree)
                     await hive.loadHiveTree(tree)
 
         return hive

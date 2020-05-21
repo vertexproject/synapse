@@ -80,13 +80,13 @@ new_pkg = {
 class OldServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'chng'
     _storm_svc_pkgs = (
-        old_pkg,
+        old_pkg,  # type: ignore
     )
 
 class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'chng'
     _storm_svc_pkgs = (
-        new_old_pkg,
+        new_old_pkg,  # type: ignore
         new_pkg,
     )
 
@@ -111,7 +111,7 @@ class ChangingService(s_cell.Cell):
 class RealService(s_stormsvc.StormSvc):
     _storm_svc_name = 'real'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'foo',
             'version': (0, 0, 1),
             'modules': (
@@ -135,6 +135,10 @@ class RealService(s_stormsvc.StormSvc):
                     ),
                     'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
                 },
+                {
+                    'name': 'yoyo',
+                    'storm': 'for $ipv4 in $lib.service.get($cmdconf.svciden).ipv4s() { [inet:ipv4=$ipv4] }',
+                },
             )
         },
     )
@@ -156,10 +160,27 @@ class RealService(s_stormsvc.StormSvc):
         yield '5.5.5.5'
         yield '123.123.123.123'
 
+class NodeCreateService(s_stormsvc.StormSvc):
+    _storm_svc_name = 'ncreate'
+    _storm_svc_pkgs = (
+        {
+            'name': 'ncreate',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'baz',
+                    'storm': '''
+                    [inet:ipv4=8.8.8.8]
+                    ''',
+                },
+            )
+        },
+    )
+
 class BoomService(s_stormsvc.StormSvc):
     _storm_svc_name = 'boom'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'boom',
             'version': (0, 0, 1),
             'modules': (
@@ -189,7 +210,7 @@ class BoomService(s_stormsvc.StormSvc):
 class DeadService(s_stormsvc.StormSvc):
     _storm_svc_name = 'dead'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'dead',
             'version': (0, 0, 1),
             'commands': (
@@ -216,7 +237,7 @@ class NoService:
 class LifterService(s_stormsvc.StormSvc):
     _storm_svc_name = 'lifter'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'lifter',
             'version': (0, 0, 1),
             'commands': (
@@ -240,7 +261,7 @@ class LifterService(s_stormsvc.StormSvc):
 class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'stormvar'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'stormvar',
             'version': (0, 0, 1),
             'commands': (
@@ -347,7 +368,7 @@ class StormSvcTest(s_test.SynTest):
 
             await core.setStormCmd(cdef)
 
-            nodes = await core.nodes('[ test:str=asdf ] | lulz')
+            await core.nodes('[ test:str=asdf ] | lulz')
 
     async def test_storm_pkg_persist(self):
 
@@ -369,6 +390,37 @@ class StormSvcTest(s_test.SynTest):
             async with await s_cortex.Cortex.anit(dirn) as core:
                 nodes = await core.nodes('foobar')
                 self.eq(nodes[0].ndef, ('inet:asn', 30))
+
+    async def test_storm_svc_nodecreate(self):
+        '''
+        Regression test for var leakage
+        '''
+        with self.getTestDir() as dirn:
+
+            async with self.getTestDmon() as dmon:
+
+                dmon.share('real', RealService())
+                dmon.share('ncreate', NodeCreateService())
+
+                host, port = dmon.addr
+
+                lurl = f'tcp://127.0.0.1:{port}/real'
+                murl = f'tcp://127.0.0.1:{port}/ncreate'
+
+                async with await s_cortex.Cortex.anit(dirn) as core:
+
+                    await core.nodes(f'service.add real {lurl}')
+                    await core.nodes(f'service.add ncreate {murl}')
+
+                    await core.nodes('$lib.service.wait(real)')
+                    await core.nodes('$lib.service.wait(ncreate)')
+
+                    await core.nodes('[inet:ipv4=1.2.3.3]')
+
+                    # baz yields inbound *and* a new node
+                    # yoyo calls cmdconf.svciden in an iterator
+                    nodes = await core.nodes('inet:ipv4=1.2.3.3 | baz | yoyo')
+                    self.len(5, {n.ndef for n in nodes})
 
     async def test_storm_svcs(self):
 
@@ -512,6 +564,7 @@ class StormSvcTest(s_test.SynTest):
                     self.eq(ans, reprs)
 
                     badiden = []
+
                     async def badSetStormSvcEvents(iden, evts):
                         badiden.append(iden)
                         raise s_exc.SynErr('Kaboom')
@@ -576,7 +629,7 @@ class StormSvcTest(s_test.SynTest):
                     self.true(await waiter.wait(10))
                     async with await ChangingService.anit(svcd, {'updated': True}) as chng:
                         chng.dmon.share('chng', chng)
-                        _ = await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
+                        await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
 
                         await core.nodes('$lib.service.wait(chng)')
 
@@ -594,11 +647,6 @@ class StormSvcTest(s_test.SynTest):
                         self.notin('old.baz', core.stormmods)
                         pkg = await core.getStormPkg('old')
                         self.eq(pkg.get('version'), (0, 1, 0))
-
-                    cdef = OldServiceAPI._storm_svc_pkgs[0].get('commands')[-1]
-                    cdef['cmdconf'] = {'svciden': 'fakeiden'}
-                    await core.setStormCmd(cdef)
-                    self.nn(core.getStormCmd('oldcmd'))
 
             async with await s_cortex.Cortex.anit(dirn) as core:
                 self.nn(core.getStormCmd('newcmd'))

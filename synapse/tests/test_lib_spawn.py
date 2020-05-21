@@ -15,6 +15,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_test
+import synapse.tests.test_lib_stormsvc as s_test_svc
 
 logger = logging.getLogger(__name__)
 
@@ -508,25 +509,39 @@ class CoreSpawnTest(s_test.SynTest):
             'storm:log': True,
             'storm:log:level': logging.INFO,
         }
-        async with self.getTestCore(conf=conf) as core:
-            async with core.getLocalProxy() as prox:
-                opts = {'spawn': True}
+        async with self.getTestDmon() as dmon:
+            dmon.share('real', s_test_svc.RealService())
+            host, port = dmon.addr
 
-                msgs = await prox.storm('pkg.del asdf', opts=opts).list()
-                self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
+            lurl = f'tcp://127.0.0.1:{port}/real'
+            async with self.getTestCore(conf=conf) as core:
 
-                await core.addStormPkg(otherpkg)
-                msgs = await prox.storm('pkg.list', opts=opts).list()
-                self.stormIsInPrint('foosball', msgs)
+                await core.nodes(f'service.add real {lurl}')
+                await core.nodes('$lib.service.wait(real)')
+                msgs = await core.stormlist('help')
+                self.stormIsInPrint('foobar', msgs)
 
-                msgs = await prox.storm(f'pkg.del foosball', opts=opts).list()
-                self.stormIsInPrint('Removing package: foosball', msgs)
+                async with core.getLocalProxy() as prox:
+                    opts = {'spawn': True}
 
-                # Direct add via stormtypes
-                msgs = await prox.storm('$lib.pkg.add($pkg)',
-                                        opts={'vars': {'pkg': stormpkg}, 'spawn': True}).list()
-                msgs = await prox.storm('pkg.list', opts=opts).list()
-                self.stormIsInPrint('stormpkg', msgs)
+                    msgs = await prox.storm('help', opts=opts).list()
+                    self.stormIsInPrint('foobar', msgs)
+
+                    msgs = await prox.storm('pkg.del asdf', opts=opts).list()
+                    self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
+
+                    await core.addStormPkg(otherpkg)
+                    msgs = await prox.storm('pkg.list', opts=opts).list()
+                    self.stormIsInPrint('foosball', msgs)
+
+                    msgs = await prox.storm(f'pkg.del foosball', opts=opts).list()
+                    self.stormIsInPrint('Removing package: foosball', msgs)
+
+                    # Direct add via stormtypes
+                    msgs = await prox.storm('$lib.pkg.add($pkg)',
+                                            opts={'vars': {'pkg': stormpkg}, 'spawn': True}).list()
+                    msgs = await prox.storm('pkg.list', opts=opts).list()
+                    self.stormIsInPrint('stormpkg', msgs)
 
     async def test_spawn_node_data(self):
 
@@ -607,3 +622,18 @@ class CoreSpawnTest(s_test.SynTest):
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
             msgs = await prox.storm('$lib.dmon.del($ddef.iden)').list()
+
+    async def test_spawn_forked_view(self):
+        async with self.getTestCoreAndProxy() as (core, prox):
+            await core.nodes('[ test:str=1234 ]')
+            mainview = await core.callStorm('$iden=$lib.view.get().pack().iden '
+                                            'return ( $iden )')
+            forkview = await core.callStorm(f'$fork=$lib.view.get({mainview}).fork() '
+                                            f'return ( $fork.pack().iden )')
+            await core.nodes('[ test:str=beep ]', {'view': forkview})
+
+            opts = {'spawn': True, 'view': forkview}
+            msgs = await prox.storm('test:str $lib.print($node.value()) | spin', opts).list()
+
+            self.stormIsInPrint('1234', msgs)
+            self.stormIsInPrint('beep', msgs)

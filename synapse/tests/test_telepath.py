@@ -834,7 +834,7 @@ class TeleTest(s_t_utils.SynTest):
             # link not being placed back into the pool
             self.eq(await genr0.list(), (10, 20, 30))
             self.len(2, prox.links)
-            links = set(l for l in prox.links)
+            links = set(lnk for lnk in prox.links)
             self.notin(l0, links)
             # And that link l0 has been fini'd
             self.true(l0.isfini)

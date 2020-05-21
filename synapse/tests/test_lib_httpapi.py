@@ -537,7 +537,7 @@ class HttpApiTest(s_tests.SynTest):
             visi = await core.auth.addUser('visi')
 
             await visi.setPasswd('secret')
-            await visi.addRule((True, ('storm', 'impersonate')))
+            await visi.addRule((True, ('impersonate',)))
 
             opts = {'user': core.auth.rootuser.iden}
 

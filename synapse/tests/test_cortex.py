@@ -2,7 +2,6 @@ import copy
 import time
 import shutil
 import asyncio
-import fastjsonschema
 
 from unittest.mock import patch
 
@@ -194,7 +193,7 @@ class CortexTest(s_t_utils.SynTest):
                 (s_layer.EDIT_EDGE_DEL, (), ()),
             ))]
 
-            self.eq((), list(core.view.layers[0].makeSplices(0, nodeedits, {})))
+            self.eq((), await alist(core.view.layers[0].makeSplices(0, nodeedits, {})))
 
             # Run multiple nodes through edge creation/deletion ( test coverage for perm caching )
             await core.nodes('inet:ipv4 [ <(test)+ { meta:source:name=test }]')
@@ -268,7 +267,7 @@ class CortexTest(s_t_utils.SynTest):
                     opts = {'user': core.auth.rootuser.iden}
                     await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list()
 
-                await visi.addRule((True, ('storm', 'impersonate')))
+                await visi.addRule((True, ('impersonate',)))
 
                 opts = {'user': core.auth.rootuser.iden}
                 self.len(1, await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list())
@@ -329,6 +328,10 @@ class CortexTest(s_t_utils.SynTest):
                 await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
                 await core.addTagProp('at', ('geo:latlong', {}), {'doc':
                                                                   'Where the node was when the tag was applied.'})
+
+                # Lifting by a tagprop works before any writes happened
+                self.len(0, await core.nodes('#foo.bar:score'))
+                self.len(0, await core.nodes('#foo.bar:score=20'))
 
                 await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')
                 await core.nodes('[ test:str=lulz +#blah:user=visi ]')
@@ -638,6 +641,9 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(2, await snap.nodes('#foo.bar'))
                 self.len(1, await snap.nodes('test:str#foo.bar'))
 
+                with self.raises(s_exc.NoSuchProp):
+                    await snap.nodes('test:newp#foo.bar')
+
             async with await wcore.snap() as snap:
 
                 node = await snap.addNode('test:str', 'one')
@@ -893,7 +899,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = [n.pack() async for n in core.eval(qstr)]
             self.len(1, nodes)
 
-            # Seed new nodes via nodedesf
+            # Seed new nodes via nodedefs
             ndef = ('test:comp', (10, 'haha'))
             opts = {'ndefs': (ndef,)}
             # Seed nodes in the query with ndefs
@@ -948,6 +954,9 @@ class CortexTest(s_t_utils.SynTest):
 
             async for node in core.eval('test:str=$foo', opts=opts):
                 self.eq('bar', node.ndef[1])
+
+            # Make sure a tag=valu comparison before the tag is accessed works
+            self.len(0, await core.nodes('#newp=2020'))
 
     async def test_cortex_delnode(self):
 
@@ -2841,13 +2850,15 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore(conf=conf) as core:
             async with await core.snap() as snap:
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
-            await self.agenlen(2, core.eval('test:str'))
+            self.len(2, await core.nodes('test:str'))
 
             layr = core.getLayer()
             await self.agenlen(0, layr.splices())
             await self.agenlen(0, layr.splicesBack())
             await self.agenlen(0, layr.syncNodeEdits(0))
             self.eq(0, layr.getNodeEditOffset())
+
+            self.nn(await core.stat())
 
     async def test_feed_syn_nodes(self):
         async with self.getTestCore() as core0:
@@ -3744,7 +3755,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, await core01.nodes('inet:fqdn=www.vertex.link'))
 
                     # Exceptions shall raise from the followerLoop
-                    await self.asyncraises(s_exc.NoSuchView, core01.delView('xxx'))
+                    await self.asyncraises(s_exc.SynErr, core01.delView(core01.view.iden))
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
@@ -4489,3 +4500,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                                            'Error loading pkg') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     self.true(await stream.wait(6))
+
+    async def test_cortex_view_persistence(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                view = core.view
+                NKIDS = 20
+                for _ in range(NKIDS):
+                    await view.fork()
+
+                self.len(NKIDS + 1, core.layers)
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.len(NKIDS + 1, core.layers)
+                for view in core.views.values():
+                    if view == core.view:
+                        continue
+                    self.eq(core.view, view.parent)

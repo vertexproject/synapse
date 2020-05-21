@@ -31,13 +31,13 @@ class StormTest(s_t_utils.SynTest):
                 await tagnode.set('doc', 'haha doc')
                 await tagnode.set('title', 'haha title')
 
-            await s_common.aspin(core.eval('movetag hehe woot'))
+            await core.nodes('movetag hehe woot')
 
-            await self.agenlen(0, core.eval('#hehe'))
-            await self.agenlen(0, core.eval('#hehe.haha'))
+            self.len(0, await core.nodes('#hehe'))
+            self.len(0, await core.nodes('#hehe.haha'))
 
-            await self.agenlen(1, core.eval('#woot'))
-            await self.agenlen(1, core.eval('#woot.haha'))
+            self.len(1, await core.nodes('#woot'))
+            self.len(1, await core.nodes('#woot.haha'))
 
             async with await core.snap() as snap:
 
@@ -79,10 +79,10 @@ class StormTest(s_t_utils.SynTest):
 
                 await tagnode.set('doc', 'haha doc')
 
-            await s_common.aspin(core.eval('movetag hehe woot'))
+            await core.nodes('movetag hehe woot')
 
-            await self.agenlen(0, core.eval('#hehe'))
-            await self.agenlen(1, core.eval('#woot'))
+            self.len(0, await core.nodes('#hehe'))
+            self.len(1, await core.nodes('#woot'))
 
             async with await core.snap() as snap:
                 newt = await core.getNodeByNdef(('syn:tag', 'woot'))
@@ -97,18 +97,10 @@ class StormTest(s_t_utils.SynTest):
                 tnode = await snap.getNodeByNdef(('syn:tag', 'a.b'))
                 await tnode.addTag('foo', (None, None))
 
-            await alist(core.eval('movetag a.b a.m'))
-            await self.agenlen(2, core.eval('#foo'))
-            await self.agenlen(1, core.eval('syn:tag=a.b +#foo'))
-            await self.agenlen(1, core.eval('syn:tag=a.m +#foo'))
-
-        # Test moving a tag to itself
-        async with self.getTestCore() as core:
-            await self.agenraises(s_exc.BadOperArg, core.eval('movetag foo.bar foo.bar'))
-
-        # Test moving a tag which does not exist
-        async with self.getTestCore() as core:
-            await self.agenraises(s_exc.BadOperArg, core.eval('movetag foo.bar duck.knight'))
+            await core.nodes('movetag a.b a.m')
+            self.len(2, await core.nodes('#foo'))
+            self.len(1, await core.nodes('syn:tag=a.b +#foo'))
+            self.len(1, await core.nodes('syn:tag=a.m +#foo'))
 
         # Test moving a tag to another tag which is a string prefix of the source
         async with self.getTestCore() as core:
@@ -120,11 +112,54 @@ class StormTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', 'Q')
                 await node.addTag('aaa.barbarella.ccc', (None, None))
 
-            await alist(core.eval('movetag aaa.b aaa.barbarella'))
+            await core.nodes('movetag aaa.b aaa.barbarella')
 
-            await self.agenlen(7, core.eval('syn:tag'))
-            await self.agenlen(1, core.eval('syn:tag=aaa.barbarella.ccc'))
-            await self.agenlen(1, core.eval('syn:tag=aaa.barbarella.ddd'))
+            self.len(7, await core.nodes('syn:tag'))
+            self.len(1, await core.nodes('syn:tag=aaa.barbarella.ccc'))
+            self.len(1, await core.nodes('syn:tag=aaa.barbarella.ddd'))
+
+        # Move a tag with tagprops
+        async def seed_tagprops(core):
+            await core.addTagProp('test', ('int', {}), {})
+            await core.addTagProp('note', ('str', {}), {})
+            q = '[test:int=1 +#hehe.haha +#hehe:test=1138 +#hehe.beep:test=8080 +#hehe.beep:note="oh my"]'
+            nodes = await core.nodes(q)
+            self.eq(nodes[0].tagprops.get(('hehe', 'test')), 1138)
+            self.eq(nodes[0].tagprops.get(('hehe.beep', 'test')), 8080)
+            self.eq(nodes[0].tagprops.get(('hehe.beep', 'note')), 'oh my')
+
+        async with self.getTestCore() as core:
+            await seed_tagprops(core)
+            await core.nodes('movetag hehe woah')
+
+            self.len(0, await core.nodes('#hehe'))
+            nodes = await core.nodes('#woah')
+            self.len(1, nodes)
+            self.eq(nodes[0].tagprops, {('woah', 'test'): 1138,
+                                        ('woah.beep', 'test'): 8080,
+                                        ('woah.beep', 'note'): 'oh my',
+                                        })
+
+        async with self.getTestCore() as core:
+            await seed_tagprops(core)
+            await core.nodes('movetag hehe.beep woah.beep')
+
+            self.len(1, await core.nodes('#hehe'))
+            nodes = await core.nodes('#woah')
+            self.len(1, nodes)
+            self.eq(nodes[0].tagprops, {('hehe', 'test'): 1138,
+                                        ('woah.beep', 'test'): 8080,
+                                        ('woah.beep', 'note'): 'oh my',
+                                        })
+
+        # Sad path
+        async with self.getTestCore() as core:
+            # Test moving a tag to itself
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag foo.bar foo.bar')
+            # Test moving a tag which does not exist
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag foo.bar duck.knight')
 
     async def test_storm_spin(self):
 
@@ -778,6 +813,16 @@ class StormTest(s_t_utils.SynTest):
         self.none(pars.parse_args(['--lol']))
         self.isin("ERROR: Expected 0 positional arguments. Got 1: ['--lol']", pars.mesgs)
 
+        pars = s_storm.Parser(prog='hehe')
+        pars.add_argument('hehe')
+        opts = pars.parse_args(['-h'])
+        self.notin("ERROR: The argument <hehe> is required.", pars.mesgs)
+        self.isin('Usage: hehe [options] <hehe>', pars.mesgs)
+        self.isin('Options:', pars.mesgs)
+        self.isin('  --help                      : Display the command usage.', pars.mesgs)
+        self.isin('Arguments:', pars.mesgs)
+        self.isin('  <hehe>                      : No help available', pars.mesgs)
+
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
         opts = pars.parse_args(['--no-foo'])
@@ -826,6 +871,17 @@ class StormTest(s_t_utils.SynTest):
         pars.help()
         helptext = '\n'.join(pars.mesgs)
         self.isin('--ques [ques]', helptext)
+
+        # Check formatting for store_true / store_false optargs
+        pars = s_storm.Parser()
+        pars.add_argument('--ques', nargs=2, type=int)
+        pars.add_argument('--beep', action='store_true', help='beep beep')
+        pars.add_argument('--boop', action='store_false', help='boop boop')
+        pars.help()
+        helptext = '\n'.join(pars.mesgs)
+        self.isin('--ques <ques>               : No help available', helptext)
+        self.isin('--beep                      : beep beep', helptext)
+        self.isin('--boop                      : boop boop', helptext)
 
         # test some nargs type intersections
         pars = s_storm.Parser()

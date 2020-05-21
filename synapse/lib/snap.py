@@ -56,7 +56,7 @@ class Snap(s_base.Base):
         self.view = view
         self.user = user
 
-        self.buidprefetch = self.core.conf.get('buid:prefetch')
+        self.buidprefetch = self.view.isafork()
 
         self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]
@@ -236,7 +236,6 @@ class Snap(s_base.Base):
 
         node = self.livenodes.get(buid)
         if node is not None:
-            # moved here from getNodeByBuid() to cover more
             await asyncio.sleep(0)
             return node
 
@@ -914,7 +913,7 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN1(self, buid, verb=None):
 
-        async with s_spooled.Set.ctx() as edgeset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edgeset:
 
             for layr in self.layers:
 
@@ -927,7 +926,7 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN2(self, buid, verb=None):
 
-        async with s_spooled.Set.ctx() as edgeset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edgeset:
 
             for layr in self.layers:
 

@@ -108,7 +108,8 @@ Why make the change
 What you need to do
     Update any code that consumes/indexes the various splice events to handle the new ``node:edits`` format.
     Additionally, callers may specify ``editformat: "splices"`` within their storm runtime options to enable
-    backward-compatible splice generation.
+    backward-compatible splice generation. External APIs for retrieving splices have been marked as deprecated and will
+    be removed in v0.3.0.
 
 Removed Remote Layers
 ~~~~~~~~~~~~~~~~~~~~~
@@ -245,6 +246,39 @@ What you need to do
     scrape     Argument convention refactored.          ``scrape --props foo``          ``scrape :foo``
     ========== ======================================== =============================== ======================================
 
+Centralized Cortex Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+What changed
+    Standing up a Cortex was previously configured with a pair of files, ``cell.yaml`` and ``boot.yaml``, in addition to
+    command line arguments provided to to the server, ``synapse.servers.cortex``. The Cortex (and other Cell) startup
+    configuration data has been centralized. The ``boot.yaml`` file has been removed, along with the ``auth:admin``
+    value. ``auth:passwd`` has been added to the ``cell.yaml`` file that can be used to set the password for the
+    ``root`` user. In addition, the command line server can be used to pass various configuration elements, and may
+    also be used to pass configuration elements in via environment variables. Configuration structures are also schema
+    validated, to prevent erroneous values from being set by users.
+
+Why make the change
+    This change reduced the overhead in managing and running a Cortex (and other Cells) by centralizing configuration to
+    a single location, as well as supporting environment variables for all boot-time configuration options.
+
+What you need to do
+    The ``auth:admin`` value in any ``boot.yaml``, after splitting off the username, would need to be moved to a
+    ``cell.yaml`` file.
+
+    ::
+
+        $cat boot.yaml
+        ---
+        auth:admin: root:superSekri7!
+        ...
+
+        # Updated into the new cell.yaml file
+        $cat cell.yaml
+        ---
+        auth:passwd: superSekri7!
+        ...
+
 Additional Changes
 ------------------
 
@@ -260,6 +294,8 @@ Additional Changes
 - The CellApi ``@adminapi`` decorator now must be called as a function, ``@adminapi()``.
 - The CellApi's used for managing users and roles have been updated to be iden oriented, as opposed to being name
   oriented. User and Role management APIs have also been exposed via Storm.
+- The ``CoreApi.splices()`` method now takes a nodeedit offset tuple instead of an integer. It now yields a offset,
+  splice tuple together instead of just splices.
 
 v0.1.X Changelog
 ================

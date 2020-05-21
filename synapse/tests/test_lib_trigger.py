@@ -147,6 +147,9 @@ class TrigTest(s_t_utils.SynTest):
             triglist = await view.listTriggers()
             self.len(10, triglist)
 
+            # Delete not a trigger
+            await self.asyncraises(s_exc.NoSuchIden, view.delTrigger('foo'))
+
             # Delete trigger
             iden = [iden for iden, r in triglist if r.tdef['cond'] == 'prop:set'][0]
             await core.nodes('test:int=6 | delnode')
@@ -192,7 +195,8 @@ class TrigTest(s_t_utils.SynTest):
 
                 # Mod trigger auth failure
                 opts = {'vars': {'iden': iden}}
-                await self.asyncraises(s_exc.AuthDeny, fred.callStorm('$lib.trigger.get($iden)', opts=opts))
+                await self.asyncraises(s_exc.StormRuntimeError,
+                                       fred.callStorm('$lib.trigger.mod($iden, "{#foo}")', opts=opts))
 
             # additional NoSuchIden failures
             await self.asyncraises(s_exc.NoSuchIden, view.getTrigger('newp'))

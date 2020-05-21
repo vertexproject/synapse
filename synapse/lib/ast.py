@@ -322,8 +322,8 @@ class SubGraph:
 
         async with contextlib.AsyncExitStack() as stack:
 
-            done = await stack.enter_async_context(s_spooled.Set.ctx())
-            intodo = await stack.enter_async_context(s_spooled.Set.ctx())
+            done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
+            intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
 
             async def todogenr():
 
@@ -902,7 +902,7 @@ class YieldValu(Oper):
             try:
                 buid = s_common.uhex(valu)
             except binascii.Error:
-                mesg = 'Yield string must by hex node iden. Got: %r' % (valu,)
+                mesg = 'Yield string must be iden in hexdecimal. Got: %r' % (valu,)
                 raise s_exc.BadLiftValu(mesg=mesg)
 
             node = await runt.snap.getNodeByBuid(buid)
@@ -934,6 +934,10 @@ class YieldValu(Oper):
             if node is not None:
                 yield node
             return
+
+        if isinstance(valu, s_stormtypes.Query):
+            async for node in valu.nodes():
+                yield node
 
 class LiftTag(LiftOper):
 
@@ -1067,6 +1071,9 @@ class LiftFormTag(LiftOper):
     async def lift(self, runt):
 
         form = self.kids[0].value()
+        if not runt.model.form(form):
+            raise s_exc.NoSuchProp(name=form)
+
         tag = await self.kids[1].compute(runt)
 
         if len(self.kids) == 4:
@@ -2230,18 +2237,18 @@ class EmbedQuery(RunValue):
 
     def __init__(self, text, kids=()):
         AstNode.__init__(self, kids=kids)
-        self.text = text
+        self.text = text.strip()
 
     def isRuntSafe(self, runt):
         return True
 
     async def runtval(self, runt):
-        opts = {'vars': dict(runt.vars)}
-        return s_stormtypes.Query(self.text, opts, runt)
+        varz = dict(runt.vars)
+        return s_stormtypes.Query(self.text, varz, runt)
 
     async def compute(self, path):
-        opts = {'vars': dict(path.vars)}
-        return s_stormtypes.Query(self.text, opts, path.runt, path=path)
+        varz = dict(path.vars)
+        return s_stormtypes.Query(self.text, varz, path.runt, path=path)
 
 class Value(RunValue):
 
@@ -2698,8 +2705,8 @@ class EditNodeAdd(Edit):
         vals = await self.kids[2].compute(path)
 
         # for now, we have a conflict with a Node instance and prims
-        #if not isinstance(vals, s_stormtypes.Node):
-            #vals = await s_stormtypes.toprim(vals)
+        # if not isinstance(vals, s_stormtypes.Node):
+        #     vals = await s_stormtypes.toprim(vals)
 
         for valu in self.form.type.getTypeVals(vals):
             try:
@@ -2961,10 +2968,11 @@ class EditEdgeAdd(Edit):
 
     async def run(self, runt, genr):
 
-        #SubQuery -> Query
+        # SubQuery -> Query
         query = self.kids[1].kids[0]
 
         hits = set()
+
         def allowed(x):
             if x in hits:
                 return
@@ -2976,7 +2984,7 @@ class EditEdgeAdd(Edit):
 
             iden = node.iden()
             verb = await self.kids[0].compute(path)
-            #TODO this will need a toprim once Str is in play
+            # TODO this will need a toprim once Str is in play
 
             allowed(verb)
 
@@ -2989,7 +2997,7 @@ class EditEdgeAdd(Edit):
             }
 
             with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
-                #TODO perhaps chunk the edge edits?
+                # TODO perhaps chunk the edge edits?
                 async for subn, subp in runt.iterStormQuery(query):
                     if self.n2:
                         await subn.addEdge(verb, iden)
@@ -3008,6 +3016,7 @@ class EditEdgeDel(Edit):
         query = self.kids[1].kids[0]
 
         hits = set()
+
         def allowed(x):
             if x in hits:
                 return
@@ -3019,7 +3028,7 @@ class EditEdgeDel(Edit):
 
             iden = node.iden()
             verb = await self.kids[0].compute(path)
-            #TODO this will need a toprim once Str is in play
+            # TODO this will need a toprim once Str is in play
 
             allowed(verb)
 
@@ -3032,7 +3041,7 @@ class EditEdgeDel(Edit):
             }
 
             with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
-                #TODO perhaps chunk the edge edits?
+                # TODO perhaps chunk the edge edits?
                 async for subn, subp in runt.iterStormQuery(query):
                     if self.n2:
                         await subn.delEdge(verb, iden)
@@ -3257,7 +3266,7 @@ class Return(Oper):
 
         # no items in pipeline... execute
         if self.kids:
-            valu = await self.kids[0].compute(runt)
+            valu = await self.kids[0].runtval(runt)
 
         raise StormReturn(valu)
 

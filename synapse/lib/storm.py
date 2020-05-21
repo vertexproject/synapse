@@ -12,7 +12,6 @@ import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.scope as s_scope
-import synapse.lib.types as s_types
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
@@ -978,6 +977,12 @@ class Runtime:
     async def getStormQuery(self, text):
         return self.snap.core.getStormQuery(text)
 
+    async def coreDynCall(self, todo, perm=None):
+        gatekeys = ()
+        if perm is not None:
+            gatekeys = ((self.user.iden, perm, None),)
+        return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)
+
     async def getTeleProxy(self, url, **opts):
 
         flat = tuple(sorted(opts.items()))
@@ -1266,6 +1271,11 @@ class Parser:
             if not self._get_store(item, argdef, todo, opts):
                 return
 
+        # check for help before processing other args
+        if opts.get('help'):
+            self.help()
+            return
+
         # process positional arguments
         todo = collections.deque(posargs)
 
@@ -1279,13 +1289,9 @@ class Parser:
             self.help(mesg)
             return
 
-        for names, argdef in self.allargs:
+        for _, argdef in self.allargs:
             if 'default' in argdef:
                 opts.setdefault(argdef['dest'], argdef['default'])
-
-        if opts.get('help'):
-            self.help()
-            return
 
         for names, argdef in self.reqopts:
             dest = argdef.get('dest')
@@ -1369,7 +1375,7 @@ class Parser:
             opts[dest] = vals
             return True
 
-        for i in range(nargs):
+        for _ in range(nargs):
 
             if not todo or self._is_opt(todo[0]):
                 mesg = f'{nargs} arguments are required for {name}.'
@@ -1426,7 +1432,11 @@ class Parser:
 
     def _print_optarg(self, names, argdef):
         dest = self._get_dest_str(argdef)
-        base = f'  {names[0]} {dest}'.ljust(30)
+        oact = argdef.get('action', 'store')
+        if oact in ('store_true', 'store_false'):
+            base = f'  {names[0]}'.ljust(30)
+        else:
+            base = f'  {names[0]} {dest}'.ljust(30)
         helpstr = argdef.get('help', 'No help available')
         self._printf(f'{base}: {helpstr}')
 
@@ -1616,7 +1626,7 @@ class PureCmd(Cmd):
             subr.loadRuntVars(query)
 
             async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
-                path.finiframe()
+                path.finiframe(subr)
                 yield node, path
 
 class HelpCmd(Cmd):
@@ -2004,8 +2014,16 @@ class MoveTagCmd(Cmd):
                 if newt is None:
                     continue
 
+                # Capture tagprop information before moving tags
+                tgfo = {tagp: node.getTagProp(name, tagp) for tagp in node.getTagProps(name)}
+
+                # Move the tags
                 await node.delTag(name)
                 await node.addTag(newt, valu=valu)
+
+                # re-apply any captured tagprop data
+                for tagp, tagp_valu in tgfo.items():
+                    await node.setTagProp(newt, tagp, tagp_valu)
 
         await snap.printf(f'moved tags on {count} nodes.')
 
@@ -2341,7 +2359,7 @@ class ScrapeCmd(Cmd):
 
             refs = await s_stormtypes.toprim(self.opts.refs)
 
-            #TODO some kind of repr or as-string option on toprims
+            # TODO some kind of repr or as-string option on toprims
             todo = await s_stormtypes.toprim(self.opts.values)
 
             # if a list of props haven't been specified, then default to ALL of them
