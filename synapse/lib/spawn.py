@@ -476,7 +476,7 @@ class SpawnCore(s_base.Base):
 
     async def _hndladdStormPkg(self, pdef):
         '''
-        For now don't acrtually run this in the spawn case. This only needs to be
+        For now don't actually run this in the spawn case. This only needs to be
         done in the master Cortex, not in spawns. Adding a storm service package
         from a spawn should not be making persistent changes.
         '''
