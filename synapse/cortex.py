@@ -897,8 +897,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Enable leadership change awareness and fire
         # the leadership hook once at boot
         self.isleader = self.nexsroot.amLeader()
-        self.leaderchangeaware = True
         await self._initStormSvcs()
+        self.leaderchangeaware = True
         await self.onLeaderChange(self.isleader)
 
     async def onLeaderChange(self, leader):
