@@ -181,7 +181,6 @@ class AgendaTest(s_t_utils.SynTest):
         loop = asyncio.get_running_loop()
         with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
             core = mock.Mock()
-            core.mirror = False
             core.eval = myeval
             core.slab = await s_lmdbslab.Slab.anit(dirn, map_size=s_t_utils.TEST_MAP_SIZE, readonly=False)
             db = core.slab.initdb('hive')
