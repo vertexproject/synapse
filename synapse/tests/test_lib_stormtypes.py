@@ -1268,7 +1268,7 @@ class StormTypesTest(s_test.SynTest):
                 rule = (True, ('queue', 'synq', 'get'))
                 await root.addUserRule(woot.iden, rule, indx=None)
 
-                msgs = await core.stormlist('$lib.print($lib.queue.get(synq).get(wait=False))')
+                msgs = await core.stormlist('$lib.print($lib.queue.get(synq).get(wait=0))')
                 self.stormIsInPrint("(0, 'bar')", msgs)
 
                 with self.raises(s_exc.AuthDeny):
@@ -2742,14 +2742,14 @@ class StormTypesTest(s_test.SynTest):
 
             hehe = await core.callStorm('''
                 $hehe = $lib.auth.users.byname(hehe)
-                $hehe.setLocked(True)
+                $hehe.setLocked($lib.true)
                 return($hehe)
             ''')
             self.eq(True, hehe['locked'])
 
             self.none(await core.tryUserPasswd('hehe', 'haha'))
 
-            await core.callStorm('$lib.auth.users.byname(hehe).setLocked(false)')
+            await core.callStorm('$lib.auth.users.byname(hehe).setLocked($lib.false)')
 
             self.nn(await core.tryUserPasswd('hehe', 'haha'))
 

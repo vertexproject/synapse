@@ -390,7 +390,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                 msgs = await prox.storm('''
                     $q = $lib.queue.get(blah)
-                    for ($offs, $ipv4) in $q.gets(0, cull=0, wait=0) {
+                    for ($offs, $ipv4) in $q.gets(0, cull=$lib.false, wait=$lib.false) {
                         inet:ipv4=$ipv4
                     }
                 ''', opts=opts).list()
@@ -399,7 +399,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                 msgs = await prox.storm('''
                     $q = $lib.queue.get(blah)
-                    for ($offs, $ipv4) in $q.gets(wait=0) {
+                    for ($offs, $ipv4) in $q.gets(wait=$lib.false) {
                         inet:ipv4=$ipv4
                         $q.cull($offs)
                     }
@@ -465,7 +465,7 @@ class CoreSpawnTest(s_test.SynTest):
                     msgs = await prox.storm(q, opts=opts).list()
 
                     # Ensure that the data was put into the queue by the spawnproc
-                    q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=False, cull=False))'
+                    q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=$lib.false, cull=$lib.false))'
                     msgs = await core.stormlist(q)
                     self.stormIsInPrint("(0, 'bar')", msgs)
 
@@ -479,7 +479,7 @@ class CoreSpawnTest(s_test.SynTest):
                     rule = (True, ('queue', 'get'))
                     await woot.addRule(rule, gateiden='queue:synq')
 
-                    q = '$lib.print($lib.queue.get(synq).get(wait=False))'
+                    q = '$lib.print($lib.queue.get(synq).get(wait=$lib.false))'
                     msgs = await prox.storm(q, opts=opts).list()
                     self.stormIsInPrint("(0, 'bar')", msgs)
 
