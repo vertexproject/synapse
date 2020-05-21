@@ -765,7 +765,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
-    leaderchangeaware = False
     spawncorector = 'synapse.lib.spawn.SpawnCore'
 
     async def __anit__(self, dirn, conf=None):
@@ -803,6 +802,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
+        self.stormservices = None # type: s_hive.HiveDict
 
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
@@ -894,17 +894,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.mirror is not None:
             await self._initCoreMirror(self.mirror)
 
-        # Enable leadership change awareness and fire
-        # the leadership hook once at boot
-        self.isleader = self.nexsroot.amLeader()
-        await self._initStormSvcs()
-        self.leaderchangeaware = True
-        await self.onLeaderChange(self.isleader)
+        # Fire the leadership hook once at boot
+        await self.onLeaderChange(self.nexsroot.amLeader())
 
     async def onLeaderChange(self, leader):
-        if not self.leaderchangeaware:
-            return
         self.isleader = leader
+        # One shot to initialize storm services
+        if self.stormservices is None:
+            await self._initStormSvcs()
         if leader:
             return await self.startCortexLeader()
         return await self.stopCortexLeader()
