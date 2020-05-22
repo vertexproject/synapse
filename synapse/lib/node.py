@@ -745,7 +745,9 @@ class Path:
         nodes = list(self.nodes)
         nodes.append(node)
 
-        path = Path(self.runt, dict(self.vars, **self.runt.vars), nodes)
+        path = Path(self.runt,
+                    dict(self.vars, **{k: v for k, v in self.runt.vars.items() if k in self.runt.runtvars}),
+                    nodes,)
         path.traces.extend(self.traces)
 
         [t.addFork(path) for t in self.traces]
@@ -754,7 +756,7 @@ class Path:
 
     def clone(self):
         path = Path(self.runt,
-                    copy.copy(self.vars),
+                    dict(self.vars, **{k: v for k, v in self.runt.vars.items() if k in self.runt.runtvars}),
                     copy.copy(self.nodes),)
         path.traces = list(self.traces)
         path.frames = [(copy.copy(vars), runt) for (vars, runt) in self.frames]

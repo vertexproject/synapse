@@ -367,7 +367,7 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(dict(data),
                     {'valu': {1, 2}, 'x': {2, 3}})
 
-        # Var behavior with path fork()
+        # Runt var promotion with path fork() and clone()
         async with self.getTestCore() as core:
             await core.nodes('[ test:int=1 test:int=2 test:int=3 test:int=4 +#foo ]')
 
@@ -376,6 +376,10 @@ class NodeTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('$x=0 syn:tag=foo -> * $x=$($x+1) fini { $lib.print("x={x}", x=$x) }')
             self.stormIsInPrint('x=4', msgs)
+
+            scmd = '$x=0 test:int for $var in (1,2) { $x = $($x+$node.value()) } fini { $lib.print("x={x}", x=$x) }'
+            msgs = await core.stormlist(scmd)
+            self.stormIsInPrint('x=20', msgs)
 
             await core.nodes('[ test:str=dog +#baz ]')
 
