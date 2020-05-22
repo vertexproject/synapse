@@ -159,7 +159,7 @@ class LayerApi(s_cell.CellApi):
 
     async def getNodeEditOffset(self):
         await self._reqUserAllowed(self.liftperm)
-        return self.layr.getNodeEditOffset()
+        return await self.layr.getNodeEditOffset()
 
     async def getIden(self):
         await self._reqUserAllowed(self.liftperm)
@@ -913,6 +913,8 @@ class Layer(s_nexus.Pusher):
     '''
     The base class for a cortex layer.
     '''
+    nodeeditctor = s_slabseqn.SlabSeqn
+
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
@@ -1068,7 +1070,7 @@ class Layer(s_nexus.Pusher):
 
         self.nodeeditlog = None
         if self.logedits:
-            self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
+            self.nodeeditlog = self.nodeeditctor(self.nodeeditslab, 'nodeedits')
 
     def getSpawnInfo(self):
         info = self.pack()
@@ -2386,7 +2388,7 @@ class Layer(s_nexus.Pusher):
 
             yield wind
 
-    def getNodeEditOffset(self):
+    async def getNodeEditOffset(self):
         if not self.logedits:
             return 0
 
