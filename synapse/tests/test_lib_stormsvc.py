@@ -8,6 +8,8 @@ import synapse.tests.utils as s_test
 import synapse.lib.cell as s_cell
 import synapse.lib.stormsvc as s_stormsvc
 
+import synapse.tools.backup as s_tools_backup
+
 old_pkg = {
     'name': 'old',
     'version': (0, 0, 1),
@@ -697,3 +699,78 @@ class StormSvcTest(s_test.SynTest):
             self.stormIsInPrint('DEBUG: fooz=1.2.3.4', msgs)
             self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
             self.stormIsInPrint('DEBUG: fooz=5.6.7.8', msgs)
+
+    async def test_storm_svc_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestDmon() as dmon:
+
+                dmon.share('real', RealService())
+                host, port = dmon.addr
+                lurl = f'tcp://127.0.0.1:{port}/real'
+
+                async with self.getTestCore(dirn=path00) as core00:
+                    await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                s_tools_backup.backup(path00, path01)
+
+                async with self.getTestCore(dirn=path00) as core00:
+
+                    self.false(core00.mirror)
+
+                    url = core00.getLocalUrl()
+
+                    conf = {'mirror': url}
+                    async with await s_cortex.Cortex.anit(dirn=path01, conf=conf) as core01:
+
+                        await core01.sync()
+
+                        self.true(core01.mirror)
+
+                        # Add a storm service
+                        await core01.nodes(f'service.add real {lurl}')
+                        await core01.nodes('$lib.service.wait(real)')
+
+                        # Make sure it shows up on leader
+                        msgs = await core00.stormlist('help')
+                        self.stormIsInPrint('service: real', msgs)
+                        self.stormIsInPrint('package: foo', msgs)
+                        self.stormIsInPrint('foobar', msgs)
+                        self.isin('foo.bar', core00.stormmods)
+
+                        queue = core00.multiqueue.list()
+                        self.len(1, queue)
+                        self.eq('vertex', queue[0]['name'])
+                        self.nn(core00.getStormCmd('ohhai'))
+
+                        # Make sure it shows up on mirror
+                        msgs = await core01.stormlist('help')
+                        self.stormIsInPrint('service: real', msgs)
+                        self.stormIsInPrint('package: foo', msgs)
+                        self.stormIsInPrint('foobar', msgs)
+                        self.isin('foo.bar', core01.stormmods)
+
+                        queue = core01.multiqueue.list()
+                        self.len(1, queue)
+                        self.eq('vertex', queue[0]['name'])
+                        self.nn(core01.getStormCmd('ohhai'))
+
+                        # Delete storm service
+                        iden = core01.getStormSvcs()[0].iden
+                        await core01.delStormSvc(iden)
+                        await core01.sync()
+
+                        # Make sure it got removed from both
+                        self.none(core00.getStormCmd('ohhai'))
+                        queue = core00.multiqueue.list()
+                        self.len(0, queue)
+                        self.notin('foo.bar', core00.stormmods)
+
+                        self.none(core01.getStormCmd('ohhai'))
+                        queue = core01.multiqueue.list()
+                        self.len(0, queue)
+                        self.notin('foo.bar', core01.stormmods)

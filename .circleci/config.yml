@@ -54,7 +54,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_cortex.py synapse/tests/test_lib_storm.py synapse/tests/test_lib_stormtypes.py synapse/tests/test_lib_view.py synapse/tests/test_lib_hiveauth.py synapse/tests/test_lib_cell.py synapse/tests/test_lib_layer.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+            circleci tests glob synapse/tests/test_cortex.py synapse/tests/test_lib_storm.py synapse/tests/test_lib_stormtypes.py synapse/tests/test_lib_view.py synapse/tests/test_lib_hiveauth.py synapse/tests/test_lib_cell.py synapse/tests/test_lib_layer.py synapse/tests/test_lib_spawn.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
   test_steps_doc:
     description: "Documentation test steps"
@@ -361,7 +361,7 @@ jobs:
       - test_steps_python
 
   python37_replay:
-    parallelism: 2
+    parallelism: 4
     docker:
       - image: circleci/python:3.7
         environment:

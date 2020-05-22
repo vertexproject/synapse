@@ -45,7 +45,7 @@ class TestPullFile(s_t_utils.SynTest):
                     with open(pathlib.Path(wdir, visihash), 'rb') as fd:
                         self.eq(b'visi', fd.read())
 
-                    self.true(outp.expect(f'b\'{nonehash}\' not in axon store'))
+                    self.true(outp.expect(f'{nonehash} not in axon store'))
                     self.true(outp.expect(f'Fetching {testhash} to file'))
                     self.true(outp.expect(f'Fetching {visihash} to file'))
 
