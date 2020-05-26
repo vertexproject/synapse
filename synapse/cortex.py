@@ -2206,6 +2206,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             vdef = {
                 'layers': (layriden,),
                 'worldreadable': True,
+                'creator': self.auth.rootuser.iden
             }
             vdef = await self.addView(vdef)
             iden = vdef.get('iden')
