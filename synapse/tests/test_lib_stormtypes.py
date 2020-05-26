@@ -13,6 +13,8 @@ from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -1577,6 +1579,10 @@ class StormTypesTest(s_test.SynTest):
 
             self.isin(newlayr, core.layers)
 
+            # Ensure new layer is set to current model revision
+            newrev = await core.layers[newlayr].getModelVers()
+            self.eq(s_modelrev.maxvers, newrev)
+
             # List the layers in the cortex
             q = '''
                 for $layer in $lib.layer.list() {
@@ -1679,7 +1685,7 @@ class StormTypesTest(s_test.SynTest):
                 url = core2.getLocalUrl('*/layer')
 
                 layriden = core2.view.layers[0].iden
-                offs = core2.view.layers[0].getNodeEditOffset()
+                offs = await core2.view.layers[0].getNodeEditOffset()
 
                 layers = set(core.layers.keys())
                 q = f'layer.add --upstream {url}'
@@ -2324,6 +2330,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint(':type=m1', mesgs)
 
                 # Make sure it ran
+                await asyncio.sleep(0)
                 await asyncio.sleep(0)
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
 

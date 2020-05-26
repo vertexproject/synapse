@@ -86,6 +86,9 @@ class NexsRoot(s_base.Base):
         self._mirrors: List[ChangeDist] = []
         self.donexslog = donexslog
 
+        self._state_lock = asyncio.Lock()
+        self._state_funcs: List[Callable] = [] # External Callbacks for state changes
+
         # These are used when this cell is a mirror.
         self._ldrurl: Optional[str] = None
         self._ldr: Optional[s_telepath.Proxy] = None  # only set by looptask
@@ -256,6 +259,9 @@ class NexsRoot(s_base.Base):
 
             yield dist
 
+    def amLeader(self):
+        return self._ldrurl is None
+
     async def setLeader(self, url: Optional[str], iden: str) -> None:
         '''
         Args:
@@ -265,7 +271,9 @@ class NexsRoot(s_base.Base):
         if url is not None and not self.donexslog:
             raise s_exc.BadConfValu(mesg='Mirroring incompatible without nexslog:en')
 
-        if self._ldrurl == url:
+        former = self._ldrurl
+
+        if former == url:
             return
 
         self._ldrurl = url
@@ -278,13 +286,28 @@ class NexsRoot(s_base.Base):
                 await self._ldr.fini()
             self._ldr = None
 
+        await self._dostatechange()
+
         if self._ldrurl is None:
             return
 
         self._looptask = self.schedCoro(self._followerLoop(iden))
 
-    async def _followerLoop(self, iden) -> None:
+    def onStateChange(self, func):
+        '''
+        Add a state change callback. Callbacks take a single argument,
+        ``leader``, which is a boolean representing the leader status
+        at the time the callbacks are executed.
+        '''
+        self._state_funcs.append(func)
 
+    async def _dostatechange(self):
+        amleader = self.amLeader()
+        async with self._state_lock:
+            for func in self._state_funcs:
+                await s_coro.ornot(func, leader=amleader)
+
+    async def _followerLoop(self, iden) -> None:
         while not self.isfini:
 
             try:
@@ -302,7 +325,7 @@ class NexsRoot(s_base.Base):
                     await self.fini()
                     return
 
-                logger.warning(f'mirror loop ready ({self._ldrurl}')
+                logger.info(f'mirror loop ready ({self._ldrurl})')
 
                 while not proxy.isfini:
 
