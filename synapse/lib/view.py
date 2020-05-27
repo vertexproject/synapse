@@ -569,7 +569,8 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Adds a trigger to the view.
         '''
-        tdef['iden'] = s_common.guid()
+        if tdef.get('iden') is None:
+            tdef['iden'] = s_common.guid()
 
         root = await self.core.auth.getUserByName('root')
 
