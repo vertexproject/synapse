@@ -2428,10 +2428,14 @@ class ScrapeCmd(Cmd):
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
-                for form, valu in s_scrape.scrape(text):
-                    addnode = await runt.snap.addNode(form, valu)
-                    if self.opts.doyield:
-                        yield addnode, runt.initPath(addnode)
+                try:
+                    for form, valu in s_scrape.scrape(text):
+                        addnode = await runt.snap.addNode(form, valu)
+                        if self.opts.doyield:
+                            yield addnode, runt.initPath(addnode)
+
+                except s_exc.BadTypeValu as e:
+                    await runt.warn(f'BadTypeValue for {form}="{valu}"')
 
             return
 
@@ -2456,11 +2460,15 @@ class ScrapeCmd(Cmd):
                         valu = (node.ndef, (form, valu))
                         form = 'edge:refs'
 
-                    nnode = await node.snap.addNode(form, valu)
-                    npath = path.fork(nnode)
+                    try:
+                        nnode = await node.snap.addNode(form, valu)
+                        npath = path.fork(nnode)
 
-                    if self.opts.doyield:
-                        yield nnode, npath
+                        if self.opts.doyield:
+                            yield nnode, npath
+
+                    except s_exc.BadTypeValu as e:
+                        await runt.warn(f'BadTypeValue for {form}="{valu}"')
 
             if not self.opts.doyield:
                 yield node, path
