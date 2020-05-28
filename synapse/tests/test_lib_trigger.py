@@ -127,13 +127,11 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('[ test:int=77 ]')
             self.len(1, await core.nodes('test:int#withiden'))
 
-            # Attempting to add trigger with existing iden returns unmodified original
-            tdef = {'cond': 'node:add', 'storm': '[ +#dupiden ]', 'form': 'test:int', 'iden': iden}
-            await view.addTrigger(tdef)
-            trig = await view.getTrigger(iden)
-            self.eq(tdef0, trig.tdef)
-            await core.nodes('[ test:int=88 ]')
-            self.len(2, await core.nodes('test:int#withiden'))
+            # Attempting to add trigger with existing iden raises
+            with self.raises(s_exc.DupIden):
+                tdef = {'cond': 'node:add', 'storm': '[ +#dupiden ]', 'form': 'test:int', 'iden': iden}
+                await view.addTrigger(tdef)
+            self.eq(tdef0, (await view.getTrigger(iden)).tdef)
 
             # Bad trigger parms
             with self.raises(s_exc.BadConfValu):
