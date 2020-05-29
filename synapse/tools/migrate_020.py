@@ -1104,14 +1104,23 @@ class Migrator(s_base.Base):
         # confdefs
         validconfs = s_cortex.Cortex.confdefs
         yamlpath = os.path.join(self.dest, 'cell.yaml')
+        remconfs = []
+        dedicated = False
         if os.path.exists(yamlpath):
             conf = s_common.yamlload(self.dest, 'cell.yaml')
+
+            # dedicated -> lockmemory
+            if conf.get('dedicated'):
+                dedicated = True
+
             remconfs = [k for k in conf.keys() if k not in validconfs]
             conf = {k: v for k, v in conf.items() if k not in remconfs}
             s_common.yamlsave(conf, self.dest, 'cell.yaml')
 
-            logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
-            await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
+        await self._migrlogAdd(migrop, 'conf', 'dedicated', dedicated)
+
+        logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
+        await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
 
     async def _migrDatamodel(self):
         '''
@@ -1188,6 +1197,9 @@ class Migrator(s_base.Base):
         '''
         migrop = 'hivelyr'
 
+        log = await self._migrlogGetOne('cell', 'conf', 'dedicated')
+        dedicated = log['val'] if log is not None else False
+
         # migration shadow copy
         migrlyrnode = await self.hive.open(('migr', 'layers', iden))
         migrlyrinfo = await migrlyrnode.dict()
@@ -1222,18 +1234,11 @@ class Migrator(s_base.Base):
         await layrinfo.pop('name')
         await layrinfo.pop('type')
 
-        # dedicated -> lockmemory
-        lockmemory = False
-        if srcconf is not None:
-            srcdedicated = srcconf.get('dedicated')
-            if srcdedicated is not None:
-                lockmemory = srcdedicated
-
         # update layer info for 0.2.x
         await layrinfo.set('iden', iden)
         await layrinfo.set('creator', creator)
         await layrinfo.set('readonly', False)
-        await layrinfo.set('lockmemory', lockmemory)
+        await layrinfo.set('lockmemory', dedicated)
         await layrinfo.set('logedits', True)
         await layrinfo.set('model:version', s_modelrev.maxvers)
 

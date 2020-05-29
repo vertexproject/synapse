@@ -294,7 +294,7 @@ class MigrationTest(s_t_utils.SynTest):
             self.eq(rootuser, view.info.get('creator'))
 
         for lyr in core.layers.values():
-            self.false(lyr.lockmemory)
+            self.true(lyr.lockmemory)
             self.false(lyr.readonly)
             self.true(lyr.logedits)
             self.eq(rootuser, lyr.layrinfo.get('creator'))
@@ -738,6 +738,9 @@ class MigrationTest(s_t_utils.SynTest):
                     if dname == 'splices.lmdb':
                         shutil.rmtree(os.path.join(root, dname))
 
+            cellconf = {}
+            s_common.yamlsave(cellconf, src, 'cell.yaml')
+
             # check defaults
             with self.getTestDir() as dest, self.withSetLoggingMock():
                 argv = [
@@ -769,6 +772,9 @@ class MigrationTest(s_t_utils.SynTest):
                     self.len(1, nodes)
                     nodes = await core.nodes('[inet:ipv4=9.9.9.9]')
                     self.len(1, nodes)
+
+                    for lyr in core.layers.values():
+                        self.false(lyr.lockmemory)
 
     async def test_migr_assvr_opts(self):
         '''
