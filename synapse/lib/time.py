@@ -40,7 +40,7 @@ def parse(text, base=None, chop=False):
     elif tlen == 14:
         dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S')
 
-    elif tlen in (15, 16, 17):
+    elif 15 <= tlen <= 20:
         dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
 
     else:
