@@ -747,15 +747,6 @@ class Migrator(s_base.Base):
         await self._dumpOffsets()
         await self._dumpVers()
 
-    async def _migrQueues(self):
-        path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
-        async with await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False) as qslab:
-            multiqueue = await qslab.getMultiQueue('cortex:queue')
-
-            for q in multiqueue.list():
-                name = q.get('name')
-                multiqueue.abrv.setBytsToAbrv(name.encode())
-
     async def _dumpOffsets(self):
         '''
         Dump layer offsets into yaml file, overwriting if it exists.
@@ -1079,6 +1070,23 @@ class Migrator(s_base.Base):
         # Set cortex:version to latest
         await self.hive.set(('cellinfo', 'cortex:version'), s_version.version)
 
+        # View owner -> creator
+        viewsd = await (await self.hive.open(('cortex', 'views'))).dict()
+
+        usersd = await (await self.hive.open(('auth', 'users'))).dict()
+        ubyname = {uname: uiden for uiden, uname in usersd.items()}
+        rootiden = ubyname.get('root')
+
+        for viden, _ in viewsd.items():
+            viewd = await (await self.hive.open(('cortex', 'views', viden))).dict()
+            owner = await viewd.pop('owner', None)
+            if owner is None:
+                owner = 'root'
+
+            creator = ubyname.get(owner, rootiden)
+
+            await viewd.set('creator', creator)
+
         # check/warn for boot.yaml with credentials
         bootpath = os.path.join(self.dest, 'boot.yaml')
         if os.path.exists(bootpath):
@@ -1295,6 +1303,15 @@ class Migrator(s_base.Base):
 
             logger.info('Completed HiveAuth migration')
             await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
+
+    async def _migrQueues(self):
+        path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
+        async with await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False) as qslab:
+            multiqueue = await qslab.getMultiQueue('cortex:queue')
+
+            for q in multiqueue.list():
+                name = q.get('name')
+                multiqueue.abrv.setBytsToAbrv(name.encode())
 
     async def _migrCron(self):
         '''
