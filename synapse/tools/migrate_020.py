@@ -2229,7 +2229,7 @@ class Migrator(s_base.Base):
         return None
 
 async def main(argv, outp=s_output.stdout):
-    desc = 'Tool for migrating Synapse Cortex storage from 0.1.x to 0.2.0'
+    desc = 'Tool for migrating Synapse Cortex storage from 0.1.x to 2.0.0'
     pars = argparse.ArgumentParser(prog='synapse.tools.migrate_020', description=desc)
 
     pars.add_argument('--src', required=True, type=str, help='Source cortex dirn to migrate from.')
