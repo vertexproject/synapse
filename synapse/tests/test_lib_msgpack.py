@@ -137,6 +137,15 @@ class MsgPackTest(s_t_utils.SynTest):
         self.false(s_msgpack.isok({1, 2}))  # set
         self.false(s_msgpack.isok(print))  # function
 
+        buf2 = b'\x81\xc0\xcd\x04\xd2'
+        struct2 = {
+            None: 1234
+        }
+        ustruct2 = s_msgpack.un(buf2)
+        self.eq(ustruct2, struct2)
+        pbuf2 = s_msgpack.en(ustruct2)
+        self.eq(buf2, pbuf2)
+
     def test_msgpack_large_data(self):
 
         big_string = s_const.mebibyte * 129 * 'V'

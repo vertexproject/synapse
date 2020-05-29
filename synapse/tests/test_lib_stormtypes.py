@@ -413,6 +413,15 @@ class StormTypesTest(s_test.SynTest):
             sobj = s_stormtypes.Str('beepbeep')
             self.len(8, sobj)
 
+            nodes = await core.nodes('$s = (foo, bar, baz) [ test:str=$lib.str.join(".", $s) ]')
+            self.eq('foo.bar.baz', nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = foo-bar-baz [ test:str=$s.replace("-", ".") ]')
+            self.eq('foo.bar.baz', nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = foo-bar-baz [ test:str=$s.replace("-", ".", 1) ]')
+            self.eq('foo.bar-baz', nodes[0].ndef[1])
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
@@ -1685,7 +1694,7 @@ class StormTypesTest(s_test.SynTest):
                 url = core2.getLocalUrl('*/layer')
 
                 layriden = core2.view.layers[0].iden
-                offs = core2.view.layers[0].getNodeEditOffset()
+                offs = await core2.view.layers[0].getNodeEditOffset()
 
                 layers = set(core.layers.keys())
                 q = f'layer.add --upstream {url}'
@@ -2330,6 +2339,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint(':type=m1', mesgs)
 
                 # Make sure it ran
+                await asyncio.sleep(0)
                 await asyncio.sleep(0)
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
 

@@ -202,6 +202,7 @@ reqValidDdef = s_config.getJsValidator({
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'enabled': {'type': 'boolean', 'default': True},
         'stormopts': {
             'oneOf': [
                 {'type': 'null'},
@@ -783,6 +784,83 @@ stormcmds = (
     },
 )
 
+class DmonManager(s_base.Base):
+    '''
+    Manager for StormDmon objects.
+    '''
+    async def __anit__(self, core):
+        await s_base.Base.__anit__(self)
+        self.core = core
+        self.dmons = {}
+        self.enabled = False
+
+        self.onfini(self._finiAllDmons)
+
+    async def _finiAllDmons(self):
+        await asyncio.gather(*[dmon.fini() for dmon in self.dmons.values()])
+
+    async def _stopAllDmons(self):
+        await asyncio.gather(*[dmon.stop() for dmon in self.dmons.values()])
+
+    async def addDmon(self, iden, ddef):
+        dmon = await StormDmon.anit(self.core, iden, ddef)
+        self.dmons[iden] = dmon
+        # TODO Remove default=True when dmon enabled CRUD is implemented
+        if self.enabled and ddef.get('enabled', True):
+            await dmon.run()
+        return dmon
+
+    def getDmonRunlog(self, iden):
+        dmon = self.dmons.get(iden)
+        if dmon is not None:
+            return dmon._getRunLog()
+        return ()
+
+    def getDmon(self, iden):
+        return self.dmons.get(iden)
+
+    def getDmonDef(self, iden):
+        dmon = self.dmons.get(iden)
+        if dmon:
+            return dmon.pack()
+
+    def getDmonDefs(self):
+        return list(d.pack() for d in self.dmons.values())
+
+    async def popDmon(self, iden):
+        '''Remove the dmon and fini it if its exists.'''
+        logger.debug(f'Poping dmon {iden}')
+        dmon = self.dmons.pop(iden, None)
+        if dmon:
+            await dmon.fini()
+
+    async def start(self):
+        '''
+        Start all the dmons.
+        '''
+        if self.enabled:
+            return
+        for dmon in list(self.dmons.values()):
+            await dmon.run()
+        self.enabled = True
+
+    async def stop(self):
+        '''
+        Stop all the dmons.
+        '''
+        if not self.enabled:
+            return
+        await self._stopAllDmons()
+        await asyncio.sleep(0)
+
+    # TODO write enable/disable APIS.
+    # 1. Set dmon.status to 'disabled'
+    # 2. Be aware of ddef enabled flag to set status to 'disabled'.
+    # async def enableDmon(self, iden):
+    #     pass
+    # async def disableDmon(self, iden):
+    #     pass
+
 class StormDmon(s_base.Base):
     '''
     A background storm runtime which is restarted by the cortex.
@@ -797,20 +875,22 @@ class StormDmon(s_base.Base):
 
         self.task = None
         self.loop_task = None
+        self.enabled = ddef.get('enabled')
         self.user = core.auth.user(ddef.get('user'))
 
         self.count = 0
-        self.status = 'initializing'
+        self.status = 'initialized'
         self.err_evnt = asyncio.Event()
         self.runlog = collections.deque((), 2000)
 
-        async def fini():
-            if self.task is not None:
-                self.task.cancel()
-            if self.loop_task is not None:
-                self.loop_task.cancel()
+        self.onfini(self.stop)
 
-        self.onfini(fini)
+    async def stop(self):
+        if self.task is not None:
+            self.task.cancel()
+        if self.loop_task is not None:
+            self.loop_task.cancel()
+        self.status = 'stopped'
 
     async def run(self):
         self.task = self.schedCoro(self._run())
@@ -2348,10 +2428,14 @@ class ScrapeCmd(Cmd):
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
-                for form, valu in s_scrape.scrape(text):
-                    addnode = await runt.snap.addNode(form, valu)
-                    if self.opts.doyield:
-                        yield addnode, runt.initPath(addnode)
+                try:
+                    for form, valu in s_scrape.scrape(text):
+                        addnode = await runt.snap.addNode(form, valu)
+                        if self.opts.doyield:
+                            yield addnode, runt.initPath(addnode)
+
+                except s_exc.BadTypeValu as e:
+                    await runt.warn(f'BadTypeValue for {form}="{valu}"')
 
             return
 
@@ -2376,11 +2460,15 @@ class ScrapeCmd(Cmd):
                         valu = (node.ndef, (form, valu))
                         form = 'edge:refs'
 
-                    nnode = await node.snap.addNode(form, valu)
-                    npath = path.fork(nnode)
+                    try:
+                        nnode = await node.snap.addNode(form, valu)
+                        npath = path.fork(nnode)
 
-                    if self.opts.doyield:
-                        yield nnode, npath
+                        if self.opts.doyield:
+                            yield nnode, npath
+
+                    except s_exc.BadTypeValu as e:
+                        await runt.warn(f'BadTypeValue for {form}="{valu}"')
 
             if not self.opts.doyield:
                 yield node, path

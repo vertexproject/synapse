@@ -195,6 +195,7 @@ class LibDmon(Lib):
             'name': name,
             'user': self.runt.user.iden,
             'storm': str(quer),
+            'enabled': True,
             'stormopts': opts,
         }
 
@@ -394,6 +395,7 @@ class LibStr(Lib):
 
     def addLibFuncs(self):
         self.locls.update({
+            'join': self.join,
             'concat': self.concat,
             'format': self.format,
         })
@@ -407,6 +409,17 @@ class LibStr(Lib):
         text = kwarg_format(text, **kwargs)
 
         return text
+
+    async def join(self, sepr, items):
+        '''
+        Join items into a string using a separator.
+
+        Example:
+
+            $foo = $lib.str.join('.', ('rep', 'vtx', 'tag'))
+        '''
+        strs = [str(item) for item in items]
+        return sepr.join(items)
 
 class LibBytes(Lib):
 
@@ -857,6 +870,7 @@ class Str(Prim):
             'ljust': self._methStrLjust,
             'rjust': self._methStrRjust,
             'encode': self._methEncode,
+            'replace': self._methStrReplace,
         })
 
     def __int__(self):
@@ -902,6 +916,20 @@ class Str(Prim):
 
     async def _methStrLjust(self, size):
         return self.valu.ljust(await toint(size))
+
+    async def _methStrReplace(self, oldv, newv, maxv=None):
+        '''
+        Replace occurrences of a string with a new string,
+        optionally restricting the number of replacements.
+
+        Example:
+
+            $foo.replace('bar', 'baz')
+        '''
+        if maxv is None:
+            return self.valu.replace(oldv, newv)
+        else:
+            return self.valu.replace(oldv, newv, int(maxv))
 
 class Bytes(Prim):
 

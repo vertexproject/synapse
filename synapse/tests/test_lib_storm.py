@@ -374,6 +374,12 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('edge:refs', (('inet:search:query', guid), ('inet:ipv4', 0x05050505))))
 
+            # test runtsafe and non-runtsafe failure to create node
+            msgs = await core.stormlist('scrape "https://t.c…"')
+            self.stormIsInWarn('BadTypeValue', msgs)
+            msgs = await core.stormlist('[ media:news=* :title="https://t.c…" ] | scrape :title')
+            self.stormIsInWarn('BadTypeValue', msgs)
+
     async def test_storm_tee(self):
 
         async with self.getTestCore() as core:

@@ -2,6 +2,7 @@ import copy
 import time
 import shutil
 import asyncio
+import logging
 
 from unittest.mock import patch
 
@@ -18,6 +19,8 @@ import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
+
+logger = logging.getLogger(__name__)
 
 class CortexTest(s_t_utils.SynTest):
     '''
@@ -2856,7 +2859,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.agenlen(0, layr.splices())
             await self.agenlen(0, layr.splicesBack())
             await self.agenlen(0, layr.syncNodeEdits(0))
-            self.eq(0, layr.getNodeEditOffset())
+            self.eq(0, await layr.getNodeEditOffset())
 
             self.nn(await core.stat())
 
@@ -3721,17 +3724,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                core01conf = {'nexslog:en': False}
+                core01conf = {'nexslog:en': False,
+                              'mirror': url}
+                with self.raises(s_exc.BadConfValu):
+                    async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                        self.fail('Should never get here.')
+
+                core01conf = {'mirror': url}
                 async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
-                    # Mirroring without nexslog:en doesn't work
-                    with self.raises(s_exc.BadConfValu):
-                        await core01.initCoreMirror(url)
-
-                async with await s_cortex.Cortex.anit(dirn=path01) as core01:
-                    await core01.initCoreMirror(url)
-
-                async with await s_cortex.Cortex.anit(dirn=path01) as core01:
-                    await core01.initCoreMirror(url)
 
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
                     await core00.nodes('queue.add visi')
@@ -3760,19 +3760,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
-                async with await s_cortex.Cortex.anit(dirn=path01) as core01:
-                    await core01.initCoreMirror(url)
+                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
 
                     await core00.nodes('[ inet:fqdn=woot.com ]')
                     await core01.sync()
 
                     q = 'for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
                     self.len(5, await core01.nodes(q))
+                    self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
 
             # now lets start up in the opposite order...
-            async with await s_cortex.Cortex.anit(dirn=path01) as core01:
-
-                await core01.initCoreMirror(url)
+            async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
 
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:
 
@@ -3797,17 +3795,19 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # Bring the leader back up and try again
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:
-                    self.len(1, await core00.nodes('[ inet:ipv4=7.7.7.8 ]'))
+                    self.len(1, await core01.nodes('[ inet:ipv4=7.7.7.8 ]'))
 
-                # remove the mirrorness from the cortex
+                # remove the mirrorness from the Cortex and ensure that we can
+                # write to the Cortex. This will move the core01 ahead of
+                # core00 & core01 can become the leader.
                 await core01.nexsroot.setLeader(None, None)
-                core01.mirror = False
-
-                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
-                    self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
-                    # add it back
-                    await core01.initCoreMirror(url)
-                    self.len(1, await core01.nodes('[inet:ipv4=9.9.9.9]'))
+                core01.mirror = None
+                self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
+                new_url = core01.getLocalUrl()
+                new_conf = {'mirror': new_url}
+                async with await s_cortex.Cortex.anit(dirn=path00, conf=new_conf) as core00:
+                    await core00.sync()
+                    self.len(1, await core00.nodes('inet:ipv4=9.9.9.8'))
 
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -4045,8 +4045,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
                 # Kill the dmon and remove view2
-                for dmon in list(core.stormdmons.values()):
-                    await dmon.fini()
+                await core.stormdmons.stop()
 
                 await core.delView(view2_iden)
                 with self.raises(s_exc.NoSuchView):
@@ -4092,7 +4091,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('dmon.list')
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
-            dmon = list(core.stormdmons.values())[0]
+            dmon = list(core.stormdmons.dmons.values())[0]
 
             # make the dmon blow up
             await core.nodes('''
