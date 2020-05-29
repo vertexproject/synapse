@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 A Cortex implements the synapse hypergraph object.
 '''
 
-reqver = '>=0.2.0,<0.3.0'
+reqver = '>=0.2.0,<3.0.0'
 
 class CoreApi(s_cell.CellApi):
     '''
