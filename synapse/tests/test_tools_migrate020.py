@@ -499,7 +499,7 @@ class MigrationTest(s_t_utils.SynTest):
 
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf={'nexslog:en': True}) as core:
                 # check that nexus root has offsets from migration
                 self.gt(core.nexsroot._nexuslog.index(), 1)
@@ -539,7 +539,7 @@ class MigrationTest(s_t_utils.SynTest):
 
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check that nexus root has *no* offsets from migration
                 self.eq(core.nexsroot._nexuslog.index(), 0)
@@ -565,7 +565,7 @@ class MigrationTest(s_t_utils.SynTest):
 
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check that nexus root has *no* offsets from migration
                 self.eq(core.nexsroot._nexuslog.index(), 0)
@@ -616,7 +616,7 @@ class MigrationTest(s_t_utils.SynTest):
 
                 await migr.fini()
 
-                # startup 0.2.0 core
+                # startup 2.x core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     # check core data
                     await self._checkSplices(core, tdata)
@@ -711,7 +711,7 @@ class MigrationTest(s_t_utils.SynTest):
 
                 await migr.fini()
 
-                # startup 0.2.0 core
+                # startup 2.x core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     # check core data
                     await self._checkSplices(core, tdata)
@@ -754,7 +754,7 @@ class MigrationTest(s_t_utils.SynTest):
                     offsyaml = s_common.yamlload(dest, 'migration', 'lyroffs.yaml')
                     self.true(all(v['nextoffs'] == 0 for v in offsyaml.values()))
 
-                # startup 0.2.0 core
+                # startup 2.x core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     nodes = await core.nodes('inet:ipv4=1.2.3.4')
                     self.len(1, nodes)
@@ -862,7 +862,7 @@ class MigrationTest(s_t_utils.SynTest):
                     res = await migr.dumpErrors()
                     self.none(res)
 
-                # startup 0.2.0 core - with no nodes
+                # startup 2.x core - with no nodes
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     nodes = await core.nodes('inet:ipv4=1.2.3.4')
                     self.len(0, nodes)
@@ -905,7 +905,7 @@ class MigrationTest(s_t_utils.SynTest):
 
                     await migr.migrate()
 
-                # startup 0.2.0 core
+                # startup 2.x core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     nodes = await core.nodes('inet:ipv4=1.2.3.4')
                     self.len(1, nodes)
@@ -957,7 +957,7 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.migrate()
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check core data
                 await self._checkCore(core, tdata)
@@ -1036,7 +1036,7 @@ class MigrationTest(s_t_utils.SynTest):
 
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # we should be able to iterate over the nodeedits, store them,
                 # and bring the cortex to the same state as a node migration
@@ -1094,7 +1094,7 @@ class MigrationTest(s_t_utils.SynTest):
 
             await migr.fini()
 
-            # startup 0.2.0 core and check that partial nodeedits were stored
+            # startup 2.x core and check that partial nodeedits were stored
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 lyr0 = core.getLayer()  # primary layer
 
@@ -1128,7 +1128,7 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.migrate()
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check core data
                 await self._checkCore(core, tdata)
@@ -1228,7 +1228,7 @@ class MigrationTest(s_t_utils.SynTest):
                 async with await s_migr.Migrator.anit(conf) as migr:
                     await migr.migrate()
 
-                # startup 0.2.0 core and check layer values
+                # startup 2.x core and check layer values
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     layer = core.getLayer()
 
@@ -1276,7 +1276,7 @@ class MigrationTest(s_t_utils.SynTest):
                     # every node will generate an error, but is survivable
                     await migr.migrate()
 
-                # startup 0.2.0 core and check layer values
+                # startup 2.x core and check layer values
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     layer = core.getLayer()
 

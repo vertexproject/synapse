@@ -1371,7 +1371,7 @@ class Migrator(s_base.Base):
 
         Args:
             iden (str): Iden of the layer
-            wlyr (Layer): 0.2.0 Layer to write to
+            wlyr (Layer): 2.0.0 Layer to write to
         '''
         migrop = 'nodes'
         nodelim = self.nodelim
@@ -1577,7 +1577,7 @@ class Migrator(s_base.Base):
 
         Args:
             iden (str): Iden of the layer
-            wlyr (Layer): 0.2.0 Layer to write to
+            wlyr (Layer): 2.0.0 Layer to write to
         '''
         migrop = 'nodedata'
         nodelim = self.nodelim
@@ -1965,7 +1965,7 @@ class Migrator(s_base.Base):
 
     async def _trnNodeToNodeedit(self, node, model, fname=None, chknodes=True):
         '''
-        Create translation of node info to an 0.2.0 node edit.
+        Create translation of node info to an 2.0.0 node edit.
 
         Args:
             node (tuple): (<buid>, {'ndef': ..., 'props': ..., 'tags': ..., 'tagprops': ...}
@@ -2082,7 +2082,7 @@ class Migrator(s_base.Base):
 
     async def _trnNodedataToNodeedit(self, nodedata, form):
         '''
-        Create translation of node info to an 0.2.0 node edit.
+        Create translation of node info to an 2.0.0 node edit.
 
         Args:
             nodedata (tuple): (<buid>, <name>, <val>)

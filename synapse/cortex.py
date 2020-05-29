@@ -242,7 +242,7 @@ class CoreApi(s_cell.CellApi):
 
     async def delNodeTag(self, iden, tag):
         '''
-        Delete a tag from the node specified by iden. Deprecated in 0.2.0.
+        Delete a tag from the node specified by iden. Deprecated in 2.0.0.
 
         Args:
             iden (str): A hex encoded node BUID.
@@ -254,7 +254,7 @@ class CoreApi(s_cell.CellApi):
 
     async def setNodeProp(self, iden, name, valu):
         '''
-        Set a property on a single node. Deprecated in 0.2.0.
+        Set a property on a single node. Deprecated in 2.0.0.
         '''
         s_common.deprecated('setNodeProp')
         buid = s_common.uhex(iden)
@@ -275,7 +275,7 @@ class CoreApi(s_cell.CellApi):
 
     async def delNodeProp(self, iden, name):
         '''
-        Delete a property from a single node. Deprecated in 0.2.0.
+        Delete a property from a single node. Deprecated in 2.0.0.
         '''
         s_common.deprecated('delNodeProp')
         buid = s_common.uhex(iden)
@@ -297,7 +297,7 @@ class CoreApi(s_cell.CellApi):
 
     async def addNode(self, form, valu, props=None):
         '''
-        Deprecated in 0.2.0.
+        Deprecated in 2.0.0.
         '''
         s_common.deprecated('addNode')
         async with await self.cell.snap(user=self.user) as snap:
@@ -317,7 +317,7 @@ class CoreApi(s_cell.CellApi):
         Yields:
             (tuple): Packed node tuples ((form,valu), {'props': {}, 'tags':{}})
 
-        Deprecated in 0.2.0
+        Deprecated in 2.0.0
         '''
         s_common.deprecated('addNodes')
 
@@ -392,7 +392,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Evaluate a storm query and yield packed nodes.
 
-        NOTE: This API is deprecated as of 0.2.0 and will be removed in 0.3.0
+        NOTE: This API is deprecated as of 2.0.0 and will be removed in 3.0.0
         '''
         s_common.deprecated('eval')
         opts = self._reqValidStormOpts(opts)
@@ -2837,7 +2837,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Evaluate a storm query and yield packed nodes.
 
-        NOTE: This API is deprecated as of 0.2.0 and will be removed in 0.3.0
+        NOTE: This API is deprecated as of 2.0.0 and will be removed in 3.0.0
         '''
         s_common.deprecated('eval')
         opts = self._initStormOpts(opts)
