@@ -242,8 +242,7 @@ class CoreApi(s_cell.CellApi):
 
     async def delNodeTag(self, iden, tag):
         '''
-        Deprecated in 0.2.0.
-        Delete a tag from the node specified by iden.
+        Delete a tag from the node specified by iden. Deprecated in 0.2.0.
 
         Args:
             iden (str): A hex encoded node BUID.
@@ -255,9 +254,7 @@ class CoreApi(s_cell.CellApi):
 
     async def setNodeProp(self, iden, name, valu):
         '''
-        Deprecated in 0.2.0.
-
-        Set a property on a single node.
+        Set a property on a single node. Deprecated in 0.2.0.
         '''
         s_common.deprecated('setNodeProp')
         buid = s_common.uhex(iden)
@@ -278,9 +275,7 @@ class CoreApi(s_cell.CellApi):
 
     async def delNodeProp(self, iden, name):
         '''
-        Deprecated in 0.2.0.
-
-        Delete a property from a single node.
+        Delete a property from a single node. Deprecated in 0.2.0.
         '''
         s_common.deprecated('delNodeProp')
         buid = s_common.uhex(iden)
