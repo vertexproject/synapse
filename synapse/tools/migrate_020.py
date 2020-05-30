@@ -1393,7 +1393,7 @@ class Migrator(s_base.Base):
 
         Args:
             iden (str): Iden of the layer
-            wlyr (Layer): 0.2.0 Layer to write to
+            wlyr (Layer): 2.0.0 Layer to write to
         '''
         migrop = 'nodes'
         nodelim = self.nodelim
@@ -1599,7 +1599,7 @@ class Migrator(s_base.Base):
 
         Args:
             iden (str): Iden of the layer
-            wlyr (Layer): 0.2.0 Layer to write to
+            wlyr (Layer): 2.0.0 Layer to write to
         '''
         migrop = 'nodedata'
         nodelim = self.nodelim
@@ -1987,7 +1987,7 @@ class Migrator(s_base.Base):
 
     async def _trnNodeToNodeedit(self, node, model, fname=None, chknodes=True):
         '''
-        Create translation of node info to an 0.2.0 node edit.
+        Create translation of node info to an 2.0.0 node edit.
 
         Args:
             node (tuple): (<buid>, {'ndef': ..., 'props': ..., 'tags': ..., 'tagprops': ...}
@@ -2104,7 +2104,7 @@ class Migrator(s_base.Base):
 
     async def _trnNodedataToNodeedit(self, nodedata, form):
         '''
-        Create translation of node info to an 0.2.0 node edit.
+        Create translation of node info to an 2.0.0 node edit.
 
         Args:
             nodedata (tuple): (<buid>, <name>, <val>)
@@ -2251,7 +2251,7 @@ class Migrator(s_base.Base):
         return None
 
 async def main(argv, outp=s_output.stdout):
-    desc = 'Tool for migrating Synapse Cortex storage from 0.1.x to 0.2.0'
+    desc = 'Tool for migrating Synapse Cortex storage from 0.1.x to 2.0.0'
     pars = argparse.ArgumentParser(prog='synapse.tools.migrate_020', description=desc)
 
     pars.add_argument('--src', required=True, type=str, help='Source cortex dirn to migrate from.')
