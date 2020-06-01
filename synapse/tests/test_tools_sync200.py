@@ -496,12 +496,12 @@ class SyncTest(s_t_utils.SynTest):
                 else:
                     errs.append(err)
 
-            # expect one error for migration module not loaded in 0.20 cortex
+            # expect one error for migration module not loaded in 2.x.x cortex
             self.len(1, errs)
             self.isin('migr:test', errs[0]['mesg'])
             self.eq(len(batches) - 1, len(nodeedits))
 
-            # feed nodeedits to 0.2.x cortex and get back the sodes
+            # feed nodeedits to 2.x.x cortex and get back the sodes
             sodes = []
             for ne, meta in nodeedits:
                 sodes.extend(await wlyr.storNodeEdits([ne], meta))
