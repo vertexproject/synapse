@@ -2081,7 +2081,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, await core.nodes('test:int=6'))
 
             mesgs = await core.stormlist(f'trigger.del {goodbuid}')
-            self.stormIsInPrint('Deleted trigger', mesgs)
+            self.stormIsInPrint(f'Deleted trigger: {goodbuid}', mesgs)
 
             q = f'trigger.del deadbeef12341234'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
