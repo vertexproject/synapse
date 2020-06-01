@@ -1984,6 +1984,8 @@ class LibTrigger(Lib):
         gatekeys = ((useriden, ('trigger', 'del'), iden),)
         await self.dyncall(viewiden, todo, gatekeys=gatekeys)
 
+        return iden
+
     async def _methTriggerMod(self, prefix, query):
         '''
         Modify a trigger in the cortex.
