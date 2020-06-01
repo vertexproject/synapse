@@ -1189,7 +1189,7 @@ class Layer(s_nexus.Pusher):
             if flag == 9:
                 continue
 
-            logger.warning(f'unrecognized storage row: {flag}')
+            logger.warning(f'unrecognized storage row: {s_common.ehex(buid)}:{flag}')
 
         return (buid, info)
 
