@@ -2057,12 +2057,12 @@ class Layer(s_nexus.Pusher):
                 if not nodeedits[0] == buid:
                     form = lval.decode()
                     nodeedits = (buid, form, [])
-                    continue
 
-                if nodeedits[1] is None:
+                elif nodeedits[1] is None:
                     form = lval.decode()
                     nodeedits = (nodeedits[0], form, nodeedits[2])
-                    continue
+
+                continue
 
             logger.warning(f'unrecognized storage row: {flag}')
 
