@@ -1389,13 +1389,17 @@ class AstTest(s_test.SynTest):
         vals = [x async for x in await s_ast.pullone(hasone())]
         self.eq((1,), vals)
 
-    async def test_ast_boolexpr(self):
+    async def test_ast_expr(self):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('if $(true) { [inet:ipv4=1.2.3.4] }')
+            nodes = await core.nodes('if (true) { [inet:ipv4=1.2.3.4] }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-            nodes = await core.nodes('if $(false) { [inet:ipv4=1.2.3.4] }')
+            nodes = await core.nodes('if (false) { [inet:ipv4=1.2.3.4] }')
             self.len(0, nodes)
+
+            nodes = await core.nodes('[ test:int=(18 + 2) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 20))
