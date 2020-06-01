@@ -281,6 +281,25 @@ class MigrationTest(s_t_utils.SynTest):
 
                 await self._checkCore(core1, tdata, nodesonly=True)
 
+    async def _checkCell(self, core):
+        '''
+        Check cell data *except* auth
+        '''
+
+        rootuser = core.auth.rootuser.iden
+
+        self.eq(s_version.version, core.cellinfo.get('cortex:version'))
+
+        for view in core.views.values():
+            self.eq(rootuser, view.info.get('creator'))
+
+        for lyr in core.layers.values():
+            self.true(lyr.lockmemory)
+            self.false(lyr.readonly)
+            self.true(lyr.logedits)
+            self.eq(rootuser, lyr.layrinfo.get('creator'))
+            self.eq(s_modelrev.maxvers, await lyr.getModelVers())
+
     async def _checkAuth(self, core):
         defview = await core.hive.get(('cellinfo', 'defaultview'))
         deflyr = core.getLayer().iden
@@ -507,22 +526,8 @@ class MigrationTest(s_t_utils.SynTest):
                 # check core data
                 await self._checkSplices(core, tdata)
                 await self._checkCore(core, tdata)
+                await self._checkCell(core)
                 await self._checkAuth(core)
-
-                # check layer config
-                lyr = core.layers[locallyrs[0]]
-                self.false(lyr.lockmemory)
-                self.false(lyr.readonly)
-                self.true(lyr.logedits)
-                self.eq(core.auth.rootuser.iden, lyr.layrinfo.get('creator'))
-                self.eq(s_modelrev.maxvers, await lyr.getModelVers())
-
-                lyr = core.layers[locallyrs[1]]
-                self.false(lyr.lockmemory)
-                self.false(lyr.readonly)
-                self.true(lyr.logedits)
-                self.eq(core.auth.rootuser.iden, lyr.layrinfo.get('creator'))
-                self.eq(s_modelrev.maxvers, await lyr.getModelVers())
 
     async def test_migr_nexusoff(self):
         conf = {
@@ -547,6 +552,7 @@ class MigrationTest(s_t_utils.SynTest):
                 # check core data
                 await self._checkSplices(core, tdata)
                 await self._checkCore(core, tdata)
+                await self._checkCell(core)
                 await self._checkAuth(core)
 
     async def test_migr_editor(self):
@@ -573,6 +579,7 @@ class MigrationTest(s_t_utils.SynTest):
                 # check core data
                 await self._checkSplices(core, tdata)
                 await self._checkCore(core, tdata)
+                await self._checkCell(core)
                 await self._checkAuth(core)
 
     async def test_migr_chkpnt(self):
@@ -621,6 +628,7 @@ class MigrationTest(s_t_utils.SynTest):
                     # check core data
                     await self._checkSplices(core, tdata)
                     await self._checkCore(core, tdata)
+                    await self._checkCell(core)
                     await self._checkAuth(core)
 
     async def test_migr_restart(self):
@@ -716,6 +724,7 @@ class MigrationTest(s_t_utils.SynTest):
                     # check core data
                     await self._checkSplices(core, tdata)
                     await self._checkCore(core, tdata)
+                    await self._checkCell(core)
                     await self._checkAuth(core)
 
     async def test_migr_assvr_defaults(self):
@@ -728,6 +737,9 @@ class MigrationTest(s_t_utils.SynTest):
                 for dname in dirs:
                     if dname == 'splices.lmdb':
                         shutil.rmtree(os.path.join(root, dname))
+
+            cellconf = {}
+            s_common.yamlsave(cellconf, src, 'cell.yaml')
 
             # check defaults
             with self.getTestDir() as dest, self.withSetLoggingMock():
@@ -760,6 +772,9 @@ class MigrationTest(s_t_utils.SynTest):
                     self.len(1, nodes)
                     nodes = await core.nodes('[inet:ipv4=9.9.9.9]')
                     self.len(1, nodes)
+
+                    for lyr in core.layers.values():
+                        self.false(lyr.lockmemory)
 
     async def test_migr_assvr_opts(self):
         '''

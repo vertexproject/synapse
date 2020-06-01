@@ -747,15 +747,6 @@ class Migrator(s_base.Base):
         await self._dumpOffsets()
         await self._dumpVers()
 
-    async def _migrQueues(self):
-        path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
-        async with await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False) as qslab:
-            multiqueue = await qslab.getMultiQueue('cortex:queue')
-
-            for q in multiqueue.list():
-                name = q.get('name')
-                multiqueue.abrv.setBytsToAbrv(name.encode())
-
     async def _dumpOffsets(self):
         '''
         Dump layer offsets into yaml file, overwriting if it exists.
@@ -1079,6 +1070,23 @@ class Migrator(s_base.Base):
         # Set cortex:version to latest
         await self.hive.set(('cellinfo', 'cortex:version'), s_version.version)
 
+        # View owner -> creator
+        viewsd = await (await self.hive.open(('cortex', 'views'))).dict()
+
+        usersd = await (await self.hive.open(('auth', 'users'))).dict()
+        ubyname = {uname: uiden for uiden, uname in usersd.items()}
+        rootiden = ubyname.get('root')
+
+        for viden, _ in viewsd.items():
+            viewd = await (await self.hive.open(('cortex', 'views', viden))).dict()
+            owner = await viewd.pop('owner', None)
+            if owner is None:
+                owner = 'root'
+
+            creator = ubyname.get(owner, rootiden)
+
+            await viewd.set('creator', creator)
+
         # check/warn for boot.yaml with credentials
         bootpath = os.path.join(self.dest, 'boot.yaml')
         if os.path.exists(bootpath):
@@ -1096,14 +1104,23 @@ class Migrator(s_base.Base):
         # confdefs
         validconfs = s_cortex.Cortex.confdefs
         yamlpath = os.path.join(self.dest, 'cell.yaml')
+        remconfs = []
+        dedicated = False
         if os.path.exists(yamlpath):
             conf = s_common.yamlload(self.dest, 'cell.yaml')
+
+            # dedicated -> lockmemory
+            if conf.get('dedicated'):
+                dedicated = True
+
             remconfs = [k for k in conf.keys() if k not in validconfs]
             conf = {k: v for k, v in conf.items() if k not in remconfs}
             s_common.yamlsave(conf, self.dest, 'cell.yaml')
 
-            logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
-            await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
+        await self._migrlogAdd(migrop, 'conf', 'dedicated', dedicated)
+
+        logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
+        await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
 
     async def _migrDatamodel(self):
         '''
@@ -1180,6 +1197,9 @@ class Migrator(s_base.Base):
         '''
         migrop = 'hivelyr'
 
+        log = await self._migrlogGetOne('cell', 'conf', 'dedicated')
+        dedicated = log['val'] if log is not None else False
+
         # migration shadow copy
         migrlyrnode = await self.hive.open(('migr', 'layers', iden))
         migrlyrinfo = await migrlyrnode.dict()
@@ -1214,18 +1234,11 @@ class Migrator(s_base.Base):
         await layrinfo.pop('name')
         await layrinfo.pop('type')
 
-        # dedicated -> lockmemory
-        lockmemory = False
-        if srcconf is not None:
-            srcdedicated = srcconf.get('dedicated')
-            if srcdedicated is not None:
-                lockmemory = srcdedicated
-
         # update layer info for 0.2.x
         await layrinfo.set('iden', iden)
         await layrinfo.set('creator', creator)
         await layrinfo.set('readonly', False)
-        await layrinfo.set('lockmemory', lockmemory)
+        await layrinfo.set('lockmemory', dedicated)
         await layrinfo.set('logedits', True)
         await layrinfo.set('model:version', s_modelrev.maxvers)
 
@@ -1295,6 +1308,15 @@ class Migrator(s_base.Base):
 
             logger.info('Completed HiveAuth migration')
             await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
+
+    async def _migrQueues(self):
+        path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
+        async with await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False) as qslab:
+            multiqueue = await qslab.getMultiQueue('cortex:queue')
+
+            for q in multiqueue.list():
+                name = q.get('name')
+                multiqueue.abrv.setBytsToAbrv(name.encode())
 
     async def _migrCron(self):
         '''
