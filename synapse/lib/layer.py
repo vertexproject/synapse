@@ -2064,7 +2064,7 @@ class Layer(s_nexus.Pusher):
 
                 continue
 
-            logger.warning(f'unrecognized storage row: {flag}')
+            logger.warning(f'unrecognized storage row: {s_common.ehex(buid)}:{flag}')
 
         if nodeedits[0] is not None:
             async for prop, valu in self.iterNodeData(nodeedits[0]):
