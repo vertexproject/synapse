@@ -85,7 +85,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('$types = (refs,hehe) media:news -($types)> *')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-            nodes = await core.nodes('$types = (*) media:news -($types)> *')
+            nodes = await core.nodes('$types = (*,) media:news -($types)> *')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
             # check all the walk from N2 syntaxes
