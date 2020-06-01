@@ -1693,7 +1693,7 @@ class Migrator(s_base.Base):
 
     async def _migrSplices(self, iden):
         '''
-        Migrate 01x splices from the splices slab directly to the 02x nodeedits slab.
+        Migrate 01x splices from the splices slab directly to the 20x nodeedits slab.
 
         Args:
             iden: Layer iden to migate
