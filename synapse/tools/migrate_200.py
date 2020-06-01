@@ -1,5 +1,5 @@
 '''
-Migrate Synapse from 0.1.x to 0.2.x.
+Migrate Synapse from 0.1.x to 2.x.x.
 '''
 import os
 import sys
@@ -31,7 +31,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 
 import synapse.tools.backup as s_backup
-import synapse.tools.sync_020 as s_sync
+import synapse.tools.sync_200 as s_sync
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +187,7 @@ class MigrSplices(s_sync.SyncMigrator):
 
 class MigrAuth:
     '''
-    Loads the Hive auth tree from 0.1.x and translates it to 0.2.x.
+    Loads the Hive auth tree from 0.1.x and translates it to 2.x.x.
 
     Instance representation of auth:
         usersbyname (dict): { <name>: <iden>, ... }
@@ -245,7 +245,7 @@ class MigrAuth:
 
     async def translate(self):
         '''
-        Execute data translation steps, finishing with a 0.2.x hive auth tree
+        Execute data translation steps, finishing with a 2.x.x hive auth tree
 
         Returns:
             (dict): Hive auth tree representation
@@ -384,7 +384,7 @@ class MigrAuth:
 
     async def _trnAuth(self):
         '''
-        Modify auth properties to translate to 0.2.x syntax.
+        Modify auth properties to translate to 2.x.x syntax.
         '''
         await self._trnAuthRoles()
         await self._trnAuthUsers()
@@ -599,11 +599,11 @@ class MigrAuth:
 
 class Migrator(s_base.Base):
     '''
-    Standalone tool for migrating Synapse from a source Cortex to a new destination 0.2.x Cortex.
+    Standalone tool for migrating Synapse from a source Cortex to a new destination 2.x.x Cortex.
 
     migrate() is the primary method which steps through sequential migration steps.
     The step is then carried out by a dedicated _migr* method which calls
-    _src*, _trn*, _dest* methods as needed to read from the 0.1.x source, translate data to 0.2.x syntax,
+    _src*, _trn*, _dest* methods as needed to read from the 0.1.x source, translate data to 2.x.x syntax,
     and finally write to the destination layer, respectively.
 
     Auth migration is handled through a standalone class MigrAuth.
@@ -869,7 +869,7 @@ class Migrator(s_base.Base):
                 logger.error(f'{lyriden} is a remote layer - it must be unconfigured to proceed with migration')
                 return False
 
-        # check cortex version iff copied hive from src (otherwise will be 0.2.x after inplace migration)
+        # check cortex version iff copied hive from src (otherwise will be 2.x.x after inplace migration)
         # currently only storing and not halting migration
         if 'dirn' in self.migrops:
             vers = await self.hive.get(('cellinfo', 'cortex:version'))
@@ -1234,7 +1234,7 @@ class Migrator(s_base.Base):
         await layrinfo.pop('name')
         await layrinfo.pop('type')
 
-        # update layer info for 0.2.x
+        # update layer info for 2.x.x
         await layrinfo.set('iden', iden)
         await layrinfo.set('creator', creator)
         await layrinfo.set('readonly', False)
@@ -1278,13 +1278,13 @@ class Migrator(s_base.Base):
 
             logger.info(f'Found {len(queues)} queues to migrate to AuthGates')
 
-            # get triggers that will need authgates added (in 020 format)
+            # get triggers that will need authgates added (in 2.x.x format)
             triggers = collections.defaultdict(set)
             for _, viewnode in await self.hive.open(('cortex', 'views')):
                 for trigiden, trignode in await viewnode.open(('triggers',)):
                     triggers[trigiden].add(trignode.valu.get('user'))
 
-            # get cron jobs that need authgates added (in 020 format)
+            # get cron jobs that need authgates added (in 2.x.x format)
             crons = []  # list of (<cron iden>, <user iden>)
             for croniden, cronvals in (await self.hive.dict(('agenda', 'appts'))).items():
                 crons.append((croniden, cronvals.get('creator')))
@@ -1393,7 +1393,7 @@ class Migrator(s_base.Base):
 
         Args:
             iden (str): Iden of the layer
-            wlyr (Layer): 2.0.0 Layer to write to
+            wlyr (Layer): 2.x.x Layer to write to
         '''
         migrop = 'nodes'
         nodelim = self.nodelim
@@ -1456,7 +1456,7 @@ class Migrator(s_base.Base):
 
         logger.debug(f'Layer {iden} model version {vers}')
 
-        # even after a partial migration this vers should not be updated to 020 since
+        # even after a partial migration this vers should not be updated to 2.x.x since
         # layer:model:version is no longer used
         if vers != MAX_01X_VERS:
             raise Exception(f'Layer {iden} model version must be at latest 01x vers: {vers} != {MAX_01X_VERS}')
@@ -1599,7 +1599,7 @@ class Migrator(s_base.Base):
 
         Args:
             iden (str): Iden of the layer
-            wlyr (Layer): 2.0.0 Layer to write to
+            wlyr (Layer): 2.x.x Layer to write to
         '''
         migrop = 'nodedata'
         nodelim = self.nodelim
@@ -1693,7 +1693,7 @@ class Migrator(s_base.Base):
 
     async def _migrSplices(self, iden):
         '''
-        Migrate 01x splices from the splices slab directly to the 02x nodeedits slab.
+        Migrate 01x splices from the splices slab directly to the 20x nodeedits slab.
 
         Args:
             iden: Layer iden to migate
@@ -1987,7 +1987,7 @@ class Migrator(s_base.Base):
 
     async def _trnNodeToNodeedit(self, node, model, fname=None, chknodes=True):
         '''
-        Create translation of node info to an 2.0.0 node edit.
+        Create translation of node info to an 2.x.x node edit.
 
         Args:
             node (tuple): (<buid>, {'ndef': ..., 'props': ..., 'tags': ..., 'tagprops': ...}
@@ -2104,7 +2104,7 @@ class Migrator(s_base.Base):
 
     async def _trnNodedataToNodeedit(self, nodedata, form):
         '''
-        Create translation of node info to an 2.0.0 node edit.
+        Create translation of node info to an 2.x.x node edit.
 
         Args:
             nodedata (tuple): (<buid>, <name>, <val>)
@@ -2122,7 +2122,7 @@ class Migrator(s_base.Base):
         return buid, form, edits
 
     #############################################################
-    # Destination (0.2.0) operations
+    # Destination (2.x.x) operations
     #############################################################
 
     @s_cache.memoize(16)
@@ -2251,8 +2251,8 @@ class Migrator(s_base.Base):
         return None
 
 async def main(argv, outp=s_output.stdout):
-    desc = 'Tool for migrating Synapse Cortex storage from 0.1.x to 2.0.0'
-    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_020', description=desc)
+    desc = 'Tool for migrating Synapse Cortex storage from 0.1.x to 2.x.x'
+    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_200', description=desc)
 
     pars.add_argument('--src', required=True, type=str, help='Source cortex dirn to migrate from.')
     pars.add_argument('--dest', required=False, type=str, help='Destination cortex dirn to migrate to.')

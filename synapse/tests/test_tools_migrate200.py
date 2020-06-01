@@ -23,7 +23,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
-import synapse.tools.migrate_020 as s_migr
+import synapse.tools.migrate_200 as s_migr
 
 REGR_VER = '0.1.56-migr'
 REGR_VER_OLD = '0.1.51-migr'
@@ -189,7 +189,7 @@ class MigrationTest(s_t_utils.SynTest):
 
     async def _checkCore(self, core, tdata, nodesonly=False):
         '''
-        Verify data in the migrated to 0.2.x cortex.
+        Verify data in the migrated to 2.x.x cortex.
         '''
 
         # test validation data
@@ -1014,7 +1014,7 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.fini()
 
             # An error will be generated and migration halted
-            # so we can check that the cortex is not startable as 020
+            # so we can check that the cortex is not startable as 2.x.x
             await self.asyncraises(s_exc.BadStorageVersion, s_cortex.Cortex.anit(dest, conf=None))
 
     async def test_migr_badmodelvers(self):

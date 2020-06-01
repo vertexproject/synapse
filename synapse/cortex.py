@@ -2344,7 +2344,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return self.view.layers[0]
 
         # For backwards compatibility, resolve references to old layer iden == cortex.iden to the main layer
-        # TODO:  due to our migration policy, remove in 0.3.x
+        # TODO:  due to our migration policy, remove in 3.0.0
         if iden == self.iden:
             return self.view.layers[0]
 
@@ -2379,7 +2379,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 iden = self.view.iden
 
         # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
-        # TODO:  due to our migration policy, remove in 0.3.x
+        # TODO:  due to our migration policy, remove in 3.0.0
         if iden == self.iden:
             iden = self.view.iden
 
@@ -2767,7 +2767,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             viewiden = self.view.iden
 
         # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
-        # TODO:  due to our migration policy, remove in 0.3.x
+        # TODO:  due to our migration policy, remove in 3.0.0
         if viewiden == self.iden: # pragma: no cover
             viewiden = self.view.iden
 
