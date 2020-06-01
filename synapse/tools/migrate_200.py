@@ -31,7 +31,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 
 import synapse.tools.backup as s_backup
-import synapse.tools.sync_020 as s_sync
+import synapse.tools.sync_200 as s_sync
 
 logger = logging.getLogger(__name__)
 
@@ -2122,7 +2122,7 @@ class Migrator(s_base.Base):
         return buid, form, edits
 
     #############################################################
-    # Destination (0.2.0) operations
+    # Destination (2.0.0) operations
     #############################################################
 
     @s_cache.memoize(16)
@@ -2252,7 +2252,7 @@ class Migrator(s_base.Base):
 
 async def main(argv, outp=s_output.stdout):
     desc = 'Tool for migrating Synapse Cortex storage from 0.1.x to 2.0.0'
-    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_020', description=desc)
+    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_200', description=desc)
 
     pars.add_argument('--src', required=True, type=str, help='Source cortex dirn to migrate from.')
     pars.add_argument('--dest', required=False, type=str, help='Destination cortex dirn to migrate to.')

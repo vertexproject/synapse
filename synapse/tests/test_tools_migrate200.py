@@ -23,7 +23,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
-import synapse.tools.migrate_020 as s_migr
+import synapse.tools.migrate_200 as s_migr
 
 REGR_VER = '0.1.56-migr'
 REGR_VER_OLD = '0.1.51-migr'
