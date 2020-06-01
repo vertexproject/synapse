@@ -13,7 +13,7 @@ Features and Enhancements
 This release includes significant storage optimizations for both performance and size.  However, the `2.0.0` migration
 contains no *model* migrations and is strictly limited to the internal LMDB layer storage format.  The new format
 provides performance enhancements that significantly improve data ingest performance and reduce the memory footprint of
-the layer.  See :ref:`020_migration` for details on migrating your `0.1.x` Cortex to `2.0.0`.
+the layer.  See :ref:`200_migration` for details on migrating your `0.1.x` Cortex to `2.0.0`.
 
 - View/Layer Management
 
