@@ -3023,3 +3023,20 @@ class StormTypesTest(s_test.SynTest):
 
         with self.raises(s_exc.BadCast):
             self.eq(20, await s_stormtypes.toint(s_stormtypes.Str('asdf')))
+
+    async def test_stormtypes_layer_edits(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[inet:ipv4=1.2.3.4]')
+
+            #TODO: should we asciify the buid here so it is json compatible?
+            nodeedits = await core.callStorm('$list = $lib.list() for ($offs, $edit) in $lib.layer.get().edits(wait=$lib.false) { $list.append($edit) } return($list)')
+
+            retn = []
+            for edits in nodeedits:
+                for edit in edits:
+                    if edit[1] == 'inet:ipv4':
+                        retn.append(edit)
+
+            self.len(1, retn)

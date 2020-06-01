@@ -185,7 +185,8 @@ class LibDmon(Lib):
         self.runt.user.confirm(('dmon', 'add'))
 
         # closure style capture of runtime
-        runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
+        runtprims = await toprim(self.runt.vars)
+        runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
         opts = {'vars': runtvars,
                 'view': self.runt.snap.view.iden,  # Capture the current view iden.
@@ -1723,7 +1724,21 @@ class Layer(Prim):
             'get': self._methLayerGet,
             'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
+            'edits': self._methLayerEdits,
         })
+
+    async def _methLayerEdits(self, offs=0, wait=True):
+        '''
+        Yield (offs, nodeedits) tuples from the given offset.
+        If wait=True, also consume them in real-time once caught up.
+        '''
+        offs = await toint(offs)
+        wait = await tobool(wait)
+        layriden = self.valu.get('iden')
+        gatekeys = ((self.runt.user.iden, ('layer', 'edits', 'read'), layriden),)
+        todo = s_common.todo('syncNodeEdits', offs, wait=wait)
+        async for item in self.runt.dyniter(layriden, todo, gatekeys=gatekeys):
+            yield item
 
     async def _methLayerGet(self, name, defv=None):
         return self.valu.get(name, defv)
@@ -2931,10 +2946,22 @@ async def toprim(valu, path=None):
         return valu
 
     if isinstance(valu, (tuple, list)):
-        return tuple([await toprim(v) for v in valu])
+        retn = []
+        for v in valu:
+            try:
+                retn.append(await toprim(v))
+            except s_exc.NoSuchType:
+                pass
+        return tuple(retn)
 
     if isinstance(valu, dict):
-        return {await toprim(k): await toprim(v) for (k, v) in valu.items()}
+        retn = {}
+        for k, v in valu.items():
+            try:
+                retn[k] = await toprim(v)
+            except s_exc.NoSuchType:
+                pass
+        return retn
 
     if isinstance(valu, Prim):
         return await s_coro.ornot(valu.value)

@@ -2245,7 +2245,7 @@ class Layer(s_nexus.Pusher):
 
                     yield splice
 
-    async def syncNodeEdits(self, offs):
+    async def syncNodeEdits(self, offs, wait=True):
         '''
         Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
 
@@ -2257,9 +2257,10 @@ class Layer(s_nexus.Pusher):
         for offs, splice in self.nodeeditlog.iter(offs):
             yield (offs, splice[0])
 
-        async with self.getNodeEditWindow() as wind:
-            async for offs, splice in wind:
-                yield (offs, splice)
+        if wait:
+            async with self.getNodeEditWindow() as wind:
+                async for offs, splice in wind:
+                    yield (offs, splice)
 
     async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''
