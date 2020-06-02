@@ -1652,6 +1652,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             modelt = model['types']
 
+            self.eq('text', model['forms']['inet:whois:rec']['props']['text']['disp']['hint'])
+
             fname = 'inet:dns:rev'
             cmodel = core.model.form(fname)
             modelf = model['forms'][fname]
