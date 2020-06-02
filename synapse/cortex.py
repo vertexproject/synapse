@@ -1941,7 +1941,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
         self.addStormLib(('view',), s_stormtypes.LibView)
-        self.addStormLib(('macro',), s_stormlib_macro.LibMacro)
         self.addStormLib(('model',), s_stormtypes.LibModel)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('stats',), s_stormtypes.LibStats)
@@ -1951,6 +1950,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('trigger',), s_stormtypes.LibTrigger)
         self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
+
+        self.addStormLib(('macro',), s_stormlib_macro.LibMacro)
 
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
         self.addStormLib(('inet', 'whois'), s_stormwhois.LibWhois)
