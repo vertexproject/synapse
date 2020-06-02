@@ -570,7 +570,11 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Adds a trigger to the view.
         '''
-        tdef['iden'] = s_common.guid()
+        iden = tdef.get('iden')
+        if iden is None:
+            tdef['iden'] = s_common.guid()
+        elif self.triggers.get(iden) is not None:
+            raise s_exc.DupIden(mesg='A trigger with this iden already exists')
 
         root = await self.core.auth.getUserByName('root')
 

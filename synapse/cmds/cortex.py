@@ -221,7 +221,7 @@ class StormCmd(s_cli.Cmd):
         --editformat <format>: What format of edits the server shall emit.
                 Options are
                    * nodeedits (default),
-                   * splices (similar to < 0.2.0),
+                   * splices (similar to < 2.0.0),
                    * count (just counts of nodeedits), or
                    * none (no such messages emitted).
         --show-prov:  Show provenance messages.

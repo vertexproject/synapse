@@ -1996,7 +1996,7 @@ class SudoCmd(Cmd):
     '''
     Deprecated sudo command.
 
-    Left in for 0.2.x so that Storm command with it are still valid to execute.
+    Left in for 2.x.x so that Storm command with it are still valid to execute.
     '''
     name = 'sudo'
 
@@ -2004,7 +2004,7 @@ class SudoCmd(Cmd):
         s_common.deprecated('stormcmd:sudo')
 
         mesg = 'Sudo is deprecated and does nothing in ' \
-               '0.2.x and will be removed in 0.3.0.'
+               '2.x.x and will be removed in 3.0.0.'
 
         await runt.snap.warn(mesg)
         async for node, path in genr:
@@ -2428,10 +2428,14 @@ class ScrapeCmd(Cmd):
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
-                for form, valu in s_scrape.scrape(text):
-                    addnode = await runt.snap.addNode(form, valu)
-                    if self.opts.doyield:
-                        yield addnode, runt.initPath(addnode)
+                try:
+                    for form, valu in s_scrape.scrape(text):
+                        addnode = await runt.snap.addNode(form, valu)
+                        if self.opts.doyield:
+                            yield addnode, runt.initPath(addnode)
+
+                except s_exc.BadTypeValu as e:
+                    await runt.warn(f'BadTypeValue for {form}="{valu}"')
 
             return
 
@@ -2456,11 +2460,15 @@ class ScrapeCmd(Cmd):
                         valu = (node.ndef, (form, valu))
                         form = 'edge:refs'
 
-                    nnode = await node.snap.addNode(form, valu)
-                    npath = path.fork(nnode)
+                    try:
+                        nnode = await node.snap.addNode(form, valu)
+                        npath = path.fork(nnode)
 
-                    if self.opts.doyield:
-                        yield nnode, npath
+                        if self.opts.doyield:
+                            yield nnode, npath
+
+                    except s_exc.BadTypeValu as e:
+                        await runt.warn(f'BadTypeValue for {form}="{valu}"')
 
             if not self.opts.doyield:
                 yield node, path

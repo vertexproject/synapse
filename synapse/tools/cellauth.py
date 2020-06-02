@@ -20,7 +20,7 @@ Manage permissions of users, roles, and objects in a remote cell.
 outp = None
 
 min_authgate_vers = (0, 1, 33)
-reqver = '>=0.2.0,<0.3.0'
+reqver = '>=0.2.0,<3.0.0'
 
 denyallow = ['deny', 'allow']
 def reprrule(rule):
@@ -214,11 +214,11 @@ async def handleList(opts):
 
             outp.printf('users:')
             for user in await cell.getAuthUsers():
-                outp.printf(f'    {user}')
+                outp.printf(f'    {user.get("name")}')
 
             outp.printf('roles:')
             for role in await cell.getAuthRoles():
-                outp.printf(f'    {role}')
+                outp.printf(f'    {role.get("name")}')
 
     except s_exc.BadVersion as e:
         valu = s_version.fmtVersion(*e.get('valu'))
