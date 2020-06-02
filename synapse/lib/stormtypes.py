@@ -3023,7 +3023,7 @@ async def tostr(valu, noneok=False):
     try:
         return str(valu)
     except Exception as e:
-        mesg = f'Failed to make a string from "{valu}".'
+        mesg = f'Failed to make a string from {valu!r}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def tobool(valu, noneok=False):
@@ -3034,8 +3034,8 @@ async def tobool(valu, noneok=False):
     try:
         return bool(valu)
     except Exception as e:
-        mesg = f'Failed to make a boolean from "{valu}".'
-        raise s_exc.BadCast(mesg=mesg) from e
+        mesg = f'Failed to make a boolean from {valu!r}.'
+        raise s_exc.BadCast(mesg=mesg)
 
 async def toint(valu, noneok=False):
 
@@ -3046,11 +3046,11 @@ async def toint(valu, noneok=False):
         try:
             return int(valu, 0)
         except ValueError as e:
-            mesg = f'Failed to make an integer from "{valu}".'
+            mesg = f'Failed to make an integer from {valu!r}.'
             raise s_exc.BadCast(mesg=mesg) from e
 
     try:
         return int(valu)
     except Exception as e:
-        mesg = f'Failed to make an integer from "{valu}".'
+        mesg = f'Failed to make an integer from {valu!r}.'
         raise s_exc.BadCast(mesg=mesg) from e

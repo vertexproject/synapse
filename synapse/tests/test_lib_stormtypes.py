@@ -34,6 +34,9 @@ class Newp:
     def __str__(self):
         raise s_exc.SynErr(mesg='newp')
 
+    def __repr__(self):
+        return 'Newp'
+
 class StormTypesTest(s_test.SynTest):
 
     async def test_stormtypes_gates(self):
@@ -3049,9 +3052,9 @@ class StormTypesTest(s_test.SynTest):
         with self.raises(s_exc.BadCast):
             await s_stormtypes.toint(Newp())
 
-        self.none(s_stormtypes.tostr(None, noneok=True))
-        self.none(s_stormtypes.toint(None, noneok=True))
-        self.none(s_stormtypes.tobool(None, noneok=True))
+        self.none(await s_stormtypes.tostr(None, noneok=True))
+        self.none(await s_stormtypes.toint(None, noneok=True))
+        self.none(await s_stormtypes.tobool(None, noneok=True))
 
     async def test_stormtypes_layer_edits(self):
 
