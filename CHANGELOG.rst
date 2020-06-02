@@ -10,10 +10,10 @@ Features and Enhancements
 
 - Refactored Layer Storage Format
 
-This release includes significant storage optimizations for both performance and size.  However, the `0.2.0` migration
+This release includes significant storage optimizations for both performance and size.  However, the `2.0.0` migration
 contains no *model* migrations and is strictly limited to the internal LMDB layer storage format.  The new format
 provides performance enhancements that significantly improve data ingest performance and reduce the memory footprint of
-the layer.  See :ref:`020_migration` for details on migrating your `0.1.x` Cortex to `0.2.0`.
+the layer.  See :ref:`200_migration` for details on migrating your `0.1.x` Cortex to `2.0.0`.
 
 - View/Layer Management
 
@@ -109,7 +109,7 @@ What you need to do
     Update any code that consumes/indexes the various splice events to handle the new ``node:edits`` format.
     Additionally, callers may specify ``editformat: "splices"`` within their storm runtime options to enable
     backward-compatible splice generation. External APIs for retrieving splices have been marked as deprecated and will
-    be removed in v0.3.0.
+    be removed in v3.0.0.
 
 Removed Remote Layers
 ~~~~~~~~~~~~~~~~~~~~~
@@ -221,7 +221,7 @@ Why make the change
 What you need to do
     If you're using ``data`` fields or ``node data`` to store raw bytes or other data structures that are incompatible
     with JSON serialization, you will need to migrate these values to JSON compatible structures prior to running your
-    ``0.2.0`` migration.
+    ``2.0.0`` migration.
 
 Storm Command Argument Passing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -293,7 +293,7 @@ Additional Changes
 - Synapse tools may not be used to connect to services of a different minor version.
 - Storm API methods now support user-impersonation by providing a user iden in the ``opts`` dictionary. This ability is
   permission enforced.
-- Deprecated annotations added to APIs that will be removed in ``0.3.0``.  This includes the Cortex ``.eval()`` API.
+- Deprecated annotations added to APIs that will be removed in ``3.0.0``.  This includes the Cortex ``.eval()`` API.
 - The ``sudo`` command has been deprecated and does nothing.
 - Removed cortex offset storage.
 - SYNDEV_OMIT_FINI_WARNS was added to silence tear down warnings.

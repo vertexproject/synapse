@@ -23,7 +23,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
-import synapse.tools.migrate_020 as s_migr
+import synapse.tools.migrate_200 as s_migr
 
 REGR_VER = '0.1.56-migr'
 REGR_VER_OLD = '0.1.51-migr'
@@ -189,7 +189,7 @@ class MigrationTest(s_t_utils.SynTest):
 
     async def _checkCore(self, core, tdata, nodesonly=False):
         '''
-        Verify data in the migrated to 0.2.x cortex.
+        Verify data in the migrated to 2.x.x cortex.
         '''
 
         # test validation data
@@ -280,6 +280,25 @@ class MigrationTest(s_t_utils.SynTest):
                 self.lt(len(nes1), tdata['splices'][lyr10.iden]['nextoffs'])
 
                 await self._checkCore(core1, tdata, nodesonly=True)
+
+    async def _checkCell(self, core):
+        '''
+        Check cell data *except* auth
+        '''
+
+        rootuser = core.auth.rootuser.iden
+
+        self.eq(s_version.version, core.cellinfo.get('cortex:version'))
+
+        for view in core.views.values():
+            self.eq(rootuser, view.info.get('creator'))
+
+        for lyr in core.layers.values():
+            self.true(lyr.lockmemory)
+            self.false(lyr.readonly)
+            self.true(lyr.logedits)
+            self.eq(rootuser, lyr.layrinfo.get('creator'))
+            self.eq(s_modelrev.maxvers, await lyr.getModelVers())
 
     async def _checkAuth(self, core):
         defview = await core.hive.get(('cellinfo', 'defaultview'))
@@ -499,7 +518,7 @@ class MigrationTest(s_t_utils.SynTest):
 
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf={'nexslog:en': True}) as core:
                 # check that nexus root has offsets from migration
                 self.gt(core.nexsroot._nexuslog.index(), 1)
@@ -507,22 +526,8 @@ class MigrationTest(s_t_utils.SynTest):
                 # check core data
                 await self._checkSplices(core, tdata)
                 await self._checkCore(core, tdata)
+                await self._checkCell(core)
                 await self._checkAuth(core)
-
-                # check layer config
-                lyr = core.layers[locallyrs[0]]
-                self.false(lyr.lockmemory)
-                self.false(lyr.readonly)
-                self.true(lyr.logedits)
-                self.eq(core.auth.rootuser.iden, lyr.layrinfo.get('creator'))
-                self.eq(s_modelrev.maxvers, await lyr.getModelVers())
-
-                lyr = core.layers[locallyrs[1]]
-                self.false(lyr.lockmemory)
-                self.false(lyr.readonly)
-                self.true(lyr.logedits)
-                self.eq(core.auth.rootuser.iden, lyr.layrinfo.get('creator'))
-                self.eq(s_modelrev.maxvers, await lyr.getModelVers())
 
     async def test_migr_nexusoff(self):
         conf = {
@@ -539,7 +544,7 @@ class MigrationTest(s_t_utils.SynTest):
 
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check that nexus root has *no* offsets from migration
                 self.eq(core.nexsroot._nexuslog.index(), 0)
@@ -547,6 +552,7 @@ class MigrationTest(s_t_utils.SynTest):
                 # check core data
                 await self._checkSplices(core, tdata)
                 await self._checkCore(core, tdata)
+                await self._checkCell(core)
                 await self._checkAuth(core)
 
     async def test_migr_editor(self):
@@ -565,7 +571,7 @@ class MigrationTest(s_t_utils.SynTest):
 
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check that nexus root has *no* offsets from migration
                 self.eq(core.nexsroot._nexuslog.index(), 0)
@@ -573,6 +579,7 @@ class MigrationTest(s_t_utils.SynTest):
                 # check core data
                 await self._checkSplices(core, tdata)
                 await self._checkCore(core, tdata)
+                await self._checkCell(core)
                 await self._checkAuth(core)
 
     async def test_migr_chkpnt(self):
@@ -616,11 +623,12 @@ class MigrationTest(s_t_utils.SynTest):
 
                 await migr.fini()
 
-                # startup 0.2.0 core
+                # startup 2.x core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     # check core data
                     await self._checkSplices(core, tdata)
                     await self._checkCore(core, tdata)
+                    await self._checkCell(core)
                     await self._checkAuth(core)
 
     async def test_migr_restart(self):
@@ -711,11 +719,12 @@ class MigrationTest(s_t_utils.SynTest):
 
                 await migr.fini()
 
-                # startup 0.2.0 core
+                # startup 2.x core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     # check core data
                     await self._checkSplices(core, tdata)
                     await self._checkCore(core, tdata)
+                    await self._checkCell(core)
                     await self._checkAuth(core)
 
     async def test_migr_assvr_defaults(self):
@@ -728,6 +737,9 @@ class MigrationTest(s_t_utils.SynTest):
                 for dname in dirs:
                     if dname == 'splices.lmdb':
                         shutil.rmtree(os.path.join(root, dname))
+
+            cellconf = {}
+            s_common.yamlsave(cellconf, src, 'cell.yaml')
 
             # check defaults
             with self.getTestDir() as dest, self.withSetLoggingMock():
@@ -754,12 +766,15 @@ class MigrationTest(s_t_utils.SynTest):
                     offsyaml = s_common.yamlload(dest, 'migration', 'lyroffs.yaml')
                     self.true(all(v['nextoffs'] == 0 for v in offsyaml.values()))
 
-                # startup 0.2.0 core
+                # startup 2.x core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     nodes = await core.nodes('inet:ipv4=1.2.3.4')
                     self.len(1, nodes)
                     nodes = await core.nodes('[inet:ipv4=9.9.9.9]')
                     self.len(1, nodes)
+
+                    for lyr in core.layers.values():
+                        self.false(lyr.lockmemory)
 
     async def test_migr_assvr_opts(self):
         '''
@@ -862,7 +877,7 @@ class MigrationTest(s_t_utils.SynTest):
                     res = await migr.dumpErrors()
                     self.none(res)
 
-                # startup 0.2.0 core - with no nodes
+                # startup 2.x core - with no nodes
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     nodes = await core.nodes('inet:ipv4=1.2.3.4')
                     self.len(0, nodes)
@@ -905,7 +920,7 @@ class MigrationTest(s_t_utils.SynTest):
 
                     await migr.migrate()
 
-                # startup 0.2.0 core
+                # startup 2.x core
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     nodes = await core.nodes('inet:ipv4=1.2.3.4')
                     self.len(1, nodes)
@@ -957,7 +972,7 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.migrate()
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check core data
                 await self._checkCore(core, tdata)
@@ -999,7 +1014,7 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.fini()
 
             # An error will be generated and migration halted
-            # so we can check that the cortex is not startable as 020
+            # so we can check that the cortex is not startable as 2.x.x
             await self.asyncraises(s_exc.BadStorageVersion, s_cortex.Cortex.anit(dest, conf=None))
 
     async def test_migr_badmodelvers(self):
@@ -1036,7 +1051,7 @@ class MigrationTest(s_t_utils.SynTest):
 
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # we should be able to iterate over the nodeedits, store them,
                 # and bring the cortex to the same state as a node migration
@@ -1094,7 +1109,7 @@ class MigrationTest(s_t_utils.SynTest):
 
             await migr.fini()
 
-            # startup 0.2.0 core and check that partial nodeedits were stored
+            # startup 2.x core and check that partial nodeedits were stored
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 lyr0 = core.getLayer()  # primary layer
 
@@ -1128,7 +1143,7 @@ class MigrationTest(s_t_utils.SynTest):
             await migr.migrate()
             await migr.fini()
 
-            # startup 0.2.0 core
+            # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check core data
                 await self._checkCore(core, tdata)
@@ -1228,7 +1243,7 @@ class MigrationTest(s_t_utils.SynTest):
                 async with await s_migr.Migrator.anit(conf) as migr:
                     await migr.migrate()
 
-                # startup 0.2.0 core and check layer values
+                # startup 2.x core and check layer values
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     layer = core.getLayer()
 
@@ -1276,7 +1291,7 @@ class MigrationTest(s_t_utils.SynTest):
                     # every node will generate an error, but is survivable
                     await migr.migrate()
 
-                # startup 0.2.0 core and check layer values
+                # startup 2.x core and check layer values
                 async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                     layer = core.getLayer()
 
