@@ -98,8 +98,8 @@ class CortexTest(s_t_utils.SynTest):
             # coverage for isDestForm()
             self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
             self.len(0, await core.nodes('media:news -(*)> mat:spec'))
-            self.len(0, await core.nodes('inet:ipv4 <(*)- (mat:spec)'))
-            self.len(0, await core.nodes('media:news -(*)> (mat:spec)'))
+            self.len(0, await core.nodes('inet:ipv4 <(*)- (mat:spec,)'))
+            self.len(0, await core.nodes('media:news -(*)> (mat:spec,)'))
             self.len(0, await core.nodes('media:news -((refs,foos))> mat:spec'))
             self.len(0, await core.nodes('inet:ipv4 <((refs,foos))- mat:spec'))
 
@@ -112,7 +112,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
-            nodes = await core.nodes('$types = (*) inet:ipv4 <($types)- *')
+            nodes = await core.nodes('$types = (*,) inet:ipv4 <($types)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
             # get the edge using stormtypes
@@ -2487,13 +2487,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await snap.addNode('test:str', 'c')
 
             self.len(0, await core.nodes('test:str*in=()'))
-            self.len(0, await core.nodes('test:str*in=(d)'))
+            self.len(0, await core.nodes('test:str*in=(d,)'))
             self.len(2, await core.nodes('test:str*in=(a, c)'))
             self.len(1, await core.nodes('test:str*in=(a, d)'))
             self.len(3, await core.nodes('test:str*in=(a, b, c)'))
 
             self.len(0, await core.nodes('test:str +test:str*in=()'))
-            self.len(0, await core.nodes('test:str +test:str*in=(d)'))
+            self.len(0, await core.nodes('test:str +test:str*in=(d,)'))
             self.len(2, await core.nodes('test:str +test:str*in=(a, c)'))
             self.len(1, await core.nodes('test:str +test:str*in=(a, d)'))
             self.len(3, await core.nodes('test:str +test:str*in=(a, b, c)'))
