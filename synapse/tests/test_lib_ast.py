@@ -131,6 +131,51 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), 1546300800000)
 
+    async def test_ast_lookup(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                inet:ipv4=1.2.3.4
+                inet:fqdn=foo.bar.com
+                inet:email=visi@vertex.link
+                inet:url="https://[ff::00]:4443/hehe?foo=bar&baz=faz"
+            ]''')
+            ndefs = [n.ndef for n in nodes]
+            self.len(4, ndefs)
+
+            opts = {'mode': 'lookup'}
+            nodes = await core.nodes('1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz', opts=opts)
+            self.eq(ndefs, [n.ndef for n in nodes])
+
+            nodes = await core.nodes('1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz | [ +#hehe ]', opts=opts)
+            self.len(4, nodes)
+            self.eq(ndefs, [n.ndef for n in nodes])
+            self.true(all(n.tags.get('hehe') is not None for n in nodes))
+
+            # AST object passes through inbound genrs
+            await core.nodes('[test:str=beep]')
+            beep_opts = {'ndefs': [('test:str', 'beep')], 'mode': 'lookup'}
+            nodes = await core.nodes('foo.bar.com | [+#beep]', beep_opts)
+            self.len(2, nodes)
+            self.eq({('test:str', 'beep'), ('inet:fqdn', 'foo.bar.com')},
+                    {n.ndef for n in nodes})
+            self.true(all([n.tags.get('beep') for n in nodes]))
+
+            # The lookup mode must get *something* to parse.
+            self.len(0, await core.nodes('', opts))
+
+            # The lookup must be *before* anything else, otherwise we
+            # parse it as a cmd name.
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('[+#thebeforetimes] | foo.bar.com', opts)
+
+            # And it works remotely
+            async with core.getLocalProxy() as prox:
+                msgs = await s_test.alist(prox.storm('1.2.3.4', opts))
+                nodes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(1, nodes)
+                self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
+
     async def test_ast_subq_vars(self):
 
         async with self.getTestCore() as core:
