@@ -26,6 +26,14 @@ MINSECS = 60
 HOURSECS = 60 * MINSECS
 DAYSECS = 24 * HOURSECS
 
+class Newp:
+    def __bool__(self):
+        raise s_exc.SynErr(mesg='newp')
+    def __int__(self):
+        raise s_exc.SynErr(mesg='newp')
+    def __str__(self):
+        raise s_exc.SynErr(mesg='newp')
+
 class StormTypesTest(s_test.SynTest):
 
     async def test_stormtypes_gates(self):
@@ -3008,6 +3016,14 @@ class StormTypesTest(s_test.SynTest):
         self.eq('asdf', await s_stormtypes.tostr('asdf'))
         self.eq('asdf', await s_stormtypes.tostr(s_stormtypes.Str('asdf')))
         self.eq('asdf', await s_stormtypes.tostr(s_stormtypes.Bytes(b'asdf')))
+        self.eq(True, await s_stormtypes.tobool(s_stormtypes.Bytes(b'asdf')))
+
+        self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3]))
+        self.eq('bar', (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr}))['foo'])
+
+        self.eq(1, await s_stormtypes.toint(s_stormtypes.Bool(True)))
+        self.eq('true', await s_stormtypes.tostr(s_stormtypes.Bool(True)))
+        self.eq(True, await s_stormtypes.tobool(s_stormtypes.Bool(True)))
 
         self.true(await s_stormtypes.tobool(boolprim))
         self.true(await s_stormtypes.tobool(1))
@@ -3023,6 +3039,19 @@ class StormTypesTest(s_test.SynTest):
 
         with self.raises(s_exc.BadCast):
             self.eq(20, await s_stormtypes.toint(s_stormtypes.Str('asdf')))
+
+        with self.raises(s_exc.BadCast):
+            await s_stormtypes.tobool(Newp())
+
+        with self.raises(s_exc.BadCast):
+            await s_stormtypes.tostr(Newp())
+
+        with self.raises(s_exc.BadCast):
+            await s_stormtypes.toint(Newp())
+
+        self.none(s_stormtypes.tostr(None, noneok=True))
+        self.none(s_stormtypes.toint(None, noneok=True))
+        self.none(s_stormtypes.tobool(None, noneok=True))
 
     async def test_stormtypes_layer_edits(self):
 

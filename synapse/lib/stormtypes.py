@@ -1155,7 +1155,7 @@ class Bool(Prim):
         return self.value()
 
     def __str__(self):
-        return str(self.value().lower())
+        return str(self.value()).lower()
 
     def __int__(self):
         return int(self.value())
@@ -3023,7 +3023,7 @@ async def tostr(valu, noneok=False):
     try:
         return str(valu)
     except Exception as e:
-        mesg = f'Failed to make an string from "{x}".'
+        mesg = f'Failed to make a string from "{valu}".'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def tobool(valu, noneok=False):
@@ -3034,7 +3034,7 @@ async def tobool(valu, noneok=False):
     try:
         return bool(valu)
     except Exception as e:
-        mesg = f'Failed to make an boolean from "{x}".'
+        mesg = f'Failed to make a boolean from "{valu}".'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toint(valu, noneok=False):
