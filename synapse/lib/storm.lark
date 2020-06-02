@@ -17,6 +17,7 @@
 
 // Entry point for an unadorned storm query
 query: [_WSCOMM? "|"] _WSCOMM? (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
+lookup: _WS? looklist _WS? [ "|" query ]
 
 // A query that starts with a command
 _querystartcommand: stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon | _querystartedit) ]
@@ -206,6 +207,9 @@ _basevalu.1: valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpro
 _valu: _basevalu | NONQUOTEWORD
 _toknvalu: _basevalu | WORDTOKN
 _listvalu: _basevalu | LISTTOKN
+_lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
+
+looklist: (_WS* _lookvalu)*
 
 valulist: "(" [_WS? _listvalu (_WS? "," _WS? _listvalu)*] _WS? ["," _WS?] ")"
 tagvalu: tagname
@@ -226,6 +230,8 @@ LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 
 // A white-space *only* delimited string immediate for use in legacy cmdr parser
 CMDRTOKN: /[^="'\s\{}][^\s\{}]*/
+
+WHITETOKN: /[^\s|]+/
 
 // A value consisting of a name then 0 or more derefs and function calls
 _varvalu: "$" _varvaluatom
