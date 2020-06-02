@@ -202,6 +202,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         show = opts.get('show', set())
 
+        mode = opts.get('mode', 'storm')
         editformat = opts.get('editformat', 'nodeedits')
         if editformat not in ('nodeedits', 'splices', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
@@ -217,7 +218,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 # Try text parsing. If this fails, we won't be able to get a storm
                 # runtime in the snap, so catch and pass the `err` message
-                self.core.getStormQuery(text)
+                self.core.getStormQuery(text, mode=mode)
 
                 shownode = (not show or 'node' in show)
 

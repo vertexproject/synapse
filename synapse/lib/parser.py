@@ -26,6 +26,7 @@ terminalEnglishMap = {
     'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
     'CMDRTOKN': 'An unquoted string parsed as a cmdr arg',
+    'WHITETOKN': 'An unquoted string terminated by whitespace',
     'CMPR': 'comparison operator',
     'BYNAME': 'named comparison operator',
     'COLON': ':',
@@ -159,9 +160,19 @@ class AstConverter(lark.Transformer):
 
         return subq
 
+    def looklist(self, kids):
+        kids = self._convert_children(kids)
+        return s_ast.Lookup(kids)
+
     def yieldvalu(self, kids):
         kid = self._convert_child(kids[-1])
         return s_ast.YieldValu(kids=[kid])
+
+    @lark.v_args(meta=True)
+    def lookup(self, kids, meta):
+        kids = self._convert_children(kids)
+        look = s_ast.Lookup(kids=kids)
+        return look
 
     @lark.v_args(meta=True)
     def query(self, kids, meta):
@@ -312,6 +323,7 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 QueryParser = lark.Lark(_grammar, start='query', propagate_positions=True)
+LookupParser = lark.Lark(_grammar, start='lookup', propagate_positions=True)
 StormCmdParser = lark.Lark(_grammar, start='stormcmdargs', propagate_positions=True)
 CmdrParser = lark.Lark(_grammar, start='cmdrargs', propagate_positions=True)
 
@@ -364,6 +376,15 @@ class Parser:
         newtree.text = self.text
         return newtree
 
+    def lookup(self):
+        try:
+            tree = LookupParser.parse(self.text)
+        except lark.exceptions.LarkError as e:
+            raise self._larkToSynExc(e) from None
+        newtree = AstConverter(self.text).transform(tree)
+        newtree.text = self.text
+        return newtree
+
     def cmdrargs(self):
         '''
         Parse command args that might have storm queries as arguments
@@ -375,10 +396,12 @@ class Parser:
         return AstConverter(self.text).transform(tree)
 
 @s_cache.memoize(size=100)
-def parseQuery(text):
+def parseQuery(text, mode='storm'):
     '''
     Parse a storm query and return the Lark AST.  Cached here to speed up unit tests
     '''
+    if mode == 'lookup':
+        return Parser(text).lookup()
     return Parser(text).query()
 
 def massage_vartokn(x):

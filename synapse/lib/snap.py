@@ -140,7 +140,12 @@ class Snap(s_base.Base):
         if user is None:
             user = self.user
 
-        query = self.core.getStormQuery(text)
+        if opts is None:
+            opts = {}
+
+        mode = opts.get('mode', 'storm')
+
+        query = self.core.getStormQuery(text, mode=mode)
         with self.getStormRuntime(opts=opts, user=user) as runt:
             async for x in runt.iterStormQuery(query):
                 yield x
@@ -153,8 +158,13 @@ class Snap(s_base.Base):
         if user is None:
             user = self.user
 
+        if opts is None:
+            opts = {}
+
+        mode = opts.get('mode', 'storm')
+
         # maintained for backward compatibility
-        query = self.core.getStormQuery(text)
+        query = self.core.getStormQuery(text, mode=mode)
         with self.getStormRuntime(opts=opts, user=user) as runt:
             async for node, path in runt.iterStormQuery(query):
                 yield node

@@ -2857,11 +2857,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         return [m async for m in self.storm(text, opts=opts)]
 
     @s_cache.memoize(size=10000)
-    def getStormQuery(self, text):
+    def getStormQuery(self, text, mode='storm'):
         '''
         Parse storm query text and return a Query object.
         '''
-        query = copy.deepcopy(s_parser.parseQuery(text))
+        query = copy.deepcopy(s_parser.parseQuery(text, mode=mode))
         query.init(self)
         return query
 
