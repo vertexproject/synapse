@@ -2081,7 +2081,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The URL where the message is posted / visible.'
                         }),
                         ('text', ('str', {}), {
-                            'doc': 'The text of the message.'
+                            'doc': 'The text of the message.',
+                            'disp': {'hint': 'text'},
                         }),
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file attached to or sent with the message.'
@@ -2108,7 +2109,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('text', ('str', {}), {
-                            'doc': 'The text of the post.'
+                            'doc': 'The text of the post.',
+                            'disp': {'hint': 'text'},
                         }),
                         ('time', ('time', {}), {
                             'doc': 'The date and time that the post was made.'
@@ -2193,7 +2195,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date of the whois record.'
                         }),
                         ('text', ('str', {'lower': True}), {
-                            'doc': 'The full text of the whois record.'
+                            'doc': 'The full text of the whois record.',
+                            'disp': {'hint': 'text'},
                         }),
                         ('created', ('time', {}), {
                             'doc': 'The "created" time from the whois record.'
