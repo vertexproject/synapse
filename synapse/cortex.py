@@ -1893,7 +1893,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.SpliceListCmd)
         self.addStormCmd(s_storm.SpliceUndoCmd)
-
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
 
         for cdef in s_stormsvc.stormcmds:

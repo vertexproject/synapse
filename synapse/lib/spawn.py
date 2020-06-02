@@ -387,10 +387,16 @@ class SpawnCore(s_base.Base):
         for view in self.views.values():
             view.init2()
 
+        #TODO maybe we should subclass telepath client
         self.addStormDmon = self.prox.addStormDmon
         self.delStormDmon = self.prox.delStormDmon
         self.getStormDmon = self.prox.getStormDmon
         self.getStormDmons = self.prox.getStormDmons
+
+        self.setHiveKey = self.proxy.setHiveKey
+        self.getHiveKey = self.proxy.getHiveKey
+        self.popHiveKey = self.proxy.popHiveKey
+        self.getHiveKeys = self.proxy.getHiveKeys
 
     async def _initLayr(self, layrinfo):
         iden = layrinfo.get('iden')

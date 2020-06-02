@@ -81,6 +81,10 @@ class MacroExecCmd(s_storm.Cmd):
     # FIXME Give a description of use.
     '''
     Execute a named macro.
+
+    Example:
+
+        inet:ipv4#cno.threat.t80 | macro.exec enrich_foo
     '''
 
     name = 'macro.exec'
@@ -101,7 +105,6 @@ class MacroExecCmd(s_storm.Cmd):
 
         mdef = await runt.snap.core.getHiveKey(path)
         if mdef is None:
-            # FIXME Bad ref "name"
             mesg = f'Macro name not found: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
 
