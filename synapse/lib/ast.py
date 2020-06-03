@@ -1138,7 +1138,6 @@ class LiftProp(LiftOper):
             for hint in self.getRightHints():
                 if hint[0] == 'tag':
                     tagname = hint[1].get('name')
-                    print('HEREHERE')
                     async for node in runt.snap.nodesByTag(tagname, form=name):
                         yield node
                     return
