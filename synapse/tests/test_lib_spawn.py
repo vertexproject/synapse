@@ -227,7 +227,7 @@ class CoreSpawnTest(s_test.SynTest):
                 self.len(1, podes)
                 self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
                 msgs = await prox.storm('macro.del macrotest', opts=opts).list()
-                self.stormIsInPrint('Removed macro: macrotest')
+                self.stormIsInPrint('Removed macro: macrotest', msgs)
                 msgs = await prox.storm('macro.exec macrotest', opts=opts).list()
                 self.stormIsInErr('Macro name not found: macrotest', msgs)
 
