@@ -12,7 +12,7 @@ General
 TLS/SSL Deployments
 -------------------
 
-For production deployements, it is recommended that all services use the built in ``telepath`` SSL/TLS
+For production deployments, it is recommended that all services use the built-in ``telepath`` SSL/TLS
 protocol.  You may deploy a service using TLS encryption by specifying a ``--telepath`` listen URL option, such
 as ``ssl://cortex.vertex.link/``.  If it is necessary to separate the socket bind address from the hostname,
 a hostname query parameter may be specified: ``ssl://0.0.0.0/?hostname=cortex.vertex.link``
@@ -28,7 +28,7 @@ Self-Signed Certificates using certtool
 
 For self-signed certificates, we need to generate a CA certificate and key as well as a server certificate and key.
 
-The synapse ``certtool`` can be used to easily generate a CA and server certificates. For example, we we wanted
+The synapse ``certtool`` can be used to easily generate a CA and server certificates. For example, if we wanted
 to generate a CA certificate for "vertex"::
     python -m synapse.tools.easycert --ca vertex
     key saved: /home/visi/.syn/certs/cas/vertex.key
@@ -40,8 +40,10 @@ We can then generate a server certificate and keyfile pair and sign it with our 
     cert saved: /home/visi/.syn/certs/hosts/cortex.vertex.link.crt
 
 To verify the server certificate, clients will need to have the ``~/.syn/certs/cas/vertex.crt`` file in their
-certificate directory (NOTE: do not distribute the ``~/.syn/certs/cas/vertex.key`` file as that would allow regular
-users the ability to sign arbitrary certificates).
+certificate directory.
+
+NOTE: do not distribute the ``~/.syn/certs/cas/vertex.key`` file as that would allow regular users the ability
+to sign arbitrary certificates).
 
 CA-Signed Certificates
 **********************
