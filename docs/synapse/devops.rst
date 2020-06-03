@@ -13,10 +13,10 @@ TLS/SSL Deployments
 -------------------
 
 For production deployments, it is recommended that all services use the built-in ``telepath`` SSL/TLS
-protocol.  You may deploy a service using TLS encryption by specifying a ``--telepath`` listen URL option, such
+protocol. You may deploy a service using TLS encryption by specifying a ``--telepath`` listen URL option, such
 as ``ssl://cortex.vertex.link/``.
 
-Under some circumstances, such as inbound DNAT networks or multi-homed hosts, it maybe necessary to specify a
+Under some circumstances, such as inbound DNAT networks or multi-homed hosts, it may be necessary to specify a
 socket bind address that is different than the hostname. If your environment requires you to bind an address that
 is different than the hostname's DNS entry, an explicit hostname query parameter may be
 specified:``ssl://0.0.0.0/?hostname=cortex.vertex.link``.
@@ -25,7 +25,7 @@ The client will also need to specify an SSL/TLS ``telepath`` URL such as: ``ssl:
 
 Once the ``ssl`` protocol is specified, the ``hostname``, either from a query parameter or from the URL's
 network location, is used to lookup a matching ``crt`` and ``key`` file pair from your server certificate directory
-located at ``~/.syn/certs/hosts``.  See the following sections for how to setup server certificates.
+located at ``~/.syn/certs/hosts``. See the following sections for how to setup server certificates.
 
 Self-Signed Certificates using certtool
 ***************************************
@@ -52,7 +52,7 @@ to sign arbitrary certificates).
 CA-Signed Certificates
 **********************
 
-Any external CA may be used to sign ``telepath`` server certificates.  The ``certtool`` can be used to easily
+Any external CA may be used to sign ``telepath`` server certificates. The ``certtool`` can be used to easily
 generate a certificate signing request (CSR) to be signed by an external CA or you can simply copy or link
 pre-existing PEM encoded certificate files to the expected filesystem locations.
 
@@ -144,7 +144,7 @@ and keep it updated until cut-over. ``sync_200`` uses splices to translate the c
 be enabled on the source Cortex. In order to control and monitor synchronization, ``sync_200`` can be added as a Storm service.
 
 When synchronization is started the service will enable "migration mode" on the destination ``2.x.x`` Cortex, which
-prevents cron jobs and triggers from running.  Migration mode will then be disabled when the synchronization is
+prevents cron jobs and triggers from running. Migration mode will then be disabled when the synchronization is
 stopped or when the Cortex is restarted.
 
 #. Complete migration, including starting up the ``2.x.x`` Cortex.
