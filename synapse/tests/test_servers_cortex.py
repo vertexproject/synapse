@@ -114,9 +114,15 @@ class CortexServerTest(s_t_utils.SynTest):
                     self.len(1, await core01.nodes('inet:asn=0'))
                     self.len(1, await core01.nodes('inet:asn=1'))
 
+                    # get the nexus index
+                    nexusind = core01.nexsroot._nexuslog.index()
+
                 await core00.nodes('[ inet:asn=2 ]')
 
                 async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core01:
+
+                    # check that startup does not create any events
+                    self.eq(nexusind, core01.nexsroot._nexuslog.index())
 
                     await core01.sync()
 
