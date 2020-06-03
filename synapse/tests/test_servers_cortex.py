@@ -91,12 +91,12 @@ class CortexServerTest(s_t_utils.SynTest):
                 'auth:passwd': 'secret',
             }
 
-            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+            async with await s_cortex.Cortex.anit(dirn=path00, conf=conf00) as core00:
                 await core00.nodes('[ inet:asn=0 ]')
 
             s_tools_backup.backup(path00, path01)
 
-            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+            async with await s_cortex.Cortex.anit(dirn=path00, conf=conf00) as core00:
 
                 # add a node for core01 to sync before window
                 await core00.nodes('[ inet:asn=1 ]')
