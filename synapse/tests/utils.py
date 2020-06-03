@@ -204,6 +204,7 @@ testmodel = {
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {}),
+            ('int2', ('int', {}), {}),
             ('strprop', ('str', {'lower': 1}), {}),
             ('guidprop', ('guid', {'lower': 1}), {}),
             ('locprop', ('loc', {}), {}),
@@ -231,6 +232,7 @@ testmodel = {
 
         ('test:int', {}, (
             ('loc', ('loc', {}), {}),
+            ('int2', ('int', {}), {}),
         )),
 
         ('test:float', {}, (

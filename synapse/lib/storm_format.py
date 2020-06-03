@@ -79,7 +79,6 @@ TerminalPygMap = {
     '_EDGEDELN2FINI': p_t.Punctuation,
     '_WALKNPIVON1': p_t.Punctuation,
     '_WALKNPIVON2': p_t.Punctuation,
-    '_EXPRSTART': p_t.Punctuation,
     '_DEREF': p_t.Punctuation,
     '_LEFTJOIN': p_t.Punctuation,
     '_LEFTPIVOT': p_t.Punctuation,

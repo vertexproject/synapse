@@ -44,8 +44,8 @@ foo_stormpkg = {
         {
             'name': 'importnest',
             'storm': '''
-            $counter = 0
-            $foobar = 0
+            $foobar = $(0)
+            $counter = $(0)
 
             function inner(arg2, add) {
                 $foobar = $( $foobar + $add )
@@ -950,13 +950,13 @@ class AstTest(s_test.SynTest):
             # call an import and have it's module local variables be mapped in to its own scope
             q = '''
             $test = $lib.import(importnest)
-            $haha = $test.outer(False, $(33))
+            $haha = $test.outer($lib.false, $(33))
             $lib.print($haha)
-            $hehe = $test.outer(True, $(17))
+            $hehe = $test.outer($lib.true, $(17))
             $lib.print($hehe)
-            $retn = $lib.import(importnest).outer(True, $(90))
+            $retn = $lib.import(importnest).outer($lib.true, $(90))
             $lib.print($retn)
-            $lib.print("counter is {c}", c$counter)
+            $lib.print("counter is {c}", c=$counter)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -1184,12 +1184,12 @@ class AstTest(s_test.SynTest):
                     '''
                     query = core.getStormQuery(q)
                     runt.loadRuntVars(query)
-                    async for item in query.run(runt, s_ast.agen()):
+                    async for item in query.run(runt, s_common.agen()):
                         pass
                     func = list(filter(lambda o: isinstance(o, s_ast.Function), query.kids))[0]
                     oldfunc = runt.vars['lolol']
                     funcrunt = await runt.getScopeRuntime(func.kids[2])
-                    async for item in func.run(funcrunt, s_ast.agen()):
+                    async for item in func.run(funcrunt, s_common.agen()):
                         pass
                     funcrunt.globals.add('nope')
                     funcrunt.globals.add('lolol')
@@ -1433,3 +1433,18 @@ class AstTest(s_test.SynTest):
 
         vals = [x async for x in await s_ast.pullone(hasone())]
         self.eq((1,), vals)
+
+    async def test_ast_expr(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('if (true) { [inet:ipv4=1.2.3.4] }')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('if (false) { [inet:ipv4=1.2.3.4] }')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('[ test:int=(18 + 2) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 20))
