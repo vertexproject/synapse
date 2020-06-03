@@ -32,7 +32,7 @@ Migration Quickstart
 
 .. note::
 
-    The duration of migration is proportional to the amount of data stored, and is highly dependant on
+    The duration of migration is proportional to the amount of data stored, and is highly dependent on
     the available system resources (especially disk I/O). For larger Cortexes it is recommended to
     run migration on hardware without other highly active processes.
 
