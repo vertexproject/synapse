@@ -28,13 +28,13 @@ synapse.lookup
 synapse.models
   The models directory contains the core Synapse data model definitions.
 
-synaspe.servers
+synapse.servers
   The servers module contains servers use to start and run Synapse applications.
 
 synapse.tests
   This is test code. It also contains a useful helper ``synapse.tests.utils`` which defines our base test class.
 
-synaspe.tools
+synapse.tools
   The tools module contains various tools used to interact with the Synapse ecosystem.
 
 Object hierarchies
@@ -65,7 +65,7 @@ few useful components (including, but not limited too):
 
 There are a few very important classes which use the ``Base`` object:
 
-- The Synaspe ``Cell``.  This is a batteries included primitive for running an application.
+- The Synapse ``Cell``.  This is a batteries included primitive for running an application.
 - The Telepath ``Daemon``.  This serves as a RPC server component.
 - The Telepath ``Proxy``. This serves as a RPC client component.
 
