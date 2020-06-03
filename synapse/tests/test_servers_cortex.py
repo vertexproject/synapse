@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
@@ -74,6 +75,66 @@ class CortexServerTest(s_t_utils.SynTest):
                     await core01.sync()
 
                     self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
+
+    async def test_server_mirror_restart(self):
+
+        with self.getTestDir() as dirn, self.withSetLoggingMock():
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            conf00 = {
+                'layer:lmdb:map_async': True,
+                'provenance:en': True,
+                'nexslog:en': True,
+                'layers:logedits': True,
+                'auth:passwd': 'secret',
+            }
+
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+                await core00.nodes('[ inet:asn=0 ]')
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+
+                # add a node for core01 to sync before window
+                await core00.nodes('[ inet:asn=1 ]')
+
+                outp = self.getTestOutp()
+                argv = ['--telepath', 'tcp://127.0.0.1:0/',
+                        '--https', '0',
+                        '--auth-passwd', 'secret',
+                        '--mirror', core00.getLocalUrl(),
+                        path01]
+
+                async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core01:
+                    await core01.sync()
+
+                    self.len(1, await core01.nodes('inet:asn=0'))
+                    self.len(1, await core01.nodes('inet:asn=1'))
+
+                await core00.nodes('[ inet:asn=2 ]')
+
+                async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core01:
+
+                    await core01.sync()
+
+                    self.len(1, await core01.nodes('inet:asn=0'))
+                    self.len(1, await core01.nodes('inet:asn=1'))
+                    self.len(1, await core01.nodes('inet:asn=2'))
+
+                    await core00.nodes('[ inet:asn=3 ]')
+
+                    await core01.sync()
+
+                    self.len(4, await core01.nodes('inet:asn'))
+
+                # mirror auth:passwd conf check
+                argv[5] = 'newpasswd'
+                with self.raises(s_exc.BadConfValu):
+                    async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core01:
+                        self.fail('Mirror should not startup')
 
     async def test_server_mirror_badiden(self):
 
