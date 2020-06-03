@@ -393,10 +393,12 @@ class SpawnCore(s_base.Base):
         self.getStormDmon = self.prox.getStormDmon
         self.getStormDmons = self.prox.getStormDmons
 
+        # Cell specific apis
         self.setHiveKey = self.prox.setHiveKey
         self.getHiveKey = self.prox.getHiveKey
         self.popHiveKey = self.prox.popHiveKey
         self.getHiveKeys = self.prox.getHiveKeys
+        self.getUserDef = self.prox.getUserDef
 
     async def _initLayr(self, layrinfo):
         iden = layrinfo.get('iden')

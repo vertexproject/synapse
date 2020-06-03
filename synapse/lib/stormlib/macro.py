@@ -78,13 +78,13 @@ stormcmds = [
 ]
 
 class MacroExecCmd(s_storm.Cmd):
-    # FIXME Give a description of use.
     '''
     Execute a named macro.
 
     Example:
 
         inet:ipv4#cno.threat.t80 | macro.exec enrich_foo
+
     '''
 
     name = 'macro.exec'

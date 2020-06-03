@@ -25,11 +25,17 @@ class MacroTest(s_test.SynTest):
             nodes = await core.nodes('macro.exec hehe', opts=asvisi)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
+            nodes = await core.nodes('$name="hehe" | macro.exec $name',)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
             nodes = await core.nodes('macro.exec hehe | macro.exec hoho', opts=asvisi)
             self.len(0, nodes)
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ test:str=hehe ] $name=$node.value() | macro.exec $name')
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('macro.exec newp')
 
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('$lib.macro.del(haha)')
