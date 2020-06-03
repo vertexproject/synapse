@@ -152,8 +152,8 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :signature=ff00ff00
 
                     :ext:sans=((dns, vertex.link), (dns, "*.vertex.link"))
-                    :ext:crls = ((dns, http://vertex.link/crls))
-                    :crl:urls = ("http://vertex.link/crls")
+                    :ext:crls = ((dns, http://vertex.link/crls),)
+                    :crl:urls = ("http://vertex.link/crls",)
 
                     :identities:urls=(http://woot.com/1, http://woot.com/2)
                     :identities:fqdns=(vertex.link, woot.com)
