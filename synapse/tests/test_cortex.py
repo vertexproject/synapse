@@ -85,7 +85,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('$types = (refs,hehe) media:news -($types)> *')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-            nodes = await core.nodes('$types = (*) media:news -($types)> *')
+            nodes = await core.nodes('$types = (*,) media:news -($types)> *')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
             # check all the walk from N2 syntaxes
@@ -98,8 +98,8 @@ class CortexTest(s_t_utils.SynTest):
             # coverage for isDestForm()
             self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
             self.len(0, await core.nodes('media:news -(*)> mat:spec'))
-            self.len(0, await core.nodes('inet:ipv4 <(*)- (mat:spec)'))
-            self.len(0, await core.nodes('media:news -(*)> (mat:spec)'))
+            self.len(0, await core.nodes('inet:ipv4 <(*)- (mat:spec,)'))
+            self.len(0, await core.nodes('media:news -(*)> (mat:spec,)'))
             self.len(0, await core.nodes('media:news -((refs,foos))> mat:spec'))
             self.len(0, await core.nodes('inet:ipv4 <((refs,foos))- mat:spec'))
 
@@ -112,7 +112,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
-            nodes = await core.nodes('$types = (*) inet:ipv4 <($types)- *')
+            nodes = await core.nodes('$types = (*,) inet:ipv4 <($types)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
             # get the edge using stormtypes
@@ -2489,13 +2489,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await snap.addNode('test:str', 'c')
 
             self.len(0, await core.nodes('test:str*in=()'))
-            self.len(0, await core.nodes('test:str*in=(d)'))
+            self.len(0, await core.nodes('test:str*in=(d,)'))
             self.len(2, await core.nodes('test:str*in=(a, c)'))
             self.len(1, await core.nodes('test:str*in=(a, d)'))
             self.len(3, await core.nodes('test:str*in=(a, b, c)'))
 
             self.len(0, await core.nodes('test:str +test:str*in=()'))
-            self.len(0, await core.nodes('test:str +test:str*in=(d)'))
+            self.len(0, await core.nodes('test:str +test:str*in=(d,)'))
             self.len(2, await core.nodes('test:str +test:str*in=(a, c)'))
             self.len(1, await core.nodes('test:str +test:str*in=(a, d)'))
             self.len(3, await core.nodes('test:str +test:str*in=(a, b, c)'))
@@ -3531,21 +3531,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('test:int', 25))
 
             # Test invalid comparisons
-            q = '$val=(1,2,3) [test:str=$("foo" = $val)]'
-            await self.asyncraises(s_exc.BadCmprType, core.nodes(q))
+            q = '$val=(1,2,3) [test:str=$("foo" >= $val)]'
+            await self.asyncraises(s_exc.BadCast, core.nodes(q))
 
-            q = '$val=(1,2,3) [test:str=$($val = "foo")]'
-            await self.asyncraises(s_exc.BadCmprType, core.nodes(q))
+            q = '$val=(1,2,3) [test:str=$($val >= "foo")]'
+            await self.asyncraises(s_exc.BadCast, core.nodes(q))
 
             q = '$val=42 [test:str=$(42<$val)]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', '0'))
+            self.eq(nodes[0].ndef, ('test:str', 'false'))
 
             q = '[test:str=foo :hehe=42] [test:str=$(not :hehe<42)]'
             nodes = await core.nodes(q)
             self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:str', '1'))
+            self.eq(nodes[0].ndef, ('test:str', 'true'))
 
     async def test_storm_filter_vars(self):
         '''
@@ -3611,61 +3611,61 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_storm_ifstmt(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[test:type10=1 :strprop=1] if :strprop {[+#woot]}')
+            nodes = await core.nodes('[test:int=1 :int2=1] if :int2 {[+#woot]}')
             self.true(nodes[0].hasTag('woot'))
-            nodes = await core.nodes('[test:type10=1 :strprop=0] if $(:strprop) {[+#woot2]}')
+            nodes = await core.nodes('[test:int=1 :int2=0] if $(:int2) {[+#woot2]}')
             self.false(nodes[0].hasTag('woot2'))
 
-            nodes = await core.nodes('[test:type10=1 :strprop=1] if $(:strprop) {[+#woot3]} else {[+#nowoot3]}')
+            nodes = await core.nodes('[test:int=1 :int2=1] if $(:int2) {[+#woot3]} else {[+#nowoot3]}')
             self.true(nodes[0].hasTag('woot3'))
             self.false(nodes[0].hasTag('nowoot3'))
 
-            nodes = await core.nodes('[test:type10=2 :strprop=0] if $(:strprop) {[+#woot3]} else {[+#nowoot3]}')
+            nodes = await core.nodes('[test:int=2 :int2=0] if $(:int2) {[+#woot3]} else {[+#nowoot3]}')
             self.false(nodes[0].hasTag('woot3'))
             self.true(nodes[0].hasTag('nowoot3'))
 
-            q = '[test:type10=0 :strprop=0] if $(:strprop) {[+#woot41]} elif $($node.value()) {[+#woot42]}'
+            q = '[test:int=0 :int2=0] if $(:int2) {[+#woot41]} elif $($node.value()) {[+#woot42]}'
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woot41'))
             self.false(nodes[0].hasTag('woot42'))
 
-            q = '[test:type10=0 :strprop=1] if $(:strprop) {[+#woot51]} elif $($node.value()) {[+#woot52]}'
+            q = '[test:int=0 :int2=1] if $(:int2) {[+#woot51]} elif $($node.value()) {[+#woot52]}'
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('woot51'))
             self.false(nodes[0].hasTag('woot52'))
 
-            q = '[test:type10=1 :strprop=1] if $(:strprop) {[+#woot61]} elif $($node.value()) {[+#woot62]}'
+            q = '[test:int=1 :int2=1] if $(:int2) {[+#woot61]} elif $($node.value()) {[+#woot62]}'
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('woot61'))
             self.false(nodes[0].hasTag('woot62'))
 
-            q = '[test:type10=2 :strprop=0] if $(:strprop) {[+#woot71]} elif $($node.value()) {[+#woot72]}'
+            q = '[test:int=2 :int2=0] if $(:int2) {[+#woot71]} elif $($node.value()) {[+#woot72]}'
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woot71'))
             self.true(nodes[0].hasTag('woot72'))
 
-            q = ('[test:type10=0 :strprop=0] if $(:strprop) {[+#woot81]} '
+            q = ('[test:int=0 :int2=0] if $(:int2) {[+#woot81]} '
                  'elif $($node.value()) {[+#woot82]} else {[+#woot83]}')
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woot81'))
             self.false(nodes[0].hasTag('woot82'))
             self.true(nodes[0].hasTag('woot83'))
 
-            q = ('[test:type10=0 :strprop=42] if $(:strprop) {[+#woot91]} '
+            q = ('[test:int=0 :int2=42] if $(:int2) {[+#woot91]} '
                  'elif $($node.value()){[+#woot92]}else {[+#woot93]}')
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('woot91'))
             self.false(nodes[0].hasTag('woot92'))
             self.false(nodes[0].hasTag('woot93'))
 
-            q = ('[test:type10=1 :strprop=0] if $(:strprop){[+#woota1]} '
+            q = ('[test:int=1 :int2=0] if $(:int2){[+#woota1]} '
                  'elif $($node.value()) {[+#woota2]} else {[+#woota3]}')
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woota1'))
             self.true(nodes[0].hasTag('woota2'))
             self.false(nodes[0].hasTag('woota3'))
 
-            q = ('[test:type10=1 :strprop=1] if $(:strprop) {[+#wootb1]} '
+            q = ('[test:int=1 :int2=1] if $(:int2) {[+#wootb1]} '
                  'elif $($node.value()) {[+#wootb2]} else{[+#wootb3]}')
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('wootb1'))
@@ -3687,7 +3687,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.false(nodes[0].hasTag('rofl'))
 
             # Completely runtsafe, condition is false
-            q = '$foo=0 if $($foo) {$bar=lol} else {$bar=rofl} [test:str=yep4 +#$bar]'
+            q = '$foo=$(0) if $($foo) {$bar=lol} else {$bar=rofl} [test:str=yep4 +#$bar]'
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('lol'))
             self.true(nodes[0].hasTag('rofl'))

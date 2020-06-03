@@ -512,6 +512,10 @@ async def aspin(genr):
     async for _ in genr:
         pass
 
+async def agen(*items):
+    for item in items:
+        yield item
+
 def firethread(f):
     '''
     A decorator for making a function fire a thread.

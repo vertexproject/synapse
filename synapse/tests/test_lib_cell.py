@@ -487,3 +487,14 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(slab['readonly'])
                 self.nn(slab['lockmemory'])
                 self.nn(slab['recovering'])
+
+    async def test_cell_hiveapi(self):
+
+        async with self.getTestCore() as core:
+
+            await core.setHiveKey(('foo', 'bar'), 10)
+            await core.setHiveKey(('foo', 'baz'), 30)
+
+            async with core.getLocalProxy() as proxy:
+                self.eq((), await proxy.getHiveKeys(('lulz',)))
+                self.eq((('bar', 10), ('baz', 30)), await proxy.getHiveKeys(('foo',)))

@@ -207,11 +207,15 @@ _basevalu.1: valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpro
 _valu: _basevalu | NONQUOTEWORD
 _toknvalu: _basevalu | WORDTOKN
 _listvalu: _basevalu | LISTTOKN
-_lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 
+// Just like _valu, but doesn't allow valu lists or unquoted strings
+_exprvalu: NUMBER | HEXNUMBER | BOOL | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
+    | SINGLEQUOTEDSTRING | dollarexpr
+
+_lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 looklist: (_WS* _lookvalu)*
 
-valulist: "(" [_WS? _listvalu (_WS? "," _WS? _listvalu)*] _WS? ["," _WS?] ")"
+valulist: "(" [_WS? _listvalu _WS? ((",")|("," _WS? _listvalu)+ [_WS? ","])] _WS? ")"
 tagvalu: tagname
 tagpropvalu: tagprop
 relpropvalu: relprop
@@ -261,7 +265,7 @@ _cond: notcond | "(" _WS? _condexpr _WS? ")"
     | condsubq | arraycond
     | _varvalu | dollarexpr
 
-notcond: "not" _WS? _cond
+notcond: "not" _WS _cond
 
 hasrelpropcond: relprop | univprop
 relpropcond.1: relpropvalue _WS? _cmpr _WS? _valu
@@ -280,9 +284,10 @@ condsubq: "{" query "}" [_WSCOMM? _cmpr _WSCOMM? _valu]
 arraycond: relprop _ARRAYCONDSTART _WS? _safe_cmpr _WS? _valu _WS? "]"
 _ARRAYCONDSTART: "*["
 
+// Filter boolean conditions
 _condexpr: _cond | orexpr | andexpr
-orexpr: _condexpr _WS? "or" _WS? _cond
-andexpr: _condexpr _WS? "and" _WS? _cond
+orexpr: _condexpr _WS "or" _WS _cond
+andexpr: _condexpr _WS "and" _WS _cond
 
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'/
@@ -320,8 +325,7 @@ BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
 CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
 
 // The entry point for a $(...) expression
-dollarexpr: _EXPRSTART _WSCOMM? expror _WSCOMM? ")"
-_EXPRSTART: "$("
+dollarexpr: "$"? "(" _WSCOMM? expror _WSCOMM? ")"
 EXPRCMPR: /<=|>=|<|>|=|!=/
 EXPRPLUS: "+"
 EXPRMINUS: "-"
@@ -329,19 +333,16 @@ EXPRTIMES: "*"
 EXPRDIVIDE: "/"
 NUMBER: /-?\d+(\.\d*)?/
 HEXNUMBER: /-?0x[0-9a-fA-F]+/
+BOOL: /true|false/
 NOT: "not"
 OR: "or"
 AND: "and"
 
-// Expression rules in increasing order of precedence (modeled on Python's order)
-?expror: exprand | expror _WSCOMM? OR _WSCOMM? exprand
-?exprand: exprnot | exprand _WSCOMM? AND _WSCOMM? exprnot
-?exprnot: exprcmp | NOT _WSCOMM? exprcmp
+// $ expression rules in increasing order of precedence (modeled on Python's order)
+?expror: exprand | expror _WSCOMM OR _WSCOMM exprand
+?exprand: exprnot | exprand _WSCOMM AND _WSCOMM exprnot
+?exprnot: exprcmp | NOT _WSCOMM exprcmp
 ?exprcmp: exprsum | exprcmp _WSCOMM? EXPRCMPR _WSCOMM? exprsum
 ?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
 ?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
-_expratom: _exprvalu | "(" exprsum ")"
-
-// Just like _valu, but doesn't allow valu lists or unquoted strings
-_exprvalu: NUMBER | HEXNUMBER | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING | dollarexpr
+_expratom: _exprvalu | "(" _WSCOMM? expror _WSCOMM? ")"

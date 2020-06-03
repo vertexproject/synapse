@@ -39,6 +39,8 @@ import synapse.lib.stormwhois as s_stormwhois
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.stormlib.macro as s_stormlib_macro
+
 logger = logging.getLogger(__name__)
 
 '''
@@ -1891,11 +1893,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.SpliceListCmd)
         self.addStormCmd(s_storm.SpliceUndoCmd)
+        self.addStormCmd(s_stormlib_macro.MacroExecCmd)
 
         for cdef in s_stormsvc.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_storm.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_stormlib_macro.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
@@ -1944,6 +1950,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('trigger',), s_stormtypes.LibTrigger)
         self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
+
+        self.addStormLib(('macro',), s_stormlib_macro.LibMacro)
 
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
         self.addStormLib(('inet', 'whois'), s_stormwhois.LibWhois)
