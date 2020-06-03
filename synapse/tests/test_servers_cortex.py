@@ -136,12 +136,6 @@ class CortexServerTest(s_t_utils.SynTest):
 
                     self.len(4, await core01.nodes('inet:asn'))
 
-                # mirror auth:passwd conf check
-                argv[5] = 'newpasswd'
-                with self.raises(s_exc.BadConfValu):
-                    async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core01:
-                        self.fail('Mirror should not startup')
-
     async def test_server_mirror_badiden(self):
 
         with self.getTestDir() as dirn, self.withSetLoggingMock():

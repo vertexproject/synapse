@@ -518,9 +518,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.donexslog = self.conf.get('nexslog:en')
 
-        # is cell of a mirror
-        self.mirror = self.conf.get('mirror')
-
         await s_nexus.Pusher.__anit__(self, self.iden)
 
         await self._initCellSlab(readonly=readonly)
@@ -549,9 +546,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
 
-            if self.mirror and not user.tryPasswd(auth_passwd):
-                raise s_exc.BadConfValu(name='auth:passwd', mesg='Root password on mirror must match')
-            elif not self.mirror:
+            if not user.tryPasswd(auth_passwd):
                 await user.setPasswd(auth_passwd)
 
         await self._initCellDmon()
