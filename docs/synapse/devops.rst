@@ -14,8 +14,12 @@ TLS/SSL Deployments
 
 For production deployments, it is recommended that all services use the built-in ``telepath`` SSL/TLS
 protocol.  You may deploy a service using TLS encryption by specifying a ``--telepath`` listen URL option, such
-as ``ssl://cortex.vertex.link/``.  If it is necessary to separate the socket bind address from the hostname,
-a hostname query parameter may be specified: ``ssl://0.0.0.0/?hostname=cortex.vertex.link``
+as ``ssl://cortex.vertex.link/``.
+
+Under some circumstances, such as inbound DNAT networks or multi-homed hosts, it maybe necessary to specify a
+socket bind address that is different than the hostname. If your environment requires you to bind an address that
+is different than the hostname's DNS entry, an explicit hostname query parameter may be
+specified:``ssl://0.0.0.0/?hostname=cortex.vertex.link``.
 
 The client will also need to specify an SSL/TLS ``telepath`` URL such as: ``ssl://visi:passwd@cortex.vertex.link``.
 
