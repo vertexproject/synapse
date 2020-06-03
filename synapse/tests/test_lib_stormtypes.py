@@ -26,6 +26,17 @@ MINSECS = 60
 HOURSECS = 60 * MINSECS
 DAYSECS = 24 * HOURSECS
 
+class Newp:
+    def __bool__(self):
+        raise s_exc.SynErr(mesg='newp')
+    def __int__(self):
+        raise s_exc.SynErr(mesg='newp')
+    def __str__(self):
+        raise s_exc.SynErr(mesg='newp')
+
+    def __repr__(self):
+        return 'Newp'
+
 class StormTypesTest(s_test.SynTest):
 
     async def test_stormtypes_gates(self):
@@ -1279,7 +1290,7 @@ class StormTypesTest(s_test.SynTest):
                 rule = (True, ('queue', 'synq', 'get'))
                 await root.addUserRule(woot.iden, rule, indx=None)
 
-                msgs = await core.stormlist('$lib.print($lib.queue.get(synq).get(wait=False))')
+                msgs = await core.stormlist('$lib.print($lib.queue.get(synq).get(wait=0))')
                 self.stormIsInPrint("(0, 'bar')", msgs)
 
                 with self.raises(s_exc.AuthDeny):
@@ -2758,14 +2769,14 @@ class StormTypesTest(s_test.SynTest):
 
             hehe = await core.callStorm('''
                 $hehe = $lib.auth.users.byname(hehe)
-                $hehe.setLocked(True)
+                $hehe.setLocked($lib.true)
                 return($hehe)
             ''')
             self.eq(True, hehe['locked'])
 
             self.none(await core.tryUserPasswd('hehe', 'haha'))
 
-            await core.callStorm('$lib.auth.users.byname(hehe).setLocked(false)')
+            await core.callStorm('$lib.auth.users.byname(hehe).setLocked($lib.false)')
 
             self.nn(await core.tryUserPasswd('hehe', 'haha'))
 
@@ -2858,7 +2869,7 @@ class StormTypesTest(s_test.SynTest):
             visi = await core.callStorm('''
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $visi = $lib.auth.users.byname(visi)
-                $visi.setRules(($rule))
+                $visi.setRules(($rule,))
                 return($visi)
             ''')
             self.eq(((True, ('hehe', 'haha')),), visi['rules'])
@@ -2898,7 +2909,7 @@ class StormTypesTest(s_test.SynTest):
             ninjas = await core.callStorm('''
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $ninjas = $lib.auth.roles.byname(ninjas)
-                $ninjas.setRules(($rule))
+                $ninjas.setRules(($rule,))
                 return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
@@ -2997,8 +3008,67 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInWarn('hello moto', msgs)
 
-    async def test_stormtypes_intify(self):
+    async def test_stormtypes_tofoo(self):
+
+        boolprim = s_stormtypes.Bool(True)
+
+        self.eq(20, await s_stormtypes.toint(20))
+        self.eq(20, await s_stormtypes.toint('20'))
+        self.eq(20, await s_stormtypes.toint(s_stormtypes.Str('20')))
+
+        self.eq('asdf', await s_stormtypes.tostr('asdf'))
+        self.eq('asdf', await s_stormtypes.tostr(s_stormtypes.Str('asdf')))
+        self.eq('asdf', await s_stormtypes.tostr(s_stormtypes.Bytes(b'asdf')))
+        self.eq(True, await s_stormtypes.tobool(s_stormtypes.Bytes(b'asdf')))
+
+        self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3]))
+        self.eq('bar', (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr}))['foo'])
+
+        self.eq(1, await s_stormtypes.toint(s_stormtypes.Bool(True)))
+        self.eq('true', await s_stormtypes.tostr(s_stormtypes.Bool(True)))
+        self.eq(True, await s_stormtypes.tobool(s_stormtypes.Bool(True)))
+
+        self.true(await s_stormtypes.tobool(boolprim))
+        self.true(await s_stormtypes.tobool(1))
+        self.false(await s_stormtypes.tobool(0))
+        # no bool <- int <- str
+        self.true(await s_stormtypes.tobool('1'))
+        self.true(await s_stormtypes.tobool(s_stormtypes.Str('0')))
+        self.true(await s_stormtypes.tobool(s_stormtypes.Str('asdf')))
+        self.false(await s_stormtypes.tobool(s_stormtypes.Str('')))
+
         with self.raises(s_exc.BadCast):
-            s_stormtypes.intify('asdf')
+            await s_stormtypes.toint(s_stormtypes.Prim(()))
+
         with self.raises(s_exc.BadCast):
-            s_stormtypes.intify(None)
+            self.eq(20, await s_stormtypes.toint(s_stormtypes.Str('asdf')))
+
+        with self.raises(s_exc.BadCast):
+            await s_stormtypes.tobool(Newp())
+
+        with self.raises(s_exc.BadCast):
+            await s_stormtypes.tostr(Newp())
+
+        with self.raises(s_exc.BadCast):
+            await s_stormtypes.toint(Newp())
+
+        self.none(await s_stormtypes.tostr(None, noneok=True))
+        self.none(await s_stormtypes.toint(None, noneok=True))
+        self.none(await s_stormtypes.tobool(None, noneok=True))
+
+    async def test_stormtypes_layer_edits(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[inet:ipv4=1.2.3.4]')
+
+            #TODO: should we asciify the buid here so it is json compatible?
+            nodeedits = await core.callStorm('$list = $lib.list() for ($offs, $edit) in $lib.layer.get().edits(wait=$lib.false) { $list.append($edit) } return($list)')
+
+            retn = []
+            for edits in nodeedits:
+                for edit in edits:
+                    if edit[1] == 'inet:ipv4':
+                        retn.append(edit)
+
+            self.len(1, retn)

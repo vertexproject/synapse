@@ -162,7 +162,7 @@ class GeoTest(s_t_utils.SynTest):
                 nodes = await core.nodes('geo:place=$place', opts=opts)
                 self.len(1, nodes)
 
-            q = '[geo:place=(beep) :latlong=$latlong]'
+            q = '[geo:place=(beep,) :latlong=$latlong]'
             opts = {'vars': {'latlong': (11.38, 20.01)}}
             nodes = await core.nodes(q, opts)
             self.len(1, nodes)
