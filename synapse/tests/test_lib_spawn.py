@@ -231,26 +231,6 @@ class CoreSpawnTest(s_test.SynTest):
                 msgs = await prox.storm('macro.exec macrotest', opts=opts).list()
                 self.stormIsInErr('Macro name not found: macrotest', msgs)
 
-                # make sure graph rules work
-                msgs = await prox.storm('inet:dns:a', opts={'spawn': True, 'graph': True}).list()
-                podes = [m[1] for m in msgs if m[0] == 'node']
-
-                ndefs = list(sorted(p[0] for p in podes))
-
-                self.eq(ndefs, (
-                    ('inet:asn', 0),
-                    ('inet:dns:a', ('vertex.link', 16909060)),
-                    ('inet:fqdn', 'link'),
-                    ('inet:fqdn', 'vertex.link'),
-                    ('inet:ipv4', 16909060),
-                ))
-
-                # Test a python cmd that came in via a ctor
-                msgs = await prox.storm('inet:ipv4=1.2.3.4 | testcmd', opts=opts).list()
-                self.stormIsInPrint("testcmd: ('inet:ipv4', 16909060)", msgs)
-                podes = [m[1] for m in msgs if m[0] == 'node']
-                self.len(1, podes)
-
                 # Test a simple stormlib command
                 msgs = await prox.storm('$lib.print("hello")', opts=opts).list()
                 self.stormIsInPrint("hello", msgs)
