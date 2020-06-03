@@ -279,6 +279,13 @@ What you need to do
         auth:passwd: superSekri7!
         ...
 
+Streamlined Expression Syntax
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In order to streamline the arithmetic expression syntax, the ``$( )`` "dollar" expressions no longer require a leading
+``$``.  The only backward compatibility issue is for explicit "list of one item" declarations in storm.  Any list containing
+only one element must have a trailing ``,`` similar to python "tuple" syntax.  Essentially ``$var = (foo)`` as a list of one element
+needs to be updated to ``$var = (foo,)``.  All other list declarations such as ``$var = ()`` and ``$var = (foo,bar)`` are unaffected.
+
 Additional Changes
 ------------------
 

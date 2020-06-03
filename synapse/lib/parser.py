@@ -19,6 +19,7 @@ terminalEnglishMap = {
     'ABSPROPNOUNIV': 'absolute property',
     'ALLTAGS': '#',
     'AND': 'and',
+    'BOOL': 'boolean',
     'BREAK': 'break',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
@@ -90,7 +91,6 @@ terminalEnglishMap = {
     '_EDGEDELN2INIT': '<(',
     '_EDGEDELN2FINI': ')-',
     '_EMBEDQUERYSTART': '${',
-    '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
     '_WALKNPIVON1': '-->',
@@ -418,6 +418,7 @@ terminalClassMap = {
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'HEXNUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
+    'BOOL': lambda x: s_ast.Bool(x == 'true'),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
     'VARTOKN': massage_vartokn,
