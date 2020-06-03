@@ -545,7 +545,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         auth_passwd = self.conf.get('auth:passwd')
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
-            await user.setPasswd(auth_passwd)
+
+            if not user.tryPasswd(auth_passwd):
+                await user.setPasswd(auth_passwd)
 
         await self._initCellDmon()
 
