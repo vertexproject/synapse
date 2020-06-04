@@ -272,6 +272,7 @@ class Daemon(s_base.Base):
 
             sslctx = None
             if scheme == 'ssl':
+                hostname = None
                 query = info.get('query')
                 if query is not None:
                     hostname = query.get('hostname', host)
