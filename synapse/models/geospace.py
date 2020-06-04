@@ -77,7 +77,7 @@ geojsonschema = {
         },
 
         'MultiLineString': {
-            'title': 'GeoJSON LineString',
+            'title': 'GeoJSON MultiLineString',
             'type': 'object',
             'required': ['type', 'coordinates'],
             'properties': {
