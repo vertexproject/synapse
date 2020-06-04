@@ -158,6 +158,11 @@ stopped or when the Cortex is restarted.
 #. Add the Storm service to the Cortex and use the available commands to start synchronization.
 #. When ready to cut-over, and the read status is up-to-date, stop the synchronization using the ``stopsync`` command.
 
+Cleanup
+*******
+
+After migration is fully complete, delete the now-unused directory "migration" inside the cortex directory.
+
 Axon
 ====
 
