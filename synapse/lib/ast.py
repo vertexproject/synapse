@@ -20,27 +20,12 @@ import synapse.lib.spooled as s_spooled
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+from synapse.lib.stormtypes import tobool, toint, toprim, tostr
+
 logger = logging.getLogger(__name__)
 
 def parseNumber(x):
     return float(x) if '.' in x else s_stormtypes.intify(x)
-
-async def agen(*items):
-    for item in items:
-        yield item
-
-class StormCtrlFlow(Exception):
-    def __init__(self, item=None):
-        self.item = item
-
-class StormBreak(StormCtrlFlow):
-    pass
-
-class StormContinue(StormCtrlFlow):
-    pass
-
-class StormReturn(StormCtrlFlow):
-    pass
 
 class AstNode:
     '''
@@ -426,7 +411,7 @@ class SubQuery(Oper):
 
             subp = None
 
-            async for subp in subq.run(runt, agen(item)):
+            async for subp in subq.run(runt, s_common.agen(item)):
                 if self.hasyield:
                     yield subp
 
@@ -460,7 +445,7 @@ class InitBlock(AstNode):
         async for item in genr:
 
             if not once:
-                async for innr in subq.run(runt, agen()):
+                async for innr in subq.run(runt, s_common.agen()):
                     yield innr
 
                 once = True
@@ -468,7 +453,7 @@ class InitBlock(AstNode):
             yield item
 
         if not once:
-            async for innr in subq.run(runt, agen()):
+            async for innr in subq.run(runt, s_common.agen()):
                 yield innr
 
 class FiniBlock(AstNode):
@@ -488,7 +473,7 @@ class FiniBlock(AstNode):
         async for item in genr:
             yield item
 
-        async for innr in subq.run(runt, agen()):
+        async for innr in subq.run(runt, s_common.agen()):
             yield innr
 
 class ForLoop(Oper):
@@ -544,16 +529,16 @@ class ForLoop(Oper):
 
                     # since it's possible to "multiply" the (node, path)
                     # we must make a clone of the path to prevent yield-then-use.
-                    newg = agen((node, path.clone()))
+                    newg = s_common.agen((node, path.clone()))
                     async for item in subq.inline(runt, newg):
                         yield item
 
-                except StormBreak as e:
+                except s_exc.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except StormContinue as e:
+                except s_exc.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -584,15 +569,15 @@ class ForLoop(Oper):
                     runt.setVar(name, item)
 
                 try:
-                    async for jtem in subq.inline(runt, agen()):
+                    async for jtem in subq.inline(runt, s_common.agen()):
                         yield jtem
 
-                except StormBreak as e:
+                except s_exc.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except StormContinue as e:
+                except s_exc.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -605,20 +590,20 @@ class WhileLoop(Oper):
 
         async for node, path in genr:
 
-            while await self.kids[0].compute(path):
+            while await tobool(await self.kids[0].compute(path)):
                 try:
 
-                    newg = agen((node, path))
+                    newg = s_common.agen((node, path))
                     async for item in subq.inline(runt, newg):
                         yield item
                         await asyncio.sleep(0)
 
-                except StormBreak as e:
+                except s_exc.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except StormContinue as e:
+                except s_exc.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -626,19 +611,19 @@ class WhileLoop(Oper):
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[0].isRuntSafe(runt):
 
-            while await self.kids[0].runtval(runt):
+            while await tobool(await self.kids[0].runtval(runt)):
 
                 try:
-                    async for jtem in subq.inline(runt, agen()):
+                    async for jtem in subq.inline(runt, s_common.agen()):
                         yield jtem
                         await asyncio.sleep(0)
 
-                except StormBreak as e:
+                except s_exc.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except StormContinue as e:
+                except s_exc.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -852,7 +837,7 @@ class SwitchCase(Oper):
             if subq is None:
                 yield (node, path)
             else:
-                async for item in subq.inline(runt, agen((node, path))):
+                async for item in subq.inline(runt, s_common.agen((node, path))):
                     yield item
 
         if count == 0 and self.kids[0].isRuntSafe(runt):
@@ -866,7 +851,7 @@ class SwitchCase(Oper):
             if subq is None:
                 return
 
-            async for item in subq.inline(runt, agen()):
+            async for item in subq.inline(runt, s_common.agen()):
                 yield item
 
 
@@ -1750,7 +1735,7 @@ class SubqCond(Cond):
 
     async def _runSubQuery(self, runt, node, path):
         size = 1
-        genr = agen((node, path))
+        genr = s_common.agen((node, path))
         async for item in self.kids[0].run(runt, genr):
             yield size, item
             size += 1
@@ -1850,7 +1835,7 @@ class SubqCond(Cond):
         subq = self.kids[0]
 
         async def cond(node, path):
-            genr = agen((node, path))
+            genr = s_common.agen((node, path))
             async for _ in subq.run(runt, genr):
                 return True
             return False
@@ -2478,12 +2463,10 @@ class DollarExpr(RunValue, Cond):
     Top level node for $(...) expressions
     '''
     async def compute(self, path):
-        assert len(self.kids) == 1
-        return s_stormtypes.intOrNoneify(await self.kids[0].compute(path))
+        return await self.kids[0].compute(path)
 
     async def runtval(self, runt):
-        assert len(self.kids) == 1
-        return s_stormtypes.intOrNoneify(await self.kids[0].runtval(runt))
+        return await self.kids[0].runtval(runt)
 
     async def getCondEval(self, runt):
 
@@ -2492,23 +2475,51 @@ class DollarExpr(RunValue, Cond):
 
         return cond
 
+async def expr_add(x, y):
+    return await toint(x) + await toint(y)
+async def expr_sub(x, y):
+    return await toint(x) - await toint(y)
+async def expr_mul(x, y):
+    return await toint(x) * await toint(y)
+async def expr_div(x, y):
+    return await toint(x) // await toint(y)
+async def expr_eq(x, y):
+    return await toprim(x) == await toprim(y)
+async def expr_ne(x, y):
+    return await toprim(x) != await toprim(y)
+async def expr_gt(x, y):
+    return await toint(x) > await toint(y)
+async def expr_lt(x, y):
+    return await toint(x) < await toint(y)
+async def expr_ge(x, y):
+    return await toint(x) >= await toint(y)
+async def expr_le(x, y):
+    return await toint(x) <= await toint(y)
+async def expr_or(x, y):
+    return await tobool(x) or await tobool(y)
+async def expr_and(x, y):
+    return await tobool(x) and await tobool(y)
+
 _ExprFuncMap = {
-    '*': lambda x, y: x * y,
-    '/': lambda x, y: x // y,
-    '+': lambda x, y: x + y,
-    '-': lambda x, y: x - y,
-    '>': lambda x, y: int(x > y),
-    '<': lambda x, y: int(x < y),
-    '>=': lambda x, y: int(x >= y),
-    '<=': lambda x, y: int(x <= y),
-    'and': lambda x, y: x and y,
-    'or': lambda x, y: x or y,
-    '=': lambda x, y: int(x == y),
-    '!=': lambda x, y: int(x != y),
+    '+': expr_add,
+    '-': expr_sub,
+    '*': expr_mul,
+    '/': expr_div,
+    '=': expr_eq,
+    '!=': expr_ne,
+    '>': expr_gt,
+    '<': expr_lt,
+    '>=': expr_ge,
+    '<=': expr_le,
+    'or': expr_or,
+    'and': expr_and,
 }
 
+async def expr_not(x):
+    return not await tobool(x)
+
 _UnaryExprFuncMap = {
-    'not': lambda x: int(not x),
+    'not': expr_not,
 }
 
 class UnaryExprNode(RunValue):
@@ -2522,10 +2533,10 @@ class UnaryExprNode(RunValue):
         self._operfunc = _UnaryExprFuncMap[oper]
 
     async def compute(self, path):
-        return self._operfunc(await self.kids[1].compute(path))
+        return await self._operfunc(await self.kids[1].compute(path))
 
     async def runtval(self, runt):
-        return self._operfunc(await self.kids[1].runtval(runt))
+        return await self._operfunc(await self.kids[1].runtval(runt))
 
 class ExprNode(RunValue):
     '''
@@ -2538,46 +2549,15 @@ class ExprNode(RunValue):
         oper = self.kids[1].value()
         self._operfunc = _ExprFuncMap[oper]
 
-    def _coerce(self, parm1, parm2):
-        '''
-        If one parameter is a string and the other is a number, convert the string parameter to a number
-        '''
-        if isinstance(parm1, str):
-
-            if parm2 is None:
-                return (parm1, parm2)
-
-            if isinstance(parm2, str):
-                return parm1, parm2
-
-            if not isinstance(parm2, (int, float)):
-                raise s_exc.BadCmprType(type1=type(parm1).__name__, type2=type(parm2).__name__)
-
-            return parseNumber(parm1), parm2
-
-        if isinstance(parm2, str):
-
-            assert not isinstance(parm1, str)
-
-            if parm1 is None:
-                return (parm1, parm2)
-
-            if not isinstance(parm1, (int, float)):
-                raise s_exc.BadCmprType(type1=type(parm1).__name__, type2=type(parm2).__name__)
-
-            return parm1, parseNumber(parm2)
-
-        return parm1, parm2
-
     async def compute(self, path):
         parm1 = await self.kids[0].compute(path)
         parm2 = await self.kids[2].compute(path)
-        return self._operfunc(*self._coerce(parm1, parm2))
+        return await self._operfunc(parm1, parm2)
 
     async def runtval(self, runt):
         parm1 = await self.kids[0].runtval(runt)
         parm2 = await self.kids[2].runtval(runt)
-        return self._operfunc(*self._coerce(parm1, parm2))
+        return await self._operfunc(parm1, parm2)
 
 class VarList(Value):
     pass
@@ -2610,6 +2590,9 @@ class Cmpr(Value):
     pass
 
 class Const(Value):
+    pass
+
+class Bool(Const):
     pass
 
 class List(Value):
@@ -2687,7 +2670,7 @@ class EditParens(Edit):
                 yield item
 
             # isolated runtime stack...
-            genr = agen()
+            genr = s_common.agen()
             for oper in self.kids:
                 genr = oper.run(runt, genr)
 
@@ -3198,9 +3181,9 @@ class BreakOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise StormBreak(item=(node, path))
+            raise s_exc.StormBreak(item=(node, path))
 
-        raise StormBreak()
+        raise s_exc.StormBreak()
 
 class ContinueOper(AstNode):
 
@@ -3211,9 +3194,9 @@ class ContinueOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise StormContinue(item=(node, path))
+            raise s_exc.StormContinue(item=(node, path))
 
-        raise StormContinue()
+        raise s_exc.StormContinue()
 
 class IfClause(AstNode):
     pass
@@ -3236,7 +3219,7 @@ class IfStmt(Oper):
             expr, subq = clause.kids
 
             exprvalu = await expr.runtval(runt)
-            if exprvalu:
+            if await tobool(exprvalu):
                 return subq
         else:
             return self.elsequery
@@ -3258,7 +3241,7 @@ class IfStmt(Oper):
                     expr, subq = clause.kids
 
                     exprvalu = await expr.compute(path)
-                    if exprvalu:
+                    if await tobool(exprvalu):
                         break
                 else:
                     subq = self.elsequery
@@ -3266,7 +3249,7 @@ class IfStmt(Oper):
             if subq:
                 assert isinstance(subq, SubQuery)
 
-                async for item in subq.inline(runt, agen((node, path))):
+                async for item in subq.inline(runt, s_common.agen((node, path))):
                     yield item
             else:
                 # If none of the if branches were executed and no else present, pass the stream through unaltered
@@ -3274,11 +3257,11 @@ class IfStmt(Oper):
 
         if count != 0 or not allcondsafe:
             return
+
         # no nodes and a runt safe value should execute the winning clause once
         subq = await self._runtsafe_calc(runt)
-
         if subq:
-            async for item in subq.inline(runt, agen()):
+            async for item in subq.inline(runt, s_common.agen()):
                 yield item
 
 class Return(Oper):
@@ -3294,13 +3277,13 @@ class Return(Oper):
             if self.kids:
                 valu = await self.kids[0].compute(path)
 
-            raise StormReturn(valu)
+            raise s_exc.StormReturn(valu)
 
         # no items in pipeline... execute
         if self.kids:
             valu = await self.kids[0].runtval(runt)
 
-        raise StormReturn(valu)
+        raise s_exc.StormReturn(valu)
 
 class FuncArgs(AstNode):
 
@@ -3383,10 +3366,10 @@ class Function(AstNode):
 
             try:
 
-                async for item in self.kids[2].run(funcrunt, agen()):
+                async for item in self.kids[2].run(funcrunt, s_common.agen()):
                     pass  # pragma: no cover
 
-            except StormReturn as e:
+            except s_exc.StormReturn as e:
                 return e.item
             except asyncio.CancelledError: # pragma: no cover
                 raise
@@ -3396,7 +3379,7 @@ class Function(AstNode):
             return None
 
         async def nodegenr():
-            async for node, path in self.kids[2].run(funcrunt, agen()):
+            async for node, path in self.kids[2].run(funcrunt, s_common.agen()):
                 await runt.propBackGlobals(funcrunt)
                 yield node
 

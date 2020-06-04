@@ -200,7 +200,6 @@ class CoreSpawnTest(s_test.SynTest):
                 # make sure graph rules work
                 msgs = await prox.storm('inet:dns:a', opts={'spawn': True, 'graph': True}).list()
                 podes = [m[1] for m in msgs if m[0] == 'node']
-
                 ndefs = list(sorted(p[0] for p in podes))
 
                 self.eq(ndefs, (
@@ -216,6 +215,21 @@ class CoreSpawnTest(s_test.SynTest):
                 self.stormIsInPrint("testcmd: ('inet:ipv4', 16909060)", msgs)
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 self.len(1, podes)
+
+                # Test a macro execution
+                msgs = await prox.storm('macro.set macrotest ${ inet:ipv4 }', opts=opts).list()
+                self.stormIsInPrint('Set macro: macrotest', msgs)
+                msgs = await prox.storm('macro.list', opts=opts).list()
+                self.stormIsInPrint('macrotest', msgs)
+                self.stormIsInPrint('owner: root', msgs)
+                msgs = await prox.storm('macro.exec macrotest', opts=opts).list()
+                podes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(1, podes)
+                self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
+                msgs = await prox.storm('macro.del macrotest', opts=opts).list()
+                self.stormIsInPrint('Removed macro: macrotest', msgs)
+                msgs = await prox.storm('macro.exec macrotest', opts=opts).list()
+                self.stormIsInErr('Macro name not found: macrotest', msgs)
 
                 # Test a simple stormlib command
                 msgs = await prox.storm('$lib.print("hello")', opts=opts).list()
@@ -390,7 +404,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                 msgs = await prox.storm('''
                     $q = $lib.queue.get(blah)
-                    for ($offs, $ipv4) in $q.gets(0, cull=0, wait=0) {
+                    for ($offs, $ipv4) in $q.gets(0, cull=$lib.false, wait=$lib.false) {
                         inet:ipv4=$ipv4
                     }
                 ''', opts=opts).list()
@@ -399,7 +413,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                 msgs = await prox.storm('''
                     $q = $lib.queue.get(blah)
-                    for ($offs, $ipv4) in $q.gets(wait=0) {
+                    for ($offs, $ipv4) in $q.gets(wait=$lib.false) {
                         inet:ipv4=$ipv4
                         $q.cull($offs)
                     }
@@ -465,7 +479,7 @@ class CoreSpawnTest(s_test.SynTest):
                     msgs = await prox.storm(q, opts=opts).list()
 
                     # Ensure that the data was put into the queue by the spawnproc
-                    q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=False, cull=False))'
+                    q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=$lib.false, cull=$lib.false))'
                     msgs = await core.stormlist(q)
                     self.stormIsInPrint("(0, 'bar')", msgs)
 
@@ -479,7 +493,7 @@ class CoreSpawnTest(s_test.SynTest):
                     rule = (True, ('queue', 'get'))
                     await woot.addRule(rule, gateiden='queue:synq')
 
-                    q = '$lib.print($lib.queue.get(synq).get(wait=False))'
+                    q = '$lib.print($lib.queue.get(synq).get(wait=$lib.false))'
                     msgs = await prox.storm(q, opts=opts).list()
                     self.stormIsInPrint("(0, 'bar')", msgs)
 

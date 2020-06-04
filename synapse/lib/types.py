@@ -1343,6 +1343,7 @@ class Str(Type):
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(bool, self._normPyBool)
 
         self.storlifts.update({
             '=': self._storLiftEq,
@@ -1398,6 +1399,9 @@ class Str(Type):
 
     def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
+
+    def _normPyBool(self, valu):
+        return self._normPyStr(str(valu).lower())
 
     def _normPyInt(self, valu):
         return self._normPyStr(str(valu))

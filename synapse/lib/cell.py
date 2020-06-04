@@ -439,6 +439,10 @@ class CellApi(s_base.Base):
         return await self.cell.listHiveKey(path=path)
 
     @adminapi()
+    async def getHiveKeys(self, path):
+        return await self.cell.getHiveKeys(path)
+
+    @adminapi()
     async def getHiveKey(self, path):
         return await self.cell.getHiveKey(path)
 
@@ -541,7 +545,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         auth_passwd = self.conf.get('auth:passwd')
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
-            await user.setPasswd(auth_passwd)
+
+            if not user.tryPasswd(auth_passwd):
+                await user.setPasswd(auth_passwd)
 
         await self._initCellDmon()
 
@@ -1187,6 +1193,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if items is None:
             return None
         return [item[0] for item in items]
+
+    async def getHiveKeys(self, path):
+        '''
+        Return a list of (name, value) tuples for nodes under the path.
+        '''
+        items = self.hive.dir(path)
+        if items is None:
+            return ()
+
+        return [(i[0], i[1]) for i in items]
 
     async def getHiveKey(self, path):
         '''

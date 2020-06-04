@@ -10,10 +10,10 @@ Features and Enhancements
 
 - Refactored Layer Storage Format
 
-This release includes significant storage optimizations for both performance and size.  However, the `2.0.0` migration
+This release includes significant storage optimizations for both performance and size.  However, the 2.0.0 migration
 contains no *model* migrations and is strictly limited to the internal LMDB layer storage format.  The new format
 provides performance enhancements that significantly improve data ingest performance and reduce the memory footprint of
-the layer.  See :ref:`200_migration` for details on migrating your `0.1.x` Cortex to `2.0.0`.
+the layer.  See :ref:`200_migration` for details on migrating your 0.1.x Cortex to 2.0.0.
 
 - View/Layer Management
 
@@ -74,7 +74,7 @@ Why make the change
     available to individually control access.
 
 What you need to do
-    The Synpase ``0.2.x`` migration tool should take care of translating all relevant permissions changes within a
+    The Synapse 2.0 migration tool should take care of translating all relevant permissions changes within a
     migrated Cortex.  However, any 3rd party code that modifies permissions should be updated to the new naming
     convention.
 
@@ -195,7 +195,7 @@ What changed
 
 Why make the change
     The root reason for this change is a complex cascade of requirements which hinge on the simple concept of populating
-    a default value.  In Synapse ``0.2.x``, nodes may be created and edited without lifting them.  This means that
+    a default value.  In Synapse 2.x, nodes may be created and edited without lifting them.  This means that
     ingest speeds can be significantly increased by taking an "upsert" approach.  However, it also has the side effect
     of making it very difficult to know if a given node already has a value specified in another layer without lifting
     and fusing the node from all the properties in all the layers within the view.  Ultimately, by removing the
@@ -221,7 +221,7 @@ Why make the change
 What you need to do
     If you're using ``data`` fields or ``node data`` to store raw bytes or other data structures that are incompatible
     with JSON serialization, you will need to migrate these values to JSON compatible structures prior to running your
-    ``2.0.0`` migration.
+    2.0.0 migration.
 
 Storm Command Argument Passing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -278,6 +278,13 @@ What you need to do
         ---
         auth:passwd: superSekri7!
         ...
+
+Streamlined Expression Syntax
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In order to streamline the arithmetic expression syntax, the ``$( )`` "dollar" expressions no longer require a leading
+``$``.  The only backward compatibility issue is for explicit "list of one item" declarations in storm.  Any list containing
+only one element must have a trailing ``,`` similar to python "tuple" syntax.  Essentially ``$var = (foo)`` as a list of one element
+needs to be updated to ``$var = (foo,)``.  All other list declarations such as ``$var = ()`` and ``$var = (foo,bar)`` are unaffected.
 
 Additional Changes
 ------------------

@@ -857,12 +857,16 @@ class CertDir:
         sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         if hostname is None:
             hostname = socket.gethostname()
+
         certfile = self.getHostCertPath(hostname)
         if certfile is None:
-            raise s_exc.NoCertKey('Missing .crt for %s' % hostname)
+            mesg = f'Missing TLS certificate file for host: {hostname}'
+            raise s_exc.NoCertKey(mesg=mesg)
+
         keyfile = self.getHostKeyPath(hostname)
         if keyfile is None:
-            raise s_exc.NoCertKey('Missing .key for %s' % hostname)
+            mesg = f'Missing TLS key file for host: {hostname}'
+            raise s_exc.NoCertKey(mesg=mesg)
 
         sslctx.load_cert_chain(certfile, keyfile)
 
