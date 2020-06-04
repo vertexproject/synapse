@@ -12,6 +12,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.grammar as s_grammar
 
@@ -1234,9 +1235,17 @@ class Data(Type):
 
     stortype = s_layer.STOR_TYPE_MSGP
 
+    def postTypeInit(self):
+        self.validator = None
+        schema = self.opts.get('schema')
+        if schema is not None:
+            self.validator = s_config.getJsValidator(schema)
+
     def norm(self, valu):
         try:
             s_common.reqjsonsafe(valu)
+            if self.validator is not None:
+                self.validator(valu)
         except s_exc.MustBeJsonSafe as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
         byts = s_msgpack.en(valu)
