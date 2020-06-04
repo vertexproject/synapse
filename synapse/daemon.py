@@ -272,7 +272,10 @@ class Daemon(s_base.Base):
 
             sslctx = None
             if scheme == 'ssl':
-                sslctx = self.certdir.getServerSSLContext(hostname=host)
+                query = info.get('query')
+                if query is not None:
+                    hostname = query.get('hostname', host)
+                sslctx = self.certdir.getServerSSLContext(hostname=hostname)
 
             server = await s_link.listen(host, port, self._onLinkInit, ssl=sslctx)
 
