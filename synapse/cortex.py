@@ -40,6 +40,7 @@ import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.macro as s_stormlib_macro
+import synapse.lib.stormlib.edgeinfo as s_stormlib_edgeinfo
 
 logger = logging.getLogger(__name__)
 
@@ -1904,6 +1905,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         for cdef in s_stormlib_macro.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
+        for cdef in s_stormlib_edgeinfo.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
     async def _initPureStormCmds(self):
         oldcmds = []
         for name, cdef in self.cmdhive.items():
@@ -1952,6 +1956,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 
         self.addStormLib(('macro',), s_stormlib_macro.LibMacro)
+        self.addStormLib(('edge',), s_stormlib_edgeinfo.LibEdge)
 
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
         self.addStormLib(('inet', 'whois'), s_stormwhois.LibWhois)
@@ -3255,6 +3260,19 @@ class Cortex(s_cell.Cell):  # type: ignore
             crons.append(info)
 
         return crons
+
+    async def addEdgeInfo(self, name):
+        '''
+        Add an edge info entry if a new edge name has been added
+        '''
+        path = ('cortex', 'storm', 'edges', name)
+
+        if not await self.getHiveKey(path):
+            edef = {
+                'info': '',
+                'edited': s_common.now(),
+            }
+            await self.setHiveKey(path, edef)
 
     async def _enableMigrationMode(self):
         '''

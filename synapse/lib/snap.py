@@ -725,6 +725,10 @@ class Snap(s_base.Base):
                     node.bylayer['tags'].pop((tag, prop), None)
                     continue
 
+                if etyp == s_layer.EDIT_EDGE_ADD:
+                    callbacks.append((self.core.addEdgeInfo, (parms[0],), {}))
+                    continue
+
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
         if actualedits:
