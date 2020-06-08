@@ -61,6 +61,7 @@ setup(
             'autopep8>=1.5.3,<2.0.0',
             'pytest-cov>=2.9.0,<3.0.0',
             'pycodestyle>=2.6.0,<3.0.0',
+            'bump2version>=1.0.0,<1.1.0',
             'pytest-xdist>=1.32.0,<2.0.0',
         ],
     },
