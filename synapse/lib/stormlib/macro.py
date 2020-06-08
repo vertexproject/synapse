@@ -8,7 +8,7 @@ macro_set_descr = '''
 Set a macro definition in the cortex.
 
 Example:
-    macro.add foobar ${ [+#foo] }
+    macro.set foobar ${ [+#foo] }
 '''
 
 macro_del_descr = '''
