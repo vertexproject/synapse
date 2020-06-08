@@ -2,7 +2,7 @@
 Synapse Changelog
 *****************
 
-v2.0.0 - 2020-xx-xx
+v2.0.0 - 2020-06-08
 ===================
 
 Features and Enhancements
