@@ -57,11 +57,11 @@ setup(
             'sphinx-rtd-theme>=0.4.2,<1.0.0',
         ],
         'dev': [
-            'pytest>=4.0.0,<5.0.0',
-            'autopep8>=1.4.3,<2.0.0',
-            'pytest-cov>=2.6.0,<3.0.0',
-            'pycodestyle>=2.4.0,<3.0.0',
-            'pytest-xdist>=1.25.0,<2.0.0',
+            'pytest>=5.0.0,<6.0.0',
+            'autopep8>=1.5.3,<2.0.0',
+            'pytest-cov>=2.9.0,<3.0.0',
+            'pycodestyle>=2.6.0,<3.0.0',
+            'pytest-xdist>=1.32.0,<2.0.0',
         ],
     },
 
