@@ -58,9 +58,9 @@ setup(
         ],
         'dev': [
             'pytest>=5.0.0,<6.0.0',
-            'autopep8>=1.4.3,<2.0.0',
+            'autopep8>=1.5.3,<2.0.0',
             'pytest-cov>=296.0,<3.0.0',
-            'pycodestyle>=2.4.0,<3.0.0',
+            'pycodestyle>=2.6.0,<3.0.0',
             'pytest-xdist>=1.32.0,<2.0.0',
         ],
     },
