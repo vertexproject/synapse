@@ -32,30 +32,31 @@ class Auth(s_nexus.Pusher):
     user defined prior and rules specific to that role or user; they do not
     duplicate the metadata of the role or user.
 
-    Node layout:
+    Node layout::
 
-    Auth root (passed into constructor)
-    ├ roles
-    │   ├ <role iden 1>
-    │   ├ ...
-    │   └ last role
-    ├ users
-    │   ├ <user iden 1>
-    │   ├ ...
-    │   └ last user
-    └ authgates
-        ├ <iden 1>
-        │   ├ roles
-        │   │   ├ <role iden 1>
-        │   │   ├ ...
-        │   │   └ last role
-        │   └ users
-        │       ├ <user iden 1>
-        │       ├ ...
-        │       └ last user
-        ├ <iden 2>
+        Auth root (passed into constructor)
+        ├ roles
+        │   ├ <role iden 1>
         │   ├ ...
-        └ ... last authgate
+        │   └ last role
+        ├ users
+        │   ├ <user iden 1>
+        │   ├ ...
+        │   └ last user
+        └ authgates
+            ├ <iden 1>
+            │   ├ roles
+            │   │   ├ <role iden 1>
+            │   │   ├ ...
+            │   │   └ last role
+            │   └ users
+            │       ├ <user iden 1>
+            │       ├ ...
+            │       └ last user
+            ├ <iden 2>
+            │   ├ ...
+            └ ... last authgate
+
     '''
 
     async def __anit__(self, node, nexsroot=None):

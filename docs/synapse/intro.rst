@@ -48,7 +48,7 @@ A Cortex produces a stream of potentially reversible changes called **splices** 
 What's New?
 ===========
 
-The release of Synapse 2.0.0 represents a large leap forward in performance and scalability.  Please see the :ref:`changelog` for a full accounting of changes and the reasons behind them.
+The release of Synapse 2.0.0 represents a large leap forward in performance and scalability.  Please see the :ref:`200_changes` for a full accounting of changes and the reasons behind them.
 
 FAQ
 ===

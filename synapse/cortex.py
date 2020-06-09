@@ -1115,21 +1115,28 @@ class Cortex(s_cell.Cell):  # type: ignore
         Set pure storm command definition.
 
         Args:
-        cdef = {
+            cdef (dict): A Pure Stormcmd definition dictionary.
 
-            'name': <name>,
+        Notes:
 
-            'cmdargs': [
-                (<name>, <opts>),
-            ]
+            The definition dictionary is formatted like the following::
 
-            'cmdconf': {
-                <str>: <valu>
-            },
+                {
 
-            'storm': <text>,
+                    'name': <name>,
 
-        }
+                    'cmdargs': [
+                        (<name>, <opts>),
+                    ]
+
+                    'cmdconf': {
+                        <str>: <valu>
+                    },
+
+                    'storm': <text>,
+
+                }
+
         '''
         name = cdef.get('name')
         await self._setStormCmd(cdef)
@@ -1464,17 +1471,34 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def setStormSvcEvents(self, iden, edef):
         '''
-        Set the event callbacks for a storm service. Extends the sdef dict
+        Set the event callbacks for a storm service. Extends the sdef dict.
 
-        edef = {
-            <name> : {
-                'storm': <storm>
-            }
-        }
+        Args:
+            iden (str): The service iden.
+            edef (dict): The events definition.
 
-        where <name> can be one of [add, del], where
-        add -- Run the given storm '*before* the service is first added (a la service.add), but not on a reconnect.
-        del -- Run the given storm *after* the service is removed (a la service.del), but not on a disconnect.
+        Notes:
+
+            The edef is formatted like the following::
+
+                {
+                    <name> : {
+                        'storm': <storm>
+                    }
+                }
+
+            where ``name`` is one of the following items:
+
+            add
+
+                Run the given storm '*before* the service is first added (a la service.add), but not on a reconnect.
+
+            del
+
+                Run the given storm *after* the service is removed (a la service.del), but not on a disconnect.
+
+        Returns:
+            dict: An updated storm service definition dictionary.
         '''
         sdef = self.stormservices.get(iden)
         if sdef is None:

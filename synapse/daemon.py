@@ -121,8 +121,8 @@ dmonwrap = (
 
 async def t2call(link, meth, args, kwargs):
     '''
-    Call the given meth(*args, **kwargs) and handle the response
-    to provide telepath task v2 events to the given link.
+    Call the given ``meth(*args, **kwargs)`` and handle the response to provide
+    telepath task v2 events to the given link.
     '''
     try:
 
