@@ -302,3 +302,8 @@ Additional Changes
   oriented. User and Role management APIs have also been exposed via Storm.
 - The ``CoreApi.splices()`` method now takes a nodeedit offset tuple instead of an integer. It now yields a offset,
   splice tuple together instead of just splices.
+- Added lightweight edges to allow for digraph edge creation in the graph which are lighter than making ``Edge`` type
+  of nodes.
+- Added Storm Macro support, to allow for storing and executiong stored Storm queries.
+- Complete View and Layer management interface available inside of Storm.
+- Complete User and Permissions management interface available inside of Storm.
