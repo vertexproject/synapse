@@ -267,6 +267,7 @@ class SubGraph:
         self.rules.setdefault('filters', ())
 
         self.rules.setdefault('refs', False)
+        self.rules.setdefault('edges', True)
         self.rules.setdefault('degrees', 1)
 
         self.rules.setdefault('filterinput', True)
@@ -329,6 +330,7 @@ class SubGraph:
 
     async def run(self, runt, genr):
 
+        doedges = self.rules.get('edges')
         degrees = self.rules.get('degrees')
         filterinput = self.rules.get('filterinput')
         yieldfiltered = self.rules.get('yieldfiltered')
@@ -369,10 +371,10 @@ class SubGraph:
                 # we must traverse the pivots for the node *regardless* of degrees
                 # due to needing to tie any leaf nodes to nodes that were already yielded
 
-                edges = set()
+                pivoedges = set()
                 async for pivn, pivp in self.pivots(runt, node, path):
 
-                    edges.add(pivn.iden())
+                    pivoedges.add(pivn.iden())
 
                     # we dont pivot from omitted nodes
                     if omitted:
@@ -391,7 +393,13 @@ class SubGraph:
                         todo.append((pivn, pivp, dist + 1))
                         await intodo.add(pivn.buid)
 
-                path.meta('edges', [(iden, {}) for iden in edges])
+                edges = [(iden, {}) for iden in pivoedges]
+
+                if doedges:
+                    async for verb, n2iden in node.iterEdgesN1():
+                        edges.append((n2iden, {'verb': verb}))
+
+                path.meta('edges', edges)
                 yield node, path
 
 class Oper(AstNode):

@@ -24,6 +24,88 @@ geotestmodel = {
     ),
 }
 
+geojson0 = {
+  "type": "GeometryCollection",
+  "bbox": [-110, -45, 110, 45],
+  "geometries": [
+    {
+      "type": "Point",
+      "coordinates": [0, 0]
+    },
+    {
+      "type": "LineString",
+      "coordinates": [[-110, 45], [110, -45]]
+    },
+    {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [100.0, 0.0],
+          [101.0, 0.0],
+          [101.0, 1.0],
+          [100.0, 1.0],
+          [100.0, 0.0]
+        ],
+        [
+          [100.8, 0.8],
+          [100.8, 0.2],
+          [100.2, 0.2],
+          [100.2, 0.8],
+          [100.8, 0.8]
+        ]
+      ]
+    }
+  ]
+}
+
+geojson1 = {
+  "type": "MultiPolygon",
+  "coordinates": [
+    [
+      [
+        [102.0, 2.0, 10],
+        [103.0, 2.0, 10],
+        [103.0, 3.0, 10],
+        [102.0, 3.0, 10],
+        [102.0, 2.0, 10]
+      ]
+    ],
+    [
+      [
+        [100.0, 0.0, 20],
+        [101.0, 0.0, 20],
+        [101.0, 1.0, 20],
+        [100.0, 1.0, 20],
+        [100.0, 0.0, 20]
+      ],
+      [
+        [100.2, 0.2, 30],
+        [100.8, 0.2, 30],
+        [100.8, 0.8, 30],
+        [100.2, 0.8, 30],
+        [100.2, 0.2, 30]
+      ]
+    ]
+  ]
+}
+
+geojson2 = {
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "1",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [0, 0]
+      },
+      "properties": {
+        "name": "basic"
+      }
+    }
+  ]
+}
+
 class GeoTstModule(s_module.CoreModule):
     def getModelDefs(self):
         return (
@@ -329,3 +411,20 @@ class GeoTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('test:latlong:dist*range=(8m, 10m)')
             self.len(1, nodes)
+
+    async def test_geojson(self):
+
+        async with self.getTestCore() as core:
+
+            with self.raises(s_exc.BadTypeValu):
+                opts = {'vars': {'geojson': {}}}
+                nodes = await core.nodes('[ geo:place=* :geojson=$geojson ]', opts=opts)
+
+            opts = {'vars': {'geojson': geojson0}}
+            nodes = await core.nodes('[ geo:place=* :geojson=$geojson ]', opts=opts)
+
+            opts = {'vars': {'geojson': geojson1}}
+            nodes = await core.nodes('[ geo:place=* :geojson=$geojson ]', opts=opts)
+
+            opts = {'vars': {'geojson': geojson2}}
+            nodes = await core.nodes('[ geo:place=* :geojson=$geojson ]', opts=opts)
