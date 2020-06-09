@@ -11,6 +11,7 @@ Welcome to the Synapse documentation!
    :caption: Contents:
 
    synapse/intro
+
    synapse/quickstart
 
    synapse/userguide
@@ -25,6 +26,7 @@ Welcome to the Synapse documentation!
    synapse/autodocs/datamodel_types
    synapse/autodocs/datamodel_forms
 
+   synapse/200_changes
    synapse/changelog
 
 Indices and tables

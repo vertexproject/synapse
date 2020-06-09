@@ -148,7 +148,7 @@ async def spawn(todo, timeout=None, ctx=None):
     Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
 
     Args:
-        todo (tuple): A tuple of function, *args, and **kwargs.
+        todo (tuple): A tuple of function, ``*args``, and ``**kwargs``.
         timeout (int): The timeout to wait for the todo function to finish.
         ctx (multiprocess.Context): A optional multiprocessing context object.
 

@@ -595,11 +595,16 @@ class Client(s_base.Base):
     '''
     A Telepath client object which reconnects and allows waiting for link up.
 
-    conf = {
-        'timeout': 10,
-        'retrysleep': 0.2,
-        'link_poolsize': 4,
-    }
+    Notes:
+
+        The conf data allows changing parameters such as timeouts, retry period, and link pool size. The default
+        conf data can be seen below::
+
+            conf = {
+                'timeout': 10,
+                'retrysleep': 0.2,
+                'link_poolsize': 4,
+            }
 
     '''
     async def __anit__(self, url, opts=None, conf=None, onlink=None):

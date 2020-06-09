@@ -22,6 +22,146 @@ distrepr = (
     (10.0, 'cm'),
 )
 
+geojsonschema = {
+
+    'definitions': {
+
+        'BoundingBox': {'type': 'array', 'minItems': 4, 'items': {'type': 'number'}},
+        'PointCoordinates': {'type': 'array', 'minItems': 2, 'items': {'type': 'number'}},
+        'LineStringCoordinates': {'type': 'array', 'minItems': 2, 'items': {'$ref': '#/definitions/PointCoordinates'}},
+        'LinearRingCoordinates': {'type': 'array', 'minItems': 4, 'items': {'$ref': '#/definitions/PointCoordinates'}},
+        'PolygonCoordinates': {'type': 'array', 'items': {'$ref': '#/definitions/LinearRingCoordinates'}},
+
+        'Point': {
+            'title': 'GeoJSON Point',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['Point']},
+                'coordinates': {'$ref': '#/definitions/PointCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+         },
+
+        'LineString': {
+            'title': 'GeoJSON LineString',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['LineString']},
+                'coordinates': {'$ref': '#/definitions/LineStringCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+         },
+
+        'Polygon': {
+            'title': 'GeoJSON Polygon',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['Polygon']},
+                'coordinates': {'$ref': '#/definitions/PolygonCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'MultiPoint': {
+            'title': 'GeoJSON MultiPoint',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiPoint']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/PointCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'MultiLineString': {
+            'title': 'GeoJSON MultiLineString',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiLineString']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/LineStringCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+         },
+
+        'MultiPolygon': {
+            'title': 'GeoJSON MultiPolygon',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiPolygon']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/PolygonCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'GeometryCollection': {
+            'title': 'GeoJSON GeometryCollection',
+            'type': 'object',
+            'required': ['type', 'geometries'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['GeometryCollection']},
+                'geometries': {'type': 'array', 'items': {'oneOf': [
+                    {'$ref': '#/definitions/Point'},
+                    {'$ref': '#/definitions/LineString'},
+                    {'$ref': '#/definitions/Polygon'},
+                    {'$ref': '#/definitions/MultiPoint'},
+                    {'$ref': '#/definitions/MultiLineString'},
+                    {'$ref': '#/definitions/MultiPolygon'},
+                ]}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'Feature': {
+            'title': 'GeoJSON Feature',
+            'type': 'object',
+            'required': ['type', 'properties', 'geometry'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['Feature']},
+                'geometry': {'oneOf': [
+                    {'type': 'null'},
+                    {'$ref': '#/definitions/Point'},
+                    {'$ref': '#/definitions/LineString'},
+                    {'$ref': '#/definitions/Polygon'},
+                    {'$ref': '#/definitions/MultiPoint'},
+                    {'$ref': '#/definitions/MultiLineString'},
+                    {'$ref': '#/definitions/MultiPolygon'},
+                    {'$ref': '#/definitions/GeometryCollection'},
+                ]},
+                'properties': {'oneOf': [{'type': 'null'}, {'type': 'object'}]},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'FeatureCollection': {
+            'title': 'GeoJSON FeatureCollection',
+            'type': 'object',
+            'required': ['type', 'features'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['FeatureCollection']},
+                'features': {'type': 'array', 'items': {'$ref': '#/definitions/Feature'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+    },
+
+    'oneOf': [
+        {'$ref': '#/definitions/Point'},
+        {'$ref': '#/definitions/LineString'},
+        {'$ref': '#/definitions/Polygon'},
+        {'$ref': '#/definitions/MultiPoint'},
+        {'$ref': '#/definitions/MultiLineString'},
+        {'$ref': '#/definitions/MultiPolygon'},
+        {'$ref': '#/definitions/GeometryCollection'},
+        {'$ref': '#/definitions/Feature'},
+        {'$ref': '#/definitions/FeatureCollection'},
+    ],
+}
+
 class Dist(s_types.Int):
 
     def postTypeInit(self):
@@ -135,6 +275,10 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'Records a node latitude/longitude in space-time.'
                     }),
 
+                    ('geo:json', ('data', {'schema': geojsonschema}), {
+                        'doc': 'GeoJSON structured JSON data.',
+                    }),
+
                     ('geo:place', ('guid', {}), {
                         'doc': 'A GUID for a geographic place.'}),
 
@@ -195,6 +339,9 @@ class GeoModule(s_module.CoreModule):
 
                         ('address', ('geo:address', {}), {
                             'doc': 'The street/mailing address for the place.'}),
+
+                        ('geojson', ('geo:json', {}), {
+                            'doc': 'A GeoJSON representation of the place.'}),
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The lat/long position for the place.'}),
