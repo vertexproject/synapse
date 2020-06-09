@@ -11,6 +11,9 @@ Welcome to the Synapse documentation!
    :caption: Contents:
 
    synapse/intro
+
+   synapse/200_changes
+
    synapse/quickstart
 
    synapse/userguide
