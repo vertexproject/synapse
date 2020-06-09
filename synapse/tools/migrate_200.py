@@ -189,7 +189,8 @@ class MigrAuth:
     '''
     Loads the Hive auth tree from 0.1.x and translates it to 2.x.x.
 
-    Instance representation of auth:
+    Instance representation of auth::
+
         usersbyname (dict): { <name>: <iden>, ... }
         usersbyiden (dict): {
             <iden>: {
@@ -225,6 +226,7 @@ class MigrAuth:
             },
             ...
         }
+
     '''
     def __init__(self, srctree, defaultview, triggers, queues, crons):
         self.defaultview = defaultview

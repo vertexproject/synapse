@@ -438,9 +438,16 @@ class SubQuery(Oper):
 
 class InitBlock(AstNode):
     '''
-    init {
-        // stuff here runs *once* before the first node yield (even if there are no nodes)
-    }
+    An AST node that runs only once before yielding nodes.
+
+    Example:
+
+        Using a init block::
+
+            init {
+                // stuff here runs *once* before the first node yield (even if there are no nodes)
+            }
+
     '''
 
     async def run(self, runt, genr):
@@ -466,9 +473,19 @@ class InitBlock(AstNode):
 
 class FiniBlock(AstNode):
     '''
-    fini {
-        // stuff here runs *once* after the last node yield (even if there are no nodes)
-    }
+    An AST node that runs only once after all nodes have been consumed.
+
+    Example:
+
+        Using a fini block::
+
+            fini {
+               // stuff here runs *once* after the last node yield (even if there are no nodes)
+            }
+
+    Notes:
+        A fini block must be runtsafe.
+
     '''
 
     async def run(self, runt, genr):
