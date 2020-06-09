@@ -1448,3 +1448,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ test:int=(18 + 2) ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 20))
+
+    async def test_ast_subgraph_light_edges(self):
+        async with self.getTestCore() as core:
+            await core.nodes('[ test:int=20 <(refs)+ { [media:news=*] } ]')
+            msgs = await core.stormlist('media:news', opts={'graph': True})
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.len(1, nodes[0][1]['path']['edges'])
+            self.eq('refs', nodes[0][1]['path']['edges'][0][1]['verb'])
