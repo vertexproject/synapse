@@ -40,7 +40,7 @@ import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.macro as s_stormlib_macro
-import synapse.lib.stormlib.edgeinfo as s_stormlib_edgeinfo
+import synapse.lib.stormlib.model as s_stormlib_model
 
 logger = logging.getLogger(__name__)
 
@@ -1905,7 +1905,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for cdef in s_stormlib_macro.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
-        for cdef in s_stormlib_edgeinfo.stormcmds:
+        for cdef in s_stormlib_model.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
@@ -1945,7 +1945,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
         self.addStormLib(('view',), s_stormtypes.LibView)
-        self.addStormLib(('model',), s_stormtypes.LibModel)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('stats',), s_stormtypes.LibStats)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
@@ -1956,7 +1955,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 
         self.addStormLib(('macro',), s_stormlib_macro.LibMacro)
-        self.addStormLib(('edge',), s_stormlib_edgeinfo.LibEdge)
+        self.addStormLib(('model',), s_stormlib_model.LibModel)
 
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
         self.addStormLib(('inet', 'whois'), s_stormwhois.LibWhois)
@@ -3260,19 +3259,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             crons.append(info)
 
         return crons
-
-    async def addEdgeInfo(self, name):
-        '''
-        Add an edge info entry if a new edge name has been added
-        '''
-        path = ('cortex', 'storm', 'edges', name)
-
-        if not await self.getHiveKey(path):
-            edef = {
-                'info': '',
-                'edited': s_common.now(),
-            }
-            await self.setHiveKey(path, edef)
 
     async def _enableMigrationMode(self):
         '''
