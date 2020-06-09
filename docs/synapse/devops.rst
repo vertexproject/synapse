@@ -34,11 +34,13 @@ For self-signed certificates, we need to generate a CA certificate and key as we
 
 The synapse ``certtool`` can be used to easily generate a CA and server certificates. For example, if we wanted
 to generate a CA certificate for "vertex"::
+
     python -m synapse.tools.easycert --ca vertex
     key saved: /home/visi/.syn/certs/cas/vertex.key
     cert saved: /home/visi/.syn/certs/cas/vertex.crt
 
 We can then generate a server certificate and keyfile pair and sign it with our new CA::
+
     python -m synapse.tools.easycert --server cortex.vertex.link --signas vertex
     key saved: /home/visi/.syn/certs/hosts/cortex.vertex.link.key
     cert saved: /home/visi/.syn/certs/hosts/cortex.vertex.link.crt

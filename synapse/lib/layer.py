@@ -1,10 +1,12 @@
 '''
 The Layer 2.0 archtecture introduces several optimized node/message serialization formats
-used by the layers to optimize returning primitives and facilitate efficient node construction.
+used by the layers to optimize returning primitives and facilitate efficient node construction:
 
-Note:  this interface is subject to change between minor revisions.
+.. note::
 
-Storage Types (<stortype>):
+    This interface is subject to change between minor revisions.
+
+Storage Types (<stortype>)
 
     In Layers 2.0, each node property from the model has an associated "storage type".  Each
     storage type determines how the data is indexed and represented within the Layer.  This
@@ -13,43 +15,45 @@ Storage Types (<stortype>):
     of the mapping of data model types to storage types is the responsibility of the data model,
     making the Layer implementation fully decoupled from the data model.
 
-Node Edits / Edits:
+Node Edits / Edits
 
     A node edit consists of a (<buid>, <form>, [edits]) tuple.  An edit is Tuple of (<type>, <info>, List[NodeEdits])
     where the first element is an int that matches to an EDIT_* constant below, the info is a tuple that varies
     depending on the first element, and the third element is a list of dependent NodeEdits that will only be applied
     if the edit actually makes a change.
 
-Storage Node (<sode>):
+Storage Node (<sode>)
 
     A storage node is a layer/storage optimized node representation which is similar to a "packed node".
     A storage node *may* be partial ( as it is produced by a given layer ) and are joined by the view/snap
     into "full" storage nodes which are used to construct Node() instances.
 
-    (<buid>, {
+    Sode format::
 
-        'ndef': (<formname>, <formvalu>),
+        (<buid>, {
 
-        'props': {
-            <propname>: <propvalu>,
-        }
+            'ndef': (<formname>, <formvalu>),
 
-        'tags': {
-            <tagname>: <tagvalu>,
-        }
-
-        'tagprops: {
-            <tagname>: {
+            'props': {
                 <propname>: <propvalu>,
-            },
-        }
+            }
 
-        # changes that were *just* made.
-        'edits': [
-            <edit>
-        ]
+            'tags': {
+                <tagname>: <tagvalu>,
+            }
 
-    }),
+            'tagprops: {
+                <tagname>: {
+                    <propname>: <propvalu>,
+                },
+            }
+
+            # changes that were *just* made.
+            'edits': [
+                <edit>
+            ]
+
+        }),
 
 '''
 import os
