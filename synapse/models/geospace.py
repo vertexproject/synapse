@@ -33,13 +33,13 @@ geojsonschema = {
         'PolygonCoordinates': {'type': 'array', 'items': {'$ref': '#/definitions/LinearRingCoordinates'}},
 
         'Point': {
-             'title': 'GeoJSON Point',
-             'type': 'object',
-             'required': ['type', 'coordinates'],
-             'properties': {
+            'title': 'GeoJSON Point',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
                 'type': {'type': 'string', 'enum': ['Point']},
-                 'coordinates': {'$ref': '#/definitions/PointCoordinates'},
-                 'bbox': {'$ref': '#/definitions/BoundingBox'},
+                'coordinates': {'$ref': '#/definitions/PointCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
             },
          },
 
@@ -55,25 +55,25 @@ geojsonschema = {
          },
 
         'Polygon': {
-          'title': 'GeoJSON Polygon',
-          'type': 'object',
-          'required': ['type', 'coordinates'],
-          'properties': {
-              'type': {'type': 'string', 'enum': ['Polygon']},
-              'coordinates': {'$ref': '#/definitions/PolygonCoordinates'},
-              'bbox': {'$ref': '#/definitions/BoundingBox'},
-          },
+            'title': 'GeoJSON Polygon',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['Polygon']},
+                'coordinates': {'$ref': '#/definitions/PolygonCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
         },
 
         'MultiPoint': {
-          'title': 'GeoJSON MultiPoint',
-          'type': 'object',
-          'required': ['type', 'coordinates'],
-          'properties': {
-              'type': {'type': 'string', 'enum': ['MultiPoint']},
-              'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/PointCoordinates'}},
-              'bbox': {'$ref': '#/definitions/BoundingBox'},
-          },
+            'title': 'GeoJSON MultiPoint',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiPoint']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/PointCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
         },
 
         'MultiLineString': {
@@ -88,14 +88,14 @@ geojsonschema = {
          },
 
         'MultiPolygon': {
-          'title': 'GeoJSON MultiPolygon',
-          'type': 'object',
-          'required': ['type', 'coordinates'],
-          'properties': {
-              'type': {'type': 'string', 'enum': ['MultiPolygon']},
-              'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/PolygonCoordinates'}},
-              'bbox': {'$ref': '#/definitions/BoundingBox'},
-          },
+            'title': 'GeoJSON MultiPolygon',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiPolygon']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/PolygonCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
         },
 
         'GeometryCollection': {
