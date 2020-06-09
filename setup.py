@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.0.0rc4'
+VERSION = '2.0.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -61,6 +61,7 @@ setup(
             'autopep8>=1.5.3,<2.0.0',
             'pytest-cov>=2.9.0,<3.0.0',
             'pycodestyle>=2.6.0,<3.0.0',
+            'bump2version>=1.0.0,<1.1.0',
             'pytest-xdist>=1.32.0,<2.0.0',
         ],
     },
