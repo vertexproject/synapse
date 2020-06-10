@@ -939,7 +939,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.false(mque.exists('woot'))
 
-
                 await mque.add('woot', {'some': 'info'})
                 self.eq(0, await mque.put('woot', 'hehe'))
                 self.eq(1, await mque.put('woot', 'haha'))
@@ -1019,7 +1018,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                         data.append(item)
 
-                        if item[1]  == 'lol0':
+                        if item[1] == 'lol0':
                             break
 
                 task = slab.schedCoro(getswait())
