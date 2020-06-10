@@ -250,6 +250,8 @@ class StormTest(s_t_utils.SynTest):
             midval = core.model.type('time').norm('2016')[0]
             maxval = core.model.type('time').norm('2017')[0]
 
+            await core.nodes('[inet:ipv4=23 inet:ipv4=24 inet:ipv4=25]')
+
             async with await core.snap() as snap:
                 # Ensure each node we make has its own discrete created time.
                 await asyncio.sleep(0.01)

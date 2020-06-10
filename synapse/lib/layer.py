@@ -1336,7 +1336,7 @@ class Layer(s_nexus.Pusher):
         '''
         results = []
 
-        for edits in [await self._storNodeEdit(e) for e in nodeedits]:
+        for edits in [await self._storNodeEdit(e, meta) for e in nodeedits]:
             results.extend(edits)
 
         if self.logedits:
@@ -1350,12 +1350,13 @@ class Layer(s_nexus.Pusher):
 
         return results
 
-    async def _storNodeEdit(self, nodeedit):
+    async def _storNodeEdit(self, nodeedit, meta):
         '''
         Execute a series of storage operations for the given node.
 
         Args:
             nodeedit
+            meta
 
         Returns a list of flattened NodeEdits (Tuple[BuidT, str, Sequence]), with top-level and subedits all at the
         top level.  The 3rd element of each item contains only the applied changes.
@@ -1374,9 +1375,20 @@ class Layer(s_nexus.Pusher):
             postedits.extend(changes)
 
             if changes:
+                if changes[0][0] == EDIT_NODE_ADD:
+                    if sode is not None:
+                        sode['ndef'] = (form, edit[1][0])
+
+                    ctime = meta.get('time') if meta is not None else None
+                    if ctime is None:
+                        ctime = s_common.now()
+
+                    created = (EDIT_PROP_SET, ('.created', ctime, None, STOR_TYPE_MINTIME))
+                    postedits.extend(self._editPropSet(buid, form, created, sode))
+
                 subedits = edit[2]
                 for ne in subedits:
-                    subpostnodeedits = await self._storNodeEdit(ne)
+                    subpostnodeedits = await self._storNodeEdit(ne, meta)
                     # Consolidate any changes from subedits to the main edit node into that nodeedit's
                     # edits, otherwise just append an entire nodeedit
                     for subpostnodeedit in subpostnodeedits:
@@ -1434,12 +1446,6 @@ class Layer(s_nexus.Pusher):
         self.formcounts.inc(form)
 
         retn = [(EDIT_NODE_ADD, (valu, stortype), ())]
-
-        if sode is not None:
-            sode['ndef'] = (form, valu)
-
-        created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_MINTIME))
-        retn.extend(self._editPropSet(buid, form, created, sode))
 
         return retn
 

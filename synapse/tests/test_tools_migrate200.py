@@ -1212,9 +1212,10 @@ class MigrationTest(s_t_utils.SynTest):
 
             # map by iden and strip out data that wont migrate
             for pode in podesj:
-                if pode[0] in NOMIGR_NDEF:
-                    continue
-                podemap[pode[1]['iden']] = {k: v for k, v in pode[1].get('props', {}).items()}
+                if pode[0] not in NOMIGR_NDEF:
+                    props = {k: v for k, v in pode[1].get('props', {}).items() if k != '.created'}
+                    if props:
+                        podemap[pode[1]['iden']] = props
 
             podemap = s_common.tuplify(podemap)
 
@@ -1237,7 +1238,7 @@ class MigrationTest(s_t_utils.SynTest):
                         bybuid = slab.initdb('bybuid')
                         for lkey, lval in slab.scanByFull(db=bybuid):
                             prop = lkey[32:].decode('utf8')
-                            if prop[0] == '*':
+                            if prop[0] == '*' or prop == '.created':
                                 slab.delete(lkey, db=bybuid)
 
                 async with await s_migr.Migrator.anit(conf) as migr:

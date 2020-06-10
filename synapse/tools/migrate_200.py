@@ -2200,8 +2200,12 @@ class Migrator(s_base.Base):
                 await wlyr.storNodeEditsNoLift(nodeedits, meta)
 
             elif addmode == 'nonexus':
+                meta = {
+                    'time': s_common.now(),
+                    'user': wlyr.layrinfo.get('creator'),
+                }
                 for ne in nodeedits:
-                    await wlyr._storNodeEdit(ne)
+                    await wlyr._storNodeEdit(ne, meta)
 
             elif addmode == 'editor':
                 # NOTE: This code must mirror Layer._editNodeAdd in synapse.lib.layer

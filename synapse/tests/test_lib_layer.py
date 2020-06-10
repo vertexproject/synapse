@@ -677,6 +677,35 @@ class LayerTest(s_t_utils.SynTest):
             nodeedits_out = await layr.storNodeEdits(nodeedits, {})
             self.notin('faz.baz', nodeedits_out[0][1]['tags'])
 
+    async def test_layer_nodeedits_created(self):
+
+        async with self.getTestCore() as core:
+
+            # if meta is not specified .created still gets populated to now
+            await core.nodes('[ test:int=1 ]')
+
+            layr = core.getLayer()
+
+            editlist = [nes async for nes in layr.iterLayerNodeEdits()]
+
+            await core.nodes('test:int=1 | delnode')
+            self.len(0, await core.nodes('test:int'))
+
+            await layr.storNodeEdits(editlist, None)
+
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+
+            created00 = nodes[0].get('.created')
+            self.nn(created00)
+
+            # edits with the same node gets the same created
+            nodes = await core.nodes('[ test:int=1 ]')
+            self.eq(created00, nodes[0].get('.created'))
+
+            nodes = await core.nodes('[ test:int=1 :loc=us +#foo]')
+            self.eq(created00, nodes[0].get('.created'))
+
     async def test_layer_nodeedits(self):
 
         async with self.getTestCoreAndProxy() as (core0, prox0):

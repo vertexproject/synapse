@@ -3720,6 +3720,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.false(core00.mirror)
 
                 await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                ip00 = await core00.nodes('[ inet:ipv4=3.3.3.3 ]')
+
                 await core00.nodes('$lib.queue.add(hehe)')
                 q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
                 await core00.nodes(q)
@@ -3739,6 +3742,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core00.nodes('queue.add visi')
 
                     await core01.sync()
+
+                    ip01 = await core01.nodes('inet:ipv4=3.3.3.3')
+                    self.eq(ip00[0].get('.created'), ip01[0].get('.created'))
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
