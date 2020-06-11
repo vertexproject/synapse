@@ -1,0 +1,32 @@
+/* Set search window background color to VTX GRAY1 */
+.wy-side-nav-search {
+    background-color: #333F48;
+}
+
+.wy-side-scroll {
+    background-color: #333F48;
+}
+
+.wy-nav-side {
+    background-color: #333F48;
+}
+
+/* Use VTX Gray 2 for the versions selection */
+
+.rst-versions {
+    background-color: #5B6770;
+}
+
+.rst-versions .rst-current-version {
+    background-color: #5B6770;
+}
+
+/* Set the logo size */
+.wy-side-nav-search>a img.logo {
+    width: fit-content;
+}
+
+/* Set the caption headers to vertex green */
+.wy-menu-vertical header, .wy-menu-vertical p.caption {
+    color: #00A000;
+}
