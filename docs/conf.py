@@ -21,8 +21,8 @@ import synapse
 
 # -- Project information -----------------------------------------------------
 
-project = 'synapse'
-copyright = '2018, The Vertex Project'
+project = 'Synapse'
+copyright = '2020, The Vertex Project'
 author = 'The Vertex Project'
 
 # The short X.Y version
@@ -42,12 +42,9 @@ release = synapse.verstring
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
 ]
-
-napoleon_google_docstring = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -82,9 +79,16 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-# html_theme = 'alabaster'
-# XXX Requires pip install sphinx_rtd_theme
 html_theme = 'sphinx_rtd_theme'
+
+# Add custom logos
+html_logo = "_static/logo.svg"
+
+html_css_files = [
+    'css/theme_overrides.css',
+]
+
+html_favicon = "_static/favicon.svg"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -111,7 +115,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'synapsedoc'
+htmlhelp_basename = 'Synapsedoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -138,7 +142,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'synapse.tex', 'synapse Documentation',
+    (master_doc, 'Synapse.tex', 'Synapse Documentation',
      'The Vertex Project', 'manual'),
 ]
 
@@ -148,7 +152,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'synapse', 'synapse Documentation',
+    (master_doc, 'synapse', 'Synapse Documentation',
      [author], 1)
 ]
 
@@ -159,8 +163,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'synapse', 'synapse Documentation',
-     author, 'synapse', 'One line description of project.',
+    (master_doc, 'Synapse', 'Synapse Documentation',
+     author, 'Synapse', 'One line description of project.',
      'Miscellaneous'),
 ]
 
@@ -184,6 +188,7 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
+
 # Our magic
 def run_apidoc(_):
     from sphinx.ext.apidoc import main
@@ -221,7 +226,6 @@ def convert_ipynb(_):
                 print(f'convert_ipynb: Notebook {fn} execution took {took} seconds.')
 
 def setup(app):
-    # app.add_stylesheet('theme_overrides.css')
     app.connect('builder-inited', run_apidoc)
     app.connect('builder-inited', run_modeldoc)
     app.connect('builder-inited', convert_ipynb)
