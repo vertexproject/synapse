@@ -25,6 +25,8 @@ Improved Documentation
 
 - Refactor ``v2.0.0`` changelog documentation.
   (`#1763 <https://github.com/vertexproject/synapse/pull/1763>`_)
+- Add Vertex branding to the Synapse documentation.
+  (`#1767 <https://github.com/vertexproject/synapse/pull/1767>`_)
 
 v2.0.0 - 2020-06-08
 ===================
