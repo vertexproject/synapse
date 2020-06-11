@@ -38,4 +38,4 @@ v0.1.X Changelog
 
 For the Synapse 0.1.x changelog, see `01x Changelog`_ located in the v0.1.x documentation.
 
-.. _01x Changelog: ../en/01x/synapse/changelog.html
+.. _01x Changelog: ../../01x/synapse/changelog.html
