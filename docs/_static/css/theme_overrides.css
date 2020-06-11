@@ -21,6 +21,11 @@
     background-color: #5B6770;
 }
 
+/* Set the logo size */
+.wy-side-nav-search>a img.logo {
+    width: fit-content;
+}
+
 /* Set the caption headers to vertex green */
 .wy-menu-vertical header, .wy-menu-vertical p.caption {
     color: #00A000;

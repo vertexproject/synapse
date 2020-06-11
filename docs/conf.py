@@ -21,7 +21,7 @@ import synapse
 
 # -- Project information -----------------------------------------------------
 
-project = 'Synapse OSE'
+project = 'Synapse'
 copyright = '2020, The Vertex Project'
 author = 'The Vertex Project'
 
