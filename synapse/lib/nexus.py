@@ -285,6 +285,9 @@ class NexsRoot(s_base.Base):
             if self._ldr is not None:
                 await self._ldr.fini()
             self._ldr = None
+        else:
+            # Before we start mirroring anything, replay the last event because we don't know if it got committed
+            await self.recover()
 
         await self._dostatechange()
 

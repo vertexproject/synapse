@@ -49,9 +49,6 @@ class SampleNexus2(SampleNexus):
     async def doathing(self, eventdict):
         return await self._push('thing:doathing', eventdict, 'bar')
 
-    async def _thing2handler(self):
-        return self
-
 class NexusTest(s_t_utils.SynTest):
     async def test_nexus(self):
         with self.getTestDir() as dirn:

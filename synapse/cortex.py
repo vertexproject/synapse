@@ -887,8 +887,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
-        await self.postNexsAnit()
-
         if self.mirror is not None:
             await self._initCoreMirror(self.mirror)
 
@@ -906,7 +904,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def startCortexLeader(self):
         '''
-        Indempotent actions that are done when a Cortex is a leader.
+        Run things that only a leader Cortex runs.
         '''
         if self.conf.get('cron:enable'):
             await self.agenda.start()
@@ -914,7 +912,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def stopCortexLeader(self):
         '''
-        Indempotent actions that are done when a Cortex is not a leader.
+        Stop things that only a leader Cortex runs.
         '''
         await self.agenda.stop()
         await self.stormdmons.stop()

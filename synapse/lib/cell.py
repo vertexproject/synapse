@@ -569,13 +569,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'cell': self
         }
 
-    async def postNexsAnit(self):
-        '''
-        This must be called near the end of subclass initialization, after all the subsystems that allow nexus log
-        entries to be executed, but before any new changes can be initiated.
-        '''
-        await self.nexsroot.recover()
-
     async def _initNexsRoot(self):
         nexsroot = await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
         self.onfini(nexsroot.fini)
