@@ -223,11 +223,11 @@ univpropvalu: univprop
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 
-// An unquoted storm string constant.  Must start with a word char, ?, or - and not contain certain punctuation
-NONQUOTEWORD: /[\w\-\+\?\*\/\\][^ \t\n),=\]}|]*/
+// An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
+NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^ \t\n),=\]}|]*/
 
-// An unquoted string within a whitespace list
-WORDTOKN: /[\w\+\-\?\*\/\\][^ \t\r\n\=\|\}\)]*/
+// An unquoted string within a storm command argument list
+WORDTOKN: /(?!\/\/)[\w\+\-\?\*\/\\][^ \t\r\n\=\|\}\)]*/
 
 // An unquoted string within a list syntax
 LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
