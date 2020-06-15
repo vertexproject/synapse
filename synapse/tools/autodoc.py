@@ -9,7 +9,9 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
+import synapse.lib.dyndeps as s_dyndeps
 
 logger = logging.getLogger(__name__)
 
@@ -347,6 +349,54 @@ async def docModel(outp,
     # outp.printf(rst2.getRstText())
     return rst, rst2
 
+async def doc_confdefcs(ctor):
+    cls = s_dyndeps.tryDynLocal(ctor)
+
+    print(cls)
+
+    if not hasattr(cls, 'confdefs'):
+        raise Exception('ctor must have a confdefs attr')
+
+    rst = RstHelp()
+    print(cls.confdefs)
+    clsname = cls.__name__
+    conf = cls.initCellConf()
+    print(conf)
+
+    rst.addHead(f'{clsname} Configuration Options', lvl=0)
+
+    # access raw config data
+
+    # Get raw envars
+    name2envar = conf.getEnvarMapping()
+
+    # Get argparse mappping?
+
+    schema = conf.json_schema.get('properties', {})
+
+    for name, conf in sorted(schema.items(), key=lambda x: x[0]):
+
+        nodesc = f'No description avilable for ``{name}``.'
+        print(name, conf)
+        hname = name
+        if ':' in name:
+            hname = name.replace(':', raw_back_slash_colon)
+
+        rst.addHead(hname, lvl=1)
+
+        desc = conf.get('description', nodesc)
+        lines = []
+        lines.append(desc)
+
+        envar = name2envar.get(name)
+        if envar:
+            lines.append(f'This option can be resolved via the environment variable: {envar}')
+
+        rst.addLines(*lines)
+
+    return rst, clsname
+
+
 async def main(argv, outp=None):
 
     if outp is None:
@@ -372,6 +422,17 @@ async def main(argv, outp=None):
             with open(s_common.genpath(opts.savedir, 'datamodel_forms.rst'), 'wb') as fd:
                 fd.write(rstforms.getRstText().encode())
 
+    if opts.doc_cell:
+        confdocs, cname = await doc_confdefcs(opts.doc_cell)
+
+        print(confdocs, cname)
+
+        if opts.savedir:
+            with open(s_common.genpath(opts.savedir, f'confdefs_{cname}.rst'), 'wb') as fd:
+                fd.write(confdocs.getRstText().encode())
+
+        print(confdocs.getRstText())
+
     return 0
 
 def makeargparser():
@@ -382,8 +443,12 @@ def makeargparser():
                       help='Cortex URL for model inspection')
     pars.add_argument('--savedir', default=None,
                       help='Save output to the given directory')
-    pars.add_argument('--doc-model', action='store_true', default=False,
-                      help='Generate RST docs for the DataModel within a cortex')
+    doc_type = pars.add_mutually_exclusive_group()
+    doc_type.add_argument('--doc-model', action='store_true', default=False,
+                          help='Generate RST docs for the DataModel within a cortex')
+    doc_type.add_argument('--doc-cell', default=None,
+                          help='Generate RST docs for the Confdefs for a given Cell ctor')
+
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
