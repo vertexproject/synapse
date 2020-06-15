@@ -6,6 +6,15 @@
 Synapse DevOps Guide
 ####################
 
+
+.. toctree::
+    :titlesonly:
+
+    autodocs/conf_axon
+    autodocs/conf_cortex
+    autodocs/conf_cryocell
+
+
 General
 =======
 

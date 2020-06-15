@@ -364,19 +364,23 @@ async def doc_confdefcs(ctor):
     print(conf)
 
     rst.addHead(f'{clsname} Configuration Options', lvl=0)
+    rst.addLines(f'The following are boot-time configuration options for a {clsname}')
+
+    # FIXME Make this a parameter so we can link from non-synapse stacks here.
+    rst.addLines(f'See :ref:`devops_cell_config` for details on how to set these options..')
 
     # access raw config data
 
     # Get raw envars
     name2envar = conf.getEnvarMapping()
-
+    name2cmdline = {}
     # Get argparse mappping?
 
     schema = conf.json_schema.get('properties', {})
 
     for name, conf in sorted(schema.items(), key=lambda x: x[0]):
 
-        nodesc = f'No description avilable for ``{name}``.'
+        nodesc = f'No description available for ``{name}``.'
         print(name, conf)
         hname = name
         if ':' in name:
@@ -388,9 +392,29 @@ async def doc_confdefcs(ctor):
         lines = []
         lines.append(desc)
 
+        # Type/additional information
+
+        lines.append('\n')
+        # lines.append('Configuration properties:\n')
+
+        ctyp = conf.get('type')
+        lines.append('Type')
+        lines.append(f'    {ctyp}\n')
+
+        defval = conf.get('default', s_common.novalu)
+        if defval is not s_common.novalu:
+            lines.append('Default Value')
+            lines.append(f'    ``{repr(defval)}``\n')
+
         envar = name2envar.get(name)
         if envar:
-            lines.append(f'This option can be resolved via the environment variable: {envar}')
+            lines.append('Environment Variable')
+            lines.append(f'    {envar}\n')
+
+        cmdline = name2cmdline.get(name)
+        if cmdline:
+            lines.append('Command Line Argument')
+            lines.append(f'    --{cmdline}\n')
 
         rst.addLines(*lines)
 
@@ -428,7 +452,7 @@ async def main(argv, outp=None):
         print(confdocs, cname)
 
         if opts.savedir:
-            with open(s_common.genpath(opts.savedir, f'confdefs_{cname}.rst'), 'wb') as fd:
+            with open(s_common.genpath(opts.savedir, f'conf_{cname.lower()}.rst'), 'wb') as fd:
                 fd.write(confdocs.getRstText().encode())
 
         print(confdocs.getRstText())

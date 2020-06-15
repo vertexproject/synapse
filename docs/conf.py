@@ -208,6 +208,20 @@ def run_modeldoc(_):
             '--savedir', './docs/synapse/autodocs']
     subprocess.run(args, cwd=synpd)
 
+def run_confdocs(_):
+    import synapse
+    import subprocess
+    abssynf = os.path.abspath(synapse.__file__)
+    synbd = os.path.split(abssynf)[0]  # Split off __init__
+    synpd = os.path.split(synbd)[0]  # split off the synapse module directory
+    baseargs = ['python', '-m', 'synapse.tools.autodoc', '--savedir',
+                './docs/synapse/autodocs', '--doc-cell']
+    ctors = ('synapse.axon.Axon', 'synapse.cortex.Cortex', 'synapse.cryotank.CryoCell')
+    for ctor in ctors:
+        args = baseargs.copy()
+        args.append(ctor)
+        subprocess.run(args, cwd=synpd)
+
 def convert_ipynb(_):
     import synapse.common as s_common
     import nbconvert.nbconvertapp as nba
@@ -228,4 +242,5 @@ def convert_ipynb(_):
 def setup(app):
     app.connect('builder-inited', run_apidoc)
     app.connect('builder-inited', run_modeldoc)
+    app.connect('builder-inited', run_confdocs)
     app.connect('builder-inited', convert_ipynb)
