@@ -20,5 +20,6 @@ updated and expanded over time.
     autodocs/conf_axon
     autodocs/conf_cortex
     autodocs/conf_cryocell
+    autodocs/conf_syncmigrator
 
 .. _index:              ../index.html

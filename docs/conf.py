@@ -216,7 +216,11 @@ def run_confdocs(_):
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
     baseargs = ['python', '-m', 'synapse.tools.autodoc', '--savedir',
                 './docs/synapse/autodocs', '--doc-cell']
-    ctors = ('synapse.axon.Axon', 'synapse.cortex.Cortex', 'synapse.cryotank.CryoCell')
+    ctors = ('synapse.axon.Axon',
+             'synapse.cortex.Cortex',
+             'synapse.cryotank.CryoCell',
+             'synapse.tools.sync_200.SyncMigrator',
+             )
     for ctor in ctors:
         args = baseargs.copy()
         args.append(ctor)
