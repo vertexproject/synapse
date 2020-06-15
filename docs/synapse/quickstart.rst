@@ -87,6 +87,7 @@ The following docker-compose.yml file can be used to deploy a Cortex server usin
             image: vertexproject/synapse-cortex:v2.x.x
 
             volumes:
+                # Map in a persistent storage directory
                 - /path/to/storage:/vertex/storage
 
             environment:
@@ -94,7 +95,9 @@ The following docker-compose.yml file can be used to deploy a Cortex server usin
                 - SYN_CORTEX_AUTH_PASSWD=secretsauce
 
             ports:
+                # Default https port
                 - "4443:4443"
+                # Default telepath port
                 - "27492:27492"
 
 The server may then be started using typical docker-compose commands or more advanced orchestration.
