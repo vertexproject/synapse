@@ -352,16 +352,13 @@ async def docModel(outp,
 async def docConfdefs(ctor, reflink=':ref:`devops_cell_config`'):
     cls = s_dyndeps.tryDynLocal(ctor)
 
-    print(cls)
-
     if not hasattr(cls, 'confdefs'):
         raise Exception('ctor must have a confdefs attr')
 
     rst = RstHelp()
-    print(cls.confdefs)
+
     clsname = cls.__name__
     conf = cls.initCellConf()  # type: s_config.Config
-    print(conf)
 
     rst.addHead(f'{clsname} Configuration Options', lvl=0)
     rst.addLines(f'The following are boot-time configuration options for a {clsname}')
@@ -381,7 +378,6 @@ async def docConfdefs(ctor, reflink=':ref:`devops_cell_config`'):
     for name, conf in sorted(schema.items(), key=lambda x: x[0]):
 
         nodesc = f'No description available for ``{name}``.'
-        print(name, conf)
         hname = name
         if ':' in name:
             hname = name.replace(':', raw_back_slash_colon)
@@ -389,8 +385,16 @@ async def docConfdefs(ctor, reflink=':ref:`devops_cell_config`'):
         rst.addHead(hname, lvl=1)
 
         desc = conf.get('description', nodesc)
+        if not desc.endswith('.'):  # pragma: no cover
+            logger.warning(f'Description for [{name}] is missing a period.')
+
         lines = []
         lines.append(desc)
+
+        extended_description = conf.get('extended_description')
+        if extended_description:
+            lines.append('\n')
+            lines.append(extended_description)
 
         # Type/additional information
 
@@ -449,13 +453,9 @@ async def main(argv, outp=None):
     if opts.doc_cell:
         confdocs, cname = await docConfdefs(opts.doc_cell)
 
-        print(confdocs, cname)
-
         if opts.savedir:
             with open(s_common.genpath(opts.savedir, f'conf_{cname.lower()}.rst'), 'wb') as fd:
                 fd.write(confdocs.getRstText().encode())
-
-        print(confdocs.getRstText())
 
     return 0
 
