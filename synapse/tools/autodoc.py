@@ -349,7 +349,7 @@ async def docModel(outp,
     # outp.printf(rst2.getRstText())
     return rst, rst2
 
-async def docConfdefs(ctor, reflink=':ref:`devops_cell_config`'):
+async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
     cls = s_dyndeps.tryDynLocal(ctor)
 
     if not hasattr(cls, 'confdefs'):
@@ -471,7 +471,7 @@ def makeargparser():
                           help='Generate RST docs for the DataModel within a cortex')
     doc_type.add_argument('--doc-cell', default=None,
                           help='Generate RST docs for the Confdefs for a given Cell ctor')
-    pars.add_argument('--doc-cell-reflink', default=':ref:`devops_cell_config`',
+    pars.add_argument('--doc-cell-reflink', default=':ref:`devops-cell-config`',
                       help='Reference link for how to set the cell configuration options.')
 
     return pars

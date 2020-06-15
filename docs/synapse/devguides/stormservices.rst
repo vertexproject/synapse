@@ -27,7 +27,7 @@ A Storm service generally implements the following components:
 Connecting a service
 --------------------
 
-For instructions on configuring and starting a Cell service see :ref:`devops_cell_config`.
+For instructions on configuring and starting a Cell service see :ref:`devops-cell-config`.
 
 Before connecting a service to a Cortex it is best practice to add a new user to the service Cell (see :ref:`initial-roles`).
 
