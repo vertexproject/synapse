@@ -363,7 +363,6 @@ async def docConfdefs(ctor, reflink=':ref:`devops_cell_config`'):
     rst.addHead(f'{clsname} Configuration Options', lvl=0)
     rst.addLines(f'The following are boot-time configuration options for a {clsname}')
 
-    # FIXME Make this a parameter so we can link from non-synapse stacks here.
     rst.addLines(f'See {reflink} for details on how to set these options.')
 
     # access raw config data
