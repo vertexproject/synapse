@@ -367,10 +367,9 @@ async def docConfdefs(ctor, reflink=':ref:`devops_cell_config`'):
 
     # access raw config data
 
-    # Get raw envars
+    # Get envar and argparse mapping
     name2envar = conf.getEnvarMapping()
     name2cmdline = conf.getCmdlineMapping()
-    # Get argparse mappping?
 
     schema = conf.json_schema.get('properties', {})
 
