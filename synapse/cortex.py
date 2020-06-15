@@ -887,8 +887,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
-        if self.mirror is not None:
-            await self._initCoreMirror(self.mirror)
+        await self.nexsroot.setLeader(self.mirror, self.iden)
 
         # Fire the leadership hook once at boot
         await self.onLeaderChange(self.nexsroot.amLeader())
@@ -1853,15 +1852,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             if user.iden == mesg[1]['user'] or user.isAdmin():
                 yield mesg
-
-    async def _initCoreMirror(self, url):
-        '''
-        Initialize this cortex as a down-stream/follower mirror from a telepath url.
-
-        Note:
-            This cortex *must* be initialized from a backup of the target cortex!
-        '''
-        await self.nexsroot.setLeader(url, self.iden)
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
