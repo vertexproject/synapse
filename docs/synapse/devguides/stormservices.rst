@@ -6,9 +6,12 @@ Storm Service Development
 Anatomy of a Storm Service
 ==========================
 
-A Storm :ref:`gloss-service` is a standalone application that extends the capabilities of the Cortex.
+A Storm Service (see :ref:`gloss-service`) is a standalone application that extends the capabilities of the Cortex.
 One common use case for creating a service is to add a Storm command that will query third-party data,
 translate the results into the Synapse datamodel, and then ingest them into the hypergraph.
+
+In order to leverage core functionalities it is recommended that Storm services are created as Cell implementations,
+and the documentation that follows will assume this. For additional information see :ref:`dev_architecture`.
 
 A Storm service generally implements the following components:
 
@@ -19,31 +22,20 @@ A Storm service generally implements the following components:
     - The service name, version, packages, and events as defined in ``synapse.lib.StormSvc``.
     - Custom methods which will be accessible as Telepath API endpoints, and therefore available for use within defined Storm commands.
 
-- A subclass of ``synapse.lib.Cell`` which includes additional configuration defintions (``confdefs``) that the Storm service requires. Typically the methods required to implement the service functionality are contained here, and are called within the Cell API.
-
-Service startup
----------------
-
-Since Storm services are Cell implementations, there are helpers available to simplify startup configuration.
-For example, if ``MySvc`` is the new custom subclass of ``synapse.lib.Cell``, ``MySvc.execmain(sys.argv[1:])`` can be used
-to run it as a main module.  The service specific configuration definitions will be available as command line options (``--<mysvcconf1>``)
-and environment variables (``MYSVC_<mysvcconf1>``).
-
-A simple startup command, which includes configurations inherited from the Cell, might look as follows
-(assuming that the service components live in a ``service.py`` file)::
-
-    python -m synmods.mysvc.service --telepath tcp://0.0.0.0:27495 --https 2443 --<mysvcconf1> foo <service_cell_dirn>
+- A subclass of ``synapse.lib.Cell`` which includes additional configuration defintions and methods required to implement the service.
 
 Connecting a service
 --------------------
 
-Before connecting a service to a Cortex it is best practice to add a new user to the service Cell (:ref:`initial-roles`).
+For instructions on configuring and starting a Cell service see :ref:`devops_cell_config`.
+
+Before connecting a service to a Cortex it is best practice to add a new user to the service Cell (see :ref:`initial-roles`).
 
 A Storm command can then be run on the Cortex to add the new service::
 
     service.add mysvc tcp://<username>:<passwd>@<service_ip>:27495
 
-Permissions to access the service can be added by adding the ``service.get.<svc_iden>`` rule to the appropriate users / roles.
+Permissions to access the service can be granted by adding the ``service.get.<svc_iden>`` rule to the appropriate users / roles.
 
 The new Storm commands will now be available for use, and are included in Storm ``help``.
 
@@ -57,7 +49,7 @@ Implementation
 
 Multiple Storm commands can be added to a Storm service package, with each defining the following attributes:
 
-    - ``name``: Name of Storm command to surface in the Cortex.
+    - ``name``: Name of the Storm command to surface in the Cortex.
     - ``descr``: Description of the command which will be available in ``help`` displays.
     - ``cmdargs``: An optional list of arguments for the command.
     - ``cmdconf``: An optional dictionary of additional configuration variables to provide to the command Storm execution.
