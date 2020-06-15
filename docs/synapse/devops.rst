@@ -9,6 +9,47 @@ Synapse DevOps Guide
 General
 =======
 
+Backups
+-------
+
+It is strongly recommended that users schedule regular backups of all services deployed within their **Synapse**
+ecosystem. Each service can be backed up using the **Synapse** backup tool: ``synapse.tools.backup``.
+
+The **Synapse** service architecture is designed to contain everything a service needs within the directory you
+specify during service startup.  Take, for example, a **Cortex** started with::
+    python -m synapse.servers.cortex /data/cortex00
+
+The **Cortex** will be completely contained within the service working directory ``/data/cortex00``. The synapse tool
+``synapse.tools.backup`` may be used to create a backup copy of this working directory which may then be restored.
+
+It is important that you use ``synapse.tools.backup`` rather than simply copying the directory.
+
+It is also worth noting that the newly created backup is a defragmented / optimized copy of all database data
+structures.  As such, we recommend occasionally scheduling a maintenance window to create a "cold backup" with the
+service offline and deploy the backup copy when bringing the service back online.  Regularly performing this
+"restore from cold backup" procedure can dramatically improve performance and resource utilization.
+
+Running A Backup
+****************
+
+Continuing our previous example, running a backup is as simple as::
+    python -m synapse.tools.backup /data/cortex00 /backups/cortex00_`date +%Y%m%d`
+
+Assuming that your backup was run on ``May 19, 2020``, this would create a backup in the directory ``/backups/cortex00_20200519``.
+
+The backup command can be run on a live service. Depending on your configuration, creating a live backup
+of your service can temporarily degrade performance of the running service. As such, it may be best to schedule
+backups during low utilization time windows.
+
+Restoring From Backup
+*********************
+
+In the event that restoring from backup is necessary, simply move the service working directory and
+copy a previous backup directory to the service working directory location.  From our previous example,
+this would involve running the following shell commands::
+    mv /data/cortex00 /data/cortex00_old
+    cp -R /backups/cortex00_20200519 /data/cortex00
+
 TLS/SSL Deployments
 -------------------
 
