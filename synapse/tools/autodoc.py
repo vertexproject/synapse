@@ -364,7 +364,7 @@ async def docConfdefs(ctor, reflink=':ref:`devops_cell_config`'):
     rst.addLines(f'The following are boot-time configuration options for a {clsname}')
 
     # FIXME Make this a parameter so we can link from non-synapse stacks here.
-    rst.addLines(f'See :ref:`devops_cell_config` for details on how to set these options..')
+    rst.addLines(f'See {reflink} for details on how to set these options.')
 
     # access raw config data
 
@@ -451,7 +451,8 @@ async def main(argv, outp=None):
                 fd.write(rstforms.getRstText().encode())
 
     if opts.doc_cell:
-        confdocs, cname = await docConfdefs(opts.doc_cell)
+        confdocs, cname = await docConfdefs(opts.doc_cell,
+                                            reflink=opts.doc_cell_reflink)
 
         if opts.savedir:
             with open(s_common.genpath(opts.savedir, f'conf_{cname.lower()}.rst'), 'wb') as fd:
@@ -472,6 +473,8 @@ def makeargparser():
                           help='Generate RST docs for the DataModel within a cortex')
     doc_type.add_argument('--doc-cell', default=None,
                           help='Generate RST docs for the Confdefs for a given Cell ctor')
+    pars.add_argument('--doc-cell-reflink', default=':ref:`devops_cell_config`',
+                      help='Reference link for how to set the cell configuration options.')
 
     return pars
 
