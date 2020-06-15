@@ -349,7 +349,7 @@ async def docModel(outp,
     # outp.printf(rst2.getRstText())
     return rst, rst2
 
-async def doc_confdefcs(ctor):
+async def docConfdefs(ctor, reflink=':ref:`devops_cell_config`'):
     cls = s_dyndeps.tryDynLocal(ctor)
 
     print(cls)
@@ -360,7 +360,7 @@ async def doc_confdefcs(ctor):
     rst = RstHelp()
     print(cls.confdefs)
     clsname = cls.__name__
-    conf = cls.initCellConf()
+    conf = cls.initCellConf()  # type: s_config.Config
     print(conf)
 
     rst.addHead(f'{clsname} Configuration Options', lvl=0)
@@ -373,7 +373,7 @@ async def doc_confdefcs(ctor):
 
     # Get raw envars
     name2envar = conf.getEnvarMapping()
-    name2cmdline = {}
+    name2cmdline = conf.getCmdlineMapping()
     # Get argparse mappping?
 
     schema = conf.json_schema.get('properties', {})
@@ -399,7 +399,7 @@ async def doc_confdefcs(ctor):
 
         ctyp = conf.get('type')
         lines.append('Type')
-        lines.append(f'    {ctyp}\n')
+        lines.append(f'    ``{ctyp}``\n')
 
         defval = conf.get('default', s_common.novalu)
         if defval is not s_common.novalu:
@@ -409,12 +409,12 @@ async def doc_confdefcs(ctor):
         envar = name2envar.get(name)
         if envar:
             lines.append('Environment Variable')
-            lines.append(f'    {envar}\n')
+            lines.append(f'    ``{envar}``\n')
 
         cmdline = name2cmdline.get(name)
         if cmdline:
             lines.append('Command Line Argument')
-            lines.append(f'    --{cmdline}\n')
+            lines.append(f'    ``--{cmdline}``\n')
 
         rst.addLines(*lines)
 
@@ -447,7 +447,7 @@ async def main(argv, outp=None):
                 fd.write(rstforms.getRstText().encode())
 
     if opts.doc_cell:
-        confdocs, cname = await doc_confdefcs(opts.doc_cell)
+        confdocs, cname = await docConfdefs(opts.doc_cell)
 
         print(confdocs, cname)
 

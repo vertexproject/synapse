@@ -137,6 +137,7 @@ class Config(c_abc.MutableMapping):
             conf = {}
         self.conf = conf
         self._argparse_conf_names = {}
+        self._argparse_conf_parsed_names = {}
         self.envar_prefix = envar_prefix
         self.validator = getJsValidator(self.json_schema)
 
@@ -183,10 +184,17 @@ class Config(c_abc.MutableMapping):
             parsed_name = name.replace(':', '-')
             replace_name = name.replace(':', '_')
             self._argparse_conf_names[replace_name] = name
+            self._argparse_conf_parsed_names[name] = parsed_name
             argname = '--' + parsed_name
             argdata.append((argname, akwargs))
 
         return argdata
+
+    def getCmdlineMapping(self):
+        if not self._argparse_conf_parsed_names:
+            # Giv a shot at populating the data
+            _ = self.getArgParseArgs()
+        return {k: v for k, v in self._argparse_conf_parsed_names.items()}
 
     def setConfFromOpts(self, opts):
         '''
