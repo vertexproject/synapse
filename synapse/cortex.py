@@ -700,10 +700,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote axon.',
             'type': 'string'
         },
-        'mirror': {
-            'description': 'Run a mirror of the cortex at the given telepath URL. (we must be a backup!)',
-            'type': 'string'
-        },
         'cron:enable': {
             'default': True,
             'description': 'Enable cron jobs running.',
@@ -768,6 +764,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
+        # NOTE: we may not make *any* nexus changes until after postNexsAnit()
+
         if self.inaugural:
             await self.cellinfo.set('cortex:version', s_version.version)
 
@@ -786,7 +784,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.feedfuncs = {}
         self.stormcmds = {}
 
-        self.isleader = None
         self.spawnpool = None
         self.mirror = self.conf.get('mirror')
 
@@ -865,8 +862,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
         pkghive = await self.hive.open(('cortex', 'storm', 'packages'))
+        svchive = await self.hive.open(('cortex', 'storm', 'services'))
         self.cmdhive = await cmdhive.dict()
         self.pkghive = await pkghive.dict()
+        self.svchive = await svchive.dict()
 
         # Finalize coremodule loading & give stormservices a shot to load
         await self._initCoreMods()
@@ -888,34 +887,15 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.postNexsAnit()
 
-        if self.mirror is not None:
-            await self._initCoreMirror(self.mirror)
-
-        # Fire the leadership hook once at boot
-        await self.onLeaderChange(self.nexsroot.amLeader())
-
-    async def onLeaderChange(self, leader):
-        self.isleader = leader
-        # One shot to initialize storm services
-        if self.stormservices is None:
-            await self._initStormSvcs()
-        if leader:
-            return await self.startCortexLeader()
-        return await self.stopCortexLeader()
-
-    async def startCortexLeader(self):
-        '''
-        Indempotent actions that are done when a Cortex is a leader.
-        '''
+    async def initCellLeader(self):
         if self.conf.get('cron:enable'):
             await self.agenda.start()
+        await self._initStormSvcs()
         await self.stormdmons.start()
 
-    async def stopCortexLeader(self):
-        '''
-        Indempotent actions that are done when a Cortex is not a leader.
-        '''
+    async def initCellFollower(self):
         await self.agenda.stop()
+        await self._finiStormSvcs()
         await self.stormdmons.stop()
 
     async def _onEvtBumpSpawnPool(self, evnt):
@@ -1086,11 +1066,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _initStormSvcs(self):
 
-        node = await self.hive.open(('cortex', 'storm', 'services'))
-
-        self.stormservices = await node.dict()
-
-        for iden, sdef in self.stormservices.items():
+        for iden, sdef in self.svchive.items():
 
             try:
                 await self._setStormSvc(sdef)
@@ -1100,6 +1076,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             except Exception as e:
                 logger.warning(f'initStormService ({iden}) failed: {e}')
+
+    async def _finiStormSvcs(self):
+        # TODO
+        pass
 
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
@@ -1433,7 +1413,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         try:
-            if self.isleader:
+            if await self.isLeader():
                 await self.runStormSvcEvent(iden, 'del')
         except asyncio.CancelledError:  # pragma: no cover
             raise
@@ -1855,14 +1835,14 @@ class Cortex(s_cell.Cell):  # type: ignore
             if user.iden == mesg[1]['user'] or user.isAdmin():
                 yield mesg
 
-    async def _initCoreMirror(self, url):
-        '''
-        Initialize this cortex as a down-stream/follower mirror from a telepath url.
+    #async def _initCoreMirror(self, url):
+        #'''
+        #Initialize this cortex as a down-stream/follower mirror from a telepath url.
 
-        Note:
-            This cortex *must* be initialized from a backup of the target cortex!
-        '''
-        await self.nexsroot.setLeader(url, self.iden)
+        #Note:
+            #This cortex *must* be initialized from a backup of the target cortex!
+        #'''
+        #await self.nexsroot.setLeader(url, self.iden)
 
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
@@ -2227,7 +2207,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             view.init2()
 
         # if we have no views, we are initializing.  Add a default main view and layer.
-        if not self.views:
+        if not self.views and await self.isLeader():
             ldef = await self.addLayer()
             layriden = ldef.get('iden')
             vdef = {

@@ -76,6 +76,9 @@ class Auth(s_nexus.Pusher):
         self.rolesbyname = {}
         self.authgates = {}
 
+        self.allrole = None
+        self.rootuser = None
+
         roles = await self.node.open(('roles',))
         for _, node in roles:
             await self._addRoleNode(node)
@@ -112,6 +115,16 @@ class Auth(s_nexus.Pusher):
             [await a.fini() for a in self.authgates.values()]
 
         self.onfini(fini)
+
+    async def initDefAuths(self):
+
+        self.rootuser = await self.getUserByName('root')
+        if self.rootuser is None and await self.isLeader():
+            self.rootuser = await self.addUser('root')
+
+        self.allrole = await self.getRoleByName('all')
+        if self.allrole is None and await self.isLeader():
+            self.allrole = await self.addRole('all')
 
     def users(self):
         return self.usersbyiden.values()

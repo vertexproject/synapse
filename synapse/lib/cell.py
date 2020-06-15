@@ -67,7 +67,6 @@ def adminapi(log=False):
 
     return decrfunc
 
-
 class CellApi(s_base.Base):
 
     async def __anit__(self, cell, link, user):
@@ -477,6 +476,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
+        'cell:guid': {
+            'description': 'An optional hard-coded GUID to store as the permanent GUID for the cell.',
+            'type': 'string',
+        },
+        'mirror': {
+            'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
+            'type': 'string',
+        },
         'auth:passwd': {
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
             'type': 'string'
@@ -489,6 +496,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
 
     async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
+
+        if conf is None:
+            conf = {}
 
         s_telepath.Aware.__init__(self)
 
@@ -503,16 +513,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # generate a guid file if needed
         if not os.path.isfile(path):
+
             self.inaugural = True
+
+            guid = conf.get('cell:guid')
+            if guid is None:
+                guid = s_common.guid()
+
             with open(path, 'w') as fd:
-                fd.write(s_common.guid())
+                fd.write(guid)
 
         # read our guid file
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
-
-        if conf is None:
-            conf = {}
 
         self.conf = self._initCellConf(conf)
 
@@ -571,12 +584,25 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def postNexsAnit(self):
         '''
-        This must be called near the end of subclass initialization, after all the subsystems that allow nexus log
+        This must be called near the end of subclass initialization.  Specifically, it must be
+        called after the system is ready to process incoming changes but before it has generated any.
         entries to be executed, but before any new changes can be initiated.
         '''
         await self.nexsroot.recover()
 
+        mirror = self.conf.get('mirror')
+        if mirror is not None:
+            await self.nexsroot.setLeader(mirror, self.iden)
+
+        await self.onLeaderChange(await self.isLeader())
+
+        # initialize default auth users/roles
+        await self.auth.initDefAuths()
+
     async def _initNexsRoot(self):
+        '''
+        Initialize a NexsRoot to use for the cell.
+        '''
         nexsroot = await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
         self.onfini(nexsroot.fini)
         nexsroot.onfini(self)
@@ -588,6 +614,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         nexusroot leadership changes. The leader arg will be a bool provided
         if the Cell is a leader or not.
         '''
+        if leader:
+            await self.initCellLeader()
+        else:
+            await self.initCellFollower()
+
+    async def initCellLeader(self):
+        pass
+
+    async def initCellFollower(self):
         pass
 
     async def getNexusChanges(self, offs):
