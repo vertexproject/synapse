@@ -9,7 +9,9 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
+import synapse.lib.dyndeps as s_dyndeps
 
 logger = logging.getLogger(__name__)
 
@@ -347,6 +349,80 @@ async def docModel(outp,
     # outp.printf(rst2.getRstText())
     return rst, rst2
 
+async def docConfdefs(ctor, reflink=':ref:`devops_cell_config`'):
+    cls = s_dyndeps.tryDynLocal(ctor)
+
+    if not hasattr(cls, 'confdefs'):
+        raise Exception('ctor must have a confdefs attr')
+
+    rst = RstHelp()
+
+    clsname = cls.__name__
+    conf = cls.initCellConf()  # type: s_config.Config
+
+    rst.addHead(f'{clsname} Configuration Options', lvl=0)
+    rst.addLines(f'The following are boot-time configuration options for a {clsname}')
+
+    rst.addLines(f'See {reflink} for details on how to set these options.')
+
+    # access raw config data
+
+    # Get envar and argparse mapping
+    name2envar = conf.getEnvarMapping()
+    name2cmdline = conf.getCmdlineMapping()
+
+    schema = conf.json_schema.get('properties', {})
+
+    for name, conf in sorted(schema.items(), key=lambda x: x[0]):
+
+        nodesc = f'No description available for ``{name}``.'
+        hname = name
+        if ':' in name:
+            hname = name.replace(':', raw_back_slash_colon)
+
+        rst.addHead(hname, lvl=1)
+
+        desc = conf.get('description', nodesc)
+        if not desc.endswith('.'):  # pragma: no cover
+            logger.warning(f'Description for [{name}] is missing a period.')
+
+        lines = []
+        lines.append(desc)
+
+        extended_description = conf.get('extended_description')
+        if extended_description:
+            lines.append('\n')
+            lines.append(extended_description)
+
+        # Type/additional information
+
+        lines.append('\n')
+        # lines.append('Configuration properties:\n')
+
+        ctyp = conf.get('type')
+        lines.append('Type')
+        lines.append(f'    ``{ctyp}``\n')
+
+        defval = conf.get('default', s_common.novalu)
+        if defval is not s_common.novalu:
+            lines.append('Default Value')
+            lines.append(f'    ``{repr(defval)}``\n')
+
+        envar = name2envar.get(name)
+        if envar:
+            lines.append('Environment Variable')
+            lines.append(f'    ``{envar}``\n')
+
+        cmdline = name2cmdline.get(name)
+        if cmdline:
+            lines.append('Command Line Argument')
+            lines.append(f'    ``--{cmdline}``\n')
+
+        rst.addLines(*lines)
+
+    return rst, clsname
+
+
 async def main(argv, outp=None):
 
     if outp is None:
@@ -372,6 +448,14 @@ async def main(argv, outp=None):
             with open(s_common.genpath(opts.savedir, 'datamodel_forms.rst'), 'wb') as fd:
                 fd.write(rstforms.getRstText().encode())
 
+    if opts.doc_cell:
+        confdocs, cname = await docConfdefs(opts.doc_cell,
+                                            reflink=opts.doc_cell_reflink)
+
+        if opts.savedir:
+            with open(s_common.genpath(opts.savedir, f'conf_{cname.lower()}.rst'), 'wb') as fd:
+                fd.write(confdocs.getRstText().encode())
+
     return 0
 
 def makeargparser():
@@ -382,8 +466,14 @@ def makeargparser():
                       help='Cortex URL for model inspection')
     pars.add_argument('--savedir', default=None,
                       help='Save output to the given directory')
-    pars.add_argument('--doc-model', action='store_true', default=False,
-                      help='Generate RST docs for the DataModel within a cortex')
+    doc_type = pars.add_mutually_exclusive_group()
+    doc_type.add_argument('--doc-model', action='store_true', default=False,
+                          help='Generate RST docs for the DataModel within a cortex')
+    doc_type.add_argument('--doc-cell', default=None,
+                          help='Generate RST docs for the Confdefs for a given Cell ctor')
+    pars.add_argument('--doc-cell-reflink', default=':ref:`devops_cell_config`',
+                      help='Reference link for how to set the cell configuration options.')
+
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
