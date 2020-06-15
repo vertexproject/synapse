@@ -198,7 +198,7 @@ stopped or when the Cortex is restarted.
         --auth-passwd secret --offsfile <path_to_lyroffs.yaml> \
         --src <01x_telepath_url> --dest <20x_telepath_url>
 
-#. Add the Storm service to the Cortex and use the available commands to start synchronization.
+#. Add the Storm service (see :ref:`dev_stormservices`) to the Cortex and use the available commands to start synchronization.
 #. When ready to cut-over, and the read status is up-to-date, stop the synchronization using the ``stopsync`` command.
 
 Cleanup
