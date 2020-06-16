@@ -70,3 +70,27 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             self.isin('StormvarServiceCell Configuration Options', s)
             self.isin('See `Configuring a Cell Service <https://synapse', s)
+
+    async def test_tools_autodoc_stormsvc(self):
+
+        with self.getTestDir() as path:
+
+            argv = ['--savedir', path, '--doc-storm',
+                    'synapse.tests.test_lib_stormsvc.StormvarServiceCell']
+
+            outp = self.getTestOutp()
+            self.eq(await s_autodoc.main(argv, outp=outp), 0)
+
+            with s_common.genfile(path, 'stormsvc_stormvarservicecell.rst') as fd:
+                buf = fd.read()
+            s = buf.decode()
+
+            self.isin('Storm Service - StormvarServiceCell', s)
+            self.isin('This documentation is generated for version 0.0.1 of the service.', s)
+            self.isin('Storm Package\: stormvar', s)
+            self.isin('magic\n-----', s)
+            self.isin('Test stormvar support', s)
+            self.isin('forms as input nodes', s)
+            self.isin('``test:str``', s)
+            self.isin('nodes in the graph', s)
+            self.isin('``test:comp``', s)

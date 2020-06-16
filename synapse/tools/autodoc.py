@@ -431,13 +431,9 @@ async def docStormsvc(ctor):
     if not hasattr(cls, 'cellapi'):
         raise Exception('ctor must have a cellapi attr')
 
-    print(cls)
-
     clsname = cls.__name__
 
     cellapi = cls.cellapi
-
-    print(cellapi)
 
     if not issubclass(cellapi, s_stormsvc.StormSvc):
         raise Exception('cellapi must be a StormSvc implementation')
@@ -529,9 +525,7 @@ async def docStormsvc(ctor):
 
                 rst.addLines(*lines)
 
-        # Modules are not currently documented
-
-    print(rst.getRstText())
+        # TODO: Modules are not currently documented.
 
     return rst, clsname
 
