@@ -484,7 +484,7 @@ async def docStormsvc(ctor):
             for cdef in commands:
 
                 cname = cdef.get('name')
-                cdesc = cdef.get('desc')
+                cdesc = cdef.get('descr')
                 cargs = cdef.get('cmdargs')
 
                 # command names cannot have colons in them thankfully

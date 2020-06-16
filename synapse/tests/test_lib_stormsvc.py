@@ -245,7 +245,7 @@ class LifterService(s_stormsvc.StormSvc):
             'commands': (
                 {
                     'name': 'lifter',
-                    'desc': 'Lift inet:ipv4=1.2.3.4',
+                    'descr': 'Lift inet:ipv4=1.2.3.4',
                     'storm': 'inet:ipv4=1.2.3.4',
                 },
             ),
@@ -269,7 +269,7 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
             'commands': (
                 {
                     'name': 'magic',
-                    'desc': 'Test stormvar support.',
+                    'descr': 'Test stormvar support.',
                     'cmdargs': (
                         ('name', {}),
                         ('--debug', {'default': False, 'action': 'store_true'})
