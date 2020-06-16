@@ -364,7 +364,7 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
     conf = cls.initCellConf()  # type: s_config.Config
 
     rst.addHead(f'{clsname} Configuration Options', lvl=0)
-    rst.addLines(f'The following are boot-time configuration options for a {clsname}')
+    rst.addLines(f'The following are boot-time configuration options for the cell.')
 
     rst.addLines(f'See {reflink} for details on how to set these options.')
 
