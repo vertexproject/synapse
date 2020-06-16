@@ -2,7 +2,8 @@ Cell Operations
 ===============
 
 As detailed in :ref:`dev_architecture`, the ``Cell`` implements a number of core management functionalities,
-and is therefore used as the base class for Synapse applications.  It is also recommended to implement ``Cell`` for custom services.
+and is therefore used as the base class for Synapse applications.  It is also recommended to implement ``Cell`` for
+custom services.
 
 .. _devops-cell-config:
 
@@ -35,14 +36,14 @@ The format of this file is YAML, and variable names are specified without altera
     ---
     auth:passwd: secret
     mysvc:apikey: 720a50f9-cfa1-43a9-9eca-dda379ecd8c5
-    ---
+    ...
 
 Environment Variables
 *********************
 
 Environment variable names are automatically generated for a Cell service using the following naming convention:
 ``SYN_<cell_subclass_name>_<variable_name>``.  Variable names with colons are replaced with underscores,
-and the raw environmental variable value is deserialized as yaml, prior to performing type validation.
+and the raw environment variable value is deserialized as yaml, prior to performing type validation.
 
 Command Line
 ************
@@ -59,8 +60,8 @@ Variable names with colons are replaced with a single dash.
     #. cell.yaml values
 
     These may all be mixed and matched for a given deployment.
-    If a backup of a service is made and the deployment uses configuration data from command line arguments and environmental variables,
-    those will need to be considered when moving/restoring the backup.
+    If a backup of a service is made and the deployment uses configuration data from command line arguments and
+    environment variables, those will need to be considered when moving/restoring the backup.
 
 Starting a Cell Service
 -----------------------
