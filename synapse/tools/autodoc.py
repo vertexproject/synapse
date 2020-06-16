@@ -492,7 +492,7 @@ async def docStormsvc(ctor):
                 rst.addHead(cname, lvl=3)
 
                 # Form the description
-                lines = ['::']
+                lines = ['::\n']
 
                 # Generate help from args
                 pars = s_storm.Parser(prog=cname, descr=cdesc)
