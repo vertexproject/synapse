@@ -34,3 +34,39 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Universal props are system level properties which may be present on every node.', s)
             self.isin('.created', s)
             self.notin('..created\n', s)
+
+    async def test_tools_autodoc_confdefs(self):
+
+        with self.getTestDir() as path:
+
+            argv = ['--savedir', path, '--doc-conf',
+                    'synapse.tests.test_lib_stormsvc.StormvarServiceCell']
+
+            outp = self.getTestOutp()
+            self.eq(await s_autodoc.main(argv, outp=outp), 0)
+
+            with s_common.genfile(path, 'conf_stormvarservicecell.rst') as fd:
+                buf = fd.read()
+            s = buf.decode()
+
+            self.isin('StormvarServiceCell Configuration Options', s)
+            self.isin('See :ref:`devops-cell-config` for', s)
+            self.isin('auth\:passwd', s)
+            self.isin('Environment Variable\n    ``SYN_STORMVARSERVICECELL_AUTH_PASSWD``', s)
+            self.isin('``--auth-passwd``', s)
+
+            argv.append('--doc-conf-reflink')
+            argv.append('`Configuring a Cell Service <https://synapse.docs.vertex.link/en/latest/synapse/devguides/devops_cell.html>`_')
+
+            # truncate the current file
+            with s_common.genfile(path, 'conf_stormvarservicecell.rst') as fd:
+                fd.truncate()
+
+            outp = self.getTestOutp()
+            self.eq(await s_autodoc.main(argv, outp=outp), 0)
+            with s_common.genfile(path, 'conf_stormvarservicecell.rst') as fd:
+                buf = fd.read()
+            s = buf.decode()
+
+            self.isin('StormvarServiceCell Configuration Options', s)
+            self.isin('See `Configuring a Cell Service <https://synapse', s)

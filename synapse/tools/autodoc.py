@@ -448,9 +448,9 @@ async def main(argv, outp=None):
             with open(s_common.genpath(opts.savedir, 'datamodel_forms.rst'), 'wb') as fd:
                 fd.write(rstforms.getRstText().encode())
 
-    if opts.doc_cell:
-        confdocs, cname = await docConfdefs(opts.doc_cell,
-                                            reflink=opts.doc_cell_reflink)
+    if opts.doc_conf:
+        confdocs, cname = await docConfdefs(opts.doc_conf,
+                                            reflink=opts.doc_conf_reflink)
 
         if opts.savedir:
             with open(s_common.genpath(opts.savedir, f'conf_{cname.lower()}.rst'), 'wb') as fd:
@@ -469,9 +469,9 @@ def makeargparser():
     doc_type = pars.add_mutually_exclusive_group()
     doc_type.add_argument('--doc-model', action='store_true', default=False,
                           help='Generate RST docs for the DataModel within a cortex')
-    doc_type.add_argument('--doc-cell', default=None,
+    doc_type.add_argument('--doc-conf', default=None,
                           help='Generate RST docs for the Confdefs for a given Cell ctor')
-    pars.add_argument('--doc-cell-reflink', default=':ref:`devops-cell-config`',
+    pars.add_argument('--doc-conf-reflink', default=':ref:`devops-cell-config`',
                       help='Reference link for how to set the cell configuration options.')
 
     return pars
