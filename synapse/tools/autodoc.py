@@ -443,7 +443,6 @@ async def docStormsvc(ctor):
         raise Exception('cellapi must be a StormSvc implementation')
 
     # Make a dummy object
-
     class MockSess:
         def __init__(self):
             self.user = None
@@ -488,14 +487,53 @@ async def docStormsvc(ctor):
         if commands:
             rst.addHead('Storm Commands', lvl=2)
 
-            rst.addLines(f'This package implements the following Storm Commands.')
+            rst.addLines(f'This package implements the following Storm Commands.\n')
 
             for cdef in commands:
 
                 cname = cdef.get('name')
-                cdesc = cdef.get('')
+                cdesc = cdef.get('desc')
+                cargs = cdef.get('cmdargs')
 
-            # Commands cannot have a : in them due to syntax reasons
+                # command names cannot have colons in them thankfully
+
+                rst.addHead(cname, lvl=3)
+
+                # Form the description
+                lines = ['::']
+
+                # Generate help from args
+                pars = s_storm.Parser(prog=cname, descr=cdesc)
+                for (argname, arginfo) in cargs:
+                    pars.add_argument(argname, **arginfo)
+                pars.help()
+
+                for line in pars.mesgs:
+                    # FIXME rstrip lines
+                    lines.append(f'    {line}')
+
+                pprint(pars.mesgs)
+
+                lines.append('\n')
+
+                forms = cdef.get('forms', {})
+                iforms = forms.get('input')
+                oforms = forms.get('output')
+                if iforms:
+                    line = 'The command is aware of how to automatically handle the following forms as input nodes:\n'
+                    lines.append(line)
+                    for form in iforms:
+                        lines.append(f'- ``{form}``')
+                    lines.append('\n')
+
+                if oforms:
+                    line = 'The command may make the following nodes in the graph as a result of its execution:\n'
+                    lines.append(line)
+                    for form in oforms:
+                        lines.append(f'- ``{form}``')
+                    lines.append('\n')
+
+                rst.addLines(*lines)
 
         # Modules are not currently documented
 
@@ -541,7 +579,7 @@ async def main(argv, outp=None):
         confdocs, svcname = await docStormsvc(opts.doc_storm)
 
         if opts.savedir:
-            with open(s_common.genpath(opts.savedir, f'conf_{svcname.lower()}.rst'), 'wb') as fd:
+            with open(s_common.genpath(opts.savedir, f'stormsvc_{svcname.lower()}.rst'), 'wb') as fd:
                 fd.write(confdocs.getRstText().encode())
 
     return 0

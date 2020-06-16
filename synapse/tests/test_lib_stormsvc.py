@@ -269,10 +269,13 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
             'commands': (
                 {
                     'name': 'magic',
+                    'desc': 'Test stormvar support.',
                     'cmdargs': (
                         ('name', {}),
                         ('--debug', {'default': False, 'action': 'store_true'})
                     ),
+                    'input': ('test:str', 'test:int'),
+                    'output': ('test:comp', 'inet:ipv4'),
                     'storm': '''
                     $fooz = $cmdopts.name
                     if $cmdopts.debug {
