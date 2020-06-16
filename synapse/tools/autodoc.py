@@ -455,7 +455,7 @@ async def docStormsvc(ctor):
 
     rst = RstHelp()
 
-    rst.addHead(f'Storm Service - {clsname}')
+    rst.addHead(f'{clsname} Storm Service')
     lines = ['The following Storm Packages and Commands are available from this service.',
              f'This documentation is generated for version '
              f'{s_version.fmtVersion(*svcinfo.get("vers"))} of the service.',
