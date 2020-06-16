@@ -9,7 +9,12 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.storm as s_storm
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
+import synapse.lib.dyndeps as s_dyndeps
+import synapse.lib.version as s_version
+import synapse.lib.stormsvc as s_stormsvc
 
 logger = logging.getLogger(__name__)
 
@@ -347,6 +352,190 @@ async def docModel(outp,
     # outp.printf(rst2.getRstText())
     return rst, rst2
 
+async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
+    cls = s_dyndeps.tryDynLocal(ctor)
+
+    if not hasattr(cls, 'confdefs'):
+        raise Exception('ctor must have a confdefs attr')
+
+    rst = RstHelp()
+
+    clsname = cls.__name__
+    conf = cls.initCellConf()  # type: s_config.Config
+
+    rst.addHead(f'{clsname} Configuration Options', lvl=0)
+    rst.addLines(f'The following are boot-time configuration options for a {clsname}')
+
+    rst.addLines(f'See {reflink} for details on how to set these options.')
+
+    # access raw config data
+
+    # Get envar and argparse mapping
+    name2envar = conf.getEnvarMapping()
+    name2cmdline = conf.getCmdlineMapping()
+
+    schema = conf.json_schema.get('properties', {})
+
+    for name, conf in sorted(schema.items(), key=lambda x: x[0]):
+
+        nodesc = f'No description available for ``{name}``.'
+        hname = name
+        if ':' in name:
+            hname = name.replace(':', raw_back_slash_colon)
+
+        rst.addHead(hname, lvl=1)
+
+        desc = conf.get('description', nodesc)
+        if not desc.endswith('.'):  # pragma: no cover
+            logger.warning(f'Description for [{name}] is missing a period.')
+
+        lines = []
+        lines.append(desc)
+
+        extended_description = conf.get('extended_description')
+        if extended_description:
+            lines.append('\n')
+            lines.append(extended_description)
+
+        # Type/additional information
+
+        lines.append('\n')
+        # lines.append('Configuration properties:\n')
+
+        ctyp = conf.get('type')
+        lines.append('Type')
+        lines.append(f'    ``{ctyp}``\n')
+
+        defval = conf.get('default', s_common.novalu)
+        if defval is not s_common.novalu:
+            lines.append('Default Value')
+            lines.append(f'    ``{repr(defval)}``\n')
+
+        envar = name2envar.get(name)
+        if envar:
+            lines.append('Environment Variable')
+            lines.append(f'    ``{envar}``\n')
+
+        cmdline = name2cmdline.get(name)
+        if cmdline:
+            lines.append('Command Line Argument')
+            lines.append(f'    ``--{cmdline}``\n')
+
+        rst.addLines(*lines)
+
+    return rst, clsname
+
+async def docStormsvc(ctor):
+    cls = s_dyndeps.tryDynLocal(ctor)
+
+    if not hasattr(cls, 'cellapi'):
+        raise Exception('ctor must have a cellapi attr')
+
+    clsname = cls.__name__
+
+    cellapi = cls.cellapi
+
+    if not issubclass(cellapi, s_stormsvc.StormSvc):
+        raise Exception('cellapi must be a StormSvc implementation')
+
+    # Make a dummy object
+    class MockSess:
+        def __init__(self):
+            self.user = None
+
+    class DummyLink:
+        def __init__(self):
+            self.info = {'sess': MockSess()}
+
+        def get(self, key):
+            return self.info.get(key)
+
+    async with await cellapi.anit(s_common.novalu, DummyLink(), s_common.novalu) as obj:
+        svcinfo = await obj.getStormSvcInfo()
+
+    rst = RstHelp()
+
+    # Disable default python highlighting
+    rst.addLines('.. highlight:: none\n')
+
+    rst.addHead(f'{clsname} Storm Service')
+    lines = ['The following Storm Packages and Commands are available from this service.',
+             f'This documentation is generated for version '
+             f'{s_version.fmtVersion(*svcinfo.get("vers"))} of the service.',
+             f'The Storm Service name is ``{svcinfo.get("name")}``.',
+             ]
+    rst.addLines(*lines)
+
+    for pkg in svcinfo.get('pkgs'):
+        pname = pkg.get('name')
+        pver = pkg.get('version')
+        commands = pkg.get('commands')
+
+        hname = pname
+        if ':' in pname:
+            hname = pname.replace(':', raw_back_slash_colon)
+
+        rst.addHead(f'Storm Package\: {hname}', lvl=1)
+
+        rst.addLines(f'This documentation for {pname} is generated for version {s_version.fmtVersion(*pver)}')
+
+        if commands:
+            rst.addHead('Storm Commands', lvl=2)
+
+            rst.addLines(f'This package implements the following Storm Commands.\n')
+
+            for cdef in commands:
+
+                cname = cdef.get('name')
+                cdesc = cdef.get('descr')
+                cargs = cdef.get('cmdargs')
+
+                # command names cannot have colons in them thankfully
+
+                rst.addHead(cname, lvl=3)
+
+                # Form the description
+                lines = ['::\n']
+
+                # Generate help from args
+                pars = s_storm.Parser(prog=cname, descr=cdesc)
+                for (argname, arginfo) in cargs:
+                    pars.add_argument(argname, **arginfo)
+                pars.help()
+
+                for line in pars.mesgs:
+                    if '\n' in line:
+                        for subl in line.split('\n'):
+                            lines.append(f'    {subl}')
+                    else:
+                        lines.append(f'    {line}')
+
+                lines.append('\n')
+
+                forms = cdef.get('forms', {})
+                iforms = forms.get('input')
+                oforms = forms.get('output')
+                if iforms:
+                    line = 'The command is aware of how to automatically handle the following forms as input nodes:\n'
+                    lines.append(line)
+                    for form in iforms:
+                        lines.append(f'- ``{form}``')
+                    lines.append('\n')
+
+                if oforms:
+                    line = 'The command may make the following types of nodes in the graph as a result of its execution:\n'
+                    lines.append(line)
+                    for form in oforms:
+                        lines.append(f'- ``{form}``')
+                    lines.append('\n')
+
+                rst.addLines(*lines)
+
+        # TODO: Modules are not currently documented.
+
+    return rst, clsname
+
+
 async def main(argv, outp=None):
 
     if outp is None:
@@ -372,6 +561,21 @@ async def main(argv, outp=None):
             with open(s_common.genpath(opts.savedir, 'datamodel_forms.rst'), 'wb') as fd:
                 fd.write(rstforms.getRstText().encode())
 
+    if opts.doc_conf:
+        confdocs, cname = await docConfdefs(opts.doc_conf,
+                                            reflink=opts.doc_conf_reflink)
+
+        if opts.savedir:
+            with open(s_common.genpath(opts.savedir, f'conf_{cname.lower()}.rst'), 'wb') as fd:
+                fd.write(confdocs.getRstText().encode())
+
+    if opts.doc_storm:
+        confdocs, svcname = await docStormsvc(opts.doc_storm)
+
+        if opts.savedir:
+            with open(s_common.genpath(opts.savedir, f'stormsvc_{svcname.lower()}.rst'), 'wb') as fd:
+                fd.write(confdocs.getRstText().encode())
+
     return 0
 
 def makeargparser():
@@ -382,8 +586,17 @@ def makeargparser():
                       help='Cortex URL for model inspection')
     pars.add_argument('--savedir', default=None,
                       help='Save output to the given directory')
-    pars.add_argument('--doc-model', action='store_true', default=False,
-                      help='Generate RST docs for the DataModel within a cortex')
+    doc_type = pars.add_mutually_exclusive_group()
+    doc_type.add_argument('--doc-model', action='store_true', default=False,
+                          help='Generate RST docs for the DataModel within a cortex')
+    doc_type.add_argument('--doc-conf', default=None,
+                          help='Generate RST docs for the Confdefs for a given Cell ctor')
+    pars.add_argument('--doc-conf-reflink', default=':ref:`devops-cell-config`',
+                      help='Reference link for how to set the cell configuration options.')
+
+    doc_type.add_argument('--doc-storm', default=None,
+                          help='Generate RST docs for a stormssvc implemented by a given Cell')
+
     return pars
 
 if __name__ == '__main__':  # pragma: no cover

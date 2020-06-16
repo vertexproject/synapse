@@ -702,7 +702,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             'type': 'string'
         },
         'mirror': {
-            'description': 'Run a mirror of the cortex at the given telepath URL. (we must be a backup!)',
+            'description': 'Run a mirror of the cortex at the given telepath URL. We must be a backup!',
             'type': 'string'
         },
         'cron:enable': {
@@ -732,7 +732,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         },
         'provenance:en': {
             'default': False,
-            'description': 'Enable provenance tracking for all writes',
+            'description': 'Enable provenance tracking for all writes.',
             'type': 'boolean'
         },
         'modules': {
