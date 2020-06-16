@@ -61,12 +61,12 @@ on solid-state/flash drives.
 Using the Command Line
 ----------------------
 
-A Synapse Cortex server may be started from the command line using the synapse.servers.cortex python module.  The only
-required argument is a directory which is used for storage.::
+A Synapse Cortex server may be started from the command line using the ``synapse.servers.cortex`` python module. The
+only required argument is a directory which is used for storage.::
 
     python -m synapse.servers.cortex /path/to/cortex
 
-This will start a Cortex server which uses ``/path/to/cortex`` for storage.  The Cortex may be reached via
+This will start a Cortex server which uses ``/path/to/cortex`` for storage. The Cortex may be reached via
 **telepath** (for future commands) via the url ``cell:///path/to/cortex``.
 
 Relative paths may also be used by removing a forward-slash from the URL.  For example, if executing from the
@@ -84,13 +84,20 @@ The following docker-compose.yml file can be used to deploy a Cortex server usin
 
         core00:
 
-            image: vertexproject/synapse-cortex:v0.2.x
+            image: vertexproject/synapse-cortex:v2.x.x
 
             volumes:
+                # Map in a persistent storage directory
                 - /path/to/storage:/vertex/storage
 
+            environment:
+                # Set a default password for the root user
+                - SYN_CORTEX_AUTH_PASSWD=secretsauce
+
             ports:
+                # Default https port
                 - "4443:4443"
+                # Default telepath port
                 - "27492:27492"
 
 The server may then be started using typical docker-compose commands or more advanced orchestration.
@@ -169,28 +176,5 @@ Once an alias is created, the name may be specified in place of the telepath con
 From here, the remote user is free to use the "storm" command to execute queries from the CLI.
 See :ref:`storm-ref-intro` for details. Additionally, the HTTPS API is now available on the default port 4443.
 See :ref:`http-api` for details.
-
-Cortex Backups
-==============
-
-It is strongly recommended that you regularly backup production Cortex instances. The Synapse backup tool
-(synapse.tools.backup) may be used to create a snapshot of a running Cortex without the need to bring the service down
-or interrupt availability. It is important to avoid standard file copy operations on running LMDB files due to
-potentially causing sparse file expansion or producing a corrupt copy. LMDB makes use of sparse files which allocate
-file block storage only when the blocks are written to. This means a file copy tool which is not sparse-file aware can
-inadvertently cause massive file expansion during copy. Once a backup is created ( and has not been loaded by a Cortex )
-it is safe to zip/copy the backup files normally.::
-
-    python -m synapse.tools.backup /path/to/cortex /path/to/backup
-
-The newly created directory ``/path/to/backup`` is a full backup of the **Cortex** in ``/path/to/cortex``. To restore
-from backup, replace the ``/path/to/cortex`` folder with the ``/path/to/backup`` folder and start the server as
-normal.::
-
-    mv /path/to/cortex /path/to/cortex_old
-    mv /path/to/backup /path/to/cortex
-    python -m synapse.servers.cortex /path/to/cortex
-
-See :ref:`quick_start_cortex` for details on running a **Cortex** server.
 
 .. _Index:              ../index.html
