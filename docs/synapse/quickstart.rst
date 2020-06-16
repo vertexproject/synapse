@@ -62,7 +62,7 @@ Using the Command Line
 ----------------------
 
 A Synapse Cortex server may be started from the command line using the ``synapse.servers.cortex`` python module. The
-only required argument is a directory which is used for storage.::
+only required argument is a directory which is used for storage::
 
     python -m synapse.servers.cortex /path/to/cortex
 
