@@ -499,8 +499,9 @@ async def docStormsvc(ctor):
 
                 # Generate help from args
                 pars = s_storm.Parser(prog=cname, descr=cdesc)
-                for (argname, arginfo) in cargs:
-                    pars.add_argument(argname, **arginfo)
+                if cargs:
+                    for (argname, arginfo) in cargs:
+                        pars.add_argument(argname, **arginfo)
                 pars.help()
 
                 for line in pars.mesgs:

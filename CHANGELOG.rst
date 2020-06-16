@@ -2,6 +2,16 @@
 Synapse Changelog
 *****************
 
+v2.1.1 - 2020-06-16
+===================
+
+Bugfixes
+--------
+
+- Fix an issue in the autodoc tool which failed to account for Storm Service commands without cmdargs.
+  (`#1775 <https://github.com/vertexproject/synapse/pull/1775>`_)
+
+
 v2.1.0 - 2020-06-16
 ===================
 
