@@ -455,6 +455,9 @@ async def docStormsvc(ctor):
 
     rst = RstHelp()
 
+    # Disable default python highlighting
+    rst.addLines('.. highlight:: none\n')
+
     rst.addHead(f'{clsname} Storm Service')
     lines = ['The following Storm Packages and Commands are available from this service.',
              f'This documentation is generated for version '
@@ -501,8 +504,11 @@ async def docStormsvc(ctor):
                 pars.help()
 
                 for line in pars.mesgs:
-                    # FIXME rstrip lines?
-                    lines.append(f'    {line}')
+                    if '\n' in line:
+                        for subl in line.split('\n'):
+                            lines.append(f'    {subl}')
+                    else:
+                        lines.append(f'    {line}')
 
                 lines.append('\n')
 
