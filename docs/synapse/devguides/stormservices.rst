@@ -49,7 +49,7 @@ Implementation
 
 Multiple Storm commands can be added to a Storm service package, with each defining the following attributes:
 
-    - ``name``: Name of the Storm command to surface in the Cortex.
+    - ``name``: Name of the Storm command to expose in the Cortex.
     - ``descr``: Description of the command which will be available in ``help`` displays.
     - ``cmdargs``: An optional list of arguments for the command.
     - ``cmdconf``: An optional dictionary of additional configuration variables to provide to the command Storm execution.
@@ -99,7 +99,7 @@ Some guidelines for ``--yield`` options:
 Storm Service Modules
 =====================
 
-Modules can be added to a Storm service package to surface reusable Storm functions.
+Modules can be added to a Storm service package to expose reusable Storm functions.
 Each module defines a ``name``, which is used for importing elsewhere via ``$lib.import()``,
 and a ``storm`` string.  The Storm code in this case contains callable functions with the format::
 
