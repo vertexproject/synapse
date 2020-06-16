@@ -13,6 +13,7 @@ updated and expanded over time.
     :titlesonly:
 
     devguides/devops_general
+    devguides/devops_cell
     devguides/devops_cortex
     devguides/devops_axon
     devguides/devops_cryotank
