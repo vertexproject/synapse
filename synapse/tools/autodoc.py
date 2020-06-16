@@ -9,9 +9,12 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.storm as s_storm
 import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
+import synapse.lib.version as s_version
+import synapse.lib.stormsvc as s_stormsvc
 
 logger = logging.getLogger(__name__)
 
@@ -422,6 +425,84 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
 
     return rst, clsname
 
+async def docStormsvc(ctor):
+    cls = s_dyndeps.tryDynLocal(ctor)
+
+    if not hasattr(cls, 'cellapi'):
+        raise Exception('ctor must have a cellapi attr')
+
+    print(cls)
+
+    clsname = cls.__name__
+
+    cellapi = cls.cellapi
+
+    print(cellapi)
+
+    if not issubclass(cellapi, s_stormsvc.StormSvc):
+        raise Exception('cellapi must be a StormSvc implementation')
+
+    # Make a dummy object
+
+    class MockSess:
+        def __init__(self):
+            self.user = None
+
+    class DummyLink:
+        def __init__(self):
+            self.info = {'sess': MockSess()}
+
+        def get(self, key):
+            return self.info.get(key)
+
+    async with await cellapi.anit(s_common.novalu, DummyLink(), s_common.novalu) as obj:
+        svcinfo = await obj.getStormSvcInfo()
+
+    rst = RstHelp()
+
+    from pprint import pprint
+
+    pprint(svcinfo)
+
+    rst.addHead(f'Storm Service - {clsname}')
+    lines = ['The following Storm Packages and Commands are available from this service.',
+             f'This documentation is generated for version '
+             f'{s_version.fmtVersion(*svcinfo.get("vers"))} of the service.',
+             f'The Storm Service name is ``{svcinfo.get("name")}``.',
+             ]
+    rst.addLines(*lines)
+
+    for pkg in svcinfo.get('pkgs'):
+        pname = pkg.get('name')
+        pver = pkg.get('version')
+        commands = pkg.get('commands')
+
+        hname = pname
+        if ':' in pname:
+            hname = pname.replace(':', raw_back_slash_colon)
+
+        rst.addHead(f'Storm Package\: {hname}', lvl=1)
+
+        rst.addLines(f'This documentation for {pname} is generated for version {s_version.fmtVersion(*pver)}')
+
+        if commands:
+            rst.addHead('Storm Commands', lvl=2)
+
+            rst.addLines(f'This package implements the following Storm Commands.')
+
+            for cdef in commands:
+
+                cname = cdef.get('name')
+                cdesc = cdef.get('')
+
+            # Commands cannot have a : in them due to syntax reasons
+
+        # Modules are not currently documented
+
+    print(rst.getRstText())
+
+    return rst, clsname
+
 
 async def main(argv, outp=None):
 
@@ -456,6 +537,13 @@ async def main(argv, outp=None):
             with open(s_common.genpath(opts.savedir, f'conf_{cname.lower()}.rst'), 'wb') as fd:
                 fd.write(confdocs.getRstText().encode())
 
+    if opts.doc_storm:
+        confdocs, svcname = await docStormsvc(opts.doc_storm)
+
+        if opts.savedir:
+            with open(s_common.genpath(opts.savedir, f'conf_{svcname.lower()}.rst'), 'wb') as fd:
+                fd.write(confdocs.getRstText().encode())
+
     return 0
 
 def makeargparser():
@@ -473,6 +561,9 @@ def makeargparser():
                           help='Generate RST docs for the Confdefs for a given Cell ctor')
     pars.add_argument('--doc-conf-reflink', default=':ref:`devops-cell-config`',
                       help='Reference link for how to set the cell configuration options.')
+
+    doc_type.add_argument('--doc-storm', default=None,
+                          help='Generate RST docs for a stormssvc implemented by a given Cell')
 
     return pars
 
