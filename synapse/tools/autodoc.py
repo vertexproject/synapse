@@ -459,10 +459,6 @@ async def docStormsvc(ctor):
 
     rst = RstHelp()
 
-    from pprint import pprint
-
-    pprint(svcinfo)
-
     rst.addHead(f'Storm Service - {clsname}')
     lines = ['The following Storm Packages and Commands are available from this service.',
              f'This documentation is generated for version '
@@ -509,10 +505,8 @@ async def docStormsvc(ctor):
                 pars.help()
 
                 for line in pars.mesgs:
-                    # FIXME rstrip lines
+                    # FIXME rstrip lines?
                     lines.append(f'    {line}')
-
-                pprint(pars.mesgs)
 
                 lines.append('\n')
 
@@ -527,7 +521,7 @@ async def docStormsvc(ctor):
                     lines.append('\n')
 
                 if oforms:
-                    line = 'The command may make the following nodes in the graph as a result of its execution:\n'
+                    line = 'The command may make the following types of nodes in the graph as a result of its execution:\n'
                     lines.append(line)
                     for form in oforms:
                         lines.append(f'- ``{form}``')
