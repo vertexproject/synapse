@@ -262,7 +262,7 @@ class NexsRoot(s_base.Base):
 
             yield dist
 
-    def amLeader(self):
+    async def isLeader(self):
         return self._ldrurl is None
 
     async def setLeader(self, url: Optional[str], iden: str) -> None:
@@ -308,7 +308,7 @@ class NexsRoot(s_base.Base):
         self._state_funcs.append(func)
 
     async def _dostatechange(self):
-        amleader = self.amLeader()
+        amleader = await self.isLeader()
         async with self._state_lock:
             for func in self._state_funcs:
                 await s_coro.ornot(func, leader=amleader)
@@ -410,6 +410,11 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         self.onfini(onfini)
 
         self.nexsroot = nexsroot
+
+    async def isLeader(self):
+        if self.nexsroot is None:
+            return True
+        return await self.nexsroot.isLeader()
 
     @classmethod
     def onPush(cls, event: str, passoff=False) -> Callable:
