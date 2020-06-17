@@ -3,7 +3,7 @@ import logging
 import functools
 import contextlib
 
-from typing import List, Dict, Any, Callable, Tuple, Optional, AsyncIterator
+from typing import List, Dict, Any, Callable, Tuple, Optional, AsyncIterator, Union
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -89,8 +89,8 @@ class NexsRoot(s_base.Base):
         self._state_lock = asyncio.Lock()
         self._state_funcs: List[Callable] = [] # External Callbacks for state changes
 
-        # These are used when this cell is a mirror.
-        self._ldrurl: Optional[str] = None
+        # Mirror-related
+        self._ldrurl: Union[str, None, s_common.NoValu] = s_common.novalu  # Initialized so that setLeader will run once
         self._ldr: Optional[s_telepath.Proxy] = None  # only set by looptask
         self._looptask: Optional[asyncio.Task] = None
         self._ldrready = asyncio.Event()
@@ -173,6 +173,9 @@ class NexsRoot(s_base.Base):
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
         '''
+        if self._ldrurl is s_common.novalu:
+            raise s_exc.SynErr(mesg='Internal error:  attempt to issue before leader known')
+
         if not self._ldrurl:
             return await self.eat(nexsiden, event, args, kwargs, meta)
 
