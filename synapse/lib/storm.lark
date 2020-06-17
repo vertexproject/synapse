@@ -227,7 +227,7 @@ _EMBEDQUERYSTART: "${"
 NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^ \t\n),=\]}|]*/
 
 // An unquoted string within a storm command argument list
-WORDTOKN: /(?!\/\/)[\w\+\-\?\*\/\\][^ \t\r\n\=\|\}\)]*/
+WORDTOKN: /(?!\/[\/\*])[\w\+\-\?\*\/\\][^ \t\r\n\=\|\}\)]*/
 
 // An unquoted string within a list syntax
 LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/

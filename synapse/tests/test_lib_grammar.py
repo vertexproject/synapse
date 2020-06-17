@@ -15,10 +15,8 @@ import synapse.tests.utils as s_t_utils
 
 _Queries = [
     'tee // comment',
-    '''inet:fqdn=newp.com
-    | tee
-    { inet:fqdn } // faz
-    | uniq''',
+    'inet:fqdn=newp.com\n | tee\n { inet:fqdn } // faz\n | uniq',
+    'inet:fqdn=newp.com\n | tee\n { inet:fqdn }\n /* faz */\n | uniq',
     'hehe.haha foo // a comment | uniq ',
     'inet:ipv4 --> *',
     'inet:ipv4 <-- *',
@@ -577,6 +575,7 @@ _Queries = [
 # Generated with print_parse_list below
 _ParseResults = [
     'Query: [CmdOper: [Const: tee, Const: ()]]',
+    'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: newp.com], CmdOper: [Const: tee, List: [Const: { inet:fqdn }]], CmdOper: [Const: uniq, Const: ()]]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: newp.com], CmdOper: [Const: tee, List: [Const: { inet:fqdn }]], CmdOper: [Const: uniq, Const: ()]]',
     'Query: [CmdOper: [Const: hehe.haha, List: [Const: foo]]]',
     'Query: [LiftProp: [Const: inet:ipv4], N1WalkNPivo: [], isjoin=False]',
