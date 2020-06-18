@@ -20,7 +20,6 @@ The User Guide is a living document and will continue to be updated and expanded
 
     userguides/index_tools
 
-    userguides/syn_ref_cmdr
 
     userguides/index_storm_ref
 

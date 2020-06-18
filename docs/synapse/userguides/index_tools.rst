@@ -12,6 +12,7 @@ MORE WORDS
     :titlesonly:
 
     syn_tools_cmdr
+    syn_ref_cmdr
 
     syn_tools_pushfile
     syn_tools_pullfile
