@@ -2,6 +2,17 @@
 Synapse Changelog
 *****************
 
+
+Unreleased
+==========
+
+Bugfixes
+--------
+
+- Disallow command and bare string contensts from starting with ``//`` and ``/*`` in Storm syntax.
+  (`#1769 <https://github.com/vertexproject/synapse/pull/1769>`_)
+
+
 v2.1.1 - 2020-06-16
 ===================
 
