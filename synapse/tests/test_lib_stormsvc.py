@@ -245,7 +245,7 @@ class LifterService(s_stormsvc.StormSvc):
             'commands': (
                 {
                     'name': 'lifter',
-                    'desc': 'Lift inet:ipv4=1.2.3.4',
+                    'descr': 'Lift inet:ipv4=1.2.3.4',
                     'storm': 'inet:ipv4=1.2.3.4',
                 },
             ),
@@ -269,10 +269,15 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
             'commands': (
                 {
                     'name': 'magic',
+                    'descr': 'Test stormvar support.',
                     'cmdargs': (
                         ('name', {}),
                         ('--debug', {'default': False, 'action': 'store_true'})
                     ),
+                    'forms': {
+                        'input': ('test:str', 'test:int'),
+                        'output': ('test:comp', 'inet:ipv4'),
+                    },
                     'storm': '''
                     $fooz = $cmdopts.name
                     if $cmdopts.debug {

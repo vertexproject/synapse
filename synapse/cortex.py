@@ -728,7 +728,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         },
         'provenance:en': {
             'default': False,
-            'description': 'Enable provenance tracking for all writes',
+            'description': 'Enable provenance tracking for all writes.',
             'type': 'boolean'
         },
         'modules': {
