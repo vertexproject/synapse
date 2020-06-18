@@ -13,5 +13,3 @@ The are several more advanced Storm language language concepts which are documen
     storm_adv_methods
     storm_adv_libs
     storm_adv_control
-
-Cool words

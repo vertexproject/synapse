@@ -20,5 +20,3 @@ documented in the following sections.
     storm_ref_type_specific
     storm_ref_cmd
     storm_ref_automation
-
-Cool words
