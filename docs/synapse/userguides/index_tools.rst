@@ -4,9 +4,8 @@
 User Guide - Tools
 ##################
 
-WORDS WORDS WORDS
-
-MORE WORDS
+Synapse includes a number of tools. **cmdr** provides an interactive command shell to a Cortex, while other tools allow
+users to perform specific tasks. These tools are documented below.
 
 .. toctree::
     :titlesonly:
@@ -18,5 +17,3 @@ MORE WORDS
     syn_tools_pullfile
     syn_tools_feed
     syn_tools_csvtool
-
-Cool words

@@ -4,9 +4,8 @@
 User Guide - Storm Reference
 ############################
 
-WORDS WORDS WORDS
-
-MORE WORDS
+Synapse uses the Storm Query language to do lifting and modification of data in the graph. Basic Storm usage is
+documented in the following sections.
 
 .. toctree::
     :titlesonly:

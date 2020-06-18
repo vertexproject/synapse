@@ -3,9 +3,7 @@
 User Guide - Storm Advanced
 ###########################
 
-WORDS WORDS WORDS
-
-MORE WORDS
+The are several more advanced Storm language language concepts which are documented in the following sections.
 
 .. toctree::
     :titlesonly:

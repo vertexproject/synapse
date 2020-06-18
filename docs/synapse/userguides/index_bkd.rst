@@ -4,9 +4,7 @@
 User Guide - Background
 #######################
 
-WORDS WORDS WORDS
-
-MORE WORDS
+The following sections provide background on Synapse and a brief introduction into graphs and hypergraphs.
 
 .. toctree::
     :titlesonly:
@@ -14,4 +12,3 @@ MORE WORDS
     bkd_why_synapse
     bkd_graphs_hypergraphs
 
-Cool words

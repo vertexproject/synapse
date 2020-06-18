@@ -4,9 +4,8 @@
 User Guide - Data Model
 #######################
 
-WORDS WORDS WORDS
-
-MORE WORDS
+Synapse includes a number of tools. **cmdr** provides an interactive command shell to a Cortex, while other tools allow
+users to perform specific tasks. These tools are documented below.
 
 .. toctree::
     :titlesonly:
