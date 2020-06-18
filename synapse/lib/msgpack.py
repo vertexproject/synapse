@@ -42,7 +42,7 @@ def en(item):
         return pakr.pack(item)
     except Exception:
         pakr.reset()
-        mesg = f'Cannot Serialize: {item!r}'
+        mesg = f'Cannot serialize: {item!r}'
         raise s_exc.NotMsgpackSafe(mesg=mesg)
 
 def un(byts):

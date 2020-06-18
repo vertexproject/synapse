@@ -286,6 +286,7 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
     )
 
 class StormvarServiceCell(s_cell.Cell):
+
     cellapi = StormvarService
 
 @contextlib.contextmanager

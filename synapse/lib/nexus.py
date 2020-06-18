@@ -173,8 +173,7 @@ class NexsRoot(s_base.Base):
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
         '''
-        if self._ldrurl is s_common.novalu:
-            raise s_exc.SynErr(mesg='Internal error:  attempt to issue before leader known')
+        assert self._ldrurl is not s_common.novalu, 'Attempt to issue before leader known'
 
         if not self._ldrurl:
             return await self.eat(nexsiden, event, args, kwargs, meta)

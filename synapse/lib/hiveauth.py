@@ -97,12 +97,16 @@ class Auth(s_nexus.Pusher):
         self.allrole = await self.getRoleByName('all')
         if self.allrole is None:
             # initialize the role of which all users are a member
-            self.allrole = await self.addRole('all')
+            # Note:  older versions of synapse didn't use a static GUID
+            guid = s_common.guid(('synapse', 'all'))
+            self.allrole = await self._addRole(guid, 'all')
 
         # initialize an admin user named root
         self.rootuser = await self.getUserByName('root')
         if self.rootuser is None:
-            self.rootuser = await self.addUser('root')
+            # Note:  older versions of synapse didn't use a static GUID
+            guid = s_common.guid(('synapse', 'root'))
+            self.rootuser = await self._addUser(guid, 'root')
 
         await self.rootuser.setAdmin(True, logged=False)
         await self.rootuser.setLocked(False, logged=False)
@@ -115,16 +119,6 @@ class Auth(s_nexus.Pusher):
             [await a.fini() for a in self.authgates.values()]
 
         self.onfini(fini)
-
-    async def initDefAuths(self):
-
-        self.rootuser = await self.getUserByName('root')
-        if self.rootuser is None and await self.isLeader():
-            self.rootuser = await self.addUser('root')
-
-        self.allrole = await self.getRoleByName('all')
-        if self.allrole is None and await self.isLeader():
-            self.allrole = await self.addRole('all')
 
     def users(self):
         return self.usersbyiden.values()
@@ -867,10 +861,13 @@ class HiveUser(HiveRuler):
 
         return False
 
-    async def setPasswd(self, passwd):
+    async def setPasswd(self, passwd, nexs=True):
         # Prevent empty string or non-string values
         if not passwd or not isinstance(passwd, str):
             raise s_exc.BadArg(mesg='Password must be a string')
         salt = s_common.guid()
         hashed = s_common.guid((salt, passwd))
-        await self.auth.setUserInfo(self.iden, 'passwd', (salt, hashed))
+        if nexs:
+            await self.auth.setUserInfo(self.iden, 'passwd', (salt, hashed))
+        else:
+            await self.auth._hndlsetUserInfo(self.iden, 'passwd', (salt, hashed))

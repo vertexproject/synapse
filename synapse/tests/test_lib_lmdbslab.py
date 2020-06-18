@@ -722,7 +722,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.true(info0.pop('woot', s_common.novalu) is s_common.novalu)
 
                 # Sad path case
-                self.raises(TypeError, info0.set, 'newp', {1, 2, 3})
+                self.raises(s_exc.NotMsgpackSafe, info0.set, 'newp', {1, 2, 3})
 
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 guidstor = s_lmdbslab.GuidStor(slab, 'guids')
@@ -1013,6 +1013,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # Adding items past the current end of queue should wake waiters
                 data = []
+
                 async def getswait():
                     async for item in mque.gets('woot', 0, wait=True):
 

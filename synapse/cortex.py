@@ -761,6 +761,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     layrctor = s_layer.Layer.anit
     spawncorector = 'synapse.lib.spawn.SpawnCore'
 
+    deferpost = True  # overridden from cell
+
     async def __anit__(self, dirn, conf=None):
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
@@ -797,7 +799,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
-        self.stormservices = None # type: s_hive.HiveDict
 
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
@@ -868,8 +869,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.pkghive = await pkghive.dict()
         self.svchive = await svchive.dict()
 
-        # Finalize coremodule loading & give stormservices a shot to load
-        await self._initCoreMods()
+        # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
 
         import synapse.lib.spawn as s_spawn  # get around circular dependency
@@ -886,33 +886,22 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
-        await self.nexsroot.setLeader(self.mirror, self.iden)
+        await self.postNexsAnit()
 
-        # Fire the leadership hook once at boot
-        await self.onLeaderChange(self.nexsroot.amLeader())
+        # At this point, we're safe to make nexus changes
 
-    async def onLeaderChange(self, leader):
-        self.isleader = leader
-        # One shot to initialize storm services
-        if self.stormservices is None:
-            await self._initStormSvcs()
-        if leader:
-            return await self.startCortexLeader()
-        return await self.stopCortexLeader()
+        await self._initCoreMods()
 
-    async def startCortexLeader(self):
+    async def startAsLeader(self):
         '''
         Run things that only a leader Cortex runs.
         '''
-        await self.postNexsAnit()
-
-    async def initCellLeader(self):
         if self.conf.get('cron:enable'):
             await self.agenda.start()
-        await self._initStormSvcs()
         await self.stormdmons.start()
+        await self._initStormSvcs()
 
-    async def stopCortexLeader(self):
+    async def stopAsLeader(self):
         '''
         Stop things that only a leader Cortex runs.
         '''
@@ -1100,7 +1089,13 @@ class Cortex(s_cell.Cell):  # type: ignore
                 logger.warning(f'initStormService ({iden}) failed: {e}')
 
     async def _finiStormSvcs(self):
-        # TODO
+        # try:
+        #     for ssvc in self.svcsbyiden.values():
+        #         await ssvc.fini()
+
+        # finally:
+        #     self.svcsbyiden.clear()
+        #     self.svcsbyname.clear()
         pass
 
     async def _initCoreQueues(self):
@@ -1257,6 +1252,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         This will store the package for future use.
         '''
+        print(f'Loading {pkgdef}')
         await self.loadStormPkg(pkgdef)
         name = pkgdef.get('name')
         await self.pkghive.set(name, pkgdef)
@@ -1274,6 +1270,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Delete a storm package by name.
         '''
+        print(f'Deleting pkg {name}')
+        breakpoint()
         pkgdef = await self.pkghive.pop(name, None)
         if pkgdef is None:
             return
@@ -1412,13 +1410,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             return ssvc.sdef
 
         ssvc = await self._setStormSvc(sdef)
-        await self.stormservices.set(iden, sdef)
+        await self.svchive.set(iden, sdef)
         await self.bumpSpawnPool()
 
         return ssvc.sdef
 
     async def delStormSvc(self, iden):
-        sdef = self.stormservices.get(iden)
+        sdef = self.svchive.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg, iden=iden)
@@ -1430,7 +1428,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Delete a registered storm service from the cortex.
         '''
-        sdef = self.stormservices.get(iden)
+        sdef = self.svchive.get(iden)
         if sdef is None:
             return
 
@@ -1442,7 +1440,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         except Exception as e:
             logger.exception(f'service.del hook for service {iden} failed with error: {e}')
 
-        sdef = await self.stormservices.pop(iden)
+        sdef = await self.svchive.pop(iden)
 
         await self._delStormSvcPkgs(iden)
 
@@ -1502,17 +1500,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         Returns:
             dict: An updated storm service definition dictionary.
         '''
-        sdef = self.stormservices.get(iden)
+        sdef = self.svchive.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
         sdef['evts'] = edef
-        await self.stormservices.set(iden, sdef)
+        await self.svchive.set(iden, sdef)
         return sdef
 
     async def _runStormSvcAdd(self, iden):
-        sdef = self.stormservices.get(iden)
+        sdef = self.svchive.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
@@ -1529,10 +1527,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         sdef['added'] = True
-        await self.stormservices.set(iden, sdef)
+        await self.svchive.set(iden, sdef)
 
     async def runStormSvcEvent(self, iden, name):
-        sdef = self.stormservices.get(iden)
+        sdef = self.svchive.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
@@ -1928,7 +1926,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         oldcmds = []
         for name, cdef in self.cmdhive.items():
             cmdiden = cdef.get('cmdconf', {}).get('svciden')
-            if cmdiden and self.stormservices.get(cmdiden) is None:
+            if cmdiden and self.svchive.get(cmdiden) is None:
                 oldcmds.append(name)
             else:
                 await self._trySetStormCmd(name, cdef)
@@ -2223,19 +2221,20 @@ class Cortex(s_cell.Cell):  # type: ignore
             view.init2()
 
         # if we have no views, we are initializing.  Add a default main view and layer.
-        if not self.views and await self.isLeader():
-            ldef = await self.addLayer()
+        if not self.views:
+            assert self.inaugural, 'Cortex initialization failed: there are no views.'
+            ldef = await self.addLayer(nexs=False)
             layriden = ldef.get('iden')
             vdef = {
                 'layers': (layriden,),
                 'worldreadable': True,
             }
-            vdef = await self.addView(vdef)
+            vdef = await self.addView(vdef, nexs=False)
             iden = vdef.get('iden')
             await self.cellinfo.set('defaultview', iden)
             self.view = self.getView(iden)
 
-    async def addView(self, vdef):
+    async def addView(self, vdef, nexs=True):
 
         vdef['iden'] = s_common.guid()
         vdef.setdefault('parent', None)
@@ -2244,7 +2243,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         s_view.reqValidVdef(vdef)
 
-        return await self._push('view:add', vdef)
+        if nexs:
+            return await self._push('view:add', vdef)
+        else:
+            return await self._addView(vdef)
 
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
@@ -2431,9 +2433,13 @@ class Cortex(s_cell.Cell):  # type: ignore
     def getViewDefs(self):
         return [v.pack() for v in self.views.values()]
 
-    async def addLayer(self, ldef=None):
+    async def addLayer(self, ldef=None, nexs=True):
         '''
         Add a Layer to the cortex.
+
+        Args:
+            ldef (Optional[Dict]):  layer configuration
+            nexs (bool):            whether to record a nexus transaction (internal use only)
         '''
         ldef = ldef or {}
 
@@ -2445,7 +2451,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         s_layer.reqValidLdef(ldef)
 
-        return await self._push('layer:add', ldef)
+        if nexs:
+            return await self._push('layer:add', ldef)
+        else:
+            return await self._addLayer(ldef)
 
     @s_nexus.Pusher.onPush('layer:add')
     async def _addLayer(self, ldef):

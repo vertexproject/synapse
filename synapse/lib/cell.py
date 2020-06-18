@@ -495,6 +495,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
     }
 
+    deferpost = False   # Set to true if subclass is calling postNexsAnit itself
+
     async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
 
         if conf is None:
@@ -560,7 +562,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             user = await self.auth.getUserByName('root')
 
             if not user.tryPasswd(auth_passwd):
-                await user.setPasswd(auth_passwd)
+                await user.setPasswd(auth_passwd, nexs=False)
 
         await self._initCellDmon()
 
@@ -582,22 +584,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'cell': self
         }
 
+        if not self.deferpost:
+            await self.postNexsAnit()
+
     async def postNexsAnit(self):
         '''
-        This must be called near the end of subclass initialization.  Specifically, it must be
-        called after the system is ready to process incoming changes but before it has generated any.
-        entries to be executed, but before any new changes can be initiated.
+        This must be called near the end of subclass initialization if deferpost is True.  Specifically, it must be
+        called after the system is ready to process incoming changes but before it has generated any.  entries to be
+        executed, but before any new changes can be initiated.
         '''
         await self.nexsroot.recover()
 
         mirror = self.conf.get('mirror')
-        if mirror is not None:
-            await self.nexsroot.setLeader(mirror, self.iden)
+        await self.nexsroot.setLeader(mirror, self.iden)
 
+        # Fire the leadership hook once at boot
         await self.onLeaderChange(await self.isLeader())
-
-        # initialize default auth users/roles
-        await self.auth.initDefAuths()
 
     async def _initNexsRoot(self):
         '''
@@ -610,19 +612,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def onLeaderChange(self, leader):
         '''
-        Cell implementers may override this method to be notified when
-        nexusroot leadership changes. The leader arg will be a bool provided
-        if the Cell is a leader or not.
+        Args:
+            leader(bool):  If True, self is now the leader, else is now a follower
         '''
+        self.isleader = leader
         if leader:
-            await self.initCellLeader()
+            await self.startAsLeader()
         else:
-            await self.initCellFollower()
+            await self.stopAsLeader()
 
-    async def initCellLeader(self):
+    async def startAsLeader(self):
         pass
 
-    async def initCellFollower(self):
+    async def stopAsLeader(self):
         pass
 
     async def getNexusChanges(self, offs):
