@@ -2,8 +2,29 @@
 Synapse Changelog
 *****************
 
+
 Unreleased
 ==========
+
+Bugfixes
+--------
+
+- Disallow command and bare string contensts from starting with ``//`` and ``/*`` in Storm syntax.
+  (`#1769 <https://github.com/vertexproject/synapse/pull/1769>`_)
+
+
+v2.1.1 - 2020-06-16
+===================
+
+Bugfixes
+--------
+
+- Fix an issue in the autodoc tool which failed to account for Storm Service commands without cmdargs.
+  (`#1775 <https://github.com/vertexproject/synapse/pull/1775>`_)
+
+
+v2.1.0 - 2020-06-16
+===================
 
 Features and Enhancements
 -------------------------
@@ -14,11 +35,8 @@ Features and Enhancements
   (`#1759 <https://github.com/vertexproject/synapse/pull/1759>`_)
 - Add the ability to record documentation for light edges.
   (`#1760 <https://github.com/vertexproject/synapse/pull/1760>`_)
-
-Bugfixes
---------
-
-- None yet.
+- Add the ability to delete and set items inside of a MultiQueue.
+  (`#1766 <https://github.com/vertexproject/synapse/pull/1766>`_)
 
 Improved Documentation
 ----------------------
@@ -27,6 +45,16 @@ Improved Documentation
   (`#1763 <https://github.com/vertexproject/synapse/pull/1763>`_)
 - Add Vertex branding to the Synapse documentation.
   (`#1767 <https://github.com/vertexproject/synapse/pull/1767>`_)
+- Update Backups documentation in the Devops guide.
+  (`#1764 <https://github.com/vertexproject/synapse/pull/1764>`_)
+- Update the autodoc tool to generate documentation for Cell confdefs and StormService information.
+  (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
+- Update to separate the devops guides into distinct sections.
+  (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
+- Add documentation for how to do boot-time configuration for a a Synapse Cell.
+  (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
+- Remove duplicate information about backups.
+  (`#1774 <https://github.com/vertexproject/synapse/pull/1774>`_)
 
 v2.0.0 - 2020-06-08
 ===================
