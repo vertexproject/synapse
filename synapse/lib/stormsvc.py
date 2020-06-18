@@ -118,7 +118,6 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
         proxy = await s_telepath.Client.anit(url, onlink=self._onTeleLink)
         s_stormtypes.Proxy.__init__(self, proxy)
 
-        await self.core._delStormSvcPkgs(self.iden)
         self.onfini(self.proxy.fini)
 
     async def _runSvcInit(self):

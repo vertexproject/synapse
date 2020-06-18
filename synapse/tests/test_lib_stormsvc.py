@@ -656,6 +656,8 @@ class StormSvcTest(s_test.SynTest):
                         pkg = await core.getStormPkg('old')
                         self.eq(pkg.get('version'), (0, 1, 0))
 
+            # This test verifies that storm commands loaded from a previously connected service are still available,
+            # even if the service is not available now
             with self.getLoggerStream('synapse.lib.nexus') as stream:
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     self.nn(core.getStormCmd('newcmd'))

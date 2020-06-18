@@ -1250,7 +1250,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         This will store the package for future use.
         '''
-        print(f'Loading {pkgdef}')
         await self.loadStormPkg(pkgdef)
         name = pkgdef.get('name')
         await self.pkghive.set(name, pkgdef)
@@ -1268,8 +1267,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Delete a storm package by name.
         '''
-        print(f'Deleting pkg {name}')
-        # breakpoint()
         pkgdef = await self.pkghive.pop(name, None)
         if pkgdef is None:
             return

@@ -595,13 +595,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Specifically, it must be called after the system is ready to process incoming changes but before it has
         generated any.  entries to be executed, but before any new changes can be initiated.
         '''
-        await self.nexsroot.recover()
-
         mirror = self.conf.get('mirror')
         await self.nexsroot.setLeader(mirror, self.iden)
-
-        # Fire the leadership hook once at boot
-        await self.onLeaderChange(await self.isLeader())
 
     async def _initNexsRoot(self):
         '''

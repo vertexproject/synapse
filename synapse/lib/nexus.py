@@ -280,6 +280,9 @@ class NexsRoot(s_base.Base):
 
         self._ldrurl = url
 
+        oldlooptask = self._looptask
+
+        # If the looptask is already running, stop it
         if self._looptask is not None:
             self._looptask.cancel()
             self._looptask = None
@@ -287,11 +290,12 @@ class NexsRoot(s_base.Base):
             if self._ldr is not None:
                 await self._ldr.fini()
             self._ldr = None
-        else:
-            # Before we start mirroring anything, replay the last event because we don't know if it got committed
-            await self.recover()
 
         await self._dostatechange()
+
+        if not oldlooptask:
+            # Before we start mirroring anything, replay the last event because we don't know if it got committed
+            await self.recover()
 
         if self._ldrurl is None:
             return
