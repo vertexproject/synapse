@@ -761,11 +761,9 @@ class Cortex(s_cell.Cell):  # type: ignore
     layrctor = s_layer.Layer.anit
     spawncorector = 'synapse.lib.spawn.SpawnCore'
 
-    deferpost = True  # overridden from cell
-
     async def __anit__(self, dirn, conf=None):
 
-        await s_cell.Cell.__anit__(self, dirn, conf=conf)
+        await s_cell.Cell.__anit__(self, dirn, conf=conf, deferpost=True)
 
         # NOTE: we may not make *any* nexus changes until after postNexsAnit()
 
@@ -1271,7 +1269,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Delete a storm package by name.
         '''
         print(f'Deleting pkg {name}')
-        breakpoint()
+        # breakpoint()
         pkgdef = await self.pkghive.pop(name, None)
         if pkgdef is None:
             return

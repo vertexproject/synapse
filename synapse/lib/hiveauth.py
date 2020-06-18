@@ -98,14 +98,14 @@ class Auth(s_nexus.Pusher):
         if self.allrole is None:
             # initialize the role of which all users are a member
             # Note:  older versions of synapse didn't use a static GUID
-            guid = s_common.guid(('synapse', 'all'))
+            guid = s_common.guid()
             self.allrole = await self._addRole(guid, 'all')
 
         # initialize an admin user named root
         self.rootuser = await self.getUserByName('root')
         if self.rootuser is None:
             # Note:  older versions of synapse didn't use a static GUID
-            guid = s_common.guid(('synapse', 'root'))
+            guid = s_common.guid()
             self.rootuser = await self._addUser(guid, 'root')
 
         await self.rootuser.setAdmin(True, logged=False)

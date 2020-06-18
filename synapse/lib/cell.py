@@ -495,9 +495,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
     }
 
-    deferpost = False   # Set to true if subclass is calling postNexsAnit itself
-
-    async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
+    async def __anit__(self, dirn, conf=None, readonly=False, deferpost=False, *args, **kwargs):
+        '''
+            Args:
+                deferpost(bool): Set to true if subclass is calling postNexsAnit itself
+        '''
 
         if conf is None:
             conf = {}
@@ -584,14 +586,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'cell': self
         }
 
-        if not self.deferpost:
+        if not deferpost:
             await self.postNexsAnit()
 
     async def postNexsAnit(self):
         '''
-        This must be called near the end of subclass initialization if deferpost is True.  Specifically, it must be
-        called after the system is ready to process incoming changes but before it has generated any.  entries to be
-        executed, but before any new changes can be initiated.
+        This must be called near the end of subclass initialization if deferpost was True when passed to anit.
+        Specifically, it must be called after the system is ready to process incoming changes but before it has
+        generated any.  entries to be executed, but before any new changes can be initiated.
         '''
         await self.nexsroot.recover()
 
