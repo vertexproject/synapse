@@ -22,20 +22,42 @@ A Storm service generally implements the following components:
     - The service name, version, packages, and events as defined in ``synapse.lib.StormSvc``.
     - Custom methods which will be accessible as Telepath API endpoints, and therefore available for use within defined Storm commands.
 
-- A subclass of ``synapse.lib.Cell`` which includes additional configuration defintions and methods required to implement the service.
+- A subclass of ``synapse.lib.Cell`` which includes additional configuration definitions and methods required to implement the service.
+
+When implemented as a Cell, methods can also optionally have custom permissions applied to them.
+
+If a specific rule is required it should be namespaced with the service name::
+
+    async def getData(self, query):
+        await self._reqUserAllowed(('svcname', 'rule1'))
+        return self.cell.getData(query):
+
+Alternatively, a method can be gated to only allow admin access::
+
+    @s_cell.adminapi()
+    async def getData(self, query):
+        return self.cell.getData(query)
 
 Connecting a service
 --------------------
 
 For instructions on configuring and starting a Cell service see :ref:`devops-cell-config`.
 
-Before connecting a service to a Cortex it is best practice to add a new user to the service Cell (see :ref:`initial-roles`).
+Before connecting a service to a Cortex it is a best practice to add a new service user,
+which can be accomplished with ``synapse.tools.cellauth``. For example::
+
+    python -m synapse.tools.cellauth tcp://root:<root_passwd>@<svc_ip>:<svc_port> modify svcuser1 --adduser
+    python -m synapse.tools.cellauth tcp://root:<root_passwd>@<svc_ip>:<svc_port> modify svcuser1 --passwd secret
+
+If the service requires specific permissions for a new user they can also be added::
+
+    python -m synapse.tools.cellauth tcp://root:<root_passwd>@<svc_ip>:<svc_port> modify svcuser1 --addrule svcname.rule1
 
 A Storm command can then be run on the Cortex to add the new service::
 
-    service.add mysvc tcp://<username>:<passwd>@<service_ip>:27495
+    service.add mysvc tcp://svcuser1:secret@<svc_ip>:<svc_port>
 
-Permissions to access the service can be granted by adding the ``service.get.<svc_iden>`` rule to the appropriate users / roles.
+Permissions to access the service can be granted by adding the ``service.get.<svc_iden>`` rule to the appropriate users / roles in the Cortex.
 
 The new Storm commands will now be available for use, and are included in Storm ``help``.
 
