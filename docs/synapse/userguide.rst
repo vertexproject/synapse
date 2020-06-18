@@ -10,26 +10,17 @@ The User Guide is a living document and will continue to be updated and expanded
 .. toctree::
     :titlesonly:
 
-    userguides/bkd_why_synapse
-    userguides/bkd_graphs_hypergraphs
+    userguides/index_bkd
 
-    userguides/data_model_terms
-    userguides/data_model_object_categories
-    userguides/data_model_form_categories
+    userguides/index_datamodel
 
-    userguides/analytical_model_tags
-    userguides/analytical_model_tags_analysis
+    userguides/index_analytical
 
     userguides/design_data_model
     userguides/design_analytical_model
     userguides/design_forms_vs_tags
 
-    userguides/syn_tools_cmdr
-    
-    userguides/syn_tools_pushfile
-    userguides/syn_tools_pullfile
-    userguides/syn_tools_feed
-    userguides/syn_tools_csvtool
+    userguides/index_tools
 
     userguides/syn_ref_cmdr
     
