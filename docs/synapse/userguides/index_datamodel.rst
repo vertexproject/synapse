@@ -4,8 +4,8 @@
 User Guide - Data Model
 #######################
 
-Synapse includes a number of tools. **cmdr** provides an interactive command shell to a Cortex, while other tools allow
-users to perform specific tasks. These tools are documented below.
+Synapse includes a number of built in types and forms which are available for use out of the box. Some of these built in
+concepts are discussed in the following sections.
 
 .. toctree::
     :titlesonly:

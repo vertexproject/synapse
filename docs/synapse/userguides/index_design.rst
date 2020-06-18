@@ -3,9 +3,8 @@
 User Guide - Design
 ###################
 
-WORDS WORDS WORDS
-
-MORE WORDS
+There is a balance between using data in the graph, and using tags for analysis. The following sections discuss that
+in additional detail.
 
 .. toctree::
     :titlesonly:
@@ -13,5 +12,3 @@ MORE WORDS
     design_data_model
     design_analytical_model
     design_forms_vs_tags
-
-Cool words
