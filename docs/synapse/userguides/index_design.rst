@@ -1,7 +1,7 @@
 .. _userguide_design:
 
-User Guide - Design
-###################
+Design
+######
 
 There is a balance between using data in the graph, and using tags for analysis. The following sections discuss that
 in additional detail.

@@ -1,8 +1,8 @@
 
 .. _userguide_bkd:
 
-User Guide - Background
-#######################
+Background
+##########
 
 The following sections provide background on Synapse and a brief introduction into graphs and hypergraphs.
 

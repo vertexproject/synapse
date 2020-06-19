@@ -1,8 +1,8 @@
 
 .. _userguide_tools:
 
-User Guide - Tools
-##################
+Tools
+#####
 
 Synapse includes a number of tools. **cmdr** provides an interactive command shell to a Cortex, while other tools allow
 users to perform specific tasks. These tools are documented below.

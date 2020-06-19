@@ -1,7 +1,7 @@
 .. _userguide_analytical:
 
-User Guide - Analytical Model
-#############################
+Analytical Model
+################
 
 The analytical model that is used in Synapse is driven mainly driven by the use of tags to make assessments. This is
 discussed in the following sections.

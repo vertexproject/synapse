@@ -1,7 +1,7 @@
 .. _userguide_storm_adv:
 
-User Guide - Storm Advanced
-###########################
+Storm Advanced
+##############
 
 The are several more advanced Storm language language concepts which are documented in the following sections.
 

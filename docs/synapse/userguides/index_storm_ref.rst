@@ -1,8 +1,8 @@
 
 .. _userguide_storm_ref:
 
-User Guide - Storm Reference
-############################
+Storm Reference
+###############
 
 Synapse uses the Storm Query language to do lifting and modification of data in the graph. Basic Storm usage is
 documented in the following sections.

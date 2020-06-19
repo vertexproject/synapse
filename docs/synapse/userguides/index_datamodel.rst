@@ -1,8 +1,8 @@
 
 .. _userguide_datamodel:
 
-User Guide - Data Model
-#######################
+Data Model
+##########
 
 Synapse includes a number of built in types and forms which are available for use out of the box. Some of these built in
 concepts are discussed in the following sections.
