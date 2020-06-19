@@ -69,10 +69,10 @@ class JupyterTest(s_t_utils.SynTest):
         self.eq('shazam', await svcprox.testmeth())
 
         await cmdrcore.fini()
-        self.true(cmdrcore.fini())
+        self.true(cmdrcore.isfini)
 
         await svcprox.fini()
-        self.true(svcprox.fini())
+        self.true(svcprox.isfini)
 
     async def test_cmdrcore(self):
 

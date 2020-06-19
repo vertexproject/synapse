@@ -293,7 +293,7 @@ async def getTempCoreCmdr(mods=None, outp=None):
 
 async def getTempCoreCmdrStormsvc(svcname, svcctor, svcconf=None, outp=None):
     '''
-    Get a proxy to a Storm service adn a CmdrCore instance backed by a temporary Cortex with the service added.
+    Get a proxy to a Storm service and a CmdrCore instance backed by a temporary Cortex with the service added.
 
     Args:
         svcname (str): Storm service name
