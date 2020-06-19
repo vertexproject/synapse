@@ -3,8 +3,8 @@
 Analytical Model
 ################
 
-The analytical model that is used in Synapse is driven mainly driven by the use of tags to make assessments. This is
-discussed in the following sections.
+The analytical model that is used in Synapse is driven primarily by the use of tags to make assessments. This is
+discussed in the following sections
 
 .. toctree::
     :titlesonly:
