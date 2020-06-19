@@ -2,10 +2,34 @@ import os
 import json
 
 import synapse.common as s_common
-import synapse.lib.msgpack as s_msgpack
+
+import synapse.lib.cell as s_cell
 import synapse.lib.jupyter as s_jupyter
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tests.utils as s_t_utils
+
+class TestsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
+    _storm_svc_name = 'testsvc'
+    _storm_svc_pkgs = (
+        {
+            'name': 'testsvc',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'testsvc.magic',
+                    'storm': '[inet:ipv4=0]',
+                },
+            )
+        },
+    )
+
+    async def testmeth(self):
+        return 'shazam'
+
+class Testsvc(s_cell.Cell):
+    cellapi = TestsvcApi
 
 class JupyterTest(s_t_utils.SynTest):
     testmods = ['synapse.tests.utils.TestModule']
@@ -29,6 +53,26 @@ class JupyterTest(s_t_utils.SynTest):
         self.eq(nodes[0][0], ('test:str', 'beep'))
         await prox.fini()
         self.true(prox.isfini)
+
+    async def test_tempcorecmdrstormsvc(self):
+        cmdrcore, svcprox = await s_jupyter.getTempCoreCmdrStormsvc('testsvc', Testsvc.anit)
+
+        self.false(cmdrcore.isfini)
+        self.false(svcprox.isfini)
+
+        mesgs = await cmdrcore.storm('service.list')
+        self.true(any(['True (testsvc)' in str(mesg) for mesg in mesgs]))
+
+        nodes = await cmdrcore.eval('testsvc.magic')
+        self.len(1, nodes)
+
+        self.eq('shazam', await svcprox.testmeth())
+
+        await cmdrcore.fini()
+        self.true(cmdrcore.fini())
+
+        await svcprox.fini()
+        self.true(svcprox.fini())
 
     async def test_cmdrcore(self):
 
