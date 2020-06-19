@@ -1087,14 +1087,13 @@ class Cortex(s_cell.Cell):  # type: ignore
                 logger.warning(f'initStormService ({iden}) failed: {e}')
 
     async def _finiStormSvcs(self):
-        # try:
-        #     for ssvc in self.svcsbyiden.values():
-        #         await ssvc.fini()
+        try:
+            for ssvc in self.svcsbyiden.values():
+                await ssvc.fini()
 
-        # finally:
-        #     self.svcsbyiden.clear()
-        #     self.svcsbyname.clear()
-        pass
+        finally:
+            self.svcsbyiden.clear()
+            self.svcsbyname.clear()
 
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')

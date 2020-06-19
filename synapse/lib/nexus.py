@@ -173,9 +173,6 @@ class NexsRoot(s_base.Base):
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
         '''
-        # Nic tmp
-        if self._ldrurl is s_common.novalu:
-            breakpoint()
         assert self._ldrurl is not s_common.novalu, 'Attempt to issue before leader known'
 
         if not self._ldrurl:
