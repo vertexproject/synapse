@@ -1209,6 +1209,7 @@ class LibGlobals(Lib):
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
+        valu = await toprim(valu)
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('globals', 'set', name), None),)
         todo = s_common.todo('setStormVar', name, valu)
