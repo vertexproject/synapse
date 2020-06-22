@@ -914,7 +914,7 @@ class StormTypesTest(s_test.SynTest):
                     # Storing a valu into the hive that can't be msgpacked fails
                     q = '[test:str=test] $lib.user.vars.set(mynode, $node)'
                     mesgs = await s_test.alist(prox.storm(q))
-                    err = "Cannot serialize: Node"
+                    err = "can not serialize 'Node'"
                     errs = [m for m in mesgs if m[0] == 'err']
                     self.len(1, errs)
                     self.isin(err, errs[0][1][1].get('mesg'))
