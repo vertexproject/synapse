@@ -763,9 +763,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def __anit__(self, dirn, conf=None):
 
-        await s_cell.Cell.__anit__(self, dirn, conf=conf, deferpost=True)
+        await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
-        # NOTE: we may not make *any* nexus changes until after postNexsAnit()
+        # NOTE: we may not make *any* nexus actions in this method
 
         if self.inaugural:
             await self.cellinfo.set('cortex:version', s_version.version)
@@ -882,13 +882,25 @@ class Cortex(s_cell.Cell):  # type: ignore
             'axon': self.axon
         })
 
+        self.nexsroot.onPreLeader(self.preLeaderHook)
+
         await self.auth.addAuthGate('cortex', 'cortex')
 
-        await self.postNexsAnit()
+    async def _initNexsRoot(self):
+        '''
+        Just like cell _initNexsRoot except doesn't call nexsroot.setLeader
+        '''
+        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
+        self.onfini(nexsroot.fini)
+        nexsroot.onfini(self)
+        return nexsroot
 
-        # At this point, we're safe to make nexus changes
-
+    async def preLeaderHook(self, leader):
+        '''
+        These run after the leader is set, but before the leader/follower callbacks are run and the follower loop runs
+        '''
         await self._initCoreMods()
+        await self._initStormSvcs()
 
     async def startAsLeader(self):
         '''
@@ -897,14 +909,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
-        await self._initStormSvcs()
 
     async def stopAsLeader(self):
         '''
         Stop things that only a leader Cortex runs.
         '''
         await self.agenda.stop()
-        await self._finiStormSvcs()
         await self.stormdmons.stop()
 
     async def _onEvtBumpSpawnPool(self, evnt):

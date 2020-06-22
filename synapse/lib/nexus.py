@@ -86,8 +86,10 @@ class NexsRoot(s_base.Base):
         self._mirrors: List[ChangeDist] = []
         self.donexslog = donexslog
 
+        self._preleader_run = False  # Whether preleader funcs have been called once
+        self._preleader_funcs: List[Callable] = [] # Callbacks for after leadership set, but before loop run
         self._state_lock = asyncio.Lock()
-        self._state_funcs: List[Callable] = [] # External Callbacks for state changes
+        self._state_funcs: List[Callable] = [] # Callbacks for leadership changes
 
         # Mirror-related
         self._ldrurl: Union[str, None, s_common.NoValu] = s_common.novalu  # Initialized so that setLeader will run once
@@ -291,6 +293,7 @@ class NexsRoot(s_base.Base):
                 await self._ldr.fini()
             self._ldr = None
 
+        await self._dopreleader()
         await self._dostatechange()
 
         if not oldlooptask:
@@ -309,6 +312,24 @@ class NexsRoot(s_base.Base):
         at the time the callbacks are executed.
         '''
         self._state_funcs.append(func)
+
+    def onPreLeader(self, func):
+        '''
+        Add a method that will be called exactly once inside setLeader, after the leadership is set, but before the
+        state change hooks are run and the follower loop is started.
+
+        To work, this must be called before the first time that setLeader is called.
+        '''
+        self._preleader_funcs.append(func)
+
+    async def _dopreleader(self):
+        if self._preleader_run:
+            return
+
+        self._preleader_run = True
+        amleader = await self.isLeader()
+        for func in self._preleader_funcs:
+            await s_coro.ornot(func, leader=amleader)
 
     async def _dostatechange(self):
         amleader = await self.isLeader()
