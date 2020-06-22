@@ -48,6 +48,7 @@ def en(item):
         pakr.reset()
         mesg = f'Cannot serialize: {repr(e)}:  {repr(item)[:20]}'
         raise s_exc.NotMsgpackSafe(mesg=mesg) from e
+
 def un(byts):
     '''
     Use msgpack to de-serialize a python object.
