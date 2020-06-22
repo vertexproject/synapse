@@ -880,6 +880,14 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await s_test.alist(prox.storm(popq))
                     self.stormIsInPrint('pop valu is beep', mesgs)
 
+                    q = '''$x=$lib.dict(foo=1)
+                    $lib.globals.set(bar, $x)
+                    $y=$lib.globals.get(bar)
+                    $lib.print("valu={v}", v=$y.foo)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('valu=1', mesgs)
+
                     # get and pop take a secondary default value which may be returned
                     q = '''$valu = $lib.globals.get(throwaway, $(0))
                     $lib.print("get valu is {valu}", valu=$valu)
@@ -899,7 +907,7 @@ class StormTypesTest(s_test.SynTest):
                     }
                     '''
                     mesgs = await s_test.alist(prox.storm(listq))
-                    self.len(2, [m for m in mesgs if m[0] == 'print'])
+                    self.len(3, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('adminkey is sekrit', mesgs)
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
