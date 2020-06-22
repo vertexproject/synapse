@@ -508,6 +508,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sessions = {}
         self.inaugural = False
 
+        self.conf = self._initCellConf(conf)
+
         # each cell has a guid
         path = s_common.genpath(dirn, 'cell.guid')
 
@@ -526,8 +528,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # read our guid file
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
-
-        self.conf = self._initCellConf(conf)
 
         self.donexslog = self.conf.get('nexslog:en')
 

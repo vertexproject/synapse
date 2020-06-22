@@ -40,11 +40,14 @@ def en(item):
         return msgpack.packb(item, use_bin_type=True, unicode_errors='surrogatepass')
     try:
         return pakr.pack(item)
-    except Exception:
+    except TypeError as e:
         pakr.reset()
-        mesg = f'Cannot serialize: {item!r}'
-        raise s_exc.NotMsgpackSafe(mesg=mesg)
-
+        mesg = f'{e.args[0]}: {repr(item)[:20]}'
+        raise s_exc.NotMsgpackSafe(mesg=mesg) from e
+    except Exception as e:
+        pakr.reset()
+        mesg = f'Cannot serialize: {repr(e)}:  {repr(item)[:20]}'
+        raise s_exc.NotMsgpackSafe(mesg=mesg) from e
 def un(byts):
     '''
     Use msgpack to de-serialize a python object.
