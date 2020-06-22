@@ -2813,8 +2813,13 @@ class EditNodeAdd(Edit):
             async for node, path in genr:
                 yield node, path
 
-        async for item in s_base.schedGenr(feedfunc()):
+        genr = s_base.schedGenr(feedfunc())
+        runt.snap.addGenr(genr)
+
+        async for item in genr:
             yield item
+
+        runt.snap.delGenr(genr)
 
 class EditPropSet(Edit):
 
