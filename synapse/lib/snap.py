@@ -86,15 +86,16 @@ class Snap(s_base.Base):
         self.tagtype = self.core.model.type('ival')
         self.trigson = self.core.trigson
 
-    def addGenr(self, genr):
+    @contextlib.contextmanager
+    def withGenr(self, genr):
         self._genrs.add(genr)
-
-    def delGenr(self, genr):
-        if genr in self._genrs:
+        try:
+            yield
+        finally:
             self._genrs.remove(genr)
 
     async def closeGenrs(self):
-        for genr in self._genrs:
+        for genr in list(self._genrs):
             await genr.aclose()
 
     def disableTriggers(self):
