@@ -10,7 +10,7 @@ import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tests.utils as s_t_utils
 
-class TestsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
+class TstsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'testsvc'
     _storm_svc_pkgs = (
         {
@@ -28,8 +28,8 @@ class TestsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
     async def testmeth(self):
         return 'shazam'
 
-class Testsvc(s_cell.Cell):
-    cellapi = TestsvcApi
+class Tstsvc(s_cell.Cell):
+    cellapi = TstsvcApi
 
 class JupyterTest(s_t_utils.SynTest):
     testmods = ['synapse.tests.utils.TestModule']
@@ -55,7 +55,7 @@ class JupyterTest(s_t_utils.SynTest):
         self.true(prox.isfini)
 
     async def test_tempcorecmdrstormsvc(self):
-        cmdrcore, svcprox = await s_jupyter.getTempCoreCmdrStormsvc('testsvc', Testsvc.anit)
+        cmdrcore, svcprox = await s_jupyter.getTempCoreCmdrStormsvc('testsvc', Tstsvc.anit)
 
         self.false(cmdrcore.isfini)
         self.false(svcprox.isfini)
