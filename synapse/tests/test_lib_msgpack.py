@@ -177,6 +177,10 @@ class MsgPackTest(s_t_utils.SynTest):
         self.raises(s_exc.NotMsgpackSafe, s_msgpack.en, {1, 2})
         self.raises(s_exc.NotMsgpackSafe, s_msgpack.en, Exception())
         self.raises(s_exc.NotMsgpackSafe, s_msgpack.en, s_msgpack.en)
+        # too long
+        with self.raises(s_exc.NotMsgpackSafe) as cm:
+            s_msgpack.en({'longlong': 45234928034723904723906})
+        self.isin('OverflowError', cm.exception.get('mesg'))
 
     def test_msgpack_surrogates(self):
         bads = '\u01cb\ufffd\ud842\ufffd\u0012'
