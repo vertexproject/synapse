@@ -61,7 +61,7 @@ C
 Cell
 ----
 
-The Cell is a basic building block of Synapse services, include the Cortex. See :ref:`dev_architecture` for more
+The Cell is a basic building block of Synapse services, including the Cortex. See :ref:`dev_architecture` for more
 information about what a Cell provides.
 
 .. _gloss-comparator:
@@ -578,8 +578,8 @@ Package
 
 A package is a set of commands and library code used to implement a Storm :ref:`gloss-service`. When a new Storm
 service is loaded into a Cortex, the Cortex verifes that the service is legitimate and then requests the service's
-package in order to load any extended Storm commands associated with the service and any library code used to
-aimplement the service.
+packages in order to load any extended Storm commands associated with the service and any library code used to
+implement the service.
 
 .. _gloss-pivot:
 
