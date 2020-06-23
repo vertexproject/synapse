@@ -33,7 +33,6 @@ class EchoAuth(s_cell.Cell):
         if doraise:
             raise s_exc.BadTime(mesg='call again later')
 
-
 class CellTest(s_t_utils.SynTest):
 
     async def test_cell_auth(self):
@@ -405,7 +404,6 @@ class CellTest(s_t_utils.SynTest):
                     nexsiden, act, args, kwargs, meta = data
                     if nexsiden == 'auth:auth' and act == 'user:add':
                         retn.append(args)
-                    if len(retn) >= 2:
                         break
                 return yielded, retn
 
@@ -422,7 +420,7 @@ class CellTest(s_t_utils.SynTest):
                 yielded, data = await asyncio.wait_for(task, 6)
                 self.true(yielded)
                 usernames = [args[1] for args in data]
-                self.eq(usernames, ['root', 'test'])
+                self.eq(usernames, ['test'])
 
             # Disable change logging for this cell.
             conf = {'nexslog:en': False}
