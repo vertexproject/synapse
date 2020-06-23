@@ -1,4 +1,5 @@
 import os
+import copy
 import json
 import pathlib
 import contextlib
@@ -103,6 +104,34 @@ async def genTempCoreProxy(mods=None):
             async with core.getLocalProxy() as prox:
                 # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
                 object.__setattr__(prox, '_core', core)
+                yield prox
+
+@contextlib.asynccontextmanager
+async def genTempStormsvcProxy(cmdrcore, svcname, svcctor, conf=None):
+    if conf is None:
+        conf = {}
+
+    conf = copy.deepcopy(conf)
+
+    with s_common.getTempDir() as dirn:
+
+        async with await svcctor(dirn, conf=conf) as svc:
+            svc.dmon.share(svcname, svc)
+
+            root = await svc.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            info = await svc.dmon.listen('tcp://127.0.0.1:0/')
+            svc.dmon.test_addr = info
+            host, port = info
+            surl = f'tcp://root:secret@127.0.0.1:{port}/{svcname}'
+
+            await cmdrcore.storm(f'service.add {svcname} {surl}')
+            await cmdrcore.storm(f'$lib.service.wait({svcname})')
+
+            async with svc.getLocalProxy() as prox:
+                # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
+                object.__setattr__(prox, '_svc', svc)
                 yield prox
 
 async def getItemCmdr(prox, outp=None, locs=None):
@@ -261,3 +290,32 @@ async def getTempCoreCmdr(mods=None, outp=None):
     cmdrcore = await CmdrCore.anit(prox, outp=outp)
     cmdrcore.acm = acm
     return cmdrcore
+
+async def getTempCoreCmdrStormsvc(svcname, svcctor, svcconf=None, outp=None):
+    '''
+    Get a proxy to a Storm service and a CmdrCore instance backed by a temporary Cortex with the service added.
+
+    Args:
+        svcname (str): Storm service name
+        svcctor: Storm service constructor (e.g. Example.anit)
+        svcconf: Optional conf for the Storm service
+        outp: A output helper for the Cmdr instance
+
+    Notes:
+        Both the CmdrCore and Storm service proxy should be fini()'d for proper teardown
+
+    Returns:
+        (CmdrCore, Proxy): A CmdrCore instance and proxy to the Storm service
+    '''
+    cmdrcore = await getTempCoreCmdr(outp=outp)
+
+    acm = genTempStormsvcProxy(cmdrcore, svcname, svcctor, svcconf)
+    svcprox = await acm.__aenter__()
+    # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
+    object.__setattr__(svcprox, '_acm', acm)
+
+    async def onfini():
+        await svcprox._acm.__aexit__(None, None, None)
+    svcprox.onfini(onfini)
+
+    return cmdrcore, svcprox
