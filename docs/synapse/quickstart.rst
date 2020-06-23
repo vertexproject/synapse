@@ -113,9 +113,9 @@ tags::
 
     python -m synapse.tools.cellauth cell://cortex modify visi --adduser
     python -m synapse.tools.cellauth cell://cortex modify visi --passwd secretsauce
-    python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:add
-    python -m synapse.tools.cellauth cell://cortex modify visi --addrule prop:set
-    python -m synapse.tools.cellauth cell://cortex modify visi --addrule tag:add
+    python -m synapse.tools.cellauth cell://cortex modify visi --addrule node.add
+    python -m synapse.tools.cellauth cell://cortex modify visi --addrule node.prop.set
+    python -m synapse.tools.cellauth cell://cortex modify visi --addrule node.tag.add
 
 To allow remote access for the default root user account, a password can be set using the following command::
 
@@ -124,35 +124,41 @@ To allow remote access for the default root user account, a password can be set 
 Granular permissions based on types of nodes and tags may be used to create roles based on domain-specific workflows.
 The following permissions exist for controlling access to nodes and tags.
 
-*node:add*
+*node.add*
      Add any form of node.
 
-*node:add.<form>*
-     Add a specific form of node.  (ex. ``node:add.inet:ipv4``)
+*node.add.<form>*
+     Add a specific form of node.  (ex. ``node.add.inet:ipv4``)
 
-*prop:set*
-     Set any property.
-
-*prop:set.<prop>*
-     Set a specific property.  (ex. ``prop:set.inet:ipv4:loc``)
-
-*node:del*
+*node.del*
      Delete any form of node.
 
-*node:del.<form>*
-     Delete a <form> node. (ex. ``node:del.inet:ipv4``)
+*node.del.<form>*
+     Delete a <form> node. (ex. ``node.del.inet:ipv4``)
 
-*tag:add*
-      Add any tag to a node.
+*node.prop.set*
+     Set any property.
 
-*tag:add.<tag>*
-     Add a specific tag or subtag to a node. (ex. ``tag:add.foo.bar``)
+*node.prop.set.<prop>*
+     Set a specific property.  (ex. ``node.prop.set.inet:ipv4:loc``)
 
-*tag:del*
-      Remove any tag from a node.
+*node.prop.del*
+     Delete any property.
 
-*tag:del.<tag>*
-     Remove a specific tag or subtag to a node. (ex. ``tag:del.foo.bar``)
+*node.prop.del.<prop>*
+     Delete a specific property.  (ex. ``node.prop.del.inet:ipv4:loc``)
+
+*node.tag.add*
+     Add any tag to a node.
+
+*node.tag.add.<tag>*
+     Add a specific tag or subtag to a node. (ex. ``node.tag.add.foo.bar``)
+
+*node.tag.del*
+     Remove any tag from a node.
+
+*node.tag.del.<tag>*
+     Remove a specific tag or subtag to a node. (ex. ``node.tag.del.foo.bar``)
 
 Remote Access
 =============

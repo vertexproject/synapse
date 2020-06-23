@@ -3,6 +3,31 @@ Synapse Changelog
 *****************
 
 
+v2.2.0 - TBD
+============
+
+Features and Enhancements
+-------------------------
+
+TBD
+
+Bugfixes
+--------
+
+- Add a missing ``toprim()`` call in ``$lib.globals.set()``.
+  (`#1778 <https://github.com/vertexproject/synapse/pull/1778>`_)
+- Fix an issue in the quickstart documentation related to permissions.
+  (`#1779 <https://github.com/vertexproject/synapse/pull/1779>`_)
+
+Improved Documentation
+----------------------
+
+- Add a minimal Storm Service example to the developer documentation.
+  (`#1776 <https://github.com/vertexproject/synapse/pull/1776>`_)
+- Reorganize the Synapse User Guide into a more hierarchical format.
+  (`#1777 <https://github.com/vertexproject/synapse/pull/1777>`_)
+
+
 v2.1.2 - 2020-06-18
 ===================
 
