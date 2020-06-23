@@ -3,7 +3,7 @@ import logging
 import functools
 import contextlib
 
-from typing import List, Dict, Any, Callable, Tuple, Optional, AsyncIterator
+from typing import List, Dict, Any, Callable, Tuple, Optional, AsyncIterator, Union
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -86,11 +86,13 @@ class NexsRoot(s_base.Base):
         self._mirrors: List[ChangeDist] = []
         self.donexslog = donexslog
 
+        self._preleader_run = False  # Whether preleader funcs have been called once
+        self._preleader_funcs: List[Callable] = [] # Callbacks for after leadership set, but before loop run
         self._state_lock = asyncio.Lock()
-        self._state_funcs: List[Callable] = [] # External Callbacks for state changes
+        self._state_funcs: List[Callable] = [] # Callbacks for leadership changes
 
-        # These are used when this cell is a mirror.
-        self._ldrurl: Optional[str] = None
+        # Mirror-related
+        self._ldrurl: Union[str, None, s_common.NoValu] = s_common.novalu  # Initialized so that setLeader will run once
         self._ldr: Optional[s_telepath.Proxy] = None  # only set by looptask
         self._looptask: Optional[asyncio.Task] = None
         self._ldrready = asyncio.Event()
@@ -173,6 +175,8 @@ class NexsRoot(s_base.Base):
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
         '''
+        assert self._ldrurl is not s_common.novalu, 'Attempt to issue before leader known'
+
         if not self._ldrurl:
             return await self.eat(nexsiden, event, args, kwargs, meta)
 
@@ -259,7 +263,7 @@ class NexsRoot(s_base.Base):
 
             yield dist
 
-    def amLeader(self):
+    async def isLeader(self):
         return self._ldrurl is None
 
     async def setLeader(self, url: Optional[str], iden: str) -> None:
@@ -278,6 +282,9 @@ class NexsRoot(s_base.Base):
 
         self._ldrurl = url
 
+        oldlooptask = self._looptask
+
+        # If the looptask is already running, stop it
         if self._looptask is not None:
             self._looptask.cancel()
             self._looptask = None
@@ -286,7 +293,12 @@ class NexsRoot(s_base.Base):
                 await self._ldr.fini()
             self._ldr = None
 
+        await self._dopreleader()
         await self._dostatechange()
+
+        if not oldlooptask:
+            # Before we start mirroring anything, replay the last event because we don't know if it got committed
+            await self.recover()
 
         if self._ldrurl is None:
             return
@@ -301,8 +313,26 @@ class NexsRoot(s_base.Base):
         '''
         self._state_funcs.append(func)
 
+    def onPreLeader(self, func):
+        '''
+        Add a method that will be called exactly once inside setLeader, after the leadership is set, but before the
+        state change hooks are run and the follower loop is started.
+
+        To work, this must be called before the first time that setLeader is called.
+        '''
+        self._preleader_funcs.append(func)
+
+    async def _dopreleader(self):
+        if self._preleader_run:
+            return
+
+        self._preleader_run = True
+        amleader = await self.isLeader()
+        for func in self._preleader_funcs:
+            await s_coro.ornot(func, leader=amleader)
+
     async def _dostatechange(self):
-        amleader = self.amLeader()
+        amleader = await self.isLeader()
         async with self._state_lock:
             for func in self._state_funcs:
                 await s_coro.ornot(func, leader=amleader)
@@ -404,6 +434,11 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         self.onfini(onfini)
 
         self.nexsroot = nexsroot
+
+    async def isLeader(self):
+        if self.nexsroot is None:
+            return True
+        return await self.nexsroot.isLeader()
 
     @classmethod
     def onPush(cls, event: str, passoff=False) -> Callable:

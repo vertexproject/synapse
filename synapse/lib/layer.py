@@ -1015,6 +1015,7 @@ class Layer(s_nexus.Pusher):
     def pack(self):
         return self.layrinfo.pack()
 
+    @s_nexus.Pusher.onPushAuto('layer:truncate')
     async def truncate(self):
 
         self.buidcache.clear()

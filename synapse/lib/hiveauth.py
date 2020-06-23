@@ -76,6 +76,9 @@ class Auth(s_nexus.Pusher):
         self.rolesbyname = {}
         self.authgates = {}
 
+        self.allrole = None
+        self.rootuser = None
+
         roles = await self.node.open(('roles',))
         for _, node in roles:
             await self._addRoleNode(node)
@@ -94,12 +97,14 @@ class Auth(s_nexus.Pusher):
         self.allrole = await self.getRoleByName('all')
         if self.allrole is None:
             # initialize the role of which all users are a member
-            self.allrole = await self.addRole('all')
+            guid = s_common.guid()
+            self.allrole = await self._addRole(guid, 'all')
 
         # initialize an admin user named root
         self.rootuser = await self.getUserByName('root')
         if self.rootuser is None:
-            self.rootuser = await self.addUser('root')
+            guid = s_common.guid()
+            self.rootuser = await self._addUser(guid, 'root')
 
         await self.rootuser.setAdmin(True, logged=False)
         await self.rootuser.setLocked(False, logged=False)
@@ -854,10 +859,13 @@ class HiveUser(HiveRuler):
 
         return False
 
-    async def setPasswd(self, passwd):
+    async def setPasswd(self, passwd, nexs=True):
         # Prevent empty string or non-string values
         if not passwd or not isinstance(passwd, str):
             raise s_exc.BadArg(mesg='Password must be a string')
         salt = s_common.guid()
         hashed = s_common.guid((salt, passwd))
-        await self.auth.setUserInfo(self.iden, 'passwd', (salt, hashed))
+        if nexs:
+            await self.auth.setUserInfo(self.iden, 'passwd', (salt, hashed))
+        else:
+            await self.auth._hndlsetUserInfo(self.iden, 'passwd', (salt, hashed))
