@@ -23,7 +23,9 @@ See :ref:`gloss-model-analytical`.
 Axon
 ----
 
-TBD
+The Axon is an interface for providing binary / blob storage inside of the Synapse ecosystem. This indexes binaries
+based on SHA-256 hash so we do not duplicate the storage of the same set of bytes twice. The default implemenation
+stores the blobs in a LMDB :ref:`gloss-slab`.
 
 B
 =
@@ -59,7 +61,8 @@ C
 Cell
 ----
 
-TBD
+The Cell is a basic building block of Synapse services, include the Cortex. See :ref:`dev_architecture` for more
+information about what a Cell provides.
 
 .. _gloss-comparator:
 
@@ -361,7 +364,8 @@ H
 Hive
 ----
 
-TBD
+The Hive is a key/value storage mechanism which is used to persist various data structures required for operating a
+Synapse :ref:`gloss-cell`.
 
 .. _gloss-hyperedge:
 
@@ -758,7 +762,9 @@ See :ref:`gloss-form-simple`.
 Slab
 ----
 
-TBD
+A Slab is a core Synapse component which is used for persisting data on disk into a LMDB backed database. The Slab
+interface offers an asyncio friendly interface to LMDB objects, while allowing users to largely avoid having to
+handle native transactions themselves.
 
 .. _gloss-splice:
 
