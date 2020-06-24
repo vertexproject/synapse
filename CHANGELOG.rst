@@ -9,7 +9,13 @@ v2.2.0 - TBD
 Features and Enhancements
 -------------------------
 
-TBD
+- Add a ``postAnit()`` callback to the ``synapse.lib.base.Base()`` object which is called *after* the ``__anit__()``
+  call chain is completed, but before ``Base.anit()`` returns the object instance to the caller. This is used by the
+  Cell to defer certain Nexus actions until the Cell has completed initializing all of its instance attributes.
+  (`#1768 <https://github.com/vertexproject/synapse/pull/1768>`_)
+- Make ``synapse.lib.msgpack.en()`` raise a ``SynErr.NotMsgpackSafe`` exception instead of passing through the
+  exception raised by msgpack.
+  (`#1768 <https://github.com/vertexproject/synapse/pull/1768>`_)
 
 Bugfixes
 --------
@@ -18,6 +24,10 @@ Bugfixes
   (`#1778 <https://github.com/vertexproject/synapse/pull/1778>`_)
 - Fix an issue in the quickstart documentation related to permissions.
   (`#1779 <https://github.com/vertexproject/synapse/pull/1779>`_)
+- Fix an Cell/Cortex startup issue which caused errors when starting up a Cortex when the last Nexus event was
+  replayed. This has a secondary effect that Cell implementers cannot be making Nexus changes during the ``__anit__``
+  methods.
+  (`#1768 <https://github.com/vertexproject/synapse/pull/1768>`_)
 
 Improved Documentation
 ----------------------
@@ -26,6 +36,8 @@ Improved Documentation
   (`#1776 <https://github.com/vertexproject/synapse/pull/1776>`_)
 - Reorganize the Synapse User Guide into a more hierarchical format.
   (`#1777 <https://github.com/vertexproject/synapse/pull/1777>`_)
+- Fill out additional glossary items.
+  (`#1780 <https://github.com/vertexproject/synapse/pull/1780>`_)
 
 
 v2.1.2 - 2020-06-18
