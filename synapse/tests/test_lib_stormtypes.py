@@ -880,6 +880,14 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await s_test.alist(prox.storm(popq))
                     self.stormIsInPrint('pop valu is beep', mesgs)
 
+                    q = '''$x=$lib.dict(foo=1)
+                    $lib.globals.set(bar, $x)
+                    $y=$lib.globals.get(bar)
+                    $lib.print("valu={v}", v=$y.foo)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('valu=1', mesgs)
+
                     # get and pop take a secondary default value which may be returned
                     q = '''$valu = $lib.globals.get(throwaway, $(0))
                     $lib.print("get valu is {valu}", valu=$valu)
@@ -899,17 +907,17 @@ class StormTypesTest(s_test.SynTest):
                     }
                     '''
                     mesgs = await s_test.alist(prox.storm(listq))
-                    self.len(2, [m for m in mesgs if m[0] == 'print'])
+                    self.len(3, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('adminkey is sekrit', mesgs)
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
                     # Storing a valu into the hive that can't be msgpacked fails
                     q = '[test:str=test] $lib.user.vars.set(mynode, $node)'
                     mesgs = await s_test.alist(prox.storm(q))
-                    err = "can not serialize 'Node' object"
+                    err = "can not serialize 'Node'"
                     errs = [m for m in mesgs if m[0] == 'err']
                     self.len(1, errs)
-                    self.eq(errs[0][1][1].get('mesg'), err)
+                    self.isin(err, errs[0][1][1].get('mesg'))
 
                     # Sad path - names must be strings.
                     q = '$lib.globals.set((my, nested, valu), haha)'

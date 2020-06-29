@@ -762,6 +762,9 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
+            # Make sure new nodes get different creation times than nodes created in the test CoreModule
+            await asyncio.sleep(0.001)
+
             # Test some default values
             async with await wcore.snap() as snap:
 

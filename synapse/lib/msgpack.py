@@ -3,6 +3,8 @@ import logging
 import msgpack
 import msgpack.fallback as m_fallback
 
+import synapse.exc as s_exc
+
 logger = logging.getLogger(__name__)
 
 # Single Packer object which is reused for performance
@@ -38,9 +40,14 @@ def en(item):
         return msgpack.packb(item, use_bin_type=True, unicode_errors='surrogatepass')
     try:
         return pakr.pack(item)
-    except Exception:
+    except TypeError as e:
         pakr.reset()
-        raise
+        mesg = f'{e.args[0]}: {repr(item)[:20]}'
+        raise s_exc.NotMsgpackSafe(mesg=mesg) from e
+    except Exception as e:
+        pakr.reset()
+        mesg = f'Cannot serialize: {repr(e)}:  {repr(item)[:20]}'
+        raise s_exc.NotMsgpackSafe(mesg=mesg) from e
 
 def un(byts):
     '''

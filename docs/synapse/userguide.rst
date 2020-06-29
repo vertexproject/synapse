@@ -10,45 +10,19 @@ The User Guide is a living document and will continue to be updated and expanded
 .. toctree::
     :titlesonly:
 
-    userguides/bkd_why_synapse
-    userguides/bkd_graphs_hypergraphs
+    userguides/index_bkd
 
-    userguides/data_model_terms
-    userguides/data_model_object_categories
-    userguides/data_model_form_categories
+    userguides/index_datamodel
 
-    userguides/analytical_model_tags
-    userguides/analytical_model_tags_analysis
+    userguides/index_analytical
 
-    userguides/design_data_model
-    userguides/design_analytical_model
-    userguides/design_forms_vs_tags
+    userguides/index_design
 
-    userguides/syn_tools_cmdr
-    
-    userguides/syn_tools_pushfile
-    userguides/syn_tools_pullfile
-    userguides/syn_tools_feed
-    userguides/syn_tools_csvtool
+    userguides/index_tools
 
-    userguides/syn_ref_cmdr
-    
-    userguides/storm_ref_intro
-    userguides/storm_ref_syntax
-    userguides/storm_ref_lift
-    userguides/storm_ref_filter
-    userguides/storm_ref_pivot
-    userguides/storm_ref_data_mod
-    userguides/storm_ref_model_introspect
-    userguides/storm_ref_type_specific
-    userguides/storm_ref_cmd
-    userguides/storm_ref_automation
+    userguides/index_storm_ref
 
-    userguides/storm_adv_subquery
-    userguides/storm_adv_vars
-    userguides/storm_adv_methods
-    userguides/storm_adv_libs
-    userguides/storm_adv_control
+    userguides/index_storm_adv
 
 Many of the concepts above are closely related and this outline represents a reasonable effort to introduce concepts in a logical order. However, it is difficult to fully understand the potential of Synapse and hypergraphs without grasping the power of the Storm query language to understand, manipulate, and annotate data. Similarly, it’s hard to understand the effectiveness of Storm without knowledge of the underlying data model. **The outline above is our suggested order but readers are encouraged to skip around or revisit earlier sections after digesting later sections to better see how these topics are tied together.**
 

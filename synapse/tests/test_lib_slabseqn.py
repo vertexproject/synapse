@@ -1,6 +1,8 @@
 import os
 import asyncio
 
+import synapse.exc as s_exc
+
 import synapse.lib.coro as s_coro
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -24,7 +26,7 @@ class SlabSeqn(s_t_utils.SynTest):
             retn = tuple(seqn.iter(0))
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 
-            self.raises(TypeError, seqn.save, ({'set'},))
+            self.raises(s_exc.NotMsgpackSafe, seqn.save, ({'set'},))
             retn = tuple(seqn.iter(0))
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 

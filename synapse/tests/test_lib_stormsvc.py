@@ -245,7 +245,7 @@ class LifterService(s_stormsvc.StormSvc):
             'commands': (
                 {
                     'name': 'lifter',
-                    'desc': 'Lift inet:ipv4=1.2.3.4',
+                    'descr': 'Lift inet:ipv4=1.2.3.4',
                     'storm': 'inet:ipv4=1.2.3.4',
                 },
             ),
@@ -269,10 +269,15 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
             'commands': (
                 {
                     'name': 'magic',
+                    'descr': 'Test stormvar support.',
                     'cmdargs': (
                         ('name', {}),
                         ('--debug', {'default': False, 'action': 'store_true'})
                     ),
+                    'forms': {
+                        'input': ('test:str', 'test:int'),
+                        'output': ('test:comp', 'inet:ipv4'),
+                    },
                     'storm': '''
                     $fooz = $cmdopts.name
                     if $cmdopts.debug {
@@ -286,6 +291,7 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
     )
 
 class StormvarServiceCell(s_cell.Cell):
+
     cellapi = StormvarService
 
 @contextlib.contextmanager
@@ -650,19 +656,26 @@ class StormSvcTest(s_test.SynTest):
                         pkg = await core.getStormPkg('old')
                         self.eq(pkg.get('version'), (0, 1, 0))
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
-                self.nn(core.getStormCmd('newcmd'))
-                self.nn(core.getStormCmd('new.baz'))
-                self.nn(core.getStormCmd('old.bar'))
-                self.nn(core.getStormCmd('runtecho'))
-                self.none(core.getStormCmd('oldcmd'))
-                self.none(core.getStormCmd('old.baz'))
-                self.isin('old', core.stormpkgs)
-                self.isin('new', core.stormpkgs)
-                self.isin('echo', core.stormmods)
-                self.isin('old.bar', core.stormmods)
-                self.isin('new.baz', core.stormmods)
-                self.notin('old.baz', core.stormmods)
+            # This test verifies that storm commands loaded from a previously connected service are still available,
+            # even if the service is not available now
+            with self.getLoggerStream('synapse.lib.nexus') as stream:
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    self.nn(core.getStormCmd('newcmd'))
+                    self.nn(core.getStormCmd('new.baz'))
+                    self.nn(core.getStormCmd('old.bar'))
+                    self.nn(core.getStormCmd('runtecho'))
+                    self.none(core.getStormCmd('oldcmd'))
+                    self.none(core.getStormCmd('old.baz'))
+                    self.isin('old', core.stormpkgs)
+                    self.isin('new', core.stormpkgs)
+                    self.isin('echo', core.stormmods)
+                    self.isin('old.bar', core.stormmods)
+                    self.isin('new.baz', core.stormmods)
+                    self.notin('old.baz', core.stormmods)
+
+            stream.seek(0)
+            mesgs = stream.read()
+            self.notin('Exception while replaying', mesgs)
 
     async def test_storm_vars(self):
 

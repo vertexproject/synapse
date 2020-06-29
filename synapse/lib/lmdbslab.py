@@ -442,6 +442,65 @@ class MultiQueue(s_base.Base):
             self.sizes.set(name, self.sizes.get(name) - 1)
             await asyncio.sleep(0)
 
+    async def dele(self, name, minoffs, maxoffs):
+        '''
+        Remove queue entries from minoffs, up-to (and including) the queue entry at maxoffs.
+        '''
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        if minoffs < 0 or maxoffs < 0 or maxoffs < minoffs:
+            return
+
+        minindx = s_common.int64en(minoffs)
+        maxindx = s_common.int64en(maxoffs)
+
+        abrv = self.abrv.nameToAbrv(name)
+
+        for lkey, _ in self.slab.scanByRange(abrv + minindx, abrv + maxindx, db=self.qdata):
+            self.slab.delete(lkey, db=self.qdata)
+            self.sizes.set(name, self.sizes.get(name) - 1)
+            await asyncio.sleep(0)
+
+    async def sets(self, name, offs, items):
+        '''
+        Overwrite queue entries with the values in items, starting at offs.
+        '''
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        if offs < 0:
+            return
+
+        abrv = self.abrv.nameToAbrv(name)
+        wake = False
+
+        for item in items:
+            indx = s_common.int64en(offs)
+
+            if offs >= self.offsets.get(name, 0):
+                self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
+                offs = self.offsets.set(name, offs + 1)
+                self.sizes.inc(name, 1)
+                wake = True
+            else:
+                byts = self.slab.get(abrv + indx, db=self.qdata)
+                self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
+
+                if byts is None:
+                    self.sizes.inc(name, 1)
+
+                offs += 1
+
+            await asyncio.sleep(0)
+
+        if wake:
+            evnt = self.waiters.get(name)
+            if evnt is not None:
+                evnt.set()
+
 class GuidStor:
 
     def __init__(self, slab, name):

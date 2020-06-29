@@ -102,6 +102,13 @@ class Base:
 
             raise
 
+        try:
+            await self.postAnit()
+        except Exception:
+            logger.exception('Error during postAnit callback.')
+            await self.fini()
+            raise
+
         return self
 
     async def __anit__(self):
@@ -139,6 +146,12 @@ class Base:
         self._fini_funcs = []
         self._fini_atexit = False
         self._active_tasks = set()  # the free running tasks associated with me
+
+    async def postAnit(self):
+        '''
+        Method called after self.__anit__() has completed, but before anit() returns the object to the caller.
+        '''
+        pass
 
     async def enter_context(self, item):
         '''

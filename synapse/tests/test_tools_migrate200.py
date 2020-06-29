@@ -16,7 +16,6 @@ import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -267,7 +266,7 @@ class MigrationTest(s_t_utils.SynTest):
                 lyr01 = core1.getLayer()
 
                 nes0 = [nodeedits for offs, nodeedits in lyr00.nodeeditlog.iter(0)]
-                sodes0 = [await lyr01.storNodeEdits(nes[0], None) for nes in nes0]
+                [await lyr01.storNodeEdits(nes[0], None) for nes in nes0]
                 self.lt(len(nes0), tdata['splices'][lyr00.iden]['nextoffs'])
 
                 # secondary layer
@@ -276,7 +275,7 @@ class MigrationTest(s_t_utils.SynTest):
                 lyr11 = core1.getLayer(lyr11def['iden'])
 
                 nes1 = [nodeedits for offs, nodeedits in lyr10.nodeeditlog.iter(0)]
-                sodes1 = [await lyr11.storNodeEdits(nes[0], None) for nes in nes1]
+                [await lyr11.storNodeEdits(nes[0], None) for nes in nes1]
                 self.lt(len(nes1), tdata['splices'][lyr10.iden]['nextoffs'])
 
                 await self._checkCore(core1, tdata, nodesonly=True)
@@ -1061,11 +1060,11 @@ class MigrationTest(s_t_utils.SynTest):
 
                 lyr0 = core.layers[locallyrs[0]]
                 nes0 = [nodeedits for offs, nodeedits in lyr0.nodeeditlog.iter(0)]
-                sodes0 = [await lyr0.storNodeEdits(nes[0], None) for nes in nes0]
+                [await lyr0.storNodeEdits(nes[0], None) for nes in nes0]
 
                 lyr1 = core.layers[locallyrs[1]]
                 nes1 = [nodeedits for offs, nodeedits in lyr1.nodeeditlog.iter(0)]
-                sodes1 = [await lyr1.storNodeEdits(nes[0], None) for nes in nes1]
+                [await lyr1.storNodeEdits(nes[0], None) for nes in nes1]
 
                 await self._checkCore(core, tdata, nodesonly=True)
 
@@ -1236,7 +1235,7 @@ class MigrationTest(s_t_utils.SynTest):
 
                     async with await s_lmdbslab.Slab.anit(lyrdirn) as slab:
                         bybuid = slab.initdb('bybuid')
-                        for lkey, lval in slab.scanByFull(db=bybuid):
+                        for lkey, _ in slab.scanByFull(db=bybuid):
                             prop = lkey[32:].decode('utf8')
                             if prop[0] == '*' or prop == '.created':
                                 slab.delete(lkey, db=bybuid)
@@ -1283,7 +1282,7 @@ class MigrationTest(s_t_utils.SynTest):
 
                     async with await s_lmdbslab.Slab.anit(lyrdirn) as slab:
                         bybuid = slab.initdb('bybuid')
-                        for lkey, lval in slab.scanByFull(db=bybuid):
+                        for lkey, _ in slab.scanByFull(db=bybuid):
                             prop = lkey[32:].decode('utf8')
                             if prop[0] == '*':
                                 slab.delete(lkey, db=bybuid)

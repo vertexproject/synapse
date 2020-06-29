@@ -345,7 +345,7 @@ jobs:
       - test_steps_osx
 
   python37:
-    parallelism: 6
+    parallelism: 8
     docker:
       - image: circleci/python:3.7
         environment:
@@ -361,7 +361,7 @@ jobs:
       - test_steps_python
 
   python37_replay:
-    parallelism: 4
+    parallelism: 6
     docker:
       - image: circleci/python:3.7
         environment:

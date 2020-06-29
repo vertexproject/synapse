@@ -832,6 +832,7 @@ class Migrator(s_base.Base):
             path = os.path.join(self.dest)
             if self.nexusroot is None:
                 self.nexusroot = await s_nexus.NexsRoot.anit(path)
+                await self.nexusroot.setLeader(None, '')
             self.onfini(self.nexusroot.fini)
 
         # open cell

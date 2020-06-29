@@ -722,7 +722,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.true(info0.pop('woot', s_common.novalu) is s_common.novalu)
 
                 # Sad path case
-                self.raises(TypeError, info0.set, 'newp', {1, 2, 3})
+                self.raises(s_exc.NotMsgpackSafe, info0.set, 'newp', {1, 2, 3})
 
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 guidstor = s_lmdbslab.GuidStor(slab, 'guids')
@@ -846,6 +846,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchName):
                     await mque.cull('woot', -1)
 
+                with self.raises(s_exc.NoSuchName):
+                    await mque.dele('woot', 1, 1)
+
+                with self.raises(s_exc.NoSuchName):
+                    await mque.sets('woot', 1, ('lols',))
+
                 await mque.add('woot', {'some': 'info'})
                 await self.asyncraises(s_exc.DupName, mque.add('woot', {}))
 
@@ -932,6 +938,113 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 await mque.rem('woot')
 
                 self.false(mque.exists('woot'))
+
+                await mque.add('woot', {'some': 'info'})
+                self.eq(0, await mque.put('woot', 'hehe'))
+                self.eq(1, await mque.put('woot', 'haha'))
+                self.eq(2, await mque.put('woot', 'hoho'))
+
+                self.eq(3, mque.size('woot'))
+                self.eq(3, mque.offset('woot'))
+
+                # Replace one item in the queue
+                await mque.sets('woot', 1, ('lol',))
+                self.eq(3, mque.size('woot'))
+                self.eq(3, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (1, 'lol'), (2, 'hoho'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Replace multiple items in the queue
+                await mque.sets('woot', 1, ('lol2', 'lol3'))
+                self.eq(3, mque.size('woot'))
+                self.eq(3, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (1, 'lol2'), (2, 'lol3'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Replace items going past the end of the current queue
+                await mque.sets('woot', 2, ('lol4', 'lol5', 'lol6'))
+                self.eq(5, mque.size('woot'))
+                self.eq(5, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (1, 'lol2'), (2, 'lol4'), (3, 'lol5'), (4, 'lol6'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Delete from the middle of the queue
+                await mque.dele('woot', 1, 3)
+                self.eq(2, mque.size('woot'))
+                self.eq(5, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (4, 'lol6'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Add items in the gap we created
+                await mque.sets('woot', 2, ('lol7', 'lol8'))
+                self.eq(4, mque.size('woot'))
+                self.eq(5, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'), (3, 'lol8'), (4, 'lol6'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Delete a partially empty range
+                await mque.dele('woot', 3, 10)
+                self.eq(2, mque.size('woot'))
+                self.eq(5, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Delete a completely empty range
+                await mque.dele('woot', 100, 150)
+                self.eq(2, mque.size('woot'))
+                self.eq(5, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Set items past the end of the current queue
+                await mque.sets('woot', 200, ('lol9', 'lol0'))
+                self.eq(4, mque.size('woot'))
+                self.eq(202, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'), (200, 'lol9'), (201, 'lol0'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Adding items past the current end of queue should wake waiters
+                data = []
+
+                async def getswait():
+                    async for item in mque.gets('woot', 0, wait=True):
+
+                        data.append(item)
+
+                        if item[1] == 'lol0':
+                            break
+
+                task = slab.schedCoro(getswait())
+
+                await mque.sets('woot', 201, ('lol9', 'lol0'))
+                await asyncio.wait_for(task, 2)
+
+                self.eq(5, mque.size('woot'))
+                self.eq(203, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'), (200, 'lol9'), (201, 'lol9'), (202, 'lol0'))
+                self.eq(data, correct)
+
+                # Invalid offsets that won't do anything
+                await mque.dele('woot', -1, 20)
+                await mque.dele('woot', -5, -1)
+                await mque.dele('woot', 5, 1)
+                await mque.dele('woot', 5, -1)
+                await mque.sets('woot', -1, ('lolz', 'lol'))
+
+                self.eq(5, mque.size('woot'))
+                self.eq(203, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'), (200, 'lol9'), (201, 'lol9'), (202, 'lol0'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
 
     async def test_slababrv(self):
         with self.getTestDir() as dirn:
