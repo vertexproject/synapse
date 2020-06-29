@@ -1,3 +1,4 @@
+import copy
 import asyncio
 import logging
 
@@ -93,7 +94,7 @@ class Task(s_base.Base):
         if self.user is not None:
             pask['user'] = self.user.name
 
-        return pask
+        return copy.deepcopy(pask)
 
 def loop():
     try:

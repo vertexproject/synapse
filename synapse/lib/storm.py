@@ -782,6 +782,38 @@ stormcmds = (
             $lib.print("Disabled cron job: {iden}", iden=$iden)
         ''',
     },
+    {
+        'name': 'ps',
+        'descr': 'List running tasks in the cortex.',
+        'cmdargs': (
+            ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
+        ),
+        'storm': '''
+            $tasks = $lib.ps($cmdopts.verbose)
+
+            for $task in $tasks {
+                $lib.print("task iden: {iden}", iden=$task.iden)
+                $lib.print("    name: {name}", name=$task.name)
+                $lib.print("    user: {user}", user=$task.user)
+                $lib.print("    status: {status}", status=$task.status)
+                $lib.print("    metadata: {metadata}", metadata=$task.info)
+                $lib.print("    start time: {start}", start=$lib.time.format($task.tick, '%Y-%m-%d %H:%M:%S'))
+            }
+
+            $lib.print("{tlen} tasks found.", tlen=$tasks.size())
+        ''',
+    },
+    {
+        'name': 'kill',
+        'descr': 'Kill a running task/query within the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid process iden is accepted.'}),
+        ),
+        'storm': '''
+            $kild = $lib.kill($cmdopts.iden)
+            $lib.print("kill status: {kild}", kild=$kild)
+        ''',
+    }
 )
 
 class DmonManager(s_base.Base):

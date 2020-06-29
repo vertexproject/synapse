@@ -265,6 +265,93 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('$lib.print($lib.len($true))', opts=opts)
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
+    async def test_storm_lib_boss(self):
+
+        async with self.getTestCore() as core:
+
+            evnt = asyncio.Event()
+            iden = None
+
+            async def runLongStorm():
+                async for mesg in core.storm(f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'):
+                    nonlocal iden
+                    if mesg[0] == 'init':
+                        iden = mesg[1]['task']
+                    evnt.set()
+
+            task = core.schedCoro(runLongStorm())
+
+            self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+
+            # Verify that the long query got truncated
+            msgs = await core.stormlist('ps')
+
+            self.stormIsInPrint('xxx...', msgs)
+            self.stormIsInPrint('name: storm', msgs)
+            self.stormIsInPrint('user: root', msgs)
+            self.stormIsInPrint('status: None', msgs)
+            self.stormIsInPrint('2 tasks found.', msgs)
+            self.stormIsInPrint('start time: 2', msgs)
+
+            self.stormIsInPrint(f'task iden: {iden}', msgs)
+
+            # Verify we see the whole query
+            msgs = await core.stormlist('ps --verbose')
+            self.stormIsInPrint('endofquery', msgs)
+
+            msgs = await core.stormlist(f'kill {iden}')
+            self.stormIsInPrint('kill status: True', msgs)
+            self.true(task.done())
+
+            msgs = await core.stormlist('ps')
+            self.stormIsInPrint('1 tasks found.', msgs)
+
+            bond = await core.auth.addUser('bond')
+
+            async with core.getLocalProxy(user='bond') as prox:
+
+                evnt = asyncio.Event()
+                iden = None
+
+                async def runLongStorm():
+                    async for mesg in core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
+                        nonlocal iden
+                        if mesg[0] == 'init':
+                            iden = mesg[1]['task']
+                        evnt.set()
+
+                task = core.schedCoro(runLongStorm())
+                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+
+                msgs = await core.stormlist('ps')
+                self.stormIsInPrint('2 tasks found.', msgs)
+                self.stormIsInPrint(f'task iden: {iden}', msgs)
+
+                msgs = await alist(prox.storm('ps'))
+                self.stormIsInPrint('1 tasks found.', msgs)
+
+                # Try killing from the unprivileged user
+                msgs = await alist(prox.storm(f'kill {iden}'))
+                self.stormIsInErr('Provided iden does not match any processes.', msgs)
+
+                # Try a kill with a numeric identifier - this won't match
+                msgs = await alist(prox.storm(f'kill 123412341234'))
+                self.stormIsInErr('Provided iden does not match any processes.', msgs)
+
+                # Give user explicit permissions to list
+                await core.addUserRule(bond.iden, (True, ('task', 'get')))
+
+                msgs = await alist(prox.storm('ps'))
+                self.stormIsInPrint(f'task iden: {iden}', msgs)
+
+                # Give user explicit license to kill
+                await core.addUserRule(bond.iden, (True, ('task', 'del')))
+
+                # Kill the task as the user
+                msgs = await alist(prox.storm(f'kill {iden}'))
+                self.stormIsInPrint('kill status: True', msgs)
+                self.true(task.done())
+
     async def test_storm_lib_query(self):
         async with self.getTestCore() as core:
             # basic

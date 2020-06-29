@@ -259,6 +259,7 @@ class LibBase(Lib):
 
     def addLibFuncs(self):
         self.locls.update({
+            'ps': self._ps,
             'len': self._len,
             'min': self._min,
             'max': self._max,
@@ -266,6 +267,7 @@ class LibBase(Lib):
             'dict': self._dict,
             'guid': self._guid,
             'fire': self._fire,
+            'kill': self._kill,
             'list': self._list,
             'null': None,
             'true': True,
@@ -391,6 +393,50 @@ class LibBase(Lib):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
+
+    async def _ps(self, verbose=False):
+
+        MAXFIELDLEN = 120
+
+        def clamp(field):
+            if isinstance(field, dict):
+                for key, valu in field.items():
+                    field[key] = clamp(valu)
+            elif isinstance(field, str) and len(field) > MAXFIELDLEN:
+                field = field[:MAXFIELDLEN] + '...'
+            return field
+
+        todo = s_common.todo('ps', self.runt.user.iden)
+        tasks = await self.dyncall('cell', todo)
+
+        for task in tasks:
+            metadata = task.get('info')
+            if metadata is not None and not verbose:
+                metadata = clamp(metadata)
+            task['info'] = metadata
+
+        return tasks
+
+    async def _kill(self, prefix):
+        idens = []
+
+        todo = s_common.todo('ps', self.runt.user.iden)
+        tasks = await self.dyncall('cell', todo)
+        for task in tasks:
+            iden = task.get('iden')
+            if iden.startswith(prefix):
+                idens.append(iden)
+
+        if len(idens) == 0:
+            mesg = 'Provided iden does not match any processes.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+        if len(idens) > 1:
+            mesg = 'Provided iden matches more than one process.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+        todo = s_common.todo('kill', self.runt.user.iden, idens[0])
+        return await self.dyncall('cell', todo)
 
 class LibStr(Lib):
 
