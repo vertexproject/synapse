@@ -361,7 +361,6 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
     rst = RstHelp()
 
     clsname = cls.__name__
-
     conf = cls.initCellConf()  # type: s_config.Config
 
     rst.addHead(f'{clsname} Configuration Options', lvl=0, link=f'.. _autodoc-{clsname.lower()}-conf:')
