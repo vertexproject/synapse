@@ -27,6 +27,18 @@ Cell implementations can extend the configuration variables available by specify
 
 Depending on deployment requirements, a combination of methods can be used for loading the configurations into the Cell.
 
+.. note::
+    The service directory (refered to as ``dirn``) should be considered a persistent directory for a given Synaspe
+    service. Inside of this directory there are several files stored which are neccesary in order for a given instance
+    of a service deployment to work properly.
+
+    Docker images made by Vertex to support Synapse services will have default volumes for ``/vertex/storage``.
+    We use this as the default service directory for default entry points in documentation. This location can either
+    have a persistent docker volume present for it created, or a external location on disk can be mapped into this
+    location. Any orchestration tooling should consider the requirements for service directory data to be persistent,
+    unless stated otherwise.
+
+
 Config File
 ***********
 

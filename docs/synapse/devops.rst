@@ -12,15 +12,7 @@ updated and expanded over time.
 .. toctree::
     :titlesonly:
 
-    devguides/devops_general
-    devguides/devops_cell
-    devguides/devops_cortex
-    devguides/devops_axon
-    devguides/devops_cryotank
-
-    autodocs/conf_axon
-    autodocs/conf_cortex
-    autodocs/conf_cryocell
-    autodocs/conf_syncmigrator
+    devguides/index_cells
+    devguides/index_autoconf
 
 .. _index:              ../index.html
