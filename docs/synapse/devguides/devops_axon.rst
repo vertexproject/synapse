@@ -1,7 +1,8 @@
 Axon Operations
 ===============
 
-TBD
+The Axon is an interface for providing binary / blob storage inside of the Synapse ecosystem. This indexes binaries
+based on SHA-256 hash so we do not duplicate the storage of the same set of bytes twice.
 
 Configuration Options
 ---------------------
