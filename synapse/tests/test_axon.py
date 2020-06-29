@@ -48,6 +48,10 @@ class AxonTest(s_t_utils.SynTest):
 
         self.false(await axon.has(asdfhash))
 
+        with self.raises(s_exc.NoSuchFile):
+            async for _ in axon.get(asdfhash):
+                pass
+
         async with await axon.upload() as fd:
             await fd.write(abuf)
             self.eq(asdfretn, await fd.save())
