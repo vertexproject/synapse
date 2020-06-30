@@ -184,7 +184,12 @@ class Axon(s_cell.Cell):
     async def get(self, sha256):
 
         if not await self.has(sha256):
-            raise s_exc.NoSuchFile(sha256=s_common.ehex(sha256))
+            raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
+
+        async for byts in self._get(sha256):
+            yield byts
+
+    async def _get(self, sha256):
 
         for _, byts in self.blobslab.scanByPref(sha256, db=self.blobs):
             yield byts
