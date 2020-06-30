@@ -3,6 +3,23 @@ Synapse Changelog
 *****************
 
 
+v2.2.1 - 2020-06-30
+===================
+
+Bugfixes
+--------
+
+- The Axon test suite was missing a test for calling ``Axon.get()`` on a file it did not have. This is now included in
+  the test suite.
+  (`#1783 <https://github.com/vertexproject/synapse/pull/1783>`_)
+
+Improved Documentation
+----------------------
+
+- Improve Synapse devops documentation hierarchy. Add note about Cell directories being persistent.
+  (`#1781 <https://github.com/vertexproject/synapse/pull/1781>`_)
+
+
 v2.2.0 - 2020-06-26
 ===================
 
