@@ -3,8 +3,8 @@ Synapse Changelog
 *****************
 
 
-v2.2.0 - TBD
-============
+v2.2.0 - 2020-06-26
+===================
 
 Features and Enhancements
 -------------------------
@@ -22,7 +22,7 @@ Bugfixes
 
 - Add a missing ``toprim()`` call in ``$lib.globals.set()``.
   (`#1778 <https://github.com/vertexproject/synapse/pull/1778>`_)
-- Fix an issue in the quickstart documentation related to permissions.
+- Fix an issue in the quickstart documentation related to permissions. Thank you ``enadjoe`` for your contribution.
   (`#1779 <https://github.com/vertexproject/synapse/pull/1779>`_)
 - Fix an Cell/Cortex startup issue which caused errors when starting up a Cortex when the last Nexus event was
   replayed. This has a secondary effect that Cell implementers cannot be making Nexus changes during the ``__anit__``
