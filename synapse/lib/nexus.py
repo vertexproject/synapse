@@ -75,27 +75,19 @@ class ChangeDist(s_base.Base):
 class NexsRoot(s_base.Base):
 
     async def __anit__(self, dirn: str, donexslog: bool = True):  # type: ignore
+
         await s_base.Base.__anit__(self)
 
         import synapse.lib.lmdbslab as s_lmdbslab  # avoid import cycle
         import synapse.lib.slabseqn as s_slabseqn  # avoid import cycle
 
         self.dirn = dirn
-        self._nexskids: Dict[str, 'Pusher'] = {}
-
-        self._mirrors: List[ChangeDist] = []
+        self.client = None
+        self.started = False
         self.donexslog = donexslog
 
-        self._preleader_run = False  # Whether preleader funcs have been called once
-        self._preleader_funcs: List[Callable] = [] # Callbacks for after leadership set, but before loop run
-        self._state_lock = asyncio.Lock()
-        self._state_funcs: List[Callable] = [] # Callbacks for leadership changes
-
-        # Mirror-related
-        self._ldrurl: Union[str, None, s_common.NoValu] = s_common.novalu  # Initialized so that setLeader will run once
-        self._ldr: Optional[s_telepath.Proxy] = None  # only set by looptask
-        self._looptask: Optional[asyncio.Task] = None
-        self._ldrready = asyncio.Event()
+        self._mirrors: List[ChangeDist] = []
+        self._nexskids: Dict[str, 'Pusher'] = {}
 
         # Used to match pending follower write requests with the responses arriving on the log
         self._futures: Dict[str, asyncio.Future] = {}
@@ -106,24 +98,12 @@ class NexsRoot(s_base.Base):
             self._nexuslog = s_slabseqn.SlabSeqn(self._nexusslab, 'nexuslog')
 
         async def fini():
-            if self._looptask:
-                self._looptask.cancel()
-                try:
-                    await self._looptask
-                except Exception:
-                    pass
 
             for futu in self._futures.values():
                 futu.cancel()
 
-            if self._ldr:
-                self._ldrready.clear()
-                await self._ldr.fini()
-
             if self.donexslog:
                 await self._nexusslab.fini()
-
-            [(await dist.fini()) for dist in self._mirrors]
 
         self.onfini(fini)
 
@@ -175,23 +155,28 @@ class NexsRoot(s_base.Base):
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
         '''
-        assert self._ldrurl is not s_common.novalu, 'Attempt to issue before leader known'
+        assert self.started, 'Attempt to issue before nexsroot is started'
 
-        if not self._ldrurl:
+        # pick up a reference to avoid race when we eventually can promote
+        client = self.client
+
+        if client is None:
             return await self.eat(nexsiden, event, args, kwargs, meta)
 
-        live = await s_coro.event_wait(self._ldrready, FOLLOWER_WRITE_WAIT_S)
-        if not live:
-            raise s_exc.LinkErr(mesg='Mirror cannot reach leader for write request')
-
-        assert self._ldr is not None
+        try:
+            await client.waitready(timeout=FOLLOWER_WRITE_WAIT_S)
+        except asyncio.TimeoutError:
+            mesg = 'Timed out waiting for connection'
+            raise s_exc.LinkErr(mesg=mesg)
 
         with self._getResponseFuture() as (iden, futu):
+
             if meta is None:
                 meta = {}
+
             meta['resp'] = iden
 
-            await self._ldr.issue(nexsiden, event, args, kwargs, meta)
+            await self.client.issue(nexsiden, event, args, kwargs, meta)
             return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
@@ -263,145 +248,75 @@ class NexsRoot(s_base.Base):
 
             yield dist
 
-    async def isLeader(self):
-        return self._ldrurl is None
+    async def startup(self, mirurl):
 
-    async def setLeader(self, url: Optional[str], iden: str) -> None:
-        '''
-        Args:
-            url:  if None, sets this nexsroot as leader, otherwise the telepath URL of the leader (must be a Cell)
-            iden: iden of the leader.  Should be the same as my containing cell's iden
-        '''
-        if url is not None and not self.donexslog:
-            raise s_exc.BadConfValu(mesg='Mirroring incompatible without nexslog:en')
+        if self.client is not None:
+            await self.client.fini()
 
-        former = self._ldrurl
+        self.client = None
+        if mirurl is not None:
+            self.client = await s_telepath.Client.anit(mirurl, onlink=self._onTeleLink)
+            self.onfini(self.client)
 
-        if former == url:
-            return
+        self.started = True
 
-        self._ldrurl = url
+    async def promote(self):
 
-        oldlooptask = self._looptask
+        client = self.client
+        if client is None:
+            mesg = 'promote() called on non-mirror nexsroot'
+            raise s_exc.BadConfValu(mesg=mesg)
 
-        # If the looptask is already running, stop it
-        if self._looptask is not None:
-            self._looptask.cancel()
-            self._looptask = None
-            self._ldrready.clear()
-            if self._ldr is not None:
-                await self._ldr.fini()
-            self._ldr = None
+        await self.startup(None)
 
-        await self._dopreleader()
-        await self._dostatechange()
+    async def _onTeleLink(self, proxy):
+        self.client.schedCoro(self.runMirrorLoop(proxy))
 
-        if not oldlooptask:
-            # Before we start mirroring anything, replay the last event because we don't know if it got committed
-            await self.recover()
+    async def runMirrorLoop(self, proxy):
 
-        if self._ldrurl is None:
-            return
-
-        self._looptask = self.schedCoro(self._followerLoop(iden))
-
-    def onStateChange(self, func):
-        '''
-        Add a state change callback. Callbacks take a single argument,
-        ``leader``, which is a boolean representing the leader status
-        at the time the callbacks are executed.
-        '''
-        self._state_funcs.append(func)
-
-    def onPreLeader(self, func):
-        '''
-        Add a method that will be called exactly once inside setLeader, after the leadership is set, but before the
-        state change hooks are run and the follower loop is started.
-
-        To work, this must be called before the first time that setLeader is called.
-        '''
-        self._preleader_funcs.append(func)
-
-    async def _dopreleader(self):
-        if self._preleader_run:
-            return
-
-        self._preleader_run = True
-        amleader = await self.isLeader()
-        for func in self._preleader_funcs:
-            await s_coro.ornot(func, leader=amleader)
-
-    async def _dostatechange(self):
-        amleader = await self.isLeader()
-        async with self._state_lock:
-            for func in self._state_funcs:
-                await s_coro.ornot(func, leader=amleader)
-
-    async def _followerLoop(self, iden) -> None:
-        while not self.isfini:
+        while not proxy.isfini:
 
             try:
-                if self._ldr is not None:
-                    await self._ldr.fini()
 
-                proxy = await s_telepath.openurl(self._ldrurl)
-                self._ldr = proxy
-                self._ldrready.set()
+                offs = self._nexuslog.index()
+                genr = proxy.getNexusChanges(offs)
+                async for item in genr:
 
-                # if we really are a mirror/follower, we have the same iden.
-                if iden != await proxy.getCellIden():
-                    logger.error('remote cell has different iden!  Aborting mirror sync')
-                    await proxy.fini()  # Address a test race.
-                    await self.fini()
-                    return
+                    if proxy.isfini:
+                        break
 
-                logger.info(f'mirror loop ready ({self._ldrurl})')
+                    offs, args = item
+                    if offs != self._nexuslog.index():  # pragma: nocover
+                        logger.error('mirror desync')
+                        await self.fini()
+                        return
 
-                while not proxy.isfini:
+                    meta = args[-1]
+                    respiden = meta.get('resp')
+                    respfutu = self._futures.get(respiden)
 
-                    offs = self._nexuslog.index()
+                    try:
+                        retn = await self.eat(*args)
 
-                    genr = proxy.getNexusChanges(offs)
-                    async for item in genr:
+                    except asyncio.CancelledError:
+                        raise
 
-                        if proxy.isfini:
-                            break
-
-                        offs, args = item
-                        if offs != self._nexuslog.index():  # pragma: nocover
-                            logger.error('mirror desync')
-                            await self.fini()
-                            return
-
-                        meta = args[-1]
-                        respiden = meta.get('resp')
-                        respfutu = self._futures.get(respiden)
-
-                        try:
-                            retn = await self.eat(*args)
-
-                        except asyncio.CancelledError:
-                            raise
-
-                        except Exception as e:
-                            if respfutu is not None:
-                                assert not respfutu.done()
-                                respfutu.set_exception(e)
-                            else:
-                                logger.exception(e)
-
+                    except Exception as e:
+                        if respfutu is not None:
+                            assert not respfutu.done()
+                            respfutu.set_exception(e)
                         else:
-                            if respfutu is not None:
-                                respfutu.set_result(retn)
+                            logger.exception(e)
+
+                    else:
+                        if respfutu is not None:
+                            respfutu.set_result(retn)
 
             except asyncio.CancelledError: # pragma: no cover
                 return
 
             except Exception:
-                logger.exception('error in initCoreMirror loop')
-
-            self._ldrready.clear()
-            await self.waitfini(1)
+                logger.exception('error in mirror loop')
 
 class Pusher(s_base.Base, metaclass=RegMethType):
     '''
@@ -435,10 +350,10 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         self.nexsroot = nexsroot
 
-    async def isLeader(self):
-        if self.nexsroot is None:
-            return True
-        return await self.nexsroot.isLeader()
+    #async def isLeader(self):
+        #if self.nexsroot is None:
+            #return True
+        #return await self.nexsroot.isLeader()
 
     @classmethod
     def onPush(cls, event: str, passoff=False) -> Callable:

@@ -715,8 +715,8 @@ class Client(s_base.Base):
                 logger.warning(f'telepath task redirected: ({url})')
                 await self._t_proxy.fini()
 
-    async def waitready(self):
-        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', 10))
+    async def waitready(self, timeout=10):
+        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
 
     def __getattr__(self, name):
 

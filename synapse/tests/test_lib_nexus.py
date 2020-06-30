@@ -53,7 +53,7 @@ class NexusTest(s_t_utils.SynTest):
     async def test_nexus(self):
         with self.getTestDir() as dirn:
             async with await SampleNexus.anit(1) as nexus1, await s_nexus.NexsRoot.anit(dirn) as nexsroot:
-                await nexsroot.setLeader(None, None)
+                await nexsroot.startup(None)
 
                 eventdict = {'specialpush': 0}
                 self.eq('foo', await nexus1.doathing(eventdict))
@@ -95,7 +95,9 @@ class NexusTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             async with await SampleNexus.anit(1) as nexus1, \
                     await s_nexus.NexsRoot.anit(dirn, donexslog=False) as nexsroot:
-                await nexsroot.setLeader(None, None)
+
+                await nexsroot.startup(None)
+                #await nexsroot.setLeader(None, None)
 
                 eventdict = {'specialpush': 0}
                 self.eq('foo', await nexus1.doathing(eventdict))

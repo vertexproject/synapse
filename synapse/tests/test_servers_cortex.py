@@ -136,32 +136,32 @@ class CortexServerTest(s_t_utils.SynTest):
 
                     self.len(4, await core01.nodes('inet:asn'))
 
-    async def test_server_mirror_badiden(self):
-
-        with self.getTestDir() as dirn, self.withSetLoggingMock():
-
-            path00 = s_common.gendir(dirn, 'core00')
-            path01 = s_common.gendir(dirn, 'core01')
-
-            argv0 = ['--telepath', 'tcp://127.0.0.1:0/',
-                     '--https', '0',
-                     '--name', 'srccore',
-                     path00,
-                     ]
-            out0 = self.getTestOutp()
-            async with await s_cortex.Cortex.initFromArgv(argv0, outp=out0) as core00:
-
-                out1 = self.getTestOutp()
-                argv1 = ['--telepath', 'tcp://127.0.0.1:0/',
-                         '--https', '0',
-                         '--mirror', core00.getLocalUrl(),
-                         path01,
-                         ]
-
-                s_common.yamlsave({'nexslog:en': True}, path01, 'cell.yaml')
-
-                with self.getAsyncLoggerStream('synapse.lib.nexus',
-                                               'has different iden') as stream:
-                    async with await s_cortex.Cortex.initFromArgv(argv1, outp=out1) as core01:
-                        await stream.wait(timeout=2)
-                        self.true(await core01.waitfini(6))
+#    async def test_server_mirror_badiden(self):
+#
+#        with self.getTestDir() as dirn, self.withSetLoggingMock():
+#
+#            path00 = s_common.gendir(dirn, 'core00')
+#            path01 = s_common.gendir(dirn, 'core01')
+#
+#            argv0 = ['--telepath', 'tcp://127.0.0.1:0/',
+#                     '--https', '0',
+#                     '--name', 'srccore',
+#                     path00,
+#                     ]
+#            out0 = self.getTestOutp()
+#            async with await s_cortex.Cortex.initFromArgv(argv0, outp=out0) as core00:
+#
+#                out1 = self.getTestOutp()
+#                argv1 = ['--telepath', 'tcp://127.0.0.1:0/',
+#                         '--https', '0',
+#                         '--mirror', core00.getLocalUrl(),
+#                         path01,
+#                         ]
+#
+#                s_common.yamlsave({'nexslog:en': True}, path01, 'cell.yaml')
+#
+#                with self.getAsyncLoggerStream('synapse.lib.nexus',
+#                                               'has different iden') as stream:
+#                    async with await s_cortex.Cortex.initFromArgv(argv1, outp=out1) as core01:
+#                        await stream.wait(timeout=2)
+#                        self.true(await core01.waitfini(6))

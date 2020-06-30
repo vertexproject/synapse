@@ -761,9 +761,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     layrctor = s_layer.Layer.anit
     spawncorector = 'synapse.lib.spawn.SpawnCore'
 
-    async def __anit__(self, dirn, conf=None):
-
-        await s_cell.Cell.__anit__(self, dirn, conf=conf)
+    # phase 2 - service storage
+    async def initServiceStorage(self):
 
         # NOTE: we may not make *any* nexus actions in this method
 
@@ -774,10 +773,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
                              mesg='cortex version in storage is incompatible with running software')
 
-        # share ourself via the cell dmon as "cortex"
-        # for potential default remote use
-        self.dmon.share('cortex', self)
-
         self.views = {}
         self.layers = {}
         self.modules = {}
@@ -786,7 +781,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.stormcmds = {}
 
         self.spawnpool = None
-        self.mirror = self.conf.get('mirror')
 
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
@@ -863,6 +857,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
         pkghive = await self.hive.open(('cortex', 'storm', 'packages'))
         svchive = await self.hive.open(('cortex', 'storm', 'services'))
+
         self.cmdhive = await cmdhive.dict()
         self.pkghive = await pkghive.dict()
         self.svchive = await svchive.dict()
@@ -882,38 +877,24 @@ class Cortex(s_cell.Cell):  # type: ignore
             'axon': self.axon
         })
 
-        self.nexsroot.onPreLeader(self.preLeaderHook)
-
         await self.auth.addAuthGate('cortex', 'cortex')
 
-    async def _initNexsRoot(self):
-        '''
-        Just like cell _initNexsRoot except doesn't call nexsroot.setLeader
-        '''
-        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
-        self.onfini(nexsroot.fini)
-        nexsroot.onfini(self)
-        return nexsroot
+    async def initServiceRuntime(self):
 
-    async def preLeaderHook(self, leader):
-        '''
-        These run after the leader is set, but before the leader/follower callbacks are run and the follower loop runs
-        '''
+        # do any post-nexus initialization here...
         await self._initCoreMods()
         await self._initStormSvcs()
 
-    async def startAsLeader(self):
-        '''
-        Run things that only a leader Cortex runs.
-        '''
+        # share ourself via the cell dmon as "cortex"
+        # for potential default remote use
+        self.dmon.share('cortex', self)
+
+    async def initServiceActive(self):
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
 
-    async def stopAsLeader(self):
-        '''
-        Stop things that only a leader Cortex runs.
-        '''
+    async def initServicePassive(self):
         await self.agenda.stop()
         await self.stormdmons.stop()
 
@@ -1428,7 +1409,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         try:
-            if await self.isLeader():
+            if self.isactive:
                 await self.runStormSvcEvent(iden, 'del')
         except asyncio.CancelledError:  # pragma: no cover
             raise
@@ -2502,14 +2483,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         iden = layrinfo.get('iden')
         path = s_common.gendir(self.dirn, 'layers', iden)
+
         # In case that we're a mirror follower and we have a downstream layer, disable upstream sync
-        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot, allow_upstream=not self.mirror)
+        # FIXME allow_upstream needs to be separated out
+        mirror = self.conf.get('mirror')
+        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot, allow_upstream=not mirror)
 
     async def _initCoreLayers(self):
-
         node = await self.hive.open(('cortex', 'layers'))
-
-        # TODO eventually hold this and watch for changes
         for _, node in node:
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)

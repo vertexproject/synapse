@@ -3720,7 +3720,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=path00) as core00:
 
-                self.false(core00.mirror)
+                self.false(core00.conf.get('mirror'))
 
                 await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
                 await core00.nodes('$lib.queue.add(hehe)')
@@ -3729,8 +3729,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                core01conf = {'nexslog:en': False,
-                              'mirror': url}
+                core01conf = {'nexslog:en': False, 'mirror': url}
                 with self.raises(s_exc.BadConfValu):
                     async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
                         self.fail('Should never get here.')
@@ -3805,8 +3804,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # remove the mirrorness from the Cortex and ensure that we can
                 # write to the Cortex. This will move the core01 ahead of
                 # core00 & core01 can become the leader.
-                await core01.nexsroot.setLeader(None, None)
-                core01.mirror = None
+
+                await core01.promote()
+
                 self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
                 new_url = core01.getLocalUrl()
                 new_conf = {'mirror': new_url}
