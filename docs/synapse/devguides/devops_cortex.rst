@@ -90,3 +90,8 @@ Cleanup
 *******
 
 After migration is fully complete, delete the now-unused directory "migration" inside the cortex directory.
+
+Configuration Options
+---------------------
+
+For a list of boot time configuration options for the Cortex, see the listing at :ref:`autodoc-cortex-conf`.
