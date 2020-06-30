@@ -97,7 +97,6 @@ class NexusTest(s_t_utils.SynTest):
                     await s_nexus.NexsRoot.anit(dirn, donexslog=False) as nexsroot:
 
                 await nexsroot.startup(None)
-                #await nexsroot.setLeader(None, None)
 
                 eventdict = {'specialpush': 0}
                 self.eq('foo', await nexus1.doathing(eventdict))
