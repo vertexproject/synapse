@@ -783,13 +783,13 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'ps',
+        'name': 'ps.list',
         'descr': 'List running tasks in the cortex.',
         'cmdargs': (
             ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
         ),
         'storm': '''
-            $tasks = $lib.ps($cmdopts.verbose)
+            $tasks = $lib.ps.list($cmdopts.verbose)
 
             for $task in $tasks {
                 $lib.print("task iden: {iden}", iden=$task.iden)
@@ -804,13 +804,13 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'kill',
+        'name': 'ps.kill',
         'descr': 'Kill a running task/query within the cortex.',
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid process iden is accepted.'}),
         ),
         'storm': '''
-            $kild = $lib.kill($cmdopts.iden)
+            $kild = $lib.ps.kill($cmdopts.iden)
             $lib.print("kill status: {kild}", kild=$kild)
         ''',
     }

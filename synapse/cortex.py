@@ -1943,6 +1943,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Registration for built-in Storm Libraries
         '''
+        self.addStormLib(('ps',), s_stormtypes.LibPs)
         self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('pkg',), s_stormtypes.LibPkg)
