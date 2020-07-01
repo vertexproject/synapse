@@ -503,11 +503,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'dmon:listen': {
             'description': 'A config-driven way to specify the telepath bind URL.',
-            'type': 'string',
+            'type': ['string', 'null'],
         },
         'https:port': {
             'description': 'A config-driven way to specify the HTTPS port.',
-            'type': 'integer',
+            'type': ['integer', 'null'],
         },
     }
 
@@ -553,10 +553,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.BadConfValu(mesg=mesg)
 
         # construct our nexsroot instance ( but do not start it )
+        await s_nexus.Pusher.__anit__(self, self.iden)
+
         root = await self._ctorNexsRoot()
-        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=root)
 
         self.onfini(root.fini)
+        self.setNexsRoot(root)
 
         await self._initCellSlab(readonly=readonly)
 
@@ -1181,10 +1183,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
 
-            if cell.conf.get('https:port') is None:
+            if 'https:port' not in cell.conf:
                 await cell.addHttpsPort(opts.https)
 
-            if cell.conf.get('dmon:listen') is None:
+            if 'dmon:listen' not in cell.conf:
                 await cell.dmon.listen(opts.telepath)
 
             if opts.name is not None:

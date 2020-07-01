@@ -751,6 +751,8 @@ class Slab(s_base.Base):
         }
 
     def _acqXactForReading(self):
+        if self.isfini:
+            raise s_exc.IsFini()
         if not self.readonly:
             return self.xact
         if not self.txnrefcount:

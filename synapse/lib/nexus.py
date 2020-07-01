@@ -398,6 +398,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
         nexsiden = self.nexsiden
+        print(f'PUSH {event} {args} {kwargs}')
 
         if self.nexsroot is not None:  # Distribute through the change root
             return await self.nexsroot.issue(nexsiden, event, args, kwargs, None)

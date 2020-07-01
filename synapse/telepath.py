@@ -954,7 +954,10 @@ async def openurl(url, **opts):
 
     elif scheme == 'unix':
         # unix:///path/to/sock:share
-        path, name = info.get('path').split(':')
+        name = '*'
+        path = info.get('path')
+        if ':' in path:
+            path, name = path.split(':')
         link = await s_link.unixconnect(path)
 
     else:
