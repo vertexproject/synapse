@@ -658,10 +658,8 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
             csv_rows = [m for m in mesgs if m[0] == 'csv:row']
             self.len(2, csv_rows)
-            self.eq(csv_rows[0],
-                    ('csv:row', {'row': [978307200000, None], 'table': None}))
-            self.eq(csv_rows[1],
-                    ('csv:row', {'row': [32535216000000, None], 'table': None}))
+            self.eq(csv_rows[0], ('csv:row', {'row': [978307200000, None], 'table': None}))
+            self.eq(csv_rows[1], ('csv:row', {'row': [32535216000000, None], 'table': None}))
 
             # Sad path case...
             q = '''$data=() $genr=$lib.feed.genr(syn.node, $data)
@@ -1599,12 +1597,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(mainlayr, mesgs)
 
             # Create a new layer
-            q = f'$lib.print($lib.layer.add().iden)'
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    newlayr = mesg[1]['mesg']
-
+            newlayr = await core.callStorm('return($lib.layer.add().iden)')
             self.isin(newlayr, core.layers)
 
             # Ensure new layer is set to current model revision
