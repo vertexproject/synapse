@@ -392,36 +392,6 @@ class LibBase(Lib):
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
-class LibStr(Lib):
-
-    def addLibFuncs(self):
-        self.locls.update({
-            'join': self.join,
-            'concat': self.concat,
-            'format': self.format,
-        })
-
-    async def concat(self, *args):
-        strs = [str(a) for a in args]
-        return ''.join(strs)
-
-    async def format(self, text, **kwargs):
-
-        text = kwarg_format(text, **kwargs)
-
-        return text
-
-    async def join(self, sepr, items):
-        '''
-        Join items into a string using a separator.
-
-        Example:
-
-            $foo = $lib.str.join('.', ('rep', 'vtx', 'tag'))
-        '''
-        strs = [str(item) for item in items]
-        return sepr.join(items)
-
 class LibPs(Lib):
 
     def addLibFuncs(self):
@@ -473,6 +443,36 @@ class LibPs(Lib):
             task['info'] = metadata
 
         return tasks
+
+class LibStr(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'join': self.join,
+            'concat': self.concat,
+            'format': self.format,
+        })
+
+    async def concat(self, *args):
+        strs = [str(a) for a in args]
+        return ''.join(strs)
+
+    async def format(self, text, **kwargs):
+
+        text = kwarg_format(text, **kwargs)
+
+        return text
+
+    async def join(self, sepr, items):
+        '''
+        Join items into a string using a separator.
+
+        Example:
+
+            $foo = $lib.str.join('.', ('rep', 'vtx', 'tag'))
+        '''
+        strs = [str(item) for item in items]
+        return sepr.join(items)
 
 class LibBytes(Lib):
 
