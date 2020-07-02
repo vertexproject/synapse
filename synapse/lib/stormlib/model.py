@@ -21,16 +21,21 @@ stormcmds = [
     },
     {
         'name': 'model.edge.get',
-        'descr': 'Retrieve global extended properties for an edge verb in the current view.',
+        'descr': 'Retrieve key-value pairs an edge verb in the current view.',
         'cmdargs': (
             ('verb', {'help': 'The edge verb to retrieve.'}),
         ),
         'storm': '''
             $verb = $cmdopts.verb
             $props = $lib.model.edge.get($verb)
-            $doc = $props.doc
-            if ($doc=$lib.null) { $doc = '' }
-            $lib.print('\nverb={verb}\ndoc="{doc}"\n', verb=$verb, doc=$doc)
+            if $props {
+                $lib.print('verb={verb}', verb=$verb)
+                for ($key, $valu) in $props {
+                    $lib.print('    {key}={valu}', key=$key, valu=$valu)
+                }
+            } else {
+                $lib.print('verb={verb} contains no key-value pairs.', verb=$verb)
+            }
         ''',
     },
     {
