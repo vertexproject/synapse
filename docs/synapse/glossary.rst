@@ -234,9 +234,9 @@ In a :ref:`gloss-directed-graph`, a directed edge is used to connect exactly two
 Edge, Lightweight (Light)
 -------------------------
 
-In Synapse, a lightweight (light) edge is a model element that links two arbitrary forms via a user-defined
+In Synapse, a lightweight (light) edge is a mechanism that links two arbitrary forms via a user-defined
 verb that describes the linking relationship. Light edges are not forms and so do not support secondary 
-properties or tags. They are meant to simplify performance, represenation of data, and Synapse hypergraph
+properties or tags. They are meant to simplify performance, representation of data, and Synapse hypergraph
 navigation for many use cases. Contrast with :ref:`gloss-form-edge`.
 
 .. _gloss-extended-comp-op:
@@ -299,7 +299,7 @@ See :ref:`gloss-form-edge`.
 Form, Edge
 ----------
 
-In the Synappse :ref:`gloss-data-model`, a specialized **composite form** (:ref:`gloss-form-comp`) whose primary
+In the Synapse :ref:`gloss-data-model`, a specialized **composite form** (:ref:`gloss-form-comp`) whose primary
 property consists of two :ref:`gloss-ndef` values. Edge forms can be used to link two arbitrary forms via a 
 generic relationship where additional information needs to be captured about that relationship (i.e., via secondary
 properpties and/or tags). Contrast with :ref:`gloss-edge-light`.
