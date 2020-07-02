@@ -363,7 +363,7 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
     clsname = cls.__name__
     conf = cls.initCellConf()  # type: s_config.Config
 
-    rst.addHead(f'{clsname} Configuration Options', lvl=0)
+    rst.addHead(f'{clsname} Configuration Options', lvl=0, link=f'.. _autodoc-{clsname.lower()}-conf:')
     rst.addLines(f'The following are boot-time configuration options for the cell.')
 
     rst.addLines(f'See {reflink} for details on how to set these options.')
