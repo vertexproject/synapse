@@ -161,10 +161,10 @@ class CellApi(s_base.Base):
         return True
 
     async def ps(self):
-        return await self.cell.ps(self.user.iden)
+        return await self.cell.ps(self.user)
 
     async def kill(self, iden):
-        return await self.cell.kill(self.user.iden, iden)
+        return await self.cell.kill(self.user, iden)
 
     @adminapi(log=True)
     async def addUser(self, name, passwd=None, email=None):
@@ -1243,26 +1243,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return
 
     async def ps(self, user):
-        isallowed = await self.isUserAllowed(user, ('task', 'get'))
+        isallowed = await self.isUserAllowed(user.iden, ('task', 'get'))
 
         retn = []
         for task in self.boss.ps():
-            if (task.user.iden == user) or isallowed:
+            if (task.user.iden == user.iden) or isallowed:
                 retn.append(task.pack())
 
         return retn
 
     async def kill(self, user, iden):
         perm = ('task', 'del')
-        isallowed = await self.isUserAllowed(user, perm)
+        isallowed = await self.isUserAllowed(user.iden, perm)
 
-        logger.info(f'User [{user}] Requesting task kill: {iden}')
+        logger.info(f'User [{user.name}] Requesting task kill: {iden}')
         task = self.boss.get(iden)
         if task is None:
             logger.info(f'Task does not exist: {iden}')
             return False
 
-        if (task.user.iden == user) or isallowed:
+        if (task.user.iden == user.iden) or isallowed:
             logger.info(f'Killing task: {iden}')
             await task.kill()
             logger.info(f'Task killed: {iden}')

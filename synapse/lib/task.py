@@ -85,7 +85,7 @@ class Task(s_base.Base):
         pask = {
             'iden': self.iden,
             'name': self.name,
-            'info': self.info,
+            'info': copy.deepcopy(self.info),
             'tick': self.tick,
             'user': 'root',
             'kids': {i: k.pack() for i, k in self.kids.items()},
@@ -94,7 +94,7 @@ class Task(s_base.Base):
         if self.user is not None:
             pask['user'] = self.user.name
 
-        return copy.deepcopy(pask)
+        return pask
 
 def loop():
     try:

@@ -789,15 +789,20 @@ stormcmds = (
             ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
         ),
         'storm': '''
-            $tasks = $lib.ps.list($cmdopts.verbose)
+            $tasks = $lib.ps.list()
 
             for $task in $tasks {
                 $lib.print("task iden: {iden}", iden=$task.iden)
                 $lib.print("    name: {name}", name=$task.name)
                 $lib.print("    user: {user}", user=$task.user)
                 $lib.print("    status: {status}", status=$task.status)
-                $lib.print("    metadata: {metadata}", metadata=$task.info)
                 $lib.print("    start time: {start}", start=$lib.time.format($task.tick, '%Y-%m-%d %H:%M:%S'))
+                $lib.print("    metadata:")
+                if $cmdopts.verbose {
+                    $lib.pprint($task.info)
+                } else {
+                    $lib.pprint($task.info, 120)
+                }
             }
 
             $lib.print("{tlen} tasks found.", tlen=$tasks.size())

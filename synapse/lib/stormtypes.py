@@ -3,6 +3,7 @@ import gzip
 import json
 import time
 import base64
+import pprint
 import asyncio
 import logging
 import binascii
@@ -274,6 +275,7 @@ class LibBase(Lib):
             'cast': self._cast,
             'warn': self._warn,
             'print': self._print,
+            'pprint': self._pprint,
             'sorted': self._sorted,
             'import': self._libBaseImport,
         })
@@ -380,6 +382,19 @@ class LibBase(Lib):
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
 
+    async def _pprint(self, item, clamp=None):
+
+        if clamp is not None:
+            clamp = await toint(clamp)
+
+        lines = pprint.pformat(item).splitlines()
+
+        for line in lines:
+            if clamp and len(line) > clamp:
+                await self.runt.printf(line[:clamp] + '...')
+            else:
+                await self.runt.printf(line)
+
     async def _warn(self, mesg, **kwargs):
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.warn(mesg, log=False)
@@ -403,7 +418,7 @@ class LibPs(Lib):
     async def _kill(self, prefix):
         idens = []
 
-        todo = s_common.todo('ps', self.runt.user.iden)
+        todo = s_common.todo('ps', self.runt.user)
         tasks = await self.dyncall('cell', todo)
         for task in tasks:
             iden = task.get('iden')
@@ -418,31 +433,12 @@ class LibPs(Lib):
             mesg = 'Provided iden matches more than one process.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-        todo = s_common.todo('kill', self.runt.user.iden, idens[0])
+        todo = s_common.todo('kill', self.runt.user, idens[0])
         return await self.dyncall('cell', todo)
 
-    async def _list(self, verbose=False):
-
-        MAXFIELDLEN = 120
-
-        def clamp(field):
-            if isinstance(field, dict):
-                for key, valu in field.items():
-                    field[key] = clamp(valu)
-            elif isinstance(field, str) and len(field) > MAXFIELDLEN:
-                field = field[:MAXFIELDLEN] + '...'
-            return field
-
-        todo = s_common.todo('ps', self.runt.user.iden)
-        tasks = await self.dyncall('cell', todo)
-
-        for task in tasks:
-            metadata = task.get('info')
-            if metadata is not None and not verbose:
-                metadata = clamp(metadata)
-            task['info'] = metadata
-
-        return tasks
+    async def _list(self):
+        todo = s_common.todo('ps', self.runt.user)
+        return await self.dyncall('cell', todo)
 
 class LibStr(Lib):
 
