@@ -382,7 +382,7 @@ class LibBase(Lib):
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
 
-    async def _pprint(self, item, clamp=None):
+    async def _pprint(self, item, prefix='', clamp=None):
 
         if clamp is not None:
             clamp = await toint(clamp)
@@ -391,9 +391,9 @@ class LibBase(Lib):
 
         for line in lines:
             if clamp and len(line) > clamp:
-                await self.runt.printf(line[:clamp] + '...')
+                await self.runt.printf(f'{prefix}{line[:clamp]}...')
             else:
-                await self.runt.printf(line)
+                await self.runt.printf(f'{prefix}{line}')
 
     async def _warn(self, mesg, **kwargs):
         mesg = self._get_mesg(mesg, **kwargs)

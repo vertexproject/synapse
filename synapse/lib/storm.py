@@ -799,9 +799,9 @@ stormcmds = (
                 $lib.print("    start time: {start}", start=$lib.time.format($task.tick, '%Y-%m-%d %H:%M:%S'))
                 $lib.print("    metadata:")
                 if $cmdopts.verbose {
-                    $lib.pprint($task.info)
+                    $lib.pprint($task.info, prefix='    ')
                 } else {
-                    $lib.pprint($task.info, 120)
+                    $lib.pprint($task.info, prefix='    ', clamp=120)
                 }
             }
 
