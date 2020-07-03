@@ -233,6 +233,14 @@ class Benchmarker:
         assert count == 0
         return self.workfactor // 10
 
+    @benchmark()
+    async def do00NewQuery(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        for i in range(self.workfactor):
+            count = await acount(prox.eval(f'$x={i}'))
+
+        assert count == 0
+        return self.workfactor
+
     @benchmark({'official'})
     async def do01SimpleCount(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         count = await acount(prox.eval('inet:ipv4 | count | spin'))
