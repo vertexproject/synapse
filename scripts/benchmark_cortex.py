@@ -397,6 +397,13 @@ class Benchmarker:
         return self.workfactor
 
     @benchmark()
+    async def do10SlashAdds(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
+        q = '[ inet:ipv4=1.2.0.0/16 ] | spin'
+        count = await acount(prox.eval(q))
+        assert count == 0
+        return 2 ** 16
+
+    @benchmark()
     async def do10Formatting(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         '''
         The same as do10AutoAdds without the adds (to isolate the autoadd part)
