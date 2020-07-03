@@ -149,6 +149,7 @@ class NoCertKey(SynErr):
 
 class ModAlreadyLoaded(SynErr): pass
 class MustBeJsonSafe(SynErr): pass
+class NotMsgpackSafe(SynErr): pass
 
 class NoSuchAbrv(SynErr): pass
 class NoSuchAct(SynErr): pass
