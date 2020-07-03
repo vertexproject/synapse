@@ -205,14 +205,61 @@ class CellAuthTest(s_t_utils.SynTest):
             argv = [coreurl, 'modify', '--addrule', rule, name]
             await s_cellauth.main(argv, outp)
             outp.expect(f'adding rule to {name}: {rulerepr}')
+            outp.expect(f'0 allow: node.add')
+
             user = await prox.getUserInfo(name)
             self.eq(user.get('rules'),
                     ((True, ('node', 'add',)),))
 
             outp.clear()
+            argv = [coreurl, 'modify', '--addrule', 'node.del', 'foo']
+            await s_cellauth.main(argv, outp)
+            outp.expect(f'1 allow: node.del')
+
+            outp.clear()
+            argv = [coreurl, 'modify', '--addrule', 'service.get', 'foo']
+            await s_cellauth.main(argv, outp)
+            outp.expect(f'2 allow: service.get')
+
+            outp.clear()
+            argv = [coreurl, 'list', 'foo']
+            await s_cellauth.main(argv, outp)
+            outp.expect(f'0 allow: node.add')
+            outp.expect(f'1 allow: node.del')
+            outp.expect(f'2 allow: service.get')
+
+            outp.clear()
+            argv = [coreurl, 'modify', '--delrule', '1', 'foo']
+            await s_cellauth.main(argv, outp)
+            outp.expect(f'deleting rule index: 1')
+            outp.expect(f'0 allow: node.add')
+            outp.expect(f'1 allow: service.get')
+            self.false(outp.expect(f'allow: node.del', throw=False))
+
+            user = await prox.getUserInfo(name)
+            self.eq(user.get('rules'),
+                    ((True, ('node', 'add')), (True, ('service', 'get'))))
+
+            outp.clear()
+            argv = [coreurl, 'list', 'foo']
+            await s_cellauth.main(argv, outp)
+            outp.expect(f'0 allow: node.add')
+            outp.expect(f'1 allow: service.get')
+            self.false(outp.expect(f'allow: node.del', throw=False))
+
+            outp.clear()
             argv = [coreurl, 'modify', '--delrule', '0', 'foo']
             await s_cellauth.main(argv, outp)
             outp.expect(f'deleting rule index: 0')
+            outp.expect(f'0 allow: service.get')
+            self.false(outp.expect(f'allow: node.add', throw=False))
+
+            outp.clear()
+            argv = [coreurl, 'modify', '--delrule', '0', 'foo']
+            await s_cellauth.main(argv, outp)
+            outp.expect(f'deleting rule index: 0')
+            self.false(outp.expect(f'allow: service.get', throw=False))
+
             user = await prox.getUserInfo(name)
             self.eq(user.get('rules'), ())
 
@@ -220,8 +267,27 @@ class CellAuthTest(s_t_utils.SynTest):
             viewiden = core.view.iden
             argv = [coreurl, 'modify', '--addrule', nrule, name, '--object', viewiden]
             await s_cellauth.main(argv, outp)
-
             outp.expect(f'adding rule to {name}: {nrulerepr}')
+            outp.expect(f'0 deny: node.add')
+
+            outp.clear()
+            argv = [coreurl, 'modify', '--addrule', 'service.get', 'foo']
+            await s_cellauth.main(argv, outp)
+            outp.expect(f'0 allow: service.get')
+            outp.expect(f'1 deny: node.add')
+
+            outp.clear()
+            argv = [coreurl, 'modify', '--delrule', '1', 'foo']
+            await s_cellauth.main(argv, outp)
+            outp.expect(f'deleting rule index: 1')
+            outp.expect(f'0 allow: service.get')
+            self.false(outp.expect(f'deny: node.add', throw=False))
+
+            outp.clear()
+            argv = [coreurl, 'modify', '--delrule', '42', 'foo']
+            await s_cellauth.main(argv, outp)
+            outp.expect(f'deleting rule index: 42')
+            outp.expect(f'rule index is out of range')
 
     async def test_cellauth_gates(self):
 

@@ -49,16 +49,16 @@ async def printuser(user, details=False, cell=None):
     i = 0
 
     for rule in user.get('rules'):
-        i += 1
         rrep = reprrule(rule)
         outp.printf(f'    {i} {rrep}')
+        i += 1
 
     for gateiden, gateinfo in user.get('authgates', {}).items():
         outp.printf(f'  auth gate: {gateiden}')
         for rule in gateinfo.get('rules', ()):
             rrep = reprrule(rule)
-            i += 1
             outp.printf(f'    {i} {rrep}')
+            i += 1
 
     outp.printf('')
 
@@ -69,17 +69,19 @@ async def printuser(user, details=False, cell=None):
             outp.printf(f'    role: {rolename}')
 
             if details:
+                i = 0
                 role = await cell.getAuthInfo(rolename)
-                for i, rule in enumerate(role.get('rules', ())):
+                for rule in role.get('rules', ()):
                     rrep = reprrule(rule)
                     outp.printf(f'        {i} {rrep}')
+                    i += 1
 
                 for gateiden, gateinfo in role.get('authgates', {}).items():
                     outp.printf(f'    auth gate: {gateiden}')
                     for rule in gateinfo.get('rules', ()):
                         rrep = reprrule(rule)
-                        i += 1
                         outp.printf(f'      {i} {rrep}')
+                        i += 1
 
 async def handleModify(opts):
 
@@ -167,10 +169,31 @@ async def handleModify(opts):
                     await cell.addAuthRule(opts.name, rule, indx=None)
 
             if opts.delrule is not None:
-                outp.printf(f'deleting rule index: {opts.delrule}')
+                ruleind = opts.delrule
+                outp.printf(f'deleting rule index: {ruleind}')
+
                 user = await cell.getAuthInfo(opts.name)
-                rule = user.get('rules')[opts.delrule]
-                await cell.delAuthRule(opts.name, rule)
+                userrules = user.get('rules', ())
+
+                delrule = None
+                delgate = None
+
+                if ruleind < len(userrules):
+                    delrule = userrules[ruleind]
+
+                else:
+                    i = len(userrules)
+                    for gateiden, gateinfo in user.get('authgates', {}).items():
+                        for rule in gateinfo.get('rules', ()):
+                            if i == ruleind:
+                                delrule = rule
+                                delgate = gateiden
+                            i += 1
+
+                if delrule is not None:
+                    await cell.delAuthRule(opts.name, delrule, gateiden=delgate)
+                else:
+                    outp.printf(f'rule index is out of range')
 
             try:
                 user = await cell.getAuthInfo(opts.name)
