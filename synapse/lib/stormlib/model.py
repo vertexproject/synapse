@@ -6,7 +6,7 @@ import synapse.lib.stormtypes as s_stormtypes
 stormcmds = [
     {
         'name': 'model.edge.set',
-        'descr': 'Set an key value for an edge verb that exists in the current view.',
+        'descr': 'Set an key-value for an edge verb that exists in the current view.',
         'cmdargs': (
             ('verb', {'help': 'The edge verb to add a key to.'}),
             ('key', {'help': 'The key name (e.g. doc).'}),
