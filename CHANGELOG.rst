@@ -3,6 +3,21 @@ Synapse Changelog
 *****************
 
 
+Unreleased
+==========
+
+Improved Documentation
+----------------------
+
+- Add Synapse data model background on light edges and update the Storm data modification and pivot references for light
+  edges.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Add additional terms to the Synapse glossary.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Add documentation for additional Storm commands.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+
+
 v2.2.2 - 2020-07-03
 ===================
 
