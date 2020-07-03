@@ -218,16 +218,6 @@ class CortexTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
 
-                await asyncio.sleep(2)
-
-                form ='test:int'
-                n = 1024
-                # n = 1
-                for i in range(n):
-                    q = f'[{form}={i} +#hehe.haha] return($node.pack(dorepr=$lib.true))'
-                    resp = await proxy.callStorm(q)
-                    self.eq(resp[0], (form, i))
-
     async def test_cortex_storm_dmon_log(self):
 
         async with self.getTestCore() as core:
