@@ -48,7 +48,7 @@ class StormlibModelTest(s_test.SynTest):
                 self.stormIsInPrint('refs', mesgs)
 
                 mesgs = await core.stormlist('model.edge.set refs doc "foobar"', opts=asuser)
-                self.stormIsInPrint('Set edge extended prop: verb=refs prop=doc', mesgs)
+                self.stormIsInPrint('Set edge key: verb=refs key=doc', mesgs)
 
                 mesgs = await core.stormlist('model.edge.list', opts=asuser)
                 self.stormIsInPrint('foobar', mesgs)
@@ -82,7 +82,7 @@ class StormlibModelTest(s_test.SynTest):
 
                 # Delete entry
                 mesgs = await core.stormlist('model.edge.del refs doc', opts=asuser)
-                self.stormIsInPrint('Deleted edge extended property: verb=refs prop=doc', mesgs)
+                self.stormIsInPrint('Deleted edge key: verb=refs key=doc', mesgs)
 
                 elist = await core.callStorm('return($lib.model.edge.list())')
                 self.isin('refs', [e[0] for e in elist])
@@ -114,7 +114,7 @@ class StormlibModelTest(s_test.SynTest):
 
                 # Error conditions - set
                 mesgs = await core.stormlist('model.edge.set missing')
-                self.stormIsInPrint('The argument <prop> is required', mesgs)
+                self.stormIsInPrint('The argument <key> is required', mesgs)
 
                 with self.raises(s_exc.NoSuchProp):
                     await core.nodes('model.edge.set refs newp foo')
@@ -134,7 +134,7 @@ class StormlibModelTest(s_test.SynTest):
 
                 # Error conditions - del
                 mesgs = await core.stormlist('model.edge.del missing')
-                self.stormIsInPrint('The argument <prop> is required', mesgs)
+                self.stormIsInPrint('The argument <key> is required', mesgs)
 
                 with self.raises(s_exc.NoSuchProp):
                     await core.nodes('model.edge.del refs newp')

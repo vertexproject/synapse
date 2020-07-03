@@ -1533,12 +1533,14 @@ class Parser:
         for names, argdef in options:
             self._print_optarg(names, argdef)
 
-        self._printf('')
-        self._printf('Arguments:')
-        self._printf('')
+        if self.posargs:
 
-        for name, argdef in self.posargs:
-            self._print_posarg(name, argdef)
+            self._printf('')
+            self._printf('Arguments:')
+            self._printf('')
+
+            for name, argdef in self.posargs:
+                self._print_posarg(name, argdef)
 
         if mesg is not None:
             self._printf('')
