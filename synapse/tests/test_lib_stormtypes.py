@@ -265,6 +265,13 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('$lib.print($lib.len($true))', opts=opts)
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
+            mesgs = await core.stormlist('$lib.pprint(newp, clamp=2)')
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('Invalid clamp length.', err[1].get('mesg'))
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
@@ -285,6 +292,10 @@ class StormTypesTest(s_test.SynTest):
 
             # Verify that the long query got truncated
             msgs = await core.stormlist('ps.list')
+
+            for msg in msgs:
+                if msg[0] == 'print' and 'xxx...' in msg[1]['mesg']:
+                    self.eq(120, len(msg[1]['mesg']))
 
             self.stormIsInPrint('xxx...', msgs)
             self.stormIsInPrint('name: storm', msgs)

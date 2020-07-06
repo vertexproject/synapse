@@ -387,13 +387,18 @@ class LibBase(Lib):
         if clamp is not None:
             clamp = await toint(clamp)
 
+            if clamp < 3:
+                mesg = 'Invalid clamp length.'
+                raise s_exc.StormRuntimeError(mesg=mesg, clamp=clamp)
+
         lines = pprint.pformat(item).splitlines()
 
         for line in lines:
-            if clamp and len(line) > clamp:
-                await self.runt.printf(f'{prefix}{line[:clamp]}...')
+            fline = f'{prefix}{line}'
+            if clamp and len(fline) > clamp:
+                await self.runt.printf(f'{fline[:clamp-3]}...')
             else:
-                await self.runt.printf(f'{prefix}{line}')
+                await self.runt.printf(fline)
 
     async def _warn(self, mesg, **kwargs):
         mesg = self._get_mesg(mesg, **kwargs)
