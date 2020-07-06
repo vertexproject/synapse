@@ -3,6 +3,47 @@ Synapse Changelog
 *****************
 
 
+Unreleased
+==========
+
+Improved Documentation
+----------------------
+
+- Add Synapse data model background on light edges and update the Storm data modification and pivot references for light
+  edges.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Add additional terms to the Synapse glossary.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Add documentation for additional Storm commands.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+
+
+v2.2.2 - 2020-07-03
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add some small enhancements to the Cortex benchmarking script.
+  (`#1790 <https://github.com/vertexproject/synapse/pull/1790>`_)
+
+Bugfixes
+--------
+
+- Fix an error in the help for the ``macro.del`` command.
+  (`#1786 <https://github.com/vertexproject/synapse/pull/1786>`_)
+- Fix rule indexing for the ``synapse.tools.cellauth`` tool to correctly print the rule offsets.
+  (`#1787 <https://github.com/vertexproject/synapse/pull/1787>`_)
+- Remove extraneous output from the Storm Parser output.
+  (`#1789 <https://github.com/vertexproject/synapse/pull/1789>`_)
+- Rewrite the language (and private APIs) for the Storm ``model.edge`` related commands to remove references to extended
+  properties. That was confusing language which was unclear for users.
+  (`#1789 <https://github.com/vertexproject/synapse/pull/1789>`_)
+- During 2.0.0 migrations, ensure that Cortex and Layer idens are unique; and make minimum 0.1.6 version requirement for
+  migration.
+  (`#1788 <https://github.com/vertexproject/synapse/pull/1788>`_)
+
+
 v2.2.1 - 2020-06-30
 ===================
 

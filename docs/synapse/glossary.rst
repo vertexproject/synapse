@@ -229,6 +229,16 @@ Edge, Directed
 In a :ref:`gloss-directed-graph`, a directed edge is used to connect exactly two nodes (vertexes) in a one-way
 (directional) relationship. Compare with :ref:`gloss-hyperedge`.
 
+.. _gloss-edge-light:
+
+Edge, Lightweight (Light)
+-------------------------
+
+In Synapse, a lightweight (light) edge is a mechanism that links two arbitrary forms via a user-defined
+verb that describes the linking relationship. Light edges are not forms and so do not support secondary 
+properties or tags. They are meant to simplify performance, representation of data, and Synapse hypergraph
+navigation for many use cases. Contrast with :ref:`gloss-form-edge`.
+
 .. _gloss-extended-comp-op:
 
 Extended Comparison Operator
@@ -279,6 +289,21 @@ Form, Composite
 In the Synpase :ref:`gloss-data-model`, a category of form whose primary property is an ordered set of two or more
 comma-separated typed values. Examples include DNS A records (``inet:dns:a``) and web-based
 accounts (``inet:web:acct``).
+
+.. _gloss-form-digraph:
+
+See :ref:`gloss-form-edge`.
+
+.. _gloss-form-edge:
+
+Form, Edge
+----------
+
+In the Synapse :ref:`gloss-data-model`, a specialized **composite form** (:ref:`gloss-form-comp`) whose primary
+property consists of two :ref:`gloss-ndef` values. Edge forms can be used to link two arbitrary forms via a 
+generic relationship where additional information needs to be captured about that relationship (i.e., via secondary
+properpties and/or tags). Contrast with :ref:`gloss-edge-light`.
+
 
 .. _gloss-form-guid:
 
@@ -481,8 +506,26 @@ operation that selects a set of nodes from the Cortex. Compare with :ref:`gloss-
 
 See :ref:`storm-ref-lift` for additional detail.
 
+.. _gloss-light-edge:
+
+Lightweight (Light) Edge
+------------------------
+
+See :ref:`gloss-edge-light`.
+
 M
 =
+
+.. _gloss-macro:
+
+Macro
+-----
+
+A macro is a stored Storm query. Macros support the full range of Storm syntax and features.
+
+See the Storm command reference for the :ref:`storm-macro` command and the :ref:`storm-ref-automation` for
+additional detail.
+
 
 .. _gloss-model:
 
@@ -615,12 +658,14 @@ See the :ref:`data-props` section in the :ref:`data-model-terms` document for ad
 Property, Derived
 -----------------
 
-Within Synapse, a derived property is one that can be extracted (derived) from a node's primary property. For example,
-the domain ``inet:fqdn=www.google.com`` can be used to derive ``inet:fqdn=google.com`` and ``inet:fqdn=com``; the
-DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)`` can be used to derive ``inet:fqdn=woot.com`` and
-``inet:ipv4=1.2.3.4``. Synapse will automatically set any secondary properties that can be derived from a
-node's primary property (i.e., ``inet:dns:a:fqdn=woot.com``). Because they are derived from primary properties,
-derived properties are always read-only (i.e., cannot be modified once set).
+Within Synapse, a derived property is a secondary property that can be extracted (derived) from a node's primary
+property. For example, the domain ``inet:fqdn=www.google.com`` can be used to derive ``inet:fqdn:domain=google.com``
+and ``inet:fqdn:host=www``; the DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)`` can be used to derive 
+``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ipv4=1.2.3.4``. Synapse will automatically set any secondary properties
+that can be derived from a node's primary property; if the seconday property can be used to define a node in its own
+right (i.e., ``inet:fqdn=google.com`` from ``inet:fqdn=www.google.com``) the additional nodes will be automatically
+created if they do not already exist. Because derived properties are based on primary property values, derived
+secondary properties are always read-only (i.e., cannot be modified once set).
 
 .. _gloss-prop-primary:
 
@@ -787,7 +832,7 @@ See :ref:`gloss-comp-op-standard`.
 Storm
 -----
 
-The custom, domain-specific language used to interact with data in a Synapse :ref:`gloss-cortex`.
+Storm is the custom, domain-specific language used to interact with data in a Synapse :ref:`gloss-cortex`.
 
 See :ref:`storm-ref-intro` for additional detail.
 
