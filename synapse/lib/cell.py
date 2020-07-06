@@ -161,36 +161,10 @@ class CellApi(s_base.Base):
         return True
 
     async def ps(self):
-
-        retn = []
-
-        isallowed = await self.allowed(('task', 'get'))
-
-        for task in self.cell.boss.ps():
-            if (task.user == self.user) or isallowed:
-                retn.append(task.pack())
-
-        return retn
+        return await self.cell.ps(self.user)
 
     async def kill(self, iden):
-        perm = ('task', 'del')
-        isallowed = await self.allowed(perm)
-
-        logger.info(f'User [{self.user.name}] Requesting task kill: {iden}')
-        task = self.cell.boss.get(iden)
-        if task is None:
-            logger.info(f'Task does not exist: {iden}')
-            return False
-
-        if (task.user == self.user) or isallowed:
-            logger.info(f'Killing task: {iden}')
-            await task.kill()
-            logger.info(f'Task killed: {iden}')
-            return True
-
-        perm = '.'.join(perm)
-        raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
-                             task=iden, user=str(self.user), perm=perm)
+        return await self.cell.kill(self.user, iden)
 
     @adminapi(log=True)
     async def addUser(self, name, passwd=None, email=None):
@@ -1267,3 +1241,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         the writes that occurred on the leader before this call.
         '''
         return
+
+    async def ps(self, user):
+        isallowed = await self.isUserAllowed(user.iden, ('task', 'get'))
+
+        retn = []
+        for task in self.boss.ps():
+            if (task.user.iden == user.iden) or isallowed:
+                retn.append(task.pack())
+
+        return retn
+
+    async def kill(self, user, iden):
+        perm = ('task', 'del')
+        isallowed = await self.isUserAllowed(user.iden, perm)
+
+        logger.info(f'User [{user.name}] Requesting task kill: {iden}')
+        task = self.boss.get(iden)
+        if task is None:
+            logger.info(f'Task does not exist: {iden}')
+            return False
+
+        if (task.user.iden == user.iden) or isallowed:
+            logger.info(f'Killing task: {iden}')
+            await task.kill()
+            logger.info(f'Task killed: {iden}')
+            return True
+
+        perm = '.'.join(perm)
+        raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
+                             task=iden, user=str(user), perm=perm)

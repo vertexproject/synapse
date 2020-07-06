@@ -3,6 +3,7 @@ import gzip
 import json
 import time
 import base64
+import pprint
 import asyncio
 import logging
 import binascii
@@ -274,6 +275,7 @@ class LibBase(Lib):
             'cast': self._cast,
             'warn': self._warn,
             'print': self._print,
+            'pprint': self._pprint,
             'sorted': self._sorted,
             'import': self._libBaseImport,
         })
@@ -380,6 +382,24 @@ class LibBase(Lib):
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
 
+    async def _pprint(self, item, prefix='', clamp=None):
+
+        if clamp is not None:
+            clamp = await toint(clamp)
+
+            if clamp < 3:
+                mesg = 'Invalid clamp length.'
+                raise s_exc.StormRuntimeError(mesg=mesg, clamp=clamp)
+
+        lines = pprint.pformat(item).splitlines()
+
+        for line in lines:
+            fline = f'{prefix}{line}'
+            if clamp and len(fline) > clamp:
+                await self.runt.printf(f'{fline[:clamp-3]}...')
+            else:
+                await self.runt.printf(fline)
+
     async def _warn(self, mesg, **kwargs):
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.warn(mesg, log=False)
@@ -391,6 +411,39 @@ class LibBase(Lib):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
+
+class LibPs(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'kill': self._kill,
+            'list': self._list,
+        })
+
+    async def _kill(self, prefix):
+        idens = []
+
+        todo = s_common.todo('ps', self.runt.user)
+        tasks = await self.dyncall('cell', todo)
+        for task in tasks:
+            iden = task.get('iden')
+            if iden.startswith(prefix):
+                idens.append(iden)
+
+        if len(idens) == 0:
+            mesg = 'Provided iden does not match any processes.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+        if len(idens) > 1:
+            mesg = 'Provided iden matches more than one process.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+        todo = s_common.todo('kill', self.runt.user, idens[0])
+        return await self.dyncall('cell', todo)
+
+    async def _list(self):
+        todo = s_common.todo('ps', self.runt.user)
+        return await self.dyncall('cell', todo)
 
 class LibStr(Lib):
 
