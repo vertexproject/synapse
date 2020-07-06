@@ -25,8 +25,9 @@ class SampleNexus(s_nexus.Pusher):
     async def doathing2(self, eventdict):
         return await self._push('thing:doathing2', eventdict, 'foo')
 
-    @s_nexus.Pusher.onPush('thing:doathing2', passoff=True)
-    async def _doathing2handler(self, eventdict, anotherparm, nexsoff=None):
+    @s_nexus.Pusher.onPush('thing:doathing2', passitem=True)
+    async def _doathing2handler(self, eventdict, anotherparm, nexsitem=None):
+        nexsoff, nexsmesg = nexsitem
         eventdict['gotindex'] = nexsoff
         return anotherparm
 
@@ -50,58 +51,70 @@ class SampleNexus2(SampleNexus):
         return await self._push('thing:doathing', eventdict, 'bar')
 
 class NexusTest(s_t_utils.SynTest):
+
     async def test_nexus(self):
+
         with self.getTestDir() as dirn:
-            async with await SampleNexus.anit(1) as nexus1, await s_nexus.NexsRoot.anit(dirn) as nexsroot:
+
+            async with await s_nexus.NexsRoot.anit(dirn) as nexsroot:
                 await nexsroot.startup(None)
 
-                eventdict = {'specialpush': 0}
-                self.eq('foo', await nexus1.doathing(eventdict))
-                self.eq(1, eventdict.get('happened'))
-
-                self.eq('foo', await nexus1.doathingauto(eventdict, 'foo'))
-                self.eq(1, eventdict.get('autohappened'))
-
-                self.eq('foo', await nexus1.doathingauto2(eventdict, 'foo'))
-                self.eq(1, eventdict.get('autohappened2'))
-
-                self.eq('doc', nexus1.doathingauto2.__doc__)
-
-                async with await SampleNexus2.anit(2, nexsroot=nexsroot) as testkid:
+                async with await SampleNexus.anit(1, nexsroot=nexsroot) as nexus1:
 
                     eventdict = {'specialpush': 0}
-                    # Tricky inheriting handler funcs themselves
                     self.eq('foo', await nexus1.doathing(eventdict))
-                    self.eq('bar', await testkid.doathing(eventdict))
-                    self.eq(2, eventdict.get('happened'))
+                    self.eq(1, eventdict.get('happened'))
 
-                    # Check offset passing
-                    self.eq('foo', await testkid.doathing2(eventdict))
-                    self.eq(1, eventdict.get('gotindex'))
+                    self.eq('foo', await nexus1.doathingauto(eventdict, 'foo'))
+                    self.eq(1, eventdict.get('autohappened'))
 
-                    # Check raising an exception
-                    await self.asyncraises(s_exc.SynErr, testkid.doathingauto3(eventdict))
+                    self.eq('foo', await nexus1.doathingauto2(eventdict, 'foo'))
+                    self.eq(1, eventdict.get('autohappened2'))
 
-                    with self.getLoggerStream('synapse.lib.nexus') as stream:
-                        await nexsroot.recover()
+                    self.eq('doc', nexus1.doathingauto2.__doc__)
 
-                    stream.seek(0)
-                    self.isin('while replaying log', stream.read())
+                    async with await SampleNexus2.anit(2, nexsroot=nexsroot) as testkid:
+
+                        eventdict = {'specialpush': 0}
+                        # Tricky inheriting handler funcs themselves
+                        self.eq('foo', await nexus1.doathing(eventdict))
+                        self.eq('bar', await testkid.doathing(eventdict))
+                        self.eq(2, eventdict.get('happened'))
+
+                        # Check offset passing
+                        self.eq('foo', await testkid.doathing2(eventdict))
+                        self.eq(5, eventdict.get('gotindex'))
+
+                        # Check raising an exception
+                        await self.asyncraises(s_exc.SynErr, testkid.doathingauto3(eventdict))
+
+                        with self.getLoggerStream('synapse.lib.nexus') as stream:
+                            await nexsroot.recover()
+
+                        stream.seek(0)
+                        self.isin('while replaying log', stream.read())
 
     async def test_nexus_no_logging(self):
         '''
         Pushers/NexsRoot works with donexslog=False
         '''
         with self.getTestDir() as dirn:
-            async with await SampleNexus.anit(1) as nexus1, \
-                    await s_nexus.NexsRoot.anit(dirn, donexslog=False) as nexsroot:
 
-                await nexsroot.startup(None)
+            async with await s_nexus.NexsRoot.anit(dirn, donexslog=False) as nexsroot:
 
-                eventdict = {'specialpush': 0}
-                self.eq('foo', await nexus1.doathing(eventdict))
-                self.eq(1, eventdict.get('happened'))
-                async with await SampleNexus2.anit(2, nexsroot=nexsroot) as testkid:
+                async with await SampleNexus.anit(1, nexsroot=nexsroot) as nexus1:
+
+                    await nexsroot.startup(None)
+
                     eventdict = {'specialpush': 0}
-                    self.eq('bar', await testkid.doathing(eventdict))
-                    self.eq(2, eventdict.get('happened'))
+                    self.eq('foo', await nexus1.doathing(eventdict))
+                    self.eq('foo', await nexus1.doathing2(eventdict))
+                    self.eq(1, eventdict.get('happened'))
+                    self.eq(1, eventdict.get('gotindex'))
+
+                    async with await SampleNexus2.anit(2, nexsroot=nexsroot) as nexus2:
+                        eventdict = {'specialpush': 0}
+                        self.eq('bar', await nexus2.doathing(eventdict))
+                        self.eq('foo', await nexus2.doathing2(eventdict))
+                        self.eq(2, eventdict.get('happened'))
+                        self.eq(3, eventdict.get('gotindex'))

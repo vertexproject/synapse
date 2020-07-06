@@ -484,7 +484,7 @@ class CoreApi(s_cell.CellApi):
         async for mesg in self.cell.watch(wdef):
             yield mesg
 
-    async def syncLayerNodeEdits(self, offs, layriden=None):
+    async def syncLayerNodeEdits(self, offs, layriden=None, wait=True):
         '''
         Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
 
@@ -495,7 +495,7 @@ class CoreApi(s_cell.CellApi):
         layr = self.cell.getLayer(layriden)
         self.user.confirm(('sync',), gateiden=layr.iden)
 
-        async for item in self.cell.syncLayerNodeEdits(layr.iden, offs):
+        async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
 
     @s_cell.adminapi()
@@ -966,8 +966,9 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def coreQueuePuts(self, name, items):
         await self._push('queue:puts', name, items)
 
-    @s_nexus.Pusher.onPush('queue:puts', passoff=True)
-    async def _coreQueuePuts(self, name, items, nexsoff):
+    @s_nexus.Pusher.onPush('queue:puts', passitem=True)
+    async def _coreQueuePuts(self, name, items, nexsitem):
+        nexsoff, nexsmesg = nexsitem
         await self.multiqueue.puts(name, items, reqid=nexsoff)
 
     @s_nexus.Pusher.onPushAuto('queue:cull')
@@ -1803,7 +1804,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
-    async def syncLayerNodeEdits(self, iden, offs):
+    async def syncLayerNodeEdits(self, iden, offs, wait=True):
         '''
         Yield (offs, mesg) tuples for nodeedits in a layer.
         '''
@@ -1811,7 +1812,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
 
-        async for item in layr.syncNodeEdits(offs):
+        async for item in layr.syncNodeEdits(offs, wait=wait):
             yield item
 
     async def spliceHistory(self, user):
@@ -2359,7 +2360,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     def listLayers(self):
         return self.layers.values()
 
-    async def getLayerDef(self, iden):
+    async def getLayerDef(self, iden=None):
         layr = self.getLayer(iden)
         if layr is not None:
             return layr.pack()

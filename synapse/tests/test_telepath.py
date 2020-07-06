@@ -360,6 +360,23 @@ class TeleTest(s_t_utils.SynTest):
             await self.asyncraises(ssl.SSLCertVerificationError,
                                    s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
 
+    async def test_telepath_ssl_client_cert(self):
+
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+
+            dmon.certdir.genCaCert('userca')
+            dmon.certdir.genUserCert('visi', signas='userca')
+
+            addr, port = await dmon.listen('ssl://localhost:0/?ca=userca')
+            dmon.share('foo', foo)
+
+            with self.raises(s_exc.LinkShutDown):
+                await s_telepath.openurl(f'ssl://localhost/foo', port=port, certdir=dmon.certdir)
+
+            proxy = await s_telepath.openurl(f'ssl://localhost/foo?certname=visi', port=port, certdir=dmon.certdir)
+            self.eq(20, await proxy.bar(15, 5))
+
     async def test_telepath_tls(self):
         self.thisHostMustNot(platform='darwin')
 

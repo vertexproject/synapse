@@ -836,16 +836,29 @@ class CertDir:
             if name.endswith('.crt'):
                 ctx.load_verify_locations(os.path.join(path, name))
 
-    def getClientSSLContext(self):
+    def getClientSSLContext(self, certname=None):
         '''
         Returns an ssl.SSLContext appropriate for initiating a TLS session
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         self._loadCasIntoSSLContext(sslctx)
 
+        if certname is not None:
+            certfile = self.getUserCertPath(certname)
+            if certfile is None:
+                mesg = f'Missing TLS certificate file for user: {certname}'
+                raise s_exc.NoCertKey(mesg=mesg)
+
+            keyfile = self.getUserKeyPath(certname)
+            if keyfile is None:
+                mesg = f'Missing TLS key file for user: {certname}'
+                raise s_exc.NoCertKey(mesg=mesg)
+
+            sslctx.load_cert_chain(certfile, keyfile)
+
         return sslctx
 
-    def getServerSSLContext(self, hostname=None):
+    def getServerSSLContext(self, hostname=None, caname=None):
         '''
         Returns an ssl.SSLContext appropriate to listen on a socket
 
@@ -869,6 +882,11 @@ class CertDir:
             raise s_exc.NoCertKey(mesg=mesg)
 
         sslctx.load_cert_chain(certfile, keyfile)
+
+        if caname is not None:
+            cafile = self.getCaCertPath(caname)
+            sslctx.verify_mode = ssl.VerifyMode.CERT_REQUIRED
+            sslctx.load_verify_locations(cafile=cafile)
 
         return sslctx
 

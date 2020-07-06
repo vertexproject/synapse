@@ -161,14 +161,19 @@ class Config(c_abc.MutableMapping):
             if conf.get('hideconf'):
                 continue
 
+            typename = conf.get('type')
+            if not isinstance(typename, str):
+                continue
+
             atyp = jsonschematype2argparse.get(conf.get('type'))
             if atyp is None:
                 continue
 
-            akwargs = {'help': conf.get('description', ''),
-                       'action': 'store',
-                       'type': atyp,
-                       }
+            akwargs = {
+                'help': conf.get('description', ''),
+                'action': 'store',
+                'type': atyp,
+            }
 
             if atyp is bool:
 

@@ -23,6 +23,7 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
+import synapse.lib.slabseqn as s_slabseqn
 
 COPY_CHUNKSIZE = 512
 PROGRESS_PERIOD = COPY_CHUNKSIZE * 1024
@@ -239,6 +240,7 @@ class HotKeyVal(s_base.Base):
         byts = name.encode()
         self.cache[byts] = valu
         self.dirty.add(byts)
+        return valu
 
     def sync(self):
         tups = [(p, self.EncFunc(self.cache[p])) for p in self.dirty]
@@ -733,6 +735,9 @@ class Slab(s_base.Base):
         self.onfini(item)
         return item
 
+    def getSeqn(self, name):
+        return s_slabseqn.SlabSeqn(self, name)
+
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
 
@@ -1029,6 +1034,20 @@ class Slab(s_base.Base):
                 if not curs.last():
                     return None
                 return curs.key(), curs.value()
+        finally:
+            self._relXactForReading()
+
+    def lastkey(self, db=None):
+        '''
+        Return the last key/value pair from the given db.
+        '''
+        self._acqXactForReading()
+        realdb, dupsort = self.dbnames[db]
+        try:
+            with self.xact.cursor(db=realdb) as curs:
+                if not curs.last():
+                    return None
+                return curs.key()
         finally:
             self._relXactForReading()
 

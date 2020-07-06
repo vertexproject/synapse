@@ -5,7 +5,6 @@ import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.lmdbslab as s_lmdbslab
 
 class SlabSeqn:
     '''
@@ -15,7 +14,7 @@ class SlabSeqn:
         lenv (lmdb.Environment): The LMDB Environment.
         name (str): The name of the sequence.
     '''
-    def __init__(self, slab: s_lmdbslab.Slab, name: str) -> None:
+    def __init__(self, slab, name: str) -> None:
 
         self.slab = slab
         self.db = self.slab.initdb(name)
@@ -29,10 +28,17 @@ class SlabSeqn:
             _, _, evnt = heapq.heappop(self.offsevents)
             evnt.set()
 
-    def add(self, item):
+    def add(self, item, indx=None):
         '''
         Add a single item to the sequence.
         '''
+        if indx is not None:
+            self.slab.put(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
+            if indx >= self.indx:
+                self.indx = indx + 1
+                self._wake_waiters()
+            return indx
+
         indx = self.indx
         self.slab.put(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
 
@@ -106,12 +112,11 @@ class SlabSeqn:
         Returns:
             int: The next insert offset.
         '''
-        indx = 0
-        with s_lmdbslab.Scan(self.slab, self.db) as curs:
-            last_key = curs.last_key()
-            if last_key is not None:
-                indx = s_common.int64un(last_key) + 1
-        return indx
+        byts = self.slab.lastkey(db=self.db)
+        if byts is None:
+            return 0
+
+        return s_common.int64un(byts) + 1
 
     def iter(self, offs):
         '''

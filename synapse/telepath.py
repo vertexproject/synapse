@@ -967,9 +967,21 @@ async def openurl(url, **opts):
 
         sslctx = None
         if scheme == 'ssl':
-            certpath = info.get('certdir')
-            certdir = s_certdir.CertDir(certpath)
-            sslctx = certdir.getClientSSLContext()
+
+            certname = None
+            certpath = None
+
+            certdir = opts.get('certdir')
+
+            query = info.get('query')
+            if query is not None:
+                certpath = query.get('certdir')
+                certname = query.get('certname')
+
+            if certdir is None:
+                certdir = s_certdir.CertDir(certpath)
+
+            sslctx = certdir.getClientSSLContext(certname=certname)
 
         link = await s_link.connect(host, port, ssl=sslctx)
 

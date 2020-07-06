@@ -3009,13 +3009,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodelist0.extend(await core0.nodes('[ test:str=foo ]'))
             nodelist0.extend(await core0.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]'))
 
-            count = 0
             editlist = []
-            async for _, nodeedits in prox0.syncLayerNodeEdits(0):
+            async for _, nodeedits in prox0.syncLayerNodeEdits(0, wait=False):
                 editlist.append(nodeedits)
-                count += 1
-                if count == 6:
-                    break
 
             async with self.getTestCoreAndProxy() as (core1, prox1):
 
@@ -3880,34 +3876,23 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_view_setlayers(self):
 
-        with self.getTestDir() as dirn:
-            path00 = s_common.gendir(dirn, 'core00')
-            path01 = s_common.gendir(dirn, 'core01')
+        async with self.getTestCore() as core:
 
-            async with self.getTestCore(dirn=path00) as core00:
-                self.len(1, await core00.nodes('[ test:str=core00 ]'))
+            self.len(1, await core.nodes('[ test:str=deflayr ]'))
 
-                iden00 = core00.getLayer().iden
+            newlayr = (await core.addLayer()).get('iden')
+            deflayr = (await core.getLayerDef()).get('iden')
 
-            async with self.getTestCore(dirn=path01) as core01:
+            vdef = {'layers': (deflayr,)}
+            view = (await core.addView(vdef)).get('iden')
 
-                self.len(1, await core01.nodes('[ test:str=core01 ]'))
-                iden00b = (await core01.addLayer()).get('iden')
-                iden01 = core01.getLayer().iden
-                # Set the default view for core01 to have a read layer with
-                # the new iden
-                await core01.setViewLayers((iden01, iden00b))
+            opts = {'view': view}
+            self.len(1, await core.nodes('test:str=deflayr', opts=opts))
 
-            # Blow away the old layer at the destination and replace it
-            # with our layer from core00
-            src = s_common.gendir(path00, 'layers', iden00)
-            dst = s_common.gendir(path01, 'layers', iden00b)
-            shutil.rmtree(dst)
-            shutil.copytree(src, dst)
+            await core.setViewLayers((newlayr, deflayr), iden=view)
 
-            # Ensure data from both layers is present in the cortex
-            async with self.getTestCore(dirn=path01) as core01:
-                self.len(2, await core01.nodes('test:str*in=(core00, core01) | uniq'))
+            self.len(1, await core.nodes('[ test:str=newlayr ]', opts=opts))
+            self.len(0, await core.nodes('test:str=newlayr'))
 
     async def test_cortex_lockmemory(self):
         '''
@@ -4288,7 +4273,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Can't delete a layer in a view
             await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
-            return
 
             # Can't delete a nonexistent view
             await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))

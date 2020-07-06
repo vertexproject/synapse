@@ -137,6 +137,10 @@ class CellApi(s_base.Base):
     def getCellIden(self):
         return self.cell.getCellIden()
 
+    @adminapi()
+    def getNexsIndx(self):
+        return self.cell.getNexsIndx()
+
     def getCellUser(self):
         return self.user.pack()
 
@@ -657,6 +661,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         return await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
 
+    async def getNexsIndx(self):
+        return await self.nexsroot.index()
+
     async def promote(self):
 
         if self.conf.get('mirror') is None:
@@ -969,7 +976,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ))
 
     async def _initCellDmon(self):
-        self.dmon = await s_daemon.Daemon.anit()
+        certdir = s_common.gendir(self.dirn, 'certs')
+        self.dmon = await s_daemon.Daemon.anit(certdir=certdir)
         self.dmon.share('*', self)
 
         self.onfini(self.dmon.fini)
@@ -1183,19 +1191,34 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
 
-            if 'https:port' not in cell.conf:
-                await cell.addHttpsPort(opts.https)
-
             if 'dmon:listen' not in cell.conf:
                 await cell.dmon.listen(opts.telepath)
+                if outp is not None:
+                    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
+            else:
+
+                if outp is not None:
+                    lisn = cell.conf.get('dmon:listen')
+                    if lisn is None:
+                        lisn = cell.getLocalUrl()
+
+                    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (lisn,))
+
+            if 'https:port' not in cell.conf:
+                await cell.addHttpsPort(opts.https)
+                if outp is not None:
+                    outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
+            else:
+                if outp is not None:
+                    port = cell.conf.get('https:port')
+                    if port is None:
+                        outp.printf(f'...{cell.getCellType()} API (https): disabled')
+                    else:
+                        outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
 
             if opts.name is not None:
                 cell.dmon.share(opts.name, cell)
-
-            if outp is not None:
-                outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
-                outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
-                if opts.name is not None:
+                if outp is not None:
                     outp.printf(f'...{cell.getCellType()} API (telepath name): %s' % (opts.name,))
 
         except Exception:

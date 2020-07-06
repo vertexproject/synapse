@@ -19,7 +19,6 @@ FOLLOWER_WRITE_WAIT_S = 30.0
 
 NexusLogEntryT = Tuple[str, str, List[Any], Dict[str, Any], Dict] # (nexsiden, event, args, kwargs, meta)
 
-
 class RegMethType(type):
     '''
     Metaclass that collects all methods in class with _regme prop into a class member called _regclstupls
@@ -92,18 +91,24 @@ class NexsRoot(s_base.Base):
         # Used to match pending follower write requests with the responses arriving on the log
         self._futures: Dict[str, asyncio.Future] = {}
 
-        if self.donexslog:
-            path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
-            self._nexusslab = await s_lmdbslab.Slab.anit(path, map_async=False)
-            self._nexuslog = s_slabseqn.SlabSeqn(self._nexusslab, 'nexuslog')
+        path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
+
+        self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=False)
+
+        self.nexslog = self.nexsslab.getSeqn('nexuslog')
+        self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
+
+        # just in case were previously configured differently
+        logindx = self.nexslog.index()
+        hotindx = self.nexshot.get('nexs:indx')
+        self.nexshot.set('nexs:indx', max(logindx, hotindx))
 
         async def fini():
 
             for futu in self._futures.values():
                 futu.cancel()
 
-            if self.donexslog:
-                await self._nexusslab.fini()
+            await self.nexsslab.fini()
 
         self.onfini(fini)
 
@@ -135,7 +140,7 @@ class NexsRoot(s_base.Base):
         if not self.donexslog:
             return
 
-        indxitem: Optional[Tuple[int, NexusLogEntryT]] = self._nexuslog.last()
+        indxitem = self.nexslog.last()
         if indxitem is None:
             # We have a brand new log
             return
@@ -179,34 +184,44 @@ class NexsRoot(s_base.Base):
             await self.client.issue(nexsiden, event, args, kwargs, meta)
             return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
-    async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
-                  meta: Optional[Dict] = None) -> Any:
+    async def eat(self, nexsiden, event, args, kwargs, meta):
         '''
         Actually mutate for the given nexsiden instance.
         '''
         if meta is None:
             meta = {}
 
-        item: NexusLogEntryT = (nexsiden, event, args, kwargs, meta)
+        return await self._eat((nexsiden, event, args, kwargs, meta))
+
+    async def index(self):
+        if self.donexslog:
+            return self.nexslog.index()
+        else:
+            return self.nexshot.get('nexs:indx')
+
+    async def _eat(self, item, indx=None):
 
         if self.donexslog:
-            indx = self._nexuslog.add(item)
+            saveindx = self.nexslog.add(item, indx=indx)
+            [dist.update() for dist in tuple(self._mirrors)]
+
         else:
-            indx = None
+            saveindx = self.nexshot.get('nexs:indx')
+            if indx is not None and indx > saveindx:
+                saveindx = self.nexshot.set('nexs:indx', indx)
 
-        [dist.update() for dist in tuple(self._mirrors)]
+            self.nexshot.inc('nexs:indx')
 
-        retn = await self._apply(indx, item)
+        return await self._apply(saveindx, item)
 
-        return retn
+    async def _apply(self, indx, mesg):
 
-    async def _apply(self, indx: Optional[int], item: NexusLogEntryT):
-        nexsiden, event, args, kwargs, _ = item
+        nexsiden, event, args, kwargs, _ = mesg
 
         nexus = self._nexskids[nexsiden]
-        func, passoff = nexus._nexshands[event]
-        if passoff:
-            return await func(nexus, *args, nexsoff=indx, **kwargs)
+        func, passitem = nexus._nexshands[event]
+        if passitem:
+            return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
 
         return await func(nexus, *args, **kwargs)
 
@@ -222,7 +237,7 @@ class NexsRoot(s_base.Base):
 
         maxoffs = offs
 
-        for item in self._nexuslog.iter(offs):
+        for item in self.nexslog.iter(offs):
             if self.isfini:
                 raise s_exc.IsFini()
             maxoffs = item[0] + 1
@@ -237,7 +252,7 @@ class NexsRoot(s_base.Base):
     @contextlib.asynccontextmanager
     async def getChangeDist(self, offs: int) -> AsyncIterator[ChangeDist]:
 
-        async with await ChangeDist.anit(self._nexuslog, offs) as dist:
+        async with await ChangeDist.anit(self.nexslog, offs) as dist:
 
             async def fini():
                 self._mirrors.remove(dist)
@@ -278,7 +293,7 @@ class NexsRoot(s_base.Base):
 
             try:
 
-                offs = self._nexuslog.index()
+                offs = self.nexslog.index()
                 genr = proxy.getNexusChanges(offs)
                 async for item in genr:
 
@@ -286,7 +301,7 @@ class NexsRoot(s_base.Base):
                         break
 
                     offs, args = item
-                    if offs != self._nexuslog.index():  # pragma: nocover
+                    if offs != self.nexslog.index():  # pragma: nocover
                         logger.error('mirror desync')
                         await self.fini()
                         return
@@ -335,8 +350,8 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         if nexsroot is not None:
             self.setNexsRoot(nexsroot)
 
-        for event, func, passoff in self._regclstupls:  # type: ignore
-            self._nexshands[event] = func, passoff
+        for event, func, passitem in self._regclstupls:  # type: ignore
+            self._nexshands[event] = func, passitem
 
     def setNexsRoot(self, nexsroot):
 
@@ -356,34 +371,34 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         #return await self.nexsroot.isLeader()
 
     @classmethod
-    def onPush(cls, event: str, passoff=False) -> Callable:
+    def onPush(cls, event: str, passitem=False) -> Callable:
         '''
         Decorator that registers a method to be a handler for a named event
 
         Args:
             event: string that distinguishes one handler from another.  Must be unique per Pusher subclass
-            passoff:  whether to pass the log offset as the parameter "nexsoff" into the handler
+            passitem:  whether to pass the (offs, mesg) tuple to the handler as "nexsitem"
         '''
         def decorator(func):
-            func._regme = (event, func, passoff)
+            func._regme = (event, func, passitem)
             return func
 
         return decorator
 
     @classmethod
-    def onPushAuto(cls, event: str, passoff=False) -> Callable:
+    def onPushAuto(cls, event: str, passitem=False) -> Callable:
         '''
         Decorator that does the same as onPush, except automatically creates the top half method
 
         Args:
             event: string that distinguishes one handler from another.  Must be unique per Pusher subclass
-            passoff:  whether to pass the log offset as the parameter "nexsoff" into the handler
+            passitem:  whether to pass the (offs, mesg) tuple to the handler as "nexsitem"
         '''
         async def pushfunc(self, *args, **kwargs):
             return await self._push(event, *args, **kwargs)
 
         def decorator(func):
-            pushfunc._regme = (event, func, passoff)
+            pushfunc._regme = (event, func, passitem)
             setattr(cls, '_hndl' + func.__name__, func)
             functools.update_wrapper(pushfunc, func)
             return pushfunc
@@ -397,10 +412,4 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         Note:
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
-        nexsiden = self.nexsiden
-
-        if self.nexsroot is not None:  # Distribute through the change root
-            return await self.nexsroot.issue(nexsiden, event, args, kwargs, None)
-
-        # There's no change distribution, so directly execute
-        return await self._nexshands[event][0](self, *args, **kwargs)
+        return await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)
