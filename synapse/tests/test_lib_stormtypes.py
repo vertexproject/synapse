@@ -352,6 +352,10 @@ class StormTypesTest(s_test.SynTest):
                 # Give user explicit permissions to list
                 await core.addUserRule(bond.iden, (True, ('task', 'get')))
 
+                # Match all tasks
+                msgs = await alist(prox.storm(f"ps.kill ''"))
+                self.stormIsInErr('Provided iden matches more than one process.', msgs)
+
                 msgs = await alist(prox.storm('ps.list'))
                 self.stormIsInPrint(f'task iden: {iden}', msgs)
 
@@ -362,6 +366,9 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await alist(prox.storm(f'ps.kill {iden}'))
                 self.stormIsInPrint('kill status: True', msgs)
                 self.true(task.done())
+
+                # Kill a task that doesn't exist
+                self.false(await core.kill(bond, 'newp'))
 
     async def test_storm_lib_query(self):
         async with self.getTestCore() as core:
