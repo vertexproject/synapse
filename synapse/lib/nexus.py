@@ -365,11 +365,6 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         self.nexsroot = nexsroot
 
-    #async def isLeader(self):
-        #if self.nexsroot is None:
-            #return True
-        #return await self.nexsroot.isLeader()
-
     @classmethod
     def onPush(cls, event: str, passitem=False) -> Callable:
         '''
