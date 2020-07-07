@@ -14,12 +14,12 @@ class LibHttp(s_stormtypes.Lib):
 
     _storm_lib_path = ('inet', 'http')
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'get': self._httpEasyGet,
-            'post': self._httpPost,
+    def getObjLocals(self):
+        return {
+            'get': cls._httpEasyGet,
+            'post': cls._httpPost,
             # 'session':
-        })
+        }
 
     async def _httpEasyGet(self, url, headers=None, ssl_verify=True):
 
@@ -66,9 +66,12 @@ class HttpResp(s_stormtypes.StormType):
     def __init__(self, locls):
         s_stormtypes.StormType.__init__(self)
         self.locls.update(locls)
-        self.locls.update({
-            'json': self._httpRespJson,
-        })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'json': cls._httpRespJson,
+        }
 
     async def _httpRespJson(self):
         body = self.locls.get('body')

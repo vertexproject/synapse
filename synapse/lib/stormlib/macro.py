@@ -128,13 +128,13 @@ class MacroExecCmd(s_storm.Cmd):
 class LibMacro(s_stormtypes.Lib):
     _storm_lib_path = ('macro',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'set': self._funcMacroSet,
-            'get': self._funcMacroGet,
-            'del': self._funcMacroDel,
-            'list': self._funcMacroList,
-        })
+    def getObjLocals(self):
+        return {
+            'set': cls._funcMacroSet,
+            'get': cls._funcMacroGet,
+            'del': cls._funcMacroDel,
+            'list': cls._funcMacroList,
+        }
 
     async def _funcMacroList(self):
         path = ('cortex', 'storm', 'macros')

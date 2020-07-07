@@ -89,12 +89,18 @@ class LibModel(s_stormtypes.Lib):
         self.model = runt.model
 
     def addLibFuncs(self):
+        super().addLibFuncs()
         self.locls.update({
-            'type': self._methType,
-            'prop': self._methProp,
-            'form': self._methForm,
             'edge': ModelEdge(self.runt),
         })
+
+    # FIME add edge?
+    def getObjLocals(self):
+        return {
+            'type': cls._methType,
+            'prop': cls._methProp,
+            'form': cls._methForm,
+        }
 
     @s_cache.memoize(size=100)
     async def _methType(self, name):
@@ -123,12 +129,17 @@ class ModelForm(s_stormtypes.Prim):
 
         self.locls.update({
             'name': form.name,
-            'prop': self._getFormProp,
         })
+        self.locls.update(self.getObjLocals())
 
         self.ctors.update({
             'type': self._ctorFormType,
         })
+
+    def getObjLocals(self):
+        return {
+            'prop': cls._getFormProp
+        }
 
     def _ctorFormType(self, path=None):
         return ModelType(self.valu.type, path=path)
@@ -145,6 +156,7 @@ class ModelProp(s_stormtypes.Prim):
 
         s_stormtypes.Prim.__init__(self, prop, path=path)
 
+        # FIXME name / full
         self.locls.update({
             'name': prop.name,
             'full': prop.full,
@@ -170,9 +182,15 @@ class ModelType(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.locls.update({
             'name': valu.name,
-            'repr': self._methRepr,
-            'norm': self._methNorm,
         })
+        self.locls.update(self.getObjLocals())
+
+    # fixme name
+    def getObjLocals(self):
+        return {
+            'repr': cls._methRepr,
+            'norm': cls._methNorm,
+        }
 
     async def _methRepr(self, valu):
         nval = self.valu.norm(valu)
@@ -180,6 +198,9 @@ class ModelType(s_stormtypes.Prim):
 
     async def _methNorm(self, valu):
         return self.valu.norm(valu)
+
+
+# Fixme Can we convert this into a Lib easily?
 
 @s_stormtypes.registry.registerType
 class ModelEdge(s_stormtypes.Prim):
@@ -195,6 +216,7 @@ class ModelEdge(s_stormtypes.Prim):
     validedgekeys = (
         'doc',
     )
+    hivepath = ('cortex', 'model', 'edges')
 
     def __init__(self, runt):
 
@@ -202,14 +224,15 @@ class ModelEdge(s_stormtypes.Prim):
 
         self.runt = runt
 
-        self.hivepath = ('cortex', 'model', 'edges')
+        self.locls.update(self.getObjLocals())
 
-        self.locls.update({
-            'get': self._methEdgeGet,
-            'set': self._methEdgeSet,
-            'del': self._methEdgeDel,
-            'list': self._methEdgeList,
-        })
+    def getObjLocals(self):
+        return {
+            'get': cls._methEdgeGet,
+            'set': cls._methEdgeSet,
+            'del': cls._methEdgeDel,
+            'list': cls._methEdgeList,
+        }
 
     async def _chkEdgeVerbInView(self, verb):
         async for vverb in self.runt.snap.view.getEdgeVerbs():

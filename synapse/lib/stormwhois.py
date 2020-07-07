@@ -12,10 +12,10 @@ class LibWhois(s_stormtypes.Lib):
 
     _storm_lib_path = ('inet', 'whois')
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'guid': self._whoisGuid,
-        })
+    def getObjLocals(self):
+        return {
+             'guid': cls._whoisGuid,
+         }
 
     async def _whoisGuid(self, props, form):
         '''

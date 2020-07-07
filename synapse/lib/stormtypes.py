@@ -8,6 +8,7 @@ import logging
 import binascii
 import datetime
 import calendar
+import functools
 import collections
 
 import synapse.exc as s_exc
@@ -73,8 +74,10 @@ class StormTypesRegistry:
     def iterTypes(self):
         return list(self._LIBREG.items())
 
-    # def registerFunc(self, func):
-    #     pass
+    # def registerFunc(self, name):
+    #
+    #     @functools.wraps(f)
+    #     return wrapped
 
 registry = StormTypesRegistry()
 
@@ -120,6 +123,9 @@ class StormType:
         self.ctors = {}
         self.locls = {}
 
+    def getObjLocals(self):
+        return {}
+
     async def setitem(self, name, valu):
         mesg = f'{self.__class__.__name__} does not support assignment.'
         raise s_exc.StormRuntimeError(mesg=mesg)
@@ -158,7 +164,7 @@ class Lib(StormType):
         self.addLibFuncs()
 
     def addLibFuncs(self):
-        pass
+        self.locls.update(self.getObjLocals())
 
     async def deref(self, name):
         try:
@@ -186,12 +192,12 @@ class Lib(StormType):
 class LibPkg(Lib):
     _storm_lib_path = ('pkg',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'add': self._libPkgAdd,
-            'del': self._libPkgDel,
-            'list': self._libPkgList,
-        })
+    def getObjLocals(self):
+        return {
+            'add': cls._libPkgAdd,
+            'del': cls._libPkgDel,
+            'list': cls._libPkgList,
+        }
 
     async def _libPkgAdd(self, pkgdef):
         self.runt.user.confirm(('pkgs', 'add'), None)
@@ -208,13 +214,14 @@ class LibPkg(Lib):
 class LibDmon(Lib):
     _storm_lib_path = ('dmon',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'add': self._libDmonAdd,
-            'del': self._libDmonDel,
-            'log': self._libDmonLog,
-            'list': self._libDmonList,
-        })
+    # @classmethod
+    def getObjLocals(self):
+        return {
+            'add': cls._libDmonAdd,
+            'del': cls._libDmonDel,
+            'log': cls._libDmonLog,
+            'list': cls._libDmonList,
+        }
 
     async def _libDmonDel(self, iden):
 
@@ -266,14 +273,14 @@ class LibDmon(Lib):
 class LibService(Lib):
     _storm_lib_path = ('service',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'add': self._libSvcAdd,
-            'del': self._libSvcDel,
-            'get': self._libSvcGet,
-            'list': self._libSvcList,
-            'wait': self._libSvcWait,
-        })
+    def getObjLocals(self):
+        return {
+            'add': cls._libSvcAdd,
+            'del': cls._libSvcDel,
+            'get': cls._libSvcGet,
+            'list': cls._libSvcList,
+            'wait': cls._libSvcWait,
+        }
 
     async def _libSvcAdd(self, name, url):
 
@@ -320,26 +327,27 @@ class LibService(Lib):
 class LibBase(Lib):
     _storm_lib_path = ()
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'len': self._len,
-            'min': self._min,
-            'max': self._max,
-            'set': self._set,
-            'dict': self._dict,
-            'guid': self._guid,
-            'fire': self._fire,
-            'list': self._list,
+    # @classmethod
+    def getObjLocals(self):
+        return {
+            'len': cls._len,
+            'min': cls._min,
+            'max': cls._max,
+            'set': cls._set,
+            'dict': cls._dict,
+            'guid': cls._guid,
+            'fire': cls._fire,
+            'list': cls._list,
             'null': None,
             'true': True,
             'false': False,
-            'text': self._text,
-            'cast': self._cast,
-            'warn': self._warn,
-            'print': self._print,
-            'sorted': self._sorted,
-            'import': self._libBaseImport,
-        })
+            'text': cls._text,
+            'cast': cls._cast,
+            'warn': cls._warn,
+            'print': cls._print,
+            'sorted': cls._sorted,
+            'import': cls._libBaseImport,
+        }
 
     async def _libBaseImport(self, name):
 
@@ -459,12 +467,12 @@ class LibBase(Lib):
 class LibStr(Lib):
     _storm_lib_path = ('str',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'join': self.join,
-            'concat': self.concat,
-            'format': self.format,
-        })
+    def getObjLocals(self):
+        return {
+            'join': cls.join,
+            'concat': cls.concat,
+            'format': cls.format,
+        }
 
     async def concat(self, *args):
         strs = [str(a) for a in args]
@@ -484,6 +492,7 @@ class LibStr(Lib):
 
             $foo = $lib.str.join('.', ('rep', 'vtx', 'tag'))
         '''
+        # FIXME !
         strs = [str(item) for item in items]
         return sepr.join(items)
 
@@ -491,10 +500,10 @@ class LibStr(Lib):
 class LibBytes(Lib):
     _storm_lib_path = ('bytes',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'put': self._libBytesPut,
-        })
+    def getObjLocals(self):
+        return {
+            'put': cls._libBytesPut,
+        }
 
     async def _libBytesPut(self, byts):
         '''
@@ -520,10 +529,10 @@ class LibBytes(Lib):
 class LibLift(Lib):
     _storm_lib_path = ('lift',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'byNodeData': self.byNodeData,
-        })
+    def getObjLocals(self):
+        return {
+            'byNodeData': cls.byNodeData,
+        }
 
     async def byNodeData(self, name):
         async for node in self.runt.snap.nodesByDataName(name):
@@ -533,15 +542,16 @@ class LibLift(Lib):
 class LibTime(Lib):
     _storm_lib_path = ('time',)
 
-    def addLibFuncs(self):
-        self.locls.update({
+    # @classmethod
+    def getObjLocals(self):
+        return {
             'now': s_common.now,
-            'fromunix': self.fromunix,
-            'parse': self.parse,
-            'format': self.format,
-            'sleep': self.sleep,
-            'ticker': self.ticker,
-        })
+            'fromunix': cls.fromunix,
+            'parse': cls.parse,
+            'format': cls.format,
+            'sleep': cls.sleep,
+            'ticker': cls.ticker,
+        }
 
     # TODO from other iso formats!
 
@@ -625,10 +635,10 @@ class LibTime(Lib):
 class LibCsv(Lib):
     _storm_lib_path = ('csv',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'emit': self._libCsvEmit,
-        })
+    def getObjLocals(self):
+        return {
+            'emit': cls._libCsvEmit,
+        }
 
     async def _libCsvEmit(self, *args, table=None):
         '''
@@ -641,12 +651,12 @@ class LibCsv(Lib):
 class LibFeed(Lib):
     _storm_lib_path = ('feed',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'genr': self._libGenr,
-            'list': self._libList,
-            'ingest': self._libIngest,
-        })
+    def getObjLocals(self):
+        return {
+            'genr': cls._libGenr,
+            'list': cls._libList,
+            'ingest': cls._libIngest,
+        }
 
     async def _libGenr(self, name, data):
         '''
@@ -700,13 +710,14 @@ class LibFeed(Lib):
 class LibQueue(Lib):
     _storm_lib_path = ('queue',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'add': self._methQueueAdd,
-            'del': self._methQueueDel,
-            'get': self._methQueueGet,
-            'list': self._methQueueList,
-        })
+    # @classmethod
+    def getObjLocals(self):
+        return {
+            'add': cls._methQueueAdd,
+            'del': cls._methQueueDel,
+            'get': cls._methQueueGet,
+            'list': cls._methQueueList,
+        }
 
     async def _methQueueAdd(self, name):
 
@@ -762,15 +773,18 @@ class Queue(StormType):
 
         self.gateiden = f'queue:{name}'
 
-        self.locls.update({
-            'get': self._methQueueGet,
-            'pop': self._methQueuePop,
-            'put': self._methQueuePut,
-            'puts': self._methQueuePuts,
-            'gets': self._methQueueGets,
-            'cull': self._methQueueCull,
-            'size': self._methQueueSize,
-        })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'get': cls._methQueueGet,
+            'pop': cls._methQueuePop,
+            'put': cls._methQueuePut,
+            'puts': cls._methQueuePuts,
+            'gets': cls._methQueueGets,
+            'cull': cls._methQueueCull,
+            'size': cls._methQueueSize,
+        }
 
     async def _methQueueCull(self, offs):
         offs = await toint(offs)
@@ -835,10 +849,10 @@ class Queue(StormType):
 class LibTelepath(Lib):
     _storm_lib_path = ('telepath',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'open': self._methTeleOpen,
-        })
+    def getObjLocals(self):
+        return {
+            'open': cls._methTeleOpen,
+        }
 
     async def _methTeleOpen(self, url):
         '''
@@ -900,11 +914,11 @@ class ProxyGenrMethod(StormType):
 class LibBase64(Lib):
     _storm_lib_path = ('base64',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'encode': self._encode,
-            'decode': self._decode
-        })
+    def getObjLocals(self):
+        return {
+            'encode': cls._encode,
+            'decode': cls._decode
+        }
 
     async def _encode(self, valu, urlsafe=True):
         try:
@@ -951,15 +965,18 @@ class Str(Prim):
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
-        self.locls.update({
-            'split': self._methStrSplit,
-            'endswith': self._methStrEndswith,
-            'startswith': self._methStrStartswith,
-            'ljust': self._methStrLjust,
-            'rjust': self._methStrRjust,
-            'encode': self._methEncode,
-            'replace': self._methStrReplace,
-        })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'split': cls._methStrSplit,
+            'endswith': cls._methStrEndswith,
+            'startswith': cls._methStrStartswith,
+            'ljust': cls._methStrLjust,
+            'rjust': cls._methStrRjust,
+            'encode': cls._methEncode,
+            'replace': cls._methStrReplace,
+        }
 
     def __int__(self):
         return int(self.value(), 0)
@@ -1024,14 +1041,17 @@ class Bytes(Prim):
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
-        self.locls.update({
-            'decode': self._methDecode,
-            'bunzip': self._methBunzip,
-            'gunzip': self._methGunzip,
-            'bzip': self._methBzip,
-            'gzip': self._methGzip,
-            'json': self._methJsonLoad,
-        })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'decode': cls._methDecode,
+            'bunzip': cls._methBunzip,
+            'gunzip': cls._methGunzip,
+            'bzip': cls._methBzip,
+            'gzip': cls._methGzip,
+            'json': cls._methJsonLoad,
+        }
 
     def __len__(self):
         return len(self.valu)
@@ -1131,15 +1151,18 @@ class Set(Prim):
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, set(valu), path=path)
-        self.locls.update({
-            'add': self._methSetAdd,
-            'has': self._methSetHas,
-            'rem': self._methSetRem,
-            'adds': self._methSetAdds,
-            'rems': self._methSetRems,
-            'list': self._methSetList,
-            'size': self._methSetSize,
-        })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'add': cls._methSetAdd,
+            'has': cls._methSetHas,
+            'rem': cls._methSetRem,
+            'adds': cls._methSetAdds,
+            'rems': cls._methSetRems,
+            'list': cls._methSetList,
+            'size': cls._methSetSize,
+        }
 
     def __iter__(self):
         for item in self.valu:
@@ -1180,13 +1203,16 @@ class List(Prim):
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
-        self.locls.update({
-            'has': self._methListHas,
-            'size': self._methListSize,
-            'index': self._methListIndex,
-            'length': self._methListLength,
-            'append': self._methListAppend,
-        })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'has': cls._methListHas,
+            'size': cls._methListSize,
+            'index': cls._methListIndex,
+            'length': cls._methListLength,
+            'append': cls._methListAppend,
+        }
 
     def __iter__(self):
         for item in self.valu:
@@ -1256,9 +1282,15 @@ class Bool(Prim):
 class LibUser(Lib):
     _storm_lib_path = ('user', )
 
+    def getObjLocals(self):
+        return {
+            'name': cls._libUserName,
+        }
+
+    # FIXME - Figure out a way to pull vars and profile up into $lib.user ?
     def addLibFuncs(self):
+        super().addLibFuncs()
         self.locls.update({
-            'name': self._libUserName,
             'vars': StormHiveDict(self.runt, self.runt.user.vars),
             'profile': StormHiveDict(self.runt, self.runt.user.profile),
         })
@@ -1276,13 +1308,13 @@ class LibGlobals(Lib):
     def __init__(self, runt, name):
         Lib.__init__(self, runt, name)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'get': self._methGet,
-            'pop': self._methPop,
-            'set': self._methSet,
-            'list': self._methList,
-        })
+    def getObjLocals(self):
+        return {
+            'get': cls._methGet,
+            'pop': cls._methPop,
+            'set': cls._methSet,
+            'list': cls._methList,
+        }
 
     def _reqStr(self, name):
         if not isinstance(name, str):
@@ -1330,14 +1362,23 @@ class StormHiveDict(Prim):
         Prim.__init__(self, None)
         self.runt = runt
         self.info = info
-        self.locls.update({
-            'get': self.info.get,
-            'pop': self.info.pop,
-            'set': self.info.set,
-            'list': self.list,
-        })
+        self.locls.update(self.getObjLocals())
 
-    async def set(self, name, valu):
+    def getObjLocals(self):
+        return {
+            'get': cls._get,
+            'pop': cls._pop,
+            'set': cls._set,
+            'list': cls._list,
+        }
+
+    async def _get(self, name, default=None):
+        return self.info.get(name, default)
+
+    async def _pop(self, name, default=None):
+        return await self.info.pop(name, default)
+
+    async def _set(self, name, valu):
 
         if not isinstance(name, str):
             mesg = 'The name of a persistent variable must be a string.'
@@ -1345,7 +1386,7 @@ class StormHiveDict(Prim):
 
         return await self.info.set(name, valu)
 
-    def list(self):
+    def _list(self):
         return list(self.info.items())
 
     def __iter__(self):
@@ -1358,13 +1399,13 @@ class StormHiveDict(Prim):
 class LibVars(Lib):
     _storm_lib_path = ('vars',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'get': self._libVarsGet,
-            'set': self._libVarsSet,
-            'del': self._libVarsDel,
-            'list': self._libVarsList,
-        })
+    def getObjLocals(self):
+        return {
+            'get': cls._libVarsGet,
+            'set': cls._libVarsSet,
+            'del': cls._libVarsDel,
+            'list': cls._libVarsList,
+        }
 
     async def _libVarsGet(self, name, defv=None):
         '''
@@ -1403,9 +1444,12 @@ class Query(Prim):
         self.varz = varz
         self.runt = runt
 
-        self.locls.update({
-            'exec': self._methQueryExec,
-        })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'exec': cls._methQueryExec,
+        }
 
     def __str__(self):
         return self.text
@@ -1440,11 +1484,14 @@ class NodeProps(Prim):
 
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
-        self.locls.update({
-            'get': self.get,
-            'list': self.list,
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'get': cls.get,
+            'list': cls.list,
             # TODO implement set()
-        })
+        }
 
     async def _derefGet(self, name):
         return self.valu.get(name)
@@ -1465,13 +1512,16 @@ class NodeData(Prim):
 
         Prim.__init__(self, node, path=path)
 
-        self.locls.update({
-            'get': self._getNodeData,
-            'set': self._setNodeData,
-            'pop': self._popNodeData,
-            'list': self._listNodeData,
-            'load': self._loadNodeData,
-        })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'get': cls._getNodeData,
+            'set': cls._setNodeData,
+            'pop': cls._popNodeData,
+            'list': cls._listNodeData,
+            'load': cls._loadNodeData,
+        }
 
     def _reqAllowed(self, perm):
         if not self.valu.snap.user.allowed(perm):
@@ -1510,21 +1560,25 @@ class Node(Prim):
     '''
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
-        self.locls.update({
-            'form': self._methNodeForm,
-            'iden': self._methNodeIden,
-            'ndef': self._methNodeNdef,
-            'pack': self._methNodePack,
-            'repr': self._methNodeRepr,
-            'tags': self._methNodeTags,
-            'edges': self._methNodeEdges,
-            'value': self._methNodeValue,
-            'globtags': self._methNodeGlobTags,
-            'isform': self._methNodeIsForm,
-        })
 
         self.ctors['data'] = self._ctorNodeData
         self.ctors['props'] = self._ctorNodeProps
+
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'form': cls._methNodeForm,
+            'iden': cls._methNodeIden,
+            'ndef': cls._methNodeNdef,
+            'pack': cls._methNodePack,
+            'repr': cls._methNodeRepr,
+            'tags': cls._methNodeTags,
+            'edges': cls._methNodeEdges,
+            'value': cls._methNodeValue,
+            'globtags': cls._methNodeGlobTags,
+            'isform': cls._methNodeIsForm,
+        }
 
     def _ctorNodeData(self, path=None):
         return NodeData(self.valu, path=path)
@@ -1644,12 +1698,18 @@ class Path(Prim):
 
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
+        self.locls.update(self.getObjLocals())
         self.locls.update({
-            'idens': self._methPathIdens,
-            'trace': self._methPathTrace,
-            'listvars': self._methPathListVars,
             'vars': PathVars(path),
         })
+
+    # Fixme get vars out for docs purposes
+    def getObjLocals(self):
+        return {
+            'idens': cls._methPathIdens,
+            'trace': cls._methPathTrace,
+            'listvars': cls._methPathListVars,
+        }
 
     async def _methPathIdens(self):
         return [n.iden() for n in self.valu.nodes]
@@ -1671,9 +1731,12 @@ class Trace(Prim):
     '''
     def __init__(self, trace, path=None):
         Prim.__init__(self, trace, path=path)
-        self.locls.update({
-            'idens': self._methTraceIdens,
-        })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'idens': cls._methTraceIdens,
+        }
 
     async def _methTraceIdens(self):
         return [n.iden() for n in self.valu.nodes]
@@ -1685,10 +1748,13 @@ class Text(Prim):
     '''
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
-        self.locls.update({
-            'add': self._methTextAdd,
-            'str': self._methTextStr,
-        })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'add': cls._methTextAdd,
+            'str': cls._methTextStr,
+        }
 
     def __len__(self):
         return len(self.valu)
@@ -1704,10 +1770,10 @@ class Text(Prim):
 class LibStats(Lib):
     _storm_lib_path = ('stats',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'tally': self.tally,
-        })
+    def getObjLocals(self):
+        return {
+            'tally': cls.tally,
+        }
 
     async def tally(self):
         return StatTally(path=self.path)
@@ -1726,15 +1792,15 @@ class StatTally(Prim):
 
     '''
     def __init__(self, path=None):
-
         Prim.__init__(self, {}, path=path)
-
-        self.locls.update({
-            'inc': self.inc,
-            'get': self.get,
-        })
-
         self.counters = collections.defaultdict(int)
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'inc': cls.inc,
+            'get': cls.get,
+        }
 
     async def __aiter__(self):
         for name, valu in self.counters.items():
@@ -1757,13 +1823,13 @@ class StatTally(Prim):
 class LibLayer(Lib):
     _storm_lib_path = ('layer',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'add': self._libLayerAdd,
-            'del': self._libLayerDel,
-            'get': self._libLayerGet,
-            'list': self._libLayerList,
-        })
+    def getObjLocals(self):
+        return {
+            'add': cls._libLayerAdd,
+            'del': cls._libLayerDel,
+            'get': cls._libLayerGet,
+            'list': cls._libLayerList,
+        }
 
     async def _libLayerAdd(self, ldef=None):
         '''
@@ -1835,12 +1901,18 @@ class Layer(Prim):
         self.runt = runt
         self.locls.update({
             'iden': ldef.get('iden'),
-            'set': self._methLayerSet,
-            'get': self._methLayerGet,
-            'pack': self._methLayerPack,
-            'repr': self._methLayerRepr,
-            'edits': self._methLayerEdits,
         })
+        self.locls.update(self.getObjLocals())
+
+    # fixme plumb in iden
+    def getObjLocals(self):
+        return {
+            'set': cls._methLayerSet,
+            'get': cls._methLayerGet,
+            'pack': cls._methLayerPack,
+            'repr': cls._methLayerRepr,
+            'edits': cls._methLayerEdits,
+        }
 
     async def _methLayerEdits(self, offs=0, wait=True):
         '''
@@ -1880,13 +1952,13 @@ class Layer(Prim):
 class LibView(Lib):
     _storm_lib_path = ('view',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'add': self._methViewAdd,
-            'del': self._methViewDel,
-            'get': self._methViewGet,
-            'list': self._methViewList,
-        })
+    def getObjLocals(self):
+        return {
+            'add': cls._methViewAdd,
+            'del': cls._methViewDel,
+            'get': cls._methViewGet,
+            'list': cls._methViewList,
+        }
 
     async def _methViewAdd(self, layers, name=None):
         '''
@@ -1942,19 +2014,24 @@ class View(Prim):
         Prim.__init__(self, vdef, path=path)
         self.runt = runt
         self.locls.update({
-
             'iden': vdef.get('iden'),
             'layers': [Layer(runt, ldef, path=path) for ldef in vdef.get('layers')],
             'triggers': [Trigger(runt, tdef) for tdef in vdef.get('triggers')],
-            'set': self._methViewSet,
-            'get': self._methViewGet,
-            'fork': self._methViewFork,
-            'pack': self._methViewPack,
-            'repr': self._methViewRepr,
-            'merge': self._methViewMerge,
-            'getEdges': self._methGetEdges,
-            'getEdgeVerbs': self._methGetEdgeVerbs,
         })
+        self.locls.update(self.getObjLocals())
+
+    # FIXME plumb in iden/layers/triggers
+    def getObjLocals(self):
+        return {
+            'set': cls._methViewSet,
+            'get': cls._methViewGet,
+            'fork': cls._methViewFork,
+            'pack': cls._methViewPack,
+            'repr': cls._methViewRepr,
+            'merge': cls._methViewMerge,
+            'getEdges': cls._methGetEdges,
+            'getEdgeVerbs': cls._methGetEdgeVerbs,
+        }
 
     async def _methGetEdges(self, verb=None):
         verb = await toprim(verb)
@@ -2045,16 +2122,16 @@ class View(Prim):
 class LibTrigger(Lib):
     _storm_lib_path = ('trigger',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'add': self._methTriggerAdd,
-            'del': self._methTriggerDel,
-            'list': self._methTriggerList,
-            'get': self._methTriggerGet,
-            'enable': self._methTriggerEnable,
-            'disable': self._methTriggerDisable,
-            'mod': self._methTriggerMod
-        })
+    def getObjLocals(self):
+        return {
+            'add': cls._methTriggerAdd,
+            'del': cls._methTriggerDel,
+            'list': cls._methTriggerList,
+            'get': cls._methTriggerGet,
+            'enable': cls._methTriggerEnable,
+            'disable': cls._methTriggerDisable,
+            'mod': cls._methTriggerMod
+        }
 
     async def _matchIdens(self, prefix):
         '''
@@ -2219,9 +2296,14 @@ class Trigger(Prim):
         self.runt = runt
 
         self.locls.update({
-            'set': self.set,
             'iden': tdef['iden'],
         })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'set': cls.set,
+        }
 
     async def deref(self, name):
         valu = self.valu.get(name, s_common.novalu)
@@ -2254,23 +2336,23 @@ def ruleFromText(text):
 class LibAuth(Lib):
     _storm_lib_path = ('auth',)
 
-    def addLibFuncs(self):
-        self.locls.update({
+    def getObjLocals(self):
+        return {
             'ruleFromText': ruleFromText,
-        })
+        }
 
 @registry.registerLib
 class LibUsers(Lib):
     _storm_lib_path = ('auth', 'users')
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'add': self._methUsersAdd,
-            'del': self._methUsersDel,
-            'list': self._methUsersList,
-            'get': self._methUsersGet,
-            'byname': self._methUsersByName,
-        })
+    def getObjLocals(self):
+        return {
+            'add': cls._methUsersAdd,
+            'del': cls._methUsersDel,
+            'list': cls._methUsersList,
+            'get': cls._methUsersGet,
+            'byname': cls._methUsersByName,
+        }
 
     async def _methUsersList(self):
         return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
@@ -2298,14 +2380,14 @@ class LibUsers(Lib):
 class LibRoles(Lib):
     _storm_lib_path = ('auth', 'roles')
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'add': self._methRolesAdd,
-            'del': self._methRolesDel,
-            'list': self._methRolesList,
-            'get': self._methRolesGet,
-            'byname': self._methRolesByName,
-        })
+    def getObjLocals(self):
+        return {
+            'add': cls._methRolesAdd,
+            'del': cls._methRolesDel,
+            'list': cls._methRolesList,
+            'get': cls._methRolesGet,
+            'byname': cls._methRolesByName,
+        }
 
     async def _methRolesList(self):
         return [Role(self.runt, rdef['iden']) for rdef in await self.runt.snap.core.getRoleDefs()]
@@ -2333,11 +2415,11 @@ class LibRoles(Lib):
 class LibGates(Lib):
     _storm_lib_path = ('auth', 'gates')
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'get': self._methGatesGet,
-            'list': self._methGatesList,
-        })
+    def getObjLocals(self):
+        return {
+            'get': cls._methGatesGet,
+            'list': cls._methGatesList,
+        }
 
     async def _methGatesList(self):
         todo = s_common.todo('getAuthGates')
@@ -2360,6 +2442,7 @@ class Gate(Prim):
         Prim.__init__(self, valu, path=path)
         self.runt = runt
 
+        # FIXME get iden/roles/users
         self.locls.update({
             'iden': valu.get('iden'),
             'users': valu.get('users'),
@@ -2376,20 +2459,25 @@ class User(Prim):
 
         self.locls.update({
             'iden': valu,
-            'get': self._methUserGet,
-            'roles': self._methUserRoles,
-            'allowed': self._methUserAllowed,
-            'grant': self._methUserGrant,
-            'revoke': self._methUserRevoke,
-
-            'addRule': self._methUserAddRule,
-            'delRule': self._methUserDelRule,
-            'setRules': self._methUserSetRules,
-            'setAdmin': self._methUserSetAdmin,
-            'setEmail': self._methUserSetEmail,
-            'setLocked': self._methUserSetLocked,
-            'setPasswd': self._methUserSetPasswd,
         })
+        self.locls.update(self.getObjLocals())
+
+    # Fixme iden
+    def getObjLocals(self):
+        return {
+            'get': cls._methUserGet,
+            'roles': cls._methUserRoles,
+            'allowed': cls._methUserAllowed,
+            'grant': cls._methUserGrant,
+            'revoke': cls._methUserRevoke,
+            'addRule': cls._methUserAddRule,
+            'delRule': cls._methUserDelRule,
+            'setRules': cls._methUserSetRules,
+            'setAdmin': cls._methUserSetAdmin,
+            'setEmail': cls._methUserSetEmail,
+            'setLocked': cls._methUserSetLocked,
+            'setPasswd': cls._methUserSetPasswd,
+        }
 
     async def _derefGet(self, name):
         udef = await self.runt.snap.core.getUserDef(self.valu)
@@ -2465,14 +2553,18 @@ class Role(Prim):
 
         Prim.__init__(self, valu, path=path)
         self.runt = runt
-
         self.locls.update({
             'iden': valu,
-            'get': self._methRoleGet,
-            'addRule': self._methRoleAddRule,
-            'delRule': self._methRoleDelRule,
-            'setRules': self._methRoleSetRules,
         })
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'get': cls._methRoleGet,
+            'addRule': cls._methRoleAddRule,
+            'delRule': cls._methRoleDelRule,
+            'setRules': cls._methRoleSetRules,
+        }
 
     async def _derefGet(self, name):
         rdef = await self.runt.snap.core.getRoleDef(self.valu)
@@ -2501,17 +2593,17 @@ class Role(Prim):
 class LibCron(Lib):
     _storm_lib_path = ('cron',)
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'at': self._methCronAt,
-            'add': self._methCronAdd,
-            'del': self._methCronDel,
-            'get': self._methCronGet,
-            'mod': self._methCronMod,
-            'list': self._methCronList,
-            'enable': self._methCronEnable,
-            'disable': self._methCronDisable,
-        })
+    def getObjLocals(self):
+        return {
+            'at': cls._methCronAt,
+            'add': cls._methCronAdd,
+            'del': cls._methCronDel,
+            'get': cls._methCronGet,
+            'mod': cls._methCronMod,
+            'list': cls._methCronList,
+            'enable': cls._methCronEnable,
+            'disable': cls._methCronDisable,
+        }
 
     async def _matchIdens(self, prefix, perm):
         '''
@@ -2933,9 +3025,15 @@ class CronJob(Prim):
         self.runt = runt
         self.locls.update({
             'iden': cdef.get('iden'),
-            'pack': self._methCronJobPack,
-            'pprint': self._methCronJobPprint,
         })
+        self.locls.update(self.getObjLocals())
+
+    # FIXME iden
+    def getObjLocals(self):
+        return {
+            'pack': cls._methCronJobPack,
+            'pprint': cls._methCronJobPprint,
+        }
 
     async def _methCronJobPack(self):
         return self.valu
