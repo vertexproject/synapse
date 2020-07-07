@@ -1943,37 +1943,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Registration for built-in Storm Libraries
         '''
-        self.addStormLib(('csv',), s_stormtypes.LibCsv)
-        self.addStormLib(('str',), s_stormtypes.LibStr)
-        self.addStormLib(('pkg',), s_stormtypes.LibPkg)
-        self.addStormLib(('cron',), s_stormtypes.LibCron)
-        self.addStormLib(('dmon',), s_stormtypes.LibDmon)
-        self.addStormLib(('feed',), s_stormtypes.LibFeed)
-        self.addStormLib(('lift',), s_stormtypes.LibLift)
-        self.addStormLib(('time',), s_stormtypes.LibTime)
-        self.addStormLib(('user',), s_stormtypes.LibUser)
-        self.addStormLib(('vars',), s_stormtypes.LibVars)
-        self.addStormLib(('view',), s_stormtypes.LibView)
-        self.addStormLib(('queue',), s_stormtypes.LibQueue)
-        self.addStormLib(('stats',), s_stormtypes.LibStats)
-        self.addStormLib(('bytes',), s_stormtypes.LibBytes)
-        self.addStormLib(('layer',), s_stormtypes.LibLayer)
-        self.addStormLib(('globals',), s_stormtypes.LibGlobals)
-        self.addStormLib(('trigger',), s_stormtypes.LibTrigger)
-        self.addStormLib(('service',), s_stormtypes.LibService)
-        self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 
-        self.addStormLib(('macro',), s_stormlib_macro.LibMacro)
-        self.addStormLib(('model',), s_stormlib_model.LibModel)
-
-        self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
-        self.addStormLib(('inet', 'whois'), s_stormwhois.LibWhois)
-        self.addStormLib(('base64',), s_stormtypes.LibBase64)
-
-        self.addStormLib(('auth', ), s_stormtypes.LibAuth)
-        self.addStormLib(('auth', 'gates'), s_stormtypes.LibGates)
-        self.addStormLib(('auth', 'users'), s_stormtypes.LibUsers)
-        self.addStormLib(('auth', 'roles'), s_stormtypes.LibRoles)
+        for path, ctor in s_stormtypes.registry.iterLibs():
+            # Skip libbase which is registered with an empty path.
+            if path:
+                self.addStormLib(path, ctor)
 
     def _initSplicers(self):
         '''

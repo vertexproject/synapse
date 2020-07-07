@@ -23,6 +23,61 @@ import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
+
+class StormTypesRegistry:
+    def __init__(self):
+        self._LIBREG = {}
+        self._TYPREG = {}
+
+    def addStormLib(self, path, ctor):
+        if path in self._LIBREG:
+            raise Exception('cannot register twice')
+        # Validate path is a tuple of strings
+        self._LIBREG[path] = ctor
+
+    def delStormLib(self, path):
+        if not self._LIBREG.pop(path, None):
+            raise Exception('no such path!')
+
+    def addStormType(self, path, ctor):
+        if path in self._TYPREG:
+            raise Exception('cannot register twice')
+        # Validate path is a tuple of strings
+        self._TYPREG[path] = ctor
+
+    def delStormType(path):
+        if not self._TYPREG.pop(path, None):
+            raise Exception('no such path!')
+
+    def registerLib(self, ctor):
+        path = getattr(ctor, '_storm_lib_path', s_common.novalu)
+        if path is s_common.novalu:
+            raise Exception('no key!')
+        self.addStormLib(path, ctor)
+
+        return ctor
+
+    def registerType(self, ctor):
+
+        # path = getattr(ctor, '_storm_lib_type', None)
+        name = ctor.__name__
+        if not name:
+            raise Exception('no key!')
+        self.addStormType(name, ctor)
+
+        return ctor
+
+    def iterLibs(self):
+        return list(self._LIBREG.items())
+
+    def iterTypes(self):
+        return list(self._LIBREG.items())
+
+    # def registerFunc(self, func):
+    #     pass
+
+registry = StormTypesRegistry()
+
 def intify(x):
 
     if isinstance(x, str):
@@ -127,7 +182,9 @@ class Lib(StormType):
         async for item in self.runt.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
+@registry.registerLib
 class LibPkg(Lib):
+    _storm_lib_path = ('pkg',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -147,7 +204,9 @@ class LibPkg(Lib):
     async def _libPkgList(self):
         return await self.runt.snap.core.getStormPkgs()
 
+@registry.registerLib
 class LibDmon(Lib):
+    _storm_lib_path = ('dmon',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -203,7 +262,9 @@ class LibDmon(Lib):
         dmoniden = await self.runt.snap.core.addStormDmon(ddef)
         return dmoniden
 
+@registry.registerLib
 class LibService(Lib):
+    _storm_lib_path = ('service',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -255,7 +316,9 @@ class LibService(Lib):
 
         await ssvc.ready.wait()
 
+@registry.registerLib
 class LibBase(Lib):
+    _storm_lib_path = ()
 
     def addLibFuncs(self):
         self.locls.update({
@@ -392,7 +455,9 @@ class LibBase(Lib):
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
+@registry.registerLib
 class LibStr(Lib):
+    _storm_lib_path = ('str',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -422,7 +487,9 @@ class LibStr(Lib):
         strs = [str(item) for item in items]
         return sepr.join(items)
 
+@registry.registerLib
 class LibBytes(Lib):
+    _storm_lib_path = ('bytes',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -449,7 +516,9 @@ class LibBytes(Lib):
 
         return (size, s_common.ehex(sha2))
 
+@registry.registerLib
 class LibLift(Lib):
+    _storm_lib_path = ('lift',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -460,7 +529,9 @@ class LibLift(Lib):
         async for node in self.runt.snap.nodesByDataName(name):
             yield node
 
+@registry.registerLib
 class LibTime(Lib):
+    _storm_lib_path = ('time',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -550,7 +621,9 @@ class LibTime(Lib):
         secs = float(secs)
         return int(secs * 1000)
 
+@registry.registerLib
 class LibCsv(Lib):
+    _storm_lib_path = ('csv',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -564,7 +637,10 @@ class LibCsv(Lib):
         row = [await toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
 
+@registry.registerLib
 class LibFeed(Lib):
+    _storm_lib_path = ('feed',)
+
     def addLibFuncs(self):
         self.locls.update({
             'genr': self._libGenr,
@@ -620,7 +696,9 @@ class LibFeed(Lib):
             await self.runt.snap.addFeedData(name, data)
             self.runt.snap.strict = strict
 
+@registry.registerLib
 class LibQueue(Lib):
+    _storm_lib_path = ('queue',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -669,6 +747,7 @@ class LibQueue(Lib):
 
         return retn
 
+@registry.registerType
 class Queue(StormType):
     '''
     A StormLib API instance of a named channel in the cortex multiqueue.
@@ -752,7 +831,9 @@ class Queue(StormType):
     def _getGateKeys(self, perm):
         return ((self.runt.user.iden, ('queue', perm), self.gateiden),)
 
+@registry.registerLib
 class LibTelepath(Lib):
+    _storm_lib_path = ('telepath',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -767,6 +848,7 @@ class LibTelepath(Lib):
         self.runt.user.confirm(('lib', 'telepath', 'open', scheme))
         return Proxy(await self.runt.getTeleProxy(url))
 
+# @registry.registerType
 class Proxy(StormType):
 
     def __init__(self, proxy, path=None):
@@ -787,6 +869,7 @@ class Proxy(StormType):
         if isinstance(meth, s_telepath.Method):
             return ProxyMethod(meth)
 
+# @registry.registerType
 class ProxyMethod(StormType):
 
     def __init__(self, meth, path=None):
@@ -799,6 +882,7 @@ class ProxyMethod(StormType):
         # TODO: storm types fromprim()
         return await self.meth(*args, **kwargs)
 
+# @registry.registerType
 class ProxyGenrMethod(StormType):
 
     def __init__(self, meth, path=None):
@@ -812,7 +896,9 @@ class ProxyGenrMethod(StormType):
             # TODO: storm types fromprim()
             yield prim
 
+@registry.registerLib
 class LibBase64(Lib):
+    _storm_lib_path = ('base64',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -860,6 +946,7 @@ class Prim(StormType):
     def value(self):
         return self.valu
 
+@registry.registerType
 class Str(Prim):
 
     def __init__(self, valu, path=None):
@@ -932,6 +1019,7 @@ class Str(Prim):
         else:
             return self.valu.replace(oldv, newv, int(maxv))
 
+@registry.registerType
 class Bytes(Prim):
 
     def __init__(self, valu, path=None):
@@ -1016,6 +1104,7 @@ class Bytes(Prim):
         '''
         return json.loads(self.valu)
 
+@registry.registerType
 class Dict(Prim):
 
     def __iter__(self):
@@ -1037,6 +1126,7 @@ class Dict(Prim):
     async def value(self):
         return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
 
+@registry.registerType
 class Set(Prim):
 
     def __init__(self, valu, path=None):
@@ -1085,6 +1175,7 @@ class Set(Prim):
     async def _methSetList(self):
         return list(self.valu)
 
+@registry.registerType
 class List(Prim):
 
     def __init__(self, valu, path=None):
@@ -1149,6 +1240,7 @@ class List(Prim):
     async def value(self):
         return tuple([await toprim(v) for v in self.valu])
 
+@registry.registerType
 class Bool(Prim):
 
     def __bool__(self):
@@ -1160,7 +1252,9 @@ class Bool(Prim):
     def __int__(self):
         return int(self.value())
 
+@registry.registerLib
 class LibUser(Lib):
+    _storm_lib_path = ('user', )
 
     def addLibFuncs(self):
         self.locls.update({
@@ -1172,10 +1266,13 @@ class LibUser(Lib):
     async def _libUserName(self, path=None):
         return self.runt.user.name
 
+@registry.registerLib
 class LibGlobals(Lib):
     '''
     Global persistent Storm variables
     '''
+    _storm_lib_path = ('globals', )
+
     def __init__(self, runt, name):
         Lib.__init__(self, runt, name)
 
@@ -1226,6 +1323,7 @@ class LibGlobals(Lib):
                 ret.append((key, valu))
         return ret
 
+@registry.registerType
 class StormHiveDict(Prim):
 
     def __init__(self, runt, info):
@@ -1256,7 +1354,9 @@ class StormHiveDict(Prim):
     def value(self):
         return self.info.pack()
 
+@registry.registerLib
 class LibVars(Lib):
+    _storm_lib_path = ('vars',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -1290,6 +1390,7 @@ class LibVars(Lib):
         '''
         return list(self.runt.vars.items())
 
+@registry.registerType
 class Query(Prim):
     '''
     A storm primitive representing an embedded query.
@@ -1334,6 +1435,7 @@ class Query(Prim):
         except asyncio.CancelledError:  # pragma: no cover
             raise
 
+@registry.registerType
 class NodeProps(Prim):
 
     def __init__(self, node, path=None):
@@ -1356,6 +1458,7 @@ class NodeProps(Prim):
     def value(self):
         return dict(self.valu.props)
 
+@registry.registerType
 class NodeData(Prim):
 
     def __init__(self, node, path=None):
@@ -1400,6 +1503,7 @@ class NodeData(Prim):
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
 
+@registry.registerType
 class Node(Prim):
     '''
     Implements the STORM api for a node instance.
@@ -1504,6 +1608,7 @@ class Node(Prim):
     async def _methNodeIden(self):
         return self.valu.iden()
 
+@registry.registerType
 class PathVars(Prim):
     '''
     Put the storm deref/setitem/iter convention on top of path variables.
@@ -1534,6 +1639,7 @@ class PathVars(Prim):
         for item in list(self.path.vars.items()):
             yield item
 
+@registry.registerType
 class Path(Prim):
 
     def __init__(self, node, path=None):
@@ -1558,6 +1664,7 @@ class Path(Prim):
         '''
         return list(self.path.vars.items())
 
+@registry.registerType
 class Trace(Prim):
     '''
     Storm API wrapper for the Path Trace object.
@@ -1571,6 +1678,7 @@ class Trace(Prim):
     async def _methTraceIdens(self):
         return [n.iden() for n in self.valu.nodes]
 
+@registry.registerType
 class Text(Prim):
     '''
     A mutable text type for simple text construction.
@@ -1592,7 +1700,9 @@ class Text(Prim):
     async def _methTextStr(self):
         return self.valu
 
+@registry.registerLib
 class LibStats(Lib):
+    _storm_lib_path = ('stats',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -1602,6 +1712,7 @@ class LibStats(Lib):
     async def tally(self):
         return StatTally(path=self.path)
 
+@registry.registerType
 class StatTally(Prim):
     '''
     A tally object.
@@ -1642,7 +1753,9 @@ class StatTally(Prim):
     def value(self):
         return dict(self.counters)
 
+@registry.registerLib
 class LibLayer(Lib):
+    _storm_lib_path = ('layer',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -1712,6 +1825,7 @@ class LibLayer(Lib):
         defs = await self.runt.dyncall('cortex', todo)
         return [Layer(self.runt, ldef, path=self.path) for ldef in defs]
 
+@registry.registerType
 class Layer(Prim):
     '''
     Implements the STORM api for a layer instance.
@@ -1762,7 +1876,9 @@ class Layer(Prim):
         readonly = self.valu.get('readonly')
         return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
 
+@registry.registerLib
 class LibView(Lib):
+    _storm_lib_path = ('view',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -1817,6 +1933,7 @@ class LibView(Lib):
         defs = await self.runt.dyncall('cortex', todo)
         return [View(self.runt, vdef, path=self.path) for vdef in defs]
 
+@registry.registerType
 class View(Prim):
     '''
     Implements the STORM api for a view instance.
@@ -1924,7 +2041,9 @@ class View(Prim):
         todo = s_common.todo('merge', useriden=useriden)
         return await self.runt.dyncall(viewiden, todo)
 
+@registry.registerLib
 class LibTrigger(Lib):
+    _storm_lib_path = ('trigger',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -2091,6 +2210,7 @@ class LibTrigger(Lib):
 
         return iden
 
+@registry.registerType
 class Trigger(Prim):
 
     def __init__(self, runt, tdef):
@@ -2130,14 +2250,18 @@ def ruleFromText(text):
 
     return (allow, tuple(text.split('.')))
 
+@registry.registerLib
 class LibAuth(Lib):
+    _storm_lib_path = ('auth',)
 
     def addLibFuncs(self):
         self.locls.update({
             'ruleFromText': ruleFromText,
         })
 
+@registry.registerLib
 class LibUsers(Lib):
+    _storm_lib_path = ('auth', 'users')
 
     def addLibFuncs(self):
         self.locls.update({
@@ -2170,7 +2294,9 @@ class LibUsers(Lib):
         self.runt.user.confirm(('auth', 'user', 'del'))
         await self.runt.snap.core.delUser(iden)
 
+@registry.registerLib
 class LibRoles(Lib):
+    _storm_lib_path = ('auth', 'roles')
 
     def addLibFuncs(self):
         self.locls.update({
@@ -2203,7 +2329,9 @@ class LibRoles(Lib):
         self.runt.user.confirm(('auth', 'role', 'del'))
         await self.runt.snap.core.delRole(iden)
 
+@registry.registerLib
 class LibGates(Lib):
+    _storm_lib_path = ('auth', 'gates')
 
     def addLibFuncs(self):
         self.locls.update({
@@ -2224,6 +2352,7 @@ class LibGates(Lib):
             return None
         return Gate(self.runt, gate)
 
+@registry.registerType
 class Gate(Prim):
 
     def __init__(self, runt, valu, path=None):
@@ -2237,6 +2366,7 @@ class Gate(Prim):
             'roles': valu.get('roles'),
         })
 
+@registry.registerType
 class User(Prim):
 
     def __init__(self, runt, valu, path=None):
@@ -2328,6 +2458,7 @@ class User(Prim):
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)
 
+@registry.registerType
 class Role(Prim):
 
     def __init__(self, runt, valu, path=None):
@@ -2366,7 +2497,9 @@ class Role(Prim):
     async def value(self):
         return await self.runt.snap.core.getRoleDef(self.valu)
 
+@registry.registerLib
 class LibCron(Lib):
+    _storm_lib_path = ('cron',)
 
     def addLibFuncs(self):
         self.locls.update({
@@ -2790,6 +2923,7 @@ class LibCron(Lib):
 
         return iden
 
+@registry.registerType
 class CronJob(Prim):
     '''
     Implements the STORM api for a cronjob instance.

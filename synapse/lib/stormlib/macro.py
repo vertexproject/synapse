@@ -124,7 +124,9 @@ class MacroExecCmd(s_storm.Cmd):
                 path.finiframe(runt)
                 yield node, path
 
+@s_stormtypes.registry.registerLib
 class LibMacro(s_stormtypes.Lib):
+    _storm_lib_path = ('macro',)
 
     def addLibFuncs(self):
         self.locls.update({

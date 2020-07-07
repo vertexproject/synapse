@@ -4,10 +4,13 @@ import synapse.common as s_common
 
 import synapse.lib.stormtypes as s_stormtypes
 
+@s_stormtypes.registry.registerLib
 class LibWhois(s_stormtypes.Lib):
     '''
     WHOIS / Registration Data client for Storm.
     '''
+
+    _storm_lib_path = ('inet', 'whois')
 
     def addLibFuncs(self):
         self.locls.update({

@@ -76,10 +76,14 @@ stormcmds = [
     },
 ]
 
+@s_stormtypes.registry.registerLib
 class LibModel(s_stormtypes.Lib):
     '''
     A collection of method around the data model
     '''
+
+    _storm_lib_path = ('model',)
+
     def __init__(self, runt, name=()):
         s_stormtypes.Lib.__init__(self, runt, name)
         self.model = runt.model
@@ -110,6 +114,7 @@ class LibModel(s_stormtypes.Lib):
         if form is not None:
             return ModelForm(form)
 
+@s_stormtypes.registry.registerType
 class ModelForm(s_stormtypes.Prim):
 
     def __init__(self, form, path=None):
@@ -133,6 +138,7 @@ class ModelForm(s_stormtypes.Prim):
         if prop is not None:
             return ModelProp(prop)
 
+@s_stormtypes.registry.registerType
 class ModelProp(s_stormtypes.Prim):
 
     def __init__(self, prop, path=None):
@@ -155,6 +161,7 @@ class ModelProp(s_stormtypes.Prim):
     def _ctorPropForm(self, path=None):
         return ModelForm(self.valu.form, path=path)
 
+@s_stormtypes.registry.registerType
 class ModelType(s_stormtypes.Prim):
     '''
     A Storm types wrapper around a lib.types.Type
@@ -174,6 +181,7 @@ class ModelType(s_stormtypes.Prim):
     async def _methNorm(self, valu):
         return self.valu.norm(valu)
 
+@s_stormtypes.registry.registerType
 class ModelEdge(s_stormtypes.Prim):
     '''
     Inspect light edges and manipulate key-value attributes.

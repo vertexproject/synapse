@@ -6,10 +6,13 @@ import synapse.exc as s_exc
 
 import synapse.lib.stormtypes as s_stormtypes
 
+@s_stormtypes.registry.registerLib
 class LibHttp(s_stormtypes.Lib):
     '''
     HTTP client API for STORM
     '''
+
+    _storm_lib_path = ('inet', 'http')
 
     def addLibFuncs(self):
         self.locls.update({
@@ -57,6 +60,7 @@ class LibHttp(s_stormtypes.Lib):
                 mesg = f'Error during http post - {str(e)}'
                 raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body) from None
 
+@s_stormtypes.registry.registerType
 class HttpResp(s_stormtypes.StormType):
 
     def __init__(self, locls):
