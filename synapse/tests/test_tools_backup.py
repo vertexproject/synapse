@@ -69,3 +69,33 @@ class BackupTest(s_t_utils.SynTest):
 
                     # We expect the data.mdb file to be in the fpset
                     self.isin(f'/layers/{layriden}/layer_v2.lmdb/data.mdb', fpset)
+
+    async def test_backup_exclude(self):
+
+        async with self.getTestCore() as core:
+            layriden = core.getLayer().iden
+
+            await core.fini()
+
+            with self.getTestDir() as dirn2:
+
+                argv = (
+                    core.dirn,
+                    dirn2,
+                    '--skipdirs', 'nodeedits.lmdb',
+                )
+
+                self.eq(0, s_backup.main(argv))
+
+                skipfns = {'lock.mdb', 'nodeedits.opts.yaml'}
+                skipdirs = {'tmp', 'nodeedits.lmdb'}
+
+                fpset = self.compare_dirs(core.dirn, dirn2, skipfns=skipfns, skipdirs=skipdirs)
+
+                self.false(os.path.exists(s_common.genpath(dirn2, 'tmp')))
+                self.false(os.path.exists(s_common.genpath(dirn2, 'layers', layriden, 'nodeedits.lmdb')))
+                self.notin(f'/layers/{layriden}/nodeedits.opts.yaml', fpset)
+
+                self.true(os.path.exists(s_common.genpath(dirn2, 'layers', layriden, 'layer_v2.lmdb')))
+                self.isin(f'/layers/{layriden}/layer_v2.opts.yaml', fpset)
+                self.isin(f'/layers/{layriden}/layer_v2.lmdb/data.mdb', fpset)
