@@ -194,9 +194,9 @@ class LibPkg(Lib):
 
     def getObjLocals(self):
         return {
-            'add': cls._libPkgAdd,
-            'del': cls._libPkgDel,
-            'list': cls._libPkgList,
+            'add': self._libPkgAdd,
+            'del': self._libPkgDel,
+            'list': self._libPkgList,
         }
 
     async def _libPkgAdd(self, pkgdef):
@@ -217,10 +217,10 @@ class LibDmon(Lib):
     # @classmethod
     def getObjLocals(self):
         return {
-            'add': cls._libDmonAdd,
-            'del': cls._libDmonDel,
-            'log': cls._libDmonLog,
-            'list': cls._libDmonList,
+            'add': self._libDmonAdd,
+            'del': self._libDmonDel,
+            'log': self._libDmonLog,
+            'list': self._libDmonList,
         }
 
     async def _libDmonDel(self, iden):
@@ -275,11 +275,11 @@ class LibService(Lib):
 
     def getObjLocals(self):
         return {
-            'add': cls._libSvcAdd,
-            'del': cls._libSvcDel,
-            'get': cls._libSvcGet,
-            'list': cls._libSvcList,
-            'wait': cls._libSvcWait,
+            'add': self._libSvcAdd,
+            'del': self._libSvcDel,
+            'get': self._libSvcGet,
+            'list': self._libSvcList,
+            'wait': self._libSvcWait,
         }
 
     async def _libSvcAdd(self, name, url):
@@ -330,23 +330,23 @@ class LibBase(Lib):
     # @classmethod
     def getObjLocals(self):
         return {
-            'len': cls._len,
-            'min': cls._min,
-            'max': cls._max,
-            'set': cls._set,
-            'dict': cls._dict,
-            'guid': cls._guid,
-            'fire': cls._fire,
-            'list': cls._list,
+            'len': self._len,
+            'min': self._min,
+            'max': self._max,
+            'set': self._set,
+            'dict': self._dict,
+            'guid': self._guid,
+            'fire': self._fire,
+            'list': self._list,
             'null': None,
             'true': True,
             'false': False,
-            'text': cls._text,
-            'cast': cls._cast,
-            'warn': cls._warn,
-            'print': cls._print,
-            'sorted': cls._sorted,
-            'import': cls._libBaseImport,
+            'text': self._text,
+            'cast': self._cast,
+            'warn': self._warn,
+            'print': self._print,
+            'sorted': self._sorted,
+            'import': self._libBaseImport,
         }
 
     async def _libBaseImport(self, name):
@@ -469,9 +469,9 @@ class LibStr(Lib):
 
     def getObjLocals(self):
         return {
-            'join': cls.join,
-            'concat': cls.concat,
-            'format': cls.format,
+            'join': self.join,
+            'concat': self.concat,
+            'format': self.format,
         }
 
     async def concat(self, *args):
@@ -502,7 +502,7 @@ class LibBytes(Lib):
 
     def getObjLocals(self):
         return {
-            'put': cls._libBytesPut,
+            'put': self._libBytesPut,
         }
 
     async def _libBytesPut(self, byts):
@@ -531,7 +531,7 @@ class LibLift(Lib):
 
     def getObjLocals(self):
         return {
-            'byNodeData': cls.byNodeData,
+            'byNodeData': self.byNodeData,
         }
 
     async def byNodeData(self, name):
@@ -546,11 +546,11 @@ class LibTime(Lib):
     def getObjLocals(self):
         return {
             'now': s_common.now,
-            'fromunix': cls.fromunix,
-            'parse': cls.parse,
-            'format': cls.format,
-            'sleep': cls.sleep,
-            'ticker': cls.ticker,
+            'fromunix': self.fromunix,
+            'parse': self.parse,
+            'format': self.format,
+            'sleep': self.sleep,
+            'ticker': self.ticker,
         }
 
     # TODO from other iso formats!
@@ -637,7 +637,7 @@ class LibCsv(Lib):
 
     def getObjLocals(self):
         return {
-            'emit': cls._libCsvEmit,
+            'emit': self._libCsvEmit,
         }
 
     async def _libCsvEmit(self, *args, table=None):
@@ -653,9 +653,9 @@ class LibFeed(Lib):
 
     def getObjLocals(self):
         return {
-            'genr': cls._libGenr,
-            'list': cls._libList,
-            'ingest': cls._libIngest,
+            'genr': self._libGenr,
+            'list': self._libList,
+            'ingest': self._libIngest,
         }
 
     async def _libGenr(self, name, data):
@@ -713,10 +713,10 @@ class LibQueue(Lib):
     # @classmethod
     def getObjLocals(self):
         return {
-            'add': cls._methQueueAdd,
-            'del': cls._methQueueDel,
-            'get': cls._methQueueGet,
-            'list': cls._methQueueList,
+            'add': self._methQueueAdd,
+            'del': self._methQueueDel,
+            'get': self._methQueueGet,
+            'list': self._methQueueList,
         }
 
     async def _methQueueAdd(self, name):
@@ -777,13 +777,13 @@ class Queue(StormType):
 
     def getObjLocals(self):
         return {
-            'get': cls._methQueueGet,
-            'pop': cls._methQueuePop,
-            'put': cls._methQueuePut,
-            'puts': cls._methQueuePuts,
-            'gets': cls._methQueueGets,
-            'cull': cls._methQueueCull,
-            'size': cls._methQueueSize,
+            'get': self._methQueueGet,
+            'pop': self._methQueuePop,
+            'put': self._methQueuePut,
+            'puts': self._methQueuePuts,
+            'gets': self._methQueueGets,
+            'cull': self._methQueueCull,
+            'size': self._methQueueSize,
         }
 
     async def _methQueueCull(self, offs):
@@ -851,7 +851,7 @@ class LibTelepath(Lib):
 
     def getObjLocals(self):
         return {
-            'open': cls._methTeleOpen,
+            'open': self._methTeleOpen,
         }
 
     async def _methTeleOpen(self, url):
@@ -916,8 +916,8 @@ class LibBase64(Lib):
 
     def getObjLocals(self):
         return {
-            'encode': cls._encode,
-            'decode': cls._decode
+            'encode': self._encode,
+            'decode': self._decode
         }
 
     async def _encode(self, valu, urlsafe=True):
@@ -969,13 +969,13 @@ class Str(Prim):
 
     def getObjLocals(self):
         return {
-            'split': cls._methStrSplit,
-            'endswith': cls._methStrEndswith,
-            'startswith': cls._methStrStartswith,
-            'ljust': cls._methStrLjust,
-            'rjust': cls._methStrRjust,
-            'encode': cls._methEncode,
-            'replace': cls._methStrReplace,
+            'split': self._methStrSplit,
+            'endswith': self._methStrEndswith,
+            'startswith': self._methStrStartswith,
+            'ljust': self._methStrLjust,
+            'rjust': self._methStrRjust,
+            'encode': self._methEncode,
+            'replace': self._methStrReplace,
         }
 
     def __int__(self):
@@ -1045,12 +1045,12 @@ class Bytes(Prim):
 
     def getObjLocals(self):
         return {
-            'decode': cls._methDecode,
-            'bunzip': cls._methBunzip,
-            'gunzip': cls._methGunzip,
-            'bzip': cls._methBzip,
-            'gzip': cls._methGzip,
-            'json': cls._methJsonLoad,
+            'decode': self._methDecode,
+            'bunzip': self._methBunzip,
+            'gunzip': self._methGunzip,
+            'bzip': self._methBzip,
+            'gzip': self._methGzip,
+            'json': self._methJsonLoad,
         }
 
     def __len__(self):
@@ -1155,13 +1155,13 @@ class Set(Prim):
 
     def getObjLocals(self):
         return {
-            'add': cls._methSetAdd,
-            'has': cls._methSetHas,
-            'rem': cls._methSetRem,
-            'adds': cls._methSetAdds,
-            'rems': cls._methSetRems,
-            'list': cls._methSetList,
-            'size': cls._methSetSize,
+            'add': self._methSetAdd,
+            'has': self._methSetHas,
+            'rem': self._methSetRem,
+            'adds': self._methSetAdds,
+            'rems': self._methSetRems,
+            'list': self._methSetList,
+            'size': self._methSetSize,
         }
 
     def __iter__(self):
@@ -1207,11 +1207,11 @@ class List(Prim):
 
     def getObjLocals(self):
         return {
-            'has': cls._methListHas,
-            'size': cls._methListSize,
-            'index': cls._methListIndex,
-            'length': cls._methListLength,
-            'append': cls._methListAppend,
+            'has': self._methListHas,
+            'size': self._methListSize,
+            'index': self._methListIndex,
+            'length': self._methListLength,
+            'append': self._methListAppend,
         }
 
     def __iter__(self):
@@ -1284,7 +1284,7 @@ class LibUser(Lib):
 
     def getObjLocals(self):
         return {
-            'name': cls._libUserName,
+            'name': self._libUserName,
         }
 
     # FIXME - Figure out a way to pull vars and profile up into $lib.user ?
@@ -1310,10 +1310,10 @@ class LibGlobals(Lib):
 
     def getObjLocals(self):
         return {
-            'get': cls._methGet,
-            'pop': cls._methPop,
-            'set': cls._methSet,
-            'list': cls._methList,
+            'get': self._methGet,
+            'pop': self._methPop,
+            'set': self._methSet,
+            'list': self._methList,
         }
 
     def _reqStr(self, name):
@@ -1366,10 +1366,10 @@ class StormHiveDict(Prim):
 
     def getObjLocals(self):
         return {
-            'get': cls._get,
-            'pop': cls._pop,
-            'set': cls._set,
-            'list': cls._list,
+            'get': self._get,
+            'pop': self._pop,
+            'set': self._set,
+            'list': self._list,
         }
 
     async def _get(self, name, default=None):
@@ -1401,10 +1401,10 @@ class LibVars(Lib):
 
     def getObjLocals(self):
         return {
-            'get': cls._libVarsGet,
-            'set': cls._libVarsSet,
-            'del': cls._libVarsDel,
-            'list': cls._libVarsList,
+            'get': self._libVarsGet,
+            'set': self._libVarsSet,
+            'del': self._libVarsDel,
+            'list': self._libVarsList,
         }
 
     async def _libVarsGet(self, name, defv=None):
@@ -1448,7 +1448,7 @@ class Query(Prim):
 
     def getObjLocals(self):
         return {
-            'exec': cls._methQueryExec,
+            'exec': self._methQueryExec,
         }
 
     def __str__(self):
@@ -1488,8 +1488,8 @@ class NodeProps(Prim):
 
     def getObjLocals(self):
         return {
-            'get': cls.get,
-            'list': cls.list,
+            'get': self.get,
+            'list': self.list,
             # TODO implement set()
         }
 
@@ -1516,11 +1516,11 @@ class NodeData(Prim):
 
     def getObjLocals(self):
         return {
-            'get': cls._getNodeData,
-            'set': cls._setNodeData,
-            'pop': cls._popNodeData,
-            'list': cls._listNodeData,
-            'load': cls._loadNodeData,
+            'get': self._getNodeData,
+            'set': self._setNodeData,
+            'pop': self._popNodeData,
+            'list': self._listNodeData,
+            'load': self._loadNodeData,
         }
 
     def _reqAllowed(self, perm):
@@ -1568,16 +1568,16 @@ class Node(Prim):
 
     def getObjLocals(self):
         return {
-            'form': cls._methNodeForm,
-            'iden': cls._methNodeIden,
-            'ndef': cls._methNodeNdef,
-            'pack': cls._methNodePack,
-            'repr': cls._methNodeRepr,
-            'tags': cls._methNodeTags,
-            'edges': cls._methNodeEdges,
-            'value': cls._methNodeValue,
-            'globtags': cls._methNodeGlobTags,
-            'isform': cls._methNodeIsForm,
+            'form': self._methNodeForm,
+            'iden': self._methNodeIden,
+            'ndef': self._methNodeNdef,
+            'pack': self._methNodePack,
+            'repr': self._methNodeRepr,
+            'tags': self._methNodeTags,
+            'edges': self._methNodeEdges,
+            'value': self._methNodeValue,
+            'globtags': self._methNodeGlobTags,
+            'isform': self._methNodeIsForm,
         }
 
     def _ctorNodeData(self, path=None):
@@ -1706,9 +1706,9 @@ class Path(Prim):
     # Fixme get vars out for docs purposes
     def getObjLocals(self):
         return {
-            'idens': cls._methPathIdens,
-            'trace': cls._methPathTrace,
-            'listvars': cls._methPathListVars,
+            'idens': self._methPathIdens,
+            'trace': self._methPathTrace,
+            'listvars': self._methPathListVars,
         }
 
     async def _methPathIdens(self):
@@ -1735,7 +1735,7 @@ class Trace(Prim):
 
     def getObjLocals(self):
         return {
-            'idens': cls._methTraceIdens,
+            'idens': self._methTraceIdens,
         }
 
     async def _methTraceIdens(self):
@@ -1752,8 +1752,8 @@ class Text(Prim):
 
     def getObjLocals(self):
         return {
-            'add': cls._methTextAdd,
-            'str': cls._methTextStr,
+            'add': self._methTextAdd,
+            'str': self._methTextStr,
         }
 
     def __len__(self):
@@ -1772,7 +1772,7 @@ class LibStats(Lib):
 
     def getObjLocals(self):
         return {
-            'tally': cls.tally,
+            'tally': self.tally,
         }
 
     async def tally(self):
@@ -1798,8 +1798,8 @@ class StatTally(Prim):
 
     def getObjLocals(self):
         return {
-            'inc': cls.inc,
-            'get': cls.get,
+            'inc': self.inc,
+            'get': self.get,
         }
 
     async def __aiter__(self):
@@ -1825,10 +1825,10 @@ class LibLayer(Lib):
 
     def getObjLocals(self):
         return {
-            'add': cls._libLayerAdd,
-            'del': cls._libLayerDel,
-            'get': cls._libLayerGet,
-            'list': cls._libLayerList,
+            'add': self._libLayerAdd,
+            'del': self._libLayerDel,
+            'get': self._libLayerGet,
+            'list': self._libLayerList,
         }
 
     async def _libLayerAdd(self, ldef=None):
@@ -1907,11 +1907,11 @@ class Layer(Prim):
     # fixme plumb in iden
     def getObjLocals(self):
         return {
-            'set': cls._methLayerSet,
-            'get': cls._methLayerGet,
-            'pack': cls._methLayerPack,
-            'repr': cls._methLayerRepr,
-            'edits': cls._methLayerEdits,
+            'set': self._methLayerSet,
+            'get': self._methLayerGet,
+            'pack': self._methLayerPack,
+            'repr': self._methLayerRepr,
+            'edits': self._methLayerEdits,
         }
 
     async def _methLayerEdits(self, offs=0, wait=True):
@@ -1954,10 +1954,10 @@ class LibView(Lib):
 
     def getObjLocals(self):
         return {
-            'add': cls._methViewAdd,
-            'del': cls._methViewDel,
-            'get': cls._methViewGet,
-            'list': cls._methViewList,
+            'add': self._methViewAdd,
+            'del': self._methViewDel,
+            'get': self._methViewGet,
+            'list': self._methViewList,
         }
 
     async def _methViewAdd(self, layers, name=None):
@@ -2023,14 +2023,14 @@ class View(Prim):
     # FIXME plumb in iden/layers/triggers
     def getObjLocals(self):
         return {
-            'set': cls._methViewSet,
-            'get': cls._methViewGet,
-            'fork': cls._methViewFork,
-            'pack': cls._methViewPack,
-            'repr': cls._methViewRepr,
-            'merge': cls._methViewMerge,
-            'getEdges': cls._methGetEdges,
-            'getEdgeVerbs': cls._methGetEdgeVerbs,
+            'set': self._methViewSet,
+            'get': self._methViewGet,
+            'fork': self._methViewFork,
+            'pack': self._methViewPack,
+            'repr': self._methViewRepr,
+            'merge': self._methViewMerge,
+            'getEdges': self._methGetEdges,
+            'getEdgeVerbs': self._methGetEdgeVerbs,
         }
 
     async def _methGetEdges(self, verb=None):
@@ -2124,13 +2124,13 @@ class LibTrigger(Lib):
 
     def getObjLocals(self):
         return {
-            'add': cls._methTriggerAdd,
-            'del': cls._methTriggerDel,
-            'list': cls._methTriggerList,
-            'get': cls._methTriggerGet,
-            'enable': cls._methTriggerEnable,
-            'disable': cls._methTriggerDisable,
-            'mod': cls._methTriggerMod
+            'add': self._methTriggerAdd,
+            'del': self._methTriggerDel,
+            'list': self._methTriggerList,
+            'get': self._methTriggerGet,
+            'enable': self._methTriggerEnable,
+            'disable': self._methTriggerDisable,
+            'mod': self._methTriggerMod
         }
 
     async def _matchIdens(self, prefix):
@@ -2302,7 +2302,7 @@ class Trigger(Prim):
 
     def getObjLocals(self):
         return {
-            'set': cls.set,
+            'set': self.set,
         }
 
     async def deref(self, name):
@@ -2347,11 +2347,11 @@ class LibUsers(Lib):
 
     def getObjLocals(self):
         return {
-            'add': cls._methUsersAdd,
-            'del': cls._methUsersDel,
-            'list': cls._methUsersList,
-            'get': cls._methUsersGet,
-            'byname': cls._methUsersByName,
+            'add': self._methUsersAdd,
+            'del': self._methUsersDel,
+            'list': self._methUsersList,
+            'get': self._methUsersGet,
+            'byname': self._methUsersByName,
         }
 
     async def _methUsersList(self):
@@ -2382,11 +2382,11 @@ class LibRoles(Lib):
 
     def getObjLocals(self):
         return {
-            'add': cls._methRolesAdd,
-            'del': cls._methRolesDel,
-            'list': cls._methRolesList,
-            'get': cls._methRolesGet,
-            'byname': cls._methRolesByName,
+            'add': self._methRolesAdd,
+            'del': self._methRolesDel,
+            'list': self._methRolesList,
+            'get': self._methRolesGet,
+            'byname': self._methRolesByName,
         }
 
     async def _methRolesList(self):
@@ -2417,8 +2417,8 @@ class LibGates(Lib):
 
     def getObjLocals(self):
         return {
-            'get': cls._methGatesGet,
-            'list': cls._methGatesList,
+            'get': self._methGatesGet,
+            'list': self._methGatesList,
         }
 
     async def _methGatesList(self):
@@ -2465,18 +2465,18 @@ class User(Prim):
     # Fixme iden
     def getObjLocals(self):
         return {
-            'get': cls._methUserGet,
-            'roles': cls._methUserRoles,
-            'allowed': cls._methUserAllowed,
-            'grant': cls._methUserGrant,
-            'revoke': cls._methUserRevoke,
-            'addRule': cls._methUserAddRule,
-            'delRule': cls._methUserDelRule,
-            'setRules': cls._methUserSetRules,
-            'setAdmin': cls._methUserSetAdmin,
-            'setEmail': cls._methUserSetEmail,
-            'setLocked': cls._methUserSetLocked,
-            'setPasswd': cls._methUserSetPasswd,
+            'get': self._methUserGet,
+            'roles': self._methUserRoles,
+            'allowed': self._methUserAllowed,
+            'grant': self._methUserGrant,
+            'revoke': self._methUserRevoke,
+            'addRule': self._methUserAddRule,
+            'delRule': self._methUserDelRule,
+            'setRules': self._methUserSetRules,
+            'setAdmin': self._methUserSetAdmin,
+            'setEmail': self._methUserSetEmail,
+            'setLocked': self._methUserSetLocked,
+            'setPasswd': self._methUserSetPasswd,
         }
 
     async def _derefGet(self, name):
@@ -2560,10 +2560,10 @@ class Role(Prim):
 
     def getObjLocals(self):
         return {
-            'get': cls._methRoleGet,
-            'addRule': cls._methRoleAddRule,
-            'delRule': cls._methRoleDelRule,
-            'setRules': cls._methRoleSetRules,
+            'get': self._methRoleGet,
+            'addRule': self._methRoleAddRule,
+            'delRule': self._methRoleDelRule,
+            'setRules': self._methRoleSetRules,
         }
 
     async def _derefGet(self, name):
@@ -2595,14 +2595,14 @@ class LibCron(Lib):
 
     def getObjLocals(self):
         return {
-            'at': cls._methCronAt,
-            'add': cls._methCronAdd,
-            'del': cls._methCronDel,
-            'get': cls._methCronGet,
-            'mod': cls._methCronMod,
-            'list': cls._methCronList,
-            'enable': cls._methCronEnable,
-            'disable': cls._methCronDisable,
+            'at': self._methCronAt,
+            'add': self._methCronAdd,
+            'del': self._methCronDel,
+            'get': self._methCronGet,
+            'mod': self._methCronMod,
+            'list': self._methCronList,
+            'enable': self._methCronEnable,
+            'disable': self._methCronDisable,
         }
 
     async def _matchIdens(self, prefix, perm):
@@ -3031,8 +3031,8 @@ class CronJob(Prim):
     # FIXME iden
     def getObjLocals(self):
         return {
-            'pack': cls._methCronJobPack,
-            'pprint': cls._methCronJobPprint,
+            'pack': self._methCronJobPack,
+            'pprint': self._methCronJobPprint,
         }
 
     async def _methCronJobPack(self):

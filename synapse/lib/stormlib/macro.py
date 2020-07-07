@@ -130,10 +130,10 @@ class LibMacro(s_stormtypes.Lib):
 
     def getObjLocals(self):
         return {
-            'set': cls._funcMacroSet,
-            'get': cls._funcMacroGet,
-            'del': cls._funcMacroDel,
-            'list': cls._funcMacroList,
+            'set': self._funcMacroSet,
+            'get': self._funcMacroGet,
+            'del': self._funcMacroDel,
+            'list': self._funcMacroList,
         }
 
     async def _funcMacroList(self):

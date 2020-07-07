@@ -16,8 +16,8 @@ class LibHttp(s_stormtypes.Lib):
 
     def getObjLocals(self):
         return {
-            'get': cls._httpEasyGet,
-            'post': cls._httpPost,
+            'get': self._httpEasyGet,
+            'post': self._httpPost,
             # 'session':
         }
 
@@ -70,7 +70,7 @@ class HttpResp(s_stormtypes.StormType):
 
     def getObjLocals(self):
         return {
-            'json': cls._httpRespJson,
+            'json': self._httpRespJson,
         }
 
     async def _httpRespJson(self):

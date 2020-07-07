@@ -97,9 +97,9 @@ class LibModel(s_stormtypes.Lib):
     # FIME add edge?
     def getObjLocals(self):
         return {
-            'type': cls._methType,
-            'prop': cls._methProp,
-            'form': cls._methForm,
+            'type': self._methType,
+            'prop': self._methProp,
+            'form': self._methForm,
         }
 
     @s_cache.memoize(size=100)
@@ -138,7 +138,7 @@ class ModelForm(s_stormtypes.Prim):
 
     def getObjLocals(self):
         return {
-            'prop': cls._getFormProp
+            'prop': self._getFormProp
         }
 
     def _ctorFormType(self, path=None):
@@ -188,8 +188,8 @@ class ModelType(s_stormtypes.Prim):
     # fixme name
     def getObjLocals(self):
         return {
-            'repr': cls._methRepr,
-            'norm': cls._methNorm,
+            'repr': self._methRepr,
+            'norm': self._methNorm,
         }
 
     async def _methRepr(self, valu):
@@ -228,10 +228,10 @@ class ModelEdge(s_stormtypes.Prim):
 
     def getObjLocals(self):
         return {
-            'get': cls._methEdgeGet,
-            'set': cls._methEdgeSet,
-            'del': cls._methEdgeDel,
-            'list': cls._methEdgeList,
+            'get': self._methEdgeGet,
+            'set': self._methEdgeSet,
+            'del': self._methEdgeDel,
+            'list': self._methEdgeList,
         }
 
     async def _chkEdgeVerbInView(self, verb):

@@ -14,7 +14,7 @@ class LibWhois(s_stormtypes.Lib):
 
     def getObjLocals(self):
         return {
-             'guid': cls._whoisGuid,
+             'guid': self._whoisGuid,
          }
 
     async def _whoisGuid(self, props, form):
