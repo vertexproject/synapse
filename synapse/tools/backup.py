@@ -11,15 +11,31 @@ import synapse.common as s_common
 
 logger = logging.getLogger(__name__)
 
-def backup(srcdir, dstdir, compact=True):
+def backup(srcdir, dstdir, skipdirs=None, compact=True):
     '''
+    Create a backup of a Synapse application.
+
     Args:
-        compact (bool):  whether to optimize storage while copying to the destination
+        srcdir (str): Path to the directory to backup.
+        dstdir (str): Path to backup target directory.
+        skipdirs (list or None): Optional list of case-sensitive directory names to exclude from the backup.
+        compact (bool): Whether to optimize storage while copying to the destination.
+
+    Notes:
+        If a directory in skipdirs ends with .lmdb the associated .opts.yaml file is also skipped.
     '''
     tick = s_common.now()
 
     srcdir = s_common.reqdir(srcdir)
     dstdir = s_common.gendir(dstdir)
+
+    skipdirs = set(skipdirs) if skipdirs is not None else set()
+
+    # Always avoid backing up temporary files
+    skipdirs.add('tmp')
+
+    # If skipdir is lmdb also skip opts yaml file
+    skipfns = {name.replace('.lmdb', '.opts.yaml') for name in skipdirs if name.endswith('.lmdb')}
 
     logger.info(f'Starting backup of [{srcdir}]')
     logger.info(f'Destination dir: [{dstdir}]')
@@ -30,23 +46,27 @@ def backup(srcdir, dstdir, compact=True):
 
         for name in list(dnames):
 
-            # Explicitly skip directory names of 'tmp' to avoid backing up temporary files
-            if name == 'tmp':
+            srcpath = s_common.genpath(root, name)
+
+            if name in skipdirs:
+                logger.info(f'skipping dir:{srcpath}')
                 dnames.remove(name)
                 continue
 
-            srcpath = s_common.genpath(root, name)
             dstpath = s_common.genpath(dstdir, relpath, name)
 
             if name.endswith('.lmdb'):
                 dnames.remove(name)
-                backup_lmdb(srcpath, dstpath)
+                backup_lmdb(srcpath, dstpath, compact)
                 continue
 
             logger.info(f'making dir:{dstpath}')
             s_common.gendir(dstpath)
 
         for name in fnames:
+            if name in skipfns:
+                continue
+
             srcpath = s_common.genpath(root, name)
             # skip unix sockets etc...
             if not os.path.isfile(srcpath):
@@ -88,13 +108,15 @@ def backup_lmdb(envpath, dstdir, compact=True):
 
 def main(argv):
     args = parse_args(argv)
-    backup(args.srcdir, args.dstdir)
+    backup(args.srcdir, args.dstdir, args.skipdirs)
     return 0
 
 def parse_args(argv):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('srcdir', help='Path to the synapse directory to backup.')
+    desc = 'Create an optimized backup of a Synapse directory.'
+    parser = argparse.ArgumentParser('synapse.tools.backup', description=desc)
+    parser.add_argument('srcdir', help='Path to the Synapse directory to backup.')
     parser.add_argument('dstdir', help='Path to the backup target directory.')
+    parser.add_argument('--skipdirs', nargs='+', help='Case-sensitive directory names to exclude from the backup.')
     args = parser.parse_args(argv)
     return args
 
