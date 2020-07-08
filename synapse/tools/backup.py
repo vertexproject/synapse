@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import shutil
+import fnmatch
 import logging
 import argparse
 
@@ -18,24 +19,19 @@ def backup(srcdir, dstdir, skipdirs=None, compact=True):
     Args:
         srcdir (str): Path to the directory to backup.
         dstdir (str): Path to backup target directory.
-        skipdirs (list or None): Optional list of case-sensitive directory names to exclude from the backup.
+        skipdirs (list or None): Optional list of relative directory name glob patterns to exclude from the backup.
         compact (bool): Whether to optimize storage while copying to the destination.
-
-    Notes:
-        If a directory in skipdirs ends with .lmdb the associated .opts.yaml file is also skipped.
     '''
     tick = s_common.now()
 
     srcdir = s_common.reqdir(srcdir)
     dstdir = s_common.gendir(dstdir)
 
-    skipdirs = set(skipdirs) if skipdirs is not None else set()
+    if skipdirs is None:
+        skipdirs = []
 
-    # Always avoid backing up temporary files
-    skipdirs.add('tmp')
-
-    # If skipdir is lmdb also skip opts yaml file
-    skipfns = {name.replace('.lmdb', '.opts.yaml') for name in skipdirs if name.endswith('.lmdb')}
+    # Always avoid backing up temporary directories
+    skipdirs.append('**/tmp')
 
     logger.info(f'Starting backup of [{srcdir}]')
     logger.info(f'Destination dir: [{dstdir}]')
@@ -48,12 +44,14 @@ def backup(srcdir, dstdir, skipdirs=None, compact=True):
 
             srcpath = s_common.genpath(root, name)
 
-            if name in skipdirs:
+            relname = os.path.join(relpath, name)
+
+            if any([fnmatch.fnmatch(relname, pattern) for pattern in skipdirs]):
                 logger.info(f'skipping dir:{srcpath}')
                 dnames.remove(name)
                 continue
 
-            dstpath = s_common.genpath(dstdir, relpath, name)
+            dstpath = s_common.genpath(dstdir, relname)
 
             if name.endswith('.lmdb'):
                 dnames.remove(name)
@@ -64,8 +62,6 @@ def backup(srcdir, dstdir, skipdirs=None, compact=True):
             s_common.gendir(dstpath)
 
         for name in fnames:
-            if name in skipfns:
-                continue
 
             srcpath = s_common.genpath(root, name)
             # skip unix sockets etc...
@@ -116,7 +112,8 @@ def parse_args(argv):
     parser = argparse.ArgumentParser('synapse.tools.backup', description=desc)
     parser.add_argument('srcdir', help='Path to the Synapse directory to backup.')
     parser.add_argument('dstdir', help='Path to the backup target directory.')
-    parser.add_argument('--skipdirs', nargs='+', help='Case-sensitive directory names to exclude from the backup.')
+    parser.add_argument('--skipdirs', nargs='+',
+                        help='Glob patterns of relative directory names to exclude from the backup.')
     args = parser.parse_args(argv)
     return args
 

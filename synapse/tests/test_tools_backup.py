@@ -82,20 +82,36 @@ class BackupTest(s_t_utils.SynTest):
                 argv = (
                     core.dirn,
                     dirn2,
-                    '--skipdirs', 'nodeedits.lmdb',
+                    '--skipdirs', '**/nodeedits.lmdb', './axon',
                 )
 
                 self.eq(0, s_backup.main(argv))
 
-                skipfns = {'lock.mdb', 'nodeedits.opts.yaml'}
-                skipdirs = {'tmp', 'nodeedits.lmdb'}
-
-                fpset = self.compare_dirs(core.dirn, dirn2, skipfns=skipfns, skipdirs=skipdirs)
+                skipdirs = {'tmp', 'nodeedits.lmdb', 'axon'}
+                fpset = self.compare_dirs(core.dirn, dirn2, skipfns={'lock.mdb'}, skipdirs=skipdirs)
 
                 self.false(os.path.exists(s_common.genpath(dirn2, 'tmp')))
+                self.false(os.path.exists(s_common.genpath(dirn2, 'axon')))
                 self.false(os.path.exists(s_common.genpath(dirn2, 'layers', layriden, 'nodeedits.lmdb')))
-                self.notin(f'/layers/{layriden}/nodeedits.opts.yaml', fpset)
 
                 self.true(os.path.exists(s_common.genpath(dirn2, 'layers', layriden, 'layer_v2.lmdb')))
-                self.isin(f'/layers/{layriden}/layer_v2.opts.yaml', fpset)
                 self.isin(f'/layers/{layriden}/layer_v2.lmdb/data.mdb', fpset)
+
+            with self.getTestDir() as dirn2:
+
+                argv = (
+                    core.dirn,
+                    dirn2,
+                    '--skipdirs', 'layers/*',
+                )
+
+                self.eq(0, s_backup.main(argv))
+
+                fpset = self.compare_dirs(core.dirn, dirn2, skipfns={'lock.mdb'}, skipdirs={'tmp', layriden})
+
+                self.false(os.path.exists(s_common.genpath(dirn2, 'tmp')))
+                self.true(os.path.exists(s_common.genpath(dirn2, 'layers')))
+                self.false(os.path.exists(s_common.genpath(dirn2, 'layers', layriden)))
+
+                self.true(os.path.exists(s_common.genpath(dirn2, 'slabs', 'cell.lmdb')))
+                self.isin(f'/slabs/cell.lmdb/data.mdb', fpset)
