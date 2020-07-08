@@ -368,7 +368,7 @@ class TeleTest(s_t_utils.SynTest):
             dmon.certdir.genCaCert('userca')
             dmon.certdir.genUserCert('visi', signas='userca')
 
-            addr, port = await dmon.listen('ssl://localhost:0/?ca=userca')
+            addr, port = await dmon.listen('ssl://127.0.0.1:0/?ca=userca&hostname=localhost')
             dmon.share('foo', foo)
 
             with self.raises(s_exc.LinkShutDown):

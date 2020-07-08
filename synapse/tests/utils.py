@@ -1739,8 +1739,11 @@ class SynTest(unittest.TestCase):
 
         async with await s_slab.Slab.anit(dirn, map_size=map_size) as slab:
 
-            async with await s_hive.SlabHive.anit(slab) as hive:
+            nexsroot = await s_nexus.NexsRoot.anit(dirn)
+            await nexsroot.startup(None)
 
+            async with await s_hive.SlabHive.anit(slab, nexsroot=nexsroot) as hive:
+                hive.onfini(nexsroot.fini)
                 yield hive
 
     @contextlib.asynccontextmanager

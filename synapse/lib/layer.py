@@ -2199,7 +2199,6 @@ class Layer(s_nexus.Pusher):
 
             count = 0
             async for offset, nodeedits, meta in self.iterNodeEditLog(offs[0]):
-            #for offset, (nodeedits, meta) in self.nodeeditlog.iter(offs[0]):
                 async for splice in self.makeSplices(offset, nodeedits, meta):
 
                     if splice[0] < offs:

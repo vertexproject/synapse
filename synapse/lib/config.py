@@ -162,6 +162,7 @@ class Config(c_abc.MutableMapping):
                 continue
 
             typename = conf.get('type')
+            # only allow single-typed values to have command line arguments
             if not isinstance(typename, str):
                 continue
 
