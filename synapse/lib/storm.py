@@ -1628,7 +1628,7 @@ class Cmd:
         buid = s_common.buid(ndef)
 
         props = {
-            'doc': self.getCmdBrief()
+            'doc': cls.getCmdBrief()
         }
 
         inpt = cls.forms.get('input')
