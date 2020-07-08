@@ -995,6 +995,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file that contains the function.'}),
                     ('va', ('int', {}), {
                         'doc': 'The virtual address of the first codeblock of the function'}),
+                    ('rank', ('int', {}), {
+                        'doc': 'The function rank score used to evaluate if it exhibits interesting behavior.'}),
+                    ('comp', ('int', {}), {
+                        'doc': 'The cyclomatic complexity of the function.'}),
                 )),
 
                 ('it:reveng:funcstr', {}, (
