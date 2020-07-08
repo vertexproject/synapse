@@ -3803,7 +3803,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # remove the mirrorness from the Cortex and ensure that we can
                 # write to the Cortex. This will move the core01 ahead of
                 # core00 & core01 can become the leader.
-
                 await core01.promote()
 
                 self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
