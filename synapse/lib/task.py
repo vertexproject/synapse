@@ -1,3 +1,4 @@
+import copy
 import asyncio
 import logging
 
@@ -84,7 +85,7 @@ class Task(s_base.Base):
         pask = {
             'iden': self.iden,
             'name': self.name,
-            'info': self.info,
+            'info': copy.deepcopy(self.info),
             'tick': self.tick,
             'user': 'root',
             'kids': {i: k.pack() for i, k in self.kids.items()},
