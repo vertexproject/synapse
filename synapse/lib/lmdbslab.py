@@ -1039,10 +1039,10 @@ class Slab(s_base.Base):
 
     def lastkey(self, db=None):
         '''
-        Return the last key/value pair from the given db.
+        Return the last key or None from the given db.
         '''
         self._acqXactForReading()
-        realdb, dupsort = self.dbnames[db]
+        realdb, _ = self.dbnames[db]
         try:
             with self.xact.cursor(db=realdb) as curs:
                 if not curs.last():

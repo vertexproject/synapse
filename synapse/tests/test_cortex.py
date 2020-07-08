@@ -504,7 +504,6 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_noderefs(self):
 
-        #async with self.getTestReadWriteCores() as (core, wcore):
         async with self.getTestCore() as core:
 
             sorc = s_common.guid()

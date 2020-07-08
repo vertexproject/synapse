@@ -839,6 +839,10 @@ class CertDir:
     def getClientSSLContext(self, certname=None):
         '''
         Returns an ssl.SSLContext appropriate for initiating a TLS session
+
+        Args:
+            certname:   If specified, use the user certificate with the matching
+                        name to authenticate to the remote service.
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         self._loadCasIntoSSLContext(sslctx)
@@ -863,8 +867,12 @@ class CertDir:
         Returns an ssl.SSLContext appropriate to listen on a socket
 
         Args:
+
             hostname:  if None, the value from socket.gethostname is used to find the key in the servers directory.
-            This name should match the not-suffixed part of two files ending in .key and .crt in the hosts subdirectory
+                       This name should match the not-suffixed part of two files ending in .key and .crt in the hosts
+                       subdirectory
+
+            caname: If not None, the given name is used to locate a CA certificate used to validate client SSL certs.
 
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
