@@ -3,8 +3,26 @@ Synapse Changelog
 *****************
 
 
-Unreleased
-==========
+v2.3.0 - 2020-07-09
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add ``ps.list`` and ``ps.kill`` commands to Storm, to allow introspecting the runtime tasks during
+  (`#1782 <https://github.com/vertexproject/synapse/pull/1782>`_)
+- Add an ``autoadd`` mode to Storm, which will extract basic indicators and make nodes from them when executed. This is
+  a superset of the behavior in the ``lookup`` mode.
+  (`#1795 <https://github.com/vertexproject/synapse/pull/1795>`_)
+- Support skipping directories in the ``synapse.tools.backup`` tool.
+  (`#1792 <https://github.com/vertexproject/synapse/pull/1792>`_)
+- Add prefix based lifting to the Hex type.
+  (`#1796 <https://github.com/vertexproject/synapse/pull/1796>`_)
+
+Bugfixes
+--------
+- Fix an issue for prop pivot out syntax where the source data is an array type.
+  (`#1794 <https://github.com/vertexproject/synapse/pull/1794>`_)
 
 Improved Documentation
 ----------------------
@@ -16,6 +34,8 @@ Improved Documentation
   (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
 - Add documentation for additional Storm commands.
   (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Update documentation for Array types.
+  (`#1791 <https://github.com/vertexproject/synapse/pull/1791>`_)
 
 
 v2.2.2 - 2020-07-03
