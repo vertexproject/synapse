@@ -23,6 +23,10 @@ class Type:
     _opt_defs = ()
     stortype: int = None  # type: ignore
 
+    # a fast-access way to determine if the type is an array
+    # ( due to hot-loop needs in the storm runtime )
+    isarray = False
+
     def __init__(self, modl, name, info, opts):
         '''
         Construct a new Type object.
@@ -378,6 +382,8 @@ class Bool(Type):
         return repr(bool(valu))
 
 class Array(Type):
+
+    isarray = True
 
     def postTypeInit(self):
 
