@@ -402,6 +402,12 @@ def parseQuery(text, mode='storm'):
     '''
     if mode == 'lookup':
         return Parser(text).lookup()
+
+    if mode == 'autoadd':
+        look = Parser(text).lookup()
+        look.autoadd = True
+        return look
+
     return Parser(text).query()
 
 def massage_vartokn(x):
