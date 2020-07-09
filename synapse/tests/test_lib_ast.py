@@ -494,6 +494,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:arrayprop:ints -> test:int')
             self.len(3, nodes)
 
+            nodes = await core.nodes('test:arrayprop:ints :ints -> test:int')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('test:arrayprop:ints :ints -> *')
+            self.len(3, nodes)
+
             nodes = await core.nodes('test:arrayprop:ints -> *')
             self.len(3, nodes)
 
