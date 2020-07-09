@@ -7,6 +7,23 @@ Docker Deployment
 Configuring A Mirror
 --------------------
 
+Configuring A Remote Axon
+-------------------------
+
+By default a Cortex will initialize a local :ref:`gloss-axon` for general object / blob storage, which will also
+be shared as ``axon`` on the same Telepath URL as the Cortex.
+
+However, an Axon can instead be deployed as a remote server (see :ref:`devops-axon`)
+and configured in the Cortex by specifying the Axon's Telepath URL
+in the ``axon`` configuration parameter (see :ref:`autodoc-cortex-conf`).
+
+For example, if the remote Axon is listening on port ``27592``, and has a service user ``core00``, then the
+Cortex ``cell.yaml`` file could have the following configuration::
+
+    ---
+    axon: tcp://core00:secret@<axon_host_ip>:27592
+    ...
+
 .. _200_migration:
 
 0.1.x to 2.x.x Migration
