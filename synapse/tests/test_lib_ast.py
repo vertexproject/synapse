@@ -131,6 +131,16 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), 1546300800000)
 
+    async def test_ast_autoadd(self):
+
+        async with self.getTestCore() as core:
+            opts = {'mode': 'autoadd'}
+            nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:fqdn', 'woot.com'))
+            self.eq(nodes[2].ndef, ('inet:email', 'visi@vertex.link'))
+
     async def test_ast_lookup(self):
 
         async with self.getTestCore() as core:
