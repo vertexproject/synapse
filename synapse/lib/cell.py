@@ -535,7 +535,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         root = await self._ctorNexsRoot()
 
+        # mutually assured destruction with our nexs root
         self.onfini(root.fini)
+        root.onfini(self.fini)
+
         self.setNexsRoot(root)
 
         await self._initCellSlab(readonly=readonly)
@@ -596,7 +599,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initNexusSubsystem(self):
         mirror = self.conf.get('mirror')
-        await self.nexsroot.startup(mirror)
+        await self.nexsroot.startup(mirror, celliden=self.iden)
         await self.setCellActive(mirror is None)
 
     async def initServiceNetwork(self):
@@ -619,12 +622,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         turl = self.conf.get('dmon:listen')
         if turl is not None:
             await self.dmon.listen(turl)
-            logger.warning(f'dmon listening: {turl}')
+            logger.info(f'dmon listening: {turl}')
 
         port = self.conf.get('https:port')
         if port is not None:
             await self.addHttpsPort(port)
-            logger.warning(f'https listening: {port}')
+            logger.info(f'https listening: {port}')
 
     async def initServiceRuntime(self):
         pass
@@ -639,7 +642,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return await self.nexsroot.index()
 
     async def promote(self):
-
+        '''
+        Transform this cell from a passive follower to
+        an active cell that writes changes locally.
+        '''
         if self.conf.get('mirror') is None:
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)

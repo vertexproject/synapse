@@ -1855,10 +1855,7 @@ class StormTypesTest(s_test.SynTest):
             ldef = await core.addLayer()
             newlayer = core.getLayer(ldef.get('iden'))
 
-            q = f'''
-                return($lib.view.add(({newlayer.iden},)).iden)
-            '''
-            newiden = await core.callStorm(q)
+            newiden = await core.callStorm(f'return($lib.view.add(({newlayer.iden},)).iden)')
             self.nn(newiden)
 
             self.isin(newiden, core.views)

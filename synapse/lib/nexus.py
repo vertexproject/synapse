@@ -83,6 +83,7 @@ class NexsRoot(s_base.Base):
         self.dirn = dirn
         self.client = None
         self.started = False
+        self.celliden = None
         self.donexslog = donexslog
 
         self._mirrors: List[ChangeDist] = []
@@ -171,8 +172,8 @@ class NexsRoot(s_base.Base):
         try:
             await client.waitready(timeout=FOLLOWER_WRITE_WAIT_S)
         except asyncio.TimeoutError:
-            mesg = 'Timed out waiting for connection'
-            raise s_exc.LinkErr(mesg=mesg)
+            mesg = 'Mirror cannot reach leader for write request'
+            raise s_exc.LinkErr(mesg=mesg) from None
 
         with self._getResponseFuture() as (iden, futu):
 
@@ -263,7 +264,9 @@ class NexsRoot(s_base.Base):
 
             yield dist
 
-    async def startup(self, mirurl):
+    async def startup(self, mirurl, celliden=None):
+
+        self.celliden = celliden
 
         if self.client is not None:
             await self.client.fini()
@@ -288,6 +291,13 @@ class NexsRoot(s_base.Base):
         self.client.schedCoro(self.runMirrorLoop(proxy))
 
     async def runMirrorLoop(self, proxy):
+
+        if self.celliden is not None:
+            if self.celliden != await proxy.getCellIden():
+                logger.error('remote cell has different iden!  Aborting mirror sync')
+                await proxy.fini()
+                await self.fini()
+                return
 
         while not proxy.isfini:
 
