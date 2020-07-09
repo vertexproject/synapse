@@ -69,3 +69,49 @@ class BackupTest(s_t_utils.SynTest):
 
                     # We expect the data.mdb file to be in the fpset
                     self.isin(f'/layers/{layriden}/layer_v2.lmdb/data.mdb', fpset)
+
+    async def test_backup_exclude(self):
+
+        async with self.getTestCore() as core:
+            layriden = core.getLayer().iden
+
+            await core.fini()
+
+            with self.getTestDir() as dirn2:
+
+                argv = (
+                    core.dirn,
+                    dirn2,
+                    '--skipdirs', '**/nodeedits.lmdb', './axon',
+                )
+
+                self.eq(0, s_backup.main(argv))
+
+                skipdirs = {'tmp', 'nodeedits.lmdb', 'axon'}
+                fpset = self.compare_dirs(core.dirn, dirn2, skipfns={'lock.mdb'}, skipdirs=skipdirs)
+
+                self.false(os.path.exists(s_common.genpath(dirn2, 'tmp')))
+                self.false(os.path.exists(s_common.genpath(dirn2, 'axon')))
+                self.false(os.path.exists(s_common.genpath(dirn2, 'layers', layriden, 'nodeedits.lmdb')))
+
+                self.true(os.path.exists(s_common.genpath(dirn2, 'layers', layriden, 'layer_v2.lmdb')))
+                self.isin(f'/layers/{layriden}/layer_v2.lmdb/data.mdb', fpset)
+
+            with self.getTestDir() as dirn2:
+
+                argv = (
+                    core.dirn,
+                    dirn2,
+                    '--skipdirs', 'layers/*',
+                )
+
+                self.eq(0, s_backup.main(argv))
+
+                fpset = self.compare_dirs(core.dirn, dirn2, skipfns={'lock.mdb'}, skipdirs={'tmp', layriden})
+
+                self.false(os.path.exists(s_common.genpath(dirn2, 'tmp')))
+                self.true(os.path.exists(s_common.genpath(dirn2, 'layers')))
+                self.false(os.path.exists(s_common.genpath(dirn2, 'layers', layriden)))
+
+                self.true(os.path.exists(s_common.genpath(dirn2, 'slabs', 'cell.lmdb')))
+                self.isin(f'/slabs/cell.lmdb/data.mdb', fpset)
