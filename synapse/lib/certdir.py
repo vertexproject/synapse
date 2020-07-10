@@ -64,7 +64,6 @@ class CertDir:
             s_common.gendir(cdir, 'hosts')
             s_common.gendir(cdir, 'users')
 
-
     def genCaCert(self, name, signas=None, outp=None, save=True):
         '''
         Generates a CA keypair.
