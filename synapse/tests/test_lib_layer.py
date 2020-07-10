@@ -692,12 +692,10 @@ class LayerTest(s_t_utils.SynTest):
             count = 0
             editlist = []
 
-            layr = core0.getLayer(None)
-            necount = layr.nodeeditlog.index()
-            async for _, nodeedits in prox0.syncLayerNodeEdits(0):
+            layr = core0.getLayer()
+            async for offs, nodeedits in prox0.syncLayerNodeEdits(0):
                 editlist.append(nodeedits)
-                count += 1
-                if count == necount:
+                if offs == layr.nodeeditlog.index() - 1:
                     break
 
             async with self.getTestCore() as core1:
