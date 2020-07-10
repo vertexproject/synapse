@@ -956,7 +956,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ))
 
     async def _initCellDmon(self):
-        self.dmon = await s_daemon.Daemon.anit()
+        cdir = s_common.gendir(self.dirn, 'certs')
+
+        self.dmon = await s_daemon.Daemon.anit(certdir=(cdir, s_certdir.defdir))
         self.dmon.share('*', self)
 
         self.onfini(self.dmon.fini)

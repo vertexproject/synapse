@@ -408,6 +408,10 @@ class CertDirTest(s_t_utils.SynTest):
             key = cdir.getUserKey(username)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
 
+    def test_certdir_invalidpath(self):
+        with self.raises(s_exc.SynErr):
+            s_certdir.CertDir(path=1)
+
     def test_certdir_importfile(self):
         with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             with self.getTestDir() as testpath:
@@ -432,7 +436,7 @@ class CertDirTest(s_t_utils.SynTest):
                 )
                 for ftype, fname in tests:
                     srcpath = s_common.genpath(testpath, fname)
-                    dstpath = s_common.genpath(cdir.path, ftype, fname)
+                    dstpath = s_common.genpath(cdir.certdirs[0], ftype, fname)
 
                     with s_common.genfile(srcpath) as fd:
                         fd.write(b'arbitrary data')
