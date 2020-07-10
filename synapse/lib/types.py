@@ -573,6 +573,7 @@ class Hex(Type):
         self.setNormFunc(bytes, self._normPyBytes)
         self.storlifts.update({
             '=': self._storLiftEq,
+            '^=': self._storLiftPref,
         })
 
     def _storLiftEq(self, cmpr, valu):
@@ -584,6 +585,11 @@ class Hex(Type):
                 )
 
         return self._storLiftNorm(cmpr, valu)
+
+    def _storLiftPref(self, cmpr, valu):
+        return (
+            ('^=', valu.lower(), self.stortype),
+        )
 
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
