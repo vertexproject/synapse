@@ -52,9 +52,9 @@ class CertDir:
 
         # for backward compatibility, do some type inspection
         if isinstance(path, str):
-            self.certdirs.append(s_common.reqdir(path))
+            self.certdirs.append(s_common.gendir(path))
         elif isinstance(path, (tuple, list)):
-            [self.certdirs.append(s_common.reqdir(p)) for p in path]
+            [self.certdirs.append(s_common.gendir(p)) for p in path]
         else:
             mesg = 'Certdir path must be a path string or a list/tuple of path strings.'
             raise s_exc.SynErr(mesg=mesg)
