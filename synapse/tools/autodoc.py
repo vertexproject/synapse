@@ -16,6 +16,8 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
 
+import synapse.lib.stormtypes as s_stormtypes
+
 logger = logging.getLogger(__name__)
 
 poptsToWords = {
@@ -537,6 +539,39 @@ async def docStormsvc(ctor):
     return rst, clsname
 
 
+async def docStormTypes():
+
+    registry = s_stormtypes.registry
+    libs = registry.iterLibs()
+    types = registry.iterTypes()
+
+    libs.sort(key=lambda x: x[0])
+    print(sorted)
+    for obj in libs:
+        print(obj)
+
+    # FIXME add links!
+    libspage = RstHelp()
+    libspage.addHead('Storm Libraries', lvl=0)
+
+    # TODO generate a toc?
+    basepath = 'lib'
+    for (path, lib) in libs:
+        libpath = '.'.join((basepath,) + path)
+        print(libpath)
+
+        libdoc = getattr(lib, '__doc__')
+        if libdoc is None:
+            libdoc = f'No doc for ${libpath}'
+
+        print(libdoc)
+
+    # Need a libs page which sorts the libs in hierarchical order
+    # prepending them all with a lib prefix
+
+    # Need a types page. They need to be sorted and have docs extracted from them
+
+
 async def main(argv, outp=None):
 
     if outp is None:
@@ -577,6 +612,9 @@ async def main(argv, outp=None):
             with open(s_common.genpath(opts.savedir, f'stormsvc_{svcname.lower()}.rst'), 'wb') as fd:
                 fd.write(confdocs.getRstText().encode())
 
+    if opts.doc_stormtypes:
+        docs = await docStormTypes()
+
     return 0
 
 def makeargparser():
@@ -597,6 +635,9 @@ def makeargparser():
 
     doc_type.add_argument('--doc-storm', default=None,
                           help='Generate RST docs for a stormssvc implemented by a given Cell')
+
+    doc_type.add_argument('--doc-stormtypes', default=None, action='store_true',
+                          help='Generate RST docs for StormTypes')
 
     return pars
 
