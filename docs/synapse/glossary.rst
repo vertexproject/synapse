@@ -268,6 +268,16 @@ downselects a subset of nodes following a lift operation. Compare with :ref:`glo
 
 See :ref:`storm-ref-filter` for additional detail.
 
+.. _gloss-filter-subquery:
+
+Filter, Subquery
+----------------
+
+Within Synapse, a subquery filter is a filter that consists of a :ref:`gloss-storm` expression.
+
+
+See :ref:`filter-subquery` for additional detail.
+
 .. _gloss-form:
 
 Form
@@ -836,6 +846,24 @@ Storm is the custom, domain-specific language used to interact with data in a Sy
 
 See :ref:`storm-ref-intro` for additional detail.
 
+.. _gloss-subquery:
+
+Subquery
+--------
+
+Within Synapse, a subquery is a :ref:`gloss-storm` query that is executed inside of another Storm query.
+
+
+See :ref:`storm-ref-subquery` for additional detail.
+
+.. _gloss-subquery-filter:
+
+Subquery Filter
+---------------
+
+See :ref:`gloss-filter-subquery`.
+
+
 T
 =
 
@@ -985,6 +1013,8 @@ In Storm, a variable is an identifier with a value that can be defined and/or ch
 the value is variable.
 
 Contrast with :ref:`gloss-constant`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
+
+See :ref:`storm-adv-vars` for a more detailed discussion of variables.
 
 .. _gloss-view:
 
