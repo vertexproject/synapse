@@ -309,7 +309,9 @@ class ItModule(s_module.CoreModule):
                 ('it:reveng:funcstr', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
                     'doc': 'A reference to a string inside a function.',
                 }),
-
+                ('it:reveng:impfunc',   ('str', {'lower': 1}), {
+                    'doc': 'A function from an imported library.',
+                }),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
@@ -984,6 +986,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The name of the function'}),
                     ('description', ('str', {}), {
                         'doc': 'Notes concerning the function'}),
+                    ('impcalls', ('array', {'type': 'it:reveng:impfunc'}), {
+                        'doc': 'Calls to imported library functions within the scope of the function.',
+                    }),
                 )),
 
                 ('it:reveng:filefunc', {}, (
@@ -997,8 +1002,11 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The virtual address of the first codeblock of the function'}),
                     ('rank', ('int', {}), {
                         'doc': 'The function rank score used to evaluate if it exhibits interesting behavior.'}),
-                    ('comp', ('int', {}), {
+                    ('cmp', ('int', {}), {
                         'doc': 'The cyclomatic complexity of the function.'}),
+                    ('funccalls', ('array', {'type': 'it:reveng:filefunc'}), {
+                        'doc': 'Other functions calls within the scope of the function.',
+                    }),
                 )),
 
                 ('it:reveng:funcstr', {}, (
@@ -1009,6 +1017,8 @@ class ItModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The string that the function references.'}),
                 )),
+
+                ('it:reveng:impfunc', {}, ()),
 
             ),
         }
