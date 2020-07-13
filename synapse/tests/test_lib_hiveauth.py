@@ -349,9 +349,7 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.auth.allrole.setName(1)
             with self.raises(s_exc.SchemaViolation):
-                await core.auth.rootuser.addRule('vi')
-            with self.raises(s_exc.SchemaViolation):
-                await core.auth.allrole.addRule('si')
+                await core.auth.rootuser.addRule('vi.si')
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.rootuser.setRules(None)
             with self.raises(s_exc.SchemaViolation):
@@ -362,3 +360,9 @@ class AuthTest(s_test.SynTest):
                 await core.auth.rootuser.setLocked('lol')
             with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setArchived('lol')
+            with self.raises(s_exc.SchemaViolation):
+                await core.auth.allrole.addRule((1, ('hehe', 'haha')))
+            with self.raises(s_exc.SchemaViolation):
+                await core.auth.allrole.setRules([(True, ('hehe', 'haha'), 'newp')])
+            with self.raises(s_exc.SchemaViolation):
+                await core.auth.allrole.setRules([(True, )])

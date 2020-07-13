@@ -18,6 +18,8 @@ reqValidRules = s_config.getJsValidator({
             {'type': 'boolean'},
             {'type': 'array', 'items': {'type': 'string'}},
         ],
+        'minItems': 2,
+        'maxItems': 2,
     }
 })
 
@@ -596,7 +598,6 @@ class HiveRuler(s_base.Base):
     async def addRule(self, rule, indx=None, gateiden=None, nexs=True):
 
         rules = self.getRules(gateiden=gateiden)
-        assert len(rule) == 2
 
         if indx is None:
             rules.append(rule)
