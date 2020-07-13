@@ -1152,6 +1152,11 @@ class Layer(s_nexus.Pusher):
             return None
         return s_msgpack.un(byts)
 
+    async def getNodeForm(self, buid):
+        byts = self.layrslab.get(buid + b'\x09', db=self.bybuid)
+        if byts is not None:
+            return byts.decode()
+
     async def getStorNode(self, buid):
         '''
         Return a potentially incomplete pode.

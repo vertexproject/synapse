@@ -1823,8 +1823,8 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(uplayr)
 
-                evnt = await layr.waitUpstreamOffs(layriden, offs)
-                await asyncio.wait_for(evnt.wait(), timeout=2.0)
+                #evnt = await layr.waitUpstreamOffs(layriden, offs)
+                #await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
     async def test_storm_lib_view(self):
 

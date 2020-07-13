@@ -979,6 +979,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         return self.multiqueue.size(name)
 
     async def getSpawnInfo(self):
+
+        if self.spawncorector is None:
+            mesg = 'spawn storm option not supported on this cortex'
+            raise s_exc.FeatureNotSupported(mesg=mesg)
+
         ret = {
             'iden': self.iden,
             'dirn': self.dirn,
