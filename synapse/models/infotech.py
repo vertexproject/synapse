@@ -309,7 +309,7 @@ class ItModule(s_module.CoreModule):
                 ('it:reveng:funcstr', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
                     'doc': 'A reference to a string inside a function.',
                 }),
-                ('it:reveng:impfunc',   ('str', {'lower': 1}), {
+                ('it:reveng:impfunc', ('str', {'lower': 1}), {
                     'doc': 'A function from an imported library.',
                 }),
             ),
