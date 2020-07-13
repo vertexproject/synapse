@@ -567,8 +567,10 @@ class InetModelTest(s_t_utils.SynTest):
             'client': '1.2.3.4',
             'server': '5.5.5.5:443',
             'body': 64 * 'b',
+            'headers': (('foo', 'bar'),),
             'response:code': 200,
             'response:reason': 'OK',
+            'response:headers': (('baz', 'faz'),),
             'response:body': 64 * 'b'
         }
         expected_props = {
@@ -583,9 +585,11 @@ class InetModelTest(s_t_utils.SynTest):
 
             'server:port': 443,
             'server:ipv4': 0x05050505,
+            'headers': (('foo', 'bar'),),
 
             'response:code': 200,
             'response:reason': 'OK',
+            'response:headers': (('baz', 'faz'),),
             'response:body': 'sha256:' + 64 * 'b',
         }
         expected_ndef = (formname, 32 * 'a')
@@ -593,6 +597,9 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+            self.len(1, await core.nodes('inet:http:request -> inet:http:request:header'))
+            self.len(1, await core.nodes('inet:http:request -> inet:http:response:header'))
 
     async def test_iface(self):
         formname = 'inet:iface'
@@ -1808,6 +1815,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :subject="hi there"
                 :date=2015
                 :body="there are mad sploitz here!"
+                :headers=((foo, bar),)
                 :bytes="*"
             ]
 
@@ -1830,3 +1838,4 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link -> inet:url +inet:url=https://www.vertex.link'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
+            self.len(1, await core.nodes('inet:email:message:headers*[=(foo,bar)]'))
