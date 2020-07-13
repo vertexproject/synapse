@@ -6,8 +6,20 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
+import synapse.lib.config as s_config
 
 logger = logging.getLogger(__name__)
+
+reqValidRules = s_config.getJsValidator({
+    'type': 'array',
+    'items': {
+        'type': 'array',
+        'items': [
+            {'type': 'boolean'},
+            {'type': 'array', 'items': {'type': 'string'}},
+        ],
+    }
+})
 
 class Auth(s_nexus.Pusher):
     '''
@@ -190,6 +202,8 @@ class Auth(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('user:name')
     async def setUserName(self, iden, name):
+        if not isinstance(name, str):
+            raise s_exc.BadArg(mesg='setUserName() name must be a string')
 
         user = self.usersbyname.get(name)
         if user is not None:
@@ -207,6 +221,8 @@ class Auth(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('role:name')
     async def setRoleName(self, iden, name):
+        if not isinstance(name, str):
+            raise s_exc.BadArg(mesg='setRoleName() name must be a string')
 
         role = self.rolesbyname.get(name)
         if role is not None:
@@ -574,6 +590,7 @@ class HiveRuler(s_base.Base):
         return list(gateinfo.get('rules', ()))
 
     async def setRules(self, rules, gateiden=None, nexs=True):
+        reqValidRules(rules)
         return await self._setRulrInfo('rules', rules, gateiden=gateiden, nexs=nexs)
 
     async def addRule(self, rule, indx=None, gateiden=None, nexs=True):
@@ -824,18 +841,25 @@ class HiveUser(HiveRuler):
         return gateinfo.get('admin', False)
 
     async def setAdmin(self, admin, gateiden=None, logged=True):
+        if not isinstance(admin, bool):
+            raise s_exc.BadArg(mesg='setAdmin requires a boolean')
         if logged:
             await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
         else:
             await self.auth._hndlsetUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
 
     async def setLocked(self, locked, logged=True):
+        if not isinstance(locked, bool):
+            raise s_exc.BadArg(mesg='setLocked requires a boolean')
         if logged:
             await self.auth.setUserInfo(self.iden, 'locked', locked)
         else:
             await self.auth._hndlsetUserInfo(self.iden, 'locked', locked)
 
     async def setArchived(self, archived):
+        if not isinstance(archived, bool):
+            raise s_exc.BadArg(mesg='setArchived requires a boolean')
+        archived = bool(archived)
         await self.auth.setUserInfo(self.iden, 'archived', archived)
         if archived:
             await self.setLocked(True)

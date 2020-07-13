@@ -340,3 +340,25 @@ class AuthTest(s_test.SynTest):
             async with self.getTestCoreAndProxy(dirn=fdir) as (core, prox):
                 self.none(await core.auth.getUserByName('fred'))
                 self.none(await core.auth.getRoleByName('friends'))
+
+    async def test_hive_auth_invalid(self):
+
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setName(1)
+            with self.raises(s_exc.BadArg):
+                await core.auth.allrole.setName(1)
+            with self.raises(s_exc.SchemaViolation):
+                await core.auth.rootuser.addRule('vi')
+            with self.raises(s_exc.SchemaViolation):
+                await core.auth.allrole.addRule('si')
+            with self.raises(s_exc.SchemaViolation):
+                await core.auth.rootuser.setRules(None)
+            with self.raises(s_exc.SchemaViolation):
+                await core.auth.allrole.setRules(None)
+            with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setAdmin('lol')
+            with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setLocked('lol')
+            with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setArchived('lol')
