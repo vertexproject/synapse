@@ -47,7 +47,7 @@ class StormTypesRegistry:
         # Validate path is a tuple of strings
         self._TYPREG[path] = ctor
 
-    def delStormType(path):
+    def delStormType(self, path):
         if not self._TYPREG.pop(path, None):
             raise Exception('no such path!')
 
@@ -73,7 +73,7 @@ class StormTypesRegistry:
         return list(self._LIBREG.items())
 
     def iterTypes(self):
-        return list(self._LIBREG.items())
+        return list(self._TYPREG.items())
 
     # def registerFunc(self, name):
     #

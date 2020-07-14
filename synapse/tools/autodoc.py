@@ -1,9 +1,11 @@
 import sys
 import asyncio
+import inspect
 import logging
 import argparse
-
 import collections
+
+import sphinx.ext.napoleon as napoleon
 
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -546,6 +548,7 @@ async def docStormTypes():
     types = registry.iterTypes()
 
     libs.sort(key=lambda x: x[0])
+    types.sort(key=lambda x: x[0])
     print(sorted)
     for obj in libs:
         print(obj)
@@ -558,13 +561,43 @@ async def docStormTypes():
     basepath = 'lib'
     for (path, lib) in libs:
         libpath = '.'.join((basepath,) + path)
-        print(libpath)
 
         libdoc = getattr(lib, '__doc__')
         if libdoc is None:
             libdoc = f'No doc for ${libpath}'
 
-        print(libdoc)
+        print(libpath, libdoc)
+
+        for (name, locl) in lib.getObjLocals(lib).items():  # python trick
+
+            if callable(locl):
+                print(name, locl)
+                locldoc = getattr(locl, '__doc__')
+                if locldoc is None:
+                    locldoc = f'No doc for {name}'
+                print(locldoc)
+
+                callsig = inspect.signature(locl)
+                print(callsig)
+
+                gdoc = napoleon.GoogleDocstring(locldoc, what='function')
+                for line in gdoc.lines():
+                    print(line)
+
+            else:
+                print(name, locl)
+                print('IS NOTCALLABLE')
+
+    for (sname, styp) in types:
+        print(sname, styp)
+        locls = styp.getObjLocals(styp)
+        for (name, locl) in locls.items():
+            if callable(locl):
+                print('weee')
+                print(name, locl)
+            else:
+                print(name, locl)
+                print('IS NOTCALLABLE')
 
     # Need a libs page which sorts the libs in hierarchical order
     # prepending them all with a lib prefix
