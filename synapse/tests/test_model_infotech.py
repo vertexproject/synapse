@@ -714,27 +714,44 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             baseFile = s_common.ehex(s_common.buid())
             fva = 0x404438
+            rank = 33
+            complexity = 60
             fopt = {'vars': {'file': baseFile,
                              'func': s_common.guid(),
-                             'fva': fva}}
+                             'fva': fva,
+                             'rank': rank,
+                             'cmplx': complexity}}
             vstr = 'VertexBrandArtisanalBinaries'
             sopt = {'vars': {'func': fopt['vars']['func'],
                              'string': vstr}}
-            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva]', opts=fopt)
+            name = "FunkyFunction"
+            descrp = "Test Function"
+            impcalls = ("libr.foo1", "libr.foo2", "libr.foo3")
+            funcopt = {'vars': {'name': name, 
+                                'descrp': descrp,
+                                'impcalls': impcalls}}
+
+            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva :rank=$rank :cmplx=$cmplx]', opts=fopt)
             snode = await core.nodes('[it:reveng:funcstr=($func, $string)]', opts=sopt)
             self.len(1, fnode)
             self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
             self.eq(fva, fnode[0].get('va'))
+            self.eq(rank, fnode[0].get('rank'))
+            self.eq(complexity, fnode[0].get('cmplx'))
 
             self.len(1, snode)
             self.eq(fnode[0].get('function'), snode[0].get('function'))
             self.eq(vstr, snode[0].get('string'))
 
-            funcnode = await core.nodes('it:reveng:function [ :name="FunkyFunction" :description="Test Function" ]')
+            funcnode = await core.nodes('it:reveng:function [ :name=$name :description=$descrp :impcalls=$impcalls ]', opts=funcopt)
             self.len(1, funcnode)
-            self.eq("FunkyFunction", funcnode[0].get('name'))
-            self.eq("Test Function", funcnode[0].get('description'))
+            self.eq(name, funcnode[0].get('name'))
+            self.eq(descrp, funcnode[0].get('description'))
+            self.len(len(impcalls), funcnode[0].get('impcalls'))
 
             nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function')
             self.len(1, nodes)
             self.eq(vstr, nodes[0].get('string'))
+
+            nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc -> it:reveng:function -> it:reveng:impfunc')
+            self.len(len(impcalls), nodes)
