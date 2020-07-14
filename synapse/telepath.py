@@ -688,6 +688,7 @@ class Client(s_base.Base):
             await self._t_proxy.fini()
 
         self._t_proxy = await openurl(url, **self._t_opts)
+        self._t_methinfo = self._t_proxy.methinfo
 
         async def fini():
             await self._fireLinkLoop()
@@ -724,7 +725,7 @@ class Client(s_base.Base):
 
     def __getattr__(self, name):
 
-        info = self._t_proxy.methinfo.get(name)
+        info = self._t_methinfo.get(name)
         if info is not None and info.get('genr'):
             meth = GenrMethod(self, name)
             setattr(self, name, meth)
