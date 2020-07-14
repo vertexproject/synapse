@@ -468,7 +468,15 @@ class LibBase(Lib):
         }
 
     async def _libBaseImport(self, name):
+        '''
+        Import a Storm Package.
 
+        Args:
+            name (str): Name of the package to import.
+
+        Returns:
+            Lib: A StormLib instance representing the imported Package.
+        '''
         mdef = await self.runt.snap.core.getStormMod(name)
         if mdef is None:
             mesg = f'No storm module named {name}.'
@@ -504,20 +512,66 @@ class LibBase(Lib):
         return fromprim(norm, basetypes=False)
 
     async def _sorted(self, valu):
+        '''
+        Yield sorted values.
+
+        Args:
+            valu: An iterable oject to sort.
+
+        Returns:
+            Yields the sorted output.
+        '''
         for item in sorted(valu):
             yield item
 
     async def _set(self, *vals):
+        '''
+        Get a Storm Set object.
+
+        Args:
+            *vals: Initial values to place in the set.
+
+        Returns:
+            Set: A Storm Set object.
+        '''
         return Set(set(vals))
 
     async def _list(self, *vals):
+        '''
+        Get a Storm List object.
+
+        Args:
+            *vals: Initial values to place in the list.
+
+        Returns:
+            List: A Storm List object.
+        '''
         return List(list(vals))
 
     async def _text(self, *args):
+        '''
+        Get a Storm Text object.
+
+        Args:
+            *args: An initial set of values to place in the Text. These values are joined together with an empty string.
+
+        Returns:
+            Text: A Storm Text object.
+
+        '''
         valu = ''.join(args)
         return Text(valu)
 
     async def _guid(self, *args):
+        '''
+        Get a random guid, or generate a guid from the arguments.
+
+        Args:
+            *args: Arguments which are hashed to create a guid.
+
+        Returns:
+            str: A guid.
+        '''
         if args:
             return s_common.guid(args)
         return s_common.guid()
@@ -545,6 +599,15 @@ class LibBase(Lib):
             raise s_exc.StormRuntimeError(mesg=f'Unknown error during len(): {repr(e)}', name=name)
 
     async def _min(self, *args):
+        '''
+        Get the minimum value in a list of arguments
+
+        Args:
+            *args: List of arguments to evaluate.
+
+        Returns:
+            The smallest argument.
+        '''
         # allow passing in a list of ints
         vals = []
         for arg in args:
@@ -557,7 +620,15 @@ class LibBase(Lib):
         return min(*ints)
 
     async def _max(self, *args):
+        '''
+        Get the maximum value in a list of arguments
 
+        Args:
+            *args: List of arguments to evaluate.
+
+        Returns:
+            The largest argument.
+        '''
         # allow passing in a list of ints
         vals = []
         for arg in args:
@@ -613,13 +684,57 @@ class LibBase(Lib):
                 await self.runt.printf(fline)
 
     async def _warn(self, mesg, **kwargs):
+        '''
+        Print a warning message to the runtime.
+
+        Args:
+            mesg (str): String to warn.
+            **kwargs: Words go here FIXME
+
+        Notes:
+            Arbitrary objects can be warned as well. They will have their Python __repr()__ printed.
+
+        Returns:
+            None: Returns None.
+        '''
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.warn(mesg, log=False)
 
     async def _dict(self, **kwargs):
+        '''
+        Get a Storm Dict object.
+
+        Args:
+            **kwargs: An initial set of keyword arguments to place in the Dict.
+
+        Returns:
+            Dict: A Storm Dict object.
+        '''
         return Dict(kwargs)
 
     async def _fire(self, name, **info):
+        '''
+        Fire an event onto the runtime.
+
+        Args:
+            name: The type of the event to fire.
+            **info:
+
+        Notes:
+            This fires events as ``storm:fire`` event types. The name of the event is placed into a ``type`` key,
+            and ant additional keyword arguments are added to a dictionary under the ``data`` key.
+
+        Examples:
+            Fire an event called ``demo`` with some data::
+
+                cli> storm $foo='bar' $lib.fire('demo', foo=$foo, knight='ni')
+                ...
+                ('storm:fire', {'type': 'demo', 'data': {'foo': 'bar', 'knight': 'ni'}})
+                ...
+
+        Returns:
+            None: Returns None
+        '''
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
