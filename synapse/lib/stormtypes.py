@@ -245,7 +245,6 @@ class LibDmon(Lib):
     '''
     _storm_lib_path = ('dmon',)
 
-    # @classmethod
     def getObjLocals(self):
         return {
             'add': self._libDmonAdd,
@@ -440,11 +439,10 @@ class LibService(Lib):
 @registry.registerLib
 class LibBase(Lib):
     '''
-    The Base Storm Library. This primarilly contains utility functionality.
+    The Base Storm Library. This mainly contains utility functionality.
     '''
     _storm_lib_path = ()
 
-    # @classmethod
     def getObjLocals(self):
         return {
             'len': self._len,
@@ -741,6 +739,9 @@ class LibBase(Lib):
 
 @registry.registerLib
 class LibPs(Lib):
+    '''
+    A Storm Library for interacting with running tasks on the Cortex.
+    '''
     _storm_lib_path = ('ps',)
 
     def getObjLocals(self):
@@ -750,6 +751,15 @@ class LibPs(Lib):
         }
 
     async def _kill(self, prefix):
+        '''
+        Stop a running task on the cortex.
+
+        Args:
+            prefix (str): The prefix of the task to stop. Tasks will only be stopped if there is a single prefix match.
+
+        Returns:
+            bool: True if the task was cancelled, false otherwise.
+        '''
         idens = []
 
         todo = s_common.todo('ps', self.runt.user)
@@ -771,11 +781,20 @@ class LibPs(Lib):
         return await self.dyncall('cell', todo)
 
     async def _list(self):
+        '''
+        List tasks the current user can access.
+
+        Returns:
+            list: A list of task dictionaries.
+        '''
         todo = s_common.todo('ps', self.runt.user)
         return await self.dyncall('cell', todo)
 
 @registry.registerLib
 class LibStr(Lib):
+    '''
+    A Storm Library for interacting with strings.
+    '''
     _storm_lib_path = ('str',)
 
     def getObjLocals(self):
@@ -786,11 +805,38 @@ class LibStr(Lib):
         }
 
     async def concat(self, *args):
+        '''
+        Concatenate a set of strings together.
+
+        Args:
+            *args: Items to join togther.
+
+        Returns:
+            str: The joined string.
+        '''
         strs = [str(a) for a in args]
         return ''.join(strs)
 
     async def format(self, text, **kwargs):
+        '''
+        Format a text string.
 
+        Args:
+            text: The base text string.
+            **kwargs: Keyword values which are substituted into the string.
+
+        Examples:
+            Format a string with a fixed argument and a variable::
+
+                cli> storm $list=(1,2,3,4)
+                     $str=$lib.str.format('Hello {name}, your list is {list}!', name='Reader', list=$list)
+                     $lib.print($str)
+
+                Hello Reader, your list is ['1', '2', '3', '4']!
+
+        Returns:
+            str: The new string.
+        '''
         text = kwarg_format(text, **kwargs)
 
         return text
@@ -799,16 +845,28 @@ class LibStr(Lib):
         '''
         Join items into a string using a separator.
 
-        Example:
+        Args:
+            sepr (str): The seperator used to join things with.
+            items (list): A list of items to join together.
 
-            $foo = $lib.str.join('.', ('rep', 'vtx', 'tag'))
+        Examples:
+            Join together a list of strings with a dot seperator::
+
+                cli> storm $foo=$lib.str.join('.', ('rep', 'vtx', 'tag')) $lib.print($foo)
+
+                rep.vtx.tag
+
+        Returns:
+            str: The joined string.
         '''
-        # FIXME !
         strs = [str(item) for item in items]
-        return sepr.join(items)
+        return sepr.join(strs)
 
 @registry.registerLib
 class LibBytes(Lib):
+    '''
+    A Storm Library for interacting with bytes storage.
+    '''
     _storm_lib_path = ('bytes',)
 
     def getObjLocals(self):
@@ -818,13 +876,21 @@ class LibBytes(Lib):
 
     async def _libBytesPut(self, byts):
         '''
-        Save the given bytes variable to the axon.
+        Save the given bytes variable to the Axon the Cortex is configured to use.
+
+        Args:
+            byts (bytes): The bytes to save.
+
+        Examples:
+            Save a base64 encoded buffer to the Axon::
+
+                cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.bytes.put($buf)
+                     $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
+
+                size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 
         Returns:
-            ($size, $sha256)
-
-        Example:
-            ($size, $sha2) = $lib.bytes.put($bytes)
+            (int, str): The size of the bytes and the sha256 hash for the bytes.
         '''
         if not isinstance(byts, bytes):
             mesg = '$lib.bytes.put() requires a bytes argument'
@@ -838,14 +904,26 @@ class LibBytes(Lib):
 
 @registry.registerLib
 class LibLift(Lib):
+    '''
+    A Storm Library for interacting with lift helpers.
+    '''
     _storm_lib_path = ('lift',)
 
     def getObjLocals(self):
         return {
-            'byNodeData': self.byNodeData,
+            'byNodeData': self._byNodeData,
         }
 
-    async def byNodeData(self, name):
+    async def _byNodeData(self, name):
+        '''
+        Lift nodes which have a given nodedata name set on them.
+
+        Args:
+            name (str): The name to of the nodedata key to lift by.
+
+        Returns:
+            Yields notes to the pipeline. This must be used in conjunction with the ``yield`` keyword.
+        '''
         async for node in self.runt.snap.nodesByDataName(name):
             yield node
 
@@ -853,22 +931,43 @@ class LibLift(Lib):
 class LibTime(Lib):
     _storm_lib_path = ('time',)
 
-    # @classmethod
     def getObjLocals(self):
         return {
-            'now': s_common.now,
-            'fromunix': self.fromunix,
-            'parse': self.parse,
-            'format': self.format,
-            'sleep': self.sleep,
-            'ticker': self.ticker,
+            'now': self._now,
+            'fromunix': self._fromunix,
+            'parse': self._parse,
+            'format': self._format,
+            'sleep': self._sleep,
+            'ticker': self._ticker,
         }
 
     # TODO from other iso formats!
-
-    async def format(self, valu, format):
+    def _now(self):
         '''
-        Format a Synapse timestamp into a string value using strftime.
+        Get the current epoch time in milliseconds.
+
+        Returns:
+            int: Epoch time in milliseconds.
+        '''
+        return s_common.now()
+
+    async def _format(self, valu, format):
+        '''
+        Format a Synapse timestamp into a string value using ``datetime.strftime()``.
+
+        Args:
+            valu (int): A timestamp in epoch milliseconds.
+            format (str): The strftime format string.
+
+        Examples:
+            Format a timestamp into a string::
+
+                cli> storm $now=$lib.time.now() $str=$lib.time.format($now, '%A %d, %B %Y') $lib.print($str)
+
+                Tuesday 14, July 2020
+
+        Returns:
+            str: The formatted time string.
         '''
         timetype = self.runt.snap.core.model.type('time')
         # Give a times string a shot at being normed prior to formating.
@@ -892,9 +991,23 @@ class LibTime(Lib):
                                           format=format) from None
         return ret
 
-    async def parse(self, valu, format):
+    async def _parse(self, valu, format):
         '''
-        Parse a timestamp string using datetimte.strptime formatting.
+        Parse a timestamp string using ``datetime.strptime()`` into an epoch timestamp.
+
+        Args:
+            valu (str): The timestamp string to parse.
+            format (str): The format string to use for parsing.
+
+        Examples:
+            Parse a string as for its month/day/year value into a timestamp::
+
+                cli> storm $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
+
+                1590969600000
+
+        Returns:
+            int: The epoch timetsamp for the string.
         '''
         try:
             dt = datetime.datetime.strptime(valu, format)
@@ -904,14 +1017,39 @@ class LibTime(Lib):
                                           format=format) from None
         return int((dt - s_time.EPOCH).total_seconds() * 1000)
 
-    async def sleep(self, valu):
+    async def _sleep(self, valu):
         '''
-        Sleep/yield execution of the storm query.
+        Pause the processing of data in the storm query.
+
+        Args:
+            valu (int): The number of seconds to pause for.
+
+        Notes:
+            This has the effect of clearing the Snap's cache, so any node lifts performed
+            after the ``$lib.time.sleep(...)`` executes will be lifted directly from storage.
+
+        Returns:
+
         '''
         await self.runt.snap.waitfini(timeout=float(valu))
         await self.runt.snap.clearCache()
 
-    async def ticker(self, tick, count=None):
+    async def _ticker(self, tick, count=None):
+        '''
+        Periodically pause the processing of data in the storm query.
+
+        Args:
+            tick (int): The amount of time to wait between each tick, in seconds.
+            count (int): The number of times to pause the query before exiting the loop.
+                         This defaults to None and yield forever if not set.
+
+        Notes:
+            This has the effect of clearing the Snap's cache, so any node lifts performed
+            after each tick will be lifted directly from storage.
+
+        Returns:
+            int: This yields the current tick count after each time it wakes up.
+        '''
 
         if count is not None:
             count = await toint(count)
@@ -929,15 +1067,23 @@ class LibTime(Lib):
             if count is not None and offs == count:
                 break
 
-    async def fromunix(self, secs):
+    async def _fromunix(self, secs):
         '''
-        Normalize a timestamp from a unix epoch time.
+        Normalize a timestamp from a unix epoch time in seconds to milliseconds.
 
-        Example:
+        Args:
+            secs (int): Unix epoch time in seconds.
 
-            <query> [ :time = $lib.time.fromunix($epoch) ]
+        Examples:
+            Convert a timestamp from seconds to millis and format it::
 
+                cli> storm $seconds=1594684800 $millis=$lib.time.fromunix($seconds)
+                     $str=$lib.time.format($millis, '%A %d, %B %Y') $lib.print($str)
 
+                Tuesday 14, July 2020
+
+        Returns:
+            int: The normalized time in milliseconds.
         '''
         secs = float(secs)
         return int(secs * 1000)
@@ -1021,7 +1167,6 @@ class LibFeed(Lib):
 class LibQueue(Lib):
     _storm_lib_path = ('queue',)
 
-    # @classmethod
     def getObjLocals(self):
         return {
             'add': self._methQueueAdd,
