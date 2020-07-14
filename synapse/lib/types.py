@@ -23,6 +23,10 @@ class Type:
     _opt_defs = ()
     stortype: int = None  # type: ignore
 
+    # a fast-access way to determine if the type is an array
+    # ( due to hot-loop needs in the storm runtime )
+    isarray = False
+
     def __init__(self, modl, name, info, opts):
         '''
         Construct a new Type object.
@@ -379,6 +383,8 @@ class Bool(Type):
 
 class Array(Type):
 
+    isarray = True
+
     def postTypeInit(self):
 
         self.isuniq = self.opts.get('uniq', False)
@@ -567,6 +573,7 @@ class Hex(Type):
         self.setNormFunc(bytes, self._normPyBytes)
         self.storlifts.update({
             '=': self._storLiftEq,
+            '^=': self._storLiftPref,
         })
 
     def _storLiftEq(self, cmpr, valu):
@@ -578,6 +585,11 @@ class Hex(Type):
                 )
 
         return self._storLiftNorm(cmpr, valu)
+
+    def _storLiftPref(self, cmpr, valu):
+        return (
+            ('^=', valu.lower(), self.stortype),
+        )
 
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
