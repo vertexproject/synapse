@@ -338,7 +338,7 @@ class NexsRoot(s_base.Base):
                             respfutu.set_result(retn)
 
             except asyncio.CancelledError: # pragma: no cover
-                return
+                raise
 
             except Exception:
                 logger.exception('error in mirror loop')

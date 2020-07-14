@@ -679,6 +679,10 @@ class Client(s_base.Base):
                 logger.warning(f'telepath client ({url}): {e}')
                 await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
 
+    async def proxy(self, timeout=10):
+        await self.waitready(timeout=timeout)
+        return self._t_proxy
+
     async def _initTeleLink(self, url):
         if self._t_proxy is not None:
             await self._t_proxy.fini()
