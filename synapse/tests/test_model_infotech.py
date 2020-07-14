@@ -713,31 +713,35 @@ class InfotechModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             baseFile = s_common.ehex(s_common.buid())
+            func = s_common.guid()
             fva = 0x404438
             rank = 33
             complexity = 60
+            funccalls = ((baseFile, func), )
             fopt = {'vars': {'file': baseFile,
-                             'func': s_common.guid(),
+                             'func': func,
                              'fva': fva,
                              'rank': rank,
-                             'cmplx': complexity}}
+                             'cmplx': complexity,
+                             'funccalls': funccalls}}
             vstr = 'VertexBrandArtisanalBinaries'
-            sopt = {'vars': {'func': fopt['vars']['func'],
+            sopt = {'vars': {'func': func,
                              'string': vstr}}
             name = "FunkyFunction"
             descrp = "Test Function"
-            impcalls = ("libr.foo1", "libr.foo2", "libr.foo3")
-            funcopt = {'vars': {'name': name, 
+            impcalls = ("libr.foo", "libr.foo2", "libr.foo3")
+            funcopt = {'vars': {'name': name,
                                 'descrp': descrp,
                                 'impcalls': impcalls}}
 
-            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva :rank=$rank :cmplx=$cmplx]', opts=fopt)
+            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva :rank=$rank :cmplx=$cmplx :funccalls=$funccalls]', opts=fopt)
             snode = await core.nodes('[it:reveng:funcstr=($func, $string)]', opts=sopt)
             self.len(1, fnode)
             self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
             self.eq(fva, fnode[0].get('va'))
             self.eq(rank, fnode[0].get('rank'))
             self.eq(complexity, fnode[0].get('cmplx'))
+            self.eq((f'sha256:{baseFile}', func), fnode[0].get('funccalls')[0])
 
             self.len(1, snode)
             self.eq(fnode[0].get('function'), snode[0].get('function'))
@@ -748,6 +752,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(name, funcnode[0].get('name'))
             self.eq(descrp, funcnode[0].get('description'))
             self.len(len(impcalls), funcnode[0].get('impcalls'))
+            self.eq(impcalls[0], funcnode[0].get('impcalls')[0])
 
             nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function')
             self.len(1, nodes)
