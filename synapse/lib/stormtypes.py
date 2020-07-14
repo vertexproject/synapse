@@ -191,6 +191,9 @@ class Lib(StormType):
 
 @registry.registerLib
 class LibPkg(Lib):
+    '''
+    Storm Library for interacting with Storm Packages.
+    '''
     _storm_lib_path = ('pkg',)
 
     def getObjLocals(self):
@@ -201,18 +204,45 @@ class LibPkg(Lib):
         }
 
     async def _libPkgAdd(self, pkgdef):
+        '''
+        Add a Storm Package to the Cortex.
+
+        Args:
+            pkgdef (dict): A Storm Package definition.
+
+        Returns:
+            dict: The validated storm package definition.
+        '''
         self.runt.user.confirm(('pkgs', 'add'), None)
         await self.runt.snap.core.addStormPkg(pkgdef)
 
     async def _libPkgDel(self, name):
+        '''
+        Delete a Storm Package from the Cortex.
+
+        Args:
+            name (str): The name of the package to delete.
+
+        Returns:
+            None
+        '''
         self.runt.user.confirm(('pkgs', 'del'), None)
         await self.runt.snap.core.delStormPkg(name)
 
     async def _libPkgList(self):
+        '''
+        Get a list of Storm Packages loaded in the Cortex.
+
+        Returns:
+            list: A list of Storm Package definitions.
+        '''
         return await self.runt.snap.core.getStormPkgs()
 
 @registry.registerLib
 class LibDmon(Lib):
+    '''
+    Storm Library for interacting with StormDmons.
+    '''
     _storm_lib_path = ('dmon',)
 
     # @classmethod
@@ -225,7 +255,15 @@ class LibDmon(Lib):
         }
 
     async def _libDmonDel(self, iden):
+        '''
+        Delete a StormDmon by iden.
 
+        Args:
+            iden (str): The iden of the StormDmon to delete.
+
+        Returns:
+            None: Returns None.
+        '''
         dmon = await self.runt.snap.core.getStormDmon(iden)
         if dmon is None:
             mesg = f'No storm dmon with iden: {iden}'
@@ -237,17 +275,43 @@ class LibDmon(Lib):
         await self.runt.snap.core.delStormDmon(iden)
 
     async def _libDmonList(self):
+        '''
+        Get a list of StormDmons.
+
+        Returns:
+            list: A list of StormDmons.
+        '''
         return await self.runt.snap.core.getStormDmons()
 
     async def _libDmonLog(self, iden):
+        '''
+        Get the messages from a StormDmon.
+
+        Args:
+            iden (str): The iden of the StormDmon to get logs for.
+
+        Returns:
+            list: A list of messages from the StormDmon.
+        '''
         self.runt.user.confirm(('dmon', 'log'))
         return await self.runt.snap.core.getStormDmonLog(iden)
 
     async def _libDmonAdd(self, quer, name='noname'):
         '''
-        Add a storm dmon (persistent background task) to the cortex.
+        Add a StormDmon to the Cortex.
 
-        $lib.dmon.add(${ myquery })
+        Args:
+            quer (str): The query to execute.
+            name (str): The name of the Dmon.
+
+        Examples:
+
+            Add a dmon that executes a query::
+
+                $lib.dmon.add(${ myquery }, name='example dmon')
+
+        Returns:
+            str: The iden of the newly created StormDmon.
         '''
         self.runt.user.confirm(('dmon', 'add'))
 
@@ -272,6 +336,9 @@ class LibDmon(Lib):
 
 @registry.registerLib
 class LibService(Lib):
+    '''
+    A Storm Library for interacting with Storm Services.
+    '''
     _storm_lib_path = ('service',)
 
     def getObjLocals(self):
@@ -284,6 +351,16 @@ class LibService(Lib):
         }
 
     async def _libSvcAdd(self, name, url):
+        '''
+        Add a Storm Service to the Cortex.
+
+        Args:
+            name (str): Name of the Storm Service..
+            url (str): The Telepath URL to the Storm Service.
+
+        Returns:
+            dict: The Storm Service definition.
+        '''
 
         self.runt.user.confirm(('service', 'add'))
         sdef = {
@@ -293,10 +370,28 @@ class LibService(Lib):
         return await self.runt.snap.core.addStormSvc(sdef)
 
     async def _libSvcDel(self, iden):
+        '''
+        Remove a Storm Service from the Cortex.
+
+        Args:
+            iden (str): The iden of the servie to remove.
+
+        Returns:
+            None: Returns None.
+        '''
         self.runt.user.confirm(('service', 'del'))
         return await self.runt.snap.core.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
+        '''
+        Get a Storm Service definition.
+
+        Args:
+            name (str): The name, or iden, of the service to get the definition for.
+
+        Returns:
+            dict: A Storm Service definition.
+        '''
         self.runt.user.confirm(('service', 'get', name))
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
@@ -305,6 +400,16 @@ class LibService(Lib):
         return ssvc
 
     async def _libSvcList(self):
+        '''
+        List the Storm Service definitions for the Cortex.
+
+        Notes:
+            The definition dictionaries have an additional ``ready`` key added to them to
+            indicate if the Cortex is currently connected to the Storm Service or not.
+
+        Returns:
+            list: A list of Storm Service definitions.
+        '''
         self.runt.user.confirm(('service', 'list'))
         retn = []
 
@@ -316,6 +421,15 @@ class LibService(Lib):
         return retn
 
     async def _libSvcWait(self, name):
+        '''
+        Wait for a given service to be ready.
+
+        Args:
+            name (str): The name, or iden, of the service to wait for.
+
+        Returns:
+            True: When the service is ready.
+        '''
         self.runt.user.confirm(('service', 'get'))
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
@@ -326,6 +440,9 @@ class LibService(Lib):
 
 @registry.registerLib
 class LibBase(Lib):
+    '''
+    The Base Storm Library. This primarilly contains utility functionality.
+    '''
     _storm_lib_path = ()
 
     # @classmethod
