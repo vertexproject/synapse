@@ -1002,10 +1002,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The virtual address of the first codeblock of the function'}),
                     ('rank', ('int', {}), {
                         'doc': 'The function rank score used to evaluate if it exhibits interesting behavior.'}),
-                    ('cmplx', ('int', {}), {
-                        'doc': 'The cyclomatic complexity of the function.'}),
+                    ('complexity', ('int', {}), {
+                        'doc': 'The complexity of the function.'}),
                     ('funccalls', ('array', {'type': 'it:reveng:filefunc'}), {
-                        'doc': 'Other functions calls within the scope of the function.',
+                        'doc': 'Other function calls within the scope of the function.',
                     }),
                 )),
 

@@ -734,13 +734,13 @@ class InfotechModelTest(s_t_utils.SynTest):
                                 'descrp': descrp,
                                 'impcalls': impcalls}}
 
-            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva :rank=$rank :cmplx=$cmplx :funccalls=$funccalls]', opts=fopt)
+            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva :rank=$rank :complexity=$cmplx :funccalls=$funccalls]', opts=fopt)
             snode = await core.nodes('[it:reveng:funcstr=($func, $string)]', opts=sopt)
             self.len(1, fnode)
             self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
             self.eq(fva, fnode[0].get('va'))
             self.eq(rank, fnode[0].get('rank'))
-            self.eq(complexity, fnode[0].get('cmplx'))
+            self.eq(complexity, fnode[0].get('complexity'))
             self.eq((f'sha256:{baseFile}', func), fnode[0].get('funccalls')[0])
 
             self.len(1, snode)
