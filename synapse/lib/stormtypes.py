@@ -929,6 +929,9 @@ class LibLift(Lib):
 
 @registry.registerLib
 class LibTime(Lib):
+    '''
+    A Storm Library for interacting with timestamps.
+    '''
     _storm_lib_path = ('time',)
 
     def getObjLocals(self):
@@ -1041,7 +1044,7 @@ class LibTime(Lib):
         Args:
             tick (int): The amount of time to wait between each tick, in seconds.
             count (int): The number of times to pause the query before exiting the loop.
-                         This defaults to None and yield forever if not set.
+                This defaults to None and yield forever if not set.
 
         Notes:
             This has the effect of clearing the Snap's cache, so any node lifts performed
@@ -1090,6 +1093,9 @@ class LibTime(Lib):
 
 @registry.registerLib
 class LibCsv(Lib):
+    '''
+    A Storm Library for interacting with csvtool.
+    '''
     _storm_lib_path = ('csv',)
 
     def getObjLocals(self):
@@ -1100,12 +1106,22 @@ class LibCsv(Lib):
     async def _libCsvEmit(self, *args, table=None):
         '''
         Emit a csv:row event for the given args.
+
+        Args:
+            *args: A list of items which are emitted as a ``csv:row`` event.
+            table (str): The name of the table to emit data too. Optional.
+
+        Returns:
+            None: Returns None.
         '''
         row = [await toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
 
 @registry.registerLib
 class LibFeed(Lib):
+    '''
+    A Storm Library for interacting with Cortex feed functions.
+    '''
     _storm_lib_path = ('feed',)
 
     def getObjLocals(self):
@@ -1138,6 +1154,12 @@ class LibFeed(Lib):
             return self.runt.snap.addFeedNodes(name, data)
 
     async def _libList(self):
+        '''
+        Get a list of feed functions.
+
+        Returns:
+            list: A list of feed functions.
+        '''
         todo = ('getFeedFuncs', (), {})
         return await self.runt.dyncall('cortex', todo)
 
@@ -1165,6 +1187,9 @@ class LibFeed(Lib):
 
 @registry.registerLib
 class LibQueue(Lib):
+    '''
+    A Storm Library for interacting with persistent Queues in the Cortex.
+    '''
     _storm_lib_path = ('queue',)
 
     def getObjLocals(self):
@@ -1176,6 +1201,15 @@ class LibQueue(Lib):
         }
 
     async def _methQueueAdd(self, name):
+        '''
+        Add a Queue to the Cortex with a given name.
+
+        Args:
+            name (str): The name of the queue.
+
+        Returns:
+            Queue: A Storm Queue object.
+        '''
 
         info = {
             'time': s_common.now(),
@@ -1189,6 +1223,15 @@ class LibQueue(Lib):
         return Queue(self.runt, name, info)
 
     async def _methQueueGet(self, name):
+        '''
+        Get an existing Storm Queue object.
+
+        Args:
+            name (str): The name of the Queue to get.
+
+        Returns:
+            Queue: A Storm Queue object.
+        '''
         todo = s_common.todo('getCoreQueue', name)
         gatekeys = ((self.runt.user.iden, ('queue', 'get'), f'queue:{name}'),)
         info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -1196,11 +1239,26 @@ class LibQueue(Lib):
         return Queue(self.runt, name, info)
 
     async def _methQueueDel(self, name):
+        '''
+        Delete a given named Queue.
+
+        Args:
+            name (str): The name of the queue to delete.
+
+        Returns:
+            None: Returns None.
+        '''
         todo = s_common.todo('delCoreQueue', name)
         gatekeys = ((self.runt.user.iden, ('queue', 'del',), f'queue:{name}'), )
         await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueList(self):
+        '''
+        Get a list of the Queues in the Cortex.
+
+        Returns:
+            list: A list of queue definitions the current user is allowed to interact with.
+        '''
         retn = []
 
         todo = s_common.todo('listCoreQueues')
@@ -1303,6 +1361,9 @@ class Queue(StormType):
 
 @registry.registerLib
 class LibTelepath(Lib):
+    '''
+    A Storm Library for making Telepath connections to remote services.
+    '''
     _storm_lib_path = ('telepath',)
 
     def getObjLocals(self):
@@ -1313,6 +1374,12 @@ class LibTelepath(Lib):
     async def _methTeleOpen(self, url):
         '''
         Open and return a telepath RPC proxy.
+
+        Args:
+            url (str): The Telepath URL to connect too.
+
+        Returns:
+            Proxy: A Storm Proxy representing a Telepath Proxy.
         '''
         scheme = url.split('://')[0]
         self.runt.user.confirm(('lib', 'telepath', 'open', scheme))
@@ -1368,6 +1435,9 @@ class ProxyGenrMethod(StormType):
 
 @registry.registerLib
 class LibBase64(Lib):
+    '''
+    A Storm Library for encoding and decoding base64 data.
+    '''
     _storm_lib_path = ('base64',)
 
     def getObjLocals(self):
@@ -1377,6 +1447,16 @@ class LibBase64(Lib):
         }
 
     async def _encode(self, valu, urlsafe=True):
+        '''
+        Encode a bytes object to a base64 encoded string.
+
+        Args:
+            valu (bytes): The object to encode.
+            urlsafe (bool): Perform the encoding in a urlsafe manner if true.
+
+        Returns:
+            str: A base64 encoded string.
+        '''
         try:
             if urlsafe:
                 return base64.urlsafe_b64encode(valu).decode('ascii')
@@ -1386,6 +1466,16 @@ class LibBase64(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
 
     async def _decode(self, valu, urlsafe=True):
+        '''
+        Decode a string into a bytes object.
+
+        Args:
+            valu (str): The string to decode.
+            urlsafe (bool): Perform the decoding in a urlsafe manner if true.
+
+        Returns:
+            bytes: A bytes object for the decoded data.
+        '''
         try:
             if urlsafe:
                 return base64.urlsafe_b64decode(valu)
@@ -1736,6 +1826,9 @@ class Bool(Prim):
 
 @registry.registerLib
 class LibUser(Lib):
+    '''
+    A Storm Library for interacting with data about the current user.
+    '''
     _storm_lib_path = ('user', )
 
     def getObjLocals(self):
@@ -1751,13 +1844,19 @@ class LibUser(Lib):
             'profile': StormHiveDict(self.runt, self.runt.user.profile),
         })
 
-    async def _libUserName(self, path=None):
+    async def _libUserName(self):
+        '''
+        Get the name of the current runtime user.
+
+        Returns:
+            str: The name of the current user.
+        '''
         return self.runt.user.name
 
 @registry.registerLib
 class LibGlobals(Lib):
     '''
-    Global persistent Storm variables
+    A Storm Library for interacting global variables which are persistent across the Cortex.
     '''
     _storm_lib_path = ('globals', )
 
@@ -1778,6 +1877,16 @@ class LibGlobals(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
     async def _methGet(self, name, default=None):
+        '''
+        Get a Cortex global variables.
+
+        Args:
+            name (str): Name of the variable.
+            default: Default value to return if the variable is not set.
+
+        Returns:
+            The variable value.
+        '''
         self._reqStr(name)
 
         useriden = self.runt.user.iden
@@ -1786,6 +1895,16 @@ class LibGlobals(Lib):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methPop(self, name, default=None):
+        '''
+        Delete a variable value from the Cortex.
+
+        Args:
+            name (str): Name of the variable.
+            default: Default value to return if the variable is not set.
+
+        Returns:
+            The variable value.
+        '''
         self._reqStr(name)
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('globals', 'pop', name), None),)
@@ -1793,6 +1912,16 @@ class LibGlobals(Lib):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methSet(self, name, valu):
+        '''
+        Set a variable value in the Cortex.
+
+        Args:
+            name (str): Name of the variable.
+            valu: The value to set.
+
+        Returns:
+            The variable value.
+        '''
         self._reqStr(name)
         valu = await toprim(valu)
         useriden = self.runt.user.iden
@@ -1801,6 +1930,12 @@ class LibGlobals(Lib):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methList(self):
+        '''
+        Get a list of variable names and values.
+
+        Returns:
+            list: A list of variable names and values that the user can access.
+        '''
         ret = []
         user = self.runt.user
 
@@ -1853,6 +1988,9 @@ class StormHiveDict(Prim):
 
 @registry.registerLib
 class LibVars(Lib):
+    '''
+    A Storm Library for interacting with runtime variables.
+    '''
     _storm_lib_path = ('vars',)
 
     def getObjLocals(self):
@@ -1865,25 +2003,48 @@ class LibVars(Lib):
 
     async def _libVarsGet(self, name, defv=None):
         '''
-        Resolve a variable in a storm query
+        Get the value of a variable from the current Runtime.
+
+        Args:
+            name (str): Name of the variable to get.
+            defv: The default value returned if the variable is not set in the runtime.
+
+        Returns:
+            The value of the variable.
         '''
         return self.runt.getVar(name, defv=defv)
 
     async def _libVarsSet(self, name, valu):
         '''
-        Set a variable in a storm query
+        Set the value of a variable in the current Runtime.
+
+        Args:
+            name (str): Name of the variable to set.
+            valu: The value to set the variable too.
+
+        Returns:
+            None: Returns None.
         '''
         self.runt.setVar(name, valu)
 
     async def _libVarsDel(self, name):
         '''
-        Unset a variable in a storm query.
+        Unset a variable in the current Runtime.
+
+        Args:
+            name (str): The variable name to remove.
+
+        Returns:
+            None: Returns None
         '''
         self.runt.vars.pop(name, None)
 
     async def _libVarsList(self):
         '''
-        List variables available in a storm query.
+        Get a list of variables from the current Runtime.
+
+        Returns:
+            list: A list of variable names and their values for the current Runtime.
         '''
         return list(self.runt.vars.items())
 
@@ -2224,6 +2385,9 @@ class Text(Prim):
 
 @registry.registerLib
 class LibStats(Lib):
+    '''
+    A Storm Library for statistics related functionality.
+    '''
     _storm_lib_path = ('stats',)
 
     def getObjLocals(self):
@@ -2232,6 +2396,12 @@ class LibStats(Lib):
         }
 
     async def tally(self):
+        '''
+        Get a Tally objectl
+
+        Returns:
+            Tally: A Storm Tally object.
+        '''
         return StatTally(path=self.path)
 
 @registry.registerType
@@ -2277,6 +2447,9 @@ class StatTally(Prim):
 
 @registry.registerLib
 class LibLayer(Lib):
+    '''
+    A Storm Library for interacting with Layers in the Cortex.
+    '''
     _storm_lib_path = ('layer',)
 
     def getObjLocals(self):
@@ -2289,7 +2462,13 @@ class LibLayer(Lib):
 
     async def _libLayerAdd(self, ldef=None):
         '''
-        Add a layer to the cortex.
+        Add a layer to the Cortex.
+
+        Args:
+            ldef (dict): A Layer definition.
+
+        Returns:
+            Layer: A Storm Layer object.
         '''
         if ldef is None:
             ldef = {}
@@ -2312,7 +2491,13 @@ class LibLayer(Lib):
 
     async def _libLayerDel(self, iden):
         '''
-        Delete a layer from the cortex.
+        Delete a layer from the Cortex.
+
+        Args:
+            iden (str): The iden of the layer to delete.
+
+        Returns:
+            None: Returns None.
         '''
         todo = s_common.todo('getLayerDef', iden)
         ldef = await self.runt.dyncall('cortex', todo)
@@ -2329,7 +2514,13 @@ class LibLayer(Lib):
 
     async def _libLayerGet(self, iden=None):
         '''
-        Get a layer from the cortex.
+        Get a Layer from the Cortex.
+
+        Args:
+            iden (str): The iden of the layer to get. If not set, this defaults to the default layer of the Cortex.
+
+        Returns:
+            Layer: A Storm Layer object.
         '''
         todo = s_common.todo('getLayerDef', iden)
         ldef = await self.runt.dyncall('cortex', todo)
@@ -2341,7 +2532,10 @@ class LibLayer(Lib):
 
     async def _libLayerList(self):
         '''
-        List the layers in a cortex.
+        List the layers in a Cortex:
+
+        Returns:
+            list: A list of Storm Layer objects.
         '''
         todo = s_common.todo('getLayerDefs')
         defs = await self.runt.dyncall('cortex', todo)
@@ -2406,6 +2600,9 @@ class Layer(Prim):
 
 @registry.registerLib
 class LibView(Lib):
+    '''
+    A Storm Library for interacting with Views in the Cortex.
+    '''
     _storm_lib_path = ('view',)
 
     def getObjLocals(self):
@@ -2418,7 +2615,14 @@ class LibView(Lib):
 
     async def _methViewAdd(self, layers, name=None):
         '''
-        Add a view to the cortex.
+        Add a View to the Cortex.
+
+        Args:
+            layers (list): A list of idens which make up the view.
+            name (str): The name of the view.
+
+        Returns:
+            View: A Storm View object.
         '''
         self.runt.confirm(('view', 'add'))
 
@@ -2437,6 +2641,15 @@ class LibView(Lib):
         return View(self.runt, vdef, path=self.path)
 
     async def _methViewDel(self, iden):
+        '''
+        Delete a View from the Cortex.
+
+        Args:
+            iden (str): The iden of the view to delete.
+
+        Returns:
+            None: Returns None.
+        '''
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('view', 'del'), iden),)
         todo = ('delView', (iden,), {})
@@ -2444,7 +2657,13 @@ class LibView(Lib):
 
     async def _methViewGet(self, iden=None):
         '''
-        Retrieve a view from the cortex.
+        Get a View from the Cortex.
+
+        Args:
+            iden (str): The iden of the View to get. If not specified, returns the default View for the Cortex.
+
+        Returns:
+            View: A Storm View object.
         '''
         todo = s_common.todo('getViewDef', iden)
         vdef = await self.runt.dyncall('cortex', todo)
@@ -2455,7 +2674,10 @@ class LibView(Lib):
 
     async def _methViewList(self):
         '''
-        List the views in the cortex.
+        List the Views in the Cortex.
+
+        Returns:
+            list: A list of Storm View objects.
         '''
         todo = s_common.todo('getViewDefs')
         defs = await self.runt.dyncall('cortex', todo)
@@ -2576,6 +2798,9 @@ class View(Prim):
 
 @registry.registerLib
 class LibTrigger(Lib):
+    '''
+    A Storm Library for interacting with Triggers in the Cortex.
+    '''
     _storm_lib_path = ('trigger',)
 
     def getObjLocals(self):
@@ -2616,9 +2841,15 @@ class LibTrigger(Lib):
 
         return match
 
-    async def _methTriggerAdd(self, tdef): # cond, form=None, tag=None, prop=None, storm=None, disabled=False):
+    async def _methTriggerAdd(self, tdef):
         '''
-        Add a trigger to the cortex.
+        Add a Trigger to the Cortex.
+
+        Args:
+            tdef (dict): A Trigger definition.
+
+        Returns:
+            Trigger: A Storm Trigger object.
         '''
         tdef = await toprim(tdef)
 
@@ -2659,7 +2890,14 @@ class LibTrigger(Lib):
 
     async def _methTriggerDel(self, prefix):
         '''
-        Delete a trigger from the cortex.
+        Delete a Trigger from the Cortex.
+
+        Args:
+            prefix (str): A prefix to match in order to identify a trigger to delete.
+                Only a single matching prefix will be deleted.
+
+        Returns:
+            str: The iden of the deleted trigger which matched the prefix.
         '''
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
@@ -2674,7 +2912,15 @@ class LibTrigger(Lib):
 
     async def _methTriggerMod(self, prefix, query):
         '''
-        Modify a trigger in the cortex.
+        Modify an existing Trigger in the Cortex.
+
+        Args:
+            prefix (str): A prefix to match in order to identify a trigger to modify.
+                Only a single matching prefix will be modified.
+            query: The new Storm Query to set as the trigger query.
+
+        Returns:
+            str: The iden of the modified Trigger.
         '''
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
@@ -2696,7 +2942,10 @@ class LibTrigger(Lib):
 
     async def _methTriggerList(self):
         '''
-        List triggers in the cortex.
+        Get a list of Triggers in the Cortex.
+
+        Returns:
+            list: A List of trigger objects the user is allowed to access.
         '''
         user = self.runt.user
         view = self.runt.snap.view
@@ -2710,6 +2959,15 @@ class LibTrigger(Lib):
         return triggers
 
     async def _methTriggerGet(self, iden):
+        '''
+        Get a Trigger in the Cortex.
+
+        Args:
+            iden (str): The iden of the Trigger to get.
+
+        Returns:
+            Trigger: A Storm Trigger object.
+        '''
         trigger = await self.runt.snap.view.getTrigger(iden)
         if trigger is None:
             return None
@@ -2720,13 +2978,28 @@ class LibTrigger(Lib):
 
     async def _methTriggerEnable(self, prefix):
         '''
-        Enable a trigger in the cortex.
+        Enable a Trigger in the Cortex.
+
+        Args:
+            prefix (str): A prefix to match in order to identify a trigger to modify.
+                Only a single matching prefix will be modified.
+
+        Returns:
+            str: The iden of the trigger that was enabled.
         '''
         return await self._triggerendisable(prefix, True)
 
     async def _methTriggerDisable(self, prefix):
         '''
-        Enable a trigger in the cortex.
+        Disable a Trigger in the Cortex.
+
+        Args:
+            prefix (str): A prefix to match in order to identify a trigger to modify.
+                Only a single matching prefix will be modified.
+
+        Returns:
+            str: The iden of the trigger that was disabled.
+
         '''
         return await self._triggerendisable(prefix, False)
 
@@ -2780,6 +3053,15 @@ class Trigger(Prim):
         self.valu[name] = valu
 
 def ruleFromText(text):
+    '''
+    Get a rule tuple from a text string.
+
+    Args:
+        text (str): The string to process.
+
+    Returns:
+        (bool, tuple): A tuple containing a bool and a list of permission parts.
+    '''
 
     allow = True
     if text.startswith('!'):
@@ -2790,6 +3072,9 @@ def ruleFromText(text):
 
 @registry.registerLib
 class LibAuth(Lib):
+    '''
+    A Storm Library for interacting with Auth in the Cortex.
+    '''
     _storm_lib_path = ('auth',)
 
     def getObjLocals(self):

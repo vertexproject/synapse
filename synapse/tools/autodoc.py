@@ -601,16 +601,25 @@ async def docStormTypes():
 
         libspage.addLines(*newlines)
 
-        print(libpath, libdoc)
+        # print(libpath, libdoc)
 
         for (name, locl) in lib.getObjLocals(lib).items():  # python trick
 
             if callable(locl):
-                print(name, locl)
+                # print(name, locl)
                 locldoc = getattr(locl, '__doc__')
                 if locldoc is None:
                     locldoc = f'No doc for {name}'
-                print(locldoc)
+                # print(locldoc)
+
+                # RST cleanliness.
+                replaces = (('*args', '\*args'),
+                            ('*vals', '\*vals'),
+                            ('**info', '\*\*info'),
+                            ('**kwargs', '\*\*kwargs'),
+                            )
+                for (new, old) in replaces:
+                    locldoc = locldoc.replace(new, old)
 
                 oldlines = locldoc.split('\n')
                 mylines = []
@@ -622,10 +631,12 @@ async def docStormTypes():
                 newlines = ljuster(mylines)
 
                 callsig = inspect.signature(locl)
-                mycallsig = callsig.replace(parameters=list(callsig.parameters.values())[1:])
+                params = list(callsig.parameters.values())
+                if params and params[0].name == 'self':
+                    callsig = callsig.replace(parameters=params[1:])
 
                 funcpath = '.'.join((libpath, name))
-                header = f'${funcpath}{mycallsig}'
+                header = f'${funcpath}{callsig}'
                 header = header.replace('*', '\*')
 
                 libspage.addHead(header, lvl=2)
