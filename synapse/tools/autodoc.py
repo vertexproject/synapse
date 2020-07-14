@@ -540,6 +540,17 @@ async def docStormsvc(ctor):
 
     return rst, clsname
 
+def ljuster(ilines, indent=0):
+    baseline = ilines[0]
+    assert baseline != ''
+    newbaseline = baseline.lstrip()
+    assert newbaseline != ''
+    diff = len(baseline) - len(newbaseline)
+    assert diff >= 0
+    newlines = [line[diff:] for line in ilines]
+    if indent:
+        newlines = [(' ' * indent) + line for line in newlines]
+    return newlines
 
 async def docStormTypes():
 
@@ -557,6 +568,10 @@ async def docStormTypes():
     libspage = RstHelp()
     libspage.addHead('Storm Libraries', lvl=0)
 
+    libspage.addLines('',
+                      'Storm Libraries are magical unicorns of the Storm query language.',
+                      '')
+
     # TODO generate a toc?
     basepath = 'lib'
     for (path, lib) in libs:
@@ -564,9 +579,25 @@ async def docStormTypes():
             continue
         libpath = '.'.join((basepath,) + path)
 
+        libspage.addHead(f'${libpath}', lvl=1)
+
         libdoc = getattr(lib, '__doc__')
         if libdoc is None:
             libdoc = f'No doc for ${libpath}'
+
+        libdoc = libdoc.strip() # Trim trailing/leading newlines
+        print(f'[{libdoc}]')
+        import json
+        print(json.dumps({'key': libdoc}))
+        print(json.dumps({'key': libdoc.strip()}))
+        lines = libdoc.split('\n')
+        print(lines)
+
+        newlines = ljuster(lines)
+        for line in newlines:
+            print(line)
+
+        libspage.addLines(*newlines)
 
         print(libpath, libdoc)
 
@@ -579,27 +610,34 @@ async def docStormTypes():
                     locldoc = f'No doc for {name}'
                 print(locldoc)
 
+                locldoc = locldoc.strip()
+
+                newlines = ljuster(locldoc.split('\n'))
+
                 callsig = inspect.signature(locl)
                 print(callsig)
 
-                gdoc = napoleon.GoogleDocstring(locldoc, what='function')
-                for line in gdoc.lines():
-                    print(line)
+                # gdoc = napoleon.GoogleDocstring(locldoc, what='function')
+                # for line in gdoc.lines():
+                #     print(line)
 
             else:
                 print(name, locl)
                 print('IS NOTCALLABLE')
 
-    for (sname, styp) in types:
-        print(sname, styp)
-        locls = styp.getObjLocals(styp)
-        for (name, locl) in locls.items():
-            if callable(locl):
-                print('weee')
-                print(name, locl)
-            else:
-                print(name, locl)
-                print('IS NOTCALLABLE')
+    text = libspage.getRstText()
+    print(text)
+
+    # for (sname, styp) in types:
+    #     print(sname, styp)
+    #     locls = styp.getObjLocals(styp)
+    #     for (name, locl) in locls.items():
+    #         if callable(locl):
+    #             print('weee')
+    #             print(name, locl)
+    #         else:
+    #             print(name, locl)
+    #             print('IS NOTCALLABLE')
 
     # Need a libs page which sorts the libs in hierarchical order
     # prepending them all with a lib prefix
