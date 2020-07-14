@@ -524,6 +524,18 @@ class LibBase(Lib):
         return s_common.guid()
 
     async def _len(self, item):
+        '''
+        Get the length of a item.
+
+        This could represent the size of a string, or the number of keys in
+        a dictionary, or the number of elements in an array.
+
+        Args:
+            item: The item to get the length of.
+
+        Returns:
+            int: The length.
+        '''
         try:
             return len(item)
         except TypeError:
@@ -567,6 +579,19 @@ class LibBase(Lib):
         return mesg
 
     async def _print(self, mesg, **kwargs):
+        '''
+        Print a message to the runtime.
+
+        Args:
+            mesg (str): String to print.
+            **kwargs: Words go here FIXME
+
+        Notes:
+            Arbitrary objects can be printed as well. They will have their Python __repr()__ printed.
+
+        Returns:
+            None: Returns None.
+        '''
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
 

@@ -560,6 +560,8 @@ async def docStormTypes():
     # TODO generate a toc?
     basepath = 'lib'
     for (path, lib) in libs:
+        if path not in (('pkg',), ('dmon',), ('service',), ()):
+            continue
         libpath = '.'.join((basepath,) + path)
 
         libdoc = getattr(lib, '__doc__')
