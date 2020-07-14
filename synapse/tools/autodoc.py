@@ -565,7 +565,9 @@ async def docStormTypes():
         print(obj)
 
     # FIXME add links!
+    typespage = RstHelp
     libspage = RstHelp()
+
     libspage.addHead('Storm Libraries', lvl=0)
 
     libspage.addLines('',
@@ -575,8 +577,8 @@ async def docStormTypes():
     # TODO generate a toc?
     basepath = 'lib'
     for (path, lib) in libs:
-        if path not in (('pkg',), ('dmon',), ('service',), ()):
-            continue
+        # if path not in (('pkg',), ('dmon',), ('service',), ()):
+        #     continue
         libpath = '.'.join((basepath,) + path)
 
         libspage.addHead(f'${libpath}', lvl=1)
@@ -610,18 +612,32 @@ async def docStormTypes():
                     locldoc = f'No doc for {name}'
                 print(locldoc)
 
-                locldoc = locldoc.strip()
+                oldlines = locldoc.split('\n')
+                mylines = []
+                for line in oldlines:
+                    if line == '' and not mylines:
+                        continue
+                    mylines.append(line)
 
-                newlines = ljuster(locldoc.split('\n'))
+                newlines = ljuster(mylines)
 
                 callsig = inspect.signature(locl)
-                print(callsig)
+                mycallsig = callsig.replace(parameters=list(callsig.parameters.values())[1:])
+
+                funcpath = '.'.join((libpath, name))
+                header = f'${funcpath}{mycallsig}'
+                header = header.replace('*', '\*')
+
+                libspage.addHead(header, lvl=2)
+
+                libspage.addLines(*newlines)
 
                 # gdoc = napoleon.GoogleDocstring(locldoc, what='function')
                 # for line in gdoc.lines():
                 #     print(line)
 
             else:
+                # TODO - Handle package constants
                 print(name, locl)
                 print('IS NOTCALLABLE')
 
@@ -643,6 +659,8 @@ async def docStormTypes():
     # prepending them all with a lib prefix
 
     # Need a types page. They need to be sorted and have docs extracted from them
+
+    return libspage, typespage
 
 
 async def main(argv, outp=None):
@@ -686,7 +704,13 @@ async def main(argv, outp=None):
                 fd.write(confdocs.getRstText().encode())
 
     if opts.doc_stormtypes:
-        docs = await docStormTypes()
+        libdocs, typedocs = await docStormTypes()
+        if opts.savedir:
+            with open(s_common.genpath(opts.savedir, f'stormtypes_libs.rst'), 'wb') as fd:
+                fd.write(libdocs.getRstText().encode())
+            #
+            # with open(s_common.genpath(opts.savedir, f'stormtypes_types.rst'), 'wb') as fd:
+            #     fd.write(typedocs.getRstText().encode())
 
     return 0
 

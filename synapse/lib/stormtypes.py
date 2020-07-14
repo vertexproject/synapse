@@ -305,7 +305,6 @@ class LibDmon(Lib):
             name (str): The name of the Dmon.
 
         Examples:
-
             Add a dmon that executes a query::
 
                 $lib.dmon.add(${ myquery }, name='example dmon')
