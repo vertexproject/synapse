@@ -1113,6 +1113,9 @@ class InetModule(s_module.CoreModule):
 
                         ('bytes', ('file:bytes', {}), {
                             'doc': 'The file bytes which contain the email message.'}),
+
+                        ('headers', ('array', {'type': 'inet:email:header'}), {
+                            'doc': 'An array of email headers from the message.'}),
                     )),
 
                     ('inet:email:header', {}, (
@@ -1446,12 +1449,17 @@ class InetModule(s_module.CoreModule):
                         ('query', ('str', {}), {
                             'doc': 'The HTTP query string which optionally follows the path.'}),
 
+                        ('headers', ('array', {'type': 'inet:http:request:header'}), {
+                            'doc': 'An array of HTTP headers from the request.'}),
+
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),
 
                         ('response:time', ('time', {}), {}),
                         ('response:code', ('int', {}), {}),
                         ('response:reason', ('str', {}), {}),
+                        ('response:headers', ('array', {'type': 'inet:http:response:header'}), {
+                            'doc': 'An array of HTTP headers from the response.'}),
                         ('response:body', ('file:bytes', {}), {}),
 
                     )),
