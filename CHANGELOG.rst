@@ -3,6 +3,15 @@ Synapse Changelog
 *****************
 
 
+v2.3.1 - 2020-07-13
+===================
+
+Bugfixes
+--------
+- Prohibit invalid rules from being set on a User or Role object.
+  (`#1798 <https://github.com/vertexproject/synapse/pull/1798>`_)
+
+
 v2.3.0 - 2020-07-09
 ===================
 
