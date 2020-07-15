@@ -2435,7 +2435,7 @@ class ScrapeCmd(Cmd):
         # Scrape properties from inbound nodes and create standalone nodes.
         inet:search:query | scrape
 
-        # Scrape properties from inbound nodes and make edge:refs to the scraped nodes.
+        # Scrape properties from inbound nodes and make refs light edges to the scraped nodes.
         inet:search:query | scrape --refs
 
         # Scrape only the :engine and :text props from the inbound nodes.
@@ -2451,9 +2451,9 @@ class ScrapeCmd(Cmd):
         pars = Cmd.getArgParser(self)
 
         pars.add_argument('--refs', '-r', default=False, action='store_true',
-                          help='Create edge:refs to any scraped nodes from the input node')
+                          help='Create refs light edges to any scraped nodes from the input node')
         pars.add_argument('--yield', dest='doyield', default=False, action='store_true',
-                          help='Include newly scraped nodes (or edge:refs if --refs) in the output')
+                          help='Include newly scraped nodes in the output')
         pars.add_argument('values', nargs='*',
                           help='Specific relative properties or variables to scrape')
         return pars
@@ -2498,13 +2498,12 @@ class ScrapeCmd(Cmd):
 
                 for form, valu in s_scrape.scrape(text):
 
-                    if refs:
-                        valu = (node.ndef, (form, valu))
-                        form = 'edge:refs'
-
                     try:
                         nnode = await node.snap.addNode(form, valu)
                         npath = path.fork(nnode)
+
+                        if refs:
+                            await node.addEdge('refs', nnode.iden())
 
                         if self.opts.doyield:
                             yield nnode, npath
