@@ -3,6 +3,25 @@ Synapse Changelog
 *****************
 
 
+v2.4.0 - 2020-07-15
+===================
+
+Features and Enhancements
+-------------------------
+
+- Update the Storm ``scrape`` command to make ``refs`` light edges, instead of ``edge:refs`` nodes.
+  (`#1801 <https://github.com/vertexproject/synapse/pull/1801>`_)
+  (`#1803 <https://github.com/vertexproject/synapse/pull/1803>`_)
+- Add ``:headers`` and ``:response:headers`` secondary properties to the ``inet:http:request`` form as Array types, so
+  that requests can be directly linked to headers.
+  (`#1800 <https://github.com/vertexproject/synapse/pull/1800>`_)
+- Add ``:headers`` secondary property to the ``inet:email:messaage`` form as Array types, so that messages can be
+  directly linked to headers.
+  (`#1800 <https://github.com/vertexproject/synapse/pull/1800>`_)
+- Add additional model elements to support recording additional data for binary reverse engineering.
+  (`#1802 <https://github.com/vertexproject/synapse/pull/1802>`_)
+
+
 v2.3.1 - 2020-07-13
 ===================
 
