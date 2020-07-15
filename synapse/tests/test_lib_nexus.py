@@ -73,6 +73,8 @@ class NexusTest(s_t_utils.SynTest):
 
                     self.eq('doc', nexus1.doathingauto2.__doc__)
 
+                    self.eq(3, await nexsroot.index())
+
                     async with await SampleNexus2.anit(2, nexsroot=nexsroot) as testkid:
 
                         eventdict = {'specialpush': 0}
@@ -111,6 +113,8 @@ class NexusTest(s_t_utils.SynTest):
                     self.eq('foo', await nexus1.doathing2(eventdict))
                     self.eq(1, eventdict.get('happened'))
                     self.eq(1, eventdict.get('gotindex'))
+
+                    self.eq(2, await nexsroot.index())
 
                     async with await SampleNexus2.anit(2, nexsroot=nexsroot) as nexus2:
                         eventdict = {'specialpush': 0}

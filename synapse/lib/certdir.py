@@ -860,7 +860,7 @@ class CertDir:
             certfile = self.getUserCertPath(certname)
             if certfile is None:
                 mesg = f'Missing TLS certificate file for user: {certname}'
-                raise s_exc.NoCertKey(mesg=mesg)
+                raise s_exc.NoSuchCert(mesg=mesg)
 
             keyfile = self.getUserKeyPath(certname)
             if keyfile is None:

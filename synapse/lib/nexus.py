@@ -106,7 +106,7 @@ class NexsRoot(s_base.Base):
 
         async def fini():
 
-            for futu in self._futures.values():
+            for futu in self._futures.values(): # pragma: no cover
                 futu.cancel()
 
             await self.nexsslab.fini()
@@ -138,7 +138,7 @@ class NexsRoot(s_base.Base):
             The log can only have recorded 1 entry ahead of what is applied.  All log actions are idempotent, so
             replaying the last action that (might have) already happened is harmless.
         '''
-        if not self.donexslog:
+        if not self.donexslog: # pragma: no cover
             return
 
         indxitem = self.nexslog.last()
@@ -208,7 +208,7 @@ class NexsRoot(s_base.Base):
 
         else:
             saveindx = self.nexshot.get('nexs:indx')
-            if indx is not None and indx > saveindx:
+            if indx is not None and indx > saveindx: # pragma: no cover
                 saveindx = self.nexshot.set('nexs:indx', indx)
 
             self.nexshot.inc('nexs:indx')
@@ -239,7 +239,7 @@ class NexsRoot(s_base.Base):
         maxoffs = offs
 
         for item in self.nexslog.iter(offs):
-            if self.isfini:
+            if self.isfini: # pragma: no cover
                 raise s_exc.IsFini()
             maxoffs = item[0] + 1
             yield item
@@ -307,11 +307,11 @@ class NexsRoot(s_base.Base):
                 genr = proxy.getNexusChanges(offs)
                 async for item in genr:
 
-                    if proxy.isfini:
+                    if proxy.isfini: # pragma: no cover
                         break
 
                     offs, args = item
-                    if offs != self.nexslog.index():  # pragma: nocover
+                    if offs != self.nexslog.index():  # pragma: no cover
                         logger.error('mirror desync')
                         await self.fini()
                         return
@@ -323,14 +323,14 @@ class NexsRoot(s_base.Base):
                     try:
                         retn = await self.eat(*args)
 
-                    except asyncio.CancelledError:
+                    except asyncio.CancelledError: # pragma: no cover
                         raise
 
                     except Exception as e:
                         if respfutu is not None:
                             assert not respfutu.done()
                             respfutu.set_exception(e)
-                        else:
+                        else: # pragma: no cover
                             logger.exception(e)
 
                     else:
@@ -340,7 +340,7 @@ class NexsRoot(s_base.Base):
             except asyncio.CancelledError: # pragma: no cover
                 raise
 
-            except Exception:
+            except Exception: # pragma: no cover
                 logger.exception('error in mirror loop')
 
 class Pusher(s_base.Base, metaclass=RegMethType):

@@ -391,8 +391,18 @@ class CellTest(s_t_utils.SynTest):
                 todo = s_common.todo('stream', doraise=True)
                 await self.agenraises(s_exc.BadTime, await prox.dyncall('self', todo))
 
-    async def test_cell_nexuschanges(self):
+    async def test_cell_promote(self):
+
         with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn) as cell:
+                async with cell.getLocalProxy() as proxy:
+                    with self.raises(s_exc.BadConfValu):
+                        await proxy.promote()
+
+    async def test_cell_nexuschanges(self):
+
+        with self.getTestDir() as dirn:
+
             dir0 = s_common.genpath(dirn, 'cell00')
             dir1 = s_common.genpath(dirn, 'cell01')
 
@@ -407,13 +417,18 @@ class CellTest(s_t_utils.SynTest):
                         break
                 return yielded, retn
 
-            conf = {'nexslog:en': True}
+            conf = {
+                'nexslog:en': True,
+                'dmon:listen': 'tcp://127.0.0.1:0/',
+                'https:port': 0,
+            }
             async with await s_cell.Cell.anit(dir0, conf=conf) as cell00, \
                     cell00.getLocalProxy() as prox00:
 
                 self.true(cell00.nexsroot.donexslog)
 
                 await prox00.addUser('test')
+                self.true(await prox00.getNexsIndx() > 0)
 
                 # We should have a set of auth:auth changes to find
                 task = cell00.schedCoro(coro(prox00, 0))

@@ -141,6 +141,10 @@ class CellApi(s_base.Base):
     def getNexsIndx(self):
         return self.cell.getNexsIndx()
 
+    @adminapi()
+    async def promote(self):
+        return await self.cell.promote()
+
     def getCellUser(self):
         return self.user.pack()
 
@@ -660,10 +664,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         else:
             await self.initServicePassive()
 
-    async def initServiceActive(self):
+    async def initServiceActive(self): # pragma: no cover
         pass
 
-    async def initServicePassive(self):
+    async def initServicePassive(self): # pragma: no cover
         pass
 
     async def getNexusChanges(self, offs):

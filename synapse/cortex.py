@@ -493,6 +493,9 @@ class CoreApi(s_cell.CellApi):
         consumer falls behind the max window size of 10,000 nodeedit messages.
         '''
         layr = self.cell.getLayer(layriden)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=layriden)
+
         self.user.confirm(('sync',), gateiden=layr.iden)
 
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
@@ -1411,7 +1414,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Delete a registered storm service from the cortex.
         '''
         sdef = self.svchive.get(iden)
-        if sdef is None:
+        if sdef is None: # pragma: no cover
             return
 
         try:

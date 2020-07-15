@@ -728,6 +728,9 @@ class TeleTest(s_t_utils.SynTest):
 
         async with await s_telepath.Client.anit(url0) as targ:
             await targ.waitready()
+            proxy = await targ.proxy()
+            self.eq(proxy._getSynVers(), s_version.version)
+
             # Client implements some base helpers the proxy does
             self.eq(targ._getSynVers(), s_version.version)
             self.eq(targ._getClasses(),

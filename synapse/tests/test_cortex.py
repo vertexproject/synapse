@@ -3008,6 +3008,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodelist0.extend(await core0.nodes('[ test:str=foo ]'))
             nodelist0.extend(await core0.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]'))
 
+            with self.raises(s_exc.NoSuchLayer):
+                async for _, nodeedits in prox0.syncLayerNodeEdits(0, layriden='asdf', wait=False):
+                    pass
+
+            with self.raises(s_exc.NoSuchLayer):
+                async for _, nodeedits in core0.syncLayerNodeEdits('asdf', 0, wait=False):
+                    pass
+
             editlist = []
             async for _, nodeedits in prox0.syncLayerNodeEdits(0, wait=False):
                 editlist.append(nodeedits)
@@ -3946,6 +3954,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.dmon.del(newp)')
+
+    async def test_cortex_spawn_notsupported(self):
+
+        async with self.getTestCore() as core:
+            core.spawncorector = None
+            with self.raises(s_exc.FeatureNotSupported):
+                await core.getSpawnInfo()
 
     async def test_cortex_storm_dmon_ps(self):
 

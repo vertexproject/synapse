@@ -756,7 +756,7 @@ class Slab(s_base.Base):
         }
 
     def _acqXactForReading(self):
-        if self.isfini:
+        if self.isfini: # pragma: no cover
             raise s_exc.IsFini()
         if not self.readonly:
             return self.xact
