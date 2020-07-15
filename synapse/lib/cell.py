@@ -1199,7 +1199,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     if port is None:
                         outp.printf(f'...{cell.getCellType()} API (https): disabled')
                     else:
-                        outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
+                        outp.printf(f'...{cell.getCellType()} API (https): %s' % (port,))
 
             if opts.name is not None:
                 cell.dmon.share(opts.name, cell)
