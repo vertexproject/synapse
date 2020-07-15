@@ -370,9 +370,9 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
-            nodes = await core.nodes('inet:search:query | scrape :text --refs --yield')
+            nodes = await core.nodes('inet:search:query | scrape :text --refs | -(refs)> *')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('edge:refs', (('inet:search:query', guid), ('inet:ipv4', 0x05050505))))
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
             # test runtsafe and non-runtsafe failure to create node
             msgs = await core.stormlist('scrape "https://t.c…"')
