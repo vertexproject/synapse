@@ -514,26 +514,28 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_confprint(self):
 
-        with self.getTestDir() as dirn:
+        with self.withSetLoggingMock():
 
-            conf = {
-                'dmon:listen': 'tcp://127.0.0.1:0',
-                'https:port': 0,
-            }
-            s_common.yamlsave(conf, dirn, 'cell.yaml')
+            with self.getTestDir() as dirn:
 
-            outp = self.getTestOutp()
-            async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
-                outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
-                outp.expect('...cell API (https): 0')
+                conf = {
+                    'dmon:listen': 'tcp://127.0.0.1:0',
+                    'https:port': 0,
+                }
+                s_common.yamlsave(conf, dirn, 'cell.yaml')
 
-            conf = {
-                'dmon:listen': 'tcp://127.0.0.1:0',
-                'https:port': None,
-            }
-            s_common.yamlsave(conf, dirn, 'cell.yaml')
+                outp = self.getTestOutp()
+                async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
+                    outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
+                    outp.expect('...cell API (https): 0')
 
-            outp = self.getTestOutp()
-            async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
-                outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
-                outp.expect('...cell API (https): disabled')
+                conf = {
+                    'dmon:listen': 'tcp://127.0.0.1:0',
+                    'https:port': None,
+                }
+                s_common.yamlsave(conf, dirn, 'cell.yaml')
+
+                outp = self.getTestOutp()
+                async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
+                    outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
+                    outp.expect('...cell API (https): disabled')

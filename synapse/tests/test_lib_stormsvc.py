@@ -355,7 +355,7 @@ class StormSvcTest(s_test.SynTest):
                 core.svcsbyname['fake'].proxy._t_conf['timeout'] = 0.1
                 proxy = core.svcsbyname['fake'].proxy._t_proxy
 
-            await proxy.waitfini(6)
+            self.true(await proxy.waitfini(6))
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
