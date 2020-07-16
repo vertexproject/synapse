@@ -3084,6 +3084,9 @@ class LibAuth(Lib):
 
 @registry.registerLib
 class LibUsers(Lib):
+    '''
+    A Storm Library for interacting with Auth Users in the Cortex.
+    '''
     _storm_lib_path = ('auth', 'users')
 
     def getObjLocals(self):
@@ -3096,29 +3099,76 @@ class LibUsers(Lib):
         }
 
     async def _methUsersList(self):
+        '''
+        Get a list of Users in the Cortex.
+
+        Returns:
+            list: A list of Storm User objects.
+        '''
         return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
 
     async def _methUsersGet(self, iden):
+        '''
+        Get a specific User by iden.
+
+        Args:
+            iden (str): The iden of the user to retrieve.
+
+        Returns:
+            User: A Storm User object; or None if the user does not exist.
+        '''
         udef = await self.runt.snap.core.getUserDef(iden)
         if udef is not None:
             return User(self.runt, udef['iden'])
 
     async def _methUsersByName(self, name):
+        '''
+        Get a specific user by name.
+
+        Args:
+            name (str): The name of te user to retrieve.
+
+        Returns:
+            User: A Storm User object; or None if the user does not exist.
+        '''
         udef = await self.runt.snap.core.getUserDefByName(name)
         if udef is not None:
             return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None):
+        '''
+        Add a User to the Cortex.
+
+        Args:
+            name (str): The name of the user.
+            passwd (str): The users password. This is optional.
+            email (str): The user's emaill address. This is optional.
+
+        Returns:
+            User: A Storm User object for the new user.
+        '''
         self.runt.user.confirm(('auth', 'user', 'add'))
         udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email)
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
+        '''
+        Delete a User from the Cortex.
+
+        Args:
+            iden (str): The iden of the user to delete.
+
+        Returns:
+            None: Returns None.
+        '''
         self.runt.user.confirm(('auth', 'user', 'del'))
         await self.runt.snap.core.delUser(iden)
 
 @registry.registerLib
 class LibRoles(Lib):
+    '''
+    A Storm Library for interacting with Auth Roles in the Cortex.
+    '''
     _storm_lib_path = ('auth', 'roles')
 
     def getObjLocals(self):
@@ -3131,29 +3181,74 @@ class LibRoles(Lib):
         }
 
     async def _methRolesList(self):
+        '''
+        Get a list of Roles in the Cortex.
+
+        Returns:
+            list: A list of Storm Role objects.
+        '''
         return [Role(self.runt, rdef['iden']) for rdef in await self.runt.snap.core.getRoleDefs()]
 
     async def _methRolesGet(self, iden):
+        '''
+        Get a specific Role by iden.
+
+        Args:
+            iden (str): The iden of the role to retrieve.
+
+        Returns:
+            Role: A Storm Role object; or None if the role does not exist.
+        '''
         rdef = await self.runt.snap.core.getRoleDef(iden)
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesByName(self, name):
+        '''
+        Get a specific Role by name.
+
+        Args:
+            name (str): The name of te role to retrieve.
+
+        Returns:
+            Role: A Storm Role object; or None if the role does not exist.
+        '''
         rdef = await self.runt.snap.core.getRoleDefByName(name)
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
+        '''
+        Add a Role to the Cortex.
+
+        Args:
+            name (str): The name of the role.
+
+        Returns:
+            Role: A Storm Role object for the new user.
+        '''
         self.runt.user.confirm(('auth', 'role', 'add'))
         rdef = await self.runt.snap.core.addRole(name)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):
+        '''
+        Delete a Role from the Cortex.
+
+        Args:
+            iden (str): The iden of the role to delete.
+
+        Returns:
+            None: Returns None.
+        '''
         self.runt.user.confirm(('auth', 'role', 'del'))
         await self.runt.snap.core.delRole(iden)
 
 @registry.registerLib
 class LibGates(Lib):
+    '''
+    A Storm Library for interacting with Auth Gates in the Cortex.
+    '''
     _storm_lib_path = ('auth', 'gates')
 
     def getObjLocals(self):
@@ -3163,17 +3258,31 @@ class LibGates(Lib):
         }
 
     async def _methGatesList(self):
+        '''
+        Get a list of Gates in the Cortex.
+
+        Returns:
+            list: A list of Storm Gate objects.
+        '''
         todo = s_common.todo('getAuthGates')
         gates = await self.runt.coreDynCall(todo)
         return [Gate(self.runt, g) for g in gates]
 
     async def _methGatesGet(self, iden):
+        '''
+        Get a specific Gate by iden.
+
+        Args:
+            iden (str): The iden of the role to retrieve.
+
+        Returns:
+            Role: A Storm Gate object; or None if the role does not exist.
+        '''
         iden = await toprim(iden)
         todo = s_common.todo('getAuthGate', iden)
         gate = await self.runt.coreDynCall(todo)
-        if gate is None:
-            return None
-        return Gate(self.runt, gate)
+        if gate:
+            return Gate(self.runt, gate)
 
 @registry.registerType
 class Gate(Prim):
