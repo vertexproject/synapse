@@ -5,8 +5,6 @@ import logging
 import argparse
 import collections
 
-import sphinx.ext.napoleon as napoleon
-
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
@@ -642,10 +640,6 @@ async def docStormTypes():
                 libspage.addHead(header, lvl=2)
 
                 libspage.addLines(*newlines)
-
-                # gdoc = napoleon.GoogleDocstring(locldoc, what='function')
-                # for line in gdoc.lines():
-                #     print(line)
 
             else:
                 # TODO - Handle package constants
