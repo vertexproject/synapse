@@ -1473,3 +1473,7 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.len(1, nodes[0][1]['path']['edges'])
             self.eq('refs', nodes[0][1]['path']['edges'][0][1]['verb'])
+
+            msgs = await core.stormlist('media:news | graph --no-edges')
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, nodes[0][1]['path']['edges'])

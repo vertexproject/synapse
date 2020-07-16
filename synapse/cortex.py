@@ -2495,7 +2495,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         path = s_common.gendir(self.dirn, 'layers', iden)
 
         # In case that we're a mirror follower and we have a downstream layer, disable upstream sync
-        # FIXME allow_upstream needs to be separated out
+        # TODO allow_upstream needs to be separated out
         mirror = self.conf.get('mirror')
         return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot, allow_upstream=not mirror)
 
