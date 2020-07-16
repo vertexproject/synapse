@@ -3492,7 +3492,7 @@ class LibCron(Lib):
             except ValueError:
                 return None
 
-    def _parseIncval(self, incunit, incval):
+    def _parseIncval(self, incval):
         ''' Parse a non-day increment value. Should be an integer or a comma-separated integer list. '''
         try:
             retn = [int(val) for val in incval.split(',')]
@@ -3692,7 +3692,7 @@ class LibCron(Lib):
                     mesg = 'Fixed unit may not be larger than recurrence unit'
                     raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
                 incunit = optname
-                incval = self._parseIncval(optname, optval)
+                incval = self._parseIncval(optval)
                 if incval is None:
                     mesg = 'Failed to parse parameter'
                     raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
