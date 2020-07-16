@@ -280,6 +280,9 @@ See :ref:`filter-subquery` for additional detail.
 
 .. _gloss-fork:
 
+Fork
+----
+
 Within Synpse, fork refers to the process of "copying" a :ref:`gloss-view`, to include the data in the view 
 as well as any automation (e.g., triggers and cron jobs) specific to that view. Note that the view is not 
 technically duplicated in full; rather a new writeable :ref:`gloss-layer` is created on top of a read-only 
