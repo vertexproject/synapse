@@ -278,6 +278,15 @@ Within Synapse, a subquery filter is a filter that consists of a :ref:`gloss-sto
 
 See :ref:`filter-subquery` for additional detail.
 
+.. _gloss-fork:
+
+Within Synpse, fork refers to the process of "copying" a :ref:`gloss-view`, to include the data in the view 
+as well as any automation (e.g., triggers and cron jobs) specific to that view. Note that the view is not 
+technically duplicated in full; rather a new writeable :ref:`gloss-layer` is created on top of a read-only 
+copy of the original view.
+
+Any changes made within a forked view can optionally be merged back in to the original view, or discarded.
+
 .. _gloss-form:
 
 Form
@@ -536,6 +545,13 @@ A macro is a stored Storm query. Macros support the full range of Storm syntax a
 See the Storm command reference for the :ref:`storm-macro` command and the :ref:`storm-ref-automation` for
 additional detail.
 
+.. _gloss-merge:
+
+Merge
+-----
+
+Within Synapse, merge refers to the process of copying changes made within a forked (see :ref:`gloss-fork`) 
+:ref:`gloss-view` into the original view.
 
 .. _gloss-model:
 
