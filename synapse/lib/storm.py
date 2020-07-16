@@ -888,7 +888,7 @@ class DmonManager(s_base.Base):
         if not self.enabled:
             return
         await self._stopAllDmons()
-        await asyncio.sleep(0)
+        self.enabled = False
 
     # TODO write enable/disable APIS.
     # 1. Set dmon.status to 'disabled'

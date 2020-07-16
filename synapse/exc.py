@@ -146,6 +146,7 @@ class LinkShutDown(LinkErr): pass
 class NoCertKey(SynErr):
     ''' Raised when a Cert object requires a RSA Private Key to perform an operation and the key is not present.  '''
     pass
+class NoSuchCert(SynErr): pass
 
 class ModAlreadyLoaded(SynErr): pass
 class MustBeJsonSafe(SynErr): pass
@@ -209,6 +210,7 @@ class SchemaViolation(SynErr): pass
 
 class SlabAlreadyOpen(SynErr): pass
 class SpawnExit(SynErr): pass
+class FeatureNotSupported(SynErr): pass
 
 class ReadOnlyLayer(SynErr): pass
 class ReadOnlyProp(SynErr): pass
