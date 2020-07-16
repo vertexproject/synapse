@@ -79,9 +79,8 @@ stormcmds = [
 @s_stormtypes.registry.registerLib
 class LibModel(s_stormtypes.Lib):
     '''
-    A collection of method around the data model
+    A Storm Library for interacting with the Data Model in the Cortex.
     '''
-
     _storm_lib_path = ('model',)
 
     def __init__(self, runt, name=()):
@@ -94,7 +93,7 @@ class LibModel(s_stormtypes.Lib):
             'edge': ModelEdge(self.runt),
         })
 
-    # FIME add edge?
+    # FIXME add edge?
     def getObjLocals(self):
         return {
             'type': self._methType,
@@ -104,18 +103,45 @@ class LibModel(s_stormtypes.Lib):
 
     @s_cache.memoize(size=100)
     async def _methType(self, name):
+        '''
+        Get a ModelType by name.
+
+        Args:
+            name (str): The name of the type to retrieve.
+
+        Returns:
+            ModelType: A Storm ModelType object.
+        '''
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
 
     @s_cache.memoize(size=100)
     async def _methProp(self, name):
+        '''
+        Get a ModelProp by name.
+
+        Args:
+            name (str): The name of the prop to retrieve.
+
+        Returns:
+            ModelProp: A Storm ModelProp object.
+        '''
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
 
     @s_cache.memoize(size=100)
     async def _methForm(self, name):
+        '''
+        Get a ModelForm by name.
+
+        Args:
+            name (str): The name of the form to retrieve.
+
+        Returns:
+            ModelForm: A Storm ModelForm object.
+        '''
         form = self.model.form(name)
         if form is not None:
             return ModelForm(form)
