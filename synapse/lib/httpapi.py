@@ -337,7 +337,6 @@ class ReqValidStormV1(Handler):
         if body is None:
             return
 
-        # dont allow a user to be specified
         opts = body.get('opts', {})
         query = body.get('query')
 
