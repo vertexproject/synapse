@@ -87,13 +87,6 @@ class LibModel(s_stormtypes.Lib):
         s_stormtypes.Lib.__init__(self, runt, name)
         self.model = runt.model
 
-    def addLibFuncs(self):
-        super().addLibFuncs()
-        self.locls.update({
-            'edge': ModelEdge(self.runt),
-        })
-
-    # FIXME add edge?
     def getObjLocals(self):
         return {
             'type': self._methType,
@@ -226,12 +219,10 @@ class ModelType(s_stormtypes.Prim):
         return self.valu.norm(valu)
 
 
-# Fixme Can we convert this into a Lib easily?
-
-@s_stormtypes.registry.registerType
-class ModelEdge(s_stormtypes.Prim):
+@s_stormtypes.registry.registerLib
+class LibModelEdge(s_stormtypes.Lib):
     '''
-    Inspect light edges and manipulate key-value attributes.
+    A Storm Library for interacting with light edges and manipulating their key-value attributes.
     '''
     # Note: The use of extprops in hive paths in this class is an artifact of the
     # original implementation which used extended property language which had a
@@ -244,13 +235,10 @@ class ModelEdge(s_stormtypes.Prim):
     )
     hivepath = ('cortex', 'model', 'edges')
 
-    def __init__(self, runt):
+    _storm_lib_path = ('model', 'edge')
 
-        s_stormtypes.Prim.__init__(self, None)
-
-        self.runt = runt
-
-        self.locls.update(self.getObjLocals())
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name)
 
     def getObjLocals(self):
         return {
@@ -258,6 +246,7 @@ class ModelEdge(s_stormtypes.Prim):
             'set': self._methEdgeSet,
             'del': self._methEdgeDel,
             'list': self._methEdgeList,
+            'validkeys': self._methValidKeys,
         }
 
     async def _chkEdgeVerbInView(self, verb):
@@ -272,7 +261,25 @@ class ModelEdge(s_stormtypes.Prim):
             raise s_exc.NoSuchProp(mesg=f'The requested key is not valid for light edge metadata.',
                                    name=key)
 
+    def _methValidKeys(self):
+        '''
+        Get a list of the valid keys that can be set on a Edge verb.
+
+        Returns:
+            list: A list of the valid keys.
+        '''
+        return self.validedgekeys
+
     async def _methEdgeGet(self, verb):
+        '''
+        Get the key-value data for a given Edge verb.
+
+        Args:
+            verb (str): The Edge verb to look up.
+
+        Returns:
+            dict: A dictionary representing the key-value data set on a verb.
+        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -280,6 +287,17 @@ class ModelEdge(s_stormtypes.Prim):
         return await self.runt.snap.core.getHiveKey(path) or {}
 
     async def _methEdgeSet(self, verb, key, valu):
+        '''
+        Set a key-value for a given Edge verb.
+
+        Args:
+            verb (str): The Edge verb to set a value for.
+            key (str): The key to set.
+            valu (str): The value to set.
+
+        Returns:
+            None: Returns None.
+        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -295,6 +313,15 @@ class ModelEdge(s_stormtypes.Prim):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeDel(self, verb, key):
+        '''
+        Delete a Dey from teh
+        Args:
+            verb (str): The name of the Edge verb to remove a key from.
+            key (str): The name of the key to remove from the key-value store.
+
+        Returns:
+            None: Returns None.
+        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -312,6 +339,12 @@ class ModelEdge(s_stormtypes.Prim):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeList(self):
+        '''
+        Get as list of (verb, key-value dictionary) pairs for edges verbs in the current Cortex View.
+
+        Returns:
+            list: A list of (str, dict) tuples for each verb in the current Cortex View.
+        '''
         retn = []
         async for verb in self.runt.snap.view.getEdgeVerbs():
             path = self.hivepath + (verb, 'extprops')
