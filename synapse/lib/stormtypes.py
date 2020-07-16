@@ -3601,7 +3601,13 @@ class LibCron(Lib):
 
     async def _methCronAdd(self, **kwargs):
         '''
-        Add a cron job to the cortex.
+        Add a recurring cron job to the Cortex.
+
+        Args:
+            **kwargs: Key-value parameters used to add the cron job.
+
+        Returns:
+            CronJob: A Storm CronJob object.
         '''
         incunit = None
         incval = None
@@ -3726,7 +3732,13 @@ class LibCron(Lib):
 
     async def _methCronAt(self, **kwargs):
         '''
-        Add non-recurring cron jobs to the cortex.
+        Add a non-recurring  cron job to the Cortex.
+
+        Args:
+            **kwargs: Key-value parameters used to add the cron job.
+
+        Returns:
+            CronJob: A Storm CronJob object.
         '''
         tslist = []
         now = time.time()
@@ -3796,7 +3808,14 @@ class LibCron(Lib):
 
     async def _methCronDel(self, prefix):
         '''
-        Delete a cron job from the cortex.
+        Delete a CronJob from the Cortex.
+
+        Args:
+            prefix (str): A prefix to match in order to identify a cron job to delete.
+                Only a single matching prefix will be deleted.
+
+        Returns:
+            None: Returns None
         '''
         cron = await self._matchIdens(prefix, ('cron', 'del'))
         iden = cron['iden']
@@ -3807,7 +3826,15 @@ class LibCron(Lib):
 
     async def _methCronMod(self, prefix, query):
         '''
-        Modify a cron job in the cortex.
+        Modify the Storm query for a CronJob in the Cortex.
+
+        Args:
+            prefix (str): A prefix to match in order to identify a cron job to modify.
+                Only a single matching prefix will be modified.
+            query (str): The new Storm query for the cron job.
+
+        Returns:
+            None: Returns None.
         '''
         if not query.startswith('{'):
             mesg = 'Expected second argument to start with {'
@@ -3825,7 +3852,10 @@ class LibCron(Lib):
 
     async def _methCronList(self):
         '''
-        List cron jobs in the cortex.
+        List CronJobs in the Cortex.
+
+        Returns:
+            list: A list of CronJob Storm objects.
         '''
         todo = s_common.todo('listCronJobs')
         gatekeys = ((self.runt.user.iden, ('cron', 'get'), None),)
@@ -3835,7 +3865,14 @@ class LibCron(Lib):
 
     async def _methCronGet(self, prefix):
         '''
-        Retrieve a cron job from the cortex.
+        Get a CronJob in the Cortex.
+
+        Args:
+            prefix (str): A prefix to match in order to identify a cron job to get.
+                Only a single matching prefix will be retrieved.
+
+        Returns:
+            CronJob: A Storm CronJob object.
         '''
         cdef = await self._matchIdens(prefix, ('cron', 'get'))
 
@@ -3843,7 +3880,14 @@ class LibCron(Lib):
 
     async def _methCronEnable(self, prefix):
         '''
-        Enable a cron job in the cortex.
+        Enable a CronJob in the Cortex.
+
+        Args:
+            prefix (str): A prefix to match in order to identify a cron job to enable.
+                Only a single matching prefix will be enabled.
+
+        Returns:
+            str: The iden of the CronJob which was enabled.
         '''
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
@@ -3855,7 +3899,14 @@ class LibCron(Lib):
 
     async def _methCronDisable(self, prefix):
         '''
-        Disable a cron job in the cortex.
+        Disable a CronJob in the Cortex.
+
+        Args:
+            prefix (str): A prefix to match in order to identify a cron job to disable.
+                Only a single matching prefix will be enabled.
+
+        Returns:
+            str: The iden of the CronJob which was disabled.
         '''
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
