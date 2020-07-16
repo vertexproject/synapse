@@ -770,6 +770,23 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.eq(0x01020304, node[0][1])
 
+                # check reqvalidstorm with various queries
+                tvs = (
+                    ('test:str=test', {}, 'ok'),
+                    ('1.2.3.4 | spin', {'mode': 'lookup'}, 'ok'),
+                    ('1.2.3.4 | spin', {'mode': 'autoadd'}, 'ok'),
+                    ('1.2.3.4', {}, 'err'),
+                    ('| 1.2.3.4 ', {'mode': 'lookup'}, 'err'),
+                    ('| 1.2.3.4', {'mode': 'autoadd'}, 'err'),
+                )
+                url = f'https://localhost:{port}/api/v1/reqvalidstorm'
+                for (query, opts, rcode) in tvs:
+                    body = {'query': query, 'opts': opts}
+                    async with sess.get(url, json=body) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            self.eq(data.get('status'), rcode)
+
     async def test_healthcheck(self):
         async with self.getTestCore() as core:
             # Run http instead of https for this test

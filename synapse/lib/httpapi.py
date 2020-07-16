@@ -322,6 +322,33 @@ class StormV1(Handler):
             self.write(json.dumps(mesg))
             await self.flush()
 
+class ReqValidStormV1(Handler):
+
+    async def post(self):
+        return await self.get()
+
+    async def get(self):
+
+        if not await self.reqAuthUser():
+            return
+
+        user = await self.user()
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        # dont allow a user to be specified
+        opts = body.get('opts', {})
+        query = body.get('query')
+
+        try:
+            valid = await self.cell.reqValidStorm(query, opts)
+        except s_exc.SynErr as e:
+            mesg = e.get('mesg', str(e))
+            return self.sendRestErr(e.__class__.__name__, mesg)
+        else:
+            return self.sendRestRetn(valid)
+
 class WatchSockV1(WebSocket):
     '''
     A web-socket based API endpoint for distributing cortex events.
