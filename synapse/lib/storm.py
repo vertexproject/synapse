@@ -888,7 +888,7 @@ class DmonManager(s_base.Base):
         if not self.enabled:
             return
         await self._stopAllDmons()
-        await asyncio.sleep(0)
+        self.enabled = False
 
     # TODO write enable/disable APIS.
     # 1. Set dmon.status to 'disabled'
@@ -2280,6 +2280,8 @@ class GraphCmd(Cmd):
         pars.add_argument('--filter', default=[], action='append',
                           help='Specify a storm filter for all nodes. (must quote)')
 
+        pars.add_argument('--no-edges', default=False, action='store_true',
+                          help='Do not include light weight edges in the per-node output.')
         pars.add_argument('--form-pivot', default=[], nargs=2, action='append',
                           help='Specify a <form> <pivot> form specific pivot.')
         pars.add_argument('--form-filter', default=[], nargs=2, action='append',
@@ -2310,6 +2312,9 @@ class GraphCmd(Cmd):
             'yieldfiltered': self.opts.yieldfiltered,
 
         }
+
+        if self.opts.no_edges:
+            rules['edges'] = False
 
         for pivo in self.opts.pivot:
             rules['pivots'].append(pivo[1:-1])

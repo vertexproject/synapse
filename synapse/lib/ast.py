@@ -230,6 +230,7 @@ class SubGraph:
 
                     'degrees': 1,
 
+                    'edges': True,
                     'filterinput': True,
                     'yieldfiltered': False,
 

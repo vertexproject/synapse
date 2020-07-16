@@ -112,13 +112,15 @@ class Auth(s_nexus.Pusher):
         if self.allrole is None:
             # initialize the role of which all users are a member
             guid = s_common.guid()
-            self.allrole = await self._addRole(guid, 'all')
+            await self._addRole(guid, 'all')
+            self.allrole = self.role(guid)
 
         # initialize an admin user named root
         self.rootuser = await self.getUserByName('root')
         if self.rootuser is None:
             guid = s_common.guid()
-            self.rootuser = await self._addUser(guid, 'root')
+            await self._addUser(guid, 'root')
+            self.rootuser = self.user(guid)
 
         await self.rootuser.setAdmin(True, logged=False)
         await self.rootuser.setLocked(False, logged=False)
@@ -336,7 +338,9 @@ class Auth(s_nexus.Pusher):
             raise s_exc.DupUserName(name=name)
 
         iden = s_common.guid()
-        user = await self._push('user:add', iden, name)
+        await self._push('user:add', iden, name)
+
+        user = self.user(iden)
 
         if passwd is not None:
             await user.setPasswd(passwd)
@@ -359,14 +363,16 @@ class Auth(s_nexus.Pusher):
         node = await self.node.open(('users', iden))
         await node.set(name)
 
-        return await self._addUserNode(node)
+        await self._addUserNode(node)
 
     async def addRole(self, name):
         if self.rolesbyname.get(name) is not None:
             raise s_exc.DupRoleName(name=name)
 
         iden = s_common.guid()
-        return await self._push('role:add', iden, name)
+        await self._push('role:add', iden, name)
+
+        return self.role(iden)
 
     @s_nexus.Pusher.onPush('role:add')
     async def _addRole(self, iden, name):
@@ -378,7 +384,7 @@ class Auth(s_nexus.Pusher):
         node = await self.node.open(('roles', iden))
         await node.set(name)
 
-        return await self._addRoleNode(node)
+        await self._addRoleNode(node)
 
     async def delUser(self, iden):
 
