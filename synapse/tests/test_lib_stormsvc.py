@@ -353,8 +353,9 @@ class StormSvcTest(s_test.SynTest):
                 await core.nodes('$lib.service.wait(fake)')
 
                 core.svcsbyname['fake'].proxy._t_conf['timeout'] = 0.1
+                proxy = core.svcsbyname['fake'].proxy._t_proxy
 
-            await core.svcsbyname['fake'].proxy._t_proxy.waitfini(6)
+            self.true(await proxy.waitfini(6))
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
@@ -733,16 +734,12 @@ class StormSvcTest(s_test.SynTest):
 
                 async with self.getTestCore(dirn=path00) as core00:
 
-                    self.false(core00.mirror)
-
                     url = core00.getLocalUrl()
 
                     conf = {'mirror': url}
                     async with await s_cortex.Cortex.anit(dirn=path01, conf=conf) as core01:
 
                         await core01.sync()
-
-                        self.true(core01.mirror)
 
                         # Add a storm service
                         await core01.nodes(f'service.add real {lurl}')

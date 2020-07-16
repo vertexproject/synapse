@@ -679,11 +679,16 @@ class Client(s_base.Base):
                 logger.warning(f'telepath client ({url}): {e}')
                 await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
 
+    async def proxy(self, timeout=10):
+        await self.waitready(timeout=timeout)
+        return self._t_proxy
+
     async def _initTeleLink(self, url):
         if self._t_proxy is not None:
             await self._t_proxy.fini()
 
         self._t_proxy = await openurl(url, **self._t_opts)
+        self._t_methinfo = self._t_proxy.methinfo
 
         async def fini():
             await self._fireLinkLoop()
@@ -715,12 +720,12 @@ class Client(s_base.Base):
                 logger.warning(f'telepath task redirected: ({url})')
                 await self._t_proxy.fini()
 
-    async def waitready(self):
-        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', 10))
+    async def waitready(self, timeout=10):
+        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
 
     def __getattr__(self, name):
 
-        info = self._t_proxy.methinfo.get(name)
+        info = self._t_methinfo.get(name)
         if info is not None and info.get('genr'):
             meth = GenrMethod(self, name)
             setattr(self, name, meth)
@@ -954,7 +959,10 @@ async def openurl(url, **opts):
 
     elif scheme == 'unix':
         # unix:///path/to/sock:share
-        path, name = info.get('path').split(':')
+        name = '*'
+        path = info.get('path')
+        if ':' in path:
+            path, name = path.split(':')
         link = await s_link.unixconnect(path)
 
     else:
@@ -964,9 +972,21 @@ async def openurl(url, **opts):
 
         sslctx = None
         if scheme == 'ssl':
-            certpath = info.get('certdir')
-            certdir = s_certdir.CertDir(certpath)
-            sslctx = certdir.getClientSSLContext()
+
+            certname = None
+            certpath = None
+
+            certdir = opts.get('certdir')
+
+            query = info.get('query')
+            if query is not None:
+                certpath = query.get('certdir')
+                certname = query.get('certname')
+
+            if certdir is None:
+                certdir = s_certdir.CertDir(certpath)
+
+            sslctx = certdir.getClientSSLContext(certname=certname)
 
         link = await s_link.connect(host, port, ssl=sslctx)
 

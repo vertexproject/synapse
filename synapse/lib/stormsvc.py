@@ -159,7 +159,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
             logger.exception(f'setStormSvcEvents failed for service {self.name} ({self.iden})')
 
         try:
-            if self.core.isleader:
+            if self.core.isactive:
                 await self.core._runStormSvcAdd(self.iden)
 
         except asyncio.CancelledError:  # pragma: no cover

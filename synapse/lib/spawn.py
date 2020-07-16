@@ -318,7 +318,7 @@ class SpawnCore(s_base.Base):
         self.views = {}
         self.layers = {}
         self.nexsroot = None
-        self.isleader = False
+        self.isactive = False
         self.spawninfo = spawninfo
 
         self.conf = spawninfo.get('conf')

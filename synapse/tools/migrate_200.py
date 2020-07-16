@@ -112,7 +112,7 @@ class MigrSplices(s_sync.SyncMigrator):
     async def enableMigrationMode(self):  # pragma: no cover
         pass
 
-    async def _initCellDmon(self):
+    async def initServiceNetwork(self):
         pass
 
     async def _srcPullLyrSplices(self, lyriden):
@@ -829,13 +829,12 @@ class Migrator(s_base.Base):
             self.migrdb = self.migrslab.initdb('migr')
             self.onfini(self.migrslab.fini)
 
-        # optionally create migration nexus
-        if nexus and self.addmode == 'nexus':
+        if self.nexusroot is None:
             path = os.path.join(self.dest)
-            if self.nexusroot is None:
-                self.nexusroot = await s_nexus.NexsRoot.anit(path)
-                await self.nexusroot.setLeader(None, '')
+            donexslog = self.addmode == 'nexus'
+            self.nexusroot = await s_nexus.NexsRoot.anit(path, donexslog=donexslog)
             self.onfini(self.nexusroot.fini)
+            await self.nexusroot.startup(None)
 
         # open cell
         if cell:
