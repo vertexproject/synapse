@@ -575,23 +575,19 @@ async def docStormTypes():
     # TODO generate a toc?
     basepath = 'lib'
     for (path, lib) in libs:
-        # if path not in (('pkg',), ('dmon',), ('service',), ()):
-        #     continue
         libpath = '.'.join((basepath,) + path)
 
-        libspage.addHead(f'${libpath}', lvl=1)
+        liblink = f'_stormlibs-{libpath.replace(".", "-")}'
+        libspage.addHead(f'${libpath}', lvl=1, link=liblink)
 
         libdoc = getattr(lib, '__doc__')
         if libdoc is None:
             libdoc = f'No doc for ${libpath}'
+            logger.warning(libdoc)
 
-        libdoc = libdoc.strip() # Trim trailing/leading newlines
-        print(f'[{libdoc}]')
-        import json
-        print(json.dumps({'key': libdoc}))
-        print(json.dumps({'key': libdoc.strip()}))
+        libdoc = libdoc.strip()  # Trim trailing/leading newlines
+
         lines = libdoc.split('\n')
-        print(lines)
 
         newlines = ljuster(lines)
         for line in newlines:
@@ -599,16 +595,13 @@ async def docStormTypes():
 
         libspage.addLines(*newlines)
 
-        # print(libpath, libdoc)
-
         for (name, locl) in lib.getObjLocals(lib).items():  # python trick
 
             if callable(locl):
-                # print(name, locl)
                 locldoc = getattr(locl, '__doc__')
                 if locldoc is None:
                     locldoc = f'No doc for {name}'
-                # print(locldoc)
+                    logger.warning(locldoc)
 
                 # RST cleanliness.
                 replaces = (('*args', '\*args'),
@@ -634,10 +627,11 @@ async def docStormTypes():
                     callsig = callsig.replace(parameters=params[1:])
 
                 funcpath = '.'.join((libpath, name))
+                funclink = f'_stormlibs-{funcpath.replace(".", "-")}'
                 header = f'${funcpath}{callsig}'
-                header = header.replace('*', '\*')
+                header = header.replace('*', r'\*')
 
-                libspage.addHead(header, lvl=2)
+                libspage.addHead(header, lvl=2, header=funclink)
 
                 libspage.addLines(*newlines)
 

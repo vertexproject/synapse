@@ -720,7 +720,7 @@ class LibBase(Lib):
 
         Notes:
             This fires events as ``storm:fire`` event types. The name of the event is placed into a ``type`` key,
-            and ant additional keyword arguments are added to a dictionary under the ``data`` key.
+            and any additional keyword arguments are added to a dictionary under the ``data`` key.
 
         Examples:
             Fire an event called ``demo`` with some data::
