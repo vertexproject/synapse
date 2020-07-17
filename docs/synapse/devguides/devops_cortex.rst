@@ -63,7 +63,7 @@ of the new mirror to include a telepath URL to the upstream Cortex::
     The telepath URL must contain a valid user/password with global admin priviledges on the upstream Cortex.
 
 Once the ``mirror`` option is configured, the new mirror Cortex may be deployed normally and will stay synchronized
-in near real-time provided it can maintain the ``telepath`` link.
+in near real-time provided it can maintain the network link.
 
 Configuring A Remote Axon
 -------------------------
