@@ -550,6 +550,18 @@ def ljuster(ilines, indent=0):
         newlines = [(' ' * indent) + line for line in newlines]
     return newlines
 
+def cleanup_lines(lines):
+    '''Cleanup lines from __doc__'''
+    templines = []
+    for line in lines:
+        if line == '' and not templines:
+            continue
+        templines.append(line)
+
+    newlines = ljuster(templines)
+    return newlines
+
+
 async def docStormTypes():
 
     registry = s_stormtypes.registry
@@ -606,13 +618,7 @@ async def docStormTypes():
                     locldoc = locldoc.replace(new, old)
 
                 oldlines = locldoc.split('\n')
-                mylines = []
-                for line in oldlines:
-                    if line == '' and not mylines:
-                        continue
-                    mylines.append(line)
-
-                newlines = ljuster(mylines)
+                newlines = cleanup_lines(oldlines)
 
                 callsig = inspect.signature(locl)
                 params = list(callsig.parameters.values())
@@ -629,12 +635,29 @@ async def docStormTypes():
                 libspage.addLines(*newlines)
 
             else:
-                # TODO - Handle package constants
-                print(name, locl)
-                print('IS NOTCALLABLE')
+                if isinstance(locl, property):
 
-    text = libspage.getRstText()
-    print(text)
+                    locldoc = getattr(locl, '__doc__')
+                    if locldoc is None:
+                        locldoc = f'No doc for {name}'
+                        logger.warning(locldoc)
+
+                    oldlines = locldoc.split('\n')
+                    newlines = cleanup_lines(oldlines)
+
+                    conpath = '.'.join((libpath, name))
+                    conlink = f'.. _stormlibs-{conpath.replace(".", "-")}:'
+                    header = f'${conpath}'
+
+                    libspage.addHead(header, lvl=2, link=conlink)
+
+                    libspage.addLines(*newlines)
+
+                else:
+                    logger.warning(f'Unknown constant found: {libpath}.{name} -> {locl}')
+
+    # text = libspage.getRstText()
+    # print(text)
 
     # for (sname, styp) in types:
     #     print(sname, styp)

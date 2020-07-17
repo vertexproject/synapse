@@ -453,9 +453,9 @@ class LibBase(Lib):
             'guid': self._guid,
             'fire': self._fire,
             'list': self._list,
-            'null': None,
-            'true': True,
-            'false': False,
+            'null': self._null,
+            'true': self._true,
+            'false': self._false,
             'text': self._text,
             'cast': self._cast,
             'warn': self._warn,
@@ -464,6 +464,51 @@ class LibBase(Lib):
             'sorted': self._sorted,
             'import': self._libBaseImport,
         }
+
+    @property
+    def _true(self):
+        '''
+        This constant represents a value of True that can be used in Storm. It is not called like a function, it can
+        be directly used.
+
+        Examples:
+            Conditionally print a statement based on the constant value::
+
+                cli> storm if $lib.true { $lib.print('Is True') } else { $lib.print('Is False') }
+                Is True
+
+        '''
+        return True
+
+    @property
+    def _false(self):
+        '''
+        This constant represents a value of True that can be used in Storm. It is not called like a function, it can
+        be directly used.
+
+        Examples:
+            Conditionally print a statement based on the constant value::
+
+                cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
+                Is False
+
+        '''
+        return False
+
+    @property
+    def _null(self):
+        '''
+        This constant represents a value of None that can be used in Storm. It is not called like a function, it can
+        be directly used.
+
+        Examples:
+            Creat a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
+
+                cli> storm $d=$lib.dict(key=$lib.null) $lib.fire('demo', d=$d)
+                ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
+
+        '''
+        return None
 
     async def _libBaseImport(self, name):
         '''
