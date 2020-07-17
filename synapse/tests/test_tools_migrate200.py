@@ -520,7 +520,7 @@ class MigrationTest(s_t_utils.SynTest):
             # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf={'nexslog:en': True}) as core:
                 # check that nexus root has offsets from migration
-                self.gt(core.nexsroot._nexuslog.index(), 1)
+                self.gt(core.nexsroot.nexslog.index(), 1)
 
                 # check core data
                 await self._checkSplices(core, tdata)
@@ -546,7 +546,7 @@ class MigrationTest(s_t_utils.SynTest):
             # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check that nexus root has *no* offsets from migration
-                self.eq(core.nexsroot._nexuslog.index(), 0)
+                self.eq(core.nexsroot.nexslog.index(), 0)
 
                 # check core data
                 await self._checkSplices(core, tdata)
@@ -573,7 +573,7 @@ class MigrationTest(s_t_utils.SynTest):
             # startup 2.x core
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
                 # check that nexus root has *no* offsets from migration
-                self.eq(core.nexsroot._nexuslog.index(), 0)
+                self.eq(core.nexsroot.nexslog.index(), 0)
 
                 # check core data
                 await self._checkSplices(core, tdata)
@@ -925,6 +925,44 @@ class MigrationTest(s_t_utils.SynTest):
                     self.len(1, nodes)
                     nodes = await core.nodes('[inet:ipv4=9.9.9.9]')
                     self.len(1, nodes)
+
+    async def test_migr_celliden(self):
+        conf = {
+            'src': None,
+            'dest': None,
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            await migr._migrDirn()
+            await migr._initStors()
+
+            guidpath = os.path.join(dest, 'cell.guid')
+
+            with open(guidpath, 'r') as fd:
+                iden0 = fd.read().strip()
+
+            self.true(await migr._chkValid())
+            self.eq(iden0, (await migr._migrlogGetOne('chkvalid', 'iden', 'src:cortex'))['val'])
+
+            # remove cell.guid
+            os.remove(guidpath)
+
+            self.false(await migr._chkValid())
+            self.none((await migr._migrlogGetOne('chkvalid', 'iden', 'src:cortex'))['val'])
+
+            # replace
+            with open(guidpath, 'w') as fd:
+                fd.write(iden0)
+
+            self.true(await migr._chkValid())
+
+            # set guid to a layer iden
+            iden1 = locallyrs[0]
+            with open(guidpath, 'w') as fd:
+                fd.write(iden1)
+
+            self.false(await migr._chkValid())
+            self.eq(iden1, (await migr._migrlogGetOne('chkvalid', 'iden', 'src:cortex'))['val'])
 
     async def test_migr_yamlmod(self):
         with self.getRegrDir('cortexes', REGR_VER) as src:

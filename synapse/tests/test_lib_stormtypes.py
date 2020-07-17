@@ -265,6 +265,111 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('$lib.print($lib.len($true))', opts=opts)
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
+            mesgs = await core.stormlist('$lib.pprint(newp, clamp=2)')
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('Invalid clamp length.', err[1].get('mesg'))
+
+    async def test_storm_lib_ps(self):
+
+        async with self.getTestCore() as core:
+
+            evnt = asyncio.Event()
+            iden = None
+
+            async def runLongStorm():
+                async for mesg in core.storm(f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'):
+                    nonlocal iden
+                    if mesg[0] == 'init':
+                        iden = mesg[1]['task']
+                    evnt.set()
+
+            task = core.schedCoro(runLongStorm())
+
+            self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+
+            # Verify that the long query got truncated
+            msgs = await core.stormlist('ps.list')
+
+            for msg in msgs:
+                if msg[0] == 'print' and 'xxx...' in msg[1]['mesg']:
+                    self.eq(120, len(msg[1]['mesg']))
+
+            self.stormIsInPrint('xxx...', msgs)
+            self.stormIsInPrint('name: storm', msgs)
+            self.stormIsInPrint('user: root', msgs)
+            self.stormIsInPrint('status: None', msgs)
+            self.stormIsInPrint('2 tasks found.', msgs)
+            self.stormIsInPrint('start time: 2', msgs)
+
+            self.stormIsInPrint(f'task iden: {iden}', msgs)
+
+            # Verify we see the whole query
+            msgs = await core.stormlist('ps.list --verbose')
+            self.stormIsInPrint('endofquery', msgs)
+
+            msgs = await core.stormlist(f'ps.kill {iden}')
+            self.stormIsInPrint('kill status: True', msgs)
+            self.true(task.done())
+
+            msgs = await core.stormlist('ps.list')
+            self.stormIsInPrint('1 tasks found.', msgs)
+
+            bond = await core.auth.addUser('bond')
+
+            async with core.getLocalProxy(user='bond') as prox:
+
+                evnt = asyncio.Event()
+                iden = None
+
+                async def runLongStorm():
+                    async for mesg in core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
+                        nonlocal iden
+                        if mesg[0] == 'init':
+                            iden = mesg[1]['task']
+                        evnt.set()
+
+                task = core.schedCoro(runLongStorm())
+                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+
+                msgs = await core.stormlist('ps.list')
+                self.stormIsInPrint('2 tasks found.', msgs)
+                self.stormIsInPrint(f'task iden: {iden}', msgs)
+
+                msgs = await alist(prox.storm('ps.list'))
+                self.stormIsInPrint('1 tasks found.', msgs)
+
+                # Try killing from the unprivileged user
+                msgs = await alist(prox.storm(f'ps.kill {iden}'))
+                self.stormIsInErr('Provided iden does not match any processes.', msgs)
+
+                # Try a kill with a numeric identifier - this won't match
+                msgs = await alist(prox.storm(f'ps.kill 123412341234'))
+                self.stormIsInErr('Provided iden does not match any processes.', msgs)
+
+                # Give user explicit permissions to list
+                await core.addUserRule(bond.iden, (True, ('task', 'get')))
+
+                # Match all tasks
+                msgs = await alist(prox.storm(f"ps.kill ''"))
+                self.stormIsInErr('Provided iden matches more than one process.', msgs)
+
+                msgs = await alist(prox.storm('ps.list'))
+                self.stormIsInPrint(f'task iden: {iden}', msgs)
+
+                # Give user explicit license to kill
+                await core.addUserRule(bond.iden, (True, ('task', 'del')))
+
+                # Kill the task as the user
+                msgs = await alist(prox.storm(f'ps.kill {iden}'))
+                self.stormIsInPrint('kill status: True', msgs)
+                self.true(task.done())
+
+                # Kill a task that doesn't exist
+                self.false(await core.kill(bond, 'newp'))
+
     async def test_storm_lib_query(self):
         async with self.getTestCore() as core:
             # basic
@@ -658,10 +763,8 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
             csv_rows = [m for m in mesgs if m[0] == 'csv:row']
             self.len(2, csv_rows)
-            self.eq(csv_rows[0],
-                    ('csv:row', {'row': [978307200000, None], 'table': None}))
-            self.eq(csv_rows[1],
-                    ('csv:row', {'row': [32535216000000, None], 'table': None}))
+            self.eq(csv_rows[0], ('csv:row', {'row': [978307200000, None], 'table': None}))
+            self.eq(csv_rows[1], ('csv:row', {'row': [32535216000000, None], 'table': None}))
 
             # Sad path case...
             q = '''$data=() $genr=$lib.feed.genr(syn.node, $data)
@@ -1599,12 +1702,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(mainlayr, mesgs)
 
             # Create a new layer
-            q = f'$lib.print($lib.layer.add().iden)'
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    newlayr = mesg[1]['mesg']
-
+            newlayr = await core.callStorm('return($lib.layer.add().iden)')
             self.isin(newlayr, core.layers)
 
             # Ensure new layer is set to current model revision
@@ -1705,7 +1803,6 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(locklayr)
                 self.true(layr.lockmemory)
-                self.eq(layr.layrslab.growsize, 5000)
 
             async with self.getTestCore() as core2:
 
@@ -1726,8 +1823,8 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(uplayr)
 
-                evnt = await layr.waitUpstreamOffs(layriden, offs)
-                await asyncio.wait_for(evnt.wait(), timeout=2.0)
+                #evnt = await layr.waitUpstreamOffs(layriden, offs)
+                #await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
     async def test_storm_lib_view(self):
 
@@ -1739,29 +1836,14 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[test:int=12 +#tag.test +#tag.proptest:risk=20]')
 
             # Get the main view
-            q = '$lib.print($lib.view.get().pack().iden)'
-            mesgs = await core.stormlist(q)
-            mainiden = None
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    mainiden = mesg[1]['mesg']
-
-            self.isin(mainiden, core.views)
-
-            q = f'$lib.print($lib.view.get({mainiden}).pack().iden)'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint(mainiden, mesgs)
+            mainiden = await core.callStorm('return($lib.view.get().iden)')
 
             # Fork the main view
             q = f'''
-                $forkview=$lib.view.get({mainiden}).fork()
-                $forkvalu=$forkview.pack()
-                $lib.print("{{iden}},{{layr}}", iden=$forkvalu.iden, layr=$forkvalu.layers.index(0).iden)
+                $view=$lib.view.get().fork()
+                return(($view.iden, $view.layers.index(0).iden))
             '''
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    forkiden, forklayr = mesg[1]['mesg'].split(',')
+            forkiden, forklayr = await core.callStorm(q)
 
             self.isin(forkiden, core.views)
             self.isin(forklayr, core.layers)
@@ -1773,30 +1855,20 @@ class StormTypesTest(s_test.SynTest):
             ldef = await core.addLayer()
             newlayer = core.getLayer(ldef.get('iden'))
 
-            q = f'''
-                $newview=$lib.view.add(({newlayer.iden},))
-                $lib.print($newview.pack().iden)
-            '''
-            newiden = None
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    newiden = mesg[1]['mesg']
+            newiden = await core.callStorm(f'return($lib.view.add(({newlayer.iden},)).iden)')
+            self.nn(newiden)
 
             self.isin(newiden, core.views)
 
             # List the views in the cortex
             q = '''
+                $views = $lib.list()
                 for $view in $lib.view.list() {
-                    $lib.print($view.pack().iden)
+                    $views.append($view.iden)
                 }
+                return($views)
             '''
-            idens = []
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    idens.append(mesg[1]['mesg'])
-
+            idens = await core.callStorm(q)
             self.sorteq(idens, core.views.keys())
 
             # Delete the added view
@@ -1808,21 +1880,19 @@ class StormTypesTest(s_test.SynTest):
             # Fork the forked view
             q = f'''
                 $forkview=$lib.view.get({forkiden}).fork()
-                $lib.print($forkview.pack().iden)
+                return($forkview.pack().iden)
             '''
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    childiden = mesg[1]['mesg']
+            childiden = await core.callStorm(q)
+            self.nn(childiden)
 
             # Can't merge the first forked view if it has children
             q = f'$lib.view.get({forkiden}).merge()'
-            await self.asyncraises(s_exc.CantMergeView, core.nodes(q))
+            await self.asyncraises(s_exc.CantMergeView, core.callStorm(q))
 
             # Can't merge the child forked view if the parent is read only
             core.views[childiden].parent.layers[0].readonly = True
             q = f'$lib.view.get({childiden}).merge()'
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.nodes(q))
+            await self.asyncraises(s_exc.ReadOnlyLayer, core.callStorm(q))
 
             core.views[childiden].parent.layers[0].readonly = False
             await core.nodes(q)
@@ -1840,19 +1910,13 @@ class StormTypesTest(s_test.SynTest):
             # Sad paths
             await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.del(foo)'))
             await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.get(foo)'))
-            await self.asyncraises(s_exc.CantMergeView, core.nodes(f'$lib.view.get({mainiden}).merge()'))
+            await self.asyncraises(s_exc.CantMergeView, core.nodes(f'$lib.view.get().merge()'))
             await self.asyncraises(s_exc.NoSuchLayer, core.nodes(f'view.add --layers {s_common.guid()}'))
-
-            q = f'$lib.view.del({mainiden})'
-            mesgs = await core.stormlist(q)
-            errs = [m[1] for m in mesgs if m[0] == 'err']
-            self.len(1, errs)
-            self.eq(errs[0][0], 'SynErr')
+            await self.asyncraises(s_exc.SynErr, core.nodes('$lib.view.del($lib.view.get().iden)'))
 
             # Check helper commands
             # Get the main view
-            q = 'view.get'
-            mesgs = await core.stormlist(q)
+            mesgs = await core.stormlist('view.get')
             self.stormIsInPrint(mainiden, mesgs)
 
             with self.raises(s_exc.BadOptValu):

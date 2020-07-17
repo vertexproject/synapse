@@ -49,6 +49,7 @@ class TestAutoDoc(s_t_utils.SynTest):
                 buf = fd.read()
             s = buf.decode()
 
+            self.isin('autodoc-stormvarservicecell-conf', s)
             self.isin('StormvarServiceCell Configuration Options', s)
             self.isin('See :ref:`devops-cell-config` for', s)
             self.isin('auth\:passwd', s)

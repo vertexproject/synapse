@@ -10,6 +10,7 @@ import argparse
 import contextlib
 import collections
 
+import synapse.exc as s_exc
 import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
@@ -82,7 +83,8 @@ OLDMODEL_PROPS = (
     'inet:fqdn:created', 'inet:fqdn:expires', 'inet:fqdn:updated',
 )
 
-MAX_01X_VERS = (0, 1, 3)
+REQ_01X_LYR_VERS = '==0.1.3'
+REQ_01X_CORE_VERS = '>=0.1.56,<0.2.0'
 
 class MigrSplices(s_sync.SyncMigrator):
     '''
@@ -110,7 +112,7 @@ class MigrSplices(s_sync.SyncMigrator):
     async def enableMigrationMode(self):  # pragma: no cover
         pass
 
-    async def _initCellDmon(self):
+    async def initServiceNetwork(self):
         pass
 
     async def _srcPullLyrSplices(self, lyriden):
@@ -827,13 +829,12 @@ class Migrator(s_base.Base):
             self.migrdb = self.migrslab.initdb('migr')
             self.onfini(self.migrslab.fini)
 
-        # optionally create migration nexus
-        if nexus and self.addmode == 'nexus':
+        if self.nexusroot is None:
             path = os.path.join(self.dest)
-            if self.nexusroot is None:
-                self.nexusroot = await s_nexus.NexsRoot.anit(path)
-                await self.nexusroot.setLeader(None, '')
+            donexslog = self.addmode == 'nexus'
+            self.nexusroot = await s_nexus.NexsRoot.anit(path, donexslog=donexslog)
             self.onfini(self.nexusroot.fini)
+            await self.nexusroot.startup(None)
 
         # open cell
         if cell:
@@ -864,24 +865,50 @@ class Migrator(s_base.Base):
         '''
         migrop = 'chkvalid'
 
-        # remote layers
+        logger.info(f'Checking that source Cortex is in valid state to be migrated.')
+        vld = True
+
+        # check cortex version iff copied hive from src (otherwise will be 2.x.x after inplace migration)
+        if 'dirn' in self.migrops:
+            vers = await self.hive.get(('cellinfo', 'cortex:version')) or (-1, -1, -1)
+            await self._migrlogAdd(migrop, 'vers', 'src:cortex', vers)
+
+            try:
+                s_version.reqVersion(vers, REQ_01X_CORE_VERS)
+            except s_exc.BadVersion:
+                logger.error(f'Source Cortex does not meet minimum version: req={REQ_01X_CORE_VERS} actual={vers}')
+                vld = False
+
+        # check cell.guid exists and save to validate no layers have same iden
+        guidpath = os.path.join(self.dest, 'cell.guid')
+        coreiden = None
+        if not os.path.exists(guidpath):
+            logger.error(f'Unable to read cell guid at {guidpath}')
+            vld = False
+        else:
+            with open(guidpath, 'r') as fd:
+                coreiden = fd.read().strip()
+
+        await self._migrlogAdd(migrop, 'iden', 'src:cortex', coreiden)
+
+        # check layer info
         lyrs = await self.hive.open(('cortex', 'layers'))
         for lyriden, lyrinfo in lyrs:
+
+            # no remote layers
             lyrtype = lyrinfo.get('type')
             if lyrtype is not None and lyrtype.valu == 'remote':
                 logger.error(f'{lyriden} is a remote layer - it must be unconfigured to proceed with migration')
-                return False
+                vld = False
 
-        # check cortex version iff copied hive from src (otherwise will be 2.x.x after inplace migration)
-        # currently only storing and not halting migration
-        if 'dirn' in self.migrops:
-            vers = await self.hive.get(('cellinfo', 'cortex:version'))
-            if vers is None:
-                vers = (-1, -1, -1)
-                logger.warning(f'Unable to read src cortex version; consider upgrading before proceeding')
-            await self._migrlogAdd(migrop, 'vers', 'src:cortex', vers)
+            # iden unique from cortex
+            if lyriden == coreiden:
+                logger.error(f'{lyriden} equal to Cortex iden - source may not be properly updated to latest version')
+                vld = False
 
-        return True
+        logger.info(f'Completed check of source Cortex state: valid={vld}')
+
+        return vld
 
     async def formCounts(self):
         '''
@@ -990,7 +1017,7 @@ class Migrator(s_base.Base):
         Copies all data *except* the layers
 
         Returns:
-            (list): Discovered local physical layers
+            (list): Idens of discovered local physical layers
         '''
         dest = self.dest
         src = self.src
@@ -1461,8 +1488,7 @@ class Migrator(s_base.Base):
 
         # even after a partial migration this vers should not be updated to 2.x.x since
         # layer:model:version is no longer used
-        if vers != MAX_01X_VERS:
-            raise Exception(f'Layer {iden} model version must be at latest 01x vers: {vers} != {MAX_01X_VERS}')
+        s_version.reqVersion(vers, REQ_01X_LYR_VERS, mesg=f'Layer {iden} model version does not match required.')
 
         # record offset
         path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')

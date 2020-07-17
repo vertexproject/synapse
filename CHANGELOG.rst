@@ -3,6 +3,112 @@ Synapse Changelog
 *****************
 
 
+v2.4.0 - 2020-07-15
+===================
+
+Features and Enhancements
+-------------------------
+
+- Update the Storm ``scrape`` command to make ``refs`` light edges, instead of ``edge:refs`` nodes.
+  (`#1801 <https://github.com/vertexproject/synapse/pull/1801>`_)
+  (`#1803 <https://github.com/vertexproject/synapse/pull/1803>`_)
+- Add ``:headers`` and ``:response:headers`` secondary properties to the ``inet:http:request`` form as Array types, so
+  that requests can be directly linked to headers.
+  (`#1800 <https://github.com/vertexproject/synapse/pull/1800>`_)
+- Add ``:headers`` secondary property to the ``inet:email:messaage`` form as Array types, so that messages can be
+  directly linked to headers.
+  (`#1800 <https://github.com/vertexproject/synapse/pull/1800>`_)
+- Add additional model elements to support recording additional data for binary reverse engineering.
+  (`#1802 <https://github.com/vertexproject/synapse/pull/1802>`_)
+
+
+v2.3.1 - 2020-07-13
+===================
+
+Bugfixes
+--------
+- Prohibit invalid rules from being set on a User or Role object.
+  (`#1798 <https://github.com/vertexproject/synapse/pull/1798>`_)
+
+
+v2.3.0 - 2020-07-09
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add ``ps.list`` and ``ps.kill`` commands to Storm, to allow introspecting the runtime tasks during
+  (`#1782 <https://github.com/vertexproject/synapse/pull/1782>`_)
+- Add an ``autoadd`` mode to Storm, which will extract basic indicators and make nodes from them when executed. This is
+  a superset of the behavior in the ``lookup`` mode.
+  (`#1795 <https://github.com/vertexproject/synapse/pull/1795>`_)
+- Support skipping directories in the ``synapse.tools.backup`` tool.
+  (`#1792 <https://github.com/vertexproject/synapse/pull/1792>`_)
+- Add prefix based lifting to the Hex type.
+  (`#1796 <https://github.com/vertexproject/synapse/pull/1796>`_)
+
+Bugfixes
+--------
+- Fix an issue for prop pivot out syntax where the source data is an array type.
+  (`#1794 <https://github.com/vertexproject/synapse/pull/1794>`_)
+
+Improved Documentation
+----------------------
+
+- Add Synapse data model background on light edges and update the Storm data modification and pivot references for light
+  edges.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Add additional terms to the Synapse glossary.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Add documentation for additional Storm commands.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Update documentation for Array types.
+  (`#1791 <https://github.com/vertexproject/synapse/pull/1791>`_)
+
+
+v2.2.2 - 2020-07-03
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add some small enhancements to the Cortex benchmarking script.
+  (`#1790 <https://github.com/vertexproject/synapse/pull/1790>`_)
+
+Bugfixes
+--------
+
+- Fix an error in the help for the ``macro.del`` command.
+  (`#1786 <https://github.com/vertexproject/synapse/pull/1786>`_)
+- Fix rule indexing for the ``synapse.tools.cellauth`` tool to correctly print the rule offsets.
+  (`#1787 <https://github.com/vertexproject/synapse/pull/1787>`_)
+- Remove extraneous output from the Storm Parser output.
+  (`#1789 <https://github.com/vertexproject/synapse/pull/1789>`_)
+- Rewrite the language (and private APIs) for the Storm ``model.edge`` related commands to remove references to extended
+  properties. That was confusing language which was unclear for users.
+  (`#1789 <https://github.com/vertexproject/synapse/pull/1789>`_)
+- During 2.0.0 migrations, ensure that Cortex and Layer idens are unique; and make minimum 0.1.6 version requirement for
+  migration.
+  (`#1788 <https://github.com/vertexproject/synapse/pull/1788>`_)
+
+
+v2.2.1 - 2020-06-30
+===================
+
+Bugfixes
+--------
+
+- The Axon test suite was missing a test for calling ``Axon.get()`` on a file it did not have. This is now included in
+  the test suite.
+  (`#1783 <https://github.com/vertexproject/synapse/pull/1783>`_)
+
+Improved Documentation
+----------------------
+
+- Improve Synapse devops documentation hierarchy. Add note about Cell directories being persistent.
+  (`#1781 <https://github.com/vertexproject/synapse/pull/1781>`_)
+
+
 v2.2.0 - 2020-06-26
 ===================
 

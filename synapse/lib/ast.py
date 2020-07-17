@@ -200,10 +200,16 @@ class Lookup(Query):
                 for form, _, _ in s_scrape.scrape_types:
                     regx = s_scrape.regexes.get(form)
                     if regx.match(tokn):
-                        norm, info = runt.model.form(form).type.norm(tokn)
-                        node = await runt.snap.getNodeByNdef((form, norm))
-                        if node is not None:
+
+                        if self.autoadd:
+                            node = await runt.snap.addNode(form, tokn)
                             yield node, runt.initPath(node)
+
+                        else:
+                            norm, info = runt.model.form(form).type.norm(tokn)
+                            node = await runt.snap.getNodeByNdef((form, norm))
+                            if node is not None:
+                                yield node, runt.initPath(node)
 
         realgenr = lookgenr()
         if len(self.kids) > 1:
@@ -224,6 +230,7 @@ class SubGraph:
 
                     'degrees': 1,
 
+                    'edges': True,
                     'filterinput': True,
                     'yieldfiltered': False,
 
@@ -1662,7 +1669,7 @@ class PropPivotOut(PivotOper):
             if valu is None:
                 continue
 
-            if isinstance(prop.type, s_types.Array):
+            if prop.type.isarray:
                 fname = prop.type.arraytype.name
                 if runt.model.forms.get(fname) is None:
                     if not warned:
@@ -1704,6 +1711,9 @@ class PropPivotOut(PivotOper):
 
 
 class PropPivot(PivotOper):
+    '''
+    :foo -> bar:foo
+    '''
 
     async def run(self, runt, genr):
         warned = False
@@ -1720,14 +1730,24 @@ class PropPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            valu = await self.kids[0].compute(path)
+            srcprop, valu = await self.kids[0].getPropAndValu(path)
             if valu is None:
                 continue
 
             # TODO cache/bypass normalization in loop!
             try:
+                # pivoting from an array prop to a non-array prop needs an extra loop
+                if srcprop.type.isarray and not prop.type.isarray:
+
+                    for arrayval in valu:
+                        async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval):
+                            yield pivo, path.fork(pivo)
+
+                    continue
+
                 async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
                     yield pivo, path.fork(pivo)
+
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                 if not warned:
                     logger.warning(f'Caught error during pivot: {e.items()}')
@@ -2069,7 +2089,7 @@ class ArrayCond(Cond):
                 mesg = f'No property named {name}.'
                 raise s_exc.NoSuchProp(name=name)
 
-            if not isinstance(prop.type, s_types.Array):
+            if not prop.type.isarray:
                 mesg = f'Array filter syntax is invalid for non-array prop {name}.'
                 raise s_exc.BadCmprType(mesg=mesg)
 

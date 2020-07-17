@@ -58,11 +58,11 @@ reqValidCdef = s_config.getJsValidator({
         'req': {
             'type': 'object',
             'properties': {
-                'minute': {'type': 'number'},
-                'hour': {'type': 'number'},
-                'dayofmonth': {'type': 'number'},
-                'month': {'type': 'number'},
-                'year': {'type': 'number'},
+                'minute': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'hour': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'dayofmonth': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'month': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'year': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
             }
         }
     }

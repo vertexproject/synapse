@@ -28,7 +28,7 @@ stormcmds = [
         'name': 'macro.del',
         'descr': macro_del_descr,
         'cmdargs': (
-            ('name', {'help': 'The name of the macro to set.'}),
+            ('name', {'help': 'The name of the macro to delete.'}),
         ),
         'storm': '''
             $lib.macro.del($cmdopts.name)
