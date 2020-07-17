@@ -9,7 +9,7 @@ import synapse.lib.stormtypes as s_stormtypes
 @s_stormtypes.registry.registerLib
 class LibHttp(s_stormtypes.Lib):
     '''
-    HTTP client API for STORM
+    A Storm Library exposing an HTTP client API.
     '''
 
     _storm_lib_path = ('inet', 'http')

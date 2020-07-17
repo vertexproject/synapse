@@ -192,7 +192,7 @@ class Lib(StormType):
 @registry.registerLib
 class LibPkg(Lib):
     '''
-    Storm Library for interacting with Storm Packages.
+    A Storm Library for interacting with Storm Packages.
     '''
     _storm_lib_path = ('pkg',)
 
@@ -241,7 +241,7 @@ class LibPkg(Lib):
 @registry.registerLib
 class LibDmon(Lib):
     '''
-    Storm Library for interacting with StormDmons.
+    A Storm Library for interacting with StormDmons.
     '''
     _storm_lib_path = ('dmon',)
 
@@ -3441,6 +3441,9 @@ class Role(Prim):
 
 @registry.registerLib
 class LibCron(Lib):
+    '''
+    A Storm Library for interacting with Cron Jobs in the Cortex.
+    '''
     _storm_lib_path = ('cron',)
 
     def getObjLocals(self):

@@ -7,7 +7,7 @@ import synapse.lib.stormtypes as s_stormtypes
 @s_stormtypes.registry.registerLib
 class LibWhois(s_stormtypes.Lib):
     '''
-    WHOIS / Registration Data client for Storm.
+    A Storm Library for providing a consistent way to generate guids for WHOIS / Registration Data in Storm.
     '''
 
     _storm_lib_path = ('inet', 'whois')

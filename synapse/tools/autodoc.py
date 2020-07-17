@@ -558,26 +558,21 @@ async def docStormTypes():
 
     libs.sort(key=lambda x: x[0])
     types.sort(key=lambda x: x[0])
-    print(sorted)
-    for obj in libs:
-        print(obj)
 
-    # FIXME add links!
     typespage = RstHelp
     libspage = RstHelp()
 
-    libspage.addHead('Storm Libraries', lvl=0)
+    libspage.addHead('Storm Libraries', lvl=0, link='.. _stormlibs-header:')
 
     libspage.addLines('',
                       'Storm Libraries are magical unicorns of the Storm query language.',
                       '')
 
-    # TODO generate a toc?
     basepath = 'lib'
     for (path, lib) in libs:
         libpath = '.'.join((basepath,) + path)
 
-        liblink = f'_stormlibs-{libpath.replace(".", "-")}'
+        liblink = f'.. _stormlibs-{libpath.replace(".", "-")}:'
         libspage.addHead(f'${libpath}', lvl=1, link=liblink)
 
         libdoc = getattr(lib, '__doc__')
@@ -590,8 +585,6 @@ async def docStormTypes():
         lines = libdoc.split('\n')
 
         newlines = ljuster(lines)
-        for line in newlines:
-            print(line)
 
         libspage.addLines(*newlines)
 
@@ -627,11 +620,11 @@ async def docStormTypes():
                     callsig = callsig.replace(parameters=params[1:])
 
                 funcpath = '.'.join((libpath, name))
-                funclink = f'_stormlibs-{funcpath.replace(".", "-")}'
+                funclink = f'.. _stormlibs-{funcpath.replace(".", "-")}:'
                 header = f'${funcpath}{callsig}'
                 header = header.replace('*', r'\*')
 
-                libspage.addHead(header, lvl=2, header=funclink)
+                libspage.addHead(header, lvl=2, link=funclink)
 
                 libspage.addLines(*newlines)
 
