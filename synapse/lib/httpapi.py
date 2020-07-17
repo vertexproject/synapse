@@ -231,6 +231,22 @@ class HandlerBase:
     async def authenticated(self):
         return await self.user() is not None
 
+    async def hasUserBody(self):
+        '''
+        Helper function to confirm that there is a auth user and a valid JSON body in the request.
+
+        Returns:
+            object: The body of the request as deserialized JSON, or s_common.novalu if there was no user or json body.
+        '''
+        if not await self.reqAuthUser():
+            return s_common.novalu
+
+        body = self.getJsonBody()
+        if body is None:
+            return s_common.novalu
+
+        return body
+
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
     async def xmit(self, name, **info):
@@ -249,7 +265,6 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
             raise s_exc.AuthDeny(mesg=mesg, perm=perm)
 
 class Handler(HandlerBase, t_web.RequestHandler):
-    pass
 
     async def _reqValidOpts(self, opts):
 
@@ -271,14 +286,10 @@ class StormNodesV1(Handler):
 
     async def get(self):
 
-        if not await self.reqAuthUser():
+        body = await self.hasUserBody()
+        if body is s_common.novalu:
             return
-
         user = await self.user()
-
-        body = self.getJsonBody()
-        if body is None:
-            return
 
         # dont allow a user to be specified
         opts = body.get('opts')
@@ -300,16 +311,13 @@ class StormV1(Handler):
 
     async def get(self):
 
-        if not await self.reqAuthUser():
+        body = await self.hasUserBody()
+        if body is s_common.novalu:
             return
-
         user = await self.user()
-        body = self.getJsonBody()
-        if body is None:
-            return
 
         # dont allow a user to be specified
-        opts = body.get('opts', {})
+        opts = body.get('opts')
         query = body.get('query')
 
         # Maintain backwards compatibility with 0.1.x output
@@ -329,12 +337,8 @@ class ReqValidStormV1(Handler):
 
     async def get(self):
 
-        if not await self.reqAuthUser():
-            return
-
-        user = await self.user()
-        body = self.getJsonBody()
-        if body is None:
+        body = await self.hasUserBody()
+        if body is s_common.novalu:
             return
 
         opts = body.get('opts', {})
