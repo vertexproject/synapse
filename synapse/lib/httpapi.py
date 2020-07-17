@@ -231,21 +231,23 @@ class HandlerBase:
     async def authenticated(self):
         return await self.user() is not None
 
-    async def hasUserBody(self):
+    async def getUserBody(self):
         '''
         Helper function to confirm that there is a auth user and a valid JSON body in the request.
 
         Returns:
-            object: The body of the request as deserialized JSON, or s_common.novalu if there was no user or json body.
+            (User, object): The user and body of the request as deserialized JSON, or a tuple of s_common.novalu
+                objects if there was no user or json body.
         '''
         if not await self.reqAuthUser():
-            return s_common.novalu
+            return (s_common.novalu, s_common.novalu)
 
         body = self.getJsonBody()
         if body is None:
-            return s_common.novalu
+            return (s_common.novalu, s_common.novalu)
 
-        return body
+        user = await self.user()
+        return (user, body)
 
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
@@ -286,10 +288,9 @@ class StormNodesV1(Handler):
 
     async def get(self):
 
-        body = await self.hasUserBody()
+        user, body = await self.getUserBody()
         if body is s_common.novalu:
             return
-        user = await self.user()
 
         # dont allow a user to be specified
         opts = body.get('opts')
@@ -311,10 +312,9 @@ class StormV1(Handler):
 
     async def get(self):
 
-        body = await self.hasUserBody()
+        user, body = await self.getUserBody()
         if body is s_common.novalu:
             return
-        user = await self.user()
 
         # dont allow a user to be specified
         opts = body.get('opts')
@@ -337,7 +337,7 @@ class ReqValidStormV1(Handler):
 
     async def get(self):
 
-        body = await self.hasUserBody()
+        _, body = await self.getUserBody()
         if body is s_common.novalu:
             return
 
@@ -506,12 +506,8 @@ class AuthUserPasswdV1(Handler):
 
     async def post(self, iden):
 
-        if not await self.reqAuthUser():
-            return
-        current_user = await self.user()
-
-        body = self.getJsonBody()
-        if body is None:
+        current_user, body = await self.getUserBody()
+        if body is s_common.novalu:
             return
 
         user = self.cell.auth.user(iden)
