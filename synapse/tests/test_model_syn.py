@@ -63,6 +63,8 @@ class SynModelTest(s_t_utils.SynTest):
             # which will attempt a syn:splice lift which will
             # yield no nodes.
             self.len(0, await core.nodes('syn:tag=foo.bar.baz <- *'))
+            nodes = await core.nodes('syn:tag=foo.bar.baz [ :doc:url="http://vertex.link" ]')
+            self.eq('http://vertex.link', nodes[0].get('doc:url'))
 
     async def test_syn_model_runts(self):
 

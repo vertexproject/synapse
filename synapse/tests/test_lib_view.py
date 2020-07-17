@@ -6,7 +6,9 @@ import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
 class ViewTest(s_t_utils.SynTest):
+
     async def test_view_fork_merge(self):
+
         async with self.getTestCore() as core:
             await core.nodes('[ test:int=8 +#faz ]')
             await core.nodes('[ test:int=9 test:int=10 ]')
