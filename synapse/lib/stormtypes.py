@@ -766,6 +766,7 @@ class LibBase(Lib):
 
         Args:
             mesg (str): String to warn.
+
             **kwargs: **kwargs: Keyword arguments to substitute into the mesg.
 
         Notes:
@@ -795,6 +796,7 @@ class LibBase(Lib):
 
         Args:
             name: The type of the event to fire.
+
             **info: Additional keyword arguments containing data to add to the event.
 
         Notes:

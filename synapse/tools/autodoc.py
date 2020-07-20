@@ -601,9 +601,12 @@ def docStormLibs(libs):
 
     page.addHead('Storm Libraries', lvl=0, link='.. _stormtypes-libs-header:')
 
-    page.addLines('',
-                  'Storm Libraries are magical unicorns of the Storm query language.',
-                  '')
+    lines = (
+        '',
+        'Storm Libraries represent powerful tools available inside of the Storm query language.',
+        ''
+    )
+    page.addLines(*lines)
 
     basepath = 'lib'
 
@@ -652,9 +655,12 @@ def docStormPrims(types):
 
     page.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
 
-    page.addLines('',
-                  'Storm Objects are magical candies of the Storm query language.',
-                  '')
+    lines = (
+        '',
+        'Storm Objects are used as view objects for manipulating data in the Storm Runtime and in the Cortex itself.'
+        ''
+    )
+    page.addLines(*lines)
 
     for (sname, styp) in types:
 
