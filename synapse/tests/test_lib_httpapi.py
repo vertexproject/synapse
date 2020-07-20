@@ -37,7 +37,7 @@ class HttpApiTest(s_tests.SynTest):
 
             async with self.getHttpSess(auth=('user', '12345'), port=port) as sess:
                 async with sess.get(url) as resp:
-                    self.eq(resp.status, 200)
+                    self.eq(resp.status, 403)
                     retn = await resp.json()
                     self.eq(retn.get('status'), 'err')
                     self.eq(retn.get('code'), 'AuthDeny')

@@ -162,6 +162,7 @@ class HandlerBase:
 
         user = await self.user()
         if not user.allowed(path):
+            self.set_status(403)
             mesg = f'User {user.iden} ({user.name}) must have permission {".".join(path)}'
             self.sendRestErr('AuthDeny', mesg)
             return False
