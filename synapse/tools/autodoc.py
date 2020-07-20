@@ -537,7 +537,7 @@ async def docStormsvc(ctor):
 
     return rst, clsname
 
-def ljuster(ilines, indent=0):
+def ljuster(ilines):
     '''Helper to lstrip lines of whitespace an appropriate amount.'''
     baseline = ilines[0]
     assert baseline != ''
@@ -546,8 +546,6 @@ def ljuster(ilines, indent=0):
     diff = len(baseline) - len(newbaseline)
     assert diff >= 0
     newlines = [line[diff:] for line in ilines]
-    if indent:
-        newlines = [(' ' * indent) + line for line in newlines]
     return newlines
 
 def scrubLines(lines):
@@ -587,13 +585,13 @@ def getCallsig(func):
         callsig = callsig.replace(parameters=params[1:])
     return callsig
 
-def prepareRstLines(doc, cleanargs=False, indent=0):
+def prepareRstLines(doc, cleanargs=False):
     '''Prepare a __doc__ string for RST lines.'''
     if cleanargs:
         doc = cleanArgsRst(doc)
     lines = doc.split('\n')
     lines = scrubLines(lines)
-    lines = ljuster(lines, indent)
+    lines = ljuster(lines)
     return lines
 
 def docStormLibs(libs):
@@ -696,7 +694,7 @@ def docStormPrims(types):
 
                 lines = prepareRstLines(locldoc)
 
-            else:
+            else:  # pragma: no cover
                 logger.warning(f'Unknown constant found: {loclname} -> {locl}')
 
             if lines:
