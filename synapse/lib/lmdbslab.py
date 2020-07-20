@@ -1110,6 +1110,27 @@ class Slab(s_base.Base):
 
             yield from scan.iterkeys()
 
+    async def countByPref(self, byts, db=None):
+        '''
+        Return the number of rows in the given db with the matching prefix bytes.
+        '''
+        count = 0
+        size = len(byts)
+        with Scan(self, db) as scan:
+
+            if not scan.rangekeys(byts):
+                return 0
+
+            for lkey in scan.iterkeys():
+
+                if lkey[:size] != byts:
+                    return count
+
+                count += 1
+                await asyncio.sleep(0)
+
+            return count
+
     def scanByDups(self, lkey, db=None):
 
         with Scan(self, db, singlekey=True) as scan:
@@ -1445,6 +1466,15 @@ class Scan:
         self.atitem = next(self.genr)
         return True
 
+    def rangekeys(self, byts):
+
+        if not self.curs.set_range(byts):
+            return False
+
+        self.genr = self.curs.iternext(values=False)
+        self.atitem = next(self.genr)
+        return True
+
     def set_key(self, lkey):
 
         if not self.curs.set_key(lkey):
@@ -1481,7 +1511,7 @@ class Scan:
                     if not self.curs.set_range(self.atitem):
                         return
 
-                    self.genr = self.curs.iternext(self.curs, values=False)
+                    self.genr = self.curs.iternext(values=False)
 
                     # if we restore and the atitem key is still there, skip it.
                     if self.atitem == self.curs.key():

@@ -1201,6 +1201,31 @@ class Layer(s_nexus.Pusher):
 
         return (buid, info)
 
+    async def getTagCount(self, tagname, formname=None):
+        '''
+        Return the number of tag rows in the layer for the given tag/form.
+        '''
+        try:
+            abrv = self.tagabrv.bytsToAbrv(tagname.encode())
+            if formname is not None:
+                abrv += self.getPropAbrv(formname, None)
+
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        return await self.layrslab.countByPref(abrv, db=self.bytag)
+
+    async def getPropCount(self, formname, propname=None):
+        '''
+        Return the number of property rows in the layer for the given form/prop.
+        '''
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        return await self.layrslab.countByPref(abrv, db=self.byprop)
+
     async def liftByTag(self, tag, form=None):
 
         try:
