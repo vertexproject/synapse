@@ -33,8 +33,8 @@ class StormTypesRegistry:
 
     def addStormLib(self, path, ctor):
         if path in self._LIBREG:
-            raise Exception('cannot register twice')
-        # Validate path is a tuple of strings
+            raise Exception('cannot register a library twice')
+        assert isinstance(path, tuple)
         self._LIBREG[path] = ctor
 
     def delStormLib(self, path):
@@ -43,8 +43,7 @@ class StormTypesRegistry:
 
     def addStormType(self, path, ctor):
         if path in self._TYPREG:
-            raise Exception('cannot register twice')
-        # Validate path is a tuple of strings
+            raise Exception('cannot register a type twice')
         self._TYPREG[path] = ctor
 
     def delStormType(self, path):
@@ -52,6 +51,7 @@ class StormTypesRegistry:
             raise Exception('no such path!')
 
     def registerLib(self, ctor):
+        '''Decorator to register a StormLib'''
         path = getattr(ctor, '_storm_lib_path', s_common.novalu)
         if path is s_common.novalu:
             raise Exception('no key!')
@@ -60,13 +60,8 @@ class StormTypesRegistry:
         return ctor
 
     def registerType(self, ctor):
-
-        # path = getattr(ctor, '_storm_lib_type', None)
-        name = ctor.__name__
-        if not name:
-            raise Exception('no key!')
-        self.addStormType(name, ctor)
-
+        '''Decorator to register a StormPrim'''
+        self.addStormType(ctor.__name__, ctor)
         return ctor
 
     def iterLibs(self):
@@ -74,11 +69,6 @@ class StormTypesRegistry:
 
     def iterTypes(self):
         return list(self._TYPREG.items())
-
-    # def registerFunc(self, name):
-    #
-    #     @functools.wraps(f)
-    #     return wrapped
 
 registry = StormTypesRegistry()
 
@@ -125,6 +115,15 @@ class StormType:
         self.locls = {}
 
     def getObjLocals(self):
+        '''
+        Get the default list of key-value pairs which may be added to the object ``.locls`` dictionary.
+
+        Notes:
+            These values are exposed in autodoc generated documentation.
+
+        Returns:
+            dict: A key/value pairs.
+        '''
         return {}
 
     async def setitem(self, name, valu):
@@ -3405,14 +3404,12 @@ class User(Prim):
         Prim.__init__(self, valu, path=path)
         self.runt = runt
 
-        self.locls.update({
-            'iden': valu,
-        })
         self.locls.update(self.getObjLocals())
 
     # Todo: Plumb iden access via a @property
     def getObjLocals(self):
         return {
+            'iden': self._iden,
             'get': self._methUserGet,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
@@ -3426,6 +3423,16 @@ class User(Prim):
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
         }
+
+    @property
+    def _iden(self):
+        '''
+        Constant representing the user iden.
+
+        Returns:
+            str: The user iden.
+        '''
+        return self.valu
 
     async def _derefGet(self, name):
         udef = await self.runt.snap.core.getUserDef(self.valu)

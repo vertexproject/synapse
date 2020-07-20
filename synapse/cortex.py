@@ -1935,7 +1935,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
 
         for path, ctor in s_stormtypes.registry.iterLibs():
-            # Skip libbase which is registered with an empty path.
+            # Skip libbase which is registered as a default ctor in the storm Runtime
             if path:
                 self.addStormLib(path, ctor)
 
