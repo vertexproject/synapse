@@ -2228,7 +2228,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             assert self.inaugural, 'Cortex initialization failed: there are no views.'
             ldef = await self.addLayer(nexs=False)
             layriden = ldef.get('iden')
+            layr = self.getLayer(layriden)
+            await layr._hndlsetLayerInfo('name', 'default')
             vdef = {
+                'name': 'default',
                 'layers': (layriden,),
                 'worldreadable': True,
             }

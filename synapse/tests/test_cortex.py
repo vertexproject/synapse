@@ -1,6 +1,5 @@
 import copy
 import time
-import shutil
 import asyncio
 import logging
 
@@ -152,7 +151,7 @@ class CortexTest(s_t_utils.SynTest):
 
             # we should now be able to edge walk *and* refs in
             nodes = await core.nodes('inet:ipv4=1.2.3.4 <-- *')
-            #self.len(2, nodes)
+            # self.len(2, nodes)
             self.eq(nodes[0].ndef[0], 'inet:dns:a')
             self.eq(nodes[1].ndef[0], 'media:news')
 
@@ -1635,6 +1634,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             for field in ('version', 'modeldef', 'stormcmds'):
                 self.isin(field, coreinfo)
+
+            layers = list(core.listLayers())
+            self.len(1, layers)
+            self.eq(layers[0].pack()['name'], 'default')
+
+            views = list(core.listViews())
+            self.len(1, views)
+            self.eq(views[0].pack()['name'], 'default')
 
     async def test_cortex_model_dict(self):
 
