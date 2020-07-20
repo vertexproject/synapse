@@ -467,6 +467,22 @@ class CoreApi(s_cell.CellApi):
         finally:
             raise s_exc.DmonSpawn(mesg=mesg)
 
+    async def reqValidStorm(self, text, opts=None):
+        '''
+        Parse a Storm query to validate it.
+
+        Args:
+            text (str): The text of the Storm query to parse.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            True: If the query is valid.
+
+        Raises:
+            BadSyntaxError: If the query is invalid.
+        '''
+        return await self.cell.reqValidStorm(text, opts)
+
     async def watch(self, wdef):
         '''
         Hook cortex/view/layer watch points based on a specified watch definition.
@@ -1997,6 +2013,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
         self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
+        self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/model', s_httpapi.ModelV1, {'cell': self})
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
@@ -2879,6 +2896,26 @@ class Cortex(s_cell.Cell):  # type: ignore
         query = copy.deepcopy(s_parser.parseQuery(text, mode=mode))
         query.init(self)
         return query
+
+    async def reqValidStorm(self, text, opts=None):
+        '''
+        Parse a storm query to validate it.
+
+        Args:
+            text (str): The text of the Storm query to parse.
+            opts (dict): A Storm options dictionary.
+
+        Returns:
+            True: If the query is valid.
+
+        Raises:
+            BadSyntaxError: If the query is invalid.
+        '''
+        if opts is None:
+            opts = {}
+        mode = opts.get('mode', 'storm')
+        self.getStormQuery(text, mode)
+        return True
 
     def _logStormQuery(self, text, user):
         '''

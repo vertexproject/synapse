@@ -1830,6 +1830,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(0, pkgs)
             await self.asyncraises(s_exc.NoSuchPkg, proxy.delStormPkg('foosball'))
 
+            # test reqValidStorm
+            self.true(await proxy.reqValidStorm('test:str=test'))
+            self.true(await proxy.reqValidStorm('1.2.3.4 | spin', {'mode': 'lookup'}))
+            self.true(await proxy.reqValidStorm('1.2.3.4 | spin', {'mode': 'autoadd'}))
+            with self.raises(s_exc.BadSyntax):
+                await proxy.reqValidStorm('1.2.3.4 ')
+            with self.raises(s_exc.BadSyntax):
+                await proxy.reqValidStorm('| 1.2.3.4 ', {'mode': 'lookup'})
+            with self.raises(s_exc.BadSyntax):
+                await proxy.reqValidStorm('| 1.2.3.4', {'mode': 'autoadd'})
+
     async def test_stormcmd(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
