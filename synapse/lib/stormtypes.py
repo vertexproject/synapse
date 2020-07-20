@@ -700,7 +700,26 @@ class LibBase(Lib):
         Args:
             mesg (str): String to print.
 
-            **kwargs: Words go here FIXME
+            **kwargs: Keyword arguments to substitute into the mesg.
+
+        Examples:
+            Print a simple string::
+
+                cli> storm $lib.print("Hello world!")
+                Hello world!
+
+            Format and print string based on variables::
+
+                cli> storm $d=$lib.dict(key1=(1), key2="two")
+                     for ($key, $value) in $d { $lib.print('{k} => {v}', k=$key, v=$value) }
+                key1 => 1
+                key2 => two
+
+            Use values off of a node to format and print string::
+
+                cli> storm inet:ipv4:asn
+                     $lib.print("node: {ndef}, asn: {asn}", ndef=$node.ndef(), asn=:asn) | spin
+                node: ('inet:ipv4', 16909060), asn: 1138
 
         Notes:
             Arbitrary objects can be printed as well. They will have their Python __repr()__ printed.
@@ -735,7 +754,7 @@ class LibBase(Lib):
 
         Args:
             mesg (str): String to warn.
-            **kwargs: Words go here FIXME
+            **kwargs: **kwargs: Keyword arguments to substitute into the mesg.
 
         Notes:
             Arbitrary objects can be warned as well. They will have their Python __repr()__ printed.
@@ -1890,7 +1909,8 @@ class LibUser(Lib):
             'name': self._libUserName,
         }
 
-    # FIXME - Figure out a way to pull vars and profile up into $lib.user ?
+    # Todo: Plumb vars and profile access via a @property, implement our own __init__
+    # which makes the underlying prims to be accessed by the runtime
     def addLibFuncs(self):
         super().addLibFuncs()
         self.locls.update({
@@ -2380,7 +2400,7 @@ class Path(Prim):
             'vars': PathVars(path),
         })
 
-    # Fixme get vars out for docs purposes
+    # Todo: Plumb vars access via a @property
     def getObjLocals(self):
         return {
             'idens': self._methPathIdens,
@@ -2614,7 +2634,7 @@ class Layer(Prim):
         })
         self.locls.update(self.getObjLocals())
 
-    # fixme plumb in iden
+    # Todo: Plumb iden access via a @property
     def getObjLocals(self):
         return {
             'set': self._methLayerSet,
@@ -2759,7 +2779,7 @@ class View(Prim):
         })
         self.locls.update(self.getObjLocals())
 
-    # FIXME plumb in iden/layers/triggers
+    # Todo plumb in iden/layers/triggers access via a property
     def getObjLocals(self):
         return {
             'set': self._methViewSet,
@@ -3356,7 +3376,7 @@ class Gate(Prim):
         Prim.__init__(self, valu, path=path)
         self.runt = runt
 
-        # FIXME get iden/roles/users
+        # Todo: Plumb iden/role/users access via a @property and implement getObjLocals
         self.locls.update({
             'iden': valu.get('iden'),
             'users': valu.get('users'),
@@ -3376,7 +3396,7 @@ class User(Prim):
         })
         self.locls.update(self.getObjLocals())
 
-    # Fixme iden
+    # Todo: Plumb iden access via a @property
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
@@ -3997,7 +4017,7 @@ class CronJob(Prim):
         })
         self.locls.update(self.getObjLocals())
 
-    # FIXME iden
+    # Todo: Plumb iden access via a @property
     def getObjLocals(self):
         return {
             'pack': self._methCronJobPack,

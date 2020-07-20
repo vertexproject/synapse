@@ -175,7 +175,7 @@ class ModelProp(s_stormtypes.Prim):
 
         s_stormtypes.Prim.__init__(self, prop, path=path)
 
-        # FIXME name / full
+        # Todo: Plumb name and full access via a @property and implement getObjLocals
         self.locls.update({
             'name': prop.name,
             'full': prop.full,
@@ -204,7 +204,7 @@ class ModelType(s_stormtypes.Prim):
         })
         self.locls.update(self.getObjLocals())
 
-    # fixme name
+    # Todo: Plumb name access via a @property
     def getObjLocals(self):
         return {
             'repr': self._methRepr,
