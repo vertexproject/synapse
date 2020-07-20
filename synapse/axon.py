@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import logging
+import binascii
 import tempfile
 
 import synapse.exc as s_exc
@@ -10,6 +11,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.share as s_share
+import synapse.lib.httpapi as s_httpapi
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -17,6 +19,55 @@ logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 16 * s_const.mebibyte
 MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
+
+def initAxonHttpApi(cell):
+    '''
+    Register Axon httpapi endpoints on a given Cell
+    '''
+    cell.addHttpApi('/api/v1/axon/files', AxonFilesHttpV1, {'cell': cell})
+    cell.addHttpApi('/api/v1/axon/files/(.*)', AxonFileHttpV1, {'cell': cell})
+
+class AxonFilesHttpV1(s_httpapi.Handler):
+
+    async def post(self):
+
+        if not await self.reqAuthAllowed(('axon', 'upload')):
+            return
+
+        byts = self.request.body
+
+        size, sha256b = await self.cell.axon.put(byts)
+        sha256 = s_common.ehex(sha256b)
+
+        self.sendRestRetn((size, sha256))
+
+        return
+
+class AxonFileHttpV1(s_httpapi.Handler):
+
+    async def get(self, sha256):
+
+        if not await self.reqAuthAllowed(('axon', 'get')):
+            return
+
+        try:
+            sha256b = s_common.uhex(sha256)
+        except (TypeError, binascii.Error) as e:
+            self.set_status(400)
+            self.sendRestErr('BadRequest', 'Files must be requested with a valid SHA-256.')
+            return
+
+        try:
+            async for byts in self.cell.axon.get(sha256b):
+                self.write(byts)
+                await self.flush()
+                await asyncio.sleep(0)
+
+        except s_exc.NoSuchFile as e:
+            self.set_status(404)
+            self.sendRestErr('NoSuchFile', e.get('mesg'))
+
+        return
 
 class UpLoad(s_base.Base):
 
@@ -142,6 +193,8 @@ class Axon(s_cell.Cell):
         # for potential default remote use
         self.dmon.share('axon', self)
 
+        self.axon = self
+
         path = s_common.gendir(self.dirn, 'axon.lmdb')
         self.axonslab = await s_lmdbslab.Slab.anit(path)
         self.sizes = self.axonslab.initdb('sizes')
@@ -159,6 +212,8 @@ class Axon(s_cell.Cell):
 
         # modularize blob storage
         await self._initBlobStor()
+
+        initAxonHttpApi(self)
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())

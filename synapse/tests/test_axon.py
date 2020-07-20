@@ -1,3 +1,5 @@
+import os
+import asyncio
 import hashlib
 import logging
 import unittest.mock as mock
@@ -171,6 +173,55 @@ class AxonTest(s_t_utils.SynTest):
         if isinstance(fd, s_axon.UpLoad):
             self.true(fd.fd.closed)
 
+    async def runAxonHttpTestBase(self, cell):
+
+        host, port = await cell.addHttpsPort(0, host='127.0.0.1')
+
+        newb = await cell.auth.addUser('newb')
+        await newb.setPasswd('secret')
+
+        url = f'https://localhost:{port}/api/v1/axon/files'
+
+        asdfhash_h = s_common.ehex(asdfhash)
+
+        # Perms
+        async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
+            async with sess.get(f'{url}/{asdfhash_h}') as resp:
+                self.eq(403, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+
+            async with sess.post(url, data=abuf) as resp:
+                self.eq(403, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+
+        await newb.addRule((True, ('axon', 'get')))
+        await newb.addRule((True, ('axon', 'upload')))
+
+        # Basic
+        async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
+            async with sess.get(f'{url}/foobar') as resp:
+                self.eq(400, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+
+            async with sess.get(f'{url}/{asdfhash_h}') as resp:
+                self.eq(404, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+
+            async with sess.post(url, data=abuf) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                self.eq((asdfretn[0], asdfhash_h), item.get('result'))
+                self.true(await cell.axon.has(asdfhash))
+
+            async with sess.get(f'{url}/{asdfhash_h}') as resp:
+                self.eq(200, resp.status)
+                self.eq(abuf, await resp.read())
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
@@ -180,6 +231,27 @@ class AxonTest(s_t_utils.SynTest):
         async with self.getTestAxon() as axon:
             async with axon.getLocalProxy() as prox:
                 await self.runAxonTestBase(prox)
+
+    async def test_axon_http(self):
+
+        async with self.getTestAxon() as axon:
+            await self.runAxonHttpTestBase(axon)
+
+        async with self.getTestCore() as core:
+            await self.runAxonHttpTestBase(core)
+
+        with self.getTestDir() as dirn:
+
+            apath = os.path.join(dirn, 'axon')
+            cpath = os.path.join(dirn, 'core')
+
+            async with self.getTestAxon(dirn=apath) as axon:
+                conf = {'axon': axon.getLocalUrl()}
+
+                async with self.getTestCore(dirn=cpath, conf=conf) as core:
+                    self.true(await asyncio.wait_for(core.axready.wait(), 10))
+
+                    await self.runAxonHttpTestBase(core)
 
     async def test_axon_perms(self):
         async with self.getTestAxon() as axon:
