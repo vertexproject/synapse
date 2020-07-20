@@ -63,7 +63,6 @@ import struct
 import asyncio
 import logging
 import ipaddress
-import itertools
 import contextlib
 import collections
 
@@ -700,7 +699,6 @@ class StorTypeFloat(StorType):
             yield item[1]
 
     async def _liftFloatGt(self, liftby, valu):
-        genr = self._liftFloatGeCommon(liftby, valu)
         valupack = self.fpack(valu)
         async for item in self._liftFloatGeCommon(liftby, valu):
             if item[0] == valupack:
@@ -727,7 +725,6 @@ class StorTypeFloat(StorType):
             yield item[1]
 
     async def _liftFloatLt(self, liftby, valu):
-        genr = self._liftFloatLeCommon(liftby, valu)
         valupack = self.fpack(valu)
         async for item in self._liftFloatLeCommon(liftby, valu):
             if item[0] == valupack:
