@@ -763,10 +763,8 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
             csv_rows = [m for m in mesgs if m[0] == 'csv:row']
             self.len(2, csv_rows)
-            self.eq(csv_rows[0],
-                    ('csv:row', {'row': [978307200000, None], 'table': None}))
-            self.eq(csv_rows[1],
-                    ('csv:row', {'row': [32535216000000, None], 'table': None}))
+            self.eq(csv_rows[0], ('csv:row', {'row': [978307200000, None], 'table': None}))
+            self.eq(csv_rows[1], ('csv:row', {'row': [32535216000000, None], 'table': None}))
 
             # Sad path case...
             q = '''$data=() $genr=$lib.feed.genr(syn.node, $data)
@@ -1704,12 +1702,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(mainlayr, mesgs)
 
             # Create a new layer
-            q = f'$lib.print($lib.layer.add().iden)'
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    newlayr = mesg[1]['mesg']
-
+            newlayr = await core.callStorm('return($lib.layer.add().iden)')
             self.isin(newlayr, core.layers)
 
             # Ensure new layer is set to current model revision
@@ -1810,7 +1803,6 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(locklayr)
                 self.true(layr.lockmemory)
-                self.eq(layr.layrslab.growsize, 5000)
 
             async with self.getTestCore() as core2:
 
@@ -1831,8 +1823,8 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(uplayr)
 
-                evnt = await layr.waitUpstreamOffs(layriden, offs)
-                await asyncio.wait_for(evnt.wait(), timeout=2.0)
+                #evnt = await layr.waitUpstreamOffs(layriden, offs)
+                #await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
     async def test_storm_lib_view(self):
 
@@ -1844,29 +1836,14 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[test:int=12 +#tag.test +#tag.proptest:risk=20]')
 
             # Get the main view
-            q = '$lib.print($lib.view.get().pack().iden)'
-            mesgs = await core.stormlist(q)
-            mainiden = None
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    mainiden = mesg[1]['mesg']
-
-            self.isin(mainiden, core.views)
-
-            q = f'$lib.print($lib.view.get({mainiden}).pack().iden)'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint(mainiden, mesgs)
+            mainiden = await core.callStorm('return($lib.view.get().iden)')
 
             # Fork the main view
             q = f'''
-                $forkview=$lib.view.get({mainiden}).fork()
-                $forkvalu=$forkview.pack()
-                $lib.print("{{iden}},{{layr}}", iden=$forkvalu.iden, layr=$forkvalu.layers.index(0).iden)
+                $view=$lib.view.get().fork()
+                return(($view.iden, $view.layers.index(0).iden))
             '''
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    forkiden, forklayr = mesg[1]['mesg'].split(',')
+            forkiden, forklayr = await core.callStorm(q)
 
             self.isin(forkiden, core.views)
             self.isin(forklayr, core.layers)
@@ -1878,30 +1855,20 @@ class StormTypesTest(s_test.SynTest):
             ldef = await core.addLayer()
             newlayer = core.getLayer(ldef.get('iden'))
 
-            q = f'''
-                $newview=$lib.view.add(({newlayer.iden},))
-                $lib.print($newview.pack().iden)
-            '''
-            newiden = None
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    newiden = mesg[1]['mesg']
+            newiden = await core.callStorm(f'return($lib.view.add(({newlayer.iden},)).iden)')
+            self.nn(newiden)
 
             self.isin(newiden, core.views)
 
             # List the views in the cortex
             q = '''
+                $views = $lib.list()
                 for $view in $lib.view.list() {
-                    $lib.print($view.pack().iden)
+                    $views.append($view.iden)
                 }
+                return($views)
             '''
-            idens = []
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    idens.append(mesg[1]['mesg'])
-
+            idens = await core.callStorm(q)
             self.sorteq(idens, core.views.keys())
 
             # Delete the added view
@@ -1913,21 +1880,19 @@ class StormTypesTest(s_test.SynTest):
             # Fork the forked view
             q = f'''
                 $forkview=$lib.view.get({forkiden}).fork()
-                $lib.print($forkview.pack().iden)
+                return($forkview.pack().iden)
             '''
-            mesgs = await core.stormlist(q)
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    childiden = mesg[1]['mesg']
+            childiden = await core.callStorm(q)
+            self.nn(childiden)
 
             # Can't merge the first forked view if it has children
             q = f'$lib.view.get({forkiden}).merge()'
-            await self.asyncraises(s_exc.CantMergeView, core.nodes(q))
+            await self.asyncraises(s_exc.CantMergeView, core.callStorm(q))
 
             # Can't merge the child forked view if the parent is read only
             core.views[childiden].parent.layers[0].readonly = True
             q = f'$lib.view.get({childiden}).merge()'
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.nodes(q))
+            await self.asyncraises(s_exc.ReadOnlyLayer, core.callStorm(q))
 
             core.views[childiden].parent.layers[0].readonly = False
             await core.nodes(q)
@@ -1945,19 +1910,13 @@ class StormTypesTest(s_test.SynTest):
             # Sad paths
             await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.del(foo)'))
             await self.asyncraises(s_exc.NoSuchView, core.nodes('$lib.view.get(foo)'))
-            await self.asyncraises(s_exc.CantMergeView, core.nodes(f'$lib.view.get({mainiden}).merge()'))
+            await self.asyncraises(s_exc.CantMergeView, core.nodes(f'$lib.view.get().merge()'))
             await self.asyncraises(s_exc.NoSuchLayer, core.nodes(f'view.add --layers {s_common.guid()}'))
-
-            q = f'$lib.view.del({mainiden})'
-            mesgs = await core.stormlist(q)
-            errs = [m[1] for m in mesgs if m[0] == 'err']
-            self.len(1, errs)
-            self.eq(errs[0][0], 'SynErr')
+            await self.asyncraises(s_exc.SynErr, core.nodes('$lib.view.del($lib.view.get().iden)'))
 
             # Check helper commands
             # Get the main view
-            q = 'view.get'
-            mesgs = await core.stormlist(q)
+            mesgs = await core.stormlist('view.get')
             self.stormIsInPrint(mainiden, mesgs)
 
             with self.raises(s_exc.BadOptValu):

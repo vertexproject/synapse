@@ -671,11 +671,11 @@ async def _doubleapply(self, indx, item):
         nexsiden, event, args, kwargs, _ = item
 
         nexus = self._nexskids[nexsiden]
-        func, passoff = nexus._nexshands[event]
+        func, passitem = nexus._nexshands[event]
 
-        if passoff:
-            retn = await func(nexus, *args, nexsoff=indx, **kwargs)
-            await func(nexus, *args, nexsoff=indx, **kwargs)
+        if passitem:
+            retn = await func(nexus, *args, nexsitem=(indx, item), **kwargs)
+            await func(nexus, *args, nexsitem=(indx, item), **kwargs)
             return retn
 
         retn = await func(nexus, *args, **kwargs)
@@ -1739,8 +1739,11 @@ class SynTest(unittest.TestCase):
 
         async with await s_slab.Slab.anit(dirn, map_size=map_size) as slab:
 
-            async with await s_hive.SlabHive.anit(slab) as hive:
+            nexsroot = await s_nexus.NexsRoot.anit(dirn)
+            await nexsroot.startup(None)
 
+            async with await s_hive.SlabHive.anit(slab, nexsroot=nexsroot) as hive:
+                hive.onfini(nexsroot.fini)
                 yield hive
 
     @contextlib.asynccontextmanager

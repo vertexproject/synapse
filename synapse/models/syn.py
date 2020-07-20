@@ -143,6 +143,9 @@ class SynModule(s_module.CoreModule):
 
                     ('doc', ('str', {}), {'doc': 'A short definition for the tag.'}),
 
+                    ('doc:url', ('inet:url', {}), {
+                        'doc': 'A URL link to additional documentation about the tag.'}),
+
                     ('depth', ('int', {}), {'ro': 1,
                         'doc': 'How deep the tag is in the hierarchy.'}),
 
