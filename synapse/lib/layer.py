@@ -93,7 +93,8 @@ reqValidLdef = s_config.getJsValidator({
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'lockmemory': {'type': 'boolean'},
-        'logedits': {'type': 'boolean'}, 'default': True
+        'logedits': {'type': 'boolean'}, 'default': True,
+        'name': {'type': 'string'},
     },
     'additionalProperties': True,
     'required': ['iden', 'creator', 'lockmemory'],

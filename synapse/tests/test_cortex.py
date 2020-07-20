@@ -151,7 +151,6 @@ class CortexTest(s_t_utils.SynTest):
 
             # we should now be able to edge walk *and* refs in
             nodes = await core.nodes('inet:ipv4=1.2.3.4 <-- *')
-            # self.len(2, nodes)
             self.eq(nodes[0].ndef[0], 'inet:dns:a')
             self.eq(nodes[1].ndef[0], 'media:news')
 

@@ -2226,10 +2226,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
             assert self.inaugural, 'Cortex initialization failed: there are no views.'
-            ldef = await self.addLayer(nexs=False)
+            ldef = {'name': 'default'}
+            ldef = await self.addLayer(ldef=ldef, nexs=False)
             layriden = ldef.get('iden')
-            layr = self.getLayer(layriden)
-            await layr._hndlsetLayerInfo('name', 'default')
             vdef = {
                 'name': 'default',
                 'layers': (layriden,),
