@@ -42,7 +42,7 @@ setup(
         'PyYAML>=5.1,<6.0',
         'aiohttp>=3.5.4,<4.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
-        'lark-parser>=0.8.3,<0.9.0',
+        'lark-parser>=0.9.0,<0.10.0',
         'Pygments>=2.6.0,<2.7.0',
         'packaging>=20.0,<21.0',
         'fastjsonschema>=2.14.3,<2.15',

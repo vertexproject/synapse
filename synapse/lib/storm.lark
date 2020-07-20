@@ -1,6 +1,5 @@
 // Grammar for the Storm Query Language (and miscellaneous bits)
 
-%import common.WS -> _WS
 %import common.ESCAPED_STRING
 
 // Lark Grammar Notes:
@@ -196,7 +195,7 @@ _TAGSEGNOVAR: /\w+/
 // A comparison operator
 _cmpr: _by_cmpr | CMPR
 _by_cmpr: "*" BYNAME
-BYNAME: /[^=\s]*?=/
+BYNAME: /[^=\s]+=/
 CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
 
 _safe_cmpr: BYNAME | CMPR
@@ -213,7 +212,7 @@ _exprvalu: NUMBER | HEXNUMBER | BOOL | _varvalu | relpropvalu | univpropvalu | t
     | SINGLEQUOTEDSTRING | dollarexpr
 
 _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
-looklist: (_WS* _lookvalu)*
+looklist: (_WS? _lookvalu)*
 
 valulist: "(" [_WS? _listvalu _WS? ((",")|("," _WS? _listvalu)+ [_WS? ","])] _WS? ")"
 tagvalu: tagname
@@ -224,10 +223,10 @@ embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 
 // An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
-NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^ \t\n),=\]}|]*/
+NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*/
 
 // An unquoted string within a storm command argument list
-WORDTOKN: /(?!\/[\/\*])[\w\+\-\?\*\/\\][^ \t\r\n\=\|\}\)]*/
+WORDTOKN: /(?!\/[\/\*])[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/
 
 // An unquoted string within a list syntax
 LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
@@ -291,6 +290,8 @@ andexpr: _condexpr _WS "and" _WS _cond
 
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'/
+
+_WS: /[\s]/+
 
 // Whitespace or comments
 _WSCOMM: (CCOMMENT | CPPCOMMENT | _WS)+

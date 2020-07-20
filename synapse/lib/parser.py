@@ -322,10 +322,10 @@ class AstConverter(lark.Transformer):
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
-QueryParser = lark.Lark(_grammar, start='query', propagate_positions=True)
-LookupParser = lark.Lark(_grammar, start='lookup', propagate_positions=True)
-StormCmdParser = lark.Lark(_grammar, start='stormcmdargs', propagate_positions=True)
-CmdrParser = lark.Lark(_grammar, start='cmdrargs', propagate_positions=True)
+QueryParser = lark.Lark(_grammar, regex=True, start='query', propagate_positions=True)
+LookupParser = lark.Lark(_grammar, regex=True, start='lookup', propagate_positions=True)
+StormCmdParser = lark.Lark(_grammar, regex=True, start='stormcmdargs', propagate_positions=True)
+CmdrParser = lark.Lark(_grammar, regex=True, start='cmdrargs', propagate_positions=True)
 
 _eofre = regex.compile(r'''Terminal\('(\w+)'\)''')
 
@@ -539,6 +539,7 @@ JUSTCHARS: /[^()=\[\]{}'"\s]*[^,()=\[\]{}'"\s]/
 
 CmdStringParser = lark.Lark(CmdStringGrammar,
                             start='cmdstring',
+                            regex=True,
                             propagate_positions=True)
 
 def parse_cmd_string(text, off):
