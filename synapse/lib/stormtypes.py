@@ -1927,7 +1927,6 @@ class View(Prim):
             'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
-            'exec': self._methViewExec,
             'getEdges': self._methGetEdges,
             'getEdgeVerbs': self._methGetEdgeVerbs,
         })
