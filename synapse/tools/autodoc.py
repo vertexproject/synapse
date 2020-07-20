@@ -539,6 +539,7 @@ async def docStormsvc(ctor):
     return rst, clsname
 
 def ljuster(ilines, indent=0):
+    '''Helper to lstrip lines of whitespace an appropriate amount.'''
     baseline = ilines[0]
     assert baseline != ''
     newbaseline = baseline.lstrip()
@@ -550,17 +551,110 @@ def ljuster(ilines, indent=0):
         newlines = [(' ' * indent) + line for line in newlines]
     return newlines
 
-def cleanup_lines(lines):
-    '''Cleanup lines from __doc__'''
-    templines = []
+def scrubLines(lines):
+    '''Remove any empty lines until we encounter non-empty linee'''
+    newlines = []
     for line in lines:
-        if line == '' and not templines:
+        if line == '' and not newlines:
             continue
-        templines.append(line)
+        newlines.append(line)
 
-    newlines = ljuster(templines)
     return newlines
 
+def getDoc(obj, errstr):
+    '''Helper to get __doc__'''
+    doc = getattr(obj, '__doc__')
+    if doc is None:
+        doc = f'No doc for {errstr}'
+        logger.warning(doc)
+    return doc
+
+def cleanArgsRst(doc):
+    '''Clean up args strings to be RST friendly.'''
+    replaces = (('*args', '\*args'),
+                ('*vals', '\*vals'),
+                ('**info', '\*\*info'),
+                ('**kwargs', '\*\*kwargs'),
+                )
+    for (new, old) in replaces:
+        doc = doc.replace(new, old)
+    return doc
+
+def getCallsig(func):
+    '''Get the callsig of a function, stripping self if present.'''
+    callsig = inspect.signature(func)
+    params = list(callsig.parameters.values())
+    if params and params[0].name == 'self':
+        callsig = callsig.replace(parameters=params[1:])
+    return callsig
+
+def prepareRstLines(doc, cleanargs=False, indent=0):
+    '''Prepare a __doc__ string for RST lines.'''
+    if cleanargs:
+        doc = cleanArgsRst(doc)
+    lines = doc.split('\n')
+    lines = scrubLines(lines)
+    lines = ljuster(lines, indent)
+    return lines
+
+def docStormLibs(libs):
+
+    libspage = RstHelp()
+
+    libspage.addHead('Storm Libraries', lvl=0, link='.. _stormlibs-header:')
+
+    libspage.addLines('',
+                      'Storm Libraries are magical unicorns of the Storm query language.',
+                      '')
+
+    basepath = 'lib'
+
+    for (path, lib) in libs:
+        libpath = '.'.join((basepath,) + path)
+        fulllibpath = f'${libpath}'
+
+        liblink = f'.. _stormlibs-{libpath.replace(".", "-")}:'
+        libspage.addHead(fulllibpath, lvl=1, link=liblink)
+
+        libdoc = getDoc(lib, fulllibpath)
+        lines = prepareRstLines(libdoc)
+
+        libspage.addLines(*lines)
+
+        for (name, locl) in lib.getObjLocals(lib).items():  # python trick
+
+            if callable(locl):
+
+                locldoc = getDoc(locl, name)
+
+                lines = prepareRstLines(locldoc, cleanargs=True)
+
+                callsig = getCallsig(locl)
+
+                funcpath = '.'.join((libpath, name))
+                funclink = f'.. _stormlibs-{funcpath.replace(".", "-")}:'
+                header = f'{fulllibpath}{callsig}'
+                header = header.replace('*', r'\*')
+
+                libspage.addHead(header, lvl=2, link=funclink)
+                libspage.addLines(*lines)
+
+            else:
+                if isinstance(locl, property):
+
+                    locldoc = getDoc(locl, name)
+                    lines = prepareRstLines(locldoc)
+
+                    conpath = '.'.join((libpath, name))
+                    conlink = f'.. _stormlibs-{conpath.replace(".", "-")}:'
+                    header = f'${conpath}'
+
+                    libspage.addHead(header, lvl=2, link=conlink)
+                    libspage.addLines(*lines)
+
+                else:
+                    logger.warning(f'Unknown constant found: {libpath}.{name} -> {locl}')
+    return libspage
 
 async def docStormTypes():
 
@@ -571,90 +665,9 @@ async def docStormTypes():
     libs.sort(key=lambda x: x[0])
     types.sort(key=lambda x: x[0])
 
-    typespage = RstHelp
-    libspage = RstHelp()
+    typespage = RstHelp()
 
-    libspage.addHead('Storm Libraries', lvl=0, link='.. _stormlibs-header:')
-
-    libspage.addLines('',
-                      'Storm Libraries are magical unicorns of the Storm query language.',
-                      '')
-
-    basepath = 'lib'
-    for (path, lib) in libs:
-        libpath = '.'.join((basepath,) + path)
-
-        liblink = f'.. _stormlibs-{libpath.replace(".", "-")}:'
-        libspage.addHead(f'${libpath}', lvl=1, link=liblink)
-
-        libdoc = getattr(lib, '__doc__')
-        if libdoc is None:
-            libdoc = f'No doc for ${libpath}'
-            logger.warning(libdoc)
-
-        libdoc = libdoc.strip()  # Trim trailing/leading newlines
-
-        lines = libdoc.split('\n')
-
-        newlines = ljuster(lines)
-
-        libspage.addLines(*newlines)
-
-        for (name, locl) in lib.getObjLocals(lib).items():  # python trick
-
-            if callable(locl):
-                locldoc = getattr(locl, '__doc__')
-                if locldoc is None:
-                    locldoc = f'No doc for {name}'
-                    logger.warning(locldoc)
-
-                # RST cleanliness.
-                replaces = (('*args', '\*args'),
-                            ('*vals', '\*vals'),
-                            ('**info', '\*\*info'),
-                            ('**kwargs', '\*\*kwargs'),
-                            )
-                for (new, old) in replaces:
-                    locldoc = locldoc.replace(new, old)
-
-                oldlines = locldoc.split('\n')
-                newlines = cleanup_lines(oldlines)
-
-                callsig = inspect.signature(locl)
-                params = list(callsig.parameters.values())
-                if params and params[0].name == 'self':
-                    callsig = callsig.replace(parameters=params[1:])
-
-                funcpath = '.'.join((libpath, name))
-                funclink = f'.. _stormlibs-{funcpath.replace(".", "-")}:'
-                header = f'${funcpath}{callsig}'
-                header = header.replace('*', r'\*')
-
-                libspage.addHead(header, lvl=2, link=funclink)
-
-                libspage.addLines(*newlines)
-
-            else:
-                if isinstance(locl, property):
-
-                    locldoc = getattr(locl, '__doc__')
-                    if locldoc is None:
-                        locldoc = f'No doc for {name}'
-                        logger.warning(locldoc)
-
-                    oldlines = locldoc.split('\n')
-                    newlines = cleanup_lines(oldlines)
-
-                    conpath = '.'.join((libpath, name))
-                    conlink = f'.. _stormlibs-{conpath.replace(".", "-")}:'
-                    header = f'${conpath}'
-
-                    libspage.addHead(header, lvl=2, link=conlink)
-
-                    libspage.addLines(*newlines)
-
-                else:
-                    logger.warning(f'Unknown constant found: {libpath}.{name} -> {locl}')
+    libspage = docStormLibs(libs)  # type: RstHelp
 
     # text = libspage.getRstText()
     # print(text)
