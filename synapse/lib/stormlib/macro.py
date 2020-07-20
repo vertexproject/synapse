@@ -195,6 +195,7 @@ class LibMacro(s_stormtypes.Lib):
 
         Args:
             name (str): Name of the Storm Macro to add or modify.
+
             storm (str): The Storm query to add to the macro.
 
         Returns:

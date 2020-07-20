@@ -292,7 +292,9 @@ class LibModelEdge(s_stormtypes.Lib):
 
         Args:
             verb (str): The Edge verb to set a value for.
+
             key (str): The key to set.
+
             valu (str): The value to set.
 
         Returns:
@@ -314,9 +316,11 @@ class LibModelEdge(s_stormtypes.Lib):
 
     async def _methEdgeDel(self, verb, key):
         '''
-        Delete a Dey from teh
+        Delete a key from the key-value store for a verb.
+
         Args:
             verb (str): The name of the Edge verb to remove a key from.
+
             key (str): The name of the key to remove from the key-value store.
 
         Returns:

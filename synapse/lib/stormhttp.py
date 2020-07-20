@@ -18,11 +18,22 @@ class LibHttp(s_stormtypes.Lib):
         return {
             'get': self._httpEasyGet,
             'post': self._httpPost,
-            # 'session':
         }
 
     async def _httpEasyGet(self, url, headers=None, ssl_verify=True):
+        '''
+        Get the contents of a given URL.
 
+        Args:
+            url (str): The URL to retrieve.
+
+            headers (dict): HTTP headers to send with the request.
+
+            ssl_verify (bool): Perform SSL/TLS verification. Defaults to true.
+
+        Returns:
+            HttpResp: A Storm HttpResp object.
+        '''
         url = await s_stormtypes.toprim(url)
         headers = await s_stormtypes.toprim(headers)
 
@@ -38,6 +49,23 @@ class LibHttp(s_stormtypes.Lib):
                 return HttpResp(info)
 
     async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True):
+        '''
+        Post data to a given URL.
+
+        Args:
+            url (str): The URL to post too.
+
+            headers (dict): HTTP headers to send with the request.
+
+            json: The data to post, as JSON object.
+
+            body: The data to post, as binary object.
+
+            ssl_verify (bool): Perform SSL/TLS verification. Defaults to true.
+
+        Returns:
+            HttpResp: A Storm HttpResp object.
+        '''
 
         url = await s_stormtypes.toprim(url)
         json = await s_stormtypes.toprim(json)

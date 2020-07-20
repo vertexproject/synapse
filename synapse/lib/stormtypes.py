@@ -301,6 +301,7 @@ class LibDmon(Lib):
 
         Args:
             quer (str): The query to execute.
+
             name (str): The name of the Dmon.
 
         Examples:
@@ -353,7 +354,8 @@ class LibService(Lib):
         Add a Storm Service to the Cortex.
 
         Args:
-            name (str): Name of the Storm Service..
+            name (str): Name of the Storm Service to add.
+
             url (str): The Telepath URL to the Storm Service.
 
         Returns:
@@ -697,6 +699,7 @@ class LibBase(Lib):
 
         Args:
             mesg (str): String to print.
+
             **kwargs: Words go here FIXME
 
         Notes:
@@ -761,7 +764,7 @@ class LibBase(Lib):
 
         Args:
             name: The type of the event to fire.
-            **info:
+            **info: Additional keyword arguments containing data to add to the event.
 
         Notes:
             This fires events as ``storm:fire`` event types. The name of the event is placed into a ``type`` key,
@@ -1088,8 +1091,9 @@ class LibTime(Lib):
 
         Args:
             tick (int): The amount of time to wait between each tick, in seconds.
-            count (int): The number of times to pause the query before exiting the loop.
-                This defaults to None and yield forever if not set.
+
+            count (int): The number of times to pause the query before exiting the loop. This defaults to None and will
+            yield forever if not set.
 
         Notes:
             This has the effect of clearing the Snap's cache, so any node lifts performed
@@ -1154,6 +1158,7 @@ class LibCsv(Lib):
 
         Args:
             *args: A list of items which are emitted as a ``csv:row`` event.
+
             table (str): The name of the table to emit data too. Optional.
 
         Returns:
@@ -1182,6 +1187,7 @@ class LibFeed(Lib):
 
         Args:
             name (str): Name of the ingest function to send data too.
+
             data: Data to feed to the ingest function.
 
         Notes:
@@ -1214,6 +1220,7 @@ class LibFeed(Lib):
 
         Args:
             name (str): Name of the ingest function to send data too.
+
             data: Data to feed to the ingest function.
 
         Notes:
@@ -1497,6 +1504,7 @@ class LibBase64(Lib):
 
         Args:
             valu (bytes): The object to encode.
+
             urlsafe (bool): Perform the encoding in a urlsafe manner if true.
 
         Returns:
@@ -1516,6 +1524,7 @@ class LibBase64(Lib):
 
         Args:
             valu (str): The string to decode.
+
             urlsafe (bool): Perform the decoding in a urlsafe manner if true.
 
         Returns:
@@ -1927,6 +1936,7 @@ class LibGlobals(Lib):
 
         Args:
             name (str): Name of the variable.
+
             default: Default value to return if the variable is not set.
 
         Returns:
@@ -1945,6 +1955,7 @@ class LibGlobals(Lib):
 
         Args:
             name (str): Name of the variable.
+
             default: Default value to return if the variable is not set.
 
         Returns:
@@ -1962,6 +1973,7 @@ class LibGlobals(Lib):
 
         Args:
             name (str): Name of the variable.
+
             valu: The value to set.
 
         Returns:
@@ -2052,6 +2064,7 @@ class LibVars(Lib):
 
         Args:
             name (str): Name of the variable to get.
+
             defv: The default value returned if the variable is not set in the runtime.
 
         Returns:
@@ -2065,6 +2078,7 @@ class LibVars(Lib):
 
         Args:
             name (str): Name of the variable to set.
+
             valu: The value to set the variable too.
 
         Returns:
@@ -2311,6 +2325,7 @@ class Node(Prim):
 
         Args:
             name (str): Optional name of the secondary property to get the repr for.
+
             defv (str): Optional default value to return if the secondary property does not exist.
 
         Returns:
@@ -2664,6 +2679,7 @@ class LibView(Lib):
 
         Args:
             layers (list): A list of idens which make up the view.
+
             name (str): The name of the view.
 
         Returns:
@@ -2938,8 +2954,8 @@ class LibTrigger(Lib):
         Delete a Trigger from the Cortex.
 
         Args:
-            prefix (str): A prefix to match in order to identify a trigger to delete.
-                Only a single matching prefix will be deleted.
+            prefix (str): A prefix to match in order to identify a trigger to delete. Only a single matching prefix
+            will be deleted.
 
         Returns:
             str: The iden of the deleted trigger which matched the prefix.
@@ -2961,7 +2977,8 @@ class LibTrigger(Lib):
 
         Args:
             prefix (str): A prefix to match in order to identify a trigger to modify.
-                Only a single matching prefix will be modified.
+            Only a single matching prefix will be modified.
+
             query: The new Storm Query to set as the trigger query.
 
         Returns:
@@ -3027,7 +3044,7 @@ class LibTrigger(Lib):
 
         Args:
             prefix (str): A prefix to match in order to identify a trigger to modify.
-                Only a single matching prefix will be modified.
+            Only a single matching prefix will be modified.
 
         Returns:
             str: The iden of the trigger that was enabled.
@@ -3040,7 +3057,7 @@ class LibTrigger(Lib):
 
         Args:
             prefix (str): A prefix to match in order to identify a trigger to modify.
-                Only a single matching prefix will be modified.
+            Only a single matching prefix will be modified.
 
         Returns:
             str: The iden of the trigger that was disabled.
@@ -3186,7 +3203,9 @@ class LibUsers(Lib):
 
         Args:
             name (str): The name of the user.
+
             passwd (str): The users password. This is optional.
+
             email (str): The user's emaill address. This is optional.
 
         Returns:
@@ -3860,7 +3879,7 @@ class LibCron(Lib):
 
         Args:
             prefix (str): A prefix to match in order to identify a cron job to delete.
-                Only a single matching prefix will be deleted.
+            Only a single matching prefix will be deleted.
 
         Returns:
             None: Returns None
@@ -3878,7 +3897,8 @@ class LibCron(Lib):
 
         Args:
             prefix (str): A prefix to match in order to identify a cron job to modify.
-                Only a single matching prefix will be modified.
+            Only a single matching prefix will be modified.
+
             query (str): The new Storm query for the cron job.
 
         Returns:
@@ -3917,7 +3937,7 @@ class LibCron(Lib):
 
         Args:
             prefix (str): A prefix to match in order to identify a cron job to get.
-                Only a single matching prefix will be retrieved.
+            Only a single matching prefix will be retrieved.
 
         Returns:
             CronJob: A Storm CronJob object.
@@ -3932,7 +3952,7 @@ class LibCron(Lib):
 
         Args:
             prefix (str): A prefix to match in order to identify a cron job to enable.
-                Only a single matching prefix will be enabled.
+            Only a single matching prefix will be enabled.
 
         Returns:
             str: The iden of the CronJob which was enabled.
@@ -3951,7 +3971,7 @@ class LibCron(Lib):
 
         Args:
             prefix (str): A prefix to match in order to identify a cron job to disable.
-                Only a single matching prefix will be enabled.
+            Only a single matching prefix will be enabled.
 
         Returns:
             str: The iden of the CronJob which was disabled.
