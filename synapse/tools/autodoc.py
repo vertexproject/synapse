@@ -21,9 +21,9 @@ import synapse.lib.stormtypes as s_stormtypes
 logger = logging.getLogger(__name__)
 
 poptsToWords = {
-        'ex': 'Example',
-        'ro': 'Read Only',
-    }
+    'ex': 'Example',
+    'ro': 'Read Only',
+}
 
 raw_back_slash_colon = r'\:'
 
@@ -36,11 +36,11 @@ rstlvls = [
     ('^', {}),
 ]
 
-
 class DocHelp:
     '''
     Helper to pre-compute all doc strings hierarchically
     '''
+
     def __init__(self, ctors, types, forms, props, univs):
         self.ctors = {c[0]: c[3].get('doc', 'BaseType has no doc string.') for c in ctors}
         self.types = {t[0]: t[2].get('doc', self.ctors.get(t[1][0])) for t in types}
@@ -199,7 +199,6 @@ def processTypes(rst, dochelp, types):
             logger.warning(f'Type {name} has unhandled info: {info}')
 
 def processFormsProps(rst, dochelp, forms, univ_names):
-
     rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
     rst.addLines('',
                  'Forms are derived from types, or base types. Forms represent node types in the graph.'
@@ -314,7 +313,7 @@ def processUnivs(rst, dochelp, univs):
                 rst.addLines('  ' + f'* {k}: ``{v}``')
 
 async def docModel(outp,
-             core):
+                   core):
     coreinfo = await core.getCoreInfo()
     _, model = coreinfo.get('modeldef')[0]
 
@@ -598,14 +597,13 @@ def prepareRstLines(doc, cleanargs=False, indent=0):
     return lines
 
 def docStormLibs(libs):
+    page = RstHelp()
 
-    libspage = RstHelp()
+    page.addHead('Storm Libraries', lvl=0, link='.. _stormtypes-libs-header:')
 
-    libspage.addHead('Storm Libraries', lvl=0, link='.. _stormlibs-header:')
-
-    libspage.addLines('',
-                      'Storm Libraries are magical unicorns of the Storm query language.',
-                      '')
+    page.addLines('',
+                  'Storm Libraries are magical unicorns of the Storm query language.',
+                  '')
 
     basepath = 'lib'
 
@@ -614,14 +612,14 @@ def docStormLibs(libs):
         fulllibpath = f'${libpath}'
 
         liblink = f'.. _stormlibs-{libpath.replace(".", "-")}:'
-        libspage.addHead(fulllibpath, lvl=1, link=liblink)
+        page.addHead(fulllibpath, lvl=1, link=liblink)
 
         libdoc = getDoc(lib, fulllibpath)
         lines = prepareRstLines(libdoc)
 
-        libspage.addLines(*lines)
+        page.addLines(*lines)
 
-        for (name, locl) in lib.getObjLocals(lib).items():  # python trick
+        for (name, locl) in sorted(list(lib.getObjLocals(lib).items())):  # python trick
 
             if callable(locl):
 
@@ -636,8 +634,8 @@ def docStormLibs(libs):
                 header = f'{fulllibpath}{callsig}'
                 header = header.replace('*', r'\*')
 
-                libspage.addHead(header, lvl=2, link=funclink)
-                libspage.addLines(*lines)
+                page.addHead(header, lvl=2, link=funclink)
+                page.addLines(*lines)
 
             else:
                 if isinstance(locl, property):
@@ -649,15 +647,67 @@ def docStormLibs(libs):
                     conlink = f'.. _stormlibs-{conpath.replace(".", "-")}:'
                     header = f'${conpath}'
 
-                    libspage.addHead(header, lvl=2, link=conlink)
-                    libspage.addLines(*lines)
+                    page.addHead(header, lvl=2, link=conlink)
+                    page.addLines(*lines)
 
                 else:
                     logger.warning(f'Unknown constant found: {libpath}.{name} -> {locl}')
-    return libspage
+    return page
+
+def docStormPrims(types):
+    page = RstHelp()
+
+    page.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
+
+    page.addLines('',
+                  'Storm Objects are magical candies of the Storm query language.',
+                  '')
+
+    for (sname, styp) in types:
+
+        typelink = f'.. _stormprims-{sname}:'
+        page.addHead(sname, lvl=1, link=typelink)
+
+        typedoc = getDoc(styp, sname)
+        lines = prepareRstLines(typedoc)
+
+        page.addLines(*lines)
+
+        locls = styp.getObjLocals(styp)
+
+        for (name, locl) in sorted(list(locls.items())):
+
+            loclname = '.'.join((sname, name))
+            locldoc = getDoc(locl, loclname)
+
+            if callable(locl):
+
+                lines = prepareRstLines(locldoc, cleanargs=True)
+
+                callsig = getCallsig(locl)
+
+                funclink = f'.. _stormprims-{loclname.replace(".", "-")}:'
+                header = f'{loclname}{callsig}'
+                header = header.replace('*', r'\*')
+
+                page.addHead(header, lvl=2, link=funclink)
+                page.addLines(*lines)
+
+            else:
+                if isinstance(locl, property):
+
+                    lines = prepareRstLines(locldoc)
+
+                    conlink = f'.. _stormprims-{loclname.replace(".", "-")}:'
+
+                    page.addHead(loclname, lvl=2, link=conlink)
+                    page.addLines(*lines)
+
+                else:
+                    logger.warning(f'Unknown constant found: {loclname} -> {locl}')
+    return page
 
 async def docStormTypes():
-
     registry = s_stormtypes.registry
     libs = registry.iterLibs()
     types = registry.iterTypes()
@@ -665,34 +715,12 @@ async def docStormTypes():
     libs.sort(key=lambda x: x[0])
     types.sort(key=lambda x: x[0])
 
-    typespage = RstHelp()
-
     libspage = docStormLibs(libs)  # type: RstHelp
-
-    # text = libspage.getRstText()
-    # print(text)
-
-    # for (sname, styp) in types:
-    #     print(sname, styp)
-    #     locls = styp.getObjLocals(styp)
-    #     for (name, locl) in locls.items():
-    #         if callable(locl):
-    #             print('weee')
-    #             print(name, locl)
-    #         else:
-    #             print(name, locl)
-    #             print('IS NOTCALLABLE')
-
-    # Need a libs page which sorts the libs in hierarchical order
-    # prepending them all with a lib prefix
-
-    # Need a types page. They need to be sorted and have docs extracted from them
+    typespage = docStormPrims(types)  # type: RstHelp
 
     return libspage, typespage
 
-
 async def main(argv, outp=None):
-
     if outp is None:
         outp = s_output.OutPut()
 
@@ -736,9 +764,8 @@ async def main(argv, outp=None):
         if opts.savedir:
             with open(s_common.genpath(opts.savedir, f'stormtypes_libs.rst'), 'wb') as fd:
                 fd.write(libdocs.getRstText().encode())
-            #
-            # with open(s_common.genpath(opts.savedir, f'stormtypes_types.rst'), 'wb') as fd:
-            #     fd.write(typedocs.getRstText().encode())
+            with open(s_common.genpath(opts.savedir, f'stormtypes_prims.rst'), 'wb') as fd:
+                fd.write(typedocs.getRstText().encode())
 
     return 0
 

@@ -27,7 +27,6 @@ Welcome to the Synapse documentation!
    synapse/autodocs/datamodel_forms
 
    synapse/stormtypes
-   synapse/autodocs/stormtypes_libs
 
    synapse/200_changes
    synapse/changelog

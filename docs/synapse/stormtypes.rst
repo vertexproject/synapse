@@ -11,3 +11,5 @@ The current sections are:
     :titlesonly:
 
     autodocs/stormtypes_libs
+
+    autodocs/stormtypes_prims
