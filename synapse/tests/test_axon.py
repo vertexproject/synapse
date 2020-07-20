@@ -1,8 +1,11 @@
+import io
 import os
 import asyncio
 import hashlib
 import logging
 import unittest.mock as mock
+
+import aiohttp.client_exceptions as a_exc
 
 import synapse.exc as s_exc
 import synapse.axon as s_axon
@@ -183,6 +186,8 @@ class AxonTest(s_t_utils.SynTest):
         url = f'https://localhost:{port}/api/v1/axon/files'
 
         asdfhash_h = s_common.ehex(asdfhash)
+        bbufhash_h = s_common.ehex(bbufhash)
+        emptyhash_h = s_common.ehex(emptyhash)
 
         # Perms
         async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
@@ -195,6 +200,13 @@ class AxonTest(s_t_utils.SynTest):
                 self.eq(403, resp.status)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
+
+            # Stream file
+            byts = io.BytesIO(bbuf)
+
+            with self.raises(a_exc.ServerDisconnectedError):
+                async with sess.post(url, data=byts) as resp:
+                    pass
 
         await newb.addRule((True, ('axon', 'get')))
         await newb.addRule((True, ('axon', 'upload')))
@@ -221,6 +233,36 @@ class AxonTest(s_t_utils.SynTest):
             async with sess.get(f'{url}/{asdfhash_h}') as resp:
                 self.eq(200, resp.status)
                 self.eq(abuf, await resp.read())
+
+            # Streaming upload
+            byts = io.BytesIO(bbuf)
+
+            async with sess.post(url, data=byts) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                self.eq((bbufretn[0], bbufhash_h), item.get('result'))
+                self.true(await cell.axon.has(bbufhash))
+
+            byts = io.BytesIO(b'')
+
+            async with sess.post(url, data=byts) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                self.eq((emptyretn[0], emptyhash_h), item.get('result'))
+                self.true(await cell.axon.has(emptyhash))
+
+            # Streaming download
+            async with sess.get(f'{url}/{bbufhash_h}') as resp:
+                self.eq(200, resp.status)
+
+                byts = []
+                async for bytz in resp.content.iter_chunked(1024):
+                    byts.append(bytz)
+
+                self.gt(len(byts), 1)
+                self.eq(bbuf, b''.join(byts))
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:

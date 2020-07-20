@@ -265,6 +265,19 @@ class Handler(HandlerBase, t_web.RequestHandler):
 
         return opts
 
+@t_web.stream_request_body
+class StreamHandler(Handler):
+
+    async def prepare(self):
+        '''
+        Called after headers are read but before data is read.
+        '''
+        pass
+
+    async def data_received(self, chunk):
+        raise s_exc.NoSuchImpl(mesg='data_received must be implemented by subclasses.',
+                               name='data_received')
+
 class StormNodesV1(Handler):
 
     async def post(self):

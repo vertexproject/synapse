@@ -27,16 +27,24 @@ def initAxonHttpApi(cell):
     cell.addHttpApi('/api/v1/axon/files', AxonFilesHttpV1, {'cell': cell})
     cell.addHttpApi('/api/v1/axon/files/(.*)', AxonFileHttpV1, {'cell': cell})
 
-class AxonFilesHttpV1(s_httpapi.Handler):
+class AxonFilesHttpV1(s_httpapi.StreamHandler):
+
+    async def prepare(self):
+        if not await self.reqAuthAllowed(('axon', 'upload')):
+            await self.finish()
+
+        self.upfd = await self.cell.axon.upload()
+
+    async def data_received(self, chunk):
+        if chunk is not None:
+            await self.upfd.write(chunk)
+            await asyncio.sleep(0)
 
     async def post(self):
-
-        if not await self.reqAuthAllowed(('axon', 'upload')):
-            return
-
-        byts = self.request.body
-
-        size, sha256b = await self.cell.axon.put(byts)
+        '''
+        Called after all data has been read.
+        '''
+        size, sha256b = await self.upfd.save()
         sha256 = s_common.ehex(sha256b)
 
         self.sendRestRetn((size, sha256))
