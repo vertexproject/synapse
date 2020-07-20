@@ -542,6 +542,16 @@ class LibBase(Lib):
         return modlib
 
     async def _cast(self, name, valu):
+        '''
+        Normalize a value as a Synapse Data Model Type.
+
+        Args:
+            name (str): The name of the model type to normalize the value as.
+            valu: The value to normalize.
+
+        Returns:
+            A object representing the normalized value.
+        '''
 
         name = await toprim(name)
         valu = await toprim(valu)
@@ -731,7 +741,9 @@ class LibBase(Lib):
         await self.runt.printf(mesg)
 
     async def _pprint(self, item, prefix='', clamp=None):
-
+        '''
+        The pprint API should not be considered a stable interface.
+        '''
         if clamp is not None:
             clamp = await toint(clamp)
 

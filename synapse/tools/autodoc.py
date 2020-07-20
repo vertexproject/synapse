@@ -621,8 +621,9 @@ def docStormLibs(libs):
 
         for (name, locl) in sorted(list(lib.getObjLocals(lib).items())):  # python trick
 
-            locldoc = getDoc(locl, name)
             loclpath = '.'.join((libpath, name))
+            locldoc = getDoc(locl, loclpath)
+
             loclfullpath = f'${loclpath}'
             header = loclfullpath
             link = f'.. _stormlibs-{loclpath.replace(".", "-")}:'
@@ -672,31 +673,30 @@ def docStormPrims(types):
             loclname = '.'.join((sname, name))
             locldoc = getDoc(locl, loclname)
 
+            header = loclname
+            link = f'.. _stormprims-{loclname.replace(".", "-")}:'
+            lines = None
+
             if callable(locl):
 
                 lines = prepareRstLines(locldoc, cleanargs=True)
 
                 callsig = getCallsig(locl)
 
-                funclink = f'.. _stormprims-{loclname.replace(".", "-")}:'
                 header = f'{loclname}{callsig}'
                 header = header.replace('*', r'\*')
 
-                page.addHead(header, lvl=2, link=funclink)
-                page.addLines(*lines)
+            elif isinstance(locl, property):
+
+                lines = prepareRstLines(locldoc)
 
             else:
-                if isinstance(locl, property):
+                logger.warning(f'Unknown constant found: {loclname} -> {locl}')
 
-                    lines = prepareRstLines(locldoc)
+            if lines:
+                page.addHead(header, lvl=2, link=link)
+                page.addLines(*lines)
 
-                    conlink = f'.. _stormprims-{loclname.replace(".", "-")}:'
-
-                    page.addHead(loclname, lvl=2, link=conlink)
-                    page.addLines(*lines)
-
-                else:
-                    logger.warning(f'Unknown constant found: {loclname} -> {locl}')
     return page
 
 async def docStormTypes():
