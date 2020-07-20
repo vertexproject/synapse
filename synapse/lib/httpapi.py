@@ -231,6 +231,24 @@ class HandlerBase:
     async def authenticated(self):
         return await self.user() is not None
 
+    async def getUserBody(self):
+        '''
+        Helper function to confirm that there is a auth user and a valid JSON body in the request.
+
+        Returns:
+            (User, object): The user and body of the request as deserialized JSON, or a tuple of s_common.novalu
+                objects if there was no user or json body.
+        '''
+        if not await self.reqAuthUser():
+            return (s_common.novalu, s_common.novalu)
+
+        body = self.getJsonBody()
+        if body is None:
+            return (s_common.novalu, s_common.novalu)
+
+        user = await self.user()
+        return (user, body)
+
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
     async def xmit(self, name, **info):
@@ -249,7 +267,6 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
             raise s_exc.AuthDeny(mesg=mesg, perm=perm)
 
 class Handler(HandlerBase, t_web.RequestHandler):
-    pass
 
     async def _reqValidOpts(self, opts):
 
@@ -271,13 +288,8 @@ class StormNodesV1(Handler):
 
     async def get(self):
 
-        if not await self.reqAuthUser():
-            return
-
-        user = await self.user()
-
-        body = self.getJsonBody()
-        if body is None:
+        user, body = await self.getUserBody()
+        if body is s_common.novalu:
             return
 
         # dont allow a user to be specified
@@ -300,16 +312,12 @@ class StormV1(Handler):
 
     async def get(self):
 
-        if not await self.reqAuthUser():
-            return
-
-        user = await self.user()
-        body = self.getJsonBody()
-        if body is None:
+        user, body = await self.getUserBody()
+        if body is s_common.novalu:
             return
 
         # dont allow a user to be specified
-        opts = body.get('opts', {})
+        opts = body.get('opts')
         query = body.get('query')
 
         # Maintain backwards compatibility with 0.1.x output
@@ -321,6 +329,28 @@ class StormV1(Handler):
         async for mesg in self.cell.storm(query, opts=opts):
             self.write(json.dumps(mesg))
             await self.flush()
+
+class ReqValidStormV1(Handler):
+
+    async def post(self):
+        return await self.get()
+
+    async def get(self):
+
+        _, body = await self.getUserBody()
+        if body is s_common.novalu:
+            return
+
+        opts = body.get('opts', {})
+        query = body.get('query')
+
+        try:
+            valid = await self.cell.reqValidStorm(query, opts)
+        except s_exc.SynErr as e:
+            mesg = e.get('mesg', str(e))
+            return self.sendRestErr(e.__class__.__name__, mesg)
+        else:
+            return self.sendRestRetn(valid)
 
 class WatchSockV1(WebSocket):
     '''
@@ -476,12 +506,8 @@ class AuthUserPasswdV1(Handler):
 
     async def post(self, iden):
 
-        if not await self.reqAuthUser():
-            return
-        current_user = await self.user()
-
-        body = self.getJsonBody()
-        if body is None:
+        current_user, body = await self.getUserBody()
+        if body is s_common.novalu:
             return
 
         user = self.cell.auth.user(iden)
