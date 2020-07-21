@@ -61,14 +61,22 @@ class DocHelp:
                 doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ctors.get(tn))))
                 self.props[(form, prop[0])] = doc
         typed = {t[0]: t for t in types}
+        ctord = {c[0]: c for c in ctors}
         self.formhelp = {}  # form name -> ex string for a given type
         for form in forms:
-            print(form)
             formname = form[0]
-            print(formname)
-            tnfo = typed.get(form[0])[2]
-            print(tnfo)
-            print(tnfo.get('ex', 'No Example'))
+            tnfo = typed.get(formname)
+            ctor = ctord.get(formname)
+            if tnfo:
+                tnfo = tnfo[2]
+                example = tnfo.get('ex')
+                self.formhelp[formname] = example
+            elif ctor:
+                ctor = ctor[3]
+                example = ctor.get('ex')
+                self.formhelp[formname] = example
+            else:
+                logger.warning(f'No ctor/type available for [{formname}]')
 
 class RstHelp:
 
