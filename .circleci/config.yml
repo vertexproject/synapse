@@ -338,7 +338,6 @@ commands:
             docker stop test01
             docker stop test02
             docker stop test03
-            docker rm test00
             docker rm test01
             docker rm test02
             docker rm test03
