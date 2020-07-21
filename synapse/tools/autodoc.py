@@ -26,7 +26,7 @@ poptsToWords = {
 }
 
 info_ignores = (
-    'storetype',
+    'stortype',
 )
 
 raw_back_slash_colon = r'\:'
@@ -244,7 +244,10 @@ def processFormsProps(rst, dochelp, forms, univ_names):
         link = f'.. _dm-form-{name.replace(":", "-")}:'
         rst.addHead(hname, lvl=2, link=link)
 
+        baseline = f'The base type for the form can be found at :ref:`dm-type-{name.replace(":", "-")}`.'
         rst.addLines(doc,
+                     '',
+                     baseline,
                      '')
 
         ex = dochelp.formhelp.get(name)

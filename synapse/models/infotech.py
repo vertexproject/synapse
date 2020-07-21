@@ -155,7 +155,7 @@ class ItModule(s_module.CoreModule):
             ),
             'types': (
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
-                    'doc': 'The name of a host or sytsem',
+                    'doc': 'The name of a host or system',
                 }),
                 ('it:host', ('guid', {}), {
                     'doc': 'A GUID that represents a host or system.'
