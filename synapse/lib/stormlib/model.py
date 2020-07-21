@@ -263,7 +263,7 @@ class LibModelEdge(s_stormtypes.Lib):
 
     def _methValidKeys(self):
         '''
-        Get a list of the valid keys that can be set on a Edge verb.
+        Get a list of the valid keys that can be set on an Edge verb.
 
         Returns:
             list: A list of the valid keys.
@@ -344,7 +344,7 @@ class LibModelEdge(s_stormtypes.Lib):
 
     async def _methEdgeList(self):
         '''
-        Get as list of (verb, key-value dictionary) pairs for edges verbs in the current Cortex View.
+        Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.
 
         Returns:
             list: A list of (str, dict) tuples for each verb in the current Cortex View.

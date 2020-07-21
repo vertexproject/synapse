@@ -373,7 +373,7 @@ class LibService(Lib):
         Remove a Storm Service from the Cortex.
 
         Args:
-            iden (str): The iden of the servie to remove.
+            iden (str): The iden of the service to remove.
 
         Returns:
             None: Returns None.
