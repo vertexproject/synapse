@@ -54,6 +54,15 @@ class DocHelp:
                 tn = prop[1][0]
                 doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ctors.get(tn))))
                 self.props[(form, prop[0])] = doc
+        typed = {t[0]: t for t in types}
+        self.formhelp = {}  # form name -> ex string for a given type
+        for form in forms:
+            print(form)
+            formname = form[0]
+            print(formname)
+            tnfo = typed.get(form[0])[2]
+            print(tnfo)
+            print(tnfo.get('ex', 'No Example'))
 
 class RstHelp:
 
