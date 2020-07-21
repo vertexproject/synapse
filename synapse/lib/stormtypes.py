@@ -930,7 +930,7 @@ class LibStr(Lib):
             items (list): A list of items to join together.
 
         Examples:
-            Join together a list of strings with a dot seperator::
+            Join together a list of strings with a dot separator::
 
                 cli> storm $foo=$lib.str.join('.', ('rep', 'vtx', 'tag')) $lib.print($foo)
 
