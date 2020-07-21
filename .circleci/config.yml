@@ -277,6 +277,34 @@ commands:
             docker build -t vertexproject/synapse-cortex:${CIRCLE_TAG} -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:${CIRCLE_TAG} -f docker/images/cryotank/Dockerfile .
       - run:
+          name: smoke test image
+          command: |
+            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_TAG} -m synapse.servers.cortex --help
+            dstatus00=$?
+            docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_TAG}
+            docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_TAG}
+            docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_TAG}
+            sleep 60
+            docker ps
+            docker container ls -a
+            docker logs test01
+            docker logs test02
+            docker logs test03
+            dstatus01=`docker inspect test01 --format '{{.State.Health.Status}}'`
+            dstatus02=`docker inspect test02 --format '{{.State.Health.Status}}'`
+            dstatus03=`docker inspect test03 --format '{{.State.Health.Status}}'`
+            docker stop test01
+            docker stop test02
+            docker stop test03
+            docker rm test01
+            docker rm test02
+            docker rm test03
+            if [ $dstatus00 != "0" ]; then exit 1; fi
+            if [ $dstatus01 != "healthy" ]; then exit 1; fi
+            if [ $dstatus02 != "healthy" ]; then exit 1; fi
+            if [ $dstatus03 != "healthy" ]; then exit 1; fi
+            exit 0
+      - run:
           name: tag and push container
           command: |
             docker push vertexproject/synapse:${CIRCLE_TAG}
@@ -297,6 +325,34 @@ commands:
             docker build -t vertexproject/synapse-axon:v2.x.x -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:v2.x.x -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:v2.x.x -f docker/images/cryotank/Dockerfile .
+      - run:
+          name: smoke test image
+          command: |
+            docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x -m synapse.servers.cortex --help
+            dstatus00=$?
+            docker run -d --name test01 vertexproject/synapse-axon:v2.x.x
+            docker run -d --name test02 vertexproject/synapse-cortex:v2.x.x
+            docker run -d --name test03 vertexproject/synapse-cryotank:v2.x.x
+            sleep 60
+            docker ps
+            docker container ls -a
+            docker logs test01
+            docker logs test02
+            docker logs test03
+            dstatus01=`docker inspect test01 --format '{{.State.Health.Status}}'`
+            dstatus02=`docker inspect test02 --format '{{.State.Health.Status}}'`
+            dstatus03=`docker inspect test03 --format '{{.State.Health.Status}}'`
+            docker stop test01
+            docker stop test02
+            docker stop test03
+            docker rm test01
+            docker rm test02
+            docker rm test03
+            if [ $dstatus00 != "0" ]; then exit 1; fi
+            if [ $dstatus01 != "healthy" ]; then exit 1; fi
+            if [ $dstatus02 != "healthy" ]; then exit 1; fi
+            if [ $dstatus03 != "healthy" ]; then exit 1; fi
+            exit 0
       - run:
           name: tag and push container
           command: |
@@ -346,13 +402,13 @@ commands:
             if [ $dstatus02 != "healthy" ]; then exit 1; fi
             if [ $dstatus03 != "healthy" ]; then exit 1; fi
             exit 0
-#      - run:
-#          name: tag and push container
-#          command: |
-#            docker push vertexproject/synapse:${CIRCLE_BRANCH}
-#            docker push vertexproject/synapse-axon:${CIRCLE_BRANCH}
-#            docker push vertexproject/synapse-cortex:${CIRCLE_BRANCH}
-#            docker push vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
+      - run:
+          name: tag and push container
+          command: |
+            docker push vertexproject/synapse:${CIRCLE_BRANCH}
+            docker push vertexproject/synapse-axon:${CIRCLE_BRANCH}
+            docker push vertexproject/synapse-cortex:${CIRCLE_BRANCH}
+            docker push vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
 
 jobs:
 
@@ -451,8 +507,7 @@ workflows:
             tags:
               only: /.*/
             branches:
-               only:
-                 - master
+               only: /.*/
 
 #      - osx37:
 #          filters:
@@ -467,16 +522,14 @@ workflows:
             tags:
               only: /.*/
             branches:
-              only:
-                - master
+              only: /.*/
 
       - python37_replay:
           filters:
             tags:
               only: /.*/
             branches:
-              only:
-                - master
+              only: /.*/
 
       - deploy_pypi:
           requires:
@@ -489,14 +542,13 @@ workflows:
               ignore: /.*/
 
       - docker_branches:
-#          requires:
-#            - doctests
-#            - python37
+          requires:
+            - doctests
+            - python37
           filters:
             branches:
               only:
                 - master
-                - docker_build_fix
 
       - docker_tags:
           requires:
