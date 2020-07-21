@@ -8,9 +8,6 @@ class GovIntlModule(s_module.CoreModule):
                 ('iso:oid', ('str', {'regex': '^([0-2])((\.0)|(\.[1-9][0-9]*))*$'}), {
                     'doc': 'An ISO Object Identifier string.'}),
 
-                ('iso:3166:cc', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
-                    'doc': 'An ISO 3166 2 digit country code.'}),
-
                 ('gov:intl:un:m49', ('int', {'min': 1, 'max': 999}), {
                     'doc': 'UN M49 Numeric Country Code'}),
             ),
