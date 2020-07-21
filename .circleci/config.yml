@@ -324,6 +324,7 @@ commands:
             docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
             sleep 45
             docker ps
+            docker container ls -a
             docker logs test02
             dstatus=`docker inspect test02 --format '{{.State.Health.Status}}'`
             docker stop test02
