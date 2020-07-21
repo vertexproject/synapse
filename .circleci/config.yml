@@ -321,7 +321,10 @@ commands:
       - run:
           name: smoke test image
           command: |
+#            docker run -d --name test00 vertexproject/synapse:${CIRCLE_BRANCH}
+#            docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_BRANCH}
             docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
+#            docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
             sleep 45
             docker ps
             docker container ls -a
