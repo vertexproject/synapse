@@ -322,7 +322,7 @@ commands:
           name: smoke test image
           command: |
             docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH} -m synapse.servers.cortex --help
-            dstatus00=`$?`
+            dstatus00=$?
             docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_BRANCH}
             docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
             docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
