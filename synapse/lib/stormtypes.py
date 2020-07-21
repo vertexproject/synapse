@@ -503,7 +503,7 @@ class LibBase(Lib):
         be directly used.
 
         Examples:
-            Creat a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
+            Create a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
 
                 cli> storm $d=$lib.dict(key=$lib.null) $lib.fire('demo', d=$d)
                 ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
@@ -766,7 +766,7 @@ class LibBase(Lib):
         Args:
             mesg (str): String to warn.
 
-            **kwargs: **kwargs: Keyword arguments to substitute into the mesg.
+            **kwargs: Keyword arguments to substitute into the mesg.
 
         Notes:
             Arbitrary objects can be warned as well. They will have their Python __repr()__ printed.
@@ -926,7 +926,7 @@ class LibStr(Lib):
         Join items into a string using a separator.
 
         Args:
-            sepr (str): The seperator used to join things with.
+            sepr (str): The separator used to join things with.
             items (list): A list of items to join together.
 
         Examples:
@@ -1002,7 +1002,7 @@ class LibLift(Lib):
             name (str): The name to of the nodedata key to lift by.
 
         Returns:
-            Yields notes to the pipeline. This must be used in conjunction with the ``yield`` keyword.
+            Yields nodes to the pipeline. This must be used in conjunction with the ``yield`` keyword.
         '''
         async for node in self.runt.snap.nodesByDataName(name):
             yield node
@@ -1460,7 +1460,7 @@ class LibTelepath(Lib):
         Open and return a telepath RPC proxy.
 
         Args:
-            url (str): The Telepath URL to connect too.
+            url (str): The Telepath URL to connect to.
 
         Returns:
             Proxy: A Storm Proxy representing a Telepath Proxy.
@@ -1943,7 +1943,7 @@ class LibUser(Lib):
 @registry.registerLib
 class LibGlobals(Lib):
     '''
-    A Storm Library for interacting global variables which are persistent across the Cortex.
+    A Storm Library for interacting with global variables which are persistent across the Cortex.
     '''
     _storm_lib_path = ('globals', )
 
@@ -2490,7 +2490,7 @@ class LibStats(Lib):
 
     async def tally(self):
         '''
-        Get a Tally objectl
+        Get a Tally object.
 
         Returns:
             Tally: A Storm Tally object.
@@ -3221,7 +3221,7 @@ class LibUsers(Lib):
         Get a specific user by name.
 
         Args:
-            name (str): The name of te user to retrieve.
+            name (str): The name of the user to retrieve.
 
         Returns:
             User: A Storm User object; or None if the user does not exist.
@@ -3239,7 +3239,7 @@ class LibUsers(Lib):
 
             passwd (str): The users password. This is optional.
 
-            email (str): The user's emaill address. This is optional.
+            email (str): The user's email address. This is optional.
 
         Returns:
             User: A Storm User object for the new user.
@@ -3305,7 +3305,7 @@ class LibRoles(Lib):
         Get a specific Role by name.
 
         Args:
-            name (str): The name of te role to retrieve.
+            name (str): The name of the role to retrieve.
 
         Returns:
             Role: A Storm Role object; or None if the role does not exist.

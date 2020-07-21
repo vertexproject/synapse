@@ -776,7 +776,7 @@ async def disc_consul(info):
 
         The following HTTP parameters are supported:
 
-        - consul: This is the consul host (schema, fqdn and port) to connect too.
+        - consul: This is the consul host (schema, fqdn and port) to connect to.
         - consul_tag: If set, iterate through the catalog results until a result
           is found which matches the tag value. This is a case sensitive match.
         - consul_tag_address: If set, prefer the ``TaggedAddresses`` from the catalog.
