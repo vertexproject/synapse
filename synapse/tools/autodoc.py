@@ -485,7 +485,7 @@ async def docStormsvc(ctor):
         if ':' in pname:
             hname = pname.replace(':', raw_back_slash_colon)
 
-        rst.addHead(f'Storm Package\: {hname}', lvl=1)
+        rst.addHead(f'Storm Package\\: {hname}', lvl=1)
 
         rst.addLines(f'This documentation for {pname} is generated for version {s_version.fmtVersion(*pver)}')
 
@@ -577,10 +577,10 @@ def getDoc(obj, errstr):
 
 def cleanArgsRst(doc):
     '''Clean up args strings to be RST friendly.'''
-    replaces = (('*args', '\*args'),
-                ('*vals', '\*vals'),
-                ('**info', '\*\*info'),
-                ('**kwargs', '\*\*kwargs'),
+    replaces = (('*args', '\\*args'),
+                ('*vals', '\\*vals'),
+                ('**info', '\\*\\*info'),
+                ('**kwargs', '\\*\\*kwargs'),
                 )
     for (new, old) in replaces:
         doc = doc.replace(new, old)
