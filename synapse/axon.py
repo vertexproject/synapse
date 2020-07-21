@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 16 * s_const.mebibyte
 MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
+MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
 
 def initAxonHttpApi(cell):
     '''
@@ -33,12 +34,22 @@ class AxonFilesHttpV1(s_httpapi.StreamHandler):
         if not await self.reqAuthAllowed(('axon', 'upload')):
             await self.finish()
 
+        # max_body_size defaults to 100MB and requires a value
+        self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
+
         self.upfd = await self.cell.axon.upload()
 
     async def data_received(self, chunk):
         if chunk is not None:
             await self.upfd.write(chunk)
             await asyncio.sleep(0)
+
+    def on_finish(self):
+        if not self.upfd.isfini:
+            self.cell.schedCoroSafe(self.upfd.fini())
+
+    def on_connection_close(self):
+        self.on_finish()
 
     async def post(self):
         '''

@@ -284,12 +284,15 @@ class Handler(HandlerBase, t_web.RequestHandler):
 
 @t_web.stream_request_body
 class StreamHandler(Handler):
+    '''
+    Subclass for Tornado streaming uploads.
 
-    async def prepare(self):
-        '''
-        Called after headers are read but before data is read.
-        '''
-        pass
+    Notes:
+        - Async method prepare() is called after headers are read but before body processing.
+        - Sync method on_finish() can be used to cleanup after a request.
+        - Sync method on_connection_close() can be used to cleanup after a client disconnect.
+        - Async methods post(), put(), etc are called after the streaming has completed.
+    '''
 
     async def data_received(self, chunk):
         raise s_exc.NoSuchImpl(mesg='data_received must be implemented by subclasses.',
