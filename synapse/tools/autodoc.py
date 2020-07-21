@@ -25,6 +25,10 @@ poptsToWords = {
     'ro': 'Read Only',
 }
 
+info_ignores = (
+    'storetype',
+)
+
 raw_back_slash_colon = r'\:'
 
 # TODO Ensure this is consistent with other documentation.
@@ -148,6 +152,9 @@ def processCtors(rst, dochelp, ctors):
             for k, v in opts.items():
                 rst.addLines(f' * {k}: ``{v}``')
 
+        for key in info_ignores:
+            info.pop(key, None)
+
         if info:
             logger.warning(f'Base type {name} has unhandled info: {info}')
 
@@ -203,6 +210,9 @@ def processTypes(rst, dochelp, types):
                          )
             for k, v in sorted(topt.items(), key=lambda x: x[0]):
                 rst.addLines(f' * {k}: ``{v}``')
+
+        for key in info_ignores:
+            info.pop(key, None)
 
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
