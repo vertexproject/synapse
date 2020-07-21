@@ -321,18 +321,34 @@ commands:
       - run:
           name: smoke test image
           command: |
-#            docker run -d --name test00 vertexproject/synapse:${CIRCLE_BRANCH}
-#            docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_BRANCH}
+            docker run -d --name test00 vertexproject/synapse:${CIRCLE_BRANCH}
+            docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_BRANCH}
             docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
-#            docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
-            sleep 45
+            docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
+            sleep 60
             docker ps
             docker container ls -a
+            docker logs test00
+            docker logs test01
             docker logs test02
-            dstatus=`docker inspect test02 --format '{{.State.Health.Status}}'`
+            docker logs test03
+            dstatus00=`docker inspect test00 --format '{{.State.Health.Status}}'`
+            dstatus01=`docker inspect test01 --format '{{.State.Health.Status}}'`
+            dstatus02=`docker inspect test02 --format '{{.State.Health.Status}}'`
+            dstatus03=`docker inspect test03 --format '{{.State.Health.Status}}'`
+            docker stop test00
+            docker stop test01
             docker stop test02
+            docker stop test03
+            docker rm test00
+            docker rm test01
             docker rm test02
-            if [ $dstatus = "healthy" ]; then  exit 0; else exit 1; fi
+            docker rm test03
+            if [ $dstatus00 != "healthy" ]; then exit 1; fi
+            if [ $dstatus01 != "healthy" ]; then exit 1; fi
+            if [ $dstatus02 != "healthy" ]; then exit 1; fi
+            if [ $dstatus03 != "healthy" ]; then exit 1; fi
+            exit 0
 #      - run:
 #          name: tag and push container
 #          command: |
