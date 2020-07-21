@@ -10,7 +10,7 @@ class TransportModule(s_module.CoreModule):
 
                 ('transport:air:tailnum', ('str', {'lower': True, 'strip': True, 'regex': '^[a-z0-9-]{2,}$'}), {
                     'doc': 'An aircraft registration number or military aircraft serial number.',
-                    'ex': 'FF023'}),
+                    'ex': 'ff023'}),
 
                 ('transport:air:flightnum', ('str', {'lower': True, 'strip': True, 'replace': ((' ', ''),), 'regex': '^[a-z]{2}[0-9]{1,4}$'}), {
                     'doc': 'A commercial flight designator including airline and serial.',
