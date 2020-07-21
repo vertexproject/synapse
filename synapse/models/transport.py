@@ -119,19 +119,14 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The time the telemetry sample was taken.'})
                 )),
                 ('transport:air:occupant', {}, (
-
                     ('type', ('str', {'lower': True}), {
                         'doc': 'The type of occupant such as pilot, crew or passenger.'}),
-
                     ('flight', ('transport:air:flight', {}), {
                         'doc': 'The flight that the occupant was aboard.'}),
-
                     ('seat', ('str', {'lower': True}), {
                         'doc': 'The seat assigned to the occupant'}),
-
                     ('contact', ('ps:contact', {}), {
                         'doc': 'The contact information of the occupant.'}),
-
                 )),
                 # TODO ais numbers
                 ('transport:sea:vessel', {}, (
