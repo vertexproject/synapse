@@ -1380,12 +1380,13 @@ class Layer(s_nexus.Pusher):
             postedits.extend(changes)
 
             if changes:
-                if changes[0][0] == EDIT_NODE_ADD:
+                if any((c[0] == EDIT_NODE_ADD for c in changes)):
                     if sode is not None:
                         sode['ndef'] = (form, edit[1][0])
 
-                    ctime = meta.get('time') if meta is not None else None
-                    if ctime is None:
+                    if meta is not None:
+                        ctime = meta.get('time')
+                    else:
                         ctime = s_common.now()
 
                     created = (EDIT_PROP_SET, ('.created', ctime, None, STOR_TYPE_MINTIME))
