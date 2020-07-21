@@ -247,6 +247,15 @@ def processFormsProps(rst, dochelp, forms, univ_names):
         rst.addLines(doc,
                      '')
 
+        ex = dochelp.formhelp.get(name)
+        if ex:
+            rst.addLines('',
+                         f'A example of ``{name}``{raw_back_slash_colon}',
+                         '',
+                         f' * ``{ex}``',
+                         ''
+                         )
+
         if props:
             rst.addLines('Properties:',
                          )

@@ -34,6 +34,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Universal props are system level properties which may be present on every node.', s)
             self.isin('.created', s)
             self.notin('..created\n', s)
+            self.isin('A example of ``inet:dns:a``\\:', s)
 
     async def test_tools_autodoc_confdefs(self):
 
