@@ -6,9 +6,6 @@ import synapse.models.crypto as s_m_crypto
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
-# 010 TODO / Fixme!
-# Test it:prod:softver by range!
-#
 
 class InfotechModelTest(s_t_utils.SynTest):
 
