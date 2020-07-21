@@ -1344,6 +1344,7 @@ class Str(Type):
         ('regex', None),
         ('lower', False),
         ('strip', False),
+        ('replace', ()),
         ('onespace', False),
         ('globsuffix', False),
     )
@@ -1396,6 +1397,9 @@ class Str(Type):
         if self.opts.get('lower'):
             valu = valu.lower()
 
+        for look, repl in self.opts.get('replace', ()):
+            valu = valu.replace(look, repl)
+
         # Only strip the left side of the string for prefix match
         if self.opts.get('strip'):
             valu = valu.lstrip()
@@ -1425,6 +1429,9 @@ class Str(Type):
 
         if self.opts['lower']:
             norm = norm.lower()
+
+        for look, repl in self.opts.get('replace', ()):
+            norm = norm.replace(look, repl)
 
         if self.opts['strip']:
             norm = norm.strip()

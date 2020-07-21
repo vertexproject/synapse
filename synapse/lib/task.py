@@ -96,6 +96,9 @@ class Task(s_base.Base):
 
         return pask
 
+    def cancel(self):
+        return self.task.cancel()
+
 def loop():
     try:
         return asyncio.get_running_loop()
