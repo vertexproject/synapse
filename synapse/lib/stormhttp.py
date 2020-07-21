@@ -53,7 +53,7 @@ class LibHttp(s_stormtypes.Lib):
         Post data to a given URL.
 
         Args:
-            url (str): The URL to post too.
+            url (str): The URL to post to.
 
             headers (dict): HTTP headers to send with the request.
 

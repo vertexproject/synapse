@@ -166,7 +166,7 @@ class LibMacro(s_stormtypes.Lib):
 
     async def _funcMacroDel(self, name):
         '''
-        Delete a Storm Macros by name from the Cortex.
+        Delete a Storm Macro by name from the Cortex.
 
         Args:
             name (str): The name of the macro to delete.
