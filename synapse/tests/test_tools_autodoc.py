@@ -52,7 +52,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('autodoc-stormvarservicecell-conf', s)
             self.isin('StormvarServiceCell Configuration Options', s)
             self.isin('See :ref:`devops-cell-config` for', s)
-            self.isin('auth\:passwd', s)
+            self.isin('auth\\:passwd', s)
             self.isin('Environment Variable\n    ``SYN_STORMVARSERVICECELL_AUTH_PASSWD``', s)
             self.isin('``--auth-passwd``', s)
 
@@ -88,10 +88,34 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             self.isin('StormvarServiceCell Storm Service', s)
             self.isin('This documentation is generated for version 0.0.1 of the service.', s)
-            self.isin('Storm Package\: stormvar', s)
+            self.isin('Storm Package\\: stormvar', s)
             self.isin('magic\n-----', s)
             self.isin('Test stormvar support', s)
             self.isin('forms as input nodes', s)
             self.isin('``test:str``', s)
             self.isin('nodes in the graph', s)
             self.isin('``test:comp``', s)
+
+    async def test_tools_autodoc_stormtypes(self):
+        with self.getTestDir() as path:
+
+            argv = ['--savedir', path, '--doc-stormtypes']
+            outp = self.getTestOutp()
+            self.eq(await s_autodoc.main(argv, outp=outp), 0)
+
+            with s_common.genfile(path, 'stormtypes_libs.rst') as fd:
+                libbuf = fd.read()
+            libtext = libbuf.decode()
+
+            self.isin('.. _stormlibs-lib-print:\n\n$lib.print(mesg, \\*\\*kwargs)\n============================',
+                      libtext)
+            self.isin('Print a message to the runtime.', libtext)
+            self.isin('\\*\\*kwargs: Keyword arguments to substitute into the mesg.', libtext)
+            self.isin('.. _stormlibs-lib-time:\n\n*********\n$lib.time\n*********', libtext)
+            self.isin('A Storm Library for interacting with timestamps.', libtext)
+
+            with s_common.genfile(path, 'stormtypes_prims.rst') as fd:
+                primbuf = fd.read()
+            primstext = primbuf.decode()
+            self.isin('.. _stormprims-User:\n\n****\nUser\n****', primstext)
+            self.isin('User.iden\n=========\n\nConstant representing the user iden.', primstext)
