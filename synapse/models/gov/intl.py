@@ -9,7 +9,7 @@ class GovIntlModule(s_module.CoreModule):
                     'doc': 'An ISO Object Identifier string.'}),
 
                 ('gov:intl:un:m49', ('int', {'min': 1, 'max': 999}), {
-                    'doc': 'UN M49 Numeric Country Code'}),
+                    'doc': 'UN M49 Numeric Country Code.'}),
             ),
 
             'forms': (

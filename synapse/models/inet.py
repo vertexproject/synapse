@@ -830,7 +830,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:ipv4range', 'synapse.models.inet.IPv4Range', {}, {
-                        'doc': 'An IPv6 address range',
+                        'doc': 'An IPv6 address range.',
                         'ex': '1.2.3.4-1.2.3.8'
                     }),
 
@@ -840,7 +840,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:ipv6range', 'synapse.models.inet.IPv6Range', {}, {
-                        'doc': 'An IPv6 address range',
+                        'doc': 'An IPv6 address range.',
                         'ex': '(2607:f8b0:4004:809::200e, 2607:f8b0:4004:809::2011)'
                     }),
 
@@ -1028,7 +1028,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:whois:rec', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('asof', 'time'))}), {
-                        'doc': 'A domain whois record'
+                        'doc': 'A domain whois record.'
                     }),
 
                     ('inet:whois:recns', ('comp', {'fields': (('ns', 'inet:fqdn'), ('rec', 'inet:whois:rec'))}), {
@@ -1503,7 +1503,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
 
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The best known latitude/longitude for the node'}),
+                            'doc': 'The best known latitude/longitude for the node.'}),
 
                         ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the IPv4.'}),
@@ -1527,7 +1527,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The mapped ipv4.'}),
 
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'}),
+                            'doc': 'The last known latitude/longitude for the node.'}),
 
                         ('place', ('geo:place', {}), {
                             'doc': 'The geo:place assocated with the latlong property.'}),
@@ -1687,11 +1687,11 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('path', ('str', {}), {
                             'ro': True,
-                            'doc': 'The path in the URL w/o parameters'
+                            'doc': 'The path in the URL w/o parameters.'
                         }),
                         ('params', ('str', {}), {
                             'ro': True,
-                            'doc': 'The URL parameter string'
+                            'doc': 'The URL parameter string.'
                         }),
                         ('port', ('inet:port', {}), {
                             'ro': True,
@@ -1722,19 +1722,19 @@ class InetModule(s_module.CoreModule):
                     ('inet:urlredir', {}, (
                         ('src', ('inet:url', {}), {
                             'ro': True,
-                            'doc': 'The original/source URL before redirect'
+                            'doc': 'The original/source URL before redirect.'
                         }),
                         ('src:fqdn', ('inet:fqdn', {}), {
                             'ro': True,
-                            'doc': 'The FQDN within the src URL (if present)'
+                            'doc': 'The FQDN within the src URL (if present).'
                         }),
                         ('dst', ('inet:url', {}), {
                             'ro': True,
-                            'doc': 'The redirected/destination URL'
+                            'doc': 'The redirected/destination URL.'
                         }),
                         ('dst:fqdn', ('inet:fqdn', {}), {
                             'ro': True,
-                            'doc': 'The FQDN within the dst URL (if present)'
+                            'doc': 'The FQDN within the dst URL (if present).'
                         }),
                     )),
 
@@ -1794,7 +1794,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The email address associated with the account.'
                         }),
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'
+                            'doc': 'The last known latitude/longitude for the node.'
                         }),
                         ('place', ('geo:place', {}), {
                             'doc': 'The geo:place assocated with the latlong property.'
@@ -1995,7 +1995,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'A self-declared location for the group.'
                         }),
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'
+                            'doc': 'The last known latitude/longitude for the node.'
                         }),
                         ('place', ('geo:place', {}), {
                             'doc': 'The geo:place assocated with the latlong property.'
@@ -2184,7 +2184,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The content of the fax field of the contact.'
                         }),
                         ('url', ('inet:url', {}), {
-                            'doc': 'The URL specified for the contact'
+                            'doc': 'The URL specified for the contact.'
                         }),
                         ('whois:fqdn', ('inet:fqdn', {}), {
                             'doc': 'The whois server FQDN for the given contact (most likely a registrar).'
