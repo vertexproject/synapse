@@ -5,6 +5,7 @@ import logging
 import argparse
 import collections
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
@@ -375,6 +376,25 @@ async def docModel(outp,
     [v.sort() for k, v in props.items()]
 
     dochelp = DocHelp(ctors, types, forms, props, univs)
+
+    # Validate examples
+    for form, example in dochelp.formhelp.items():
+        if example is None:
+            continue
+        if example.startswith('('):
+            q = f"[{form}={example}]"
+        else:
+            q = f"[{form}='{example}']"
+        node = False
+        async for (mtyp, mnfo) in core.storm(q, {'editformat': 'none'}):
+            if mtyp in ('init', 'fini'):
+                continue
+            if mtyp == 'err':  # pragma: no cover
+                raise s_exc.SynErr(mesg='Invalid example', form=form, example=example, info=mnfo)
+            if mtyp == 'node':
+                node = True
+        if not node:  # pramga: no cover
+            raise s_exc.SynErr(mesg='Unable to make a node from example.', form=form, example=example)
 
     rst = RstHelp()
     rst.addHead('Synapse Data Model - Types', lvl=0)

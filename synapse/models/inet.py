@@ -928,7 +928,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
                         'doc': 'An SSL certificate file served by a server.',
-                        'ex': '(1.2.3.4:443, guid:ff....fff)',
+                        'ex': '(1.2.3.4:443, guid:d41d8cd98f00b204e9800998ecf8427e)',
                     }),
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
@@ -976,7 +976,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user'))}), {
                         'doc': 'An account with a given Internet-based site or service.',
-                        'ex': 'twitter.com/invisig0th'
+                        'ex': '(twitter.com, invisig0th)'
                     }),
 
                     ('inet:web:action', ('guid', {}), {
@@ -998,7 +998,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group'))}), {
                         'doc': 'A group hosted within or registered with a given Internet-based site or service.',
-                        'ex': 'somesite.com/mycoolgroup'
+                        'ex': '(somesite.com, mycoolgroup)'
                     }),
 
                     ('inet:web:logon', ('guid', {}), {
@@ -1011,7 +1011,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:mesg', ('comp', {'fields': (('from', 'inet:web:acct'), ('to', 'inet:web:acct'), ('time', 'time'))}), {
                         'doc': 'A message sent from one web account to another web account.',
-                        'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'
+                        'ex': '((twitter.com, invisig0th), (twitter.com, gobbles), 20041012130220)'
                     }),
 
                     ('inet:web:post', ('guid', {}), {
