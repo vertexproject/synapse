@@ -60,6 +60,10 @@ class StormlibModelTest(s_test.SynTest):
                 mesgs = await core.stormlist('model.edge.get refs')
                 self.stormIsInPrint('boom bam', mesgs)
 
+                # This test will need to change if we add more valid keys.
+                keys = await core.callStorm('return( $lib.model.edge.validkeys() )')
+                self.eq(keys, ('doc', ))
+
                 # Multiple verbs
                 await core.nodes('media:news [ +(cat)> {inet:ipv4=1.2.3.4} ]')
                 await core.nodes('media:news [ <(dog)+ {inet:ipv4=1.2.3.4} ]')

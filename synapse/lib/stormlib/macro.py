@@ -124,27 +124,56 @@ class MacroExecCmd(s_storm.Cmd):
                 path.finiframe(runt)
                 yield node, path
 
+@s_stormtypes.registry.registerLib
 class LibMacro(s_stormtypes.Lib):
+    '''
+    A Storm Library for interacting with the Storm Macros in the Cortex.
+    '''
+    _storm_lib_path = ('macro',)
 
-    def addLibFuncs(self):
-        self.locls.update({
+    def getObjLocals(self):
+        return {
             'set': self._funcMacroSet,
             'get': self._funcMacroGet,
             'del': self._funcMacroDel,
             'list': self._funcMacroList,
-        })
+        }
 
     async def _funcMacroList(self):
+        '''
+        Get a list of Storm Macros in the Cortex.
+
+        Returns:
+            list: a list of dictionaries representing Macro definitions.
+        '''
         path = ('cortex', 'storm', 'macros')
         return await self.runt.snap.core.getHiveKeys(path)
 
     async def _funcMacroGet(self, name):
+        '''
+        Get a Storm Macro definition by name from the Cortex.
+
+        Args:
+            name (str): The name of the macro to get.
+
+        Returns:
+            dict: A macro definition.
+        '''
         name = await s_stormtypes.tostr(name)
 
         path = ('cortex', 'storm', 'macros', name)
         return await self.runt.snap.core.getHiveKey(path)
 
     async def _funcMacroDel(self, name):
+        '''
+        Delete a Storm Macro by name from the Cortex.
+
+        Args:
+            name (str): The name of the macro to delete.
+
+        Returns:
+            dict: The macro definition which has been removed from the Cortex.
+        '''
         name = await s_stormtypes.tostr(name)
         path = ('cortex', 'storm', 'macros', name)
 
@@ -161,7 +190,17 @@ class LibMacro(s_stormtypes.Lib):
         await self.runt.snap.core.popHiveKey(path)
 
     async def _funcMacroSet(self, name, storm):
+        '''
+        Add or modify an existing Storm Macro in the Cortex.
 
+        Args:
+            name (str): Name of the Storm Macro to add or modify.
+
+            storm (str): The Storm query to add to the macro.
+
+        Returns:
+            None: Returns None.
+        '''
         name = await s_stormtypes.tostr(name)
         storm = await s_stormtypes.tostr(storm)
 
