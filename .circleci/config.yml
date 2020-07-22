@@ -307,6 +307,7 @@ commands:
           command: |
             docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_TAG} -m synapse.servers.cortex --help
             dstatus00=$?
+            if [ $dstatus00 != "0" ]; then exit 1; fi
             docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_TAG}
             docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_TAG}
             docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_TAG}
@@ -337,6 +338,7 @@ commands:
           command: |
             docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x -m synapse.servers.cortex --help
             dstatus00=$?
+            if [ $dstatus00 != "0" ]; then exit 1; fi
             docker run -d --name test01 vertexproject/synapse-axon:v2.x.x
             docker run -d --name test02 vertexproject/synapse-cortex:v2.x.x
             docker run -d --name test03 vertexproject/synapse-cryotank:v2.x.x
