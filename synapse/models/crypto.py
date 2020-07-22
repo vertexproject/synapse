@@ -40,7 +40,7 @@ class CryptoModule(s_module.CoreModule):
                 }),
 
                 ('hash:md5', ('hex', {'size': 32}), {
-                    'doc': 'A hex encodeded MD5 hash.',
+                    'doc': 'A hex encoded MD5 hash.',
                     'ex': ex_md5
                 }),
                 ('hash:sha1', ('hex', {'size': 40}), {
@@ -127,11 +127,11 @@ class CryptoModule(s_module.CoreModule):
                     ('mod', ('hex', {}), {'ro': 1,
                        'doc': 'The RSA key modulus.'}),
                     ('pub:exp', ('int', {}), {'ro': 1,
-                       'doc': 'The public exponent.'}),
+                       'doc': 'The public exponent of the key.'}),
                     ('bits', ('int', {}),
                      {'doc': 'The length of the modulus in bits.'}),
                     ('priv:exp', ('hex', {}),
-                     {'doc': 'The private exponent.'}),
+                     {'doc': 'The private exponent of the key.'}),
                     ('priv:p', ('hex', {}),
                      {'doc': 'One of the two private primes.'}),
                     ('priv:q', ('hex', {}),

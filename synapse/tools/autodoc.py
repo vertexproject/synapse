@@ -148,7 +148,7 @@ def processCtors(rst, dochelp, ctors):
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'A example of ``{name}``{raw_back_slash_colon}',
+                         f'An example of ``{name}``{raw_back_slash_colon}',
                          '',
                          f' * ``{ex}``',
                          )
@@ -207,7 +207,7 @@ def processTypes(rst, dochelp, types):
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'A example of {name}{raw_back_slash_colon}:',
+                         f'An example of {name}{raw_back_slash_colon}:',
                          '',
                          f' * ``{ex}``',
                          )
@@ -254,7 +254,7 @@ def processFormsProps(rst, dochelp, forms, univ_names):
         ex = dochelp.formhelp.get(name)
         if ex:
             rst.addLines('',
-                         f'A example of ``{name}``{raw_back_slash_colon}',
+                         f'An example of ``{name}``{raw_back_slash_colon}',
                          '',
                          f' * ``{ex}``',
                          ''

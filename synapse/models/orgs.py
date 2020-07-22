@@ -160,7 +160,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'The org guid.',
+                        'doc': 'The org guid which has the alias.',
                     }),
                     ('alias', ('ou:alias', {}), {
                         'ro': True,
@@ -170,7 +170,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:orgnet4', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'The org guid.',
+                        'doc': 'The org guid which owns the netblock.',
                     }),
                     ('net', ('inet:net4', {}), {
                         'ro': True,
@@ -183,7 +183,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:orgnet6', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'The org guid.',
+                        'doc': 'The org guid which owns the netblock.',
                     }),
                     ('net', ('inet:net6', {}), {
                         'ro': True,
@@ -245,7 +245,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:user', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'The org guid.',
+                        'doc': 'The org guid which owns the netblock.',
                     }),
                     ('user', ('inet:user', {}), {
                         'ro': True,

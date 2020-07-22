@@ -6,7 +6,7 @@ class GovUsModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('gov:us:ssn', ('int', {}), {'doc': 'A US Social Security Number (SSN).'}),
-                ('gov:us:zip', ('int', {}), {'doc': 'A US Zip Code.'}),
+                ('gov:us:zip', ('int', {}), {'doc': 'A US Postal Zip Code.'}),
                 ('gov:us:cage', ('str', {'lower': True}), {'doc': 'A Commercial and Government Entity (CAGE) code.'}),
             ),
 
