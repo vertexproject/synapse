@@ -76,7 +76,7 @@ class DocHelp:
                 ctor = ctor[3]
                 example = ctor.get('ex')
                 self.formhelp[formname] = example
-            else:
+            else:  # pragma: no cover
                 logger.warning(f'No ctor/type available for [{formname}]')
 
 class RstHelp:
