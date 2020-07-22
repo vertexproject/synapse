@@ -111,7 +111,7 @@ class TransportModule(s_module.CoreModule):
                     # TODO
                     # ('airspeed',
                     # ('groundspeed'
-                    ('altitude', ('geo:dist', {}), {
+                    ('altitude', ('geo:altitude', {}), {
                         'doc': 'The altitude of the plane at the time.'}),
                     ('altitude:accuracy', ('geo:dist', {}), {
                         'doc': 'The vertical accuracy of the altitude measurement.'}),
@@ -135,7 +135,9 @@ class TransportModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
                         'doc': 'The name of the vessel'}),
                     ('length', ('geo:dist', {}), {
-                        'doc': 'The official vessel length'}),
+                        'doc': 'The official overall vessel length'}),
+                    ('beam', ('geo:dist', {}), {
+                        'doc': 'The official overall vessel beam'}),
                     ('flag', ('iso:3166:cc', {}), {
                         'doc': 'The country the vessel is flagged to.'}),
                     ('mmsi', ('transport:sea:mmsi', {}), {
@@ -156,8 +158,10 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The place that the lat/lon geocodes to.'}),
                     ('accuracy', ('geo:dist', {}), {
                         'The horizontal accuracy of the latlong sample.'}),
-                    ('draught', ('geo:dist', {}), {
-                        'The draught depth at the time.'}),
+                    ('draft', ('geo:dist', {}), {
+                        'The keel depth at the time.'}),
+                    ('airdraft', ('geo:dist', {}), {
+                        'The maximum height of the ship from the waterline.'}),
                 )),
             ),
         }

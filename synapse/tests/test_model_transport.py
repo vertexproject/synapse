@@ -59,16 +59,27 @@ class TransportTest(s_test.SynTest):
             self.eq((20.22, 80.1111), telem.get('latlong'))
             self.eq('us', telem.get('loc'))
             self.eq(10000, telem.get('accuracy'))
-            self.eq(9144000, telem.get('altitude'))
+            self.eq(6380152800, telem.get('altitude'))
             self.eq(10000, telem.get('altitude:accuracy'))
             self.eq(1580601600000, telem.get('time'))
 
-            vessel = (await core.nodes('[ transport:sea:vessel=* :mmsi=123456789 :name="Slice of Life" :flag=us :imo="IMO 1234567" :built=2020]'))[0]
+            vessel = (await core.nodes('''[
+                transport:sea:vessel=*
+                    :mmsi=123456789
+                    :name="Slice of Life"
+                    :flag=us
+                    :imo="IMO 1234567"
+                    :built=2020
+                    :length=20m
+                    :beam=10m
+                ]'''))[0]
             self.eq('123456789', vessel.get('mmsi'))
             self.eq('slice of life', vessel.get('name'))
             self.eq('us', vessel.get('flag'))
             self.eq('imo1234567', vessel.get('imo'))
             self.eq(1577836800000, vessel.get('built'))
+            self.eq(20000, vessel.get('length'))
+            self.eq(10000, vessel.get('beam'))
 
             seatelem = (await core.nodes('''[
                  transport:sea:telem=*
@@ -78,7 +89,8 @@ class TransportTest(s_test.SynTest):
                     :loc=us
                     :place=*
                     :accuracy=10m
-                    :draught=20m
+                    :draft=20m
+                    :airdraft=30m
             ]'''))[0]
 
             self.nn(seatelem.get('place'))
@@ -86,7 +98,8 @@ class TransportTest(s_test.SynTest):
             self.eq('us', seatelem.get('loc'))
             self.eq(10000, seatelem.get('accuracy'))
             self.eq(1580601600000, seatelem.get('time'))
-            self.eq(20000, seatelem.get('draught'))
+            self.eq(20000, seatelem.get('draft'))
+            self.eq(30000, seatelem.get('airdraft'))
 
             airport = (await core.nodes('transport:air:port=VISI [:name="Visi Airport" :place=*]'))[0]
             self.eq('visi', airport.ndef[1])
