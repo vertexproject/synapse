@@ -207,7 +207,7 @@ def processTypes(rst, dochelp, types):
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'An example of {name}{raw_back_slash_colon}:',
+                         f'An example of ``{name}``{raw_back_slash_colon}',
                          '',
                          f' * ``{ex}``',
                          )
