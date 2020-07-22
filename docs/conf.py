@@ -226,6 +226,16 @@ def run_confdocs(_):
         args.append(ctor)
         subprocess.run(args, cwd=synpd)
 
+def run_stormtypes(_):
+    import synapse
+    import subprocess
+    abssynf = os.path.abspath(synapse.__file__)
+    synbd = os.path.split(abssynf)[0]  # Split off __init__
+    synpd = os.path.split(synbd)[0]  # split off the synapse module directory
+    args = ['python', '-m', 'synapse.tools.autodoc', '--doc-stormtypes',
+            '--savedir', './docs/synapse/autodocs']
+    subprocess.run(args, cwd=synpd)
+
 def convert_ipynb(_):
     import synapse.common as s_common
     import nbconvert.nbconvertapp as nba
@@ -235,6 +245,8 @@ def convert_ipynb(_):
             dirs.remove('.ipynb_checkpoints')
         for fn in fns:
             if fn.endswith('.ipynb'):
+                # if 'httpapi' not in fn:
+                #     continue
                 tick = s_common.now()
                 fp = os.path.join(fdir, fn)
                 args = ['--execute', '--template', './vertex.tpl', '--to', 'rst', fp]
@@ -248,3 +260,4 @@ def setup(app):
     app.connect('builder-inited', run_modeldoc)
     app.connect('builder-inited', run_confdocs)
     app.connect('builder-inited', convert_ipynb)
+    app.connect('builder-inited', run_stormtypes)
