@@ -152,7 +152,7 @@ class SynModule(s_module.CoreModule):
                     ('title', ('str', {}), {'doc': 'A display title for the tag.'}),
 
                     ('base', ('str', {}), {'ro': 1,
-                        'doc': 'The tag base name. Eg baz for foo.bar.baz'}),
+                        'doc': 'The tag base name. Eg baz for foo.bar.baz .'}),
                 )),
                 ('syn:type', {'runt': True}, (
                     ('doc', ('str', {'strip': True}), {
@@ -184,7 +184,7 @@ class SynModule(s_module.CoreModule):
                     ('univ', ('bool', {}), {
                         'doc': 'Specifies if a prop is universal.', 'ro': True}),
                     ('base', ('str', {'strip': True}), {
-                        'doc': 'Base name of the property', 'ro': True}),
+                        'doc': 'Base name of the property.', 'ro': True}),
                     ('ro', ('bool', {}), {
                         'doc': 'If the property is read-only after being set.', 'ro': True}),
                     ('extmodel', ('bool', {}), {
@@ -198,7 +198,7 @@ class SynModule(s_module.CoreModule):
                 )),
                 ('syn:trigger', {'runt': True}, (
                     ('vers', ('int', {}), {
-                        'doc': 'Trigger version', 'ro': True,
+                        'doc': 'Trigger version.', 'ro': True,
                     }),
                     ('doc', ('str', {}), {
                         'doc': 'A documentation string describing the trigger.',
@@ -207,16 +207,16 @@ class SynModule(s_module.CoreModule):
                         'doc': 'A user friendly name/alias for the trigger.',
                     }),
                     ('cond', ('str', {'strip': True, 'lower': True}), {
-                        'doc': 'The trigger condition', 'ro': True,
+                        'doc': 'The trigger condition.', 'ro': True,
                     }),
                     ('user', ('str', {}), {
-                        'doc': 'User who owns the trigger', 'ro': True,
+                        'doc': 'User who owns the trigger.', 'ro': True,
                     }),
                     ('storm', ('str', {}), {
                         'doc': 'The Storm query for the trigger.', 'ro': True,
                     }),
                     ('enabled', ('bool', {}), {
-                        'doc': 'Trigger enabled status', 'ro': True,
+                        'doc': 'Trigger enabled status.', 'ro': True,
                     }),
                     ('form', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'Form the trigger is watching for.'

@@ -5,6 +5,7 @@ import logging
 import argparse
 import collections
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
@@ -24,6 +25,10 @@ poptsToWords = {
     'ex': 'Example',
     'ro': 'Read Only',
 }
+
+info_ignores = (
+    'stortype',
+)
 
 raw_back_slash_colon = r'\:'
 
@@ -56,6 +61,23 @@ class DocHelp:
                 tn = prop[1][0]
                 doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ctors.get(tn))))
                 self.props[(form, prop[0])] = doc
+        typed = {t[0]: t for t in types}
+        ctord = {c[0]: c for c in ctors}
+        self.formhelp = {}  # form name -> ex string for a given type
+        for form in forms:
+            formname = form[0]
+            tnfo = typed.get(formname)
+            ctor = ctord.get(formname)
+            if tnfo:
+                tnfo = tnfo[2]
+                example = tnfo.get('ex')
+                self.formhelp[formname] = example
+            elif ctor:
+                ctor = ctor[3]
+                example = ctor.get('ex')
+                self.formhelp[formname] = example
+            else:  # pragma: no cover
+                logger.warning(f'No ctor/type available for [{formname}]')
 
 class RstHelp:
 
@@ -126,7 +148,7 @@ def processCtors(rst, dochelp, ctors):
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'A example of ``{name}``{raw_back_slash_colon}',
+                         f'An example of ``{name}``{raw_back_slash_colon}',
                          '',
                          f' * ``{ex}``',
                          )
@@ -138,6 +160,9 @@ def processCtors(rst, dochelp, ctors):
                          )
             for k, v in opts.items():
                 rst.addLines(f' * {k}: ``{v}``')
+
+        for key in info_ignores:
+            info.pop(key, None)
 
         if info:
             logger.warning(f'Base type {name} has unhandled info: {info}')
@@ -182,7 +207,7 @@ def processTypes(rst, dochelp, types):
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'A example of {name}{raw_back_slash_colon}:',
+                         f'An example of ``{name}``{raw_back_slash_colon}',
                          '',
                          f' * ``{ex}``',
                          )
@@ -194,6 +219,9 @@ def processTypes(rst, dochelp, types):
                          )
             for k, v in sorted(topt.items(), key=lambda x: x[0]):
                 rst.addLines(f' * {k}: ``{v}``')
+
+        for key in info_ignores:
+            info.pop(key, None)
 
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
@@ -217,8 +245,20 @@ def processFormsProps(rst, dochelp, forms, univ_names):
         link = f'.. _dm-form-{name.replace(":", "-")}:'
         rst.addHead(hname, lvl=2, link=link)
 
+        baseline = f'The base type for the form can be found at :ref:`dm-type-{name.replace(":", "-")}`.'
         rst.addLines(doc,
+                     '',
+                     baseline,
                      '')
+
+        ex = dochelp.formhelp.get(name)
+        if ex:
+            rst.addLines('',
+                         f'An example of ``{name}``{raw_back_slash_colon}',
+                         '',
+                         f' * ``{ex}``',
+                         ''
+                         )
 
         if props:
             rst.addLines('Properties:',
@@ -336,6 +376,25 @@ async def docModel(outp,
     [v.sort() for k, v in props.items()]
 
     dochelp = DocHelp(ctors, types, forms, props, univs)
+
+    # Validate examples
+    for form, example in dochelp.formhelp.items():
+        if example is None:
+            continue
+        if example.startswith('('):
+            q = f"[{form}={example}]"
+        else:
+            q = f"[{form}='{example}']"
+        node = False
+        async for (mtyp, mnfo) in core.storm(q, {'editformat': 'none'}):
+            if mtyp in ('init', 'fini'):
+                continue
+            if mtyp == 'err':  # pragma: no cover
+                raise s_exc.SynErr(mesg='Invalid example', form=form, example=example, info=mnfo)
+            if mtyp == 'node':
+                node = True
+        if not node:  # pramga: no cover
+            raise s_exc.SynErr(mesg='Unable to make a node from example.', form=form, example=example)
 
     rst = RstHelp()
     rst.addHead('Synapse Data Model - Types', lvl=0)
@@ -476,7 +535,7 @@ async def docStormsvc(ctor):
         if ':' in pname:
             hname = pname.replace(':', raw_back_slash_colon)
 
-        rst.addHead(f'Storm Package\: {hname}', lvl=1)
+        rst.addHead(f'Storm Package\\: {hname}', lvl=1)
 
         rst.addLines(f'This documentation for {pname} is generated for version {s_version.fmtVersion(*pver)}')
 
@@ -568,10 +627,10 @@ def getDoc(obj, errstr):
 
 def cleanArgsRst(doc):
     '''Clean up args strings to be RST friendly.'''
-    replaces = (('*args', '\*args'),
-                ('*vals', '\*vals'),
-                ('**info', '\*\*info'),
-                ('**kwargs', '\*\*kwargs'),
+    replaces = (('*args', '\\*args'),
+                ('*vals', '\\*vals'),
+                ('**info', '\\*\\*info'),
+                ('**kwargs', '\\*\\*kwargs'),
                 )
     for (new, old) in replaces:
         doc = doc.replace(new, old)

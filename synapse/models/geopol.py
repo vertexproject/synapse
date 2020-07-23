@@ -10,22 +10,22 @@ class PolModule(s_module.CoreModule):
 
                     ('pol:country',
                         ('guid', {}),
-                        {'doc': 'A GUID for a country'}
+                        {'doc': 'A GUID for a country.'}
                     ),
 
                     ('pol:iso2',
                         ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$', 'nullval': '??'}),
-                        {'doc': 'The 2 digit ISO country code', 'ex': 'us'}
+                        {'doc': 'The 2 digit ISO country code.', 'ex': 'us'}
                     ),
 
                     ('pol:iso3',
                         ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$', 'nullval': '??'}),
-                        {'doc': 'The 3 digit ISO country code', 'ex': 'usa'}
+                        {'doc': 'The 3 digit ISO country code.', 'ex': 'usa'}
                     ),
 
                     ('pol:isonum',
                         ('int', {}),
-                        {'doc': 'The ISO integer country code', 'ex': '840'}
+                        {'doc': 'The ISO integer country code.', 'ex': '840'}
                     ),
 
                 ),

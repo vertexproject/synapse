@@ -13,20 +13,20 @@ class OuModule(s_module.CoreModule):
                     'ex': '541715',
                 }),
                 ('ou:org', ('guid', {}), {
-                    'doc': 'A GUID for a human organization such as a company or military unit',
+                    'doc': 'A GUID for a human organization such as a company or military unit.',
                 }),
                 ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
-                    'doc': 'An alias for the org GUID',
+                    'doc': 'An alias for the org GUID.',
                     'ex': 'vertexproject',
                 }),
                 ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
                     'doc': 'The knowledge that an organization has an alias.',
                 }),
                 ('ou:orgnet4', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net4'))}), {
-                    'doc': "An organization's IPv4 netblock",
+                    'doc': "An organization's IPv4 netblock.",
                 }),
                 ('ou:orgnet6', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net6'))}), {
-                    'doc': "An organization's IPv6 netblock",
+                    'doc': "An organization's IPv6 netblock.",
                 }),
                 ('ou:name', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The name of an organization. This may be a formal name or informal name of the '
@@ -44,7 +44,7 @@ class OuModule(s_module.CoreModule):
                            'potentially during a specific period of time.',
                 }),
                 ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
-                    'doc': 'A user name within an organization',
+                    'doc': 'A user name within an organization.',
                 }),
                 ('ou:meet', ('guid', {}), {
                     'doc': 'A informal meeting of people which has no title or sponsor.  See also: ou:conference.',
@@ -65,62 +65,62 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Represents a person attending a conference event represented by an ou:conference:event node.',
                 }),
                 ('ou:goal', ('guid', {}), {
-                    'doc': 'An assessed or stated goal which may be abstract or org specific',
+                    'doc': 'An assessed or stated goal which may be abstract or org specific.',
                 }),
                 ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
-                    'doc': 'An org has an assessed or stated goal',
+                    'doc': 'An org has an assessed or stated goal.',
                 }),
                 ('ou:campaign', ('guid', {}), {
-                    'doc': 'Represents an orgs activity in pursuit of a goal',
+                    'doc': 'Represents an orgs activity in pursuit of a goal.',
                 }),
             ),
             'forms': (
                 ('ou:goal', {}, (
                     ('name', ('str', {}), {
-                        'doc': 'A terse name for the goal',
+                        'doc': 'A terse name for the goal.',
                     }),
                     ('type', ('str', {}), {
-                        'doc': 'A user specified goal type',
+                        'doc': 'A user specified goal type.',
                     }),
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the goal',
+                        'doc': 'A description of the goal.',
                     }),
                     ('prev', ('ou:goal', {}), {
-                        'doc': 'The previous/parent goal in a list or hierarchy',
+                        'doc': 'The previous/parent goal in a list or hierarchy.',
                     }),
                 )),
                 ('ou:hasgoal', {}, (
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org which has the goal',
+                        'doc': 'The org which has the goal.',
                     }),
                     ('goal', ('ou:goal', {}), {
-                        'doc': 'The goal which the org has',
+                        'doc': 'The goal which the org has.',
                     }),
                     ('stated', ('bool', {}), {
-                        'doc': 'Set to true/false if the goal is known to be self stated',
+                        'doc': 'Set to true/false if the goal is known to be self stated.',
                     }),
                     ('window', ('ival', {}), {
-                        'doc': 'Set if a goal has a limited time window',
+                        'doc': 'Set if a goal has a limited time window.',
                     }),
                 )),
                 ('ou:campaign', {}, (
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org carrying out the campaign',
+                        'doc': 'The org carrying out the campaign.',
                     }),
                     ('goal', ('ou:goal', {}), {
-                        'doc': 'The assessed primary goal of the campaign',
+                        'doc': 'The assessed primary goal of the campaign.',
                     }),
                     ('goals', ('array', {'type': 'ou:goal'}), {
-                        'doc': 'Additional assessed goals of the campaign',
+                        'doc': 'Additional assessed goals of the campaign.',
                     }),
                     ('name', ('str', {}), {
-                        'doc': 'A terse name of the campaign',
+                        'doc': 'A terse name of the campaign.',
                     }),
                     ('type', ('str', {}), {
-                        'doc': 'A user specified campaign type',
+                        'doc': 'A user specified campaign type.',
                     }),
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the campaign',
+                        'doc': 'A description of the campaign.',
                     }),
                 )),
                 ('ou:org', {}, (
@@ -134,7 +134,7 @@ class OuModule(s_module.CoreModule):
                        'doc': 'A list of alternate names for the organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
-                        'doc': 'The default alias for an organization'
+                        'doc': 'The default alias for an organization.'
                     }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The primary phone number for the organization.',
@@ -160,37 +160,37 @@ class OuModule(s_module.CoreModule):
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'Org guid',
+                        'doc': 'The org guid which has the alias.',
                     }),
                     ('alias', ('ou:alias', {}), {
                         'ro': True,
-                        'doc': 'Alias for the organization',
+                        'doc': 'Alias for the organization.',
                     }),
                 )),
                 ('ou:orgnet4', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'Org guid',
+                        'doc': 'The org guid which owns the netblock.',
                     }),
                     ('net', ('inet:net4', {}), {
                         'ro': True,
-                        'doc': 'Netblock owned by the organization',
+                        'doc': 'Netblock owned by the organization.',
                     }),
                     ('name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The name that the organization assigns to this netblock'
+                        'doc': 'The name that the organization assigns to this netblock.'
                     }),
                 )),
                 ('ou:orgnet6', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'Org guid',
+                        'doc': 'The org guid which owns the netblock.',
                     }),
                     ('net', ('inet:net6', {}), {
                         'ro': True,
-                        'doc': 'Netblock owned by the organization',
+                        'doc': 'Netblock owned by the organization.',
                     }),
                     ('name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The name that the organization assigns to this netblock'
+                        'doc': 'The name that the organization assigns to this netblock.'
                     }),
                 )),
                 ('ou:member', {}, (
@@ -215,14 +215,14 @@ class OuModule(s_module.CoreModule):
                 ('ou:suborg', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'The org which owns the sub organization',
+                        'doc': 'The org which owns the sub organization.',
                     }),
                     ('sub', ('ou:org', {}), {
                         'ro': True,
                         'doc': 'The sub org which owned by the org.',
                     }),
                     ('perc', ('int', {'min': 0, 'max': 100}), {
-                        'doc': 'The optional percentage of sub which is owned by org',
+                        'doc': 'The optional percentage of sub which is owned by org.',
                     }),
                     ('current', ('bool', {}), {
                         'doc': 'Bool indicating if the suborg relationship still current.',
@@ -245,11 +245,11 @@ class OuModule(s_module.CoreModule):
                 ('ou:user', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'Org guid',
+                        'doc': 'The org guid which owns the netblock.',
                     }),
                     ('user', ('inet:user', {}), {
                         'ro': True,
-                        'doc': 'The username associated with the organization',
+                        'doc': 'The username associated with the organization.',
                     }),
                 )),
                 ('ou:meet', {}, (
@@ -356,7 +356,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The inet:url node for the conference event website.',
                     }),
                     ('contact', ('ps:contact', ()), {
-                        'doc': 'Contact info for the event',
+                        'doc': 'Contact info for the event.',
                     }),
                     ('start', ('time', {}), {
                         'doc': 'The event start date / time.',
