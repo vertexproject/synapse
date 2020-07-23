@@ -2,6 +2,8 @@ import json
 import asyncio
 import aiohttp
 
+import synapse.exc as s_exc
+
 import synapse.lib.httpapi as s_httpapi
 
 import synapse.tests.utils as s_tests
@@ -820,3 +822,27 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(url) as resp:
                     result = await resp.json()
                     self.eq(result.get('status'), 'ok')
+
+    async def test_streamhandler(self):
+
+        class SadHandler(s_httpapi.StreamHandler):
+            '''
+            data_received must be implemented
+            '''
+            async def post(self):
+                return
+
+        async with self.getTestCore() as core:
+
+            core.addHttpApi('/api/v1/sad', SadHandler, {'cell': core})
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            url = f'https://localhost:{port}/api/v1/sad'
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                with self.raises(s_exc.NoSuchImpl):
+                    async with sess.post(url, data=b'foo') as resp:
+                        pass
