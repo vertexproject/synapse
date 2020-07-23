@@ -701,6 +701,10 @@ class CoreApi(s_cell.CellApi):
     async def disableMigrationMode(self):
         await self.cell._disableMigrationMode()
 
+    @s_cell.adminapi()
+    async def cloneLayer(self, iden):
+        return await self.cell.cloneLayer(iden)
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -2494,6 +2498,52 @@ class Cortex(s_cell.Cell):  # type: ignore
         for _, node in node:
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)
+
+    async def cloneLayer(self, iden):
+        '''
+        Make a copy of a Layer in the cortex.
+
+        Args:
+            iden (str): layer iden
+        '''
+        layr = self.layers.get(iden, None)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=iden)
+
+        newiden = s_common.guid()
+
+        return await self._push('layer:clone', iden, newiden)
+
+    @s_nexus.Pusher.onPush('layer:clone')
+    async def _cloneLayer(self, iden, newiden):
+
+        if newiden in self.layers:
+            return
+
+        layr = self.layers.get(iden)
+        if layr is None:
+            return
+
+        newpath = s_common.gendir(self.dirn, 'layers', newiden)
+        await layr.clone(newpath)
+
+        node = await self.hive.open(('cortex', 'layers', iden))
+        copynode = await self.hive.open(('cortex', 'layers', newiden))
+
+        layrinfo = await node.dict()
+        copyinfo = await copynode.dict()
+        for name, valu in layrinfo.items():
+            await copyinfo.set(name, valu)
+
+        await copyinfo.set('iden', newiden)
+
+        copylayr = await self._initLayr(copyinfo)
+
+        creator = copyinfo.get('creator')
+        user = await self.auth.reqUser(creator)
+        await user.setAdmin(True, gateiden=newiden, logged=False)
+
+        return copylayr.pack()
 
     def addStormCmd(self, ctor):
         '''

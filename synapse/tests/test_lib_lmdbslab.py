@@ -1157,6 +1157,25 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # Can't re-open while already open
                 await self.asyncraises(s_exc.SlabAlreadyOpen, s_lmdbslab.Slab.anit(path))
 
+    async def test_lmdbslab_copyslab(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            copypath = os.path.join(dirn, 'copy.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                foo = slab.initdb('foo')
+                slab.put(b'\x00\x01', b'hehe', db=foo)
+
+                await slab.copyslab(copypath)
+
+                async with await s_lmdbslab.Slab.anit(copypath) as slabcopy:
+                    foo = slabcopy.initdb('foo')
+                    self.eq(b'hehe', slabcopy.get(b'\x00\x01', db=foo))
+
+                await self.asyncraises(s_exc.DataAlreadyExists, slab.copyslab(copypath))
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):

@@ -869,3 +869,24 @@ class LayerTest(s_t_utils.SynTest):
             )),
         )
         self.len(2, s_layer.getFlatEdits(nodeedits))
+
+    async def test_layer_clone(self):
+
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+            self.isin(f'Layer (Layer): {layr.iden}', str(layr))
+
+            nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            buid = nodes[0].buid
+
+            self.eq('foo', await layr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
+
+            copylayrinfo = await core.cloneLayer(layr.iden)
+
+            copylayr = core.getLayer(copylayrinfo.get('iden'))
+            self.isin(f'Layer (Layer): {layr.iden}', str(layr))
+
+            self.eq('foo', await copylayr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(buid, '.seen'))

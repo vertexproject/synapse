@@ -1350,6 +1350,26 @@ class Slab(s_base.Base):
 
         return rowcount
 
+    async def copyslab(self, dstpath, compact=True):
+
+        dstpath = pathlib.Path(dstpath)
+        if dstpath.exists():
+            raise s_exc.DataAlreadyExists()
+
+        dstoptspath = dstpath.with_suffix('.opts.yaml')
+        s_common.gendir(dstpath)
+
+        await self.sync()
+
+        self.lenv.copy(str(dstpath), compact=compact)
+
+        try:
+            shutil.copy(self.optspath, dstoptspath)
+        except FileNotFoundError:  # pragma: no cover
+            pass
+
+        return True
+
     def pop(self, lkey, db=None):
         return self._xact_action(self.pop, lmdb.Transaction.pop, lkey, db=db)
 

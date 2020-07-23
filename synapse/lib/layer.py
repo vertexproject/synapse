@@ -1026,6 +1026,17 @@ class Layer(s_nexus.Pusher):
 
         await self._initLayerStorage()
 
+    async def clone(self, newdirn):
+
+        path = s_common.genpath(newdirn, 'layer_v2.lmdb')
+        await self.layrslab.copyslab(path)
+
+        nodedatapath = s_common.genpath(newdirn, 'nodedata.lmdb')
+        await self.dataslab.copyslab(nodedatapath)
+
+        editspath = s_common.genpath(newdirn, 'nodeedits.lmdb')
+        await self.nodeeditslab.copyslab(editspath)
+
     async def _initLayerStorage(self):
 
         slabopts = {
