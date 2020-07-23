@@ -124,7 +124,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The point in time where the purchase was paid in full.'}),
 
                     ('campaign', ('ou:campaign', {}), {
-                        'doc': 'The campaign that the purchase was in support of'}),
+                        'doc': 'The campaign that the purchase was in support of.'}),
 
                     ('price', ('econ:price', {}), {
                         'doc': 'The econ:price of the purchase'}),
