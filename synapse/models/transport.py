@@ -95,7 +95,7 @@ class TransportModule(s_module.CoreModule):
                     ('stops', ('array', {'type': 'transport:air:port'}), {
                         'doc': 'An ordered list of aiport codes for stops which occured during this flight.'}),
                     ('cancelled', ('bool', {}), {
-                        'doc': 'Set to true for canclled flights.'}),
+                        'doc': 'Set to true for cancelled flights.'}),
                 )),
                 ('transport:air:telem', {}, (
                     ('flight', ('transport:air:flight', {}), {
