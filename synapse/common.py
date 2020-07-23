@@ -8,6 +8,7 @@ import types
 import base64
 import shutil
 import struct
+import decimal
 import fnmatch
 import hashlib
 import logging
@@ -144,6 +145,13 @@ def intify(x):
         return int(x, 0)
     except (TypeError, ValueError):
         return None
+
+hugectx = decimal.Context(prec=15)
+def hugenum(valu):
+    '''
+    Return a decimal.Decimal with proper precision for use as a synapse hugenum.
+    '''
+    return decimal.Decimal(valu, context=hugectx)
 
 def vertup(vstr):
     '''

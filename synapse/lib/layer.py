@@ -200,6 +200,7 @@ STOR_TYPE_I128 = 20
 STOR_TYPE_MINTIME = 21
 
 STOR_TYPE_FLOAT64 = 22
+STOR_TYPE_HUGENUM = 23
 
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
@@ -649,6 +650,66 @@ class StorTypeInt(StorType):
         for item in liftby.buidsByRange(pkeymin, pkeymax):
             yield item
 
+class StorTypeHugeNum(StorType):
+
+    def __init__(self, layr, stortype):
+        StorType.__init__(self, layr, STOR_TYPE_HUGENUM)
+        self.lifters.update({
+            '=': self._liftHugeEq,
+            '<': self._liftHugeLt,
+            '>': self._liftHugeGt,
+            '<=': self._liftHugeLe,
+            '>=': self._liftHugeGe,
+            'range=': self._liftHugeRange,
+        })
+
+        self.one = s_common.hugenum(1)
+        self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffff)
+
+        self.zerobyts = b'\x00' * 16
+        self.fullbyts = b'\xff' * 16
+
+    def getHugeIndx(self, norm):
+        scaled = s_common.hugenum(norm).scaleb(15)
+        byts = int(scaled + self.offset).to_bytes(16, byteorder='big')
+        return byts
+
+    def indx(self, norm):
+        return (self.getHugeIndx(norm),)
+
+    async def _liftHugeEq(self, liftby, valu):
+        byts = self.getHugeIndx(valu)
+        for item in liftby.buidsByDups(byts):
+            yield item
+
+    async def _liftHugeGt(self, liftby, valu):
+        valu = s_common.hugenum(valu)
+        async for item in self._liftHugeGe(liftby, valu + self.one):
+            yield item
+
+    async def _liftHugeLt(self, liftby, valu):
+        valu = s_common.hugenum(valu)
+        async for item in self._liftHugeLe(liftby, valu - self.one):
+            yield item
+
+    async def _liftHugeGe(self, liftby, valu):
+        pkeymin = self.getHugeIndx(valu)
+        pkeymax = self.fullbyts
+        for item in liftby.buidsByRange(pkeymin, pkeymax):
+            yield item
+
+    async def _liftHugeLe(self, liftby, valu):
+        pkeymin = self.zerobyts
+        pkeymax = self.getHugeIndx(valu)
+        for item in liftby.buidsByRange(pkeymin, pkeymax):
+            yield item
+
+    async def _liftHugeRange(self, liftby, valu):
+        pkeymin = self.getHugeIndx(valu[0])
+        pkeymax = self.getHugeIndx(valu[1])
+        for item in liftby.buidsByRange(pkeymin, pkeymax):
+            yield item
+
 class StorTypeFloat(StorType):
     FloatPacker = struct.Struct('>d')
     fpack = FloatPacker.pack
@@ -977,6 +1038,7 @@ class Layer(s_nexus.Pusher):
             StorTypeTime(self), # STOR_TYPE_MINTIME
 
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
+            StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
         ]
 
         self.editors = [

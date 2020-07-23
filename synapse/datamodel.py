@@ -495,6 +495,10 @@ class Model:
         item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A potentially huge/tiny number stored as a string but indexed/computed as a number. min: -2**78 max: 2**78 inc: 1e-15'}
+        item = s_types.HugeNum(self, 'hugenum', info, {})
+        self.addBaseType(item)
+
         # add the base universal properties...
         self.addUnivProp('seen', ('ival', {}), {
             'doc': 'The time interval for first/last observation of the node.',
