@@ -884,9 +884,11 @@ class LayerTest(s_t_utils.SynTest):
             self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
 
             copylayrinfo = await core.cloneLayer(layr.iden)
+            self.len(2, core.layers)
 
             copylayr = core.getLayer(copylayrinfo.get('iden'))
             self.isin(f'Layer (Layer): {copylayr.iden}', str(copylayr))
+            self.ne(layr.iden, copylayr.iden)
 
             self.eq('foo', await copylayr.getNodeValu(buid))
             self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(buid, '.seen'))
