@@ -1,6 +1,4 @@
 import io
-import os
-import asyncio
 import hashlib
 import logging
 import unittest.mock as mock

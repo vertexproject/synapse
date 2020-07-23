@@ -1,8 +1,9 @@
 import json
-import asyncio
-import aiohttp
 
-import synapse.exc as s_exc
+import aiohttp
+import aiohttp.client_exceptions as a_exc
+
+import synapse.cortex as s_cortex
 
 import synapse.lib.httpapi as s_httpapi
 
@@ -830,10 +831,10 @@ class HttpApiTest(s_tests.SynTest):
             data_received must be implemented
             '''
             async def post(self):
+                self.sendRestRetn('foo')
                 return
 
         async with self.getTestCore() as core:
-
             core.addHttpApi('/api/v1/sad', SadHandler, {'cell': core})
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
@@ -843,6 +844,6 @@ class HttpApiTest(s_tests.SynTest):
 
             url = f'https://localhost:{port}/api/v1/sad'
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
-                with self.raises(s_exc.NoSuchImpl):
+                with self.raises(a_exc.ServerDisconnectedError):
                     async with sess.post(url, data=b'foo') as resp:
                         pass
