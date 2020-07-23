@@ -1868,7 +1868,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             self.axon = await s_axon.Axon.anit(path)
             self.axon.onfini(self.axready.clear)
             self.axready.set()
-            s_axon.initAxonHttpApi(self)
             return
 
         async def teleloop():
@@ -1878,7 +1877,6 @@ class Cortex(s_cell.Cell):  # type: ignore
                     self.axon = await s_telepath.openurl(turl)
                     self.axon.onfini(teleloop)
                     self.axready.set()
-                    s_axon.initAxonHttpApi(self)
                     return
                 except asyncio.CancelledError:
                     raise

@@ -21,23 +21,18 @@ CHUNK_SIZE = 16 * s_const.mebibyte
 MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
 
-def initAxonHttpApi(cell):
-    '''
-    Register Axon httpapi endpoints on a given Cell
-    '''
-    cell.addHttpApi('/api/v1/axon/files', AxonFilesHttpV1, {'cell': cell})
-    cell.addHttpApi('/api/v1/axon/files/(.*)', AxonFileHttpV1, {'cell': cell})
-
 class AxonFilesHttpV1(s_httpapi.StreamHandler):
 
     async def prepare(self):
+        self.upfd = None
+
         if not await self.reqAuthAllowed(('axon', 'upload')):
             await self.finish()
 
         # max_body_size defaults to 100MB and requires a value
         self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
 
-        self.upfd = await self.cell.axon.upload()
+        self.upfd = await self.cell.upload()
 
     async def data_received(self, chunk):
         if chunk is not None:
@@ -45,7 +40,7 @@ class AxonFilesHttpV1(s_httpapi.StreamHandler):
             await asyncio.sleep(0)
 
     def on_finish(self):
-        if not self.upfd.isfini:
+        if self.upfd is not None and not self.upfd.isfini:
             self.cell.schedCoroSafe(self.upfd.fini())
 
     def on_connection_close(self):
@@ -77,7 +72,7 @@ class AxonFileHttpV1(s_httpapi.Handler):
             return
 
         try:
-            async for byts in self.cell.axon.get(sha256b):
+            async for byts in self.cell.get(sha256b):
                 self.write(byts)
                 await self.flush()
                 await asyncio.sleep(0)
@@ -212,8 +207,6 @@ class Axon(s_cell.Cell):
         # for potential default remote use
         self.dmon.share('axon', self)
 
-        self.axon = self
-
         path = s_common.gendir(self.dirn, 'axon.lmdb')
         self.axonslab = await s_lmdbslab.Slab.anit(path)
         self.sizes = self.axonslab.initdb('sizes')
@@ -232,7 +225,7 @@ class Axon(s_cell.Cell):
         # modularize blob storage
         await self._initBlobStor()
 
-        initAxonHttpApi(self)
+        self._initAxonHttpApi()
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
@@ -242,6 +235,10 @@ class Axon(s_cell.Cell):
         self.blobslab = await s_lmdbslab.Slab.anit(path)
         self.blobs = self.blobslab.initdb('blobs')
         self.onfini(self.blobslab.fini)
+
+    def _initAxonHttpApi(self):
+        self.addHttpApi('/api/v1/axon/files', AxonFilesHttpV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/(.*)', AxonFileHttpV1, {'cell': self})
 
     def _addSyncItem(self, item):
         self.axonhist.add(item)

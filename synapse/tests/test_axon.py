@@ -176,94 +176,6 @@ class AxonTest(s_t_utils.SynTest):
         if isinstance(fd, s_axon.UpLoad):
             self.true(fd.fd.closed)
 
-    async def runAxonHttpTestBase(self, cell):
-
-        host, port = await cell.addHttpsPort(0, host='127.0.0.1')
-
-        newb = await cell.auth.addUser('newb')
-        await newb.setPasswd('secret')
-
-        url = f'https://localhost:{port}/api/v1/axon/files'
-
-        asdfhash_h = s_common.ehex(asdfhash)
-        bbufhash_h = s_common.ehex(bbufhash)
-        emptyhash_h = s_common.ehex(emptyhash)
-
-        # Perms
-        async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
-            async with sess.get(f'{url}/{asdfhash_h}') as resp:
-                self.eq(403, resp.status)
-                item = await resp.json()
-                self.eq('err', item.get('status'))
-
-            async with sess.post(url, data=abuf) as resp:
-                self.eq(403, resp.status)
-                item = await resp.json()
-                self.eq('err', item.get('status'))
-
-            # Stream file
-            byts = io.BytesIO(bbuf)
-
-            with self.raises(a_exc.ServerDisconnectedError):
-                async with sess.post(url, data=byts) as resp:
-                    pass
-
-        await newb.addRule((True, ('axon', 'get')))
-        await newb.addRule((True, ('axon', 'upload')))
-
-        # Basic
-        async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
-            async with sess.get(f'{url}/foobar') as resp:
-                self.eq(400, resp.status)
-                item = await resp.json()
-                self.eq('err', item.get('status'))
-
-            async with sess.get(f'{url}/{asdfhash_h}') as resp:
-                self.eq(404, resp.status)
-                item = await resp.json()
-                self.eq('err', item.get('status'))
-
-            async with sess.post(url, data=abuf) as resp:
-                self.eq(200, resp.status)
-                item = await resp.json()
-                self.eq('ok', item.get('status'))
-                self.eq((asdfretn[0], asdfhash_h), item.get('result'))
-                self.true(await cell.axon.has(asdfhash))
-
-            async with sess.get(f'{url}/{asdfhash_h}') as resp:
-                self.eq(200, resp.status)
-                self.eq(abuf, await resp.read())
-
-            # Streaming upload
-            byts = io.BytesIO(bbuf)
-
-            async with sess.post(url, data=byts) as resp:
-                self.eq(200, resp.status)
-                item = await resp.json()
-                self.eq('ok', item.get('status'))
-                self.eq((bbufretn[0], bbufhash_h), item.get('result'))
-                self.true(await cell.axon.has(bbufhash))
-
-            byts = io.BytesIO(b'')
-
-            async with sess.post(url, data=byts) as resp:
-                self.eq(200, resp.status)
-                item = await resp.json()
-                self.eq('ok', item.get('status'))
-                self.eq((emptyretn[0], emptyhash_h), item.get('result'))
-                self.true(await cell.axon.has(emptyhash))
-
-            # Streaming download
-            async with sess.get(f'{url}/{bbufhash_h}') as resp:
-                self.eq(200, resp.status)
-
-                byts = []
-                async for bytz in resp.content.iter_chunked(1024):
-                    byts.append(bytz)
-
-                self.gt(len(byts), 1)
-                self.eq(bbuf, b''.join(byts))
-
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
@@ -276,24 +188,93 @@ class AxonTest(s_t_utils.SynTest):
 
     async def test_axon_http(self):
 
+        # HTTP handlers on a standalone Axon
         async with self.getTestAxon() as axon:
-            await self.runAxonHttpTestBase(axon)
+            host, port = await axon.addHttpsPort(0, host='127.0.0.1')
 
-        async with self.getTestCore() as core:
-            await self.runAxonHttpTestBase(core)
+            newb = await axon.auth.addUser('newb')
+            await newb.setPasswd('secret')
 
-        with self.getTestDir() as dirn:
+            url = f'https://localhost:{port}/api/v1/axon/files'
 
-            apath = os.path.join(dirn, 'axon')
-            cpath = os.path.join(dirn, 'core')
+            asdfhash_h = s_common.ehex(asdfhash)
+            bbufhash_h = s_common.ehex(bbufhash)
+            emptyhash_h = s_common.ehex(emptyhash)
 
-            async with self.getTestAxon(dirn=apath) as axon:
-                conf = {'axon': axon.getLocalUrl()}
+            # Perms
+            async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
+                async with sess.get(f'{url}/{asdfhash_h}') as resp:
+                    self.eq(403, resp.status)
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
 
-                async with self.getTestCore(dirn=cpath, conf=conf) as core:
-                    self.true(await asyncio.wait_for(core.axready.wait(), 10))
+                async with sess.post(url, data=abuf) as resp:
+                    self.eq(403, resp.status)
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
 
-                    await self.runAxonHttpTestBase(core)
+                # Stream file
+                byts = io.BytesIO(bbuf)
+
+                with self.raises(a_exc.ServerDisconnectedError):
+                    async with sess.post(url, data=byts) as resp:
+                        pass
+
+            await newb.addRule((True, ('axon', 'get')))
+            await newb.addRule((True, ('axon', 'upload')))
+
+            # Basic
+            async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
+                async with sess.get(f'{url}/foobar') as resp:
+                    self.eq(400, resp.status)
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+
+                async with sess.get(f'{url}/{asdfhash_h}') as resp:
+                    self.eq(404, resp.status)
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+
+                async with sess.post(url, data=abuf) as resp:
+                    self.eq(200, resp.status)
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    self.eq((asdfretn[0], asdfhash_h), item.get('result'))
+                    self.true(await axon.has(asdfhash))
+
+                async with sess.get(f'{url}/{asdfhash_h}') as resp:
+                    self.eq(200, resp.status)
+                    self.eq(abuf, await resp.read())
+
+                # Streaming upload
+                byts = io.BytesIO(bbuf)
+
+                async with sess.post(url, data=byts) as resp:
+                    self.eq(200, resp.status)
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    self.eq((bbufretn[0], bbufhash_h), item.get('result'))
+                    self.true(await axon.has(bbufhash))
+
+                byts = io.BytesIO(b'')
+
+                async with sess.post(url, data=byts) as resp:
+                    self.eq(200, resp.status)
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    self.eq((emptyretn[0], emptyhash_h), item.get('result'))
+                    self.true(await axon.has(emptyhash))
+
+                # Streaming download
+                async with sess.get(f'{url}/{bbufhash_h}') as resp:
+                    self.eq(200, resp.status)
+
+                    byts = []
+                    async for bytz in resp.content.iter_chunked(1024):
+                        byts.append(bytz)
+
+                    self.gt(len(byts), 1)
+                    self.eq(bbuf, b''.join(byts))
 
     async def test_axon_perms(self):
         async with self.getTestAxon() as axon:
