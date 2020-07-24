@@ -6,7 +6,6 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
