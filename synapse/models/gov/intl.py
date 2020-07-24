@@ -12,7 +12,7 @@ class GovIntlModule(s_module.CoreModule):
                     'doc': 'An ISO 3166 2 digit country code.'}),
 
                 ('gov:intl:un:m49', ('int', {'min': 1, 'max': 999}), {
-                    'doc': 'UN M49 Numeric Country Code'}),
+                    'doc': 'UN M49 Numeric Country Code.'}),
             ),
 
             'forms': (
