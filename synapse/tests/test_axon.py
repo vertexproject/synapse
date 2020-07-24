@@ -193,7 +193,8 @@ class AxonTest(s_t_utils.SynTest):
             newb = await axon.auth.addUser('newb')
             await newb.setPasswd('secret')
 
-            url = f'https://localhost:{port}/api/v1/axon/files'
+            url_ul = f'https://localhost:{port}/api/v1/axon/files/put'
+            url_dl = f'https://localhost:{port}/api/v1/axon/files/by/sha256'
 
             asdfhash_h = s_common.ehex(asdfhash)
             bbufhash_h = s_common.ehex(bbufhash)
@@ -201,12 +202,12 @@ class AxonTest(s_t_utils.SynTest):
 
             # Perms
             async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
-                async with sess.get(f'{url}/{asdfhash_h}') as resp:
+                async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
                     self.eq(403, resp.status)
                     item = await resp.json()
                     self.eq('err', item.get('status'))
 
-                async with sess.post(url, data=abuf) as resp:
+                async with sess.post(url_ul, data=abuf) as resp:
                     self.eq(403, resp.status)
                     item = await resp.json()
                     self.eq('err', item.get('status'))
@@ -215,7 +216,7 @@ class AxonTest(s_t_utils.SynTest):
                 byts = io.BytesIO(bbuf)
 
                 with self.raises(a_exc.ServerDisconnectedError):
-                    async with sess.post(url, data=byts) as resp:
+                    async with sess.post(url_ul, data=byts) as resp:
                         pass
 
             await newb.addRule((True, ('axon', 'get')))
@@ -223,31 +224,47 @@ class AxonTest(s_t_utils.SynTest):
 
             # Basic
             async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
-                async with sess.get(f'{url}/foobar') as resp:
+                async with sess.get(f'{url_dl}/foobar') as resp:
                     self.eq(400, resp.status)
                     item = await resp.json()
                     self.eq('err', item.get('status'))
 
-                async with sess.get(f'{url}/{asdfhash_h}') as resp:
+                async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
                     self.eq(404, resp.status)
                     item = await resp.json()
                     self.eq('err', item.get('status'))
 
-                async with sess.post(url, data=abuf) as resp:
+                async with sess.post(url_ul, data=abuf) as resp:
                     self.eq(200, resp.status)
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
                     self.eq((asdfretn[0], asdfhash_h), item.get('result'))
                     self.true(await axon.has(asdfhash))
 
-                async with sess.get(f'{url}/{asdfhash_h}') as resp:
+                async with sess.put(url_ul, data=abuf) as resp:
+                    self.eq(200, resp.status)
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    self.eq((asdfretn[0], asdfhash_h), item.get('result'))
+                    self.true(await axon.has(asdfhash))
+
+                async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
                     self.eq(200, resp.status)
                     self.eq(abuf, await resp.read())
 
                 # Streaming upload
                 byts = io.BytesIO(bbuf)
 
-                async with sess.post(url, data=byts) as resp:
+                async with sess.post(url_ul, data=byts) as resp:
+                    self.eq(200, resp.status)
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    self.eq((bbufretn[0], bbufhash_h), item.get('result'))
+                    self.true(await axon.has(bbufhash))
+
+                byts = io.BytesIO(bbuf)
+
+                async with sess.put(url_ul, data=byts) as resp:
                     self.eq(200, resp.status)
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
@@ -256,7 +273,7 @@ class AxonTest(s_t_utils.SynTest):
 
                 byts = io.BytesIO(b'')
 
-                async with sess.post(url, data=byts) as resp:
+                async with sess.post(url_ul, data=byts) as resp:
                     self.eq(200, resp.status)
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
@@ -264,7 +281,7 @@ class AxonTest(s_t_utils.SynTest):
                     self.true(await axon.has(emptyhash))
 
                 # Streaming download
-                async with sess.get(f'{url}/{bbufhash_h}') as resp:
+                async with sess.get(f'{url_dl}/{bbufhash_h}') as resp:
                     self.eq(200, resp.status)
 
                     byts = []
