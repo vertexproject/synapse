@@ -539,6 +539,32 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
                 await slab.countByPref(b'asdf')
 
+    async def test_lmdbslab_iterkeys(self):
+
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+
+                slab.put(b'vvvvasdf', b'asdf')
+                slab.put(b'vvvvqwer', b'asdf')
+                slab.put(b'vvvvzxcv', b'asdf')
+
+                items = []
+                for item in slab.scanKeys():
+                    slab.forcecommit()
+                    items.append(item)
+
+                self.eq(items, [b'vvvvasdf', b'vvvvqwer', b'vvvvzxcv'])
+
+                with s_lmdbslab.Scan(slab, None) as scan:
+
+                    scan.rangekeys(b'vvvv')
+                    for lkey in scan.iterkeys():
+                        slab.forcecommit()
+                        items.append(lkey)
+
+                self.eq(items, [b'vvvvasdf', b'vvvvqwer', b'vvvvzxcv'])
+
     async def test_lmdbslab_grow(self):
 
         with self.getTestDir() as dirn:
