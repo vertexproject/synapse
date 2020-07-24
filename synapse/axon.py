@@ -3,8 +3,6 @@ import hashlib
 import logging
 import tempfile
 
-import regex
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -21,8 +19,6 @@ logger = logging.getLogger(__name__)
 CHUNK_SIZE = 16 * s_const.mebibyte
 MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
-
-sha256re = regex.compile('^[0-9a-f]{64}$')
 
 class AxonFilesHttpV1(s_httpapi.StreamHandler):
 
@@ -73,11 +69,6 @@ class AxonFileHttpV1(s_httpapi.Handler):
     async def get(self, sha256):
 
         if not await self.reqAuthAllowed(('axon', 'get')):
-            return
-
-        if sha256re.match(sha256.lower()) is None:
-            self.set_status(400)
-            self.sendRestErr('BadRequest', 'Files must be requested with a valid SHA-256.')
             return
 
         sha256b = s_common.uhex(sha256)
@@ -249,7 +240,7 @@ class Axon(s_cell.Cell):
 
     def _initAxonHttpApi(self):
         self.addHttpApi('/api/v1/axon/files/put', AxonFilesHttpV1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/by/sha256/(.*)', AxonFileHttpV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonFileHttpV1, {'cell': self})
 
     def _addSyncItem(self, item):
         self.axonhist.add(item)

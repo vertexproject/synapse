@@ -225,9 +225,7 @@ class AxonTest(s_t_utils.SynTest):
             # Basic
             async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
                 async with sess.get(f'{url_dl}/foobar') as resp:
-                    self.eq(400, resp.status)
-                    item = await resp.json()
-                    self.eq('err', item.get('status'))
+                    self.eq(404, resp.status)
 
                 async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
                     self.eq(404, resp.status)
