@@ -205,6 +205,9 @@ Directed Graph
 
 See :ref:`gloss-graph-directed`.
 
+
+.. _gloss-dmon:
+
 Dmon
 ----
 
