@@ -11,12 +11,41 @@ This Glossary provides a quick reference for common terms related to Synapse tec
 A
 =
 
+.. _gloss-addition-auto:
+
+Addition, Automatic
+-------------------
+
+See :ref:`gloss-autoadd`.
+
+.. _gloss-addition-dependent:
+
+Addition, Dependent
+-------------------
+
+See :ref:`gloss-depadd`.
+
 .. _gloss-analytical-model:
 
 Analytical Model
 ----------------
 
 See :ref:`gloss-model-analytical`.
+
+.. _gloss-autoadd:
+
+Autoadd
+-------
+
+Short for "automatic addition". Within Synapse, a feature of node creation where any secondary properties that
+are derived from a node's primary property are automatically set when the node is created. Because these secondary
+properties are based on the node's primary property (which cannot be changed once set), the secondary properties
+are read-only.
+
+For example, creating the node ``inet:email=alice@mail.somecompany.org`` will result in the autoadd of the secondary
+properties ``inet:email:user=alice`` and ``inet:email:domain=mail.somecompany.org``.
+
+See also the related concept :ref:`gloss-depadd`.
 
 .. _gloss-axon:
 
@@ -25,7 +54,7 @@ Axon
 
 The Axon is an interface for providing binary / blob storage inside of the Synapse ecosystem. This indexes binaries
 based on SHA-256 hash so we do not duplicate the storage of the same set of bytes twice. The default implemenation
-stores the blobs in a LMDB :ref:`gloss-slab`.
+stores the blobs in an LMDB :ref:`gloss-slab`.
 
 B
 =
@@ -157,10 +186,10 @@ D
 Daemon
 ------
 
-Similar to a traditional Linux or Unix daemon, a Synapse daemon is a long-running or recurring query or process that
-runs continuously in the background. A daemon is typically implemented by a Storm :ref:`gloss-service` and may be used
-for tasks such as processing elements from a :ref:`gloss-queue`. A daemon allows for non-blocking background processing
-of non-critical tasks. Daemons are persistent and will restart if they exit.
+Similar to a traditional Linux or Unix daemon, a Synapse daemon ("dmon") is a long-running or recurring query or process that
+runs continuously in the background. A dmon is typically implemented by a Storm :ref:`gloss-service` and may be used
+for tasks such as processing elements from a :ref:`gloss-queue`. A dmon allows for non-blocking background processing
+of non-critical tasks. Dmons are persistent and will restart if they exit.
 
 .. _gloss-data-model:
 
@@ -184,6 +213,27 @@ an arbitrary GUID is not deconflictable. A GUID form whose primary property is g
 set of strings (such as a subset of the form's secondary property values) may be deconflictable. See the
 :ref:`type-guid` section of the :ref:`storm-ref-type-specific` document for additional detail.
 
+.. _gloss-depadd:
+
+Depadd
+------
+
+Short for "dependent addition". Within Synapse, when a node's secondary property is set, if that secondary property
+is of a type that is also a form, Synapse will automatically create the node with the corresponding primary property
+value if it does not already exist. (You can look at this as the secondary property value being "dependent on" the
+existence of the node with the corresponding primary property value.)
+
+For example, creating the node ``inet:email=alice@mail.somecompany.org`` will set (via :ref:`gloss-autoadd`) the
+secondary property ``inet:email:domain=mail.somecompany.org``. Synapse will automatically create the node 
+``inet:fqdn=mail.somecompany.org`` as a dependent addition if it does not exist.
+
+(Note that limited recursion will occur between dependent additions (depadds) and automatic additions (autoadds).
+When ``inet:fqdn=mail.somecompany.org`` is created via depadd, Synapse will set (via autoadd) 
+``inet:fqdn:domain=somecompany.org``, which will result in the creation (via depadd) of the node
+``inet:fqdn=somecompany.org`` if it does not exist, etc.)
+
+See also the related concept :ref:`gloss-autoadd`.
+
 .. _gloss-derived-prop:
 
 Derived Property
@@ -205,10 +255,13 @@ Directed Graph
 
 See :ref:`gloss-graph-directed`.
 
+
+.. _gloss-dmon:
+
 Dmon
 ----
 
-Abbreviation for :ref:`gloss-daemon`.
+Short for :ref:`gloss-daemon`.
 
 E
 =
@@ -267,6 +320,28 @@ Within Synapse, one of the three primary methods for interacting with data in a 
 downselects a subset of nodes following a lift operation. Compare with :ref:`gloss-lift` and :ref:`gloss-pivot`.
 
 See :ref:`storm-ref-filter` for additional detail.
+
+.. _gloss-filter-subquery:
+
+Filter, Subquery
+----------------
+
+Within Synapse, a subquery filter is a filter that consists of a :ref:`gloss-storm` expression.
+
+
+See :ref:`filter-subquery` for additional detail.
+
+.. _gloss-fork:
+
+Fork
+----
+
+Within Synpse, fork refers to the process of "copying" a :ref:`gloss-view`, to include the data in the view 
+as well as any view-specific automation (e.g., triggers, cron jobs, dmons). Note that the view is not 
+technically duplicated in full; rather a new writeable :ref:`gloss-layer` is created on top of a read-only 
+copy of the original view.
+
+Any changes made within a forked view can optionally be merged back in to the original view, or discarded.
 
 .. _gloss-form:
 
@@ -526,6 +601,13 @@ A macro is a stored Storm query. Macros support the full range of Storm syntax a
 See the Storm command reference for the :ref:`storm-macro` command and the :ref:`storm-ref-automation` for
 additional detail.
 
+.. _gloss-merge:
+
+Merge
+-----
+
+Within Synapse, merge refers to the process of copying changes made within a forked (see :ref:`gloss-fork`) 
+:ref:`gloss-view` into the original view.
 
 .. _gloss-model:
 
@@ -661,10 +743,10 @@ Property, Derived
 Within Synapse, a derived property is a secondary property that can be extracted (derived) from a node's primary
 property. For example, the domain ``inet:fqdn=www.google.com`` can be used to derive ``inet:fqdn:domain=google.com``
 and ``inet:fqdn:host=www``; the DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)`` can be used to derive 
-``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ipv4=1.2.3.4``. Synapse will automatically set any secondary properties
-that can be derived from a node's primary property; if the seconday property can be used to define a node in its own
-right (i.e., ``inet:fqdn=google.com`` from ``inet:fqdn=www.google.com``) the additional nodes will be automatically
-created if they do not already exist. Because derived properties are based on primary property values, derived
+``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ipv4=1.2.3.4``. 
+
+Synapse will automatically set (:ref:`gloss-autoadd`) any secondary properties that can be derived from a node's
+primary property. Because derived properties are based on primary property values, derived
 secondary properties are always read-only (i.e., cannot be modified once set).
 
 .. _gloss-prop-primary:
@@ -836,6 +918,24 @@ Storm is the custom, domain-specific language used to interact with data in a Sy
 
 See :ref:`storm-ref-intro` for additional detail.
 
+.. _gloss-subquery:
+
+Subquery
+--------
+
+Within Synapse, a subquery is a :ref:`gloss-storm` query that is executed inside of another Storm query.
+
+
+See :ref:`storm-ref-subquery` for additional detail.
+
+.. _gloss-subquery-filter:
+
+Subquery Filter
+---------------
+
+See :ref:`gloss-filter-subquery`.
+
+
 T
 =
 
@@ -985,6 +1085,8 @@ In Storm, a variable is an identifier with a value that can be defined and/or ch
 the value is variable.
 
 Contrast with :ref:`gloss-constant`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
+
+See :ref:`storm-adv-vars` for a more detailed discussion of variables.
 
 .. _gloss-view:
 
