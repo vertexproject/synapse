@@ -3129,6 +3129,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_stormtypes_layer_counts(self):
         async with self.getTestCore() as core:
+            self.eq(0, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
             await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 :asn=20 inet:asn=20 +#foo.bar ]')
             self.eq(0, await core.callStorm('return($lib.layer.get().getPropCount(ps:person))'))
             self.eq(2, await core.callStorm('return($lib.layer.get().getPropCount(inet:ipv4))'))

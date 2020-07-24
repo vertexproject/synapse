@@ -532,6 +532,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((b'1', b'1'), next(it))
                 self.raises(StopIteration, next, it)
 
+    async def test_lmdbslab_count_empty(self):
+
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+                await slab.countByPref(b'asdf')
+
     async def test_lmdbslab_grow(self):
 
         with self.getTestDir() as dirn:
