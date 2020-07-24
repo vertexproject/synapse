@@ -3,14 +3,13 @@ import logging
 import functools
 import contextlib
 
-from typing import List, Dict, Any, Callable, Tuple, Optional, AsyncIterator, Union
+from typing import List, Dict, Any, Callable, Tuple, Optional, AsyncIterator
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +77,6 @@ class NexsRoot(s_base.Base):
         await s_base.Base.__anit__(self)
 
         import synapse.lib.lmdbslab as s_lmdbslab  # avoid import cycle
-        import synapse.lib.slabseqn as s_slabseqn  # avoid import cycle
 
         self.dirn = dirn
         self.client = None
@@ -155,7 +153,7 @@ class NexsRoot(s_base.Base):
         except Exception:
             logger.exception('Exception while replaying log')
 
-    async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
+    async def issue(self, nexsiden: str, event: str, args: Tuple[Any, ...], kwargs: Dict[str, Any],
                     meta: Optional[Dict] = None) -> Any:
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
@@ -355,7 +353,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         self._nexshands: Dict[str, Tuple[Callable, bool]] = {}
 
         self.nexsiden = iden
-        self.nexsroot = None
+        self.nexsroot: Optional[NexsRoot] = None
 
         if nexsroot is not None:
             self.setNexsRoot(nexsroot)
@@ -417,4 +415,5 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         Note:
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
+        assert self.nexsroot
         return await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)

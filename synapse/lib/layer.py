@@ -63,7 +63,6 @@ import struct
 import asyncio
 import logging
 import ipaddress
-import itertools
 import contextlib
 import collections
 
@@ -94,7 +93,8 @@ reqValidLdef = s_config.getJsValidator({
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'lockmemory': {'type': 'boolean'},
-        'logedits': {'type': 'boolean'}, 'default': True
+        'logedits': {'type': 'boolean'}, 'default': True,
+        'name': {'type': 'string'},
     },
     'additionalProperties': True,
     'required': ['iden', 'creator', 'lockmemory'],
@@ -761,7 +761,6 @@ class StorTypeFloat(StorType):
             yield item[1]
 
     async def _liftFloatGt(self, liftby, valu):
-        genr = self._liftFloatGeCommon(liftby, valu)
         valupack = self.fpack(valu)
         async for item in self._liftFloatGeCommon(liftby, valu):
             if item[0] == valupack:
@@ -788,7 +787,6 @@ class StorTypeFloat(StorType):
             yield item[1]
 
     async def _liftFloatLt(self, liftby, valu):
-        genr = self._liftFloatLeCommon(liftby, valu)
         valupack = self.fpack(valu)
         async for item in self._liftFloatLeCommon(liftby, valu):
             if item[0] == valupack:
