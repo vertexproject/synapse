@@ -139,6 +139,8 @@ Cron
 Within Synapse cron jobs are used to create scheduled tasks, similar to the Linux/Unix "cron" utility. The task to be
 executed by the cron job is specified using the :ref:`gloss-storm` query language.
 
+Cron jobs are view-specific and execute in the context of the user who created them.
+
 See the Storm command reference for the :ref:`storm-cron` command and the :ref:`storm-ref-automation` document for
 additional detail.
 
@@ -157,10 +159,12 @@ D
 Daemon
 ------
 
-Similar to a traditional Linux or Unix daemon, a Synapse daemon is a long-running or recurring query or process that
-runs continuously in the background. A daemon is typically implemented by a Storm :ref:`gloss-service` and may be used
-for tasks such as processing elements from a :ref:`gloss-queue`. A daemon allows for non-blocking background processing
-of non-critical tasks. Daemons are persistent and will restart if they exit.
+Similar to a traditional Linux or Unix daemon, a Synapse daemon ("dmon") is a long-running or recurring query or process that
+runs continuously in the background. A dmon is typically implemented by a Storm :ref:`gloss-service` and may be used
+for tasks such as processing elements from a :ref:`gloss-queue`. A dmon allows for non-blocking background processing
+of non-critical tasks. Dmons are persistent and will restart if they exit.
+
+Dmons are view-specific and execute in the context of the user who created them.
 
 .. _gloss-data-model:
 
@@ -287,7 +291,7 @@ Fork
 ----
 
 Within Synpse, fork refers to the process of "copying" a :ref:`gloss-view`, to include the data in the view 
-as well as any automation (e.g., triggers and cron jobs) specific to that view. Note that the view is not 
+as well as any view-specific automation (e.g., triggers, cron jobs, dmons). Note that the view is not 
 technically duplicated in full; rather a new writeable :ref:`gloss-layer` is created on top of a read-only 
 copy of the original view.
 
@@ -547,6 +551,8 @@ Macro
 -----
 
 A macro is a stored Storm query. Macros support the full range of Storm syntax and features.
+
+Macros are specific to a given Cortex and execute in the context of the user who calls the macro.
 
 See the Storm command reference for the :ref:`storm-macro` command and the :ref:`storm-ref-automation` for
 additional detail.
@@ -948,6 +954,8 @@ Trigger
 Within Synapse, a trigger is a Storm query that is executed automatically upon the occurrence of a specified event
 within a Cortex (such as adding a node or applying a tag). "Trigger" refers collectively to the event and the query
 fired ("triggered") by the event.
+
+Triggers are view-specific and execute in the context of the user who created them.
 
 See the Storm command reference for the :ref:`storm-trigger` command and the :ref:`storm-ref-automation` for
 additional detail.
