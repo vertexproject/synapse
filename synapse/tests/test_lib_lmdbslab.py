@@ -556,10 +556,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.eq(items, [b'vvvvasdf', b'vvvvqwer', b'vvvvzxcv'])
 
-                with s_lmdbslab.Scan(slab, None) as scan:
+                items = []
+                with s_lmdbslab.Scan(slab, None, values=False) as scan:
 
-                    scan.rangekeys(b'vvvv')
-                    for lkey in scan.iterkeys():
+                    scan.set_range(b'vvvv')
+                    for lkey in scan.iternext():
                         slab.forcecommit()
                         items.append(lkey)
 

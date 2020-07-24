@@ -1103,12 +1103,12 @@ class Slab(s_base.Base):
 
     def scanKeys(self, db=None):
 
-        with Scan(self, db) as scan:
+        with Scan(self, db, values=False) as scan:
 
-            if not scan.firstkeys():
+            if not scan.first():
                 return
 
-            yield from scan.iterkeys()
+            yield from scan.iternext()
 
     async def countByPref(self, byts, db=None):
         '''
@@ -1116,12 +1116,12 @@ class Slab(s_base.Base):
         '''
         count = 0
         size = len(byts)
-        with Scan(self, db) as scan:
+        with Scan(self, db, values=False) as scan:
 
-            if not scan.rangekeys(byts):
+            if not scan.set_range(byts):
                 return 0
 
-            for lkey in scan.iterkeys():
+            for lkey in scan.iternext():
 
                 if lkey[:size] != byts:
                     return count
@@ -1410,8 +1410,9 @@ class Scan:
         db (str):  name of open database on the slab
         singlekey(bool):  whether the scan should iterate over the values in a single key
     '''
-    def __init__(self, slab, db, singlekey=False):
+    def __init__(self, slab, db, singlekey=False, values=True):
         self.slab = slab
+        self.values = values
         self.db, self.dupsort = slab.dbnames[db]
 
         assert not singlekey or self.dupsort  # singlekey doesn't make sense with non dupsort db
@@ -1453,25 +1454,7 @@ class Scan:
         if not self.curs.first():
             return False
 
-        self.genr = self.curs.iternext()
-        self.atitem = next(self.genr)
-        return True
-
-    def firstkeys(self):
-
-        if not self.curs.first():
-            return False
-
-        self.genr = self.curs.iternext(values=False)
-        self.atitem = next(self.genr)
-        return True
-
-    def rangekeys(self, byts):
-
-        if not self.curs.set_range(byts):
-            return False
-
-        self.genr = self.curs.iternext(values=False)
+        self.genr = self.iterfunc(self.curs, values=self.values)
         self.atitem = next(self.genr)
         return True
 
@@ -1480,7 +1463,7 @@ class Scan:
         if not self.curs.set_key(lkey):
             return False
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc(self.curs, values=self.values)
         self.atitem = next(self.genr)
         return True
 
@@ -1491,36 +1474,10 @@ class Scan:
         if not self.curs.set_range(lkey):
             return False
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc(self.curs, values=self.values)
         self.atitem = next(self.genr)
 
         return True
-
-    def iterkeys(self):
-
-        try:
-            while True:
-
-                yield self.atitem
-                # we only want to iterate keys even in dupsort case
-
-                if self.bumped:
-
-                    self.bumped = False
-                    self.curs = self.slab.xact.cursor(db=self.db)
-                    if not self.curs.set_range(self.atitem):
-                        return
-
-                    self.genr = self.curs.iternext(values=False)
-
-                    # if we restore and the atitem key is still there, skip it.
-                    if self.atitem == self.curs.key():
-                        next(self.genr)
-
-                self.atitem = next(self.genr)
-
-        except StopIteration:
-            return
 
     def iternext(self):
 
@@ -1551,15 +1508,22 @@ class Scan:
                                 ret = self.curs.next_nodup()
 
                     else:
-                        ret = self.curs.set_range(self.atitem[0])
+                        if self.values:
+                            ret = self.curs.set_range(self.atitem[0])
+                        else:
+                            ret = self.curs.set_range(self.atitem)
 
                     if not ret:
                         raise StopIteration
 
-                    self.genr = self.iterfunc(self.curs)
+                    self.genr = self.iterfunc(self.curs, values=self.values)
 
-                    if self.curs.item() == self.atitem:
-                        next(self.genr)
+                    if self.values:
+                        if self.curs.item() == self.atitem:
+                            next(self.genr)
+                    else:
+                        if self.curs.key() == self.atitem:
+                            next(self.genr)
 
                 self.atitem = next(self.genr)
 
