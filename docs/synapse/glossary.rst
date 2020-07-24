@@ -11,12 +11,41 @@ This Glossary provides a quick reference for common terms related to Synapse tec
 A
 =
 
+.. _gloss-addition-auto:
+
+Addition, Automatic
+-------------------
+
+See :ref:`gloss-autoadd`.
+
+.. _gloss-addition-dependent:
+
+Addition, Dependent
+-------------------
+
+See :ref:`gloss-depadd`.
+
 .. _gloss-analytical-model:
 
 Analytical Model
 ----------------
 
 See :ref:`gloss-model-analytical`.
+
+.. _gloss-autoadd:
+
+Autoadd
+-------
+
+Short for "automatic addition". Within Synapse, a feature of node creation where any secondary properties that
+are derived from a node's primary property are automatically set when the node is created. Because these secondary
+properties are based on the node's primary property (which cannot be changed once set), the secondary properties
+are read-only.
+
+For example, creating the node ``inet:email=alice@mail.somecompany.org`` will result in the autoadd of the secondary
+properties ``inet:email:user=alice`` and ``inet:email:domain=mail.somecompany.org``.
+
+See also the related concept :ref:`gloss-depadd`.
 
 .. _gloss-axon:
 
@@ -25,7 +54,7 @@ Axon
 
 The Axon is an interface for providing binary / blob storage inside of the Synapse ecosystem. This indexes binaries
 based on SHA-256 hash so we do not duplicate the storage of the same set of bytes twice. The default implemenation
-stores the blobs in a LMDB :ref:`gloss-slab`.
+stores the blobs in an LMDB :ref:`gloss-slab`.
 
 B
 =
@@ -139,8 +168,6 @@ Cron
 Within Synapse cron jobs are used to create scheduled tasks, similar to the Linux/Unix "cron" utility. The task to be
 executed by the cron job is specified using the :ref:`gloss-storm` query language.
 
-Cron jobs are view-specific and execute in the context of the user who created them.
-
 See the Storm command reference for the :ref:`storm-cron` command and the :ref:`storm-ref-automation` document for
 additional detail.
 
@@ -164,8 +191,6 @@ runs continuously in the background. A dmon is typically implemented by a Storm 
 for tasks such as processing elements from a :ref:`gloss-queue`. A dmon allows for non-blocking background processing
 of non-critical tasks. Dmons are persistent and will restart if they exit.
 
-Dmons are view-specific and execute in the context of the user who created them.
-
 .. _gloss-data-model:
 
 Data Model
@@ -187,6 +212,27 @@ Whether a node is deconflictable is often an issue with GUID forms. A :ref:`glos
 an arbitrary GUID is not deconflictable. A GUID form whose primary property is generated from a defined or predictable
 set of strings (such as a subset of the form's secondary property values) may be deconflictable. See the
 :ref:`type-guid` section of the :ref:`storm-ref-type-specific` document for additional detail.
+
+.. _gloss-depadd:
+
+Depadd
+------
+
+Short for "dependent addition". Within Synapse, when a node's secondary property is set, if that secondary property
+is of a type that is also a form, Synapse will automatically create the node with the corresponding primary property
+value if it does not already exist. (You can look at this as the secondary property value being "dependent on" the
+existence of the node with the corresponding primary property value.)
+
+For example, creating the node ``inet:email=alice@mail.somecompany.org`` will set (via :ref:`gloss-autoadd`) the
+secondary property ``inet:email:domain=mail.somecompany.org``. Synapse will automatically create the node 
+``inet:fqdn=mail.somecompany.org`` as a dependent addition if it does not exist.
+
+(Note that limited recursion will occur between dependent additions (depadds) and automatic additions (autoadds).
+When ``inet:fqdn=mail.somecompany.org`` is created via depadd, Synapse will set (via autoadd) 
+``inet:fqdn:domain=somecompany.org``, which will result in the creation (via depadd) of the node
+``inet:fqdn=somecompany.org`` if it does not exist, etc.)
+
+See also the related concept :ref:`gloss-autoadd`.
 
 .. _gloss-derived-prop:
 
@@ -215,7 +261,7 @@ See :ref:`gloss-graph-directed`.
 Dmon
 ----
 
-Abbreviation for :ref:`gloss-daemon`.
+Short for :ref:`gloss-daemon`.
 
 E
 =
@@ -552,8 +598,6 @@ Macro
 
 A macro is a stored Storm query. Macros support the full range of Storm syntax and features.
 
-Macros are specific to a given Cortex and execute in the context of the user who calls the macro.
-
 See the Storm command reference for the :ref:`storm-macro` command and the :ref:`storm-ref-automation` for
 additional detail.
 
@@ -699,10 +743,10 @@ Property, Derived
 Within Synapse, a derived property is a secondary property that can be extracted (derived) from a node's primary
 property. For example, the domain ``inet:fqdn=www.google.com`` can be used to derive ``inet:fqdn:domain=google.com``
 and ``inet:fqdn:host=www``; the DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)`` can be used to derive 
-``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ipv4=1.2.3.4``. Synapse will automatically set any secondary properties
-that can be derived from a node's primary property; if the seconday property can be used to define a node in its own
-right (i.e., ``inet:fqdn=google.com`` from ``inet:fqdn=www.google.com``) the additional nodes will be automatically
-created if they do not already exist. Because derived properties are based on primary property values, derived
+``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ipv4=1.2.3.4``. 
+
+Synapse will automatically set (:ref:`gloss-autoadd`) any secondary properties that can be derived from a node's
+primary property. Because derived properties are based on primary property values, derived
 secondary properties are always read-only (i.e., cannot be modified once set).
 
 .. _gloss-prop-primary:
@@ -954,8 +998,6 @@ Trigger
 Within Synapse, a trigger is a Storm query that is executed automatically upon the occurrence of a specified event
 within a Cortex (such as adding a node or applying a tag). "Trigger" refers collectively to the event and the query
 fired ("triggered") by the event.
-
-Triggers are view-specific and execute in the context of the user who created them.
 
 See the Storm command reference for the :ref:`storm-trigger` command and the :ref:`storm-ref-automation` for
 additional detail.
