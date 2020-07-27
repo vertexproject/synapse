@@ -8,7 +8,6 @@ The are several more advanced Storm language language concepts which are documen
 .. toctree::
     :titlesonly:
 
-    storm_adv_subquery
     storm_adv_vars
     storm_adv_methods
     storm_adv_libs

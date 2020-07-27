@@ -162,6 +162,7 @@ class HandlerBase:
 
         user = await self.user()
         if not user.allowed(path):
+            self.set_status(403)
             mesg = f'User {user.iden} ({user.name}) must have permission {".".join(path)}'
             self.sendRestErr('AuthDeny', mesg)
             return False
@@ -280,6 +281,22 @@ class Handler(HandlerBase, t_web.RequestHandler):
             user.confirm(('impersonate',))
 
         return opts
+
+@t_web.stream_request_body
+class StreamHandler(Handler):
+    '''
+    Subclass for Tornado streaming uploads.
+
+    Notes:
+        - Async method prepare() is called after headers are read but before body processing.
+        - Sync method on_finish() can be used to cleanup after a request.
+        - Sync method on_connection_close() can be used to cleanup after a client disconnect.
+        - Async methods post(), put(), etc are called after the streaming has completed.
+    '''
+
+    async def data_received(self, chunk):
+        raise s_exc.NoSuchImpl(mesg='data_received must be implemented by subclasses.',
+                               name='data_received')
 
 class StormNodesV1(Handler):
 

@@ -1,6 +1,9 @@
 import json
-import asyncio
+
 import aiohttp
+import aiohttp.client_exceptions as a_exc
+
+import synapse.cortex as s_cortex
 
 import synapse.lib.httpapi as s_httpapi
 
@@ -37,7 +40,7 @@ class HttpApiTest(s_tests.SynTest):
 
             async with self.getHttpSess(auth=('user', '12345'), port=port) as sess:
                 async with sess.get(url) as resp:
-                    self.eq(resp.status, 200)
+                    self.eq(resp.status, 403)
                     retn = await resp.json()
                     self.eq(retn.get('status'), 'err')
                     self.eq(retn.get('code'), 'AuthDeny')
@@ -820,3 +823,27 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(url) as resp:
                     result = await resp.json()
                     self.eq(result.get('status'), 'ok')
+
+    async def test_streamhandler(self):
+
+        class SadHandler(s_httpapi.StreamHandler):
+            '''
+            data_received must be implemented
+            '''
+            async def post(self):
+                self.sendRestRetn('foo')
+                return
+
+        async with self.getTestCore() as core:
+            core.addHttpApi('/api/v1/sad', SadHandler, {'cell': core})
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            url = f'https://localhost:{port}/api/v1/sad'
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                with self.raises(a_exc.ServerDisconnectedError):
+                    async with sess.post(url, data=b'foo') as resp:
+                        pass
