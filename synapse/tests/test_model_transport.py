@@ -81,6 +81,8 @@ class TransportTest(s_test.SynTest):
             self.eq(20000, vessel.get('length'))
             self.eq(10000, vessel.get('beam'))
 
+            self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))
+
             seatelem = (await core.nodes('''[
                  transport:sea:telem=*
                     :time=20200202
