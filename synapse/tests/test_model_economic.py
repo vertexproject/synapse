@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.tests.utils as s_utils
 
 import synapse.common as s_common
@@ -43,6 +44,12 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:purchase:price=13.37'))
             self.len(1, await core.nodes('econ:purchase:price=13.370'))
             self.len(0, await core.nodes('econ:purchase:price=13.372'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('econ:purchase [ :price=170141183460469231731688 ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('econ:purchase [ :price=-170141183460469231731688 ]')
 
             self.len(1, await core.nodes('econ:purchase:price*range=(13,14)'))
 

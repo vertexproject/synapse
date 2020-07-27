@@ -614,6 +614,7 @@ intstors = {
     (16, False): s_layer.STOR_TYPE_U128,
 }
 
+hugemax = 170141183460469231731687
 class HugeNum(Type):
 
     _opt_defs = (
@@ -640,7 +641,16 @@ class HugeNum(Type):
         })
 
     def norm(self, valu):
+
         huge = s_common.hugenum(valu)
+        if huge > hugemax:
+            mesg = f'Value ({valu}) is too large for hugenum.'
+            raise s_exc.BadTypeValu(mesg)
+
+        if abs(huge) > hugemax:
+            mesg = f'Value ({valu}) is too small for hugenum.'
+            raise s_exc.BadTypeValu(mesg)
+
         if self.opts.get('norm'):
             huge.normalize(), {}
         return huge.to_eng_string(), {}
