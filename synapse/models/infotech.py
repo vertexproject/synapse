@@ -967,7 +967,7 @@ class ItModule(s_module.CoreModule):
                     ('name', ('str', {}), {
                         'doc': 'The name of the yara rule.'}),
                     ('author', ('ps:contact', {}), {
-                        'Contact info for the author of the yara rule.'}),
+                        'doc': 'Contact info for the author of the yara rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
                 )),
