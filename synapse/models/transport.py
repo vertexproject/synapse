@@ -107,7 +107,7 @@ class TransportModule(s_module.CoreModule):
                     ('place', ('geo:place', {}), {
                         'doc': 'The place that the lat/lon geocodes to.'}),
                     ('accuracy', ('geo:dist', {}), {
-                        'The horizontal accuracy of the latlong sample.'}),
+                        'doc': 'The horizontal accuracy of the latlong sample.'}),
                     # TODO
                     # ('airspeed',
                     # ('groundspeed'
@@ -157,11 +157,11 @@ class TransportModule(s_module.CoreModule):
                     ('place', ('geo:place', {}), {
                         'doc': 'The place that the lat/lon geocodes to.'}),
                     ('accuracy', ('geo:dist', {}), {
-                        'The horizontal accuracy of the latlong sample.'}),
+                        'doc': 'The horizontal accuracy of the latlong sample.'}),
                     ('draft', ('geo:dist', {}), {
-                        'The keel depth at the time.'}),
+                        'doc': 'The keel depth at the time.'}),
                     ('airdraft', ('geo:dist', {}), {
-                        'The maximum height of the ship from the waterline.'}),
+                        'doc': 'The maximum height of the ship from the waterline.'}),
                 )),
             ),
         }
