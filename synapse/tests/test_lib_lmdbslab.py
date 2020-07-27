@@ -307,11 +307,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     slab.put(multikey, s_common.int64en(i), dupdata=True, db=foo)
                     slab.put(s_common.int64en(i), byts, db=foo2)
 
-                iter = slab.scanByDups(multikey, db=foo)
+                iter1 = slab.scanByDups(multikey, db=foo)
                 iter2 = slab.scanByFull(db=foo2)
 
                 for _ in range(6):
-                    next(iter)
+                    next(iter1)
                     next(iter2)
 
                 iterback = slab.scanByDupsBack(multikey, db=foo)
@@ -340,10 +340,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 slab.forcecommit()
 
-                self.raises(StopIteration, next, iter)
+                self.raises(StopIteration, next, iter1)
                 self.raises(StopIteration, next, iter2)
-                self.eq(5, sum(1 for _ in iterback))
-                self.eq(5, sum(1 for _ in iterback2))
+                self.len(5, iterback)
+                self.len(5, iterback2)
 
                 # Delete all the keys in front of a backwards scan
                 for i in range(4):
@@ -538,33 +538,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
             path = os.path.join(dirn, 'test.lmdb')
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
                 await slab.countByPref(b'asdf')
-
-    async def test_lmdbslab_iterkeys(self):
-
-        with self.getTestDir() as dirn:
-            path = os.path.join(dirn, 'test.lmdb')
-            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
-
-                slab.put(b'vvvvasdf', b'asdf')
-                slab.put(b'vvvvqwer', b'asdf')
-                slab.put(b'vvvvzxcv', b'asdf')
-
-                items = []
-                for item in slab.scanKeys():
-                    slab.forcecommit()
-                    items.append(item)
-
-                self.eq(items, [b'vvvvasdf', b'vvvvqwer', b'vvvvzxcv'])
-
-                items = []
-                with s_lmdbslab.Scan(slab, None, values=False) as scan:
-
-                    scan.set_range(b'vvvv')
-                    for lkey in scan.iternext():
-                        slab.forcecommit()
-                        items.append(lkey)
-
-                self.eq(items, [b'vvvvasdf', b'vvvvqwer', b'vvvvzxcv'])
 
     async def test_lmdbslab_grow(self):
 

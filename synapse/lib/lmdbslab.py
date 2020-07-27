@@ -1103,7 +1103,7 @@ class Slab(s_base.Base):
 
     def scanKeys(self, db=None):
 
-        with Scan(self, db, values=False) as scan:
+        with ScanKeys(self, db) as scan:
 
             if not scan.first():
                 return
@@ -1116,12 +1116,12 @@ class Slab(s_base.Base):
         '''
         count = 0
         size = len(byts)
-        with Scan(self, db, values=False) as scan:
+        with Scan(self, db) as scan:
 
             if not scan.set_range(byts):
                 return 0
 
-            for lkey in scan.iternext():
+            for lkey, lval in scan.iternext():
 
                 if lkey[:size] != byts:
                     return count
@@ -1133,21 +1133,33 @@ class Slab(s_base.Base):
 
     def scanByDups(self, lkey, db=None):
 
-        with Scan(self, db, singlekey=True) as scan:
+        with Scan(self, db) as scan:
 
             if not scan.set_key(lkey):
                 return
 
-            yield from scan.iternext()
+            for item in scan.iternext():
+                if item[0] != lkey:
+                    break
+
+                yield item
+
+            #yield from scan.iternext()
 
     def scanByDupsBack(self, lkey, db=None):
 
-        with ScanBack(self, db, singlekey=True) as scan:
+        with ScanBack(self, db) as scan:
 
             if not scan.set_key(lkey):
                 return
 
-            yield from scan.iternext()
+            for item in scan.iternext():
+
+                if item[0] != lkey:
+                    break
+
+                yield item
+            #yield from scan.iternext()
 
     def scanByPref(self, byts, db=None):
 
@@ -1408,21 +1420,10 @@ class Scan:
 
         slab (Slab):  which slab the scan is over
         db (str):  name of open database on the slab
-        singlekey(bool):  whether the scan should iterate over the values in a single key
     '''
-    def __init__(self, slab, db, singlekey=False, values=True):
+    def __init__(self, slab, db):
         self.slab = slab
-        self.values = values
         self.db, self.dupsort = slab.dbnames[db]
-
-        assert not singlekey or self.dupsort  # singlekey doesn't make sense with non dupsort db
-
-        self.singlekey = singlekey
-
-        if self.singlekey:
-            self.iterfunc = functools.partial(lmdb.Cursor.iternext_dup, keys=True)
-        else:
-            self.iterfunc = lmdb.Cursor.iternext
 
         self.atitem = None
         self.bumped = False
@@ -1454,7 +1455,7 @@ class Scan:
         if not self.curs.first():
             return False
 
-        self.genr = self.iterfunc(self.curs, values=self.values)
+        self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
         return True
 
@@ -1463,18 +1464,16 @@ class Scan:
         if not self.curs.set_key(lkey):
             return False
 
-        self.genr = self.iterfunc(self.curs, values=self.values)
+        self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
         return True
 
     def set_range(self, lkey):
 
-        assert not self.singlekey
-
         if not self.curs.set_range(lkey):
             return False
 
-        self.genr = self.iterfunc(self.curs, values=self.values)
+        self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
 
         return True
@@ -1496,34 +1495,12 @@ class Scan:
 
                     self.curs = self.slab.xact.cursor(db=self.db)
 
-                    if self.dupsort:
-
-                        ret = self.curs.set_range_dup(*self.atitem)
-                        if not ret:
-                            if self.singlekey:
-                                raise StopIteration
-                            key = self.atitem[0]
-                            ret = self.curs.set_range(key)
-                            if ret and self.curs.key() == key:
-                                ret = self.curs.next_nodup()
-
-                    else:
-                        if self.values:
-                            ret = self.curs.set_range(self.atitem[0])
-                        else:
-                            ret = self.curs.set_range(self.atitem)
-
-                    if not ret:
+                    if not self.resume(self.atitem):
                         raise StopIteration
 
-                    self.genr = self.iterfunc(self.curs, values=self.values)
-
-                    if self.values:
-                        if self.curs.item() == self.atitem:
-                            next(self.genr)
-                    else:
-                        if self.curs.key() == self.atitem:
-                            next(self.genr)
+                    self.genr = self.iterfunc(self.curs)
+                    if self.item() == self.atitem:
+                        next(self.genr)
 
                 self.atitem = next(self.genr)
 
@@ -1535,38 +1512,70 @@ class Scan:
             self.curs.close()
             self.bumped = True
 
+    def item(self):
+        return self.curs.item()
+
+    def iterfunc(self, curs):
+        return curs.iternext()
+
+    def resume(self, item):
+
+        if not self.dupsort:
+            return self.curs.set_range(item[0])
+
+        if self.curs.set_range_dup(*item):
+            return True
+
+        if not self.curs.set_range(item[0]):
+            return False
+
+        # if the key is the same, we're at a previous
+        # entry and need to skip dups to the next key
+        if self.curs.key() == item[0]:
+            return self.curs.next_nodup()
+
+        return True
+
+class ScanKeys(Scan):
+
+    def item(self):
+        return self.curs.key()
+
+    def iterfunc(self, curs):
+        return self.curs.iternext(keys=True, values=False)
+
+    def resume(self, item):
+        return self.curs.set_range(item)
+
 class ScanBack(Scan):
     '''
     A state-object used by Slab.  Not to be instantiated directly.
 
     Scans backwards.
     '''
-    def __init__(self, slab, db, singlekey=False):
-        Scan.__init__(self, slab, db, singlekey)
-        if self.singlekey:
-            self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True)
-        else:
-            self.iterfunc = lmdb.Cursor.iterprev
+    def iterfunc(self, curs):
+        return curs.iterprev()
 
     def first(self):
 
         if not self.curs.last():
             return False
 
-        self.genr = self.curs.iterprev()
+        if self.dupsort:
+            self.curs.last_dup()
 
+        self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
         return True
 
     def set_key(self, lkey):
 
         if not self.curs.set_key(lkey):
-            return False
+            if not self.curs.last():
+                return False
 
-        # set_key for a scan is only logical if it's a dup scan
         if self.dupsort:
-            if not self.curs.last_dup():
-                return False # pragma: no cover
+            self.curs.last_dup()
 
         self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
@@ -1574,70 +1583,53 @@ class ScanBack(Scan):
 
     def set_range(self, lkey):
 
-        assert not self.singlekey
-
         if not self.curs.set_range(lkey):
             if not self.curs.last():
                 return False
 
+        else:
+            if self.curs.key() != lkey:
+                if not self.curs.prev():
+                    return False
+
+        if self.dupsort:
+            self.curs.last_dup()
+
         self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
 
-        if not self.atitem[0] <= lkey:
-            self.atitem = next(self.genr)
-
         return True
 
-    def iternext(self):
+    def resume(self, item):
 
-        try:
+        if not self.dupsort:
 
-            while True:
-                yield self.atitem
+            if self.curs.set_range(item[0]):
+                return self.curs.prev()
 
-                if self.slab.isfini:
-                    raise s_exc.IsFini()
+            if not self.curs.last():
+                return False
 
-                if not self.bumped:
-                    self.atitem = next(self.genr)
-                    continue
+            return True
 
-                self.bumped = False
-                advance = True
+        # dupsort resume...
 
-                self.curs = self.slab.xact.cursor(db=self.db)
+        # see if we get lucky and land on it
+        if self.curs.set_range_dup(*item):
+            return self.curs.prev()
 
-                if self.dupsort:
+        # if we fail to set the range, try for the last
+        if not self.curs.set_range(item[0]):
+            if not self.curs.last():
+                return False
 
-                    # Grab the >= val with the exact key
-                    ret = self.curs.set_range_dup(*self.atitem)
-                    if not ret:
-                        # Grab >= key
-                        key = self.atitem[0]
-                        ret = self.curs.set_range(key)
+            self.curs.last_dup()
+            return True
 
-                        # If we got the same key, advance to the last val
-                        if ret and self.curs.key() == key:
-                            self.curs.last_dup()
+        # if we're on the next key, step back
+        if not self.curs.key() == item[0]:
+            if not self.curs.prev():
+                return False
 
-                            # We're already guaranteed to be < self.atitem because set_range_dup returned False
-                            advance = False
-
-                        elif self.singlekey:  # if set_range failed or we didn't get the same key, we're done
-                            raise StopIteration
-
-                else:
-                    ret = self.curs.set_range(self.atitem[0])
-
-                if not ret:
-                    if not self.curs.last():
-                        raise StopIteration
-
-                self.genr = self.iterfunc(self.curs)
-                if ret and advance:
-                    next(self.genr)
-
-                self.atitem = next(self.genr)
-
-        except StopIteration:
-            return
+        self.curs.last_dup()
+        return True
