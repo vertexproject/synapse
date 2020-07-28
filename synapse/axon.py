@@ -71,6 +71,16 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
         await self._save()
         return
 
+
+class AxonHttpHasV1(s_httpapi.Handler):
+
+    async def get(self, sha256):
+        if not await self.reqAuthAllowed(('axon', 'has')):
+            return
+        resp = await self.cell.has(s_common.uhex(sha256))
+        return self.sendRestRetn(resp)
+
+
 class AxonHttpDownloadV1(s_httpapi.Handler):
 
     async def get(self, sha256):
@@ -247,6 +257,7 @@ class Axon(s_cell.Cell):
 
     def _initAxonHttpApi(self):
         self.addHttpApi('/api/v1/axon/files/put', AxonHttpUploadV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', AxonHttpHasV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpDownloadV1, {'cell': self})
 
     def _addSyncItem(self, item):

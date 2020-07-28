@@ -194,6 +194,7 @@ class AxonTest(s_t_utils.SynTest):
             await newb.setPasswd('secret')
 
             url_ul = f'https://localhost:{port}/api/v1/axon/files/put'
+            url_hs = f'https://localhost:{port}/api/v1/axon/files/has/sha256'
             url_dl = f'https://localhost:{port}/api/v1/axon/files/by/sha256'
 
             asdfhash_h = s_common.ehex(asdfhash)
@@ -220,6 +221,7 @@ class AxonTest(s_t_utils.SynTest):
                         pass
 
             await newb.addRule((True, ('axon', 'get')))
+            await newb.addRule((True, ('axon', 'has')))
             await newb.addRule((True, ('axon', 'upload')))
 
             # Basic
@@ -232,6 +234,12 @@ class AxonTest(s_t_utils.SynTest):
                     item = await resp.json()
                     self.eq('err', item.get('status'))
 
+                async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
+                    self.eq(200, resp.status)
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    self.false(item.get('result'))
+
                 async with sess.post(url_ul, data=abuf) as resp:
                     self.eq(200, resp.status)
                     item = await resp.json()
@@ -241,6 +249,12 @@ class AxonTest(s_t_utils.SynTest):
                     self.eq(result.get('size'), asdfretn[0])
                     self.eq(result.get('sha256'), asdfhash_h)
                     self.true(await axon.has(asdfhash))
+
+                async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
+                    self.eq(200, resp.status)
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    self.true(item.get('result'))
 
                 async with sess.put(url_ul, data=abuf) as resp:
                     self.eq(200, resp.status)
