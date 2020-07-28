@@ -236,14 +236,19 @@ class AxonTest(s_t_utils.SynTest):
                     self.eq(200, resp.status)
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
-                    self.eq((asdfretn[0], asdfhash_h), item.get('result'))
+                    result = item.get('result')
+                    self.eq(set(result.keys()), {'size', 'md5', 'sha1', 'sha256', 'sha512'})
+                    self.eq(result.get('size'), asdfretn[0])
+                    self.eq(result.get('sha256'), asdfhash_h)
                     self.true(await axon.has(asdfhash))
 
                 async with sess.put(url_ul, data=abuf) as resp:
                     self.eq(200, resp.status)
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
-                    self.eq((asdfretn[0], asdfhash_h), item.get('result'))
+                    result = item.get('result')
+                    self.eq(result.get('size'), asdfretn[0])
+                    self.eq(result.get('sha256'), asdfhash_h)
                     self.true(await axon.has(asdfhash))
 
                 async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
@@ -257,7 +262,9 @@ class AxonTest(s_t_utils.SynTest):
                     self.eq(200, resp.status)
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
-                    self.eq((bbufretn[0], bbufhash_h), item.get('result'))
+                    result = item.get('result')
+                    self.eq(result.get('size'), bbufretn[0])
+                    self.eq(result.get('sha256'), bbufhash_h)
                     self.true(await axon.has(bbufhash))
 
                 byts = io.BytesIO(bbuf)
@@ -266,7 +273,9 @@ class AxonTest(s_t_utils.SynTest):
                     self.eq(200, resp.status)
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
-                    self.eq((bbufretn[0], bbufhash_h), item.get('result'))
+                    result = item.get('result')
+                    self.eq(result.get('size'), bbufretn[0])
+                    self.eq(result.get('sha256'), bbufhash_h)
                     self.true(await axon.has(bbufhash))
 
                 byts = io.BytesIO(b'')
@@ -275,7 +284,9 @@ class AxonTest(s_t_utils.SynTest):
                     self.eq(200, resp.status)
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
-                    self.eq((emptyretn[0], emptyhash_h), item.get('result'))
+                    result = item.get('result')
+                    self.eq(result.get('size'), emptyretn[0])
+                    self.eq(result.get('sha256'), emptyhash_h)
                     self.true(await axon.has(emptyhash))
 
                 # Streaming download
