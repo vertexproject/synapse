@@ -212,7 +212,7 @@ class LibPkg(Lib):
         Returns:
             dict: The validated storm package definition.
         '''
-        self.runt.user.confirm(('pkgs', 'add'), None)
+        self.runt.user.confirm(('pkg', 'add'), None)
         await self.runt.snap.core.addStormPkg(pkgdef)
 
     async def _libPkgDel(self, name):
@@ -225,7 +225,7 @@ class LibPkg(Lib):
         Returns:
             None
         '''
-        self.runt.user.confirm(('pkgs', 'del'), None)
+        self.runt.user.confirm(('pkg', 'del'), None)
         await self.runt.snap.core.delStormPkg(name)
 
     async def _libPkgList(self):
