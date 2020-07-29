@@ -16,6 +16,7 @@ documented in the following sections.
     storm_ref_filter
     storm_ref_pivot
     storm_ref_data_mod
+    storm_ref_subquery
     storm_ref_model_introspect
     storm_ref_type_specific
     storm_ref_cmd

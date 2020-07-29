@@ -10,6 +10,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.share as s_share
+import synapse.lib.httpapi as s_httpapi
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -17,6 +18,72 @@ logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 16 * s_const.mebibyte
 MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
+MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
+
+class AxonFilesHttpV1(s_httpapi.StreamHandler):
+
+    async def prepare(self):
+        self.upfd = None
+
+        if not await self.reqAuthAllowed(('axon', 'upload')):
+            await self.finish()
+
+        # max_body_size defaults to 100MB and requires a value
+        self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
+
+        self.upfd = await self.cell.upload()
+
+    async def data_received(self, chunk):
+        if chunk is not None:
+            await self.upfd.write(chunk)
+            await asyncio.sleep(0)
+
+    def on_finish(self):
+        if self.upfd is not None and not self.upfd.isfini:
+            self.cell.schedCoroSafe(self.upfd.fini())
+
+    def on_connection_close(self):
+        self.on_finish()
+
+    async def _save(self):
+        size, sha256b = await self.upfd.save()
+        sha256 = s_common.ehex(sha256b)
+
+        self.sendRestRetn((size, sha256))
+
+        return
+
+    async def post(self):
+        '''
+        Called after all data has been read.
+        '''
+        await self._save()
+        return
+
+    async def put(self):
+        await self._save()
+        return
+
+class AxonFileHttpV1(s_httpapi.Handler):
+
+    async def get(self, sha256):
+
+        if not await self.reqAuthAllowed(('axon', 'get')):
+            return
+
+        sha256b = s_common.uhex(sha256)
+
+        try:
+            async for byts in self.cell.get(sha256b):
+                self.write(byts)
+                await self.flush()
+                await asyncio.sleep(0)
+
+        except s_exc.NoSuchFile as e:
+            self.set_status(404)
+            self.sendRestErr('NoSuchFile', e.get('mesg'))
+
+        return
 
 class UpLoad(s_base.Base):
 
@@ -160,6 +227,8 @@ class Axon(s_cell.Cell):
         # modularize blob storage
         await self._initBlobStor()
 
+        self._initAxonHttpApi()
+
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
 
@@ -168,6 +237,10 @@ class Axon(s_cell.Cell):
         self.blobslab = await s_lmdbslab.Slab.anit(path)
         self.blobs = self.blobslab.initdb('blobs')
         self.onfini(self.blobslab.fini)
+
+    def _initAxonHttpApi(self):
+        self.addHttpApi('/api/v1/axon/files/put', AxonFilesHttpV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonFileHttpV1, {'cell': self})
 
     def _addSyncItem(self, item):
         self.axonhist.add(item)

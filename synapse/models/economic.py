@@ -1,4 +1,9 @@
+import synapse.common as s_common
+
+import synapse.lib.time as s_time
+import synapse.lib.types as s_types
 import synapse.lib.module as s_module
+import synapse.lib.grammar as s_grammar
 
 class EconModule(s_module.CoreModule):
 
@@ -33,6 +38,26 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:acct:payment', ('guid', {}), {
                     'doc': 'A payment moving currency from one monetary instrument to another.'}),
+
+                ('econ:price', ('hugenum', {'norm': False}), {
+                    'doc': 'The amount of money expected, required, or given in payment for something',
+                    'ex': '2.20'}),
+
+                ('econ:currency', ('str', {'lower': True, 'strip': False}), {
+                    'doc': 'The name of a system of money in general use',
+                    'ex': '2.20'}),
+
+                ('econ:fin:exchange', ('guid', {}), {
+                    'doc': 'A financial exchange where securities are traded.'}),
+
+                ('econ:fin:security', ('guid', {}), {
+                    'doc': 'A financial security which is typically traded on an exchange.'}),
+
+                ('econ:fin:bar', ('guid', {}), {
+                    'doc': 'A sample of the open, close, high, low prices of a security in a specific time window'}),
+
+                ('econ:fin:tick', ('guid', {}), {
+                    'doc': 'A sample of the price of a security at a single moment in time'}),
 
                 # TODO currency / monetary units / crypto currency
                 # econ:acct:bill
@@ -100,7 +125,12 @@ class EconModule(s_module.CoreModule):
 
                     ('campaign', ('ou:campaign', {}), {
                         'doc': 'The campaign that the purchase was in support of.'}),
-                    # TODO price
+
+                    ('price', ('econ:price', {}), {
+                        'doc': 'The econ:price of the purchase'}),
+
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The econ:price of the purchase'}),
                 )),
 
                 ('econ:acquired', {}, (
@@ -134,6 +164,77 @@ class EconModule(s_module.CoreModule):
 
                     ('purchase', ('econ:purchase', {}), {
                         'doc': 'The purchase which the payment was paying for.'}),
+
+                    ('amount', ('econ:price', {}), {
+                        'doc': 'The amount of money transferred in the payment'}),
+
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency of the payment'}),
+                )),
+
+                ('econ:fin:exchange', {}, (
+
+                    ('name', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'A simple name for the exchange',
+                        'ex': 'nasdaq'}),
+
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization that operates the exchange'}),
+
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency used for all transactions in the exchange',
+                        'ex': 'usd'}),
+                )),
+
+                ('econ:fin:security', {}, (
+
+                    ('exchange', ('econ:fin:exchange', {}), {
+                        'doc': 'The exchange on which the security is traded'}),
+
+                    ('ticker', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The identifier for this security within the exchange'}),
+
+                    ('type', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'A user defined type such as stock, bond, option, future, or forex'}),
+
+                    ('price', ('econ:price', {}), {
+                        'doc': 'The last known/available price of the security'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time of the last know price sample'}),
+                )),
+
+                ('econ:fin:tick', {}, (
+
+                    ('security', ('econ:fin:security', {}), {
+                        'doc': 'The security measured by the tick'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the price was sampled'}),
+
+                    ('price', ('econ:price', {}), {
+                        'doc': 'The price of the security at the time'}),
+                )),
+
+                ('econ:fin:bar', {}, (
+
+                    ('security', ('econ:fin:security', {}), {
+                        'doc': 'The security measured by the bar'}),
+
+                    ('ival', ('ival', {}), {
+                        'doc': 'The the interval of measurement'}),
+
+                    ('price:open', ('econ:price', {}), {
+                        'doc': 'The opening price of the security'}),
+
+                    ('price:close', ('econ:price', {}), {
+                        'doc': 'The closing price of the security'}),
+
+                    ('price:low', ('econ:price', {}), {
+                        'doc': 'The low price of the security'}),
+
+                    ('price:high', ('econ:price', {}), {
+                        'doc': 'The high price of the security'}),
                 )),
             ),
         }),)
