@@ -208,6 +208,11 @@ class AxonTest(s_t_utils.SynTest):
                     item = await resp.json()
                     self.eq('err', item.get('status'))
 
+                async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
+                    self.eq(403, resp.status)
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+
                 async with sess.post(url_ul, data=abuf) as resp:
                     self.eq(403, resp.status)
                     item = await resp.json()
