@@ -1461,6 +1461,11 @@ class StormTypesTest(s_test.SynTest):
                 text = '($size, $sha2) = $lib.bytes.put($bytes)'
                 nodes = await core.nodes(text, opts=opts)
 
+            asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
+
+            ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
+            self.false(ret)
+
             opts = {'vars': {'bytes': b'asdfasdf'}}
             text = '($size, $sha2) = $lib.bytes.put($bytes) [ test:int=$size test:str=$sha2 ]'
 
@@ -1468,11 +1473,14 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, nodes)
 
             self.eq(nodes[0].ndef, ('test:int', 8))
-            self.eq(nodes[1].ndef, ('test:str', '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'))
+            self.eq(nodes[1].ndef, ('test:str', asdfhash_h))
 
-            bkey = s_common.uhex('2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
+            bkey = s_common.uhex(asdfhash_h)
             byts = b''.join([b async for b in core.axon.get(bkey)])
             self.eq(b'asdfasdf', byts)
+
+            ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
+            self.true(ret)
 
             # Allow bytes to be directly decoded as a string
             opts = {'vars': {'buf': 'hehe'.encode()}}
