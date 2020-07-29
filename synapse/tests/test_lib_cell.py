@@ -419,12 +419,14 @@ class CellTest(s_t_utils.SynTest):
 
             conf = {
                 'nexslog:en': True,
+                'nexslog:async': True,
                 'dmon:listen': 'tcp://127.0.0.1:0/',
                 'https:port': 0,
             }
             async with await s_cell.Cell.anit(dir0, conf=conf) as cell00, \
                     cell00.getLocalProxy() as prox00:
 
+                self.true(cell00.nexsroot.map_async)
                 self.true(cell00.nexsroot.donexslog)
 
                 await prox00.addUser('test')
