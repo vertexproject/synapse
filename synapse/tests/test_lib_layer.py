@@ -893,4 +893,4 @@ class LayerTest(s_t_utils.SynTest):
             self.eq('foo', await copylayr.getNodeValu(buid))
             self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(buid, '.seen'))
 
-            self.asyncraises(s_exc.NoSuchLayer, prox.cloneLayer('newp'))
+            await self.asyncraises(s_exc.NoSuchLayer, prox.cloneLayer('newp'))
