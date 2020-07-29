@@ -1170,6 +1170,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 await slab.copyslab(copypath)
 
+                self.true(pathlib.Path(copypath).with_suffix('.opts.yaml').exists())
+
                 async with await s_lmdbslab.Slab.anit(copypath) as slabcopy:
                     foo = slabcopy.initdb('foo')
                     self.eq(b'hehe', slabcopy.get(b'\x00\x01', db=foo))
