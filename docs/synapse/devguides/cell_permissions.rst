@@ -291,6 +291,8 @@ The following permissions exist for controlling access to Cortex operations.
 *status*
     Get status information for a Cortex.
 
+    **Note:** This is currently a deprecated permission.
+
 *sync*
     Get nodeedit sets for a layer.
 
