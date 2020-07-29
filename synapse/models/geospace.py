@@ -191,7 +191,7 @@ class Dist(s_types.Int):
         norm = int(valu * mult) + self.baseoff
         if norm < 0:
             mesg = 'A geo:dist may not be negative.'
-            raise s_exc.BadTypeValu(mesg=mesg)
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         return norm, {}
 

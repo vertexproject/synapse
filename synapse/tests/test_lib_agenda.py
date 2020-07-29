@@ -495,3 +495,12 @@ class AgendaTest(s_t_utils.SynTest):
 
                 await newb.addRule((True, ('cron', 'del')))
                 await proxy.delCronJob(cron1_iden)
+
+    async def test_agenda_fini(self):
+
+        async with self.getTestCore() as core:
+            await core.callStorm('$lib.queue.add(foo)')
+            await core.callStorm('cron.add --minute +1 { $lib.queue.get(foo).put((99)) $lib.time.sleep(10) }')
+            appts = core.agenda.list()
+            await core.agenda._execute(appts[0][1])
+            self.eq((0, 99), await core.callStorm('return($lib.queue.get(foo).get())'))
