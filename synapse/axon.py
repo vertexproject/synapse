@@ -90,6 +90,9 @@ class AxonHttpDownloadV1(s_httpapi.Handler):
 
         sha256b = s_common.uhex(sha256)
 
+        self.set_header('Content-Type', 'application/octet-stream')
+        self.set_header('Content-Disposition', 'attachment')
+
         try:
             async for byts in self.cell.get(sha256b):
                 self.write(byts)
