@@ -897,7 +897,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'cron': self.agenda,
             'cortex': self,
             'multiqueue': self.multiqueue,
-            'axon': self.axon
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
@@ -1871,6 +1870,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             path = os.path.join(self.dirn, 'axon')
             self.axon = await s_axon.Axon.anit(path)
             self.axon.onfini(self.axready.clear)
+            self.dynitems['axon'] = self.axon
             self.axready.set()
             return
 
@@ -1880,6 +1880,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 try:
                     self.axon = await s_telepath.openurl(turl)
                     self.axon.onfini(teleloop)
+                    self.dynitems['axon'] = self.axon
                     self.axready.set()
                     return
                 except asyncio.CancelledError:
