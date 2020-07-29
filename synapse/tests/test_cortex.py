@@ -4276,9 +4276,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(conf=conf) as core:
                 async with self.getTestAxon(dirn=dirn) as axon:
                     self.true(await asyncio.wait_for(core.axready.wait(), 10))
-                    size, sha2 = await core.axon.put(b'asdfasdf')
+
+                    # Use dyncalls, not direct object access.
+                    asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
+                    size, sha2 = await core.callStorm('return( $lib.bytes.put($buf) )',
+                                                      {'vars': {'buf': b'asdfasdf'}})
                     self.eq(size, 8)
-                    self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
+                    self.eq(sha2, asdfhash_h)
+                    self.true(await core.callStorm('return( $lib.bytes.has($hash) )',
+                                                   {'vars': {'hash': asdfhash_h}}))
 
                 unset = False
                 for _ in range(20):

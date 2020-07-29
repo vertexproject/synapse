@@ -743,6 +743,38 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchName):
                 nodes = await core.nodes('test.nodes')
 
+            visi = await core.auth.addUser('visi')
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+
+                # Test permissions
+                msgs = await s_test.alist(asvisi.storm('$lib.pkg.del(stormpkg)'))
+                errs = [m for m in msgs if m[0] == 'err']
+                self.len(1, errs)
+                self.eq(errs[0][1][0], 'AuthDeny')
+
+                await core.addUserRule(visi.iden, (True, ('pkg', 'del')))
+
+                await s_test.alist(asvisi.storm('$lib.pkg.del(stormpkg)'))
+
+                mesgs = await core.stormlist('pkg.list')
+                print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+                self.notin('stormpkg', print_str)
+
+                msgs = await s_test.alist(asvisi.storm('$lib.pkg.add($pkg)',
+                                                       opts={'vars': {'pkg': stormpkg}}))
+                errs = [m for m in msgs if m[0] == 'err']
+                self.len(1, errs)
+                self.eq(errs[0][1][0], 'AuthDeny')
+
+                await core.addUserRule(visi.iden, (True, ('pkg', 'add')))
+
+                await s_test.alist(asvisi.storm('$lib.pkg.add($pkg)',
+                                                opts={'vars': {'pkg': stormpkg}}))
+
+                msgs = await core.stormlist('pkg.list')
+                self.stormIsInPrint('stormpkg', msgs)
+
     async def test_function(self):
         async with self.getTestCore() as core:
             await core.addStormPkg(foo_stormpkg)
