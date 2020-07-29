@@ -6,7 +6,7 @@ class TransportTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            plane = (await core.nodes('[ transport:air:plane=* :tailnum=FF023 ]'))[0]
+            craft = (await core.nodes('[ transport:air:craft=* :tailnum=FF023 ]'))[0]
             tailnum = (await core.nodes('transport:air:tailnum=FF023 [ :type=fighter ]'))[0]
             flightnum = (await core.nodes('[ transport:air:flightnum="ua 2437" :carrier=* :from:port=IAD :to:port=LAS :stops=(IAD,VISI,LAS) ]'))[0]
 
@@ -18,11 +18,14 @@ class TransportTest(s_test.SynTest):
                     :departed=2020020202
                     :arrived=202002020302
                     :carrier=*
+                    :craft=*
                     :from:port=IAD
                     :to:port=LAS
                     :stops=(iad, visi, las)
                     :cancelled=true
                 ]'''))[0]
+
+            self.len(1, await core.nodes('transport:air:flight -> transport:air:craft'))
 
             self.eq('ua2437', flight.get('num'))
             self.eq(1580601600000, flight.get('scheduled:departure'))

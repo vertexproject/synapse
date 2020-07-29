@@ -5,8 +5,8 @@ class TransportModule(s_module.CoreModule):
         modl = {
             'types': (
 
-                ('transport:air:plane', ('guid', {}), {
-                    'doc': 'An individual airplane.'}),
+                ('transport:air:craft', ('guid', {}), {
+                    'doc': 'An individual aircraft.'}),
 
                 ('transport:air:tailnum', ('str', {'lower': True, 'strip': True, 'regex': '^[a-z0-9-]{2,}$'}), {
                     'doc': 'An aircraft registration number or military aircraft serial number.',
@@ -17,7 +17,7 @@ class TransportModule(s_module.CoreModule):
                     'ex': 'ua2437'}),
 
                 ('transport:air:telem', ('guid', {}), {
-                    'doc': 'A telemtry sample from a plane in transit.'}),
+                    'doc': 'A telemtry sample from an aircraft in transit.'}),
 
                 ('transport:air:flight', ('guid', {}), {
                     'doc': 'An individual instance of a flight.'}),
@@ -45,9 +45,9 @@ class TransportModule(s_module.CoreModule):
                 # ('transport:sea:port',
             ),
             'forms': (
-                ('transport:air:plane', {}, (
+                ('transport:air:craft', {}, (
                     ('tailnum', ('transport:air:tailnum', {}), {
-                        'doc': 'The airplane tail number.'}),
+                        'doc': 'The aircraft tail number.'}),
                 )),
                 ('transport:air:port', {}, (
                     ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
@@ -84,10 +84,10 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The time this flight arrived'}),
                     ('carrier', ('ou:org', {}), {
                         'doc': 'The org which operates the given flight number.'}),
-                    ('plane', ('transport:air:plane', {}), {
-                        'doc': 'The plane that flew this flight.'}),
+                    ('craft', ('transport:air:craft', {}), {
+                        'doc': 'The aircraft that flew this flight.'}),
                     ('tailnum', ('transport:air:tailnum', {}), {
-                        'doc': 'The tail/registration number at the time the plane flew this flight.'}),
+                        'doc': 'The tail/registration number at the time the aircraft flew this flight.'}),
                     ('to:port', ('transport:air:port', {}), {
                         'doc': 'The destination airport of this flight.'}),
                     ('from:port', ('transport:air:port', {}), {
@@ -101,9 +101,9 @@ class TransportModule(s_module.CoreModule):
                     ('flight', ('transport:air:flight', {}), {
                         'doc': 'The flight being measured.'}),
                     ('latlong', ('geo:latlong', {}), {
-                        'doc': 'The lat/lon of the plane at the time.'}),
+                        'doc': 'The lat/lon of the aircraft at the time.'}),
                     ('loc', ('loc', {}), {
-                        'doc': 'The location of the plane at the time.'}),
+                        'doc': 'The location of the aircraft at the time.'}),
                     ('place', ('geo:place', {}), {
                         'doc': 'The place that the lat/lon geocodes to.'}),
                     ('accuracy', ('geo:dist', {}), {
@@ -112,7 +112,7 @@ class TransportModule(s_module.CoreModule):
                     # ('airspeed',
                     # ('groundspeed'
                     ('altitude', ('geo:altitude', {}), {
-                        'doc': 'The altitude of the plane at the time.'}),
+                        'doc': 'The altitude of the aircraft at the time.'}),
                     ('altitude:accuracy', ('geo:dist', {}), {
                         'doc': 'The vertical accuracy of the altitude measurement.'}),
                     ('time', ('time', {}), {
