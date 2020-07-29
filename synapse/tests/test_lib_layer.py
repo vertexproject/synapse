@@ -872,7 +872,7 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_clone(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCoreAndProxy() as (core, prox):
 
             layr = core.getLayer()
             self.isin(f'Layer (Layer): {layr.iden}', str(layr))
@@ -892,3 +892,5 @@ class LayerTest(s_t_utils.SynTest):
 
             self.eq('foo', await copylayr.getNodeValu(buid))
             self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(buid, '.seen'))
+
+            self.asyncraises(s_exc.NoSuchLayer, prox.cloneLayer('newp'))
