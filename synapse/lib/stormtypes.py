@@ -952,7 +952,35 @@ class LibBytes(Lib):
     def getObjLocals(self):
         return {
             'put': self._libBytesPut,
+            'has': self._libBytesHas,
         }
+
+    async def _libBytesHas(self, sha256):
+        '''
+        Check if the Axon the Cortex is configured to use has a given sha256 value.
+
+        Args:
+            sha256 (str): The sha256 value to check.
+
+        Examples:
+            Check if the Axon has a given file::
+
+                # This example assumes the Axon does have the bytes
+                cli> storm if $lib.bytes.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
+                        $lib.print("Has bytes")
+                    } else {
+                        $lib.print("Does not have bytes")
+                    }
+
+                Has bytes
+
+        Returns:
+            bool: True if the Axon has the file, false if it does not.
+        '''
+        await self.runt.snap.core.getAxon()
+        todo = s_common.todo('has', s_common.uhex(sha256))
+        ret = await self.dyncall('axon', todo)
+        return ret
 
     async def _libBytesPut(self, byts):
         '''

@@ -10,6 +10,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.share as s_share
+import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -20,7 +21,7 @@ CHUNK_SIZE = 16 * s_const.mebibyte
 MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
 
-class AxonFilesHttpV1(s_httpapi.StreamHandler):
+class AxonHttpUploadV1(s_httpapi.StreamHandler):
 
     async def prepare(self):
         self.upfd = None
@@ -32,10 +33,12 @@ class AxonFilesHttpV1(s_httpapi.StreamHandler):
         self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
 
         self.upfd = await self.cell.upload()
+        self.hashset = s_hashset.HashSet()
 
     async def data_received(self, chunk):
         if chunk is not None:
             await self.upfd.write(chunk)
+            self.hashset.update(chunk)
             await asyncio.sleep(0)
 
     def on_finish(self):
@@ -47,11 +50,15 @@ class AxonFilesHttpV1(s_httpapi.StreamHandler):
 
     async def _save(self):
         size, sha256b = await self.upfd.save()
-        sha256 = s_common.ehex(sha256b)
 
-        self.sendRestRetn((size, sha256))
+        fhashes = {htyp: hasher.hexdigest() for htyp, hasher in self.hashset.hashes}
 
-        return
+        assert sha256b == s_common.uhex(fhashes.get('sha256'))
+        assert size == self.hashset.size
+
+        fhashes['size'] = size
+
+        return self.sendRestRetn(fhashes)
 
     async def post(self):
         '''
@@ -64,7 +71,17 @@ class AxonFilesHttpV1(s_httpapi.StreamHandler):
         await self._save()
         return
 
-class AxonFileHttpV1(s_httpapi.Handler):
+
+class AxonHttpHasV1(s_httpapi.Handler):
+
+    async def get(self, sha256):
+        if not await self.reqAuthAllowed(('axon', 'has')):
+            return
+        resp = await self.cell.has(s_common.uhex(sha256))
+        return self.sendRestRetn(resp)
+
+
+class AxonHttpDownloadV1(s_httpapi.Handler):
 
     async def get(self, sha256):
 
@@ -239,8 +256,9 @@ class Axon(s_cell.Cell):
         self.onfini(self.blobslab.fini)
 
     def _initAxonHttpApi(self):
-        self.addHttpApi('/api/v1/axon/files/put', AxonFilesHttpV1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonFileHttpV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/put', AxonHttpUploadV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', AxonHttpHasV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpDownloadV1, {'cell': self})
 
     def _addSyncItem(self, item):
         self.axonhist.add(item)
