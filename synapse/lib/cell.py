@@ -90,7 +90,7 @@ class CellApi(s_base.Base):
 
             Form a path and check the permission from a remote proxy::
 
-                perm = ('node:add', 'inet:ipv4')
+                perm = ('node', 'add', 'inet:ipv4')
                 allowed = await prox.allowed(perm)
                 if allowed:
                     dostuff()

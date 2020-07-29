@@ -99,4 +99,3 @@ As Cell Server
 The generic Cell server can also be used for starting the Cell by specifying the constructor as an argument::
 
     python -m synapse.servers.cell path.to.MyCell /path/to/dirn
-

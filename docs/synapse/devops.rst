@@ -14,5 +14,6 @@ updated and expanded over time.
 
     devguides/index_cells
     devguides/index_autoconf
+    devguides/cell_permissions
 
 .. _index:              ../index.html
