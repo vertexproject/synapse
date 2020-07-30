@@ -2686,7 +2686,46 @@ class Layer(Prim):
             'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
             'edits': self._methLayerEdits,
+            'getTagCount': self._methGetTagCount,
+            'getPropCount': self._methGetPropCount,
         }
+
+    async def _methGetTagCount(self, tagname, formname=None):
+        '''
+        Return the number of tag rows in the layer for the given tag name and optional form name.
+
+        Example:
+            $count = $lib.layer.get().getTagCount(foo.bar, formname=inet:ipv4)
+        '''
+        tagname = await tostr(tagname)
+        formname = await tostr(formname, noneok=True)
+        layriden = self.valu.get('iden')
+        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
+        todo = s_common.todo('getTagCount', tagname, formname=formname)
+        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+
+    async def _methGetPropCount(self, propname):
+        '''
+        Return the number of property rows in the layer for the given full form/property name.
+
+        Example:
+            $count = $lib.layer.get().getPropCount(inet:ipv4:asn)
+        '''
+        propname = await tostr(propname)
+
+        prop = self.runt.snap.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg)
+
+        if prop.isform:
+            todo = s_common.todo('getPropCount', prop.name, None)
+        else:
+            todo = s_common.todo('getPropCount', prop.form.name, prop.name)
+
+        layriden = self.valu.get('iden')
+        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
+        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
     async def _methLayerEdits(self, offs=0, wait=True):
         '''
