@@ -72,7 +72,7 @@ class ChangeDist(s_base.Base):
 
 class NexsRoot(s_base.Base):
 
-    async def __anit__(self, dirn: str, donexslog: bool = True):  # type: ignore
+    async def __anit__(self, dirn: str, donexslog: bool = True, map_async=False):  # type: ignore
 
         await s_base.Base.__anit__(self)
 
@@ -92,7 +92,8 @@ class NexsRoot(s_base.Base):
 
         path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
 
-        self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=False)
+        self.map_async = map_async
+        self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=map_async)
 
         self.nexslog = self.nexsslab.getSeqn('nexuslog')
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
