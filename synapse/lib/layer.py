@@ -1086,7 +1086,7 @@ class Layer(s_nexus.Pusher):
 
         await self._initLayerStorage()
 
-    async def clone(self, newdirn, compact=True):
+    async def clone(self, newdirn):
 
         for root, dnames, fnames in os.walk(self.dirn, topdown=True):
 
@@ -1106,7 +1106,6 @@ class Layer(s_nexus.Pusher):
                     dnames.remove(name)
                     continue
 
-                logger.info(f'making dir:{dstpath}')
                 s_common.gendir(dstpath)
 
             for name in fnames:
@@ -1117,7 +1116,6 @@ class Layer(s_nexus.Pusher):
                     continue
 
                 dstpath = s_common.genpath(newdirn, relpath, name)
-                logger.info(f'copying: {srcpath} -> {dstpath}')
                 shutil.copy(srcpath, dstpath)
 
     async def _initLayerStorage(self):
