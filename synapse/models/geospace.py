@@ -168,6 +168,7 @@ class Dist(s_types.Int):
         s_types.Int.postTypeInit(self)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
+        self.baseoff = self.opts.get('baseoff', 0)
 
     def _normPyInt(self, valu):
         return valu, {}
@@ -187,16 +188,33 @@ class Dist(s_types.Int):
             raise s_exc.BadTypeValu(valu=text, name=self.name,
                                     mesg='invalid/unknown dist unit: %s' % (unit,))
 
-        return int(valu * mult), {}
+        norm = int(valu * mult) + self.baseoff
+        if norm < 0:
+            mesg = 'A geo:dist may not be negative.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        return norm, {}
 
     def repr(self, norm):
 
-        for base, unit in distrepr:
-            if norm >= base:
-                size = norm / base
-                return '%s %s' % (size, unit)
+        valu = norm - self.baseoff
 
-        return '%d mm' % (norm,)
+        text = None
+
+        absv = abs(valu)
+        for base, unit in distrepr:
+            if absv >= base:
+                size = absv / base
+                text = '%s %s' % (size, unit)
+                break
+
+        if text is None:
+            text = '%d mm' % (absv,)
+
+        if valu < 0:
+            text = f'-{text}'
+
+        return text
 
 class LatLong(s_types.Type):
 
@@ -296,6 +314,9 @@ class GeoModule(s_module.CoreModule):
                                                 ('ymin', 'geo:latitude'),
                                                 ('ymax', 'geo:latitude'))}), {
                         'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.',
+                    }),
+                    ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
+                        'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'
                     }),
                 ),
 
