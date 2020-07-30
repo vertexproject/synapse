@@ -2509,6 +2509,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Make a copy of a Layer in the cortex.
 
+        Notes:
+            This should only be called with a reasonably static Cortex
+            due to possible races.
+
         Args:
             iden (str): layer iden
             ldef (Optional[Dict]):  layer configuration overrides

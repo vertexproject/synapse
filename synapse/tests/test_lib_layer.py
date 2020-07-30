@@ -1,3 +1,4 @@
+import os
 import math
 import asyncio
 import contextlib
@@ -883,6 +884,8 @@ class LayerTest(s_t_utils.SynTest):
             self.eq('foo', await layr.getNodeValu(buid))
             self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
 
+            adir = s_common.gendir(layr.dirn, 'adir')
+
             copylayrinfo = await core.cloneLayer(layr.iden)
             self.len(2, core.layers)
 
@@ -892,6 +895,9 @@ class LayerTest(s_t_utils.SynTest):
 
             self.eq('foo', await copylayr.getNodeValu(buid))
             self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(buid, '.seen'))
+
+            cdir = s_common.gendir(copylayr.dirn, 'adir')
+            self.true(os.path.exists(cdir))
 
             await self.asyncraises(s_exc.NoSuchLayer, prox.cloneLayer('newp'))
 
