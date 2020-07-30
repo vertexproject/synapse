@@ -500,7 +500,7 @@ class Agenda(s_base.Base):
             return
         self._schedtask.cancel()
         for task in self._running_tasks:
-            task.cancel()
+            await task.fini()
 
         self.enabled = False
 

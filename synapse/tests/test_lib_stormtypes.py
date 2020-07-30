@@ -705,6 +705,9 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, errs)
             self.eq(errs[0][0], 'StormRuntimeError')
 
+            self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.1)'))
+            self.eq('foo', await core.callStorm('$foo = (foo, bar) return($foo."-2")'))
+
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
             text = '$lib.fire(foo:bar, baz=faz)'
@@ -3134,3 +3137,16 @@ class StormTypesTest(s_test.SynTest):
                         retn.append(edit)
 
             self.len(1, retn)
+
+    async def test_stormtypes_layer_counts(self):
+        async with self.getTestCore() as core:
+            self.eq(0, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
+            await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 :asn=20 inet:asn=20 +#foo.bar ]')
+            self.eq(0, await core.callStorm('return($lib.layer.get().getPropCount(ps:person))'))
+            self.eq(2, await core.callStorm('return($lib.layer.get().getPropCount(inet:ipv4))'))
+            self.eq(2, await core.callStorm('return($lib.layer.get().getPropCount(inet:ipv4:asn))'))
+            self.eq(3, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
+            self.eq(2, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar, formname=inet:ipv4))'))
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('return($lib.layer.get().getPropCount(newp:newp))')
