@@ -303,6 +303,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 foo = slab.initdb('foo', dupsort=True)
                 foo2 = slab.initdb('foo2', dupsort=False)
+                bar = slab.initdb('bar', dupsort=True)
 
                 multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
 
@@ -363,6 +364,14 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.raises(StopIteration, next, iterback5)
                 self.raises(StopIteration, next, iterback6)
+
+                slab.put(b'\x00', b'asdf', dupdata=True, db=bar)
+                slab.put(b'\x01', b'qwer', dupdata=True, db=bar)
+                iterback = slab.scanByRangeBack(b'\x00', db=bar)
+                self.eq((b'\x00', b'asdf'), next(iterback))
+                slab.delete(b'\x00', b'asdf', db=bar)
+                slab.forcecommit()
+                self.raises(StopIteration, next, iterback)
 
     async def test_lmdbslab_scanbump2(self):
 
