@@ -373,6 +373,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.forcecommit()
                 self.raises(StopIteration, next, iterback)
 
+                # range scan where we delete the entry we're on
+                # and it's the only thing in the slab.
                 iterrange = slab.scanByRange(b'\x00', db=bar)
                 self.eq((b'\x01', b'qwer'), next(iterrange))
                 slab.delete(b'\x01', b'qwer', db=bar)
