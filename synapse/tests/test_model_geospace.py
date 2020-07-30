@@ -12,6 +12,7 @@ geotestmodel = {
 
     'types': (
         ('test:latlong', ('geo:latlong', {}), {}),
+        ('test:distoff', ('geo:dist', {'baseoff': 1000}), {}),
     ),
 
     'forms': (
@@ -21,6 +22,7 @@ geotestmodel = {
             ('long', ('geo:longitude', {}), {}),
             ('dist', ('geo:dist', {}), {}),
         )),
+        ('test:distoff', {}, ()),
     ),
 }
 
@@ -377,6 +379,7 @@ class GeoTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
         async with self.getTestCore() as core:
+
             await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
             # Lift behavior for a node whose has a latlong as their primary property
             nodes = await core.nodes('[(test:latlong=(10, 10) :dist=10m) '
@@ -428,3 +431,14 @@ class GeoTest(s_t_utils.SynTest):
 
             opts = {'vars': {'geojson': geojson2}}
             nodes = await core.nodes('[ geo:place=* :geojson=$geojson ]', opts=opts)
+
+    async def test_geo_dist_offset(self):
+
+        async with self.getTestCore() as core:
+
+            await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
+            nodes = await core.nodes('[ test:distoff=-3cm ]')
+            self.eq(970, nodes[0].ndef[1])
+            self.eq('-3.0 cm', await core.callStorm('test:distoff return($node.repr())'))
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[ test:distoff=-3km ]')

@@ -3,6 +3,77 @@ Synapse Changelog
 *****************
 
 
+v2.5.0 - 2020-07-30
+===================
+
+Features and Enhancements
+-------------------------
+
+- Refactor the Nexus to remove leadership awareness.
+  (`#1785 <https://github.com/vertexproject/synapse/pull/1785>`_)
+- Add support for client-side certificates in Telepath for SSL connections.
+  (`#1785 <https://github.com/vertexproject/synapse/pull/1785>`_)
+- Add multi-dir support for CertDir.
+  (`#1785 <https://github.com/vertexproject/synapse/pull/1785>`_)
+- Add a ``--no-edges`` option to the Storm ``graph`` command.
+  (`#1805 <https://github.com/vertexproject/synapse/pull/1805>`_)
+- Add ``:doc:url`` to the ``syn:tag`` form to allow recording a URL which may document a tag.
+  (`#1805 <https://github.com/vertexproject/synapse/pull/1805>`_)
+- Add ``CoreApi.reqValidStorm()`` and a ``/api/v1/reqvalidstorm`` Cortex HTTPAPI endpoint to validate that a given
+  Storm query is valid Storm syntax.
+  (`#1806 <https://github.com/vertexproject/synapse/pull/1806>`_)
+- Support Unicode white space in Storm. All Python `\s` (Unicode white space + ASCII separators) is now treated as
+  white space in Storm.
+  (`#1812 <https://github.com/vertexproject/synapse/pull/1812>`_)
+- Refactor how StormLib and StormPrim objects access their object locals, and add them to a global registry to support
+  runtime introspection of those classes.
+  (`#1804 <https://github.com/vertexproject/synapse/pull/1804>`_)
+- Add smoke tests for the Docker containers built in CircleCI, as well as adding Docker healthchecks to the Cortex,
+  Axon and Cryotank images.
+  (`#1815 <https://github.com/vertexproject/synapse/pull/1815>`_)
+- Initialize the names of the default view and layer in a fresh Cortex to ``default``.
+  (`#1814 <https://github.com/vertexproject/synapse/pull/1814>`_)
+- Add HTTPAPI endpoints for the Axon to upload, download and check for the existend of files.
+  (`#1817 <https://github.com/vertexproject/synapse/pull/1817>`_)
+  (`#1822 <https://github.com/vertexproject/synapse/pull/1822>`_)
+  (`#1824 <https://github.com/vertexproject/synapse/pull/1824>`_)
+  (`#1825 <https://github.com/vertexproject/synapse/pull/1825>`_)
+- Add a ``$lib.bytes.has()`` API to check if the Axon a Cortex is configured with knows about a given sha256 value.
+  (`#1822 <https://github.com/vertexproject/synapse/pull/1822>`_)
+- Add initial model for prices, currences, securities and exchanges.
+  (`#1820 <https://github.com/vertexproject/synapse/pull/1820>`_)
+- Add a ``:author`` field to the ``it:app:yara:rule`` form.
+  (`#1821 <https://github.com/vertexproject/synapse/pull/1821>`_)
+- Add an experimental option to set the NexusLog as a ``map_async`` slab.
+  (`#1826 <https://github.com/vertexproject/synapse/pull/1826>`_)
+- Add an initial transportation model.
+  (`#1816 <https://github.com/vertexproject/synapse/pull/1816>`_)
+- Add the ability to dereference an item, from a list of items, in Storm via index.
+  (`#1827 <https://github.com/vertexproject/synapse/pull/1827>`_)
+- Add a generic ``$lib.inet.http.request()`` Stormlib function make HTTP requests with arbitrary verbs.
+  (`#1828 <https://github.com/vertexproject/synapse/pull/1828>`_)
+
+Bugfixes
+--------
+- Fix an issue with the Docker builds for Synapse where the package was not being installed properly.
+  (`#1815 <https://github.com/vertexproject/synapse/pull/1815>`_)
+
+Improved Documentation
+----------------------
+
+- Update documentation for deploying Cortex mirrors.
+  (`#1811 <https://github.com/vertexproject/synapse/pull/1811>`_)
+- Add automatically generated documentation for all the Storm ``$lib...`` functions and Storm Primitive types.
+  (`#1804 <https://github.com/vertexproject/synapse/pull/1804>`_)
+- Add examples of creating a given Form to the automatically generated documentation for the automatically generated
+  datamodel documentation.
+  (`#1818 <https://github.com/vertexproject/synapse/pull/1818>`_)
+- Add additional documentation for Cortex automation.
+  (`#1797 <https://github.com/vertexproject/synapse/pull/1797>`_)
+- Add Devops documentation for the list of user permissions relevant to a Cell, Cortex and Axon.
+  (`#1823 <https://github.com/vertexproject/synapse/pull/1823>`_)
+
+
 v2.4.0 - 2020-07-15
 ===================
 
