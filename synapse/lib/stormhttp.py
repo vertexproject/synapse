@@ -67,27 +67,7 @@ class LibHttp(s_stormtypes.Lib):
         Returns:
             HttpResp: A Storm HttpResp object.
         '''
-
-        url = await s_stormtypes.toprim(url)
-        json = await s_stormtypes.toprim(json)
-        body = await s_stormtypes.toprim(body)
-        headers = await s_stormtypes.toprim(headers)
-
-        kwargs = {}
-        if not ssl_verify:
-            kwargs['ssl'] = False
-
-        async with aiohttp.ClientSession() as sess:
-            try:
-                async with sess.post(url, headers=headers, json=json, data=body, **kwargs) as resp:
-                    info = {
-                        'code': resp.status,
-                        'body': await resp.content.read()
-                    }
-                    return HttpResp(info)
-            except ValueError as e:
-                mesg = f'Error during http post - {str(e)}'
-                raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body) from None
+        return await self._httpRequest('POST', url, headers=headers, json=json, body=body, ssl_verify=ssl_verify)
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None, ssl_verify=True):
         '''
