@@ -373,6 +373,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.forcecommit()
                 self.raises(StopIteration, next, iterback)
 
+                iterrange = slab.scanByRange(b'\x00', db=bar)
+                self.eq((b'\x01', b'qwer'), next(iterrange))
+                slab.delete(b'\x01', b'qwer', db=bar)
+                slab.forcecommit()
+                self.raises(StopIteration, next, iterrange)
+
     async def test_lmdbslab_scanbump2(self):
 
         with self.getTestDir() as dirn:
