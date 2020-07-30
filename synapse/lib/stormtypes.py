@@ -1878,6 +1878,9 @@ class List(Prim):
         for item in self.valu:
             yield item
 
+    async def _derefGet(self, name):
+        return await self._methListIndex(name)
+
     async def __aiter__(self):
         for item in self:
             yield item
