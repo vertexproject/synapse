@@ -1144,8 +1144,6 @@ class Slab(s_base.Base):
 
                 yield item
 
-            #yield from scan.iternext()
-
     def scanByDupsBack(self, lkey, db=None):
 
         with ScanBack(self, db) as scan:
@@ -1159,7 +1157,6 @@ class Slab(s_base.Base):
                     break
 
                 yield item
-            #yield from scan.iternext()
 
     def scanByPref(self, byts, db=None):
 
@@ -1561,9 +1558,6 @@ class ScanBack(Scan):
         if not self.curs.last():
             return False
 
-        if self.dupsort:
-            self.curs.last_dup()
-
         self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
         return True
@@ -1620,11 +1614,7 @@ class ScanBack(Scan):
 
         # if we fail to set the range, try for the last
         if not self.curs.set_range(item[0]):
-            if not self.curs.last():
-                return False
-
-            self.curs.last_dup()
-            return True
+            return self.curs.last()
 
         # if we're on the next key, step back
         if not self.curs.key() == item[0]:

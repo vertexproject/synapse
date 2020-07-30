@@ -32,7 +32,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
-
             async with await s_lmdbslab.Slab.anit(path) as slab:
 
                 testdb = slab.initdb('test')
@@ -40,10 +39,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 editdb = slab.initdb('edit')
 
                 self.eq((), list(slab.scanKeys(db=testdb)))
+                self.eq((), list(slab.scanByDupsBack(b'asdf', db=dupsdb)))
 
                 slab.put(b'hehe', b'haha', db=dupsdb)
                 slab.put(b'hehe', b'lolz', db=dupsdb)
                 slab.put(b'hoho', b'asdf', db=dupsdb)
+
+                self.eq((), list(slab.scanByDupsBack(b'h\x00', db=dupsdb)))
 
                 slab.put(b'hehe', b'haha', db=testdb)
                 slab.put(b'hoho', b'haha', db=testdb)
@@ -147,6 +149,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.false(slab.rangeexists(b'\x01\x04', b'\x01\x05', db=foo))
 
             # backwards scan tests
+            items = list(slab.scanByRangeBack(b'\x00', db=foo))
+            self.eq(items, ())
 
             items = list(slab.scanByPrefBack(b'\x00', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
