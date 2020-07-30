@@ -22,6 +22,26 @@ class StormHttpTest(s_test.SynTest):
             nodes = await core.nodes(text, opts=opts)
             self.len(1, await core.nodes('test:str=inet:ipv4'))
 
+    async def test_storm_http_request(self):
+
+        async with self.getTestCore() as core:
+            addr, port = await core.addHttpsPort(0)
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+            text = '''
+                $hdr = (
+                    ("User-Agent", "Storm HTTP Stuff"),
+                )
+                $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/model", port=$port)
+
+                for ($name, $fdef) in $lib.inet.http.request(GET, $url, headers=$hdr, ssl_verify=$(0)).json().result.forms {
+                    [ test:str=$name ]
+                }
+            '''
+            opts = {'vars': {'port': port}}
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, await core.nodes('test:str=inet:ipv4'))
+
     async def test_storm_http_post_api(self):
 
         async with self.getTestCore() as core:

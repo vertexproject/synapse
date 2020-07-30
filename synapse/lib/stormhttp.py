@@ -18,6 +18,7 @@ class LibHttp(s_stormtypes.Lib):
         return {
             'get': self._httpEasyGet,
             'post': self._httpPost,
+            'request': self._httpRequest,
         }
 
     async def _httpEasyGet(self, url, headers=None, ssl_verify=True):
@@ -79,6 +80,49 @@ class LibHttp(s_stormtypes.Lib):
         async with aiohttp.ClientSession() as sess:
             try:
                 async with sess.post(url, headers=headers, json=json, data=body, **kwargs) as resp:
+                    info = {
+                        'code': resp.status,
+                        'body': await resp.content.read()
+                    }
+                    return HttpResp(info)
+            except ValueError as e:
+                mesg = f'Error during http post - {str(e)}'
+                raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body) from None
+
+    async def _httpRequest(self, meth, url, headers=None, json=None, body=None, ssl_verify=True):
+        '''
+        Make an HTTP request using the given HTTP method to the url.
+
+        Args:
+            meth (str): The HTTP method. (ex. PUT)
+
+            url (str): The URL to post to.
+
+            headers (dict): HTTP headers to send with the request.
+
+            json: The data to post, as JSON object.
+
+            body: The data to post, as binary object.
+
+            ssl_verify (bool): Perform SSL/TLS verification. Defaults to true.
+
+        Returns:
+            HttpResp: A Storm HttpResp object.
+        '''
+
+        meth = await s_stormtypes.tostr(meth)
+        url = await s_stormtypes.tostr(url)
+        json = await s_stormtypes.toprim(json)
+        body = await s_stormtypes.toprim(body)
+        headers = await s_stormtypes.toprim(headers)
+
+        kwargs = {}
+        if not ssl_verify:
+            kwargs['ssl'] = False
+
+        async with aiohttp.ClientSession() as sess:
+            try:
+                async with sess.request(meth, url, headers=headers, json=json, data=body, **kwargs) as resp:
                     info = {
                         'code': resp.status,
                         'body': await resp.content.read()
