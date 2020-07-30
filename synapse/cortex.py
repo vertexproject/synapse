@@ -2542,14 +2542,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         layrinfo = await node.dict()
         copyinfo = await copynode.dict()
-        print('copy settings:')
         for name, valu in layrinfo.items():
-            print(name, valu)
             await copyinfo.set(name, valu)
 
-        print('override settings:')
         for name, valu in ldef.items():
-            print(name, valu)
             await copyinfo.set(name, valu)
 
         copylayr = await self._initLayr(copyinfo)
