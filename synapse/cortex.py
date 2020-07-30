@@ -2509,13 +2509,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Make a copy of a Layer in the cortex.
 
-        Notes:
+        Args:
+            iden (str): Layer iden to clone
+            ldef (Optional[Dict]): Layer configuration overrides
+
+        Note:
             This should only be called with a reasonably static Cortex
             due to possible races.
-
-        Args:
-            iden (str): layer iden
-            ldef (Optional[Dict]):  layer configuration overrides
         '''
         layr = self.layers.get(iden, None)
         if layr is None:
