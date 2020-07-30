@@ -32,7 +32,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
-
             async with await s_lmdbslab.Slab.anit(path) as slab:
 
                 testdb = slab.initdb('test')
@@ -40,10 +39,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 editdb = slab.initdb('edit')
 
                 self.eq((), list(slab.scanKeys(db=testdb)))
+                self.eq((), list(slab.scanByDupsBack(b'asdf', db=dupsdb)))
 
                 slab.put(b'hehe', b'haha', db=dupsdb)
                 slab.put(b'hehe', b'lolz', db=dupsdb)
                 slab.put(b'hoho', b'asdf', db=dupsdb)
+
+                self.eq((), list(slab.scanByDupsBack(b'h\x00', db=dupsdb)))
 
                 slab.put(b'hehe', b'haha', db=testdb)
                 slab.put(b'hoho', b'haha', db=testdb)
@@ -147,6 +149,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.false(slab.rangeexists(b'\x01\x04', b'\x01\x05', db=foo))
 
             # backwards scan tests
+            items = list(slab.scanByRangeBack(b'\x00', db=foo))
+            self.eq(items, ())
 
             items = list(slab.scanByPrefBack(b'\x00', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
@@ -299,6 +303,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 foo = slab.initdb('foo', dupsort=True)
                 foo2 = slab.initdb('foo2', dupsort=False)
+                bar = slab.initdb('bar', dupsort=True)
 
                 multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
 
@@ -307,11 +312,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     slab.put(multikey, s_common.int64en(i), dupdata=True, db=foo)
                     slab.put(s_common.int64en(i), byts, db=foo2)
 
-                iter = slab.scanByDups(multikey, db=foo)
+                iter1 = slab.scanByDups(multikey, db=foo)
                 iter2 = slab.scanByFull(db=foo2)
 
                 for _ in range(6):
-                    next(iter)
+                    next(iter1)
                     next(iter2)
 
                 iterback = slab.scanByDupsBack(multikey, db=foo)
@@ -340,10 +345,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 slab.forcecommit()
 
-                self.raises(StopIteration, next, iter)
+                self.raises(StopIteration, next, iter1)
                 self.raises(StopIteration, next, iter2)
-                self.eq(5, sum(1 for _ in iterback))
-                self.eq(5, sum(1 for _ in iterback2))
+                self.len(5, iterback)
+                self.len(5, iterback2)
 
                 # Delete all the keys in front of a backwards scan
                 for i in range(4):
@@ -359,6 +364,22 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.raises(StopIteration, next, iterback5)
                 self.raises(StopIteration, next, iterback6)
+
+                slab.put(b'\x00', b'asdf', dupdata=True, db=bar)
+                slab.put(b'\x01', b'qwer', dupdata=True, db=bar)
+                iterback = slab.scanByRangeBack(b'\x00', db=bar)
+                self.eq((b'\x00', b'asdf'), next(iterback))
+                slab.delete(b'\x00', b'asdf', db=bar)
+                slab.forcecommit()
+                self.raises(StopIteration, next, iterback)
+
+                # range scan where we delete the entry we're on
+                # and it's the only thing in the slab.
+                iterrange = slab.scanByRange(b'\x00', db=bar)
+                self.eq((b'\x01', b'qwer'), next(iterrange))
+                slab.delete(b'\x01', b'qwer', db=bar)
+                slab.forcecommit()
+                self.raises(StopIteration, next, iterrange)
 
     async def test_lmdbslab_scanbump2(self):
 
@@ -531,6 +552,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.delete(b'1', val=b'2', db=dupndb)
                 self.eq((b'1', b'1'), next(it))
                 self.raises(StopIteration, next, it)
+
+    async def test_lmdbslab_count_empty(self):
+
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+                await slab.countByPref(b'asdf')
 
     async def test_lmdbslab_grow(self):
 
