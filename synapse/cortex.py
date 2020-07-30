@@ -703,7 +703,10 @@ class CoreApi(s_cell.CellApi):
 
     @s_cell.adminapi()
     async def cloneLayer(self, iden):
-        return await self.cell.cloneLayer(iden, cloner=self.user.iden)
+        ldef = {
+            'creator': self.user.iden,
+        }
+        return await self.cell.cloneLayer(iden, ldef)
 
 class Cortex(s_cell.Cell):  # type: ignore
     '''
@@ -2502,32 +2505,33 @@ class Cortex(s_cell.Cell):  # type: ignore
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)
 
-    async def cloneLayer(self, iden, cloner=None):
+    async def cloneLayer(self, iden, ldef=None):
         '''
         Make a copy of a Layer in the cortex.
 
         Args:
             iden (str): layer iden
+            ldef (Optional[Dict]):  layer configuration overrides
         '''
         layr = self.layers.get(iden, None)
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
 
-        if cloner is None:
-            cloner = self.auth.rootuser.iden
+        ldef = ldef or {}
+        ldef['iden'] = s_common.guid()
+        ldef.setdefault('creator', self.auth.rootuser.iden)
 
-        newiden = s_common.guid()
-
-        return await self._push('layer:clone', iden, newiden, cloner)
+        return await self._push('layer:clone', iden, ldef)
 
     @s_nexus.Pusher.onPush('layer:clone')
-    async def _cloneLayer(self, iden, newiden, cloner):
-
-        if newiden in self.layers:
-            return
+    async def _cloneLayer(self, iden, ldef):
 
         layr = self.layers.get(iden)
         if layr is None:
+            return
+
+        newiden = ldef.get('iden')
+        if newiden in self.layers:
             return
 
         newpath = s_common.gendir(self.dirn, 'layers', newiden)
@@ -2538,15 +2542,20 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         layrinfo = await node.dict()
         copyinfo = await copynode.dict()
+        print('copy settings:')
         for name, valu in layrinfo.items():
+            print(name, valu)
             await copyinfo.set(name, valu)
 
-        await copyinfo.set('iden', newiden)
-        await copyinfo.set('creator', cloner)
+        print('override settings:')
+        for name, valu in ldef.items():
+            print(name, valu)
+            await copyinfo.set(name, valu)
 
         copylayr = await self._initLayr(copyinfo)
 
-        user = await self.auth.reqUser(cloner)
+        creator = copyinfo.get('creator')
+        user = await self.auth.reqUser(creator)
         await user.setAdmin(True, gateiden=newiden, logged=False)
 
         return copylayr.pack()

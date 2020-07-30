@@ -1086,16 +1086,39 @@ class Layer(s_nexus.Pusher):
 
         await self._initLayerStorage()
 
-    async def clone(self, newdirn):
+    async def clone(self, newdirn, compact=True):
 
-        path = s_common.genpath(newdirn, 'layer_v2.lmdb')
-        await self.layrslab.copyslab(path)
+        for root, dnames, fnames in os.walk(self.dirn, topdown=True):
 
-        nodedatapath = s_common.genpath(newdirn, 'nodedata.lmdb')
-        await self.dataslab.copyslab(nodedatapath)
+            relpath = os.path.relpath(root, start=self.dirn)
 
-        editspath = s_common.genpath(newdirn, 'nodeedits.lmdb')
-        await self.nodeeditslab.copyslab(editspath)
+            for name in list(dnames):
+
+                relname = os.path.join(relpath, name)
+
+                srcpath = s_common.genpath(root, name)
+                dstpath = s_common.genpath(newdirn, relname)
+
+                if srcpath in s_lmdbslab._AllSlabs:
+                    slab = s_lmdbslab._AllSlabs.get(srcpath)
+                    await slab.copyslab(dstpath)
+
+                    dnames.remove(name)
+                    continue
+
+                logger.info(f'making dir:{dstpath}')
+                s_common.gendir(dstpath)
+
+            for name in fnames:
+
+                srcpath = s_common.genpath(root, name)
+                # skip unix sockets etc...
+                if not os.path.isfile(srcpath):
+                    continue
+
+                dstpath = s_common.genpath(newdirn, relpath, name)
+                logger.info(f'copying: {srcpath} -> {dstpath}')
+                shutil.copy(srcpath, dstpath)
 
     async def _initLayerStorage(self):
 

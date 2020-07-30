@@ -894,3 +894,13 @@ class LayerTest(s_t_utils.SynTest):
             self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(buid, '.seen'))
 
             await self.asyncraises(s_exc.NoSuchLayer, prox.cloneLayer('newp'))
+
+            self.false(layr.readonly)
+
+            # Test overriding layer config values
+            ldef = {'readonly': True}
+            readlayrinfo = await core.cloneLayer(layr.iden, ldef)
+            self.len(3, core.layers)
+
+            readlayr = core.getLayer(readlayrinfo.get('iden'))
+            self.true(readlayr.readonly)

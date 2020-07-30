@@ -35,7 +35,7 @@ int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
 # The paths of all open slabs, to prevent accidental opening of the same slab in two places
-_AllSlabs = set()   # type: ignore
+_AllSlabs = {}   # type: ignore
 
 class Hist:
     '''
@@ -679,7 +679,7 @@ class Slab(s_base.Base):
         self._saveOptsFile()
 
         self.lenv = lmdb.open(str(path), **opts)
-        _AllSlabs.add(abspath)
+        _AllSlabs[abspath] = self
 
         self.scans = set()
 
@@ -808,7 +808,7 @@ class Slab(s_base.Base):
             break
 
         self.lenv.close()
-        _AllSlabs.discard(self.abspath)
+        _AllSlabs.pop(self.abspath, None)
         del self.lenv
 
     def _finiCoXact(self):
