@@ -1565,8 +1565,7 @@ class ScanBack(Scan):
     def set_key(self, lkey):
 
         if not self.curs.set_key(lkey):
-            if not self.curs.last():
-                return False
+            return False
 
         if self.dupsort:
             self.curs.last_dup()
