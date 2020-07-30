@@ -703,7 +703,7 @@ class CoreApi(s_cell.CellApi):
 
     @s_cell.adminapi()
     async def cloneLayer(self, iden):
-        return await self.cell.cloneLayer(iden)
+        return await self.cell.cloneLayer(iden, cloner=self.user.iden)
 
 class Cortex(s_cell.Cell):  # type: ignore
     '''
@@ -2502,7 +2502,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)
 
-    async def cloneLayer(self, iden):
+    async def cloneLayer(self, iden, cloner=None):
         '''
         Make a copy of a Layer in the cortex.
 
@@ -2513,12 +2513,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
 
+        if cloner is None:
+            cloner = self.auth.rootuser.iden
+
         newiden = s_common.guid()
 
-        return await self._push('layer:clone', iden, newiden)
+        return await self._push('layer:clone', iden, newiden, cloner)
 
     @s_nexus.Pusher.onPush('layer:clone')
-    async def _cloneLayer(self, iden, newiden):
+    async def _cloneLayer(self, iden, newiden, cloner):
 
         if newiden in self.layers:
             return
@@ -2539,11 +2542,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             await copyinfo.set(name, valu)
 
         await copyinfo.set('iden', newiden)
+        await copyinfo.set('creator', cloner)
 
         copylayr = await self._initLayr(copyinfo)
 
-        creator = copyinfo.get('creator')
-        user = await self.auth.reqUser(creator)
+        user = await self.auth.reqUser(cloner)
         await user.setAdmin(True, gateiden=newiden, logged=False)
 
         return copylayr.pack()
