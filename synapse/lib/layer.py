@@ -1086,6 +1086,38 @@ class Layer(s_nexus.Pusher):
 
         await self._initLayerStorage()
 
+    async def clone(self, newdirn):
+
+        for root, dnames, fnames in os.walk(self.dirn, topdown=True):
+
+            relpath = os.path.relpath(root, start=self.dirn)
+
+            for name in list(dnames):
+
+                relname = os.path.join(relpath, name)
+
+                srcpath = s_common.genpath(root, name)
+                dstpath = s_common.genpath(newdirn, relname)
+
+                if srcpath in s_lmdbslab._AllSlabs:
+                    slab = s_lmdbslab._AllSlabs.get(srcpath)
+                    await slab.copyslab(dstpath)
+
+                    dnames.remove(name)
+                    continue
+
+                s_common.gendir(dstpath)
+
+            for name in fnames:
+
+                srcpath = s_common.genpath(root, name)
+                # skip unix sockets etc...
+                if not os.path.isfile(srcpath):
+                    continue
+
+                dstpath = s_common.genpath(newdirn, relpath, name)
+                shutil.copy(srcpath, dstpath)
+
     async def _initLayerStorage(self):
 
         slabopts = {

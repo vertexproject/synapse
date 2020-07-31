@@ -35,7 +35,7 @@ int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
 # The paths of all open slabs, to prevent accidental opening of the same slab in two places
-_AllSlabs = set()   # type: ignore
+_AllSlabs = {}   # type: ignore
 
 class Hist:
     '''
@@ -679,7 +679,7 @@ class Slab(s_base.Base):
         self._saveOptsFile()
 
         self.lenv = lmdb.open(str(path), **opts)
-        _AllSlabs.add(abspath)
+        _AllSlabs[abspath] = self
 
         self.scans = set()
 
@@ -808,7 +808,7 @@ class Slab(s_base.Base):
             break
 
         self.lenv.close()
-        _AllSlabs.discard(self.abspath)
+        _AllSlabs.pop(self.abspath, None)
         del self.lenv
 
     def _finiCoXact(self):
@@ -1379,6 +1379,26 @@ class Slab(s_base.Base):
                 progresscb(rowcount)
 
         return rowcount
+
+    async def copyslab(self, dstpath, compact=True):
+
+        dstpath = pathlib.Path(dstpath)
+        if dstpath.exists():
+            raise s_exc.DataAlreadyExists()
+
+        dstoptspath = dstpath.with_suffix('.opts.yaml')
+        s_common.gendir(dstpath)
+
+        await self.sync()
+
+        self.lenv.copy(str(dstpath), compact=compact)
+
+        try:
+            shutil.copy(self.optspath, dstoptspath)
+        except FileNotFoundError:  # pragma: no cover
+            pass
+
+        return True
 
     def pop(self, lkey, db=None):
         return self._xact_action(self.pop, lmdb.Transaction.pop, lkey, db=db)

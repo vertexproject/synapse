@@ -701,6 +701,14 @@ class CoreApi(s_cell.CellApi):
     async def disableMigrationMode(self):
         await self.cell._disableMigrationMode()
 
+    @s_cell.adminapi()
+    async def cloneLayer(self, iden, ldef=None):
+
+        ldef = ldef or {}
+        ldef['creator'] = self.user.iden
+
+        return await self.cell.cloneLayer(iden, ldef)
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -2497,6 +2505,61 @@ class Cortex(s_cell.Cell):  # type: ignore
         for _, node in node:
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)
+
+    async def cloneLayer(self, iden, ldef=None):
+        '''
+        Make a copy of a Layer in the cortex.
+
+        Args:
+            iden (str): Layer iden to clone
+            ldef (Optional[Dict]): Layer configuration overrides
+
+        Note:
+            This should only be called with a reasonably static Cortex
+            due to possible races.
+        '''
+        layr = self.layers.get(iden, None)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=iden)
+
+        ldef = ldef or {}
+        ldef['iden'] = s_common.guid()
+        ldef.setdefault('creator', self.auth.rootuser.iden)
+
+        return await self._push('layer:clone', iden, ldef)
+
+    @s_nexus.Pusher.onPush('layer:clone')
+    async def _cloneLayer(self, iden, ldef):
+
+        layr = self.layers.get(iden)
+        if layr is None:
+            return
+
+        newiden = ldef.get('iden')
+        if newiden in self.layers:
+            return
+
+        newpath = s_common.gendir(self.dirn, 'layers', newiden)
+        await layr.clone(newpath)
+
+        node = await self.hive.open(('cortex', 'layers', iden))
+        copynode = await self.hive.open(('cortex', 'layers', newiden))
+
+        layrinfo = await node.dict()
+        copyinfo = await copynode.dict()
+        for name, valu in layrinfo.items():
+            await copyinfo.set(name, valu)
+
+        for name, valu in ldef.items():
+            await copyinfo.set(name, valu)
+
+        copylayr = await self._initLayr(copyinfo)
+
+        creator = copyinfo.get('creator')
+        user = await self.auth.reqUser(creator)
+        await user.setAdmin(True, gateiden=newiden, logged=False)
+
+        return copylayr.pack()
 
     def addStormCmd(self, ctor):
         '''
