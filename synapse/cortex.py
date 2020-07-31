@@ -702,10 +702,11 @@ class CoreApi(s_cell.CellApi):
         await self.cell._disableMigrationMode()
 
     @s_cell.adminapi()
-    async def cloneLayer(self, iden):
-        ldef = {
-            'creator': self.user.iden,
-        }
+    async def cloneLayer(self, iden, ldef=None):
+
+        ldef = ldef or {}
+        ldef['creator'] = self.user.iden
+
         return await self.cell.cloneLayer(iden, ldef)
 
 class Cortex(s_cell.Cell):  # type: ignore
