@@ -78,6 +78,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
+import synapse.lib.urlhelp as s_urlhelp
 
 import synapse.lib.config as s_config
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -2221,7 +2222,7 @@ class Layer(s_nexus.Pusher):
 
                     iden = await proxy.getIden()
                     offs = self.offsets.get(iden)
-                    logger.warning(f'upstream sync connected ({url} offset={offs})')
+                    logger.warning(f'upstream sync connected ({s_urlhelp.sanitizeUrl(url)} offset={offs})')
 
                     if offs == 0:
                         offs = await proxy.getNodeEditOffset()
