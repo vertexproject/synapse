@@ -2,7 +2,6 @@ import os
 import shutil
 import asyncio
 import pathlib
-import functools
 import threading
 import collections
 
@@ -706,6 +705,8 @@ class Slab(s_base.Base):
                 await self.memlocktask
             self.memlocktask = s_coro.executor(self._memorylockloop)
             self.onfini(memlockfini)
+        else:
+            self.lockdoneevent.set()
 
         self.dbnames = {None: (None, False)}  # prepopulate the default DB for speed
 
@@ -1096,11 +1097,6 @@ class Slab(s_base.Base):
         finally:
             self._relXactForReading()
 
-    # non-scan ("atomic") interface.
-    # def getByDup(self, lkey, db=None):
-    # def getByPref(self, lkey, db=None):
-    # def getByRange(self, lkey, db=None):
-
     def scanKeys(self, db=None):
 
         with ScanKeys(self, db) as scan:
@@ -1116,12 +1112,12 @@ class Slab(s_base.Base):
         '''
         count = 0
         size = len(byts)
-        with Scan(self, db) as scan:
+        with ScanKeys(self, db) as scan:
 
             if not scan.set_range(byts):
                 return 0
 
-            for lkey, lval in scan.iternext():
+            for lkey in scan.iternext():
 
                 if lkey[:size] != byts:
                     return count
@@ -1244,9 +1240,6 @@ class Slab(s_base.Base):
                 return
 
             yield from scan.iternext()
-
-    # def keysByRange():
-    # def valsByRange():
 
     def _initCoXact(self):
         try:
@@ -1472,8 +1465,9 @@ class Scan:
         if not self.curs.first():
             return False
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
+
         return True
 
     def set_key(self, lkey):
@@ -1481,7 +1475,7 @@ class Scan:
         if not self.curs.set_key(lkey):
             return False
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
         return True
 
@@ -1490,7 +1484,7 @@ class Scan:
         if not self.curs.set_range(lkey):
             return False
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
 
         return True
@@ -1512,11 +1506,11 @@ class Scan:
 
                     self.curs = self.slab.xact.cursor(db=self.db)
 
-                    if not self.resume(self.atitem):
+                    if not self.resume():
                         raise StopIteration
 
-                    self.genr = self.iterfunc(self.curs)
-                    if self.item() == self.atitem:
+                    self.genr = self.iterfunc()
+                    if self.isatitem():
                         next(self.genr)
 
                 self.atitem = next(self.genr)
@@ -1529,13 +1523,11 @@ class Scan:
             self.curs.close()
             self.bumped = True
 
-    def item(self):
-        return self.curs.item()
+    def iterfunc(self):
+        return self.curs.iternext()
 
-    def iterfunc(self, curs):
-        return curs.iternext()
-
-    def resume(self, item):
+    def resume(self):
+        item = self.atitem
 
         if not self.dupsort:
             return self.curs.set_range(item[0])
@@ -1553,16 +1545,44 @@ class Scan:
 
         return True
 
+    def isatitem(self):
+        '''
+        Returns if the cursor is at the value in atitem
+        '''
+        return self.atitem == self.curs.item()
+
 class ScanKeys(Scan):
+    '''
+    An iterator over the keys of the database.  If the database is dupsort, a key with multiple values with be yielded
+    once for each value.
+    '''
+    def iterfunc(self):
+        if self.dupsort:
+            return Scan.iterfunc(self)
 
-    def item(self):
-        return self.curs.key()
-
-    def iterfunc(self, curs):
         return self.curs.iternext(keys=True, values=False)
 
-    def resume(self, item):
-        return self.curs.set_range(item)
+    def resume(self):
+        if self.dupsort:
+            return Scan.resume(self)
+
+        return self.curs.set_range(self.atitem)
+
+    def isatitem(self):
+        '''
+        Returns if the cursor is at the value in atitem
+        '''
+        if self.dupsort:
+            return Scan.isatitem(self)
+
+        return self.atitem == self.curs.key()
+
+    def iternext(self):
+        if self.dupsort:
+            yield from (item[0] for item in Scan.iternext(self))
+            return
+
+        yield from Scan.iternext(self)
 
 class ScanBack(Scan):
     '''
@@ -1570,15 +1590,15 @@ class ScanBack(Scan):
 
     Scans backwards.
     '''
-    def iterfunc(self, curs):
-        return curs.iterprev()
+    def iterfunc(self):
+        return self.curs.iterprev()
 
     def first(self):
 
         if not self.curs.last():
             return False
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
         return True
 
@@ -1590,7 +1610,7 @@ class ScanBack(Scan):
         if self.dupsort:
             self.curs.last_dup()
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
         return True
 
@@ -1608,12 +1628,13 @@ class ScanBack(Scan):
         if self.dupsort:
             self.curs.last_dup()
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
 
         return True
 
-    def resume(self, item):
+    def resume(self):
+        item = self.atitem
 
         if not self.dupsort:
 

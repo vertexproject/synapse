@@ -3122,7 +3122,7 @@ class StormTypesTest(s_test.SynTest):
 
             await core.nodes('[inet:ipv4=1.2.3.4]')
 
-            #TODO: should we asciify the buid here so it is json compatible?
+            # TODO: should we asciify the buid here so it is json compatible?
             q = '''$list = $lib.list()
             for ($offs, $edit) in $lib.layer.get().edits(wait=$lib.false) {
                 $list.append($edit)

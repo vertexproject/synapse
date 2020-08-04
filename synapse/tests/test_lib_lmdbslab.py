@@ -51,7 +51,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.put(b'hoho', b'haha', db=testdb)
 
                 testgenr = slab.scanKeys(db=testdb)
-                dupsgenr = slab.scanKeys(db=testdb)
+                dupsgenr = slab.scanKeys(db=dupsdb)
 
                 testlist = [next(testgenr)]
                 dupslist = [next(dupsgenr)]
@@ -65,7 +65,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 dupslist.extend(dupsgenr)
 
                 self.eq(testlist, (b'hehe', b'hoho'))
-                self.eq(dupslist, (b'hehe', b'hoho'))
+                self.eq(dupslist, (b'hehe', b'hehe', b'hoho'))
 
                 # now lets delete the key we're on
                 testgenr = slab.scanKeys(db=testdb)
@@ -558,7 +558,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'test.lmdb')
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
-                await slab.countByPref(b'asdf')
+                self.eq(0, await slab.countByPref(b'asdf'))
 
     async def test_lmdbslab_grow(self):
 

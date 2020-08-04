@@ -1078,7 +1078,9 @@ class Layer(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('layer:truncate')
     async def truncate(self):
-
+        '''
+        Nuke all the contents in the layer, leaving an empty layer
+        '''
         self.buidcache.clear()
 
         await self.layrslab.trash()
@@ -1088,7 +1090,9 @@ class Layer(s_nexus.Pusher):
         await self._initLayerStorage()
 
     async def clone(self, newdirn):
-
+        '''
+        Copy the contents of this layer to a new layer
+        '''
         for root, dnames, fnames in os.walk(self.dirn, topdown=True):
 
             relpath = os.path.relpath(root, start=self.dirn)
@@ -1118,6 +1122,12 @@ class Layer(s_nexus.Pusher):
 
                 dstpath = s_common.genpath(newdirn, relpath, name)
                 shutil.copy(srcpath, dstpath)
+
+    async def waitForHot(self):
+        '''
+        Wait for the layer's slab to be prefaulted and locked into memory if lockmemory is true, otherwise return.
+        '''
+        await self.layrslab.lockdoneevent.wait()
 
     async def _initLayerStorage(self):
 
