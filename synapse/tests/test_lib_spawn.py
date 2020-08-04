@@ -296,7 +296,7 @@ class CoreSpawnTest(s_test.SynTest):
                 n = 4
                 tasks = [taskfunc(i) for i in range(n)]
                 try:
-                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=40)
+                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=80)
                 except asyncio.TimeoutError:
                     self.fail('Timeout awaiting for spawn tasks to finish.')
 
