@@ -676,7 +676,7 @@ class Client(s_base.Base):
                 raise
 
             except Exception as e:
-                logger.warning(f'telepath client ({url}): {e}')
+                logger.warning(f'telepath client ({s_urlhelp.sanitizeUrl(url)}): {e}')
                 await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
 
     async def proxy(self, timeout=10):
@@ -717,7 +717,7 @@ class Client(s_base.Base):
             except s_exc.TeleRedir as e:
                 url = e.errinfo.get('url')
                 self._setNextUrl(url)
-                logger.warning(f'telepath task redirected: ({url})')
+                logger.warning(f'telepath task redirected: ({s_urlhelp.sanitizeUrl(url)})')
                 await self._t_proxy.fini()
 
     async def waitready(self, timeout=10):
