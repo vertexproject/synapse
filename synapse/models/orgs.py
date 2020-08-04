@@ -47,7 +47,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A user name within an organization.',
                 }),
                 ('ou:meet', ('guid', {}), {
-                    'doc': 'A informal meeting of people which has no title or sponsor.  See also: ou:conference.',
+                    'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.',
                 }),
                 ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
                     'doc': 'Represents a person attending a meeting represented by an ou:meet node.',
