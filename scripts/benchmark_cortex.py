@@ -235,13 +235,6 @@ class Benchmarker:
                                 'count': count}))
         return retn
 
-    async def _waitUntilLocked(self, prox: s_telepath.Proxy, layeriden: str):
-        while True:
-            stat = await prox.dyncall(layeriden, s_common.todo('stat'))
-            if stat['lock_goal'] == stat['lock_progress']:
-                return
-            await asyncio.sleep(0.1)
-
     @contextlib.asynccontextmanager
     async def getCortexAndProxy(self) -> AsyncIterator[Tuple[Any, Any]]:
         '''
@@ -271,8 +264,7 @@ class Benchmarker:
             self.viewiden = view['iden']
             self.opts = {'view': self.viewiden}
 
-            if ldef['lockmemory']:
-                await self._waitUntilLocked(prox, layeriden)
+            await prox.dyncall(layeriden, s_common.todo('waitForHot'))
 
             try:
                 yield core, prox

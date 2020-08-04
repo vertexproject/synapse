@@ -690,7 +690,6 @@ class LayerTest(s_t_utils.SynTest):
 
             nodelist0 = [node.pack() for node in nodelist0]
 
-            count = 0
             editlist = []
 
             layr = core0.getLayer()
@@ -836,6 +835,18 @@ class LayerTest(s_t_utils.SynTest):
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
 
+    async def test_layer_waitForHot(self):
+
+        async with self.getTestCore() as core:
+            layr = core.getLayer()
+
+            await asyncio.wait_for(layr.waitForHot(), timeout=1.0)
+
+        conf = {'layers:lockmemory': True}
+        async with self.getTestCore(conf=conf) as core:
+            layr = core.getLayer()
+            await asyncio.wait_for(layr.waitForHot(), timeout=1.0)
+
     async def test_layer_no_extra_logging(self):
 
         async with self.getTestCore() as core:
@@ -884,7 +895,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq('foo', await layr.getNodeValu(buid))
             self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
 
-            adir = s_common.gendir(layr.dirn, 'adir')
+            s_common.gendir(layr.dirn, 'adir')
 
             copylayrinfo = await core.cloneLayer(layr.iden)
             self.len(2, core.layers)

@@ -706,6 +706,8 @@ class Slab(s_base.Base):
                 await self.memlocktask
             self.memlocktask = s_coro.executor(self._memorylockloop)
             self.onfini(memlockfini)
+        else:
+            self.lockdoneevent.set()
 
         self.dbnames = {None: (None, False)}  # prepopulate the default DB for speed
 
@@ -1116,12 +1118,12 @@ class Slab(s_base.Base):
         '''
         count = 0
         size = len(byts)
-        with Scan(self, db) as scan:
+        with ScanKeys(self, db) as scan:
 
             if not scan.set_range(byts):
                 return 0
 
-            for lkey, lval in scan.iternext():
+            for lkey in scan.iternext():
 
                 if lkey[:size] != byts:
                     return count
@@ -1244,9 +1246,6 @@ class Slab(s_base.Base):
                 return
 
             yield from scan.iternext()
-
-    # def keysByRange():
-    # def valsByRange():
 
     def _initCoXact(self):
         try:
