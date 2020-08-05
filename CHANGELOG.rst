@@ -3,6 +3,31 @@ Synapse Changelog
 *****************
 
 
+v2.5.1 - 2020-08-05
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add performance oriented counting APIs per layer, and expose them via Stormtypes.
+  (`#1813 <https://github.com/vertexproject/synapse/pull/1813>`_)
+- Add the ability to clone a layer, primarily for benchmarking and testing purposes.
+  (`#1819 <https://github.com/vertexproject/synapse/pull/1819>`_)
+- Update the benchmark script to run on remote Cortexes.
+  (`#1829 <https://github.com/vertexproject/synapse/pull/1829>`_)
+
+Bugfixes
+--------
+- Sanitize passwords from Telepath URLs during specific cases where the URL may be logged.
+  (`#1830 <https://github.com/vertexproject/synapse/pull/1830>`_)
+
+Improved Documentation
+----------------------
+
+- Fix a few typos in docstrings.
+  (`#1831 <https://github.com/vertexproject/synapse/pull/1831>`_)
+
+
 v2.5.0 - 2020-07-30
 ===================
 
