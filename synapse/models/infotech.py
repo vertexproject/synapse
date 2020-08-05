@@ -259,7 +259,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A named pipe created by a process at runtime.',
                 }),
                 ('it:exec:url', ('guid', {}), {
-                    'doc': 'A instance of a host requesting a URL.',
+                    'doc': 'An instance of a host requesting a URL.',
                 }),
                 ('it:exec:bind', ('guid', {}), {
                     'doc': 'An instance of a host binding a listening port.',
