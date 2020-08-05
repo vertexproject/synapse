@@ -4,22 +4,35 @@ Time related utilities for synapse "epoch millis" time values.
 
 import datetime
 
+import regex
+
 import synapse.exc as s_exc
 
 EPOCH = datetime.datetime(1970, 1, 1)
 
+tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):(\d{2}))($|(\-\w+|\+\w))')
+
 def parse(text, base=None, chop=False):
     '''
     Parse a time string into an epoch millis value.
+
+    Args:
+        text (str): Time string to parse
+        base (int or None): Milliseconds to offset the time from
+        chop (bool): Whether the chop the digit-only string to 17 chars
+
+    Returns:
+        int: Epoch milliseconds
     '''
-    # TODO: use base to facilitate relative time offsets
-    text = text.strip().lower()
+    text = text.strip().lower().replace(' ', '')
+
+    if base is None:
+        text, base = parsetz(text)
+
     text = (''.join([c for c in text if c.isdigit()]))
 
     if chop:
         text = text[:17]
-
-    # TODO: support relative time offsets here...
 
     tlen = len(text)
     if tlen == 4:
@@ -47,7 +60,34 @@ def parse(text, base=None, chop=False):
         raise s_exc.BadTypeValu(valu=text, name='time',
                                 mesg='Unknown time format')
 
-    return int((dt - EPOCH).total_seconds() * 1000)
+    return int((dt - EPOCH).total_seconds() * 1000 + base)
+
+def parsetz(text):
+    '''
+    Parse timezone from time string, with UTC as the default.
+
+    Args:
+        text (str): Time string
+
+    Returns:
+        tuple: A tuple of text with tz chars removed and base milliseconds to offset time.
+    '''
+    tz_hm = tz_hm_re.search(text)
+
+    if tz_hm is not None:
+
+        tzstr, rel, hrs, mins, _, _ = tz_hm.groups()
+
+        rel = 1 if rel == '-' else -1
+
+        base = rel * (onehour * int(hrs) + onemin * int(mins))
+
+        if abs(base) >= 24 * onehour:
+            raise s_exc.BadTypeValu(valu=text, name='time', mesg=f'Timezone offset must be between +/- 24 hours')
+
+        return text.replace(tzstr, '', 1), base
+
+    return text, 0
 
 def repr(tick, pack=False):
     '''
