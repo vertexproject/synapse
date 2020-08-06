@@ -7,6 +7,7 @@ import synapse.common as s_common
 
 from unittest.mock import patch
 
+import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
@@ -272,6 +273,28 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             self.raises(s_exc.IsFini, next, scan)
             self.raises(s_exc.IsFini, next, scanback)
+
+    async def test_lmdbslab_max_replay(self):
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+
+            my_maxlen = 100
+
+            # Make sure that we don't confuse the periodic commit with the max replay log commit
+
+            with patch('synapse.lib.lmdbslab.Slab.COMMIT_PERIOD', 10):
+                async with await s_lmdbslab.Slab.anit(path, map_size=100000, max_replay_log=my_maxlen) as slab:
+                    foo = slab.initdb('foo', dupsort=True)
+                    byts = b'\x00' * 256
+
+                    waiter = s_base.Waiter(slab, 1, 'commit')
+
+                    for i in range(150):
+                        slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+
+                    self.true(slab.syncevnt.is_set())
+
+                    self.len(1, await waiter.wait(timeout=1))
 
     async def test_lmdbslab_maxsize(self):
         with self.getTestDir() as dirn:

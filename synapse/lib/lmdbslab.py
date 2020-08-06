@@ -591,10 +591,9 @@ class Slab(s_base.Base):
     async def syncLoopTask(clas):
         while True:
             try:
+                await s_coro.event_wait(clas.syncevnt, timeout=clas.COMMIT_PERIOD)
 
                 clas.syncevnt.clear()
-
-                await s_coro.event_wait(clas.syncevnt, timeout=clas.COMMIT_PERIOD)
 
                 await clas.syncLoopOnce()
 
@@ -659,6 +658,7 @@ class Slab(s_base.Base):
 
         # save the transaction deltas in case of error...
         self.xactops = []
+        self.max_xactops_len = opts.pop('max_replay_log', 1000)
         self.recovering = False
 
         opts.setdefault('max_dbs', 128)
@@ -1254,6 +1254,9 @@ class Slab(s_base.Base):
 
     def _logXactOper(self, func, *args, **kwargs):
         self.xactops.append((func, args, kwargs))
+
+        if len(self.xactops) == self.max_xactops_len:
+            self.syncevnt.set()
 
     def _runXactOpers(self):
         # re-run transaction operations in the event of an abort.  Return the last operation's return value.
