@@ -82,7 +82,7 @@ def parsetz(text):
 
         base = rel * (onehour * int(hrs) + onemin * int(mins))
 
-        if abs(base) >= 24 * onehour:
+        if abs(base) >= oneday:
             raise s_exc.BadTypeValu(valu=text, name='time', mesg=f'Timezone offset must be between +/- 24 hours')
 
         return text.replace(tzstr, '', 1), base
