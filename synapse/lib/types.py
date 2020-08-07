@@ -1630,12 +1630,13 @@ class Time(IntBase):
         if valu == '?':
             return self.futsize, {}
 
-        # self contained relative time string
+        # parse timezone
+        valu, base = s_time.parsetz(valu)
 
         # we need to be pretty sure this is meant for us, otherwise it might
         # just be a slightly messy time parse
         unitcheck = [u for u in s_time.timeunits.keys() if u in valu]
-        if unitcheck and '-' in valu or '+' in valu:
+        if unitcheck and ('-' in valu or '+' in valu):
             splitter = '+'
             if '-' in valu:
                 splitter = '-'
@@ -1643,13 +1644,13 @@ class Time(IntBase):
             bgn, end = valu.split(splitter, 1)
             delt = s_time.delta(splitter + end)
             if bgn:
-                bgn = self._normPyStr(bgn)[0]
+                bgn = self._normPyStr(bgn)[0] + base
             else:
                 bgn = s_common.now()
 
             return self._normPyInt(delt + bgn)
 
-        valu = s_time.parse(valu)
+        valu = s_time.parse(valu, base=base)
         return self._normPyInt(valu)
 
     def _normPyInt(self, valu):
