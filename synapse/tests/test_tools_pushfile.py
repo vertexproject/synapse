@@ -59,10 +59,10 @@ class TestPushFile(s_t_utils.SynTest):
                                 self.eq(0, s_pushfile.main(args, outp))
                                 self.true(outp.expect('Axon already had [visi.txt]'))
 
-                                self.len(1, coreprox.eval(f'file:bytes={s_common.ehex(visihash)}'))
-                                self.len(1, coreprox.eval('file:bytes:size=4'))
-                                self.len(1, coreprox.eval('#foo.bar'))
-                                self.len(1, coreprox.eval('#baz.faz'))
+                                self.eq(1, coreprox.count(f'file:bytes={s_common.ehex(visihash)}'))
+                                self.eq(1, coreprox.count('file:bytes:size=4'))
+                                self.eq(1, coreprox.count('#foo.bar'))
+                                self.eq(1, coreprox.count('#baz.faz'))
 
                                 # Ensure user can't push a non-existant file and that it won't exist
                                 args = ['-a', axonurl, nullpath]

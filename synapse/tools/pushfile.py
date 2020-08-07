@@ -38,7 +38,7 @@ def main(argv, outp=None):
             outp.printf('adding tags: %r' % (list(tags.keys())))
 
     filepaths = set()
-    for item in opts.filepaths:
+    for item in opts.filenames:
         paths = glob.glob(item, recursive=opts.recursive)
 
         if not paths:
@@ -115,7 +115,7 @@ def makeargparser():
                    help='URL for a target Axon to store files at.')
     pars.add_argument('-c', '--cortex', default=None, type=str, dest='cortex',
                    help='URL for a target Cortex to make file:bytes nodes.')
-    pars.add_argument('filepaths', nargs='+', help='File paths (or glob patterns) to upload')
+    pars.add_argument('filenames', nargs='+', help='File names (or glob patterns) to upload')
     pars.add_argument('-r', '--recursive', action='store_true',
                       help='Recursively search paths to upload files.')
     pars.add_argument('-t', '--tags', help='comma separated list of tags to add to the nodes')
