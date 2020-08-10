@@ -626,6 +626,7 @@ class Client(s_base.Base):
         self._t_proxy = None
         self._t_ready = asyncio.Event()
         self._t_onlink = onlink
+        self._t_methinfo = None
 
         async def fini():
             if self._t_proxy is not None:
@@ -724,6 +725,8 @@ class Client(s_base.Base):
         await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
 
     def __getattr__(self, name):
+        if self._t_methinfo is None:
+            raise s_exc.NotReady(mesg='Must call waitForReady on Client before first method call')
 
         info = self._t_methinfo.get(name)
         if info is not None and info.get('genr'):
