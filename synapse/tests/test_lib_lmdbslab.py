@@ -1229,6 +1229,29 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 await self.asyncraises(s_exc.DataAlreadyExists, slab.copyslab(copypath))
 
+    async def test_lmdbslab_statinfo(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                foo = slab.initdb('foo')
+
+                slab.put(b'\x00\x01', b'hehe', db=foo)
+                slab.put(b'\x00\x02', b'haha', db=foo)
+                await slab.sync()
+
+                stats = slab.statinfo()
+
+                self.false(stats['locking_memory'])
+                self.false(stats['prefaulting'])
+
+                commitstats = stats['commitstats']
+                self.len(2, commitstats)
+                self.eq(2, commitstats[-1][1])
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):

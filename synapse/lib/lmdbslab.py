@@ -658,7 +658,7 @@ class Slab(s_base.Base):
 
         # save the transaction deltas in case of error...
         self.xactops = []
-        self.max_xactops_len = opts.pop('max_replay_log', 1000)
+        self.max_xactops_len = opts.pop('max_replay_log', 10000)
         self.recovering = False
 
         opts.setdefault('max_dbs', 128)
@@ -712,6 +712,8 @@ class Slab(s_base.Base):
 
         self.onfini(self._onCoFini)
 
+        self.commitstats = collections.deque(maxlen=1000)  # stores Tuple[time, replayloglen, commit time delta]
+
         if not self.readonly:
             await Slab.initSyncLoop(self)
 
@@ -753,7 +755,8 @@ class Slab(s_base.Base):
             'max_could_lock': self.max_could_lock,  # the maximum this system could lock
             'lock_progress': self.lock_progress,  # how much we've locked so far
             'lock_goal': self.lock_goal,  # how much we want to lock
-            'prefaulting': self.prefaulting  # whether we are right meow prefaulting
+            'prefaulting': self.prefaulting,  # whether we are right meow prefaulting
+            'commitstats': list(self.commitstats),  # last X tuple(time,replaylogsize,commit time)
         }
 
     def _acqXactForReading(self):
@@ -1420,8 +1423,15 @@ class Slab(s_base.Base):
         if not self.dirty:
             return False
 
+        xactopslen = len(self.xactops)
+
         # ok... lets commit and re-open
+        starttime = s_common.now()
         self._finiCoXact()
+        donetime = s_common.now()
+
+        self.commitstats.append((starttime, xactopslen, donetime - starttime))
+
         self._initCoXact()
         return True
 
