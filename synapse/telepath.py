@@ -726,7 +726,7 @@ class Client(s_base.Base):
 
     def __getattr__(self, name):
         if self._t_methinfo is None:
-            raise s_exc.NotReady(mesg='Must call waitForReady on Client before first method call')
+            raise s_exc.NotReady(mesg='Must call waitready() on Client before first method call')
 
         info = self._t_methinfo.get(name)
         if info is not None and info.get('genr'):
