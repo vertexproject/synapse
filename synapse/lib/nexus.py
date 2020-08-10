@@ -113,9 +113,10 @@ class NexsRoot(s_base.Base):
         self.onfini(fini)
 
     @contextlib.contextmanager
-    def _getResponseFuture(self):
+    def _getResponseFuture(self, iden=None):
 
-        iden = s_common.guid()
+        if iden is None:
+            iden = s_common.guid()
         futu = self.loop.create_future()
 
         self._futures[iden] = futu
@@ -174,14 +175,17 @@ class NexsRoot(s_base.Base):
             mesg = 'Mirror cannot reach leader for write request'
             raise s_exc.LinkErr(mesg=mesg) from None
 
-        with self._getResponseFuture() as (iden, futu):
+        if meta is None:
+            meta = {}
 
-            if meta is None:
-                meta = {}
+        # If this issue came from a downstream mirror, just in case I'm forwarding to upstream mirror,
+        # make my response iden the same as what's coming from downstream
+
+        with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
 
             meta['resp'] = iden
 
-            await self.client.issue(nexsiden, event, args, kwargs, meta)
+            await client.issue(nexsiden, event, args, kwargs, meta)
             return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def eat(self, nexsiden, event, args, kwargs, meta):

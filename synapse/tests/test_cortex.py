@@ -3758,6 +3758,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.fail('Should never get here.')
 
                 core01conf = {'mirror': url}
+
                 async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
 
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
@@ -3835,6 +3836,79 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn=path00, conf=new_conf) as core00:
                     await core00.sync()
                     self.len(1, await core00.nodes('inet:ipv4=9.9.9.8'))
+
+    async def test_cortex_mirror_of_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+            path02 = s_common.gendir(dirn, 'core02')
+            path02a = s_common.gendir(dirn, 'core02a')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+            s_tools_backup.backup(path00, path01)
+            s_tools_backup.backup(path01, path02)
+            s_tools_backup.backup(path01, path02a)
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                self.false(core00.conf.get('mirror'))
+
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.nodes('$lib.queue.add(hehe)')
+                q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
+                await core00.nodes(q)
+
+                url = core00.getLocalUrl()
+
+                core01conf = {'mirror': url}
+                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                    url2 = core01.getLocalUrl()
+
+                    core02conf = {'mirror': url2}
+                    async with await s_cortex.Cortex.anit(dirn=path02, conf=core02conf) as core02:
+
+                        await core00.nodes('[ inet:fqdn=vertex.link ]')
+                        await core00.nodes('queue.add visi')
+
+                        await core01.sync()
+                        self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
+
+                        await core02.sync()
+
+                        self.len(1, await core02.nodes('inet:fqdn=vertex.link'))
+
+                        # Changes from the bottom get dispersed
+                        self.len(1, await core02.nodes('[ inet:fqdn=test.vertex.link ]'))
+                        self.len(1, await core00.nodes('inet:fqdn=test.vertex.link'))
+                        self.len(1, await core01.nodes('inet:fqdn=test.vertex.link'))
+
+                        # Changes from the middle get dispersed
+                        self.len(1, await core01.nodes('[ inet:fqdn=test2.vertex.link ]'))
+                        self.len(1, await core00.nodes('inet:fqdn=test2.vertex.link'))
+                        await core02.sync()
+                        self.len(1, await core02.nodes('inet:fqdn=test2.vertex.link'))
+
+                        # Bring up a sibling mirror to the bottom
+                        async with await s_cortex.Cortex.anit(dirn=path02a, conf=core02conf) as core02a:
+                            self.len(1, await core02a.nodes('[ inet:fqdn=test3.vertex.link ]'))
+                            self.len(1, await core02a.nodes('inet:fqdn=test2.vertex.link'))
+
+                            # Make sure sibling can see changes from other sibling
+                            await core02.sync()
+                            self.len(1, await core02.nodes('inet:fqdn=test3.vertex.link'))
+
+                            logentrycount00 = await core00.nexsroot.index()
+                            logentrycount01 = await core01.nexsroot.index()
+                            logentrycount02 = await core02.nexsroot.index()
+                            logentrycount02a = await core02a.nexsroot.index()
+
+                            self.eq(logentrycount00, logentrycount01)
+                            self.eq(logentrycount01, logentrycount02)
+                            self.eq(logentrycount02, logentrycount02a)
 
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
