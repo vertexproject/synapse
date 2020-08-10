@@ -56,3 +56,14 @@ class MacroTest(s_test.SynTest):
             self.stormIsInPrint('Removed macro: hehe', msgs)
 
             self.none(await core.callStorm('return($lib.macro.get(hehe))'))
+
+            # Make a macro that operates on a variable to make a node
+            q = 'macro.set data ${ [test:str=$data.value +#cool.story ] }'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('Set macro: data', msgs)
+
+            data = {'value': 'stuff'}
+            q = 'macro.exec data'
+            nodes = await core.nodes(q, opts={'vars': {'data': data}})
+            self.len(1, nodes)
+            self.eq(('test:str', 'stuff'), nodes[0].ndef)
