@@ -7,6 +7,7 @@ import synapse.common as s_common
 
 from unittest.mock import patch
 
+import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
@@ -32,7 +33,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
-
             async with await s_lmdbslab.Slab.anit(path) as slab:
 
                 testdb = slab.initdb('test')
@@ -40,16 +40,19 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 editdb = slab.initdb('edit')
 
                 self.eq((), list(slab.scanKeys(db=testdb)))
+                self.eq((), list(slab.scanByDupsBack(b'asdf', db=dupsdb)))
 
                 slab.put(b'hehe', b'haha', db=dupsdb)
                 slab.put(b'hehe', b'lolz', db=dupsdb)
                 slab.put(b'hoho', b'asdf', db=dupsdb)
 
+                self.eq((), list(slab.scanByDupsBack(b'h\x00', db=dupsdb)))
+
                 slab.put(b'hehe', b'haha', db=testdb)
                 slab.put(b'hoho', b'haha', db=testdb)
 
                 testgenr = slab.scanKeys(db=testdb)
-                dupsgenr = slab.scanKeys(db=testdb)
+                dupsgenr = slab.scanKeys(db=dupsdb)
 
                 testlist = [next(testgenr)]
                 dupslist = [next(dupsgenr)]
@@ -63,7 +66,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 dupslist.extend(dupsgenr)
 
                 self.eq(testlist, (b'hehe', b'hoho'))
-                self.eq(dupslist, (b'hehe', b'hoho'))
+                self.eq(dupslist, (b'hehe', b'hehe', b'hoho'))
 
                 # now lets delete the key we're on
                 testgenr = slab.scanKeys(db=testdb)
@@ -131,7 +134,24 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(slab.scanByDups(b'\x00\x04', db=bar))
             self.eq(items, ())
 
+            self.true(slab.prefexists(b'\x00', db=baz))
+            self.true(slab.prefexists(b'\x00\x01', db=baz))
+            self.false(slab.prefexists(b'\x00\x03', db=baz))
+            self.false(slab.prefexists(b'\x02', db=baz))
+            self.true(slab.prefexists(b'\xff\xff', db=baz))
+            self.false(slab.prefexists(b'\xff\xff', db=foo))
+
+            self.true(slab.rangeexists(b'\x00', b'\x01', db=baz))
+            self.true(slab.rangeexists(b'\x00\x00', b'\x00\x04', db=baz))
+            self.false(slab.rangeexists(b'\x00\x04', b'\x01', db=baz))
+            self.true(slab.rangeexists(b'\x05', None, db=baz))
+            self.false(slab.rangeexists(b'\xfa', b'\xfc', db=baz))
+            self.false(slab.rangeexists(b'\x00\x00', b'\x00\x00', db=foo))
+            self.false(slab.rangeexists(b'\x01\x04', b'\x01\x05', db=foo))
+
             # backwards scan tests
+            items = list(slab.scanByRangeBack(b'\x00', db=foo))
+            self.eq(items, ())
 
             items = list(slab.scanByPrefBack(b'\x00', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
@@ -254,6 +274,28 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.raises(s_exc.IsFini, next, scan)
             self.raises(s_exc.IsFini, next, scanback)
 
+    async def test_lmdbslab_max_replay(self):
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+
+            my_maxlen = 100
+
+            # Make sure that we don't confuse the periodic commit with the max replay log commit
+
+            with patch('synapse.lib.lmdbslab.Slab.COMMIT_PERIOD', 10):
+                async with await s_lmdbslab.Slab.anit(path, map_size=100000, max_replay_log=my_maxlen) as slab:
+                    foo = slab.initdb('foo', dupsort=True)
+                    byts = b'\x00' * 256
+
+                    waiter = s_base.Waiter(slab, 1, 'commit')
+
+                    for i in range(150):
+                        slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+
+                    self.true(slab.syncevnt.is_set())
+
+                    self.len(1, await waiter.wait(timeout=1))
+
     async def test_lmdbslab_maxsize(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'test.lmdb')
@@ -284,6 +326,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 foo = slab.initdb('foo', dupsort=True)
                 foo2 = slab.initdb('foo2', dupsort=False)
+                bar = slab.initdb('bar', dupsort=True)
 
                 multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
 
@@ -292,11 +335,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     slab.put(multikey, s_common.int64en(i), dupdata=True, db=foo)
                     slab.put(s_common.int64en(i), byts, db=foo2)
 
-                iter = slab.scanByDups(multikey, db=foo)
+                iter1 = slab.scanByDups(multikey, db=foo)
                 iter2 = slab.scanByFull(db=foo2)
 
                 for _ in range(6):
-                    next(iter)
+                    next(iter1)
                     next(iter2)
 
                 iterback = slab.scanByDupsBack(multikey, db=foo)
@@ -325,10 +368,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 slab.forcecommit()
 
-                self.raises(StopIteration, next, iter)
+                self.raises(StopIteration, next, iter1)
                 self.raises(StopIteration, next, iter2)
-                self.eq(5, sum(1 for _ in iterback))
-                self.eq(5, sum(1 for _ in iterback2))
+                self.len(5, iterback)
+                self.len(5, iterback2)
 
                 # Delete all the keys in front of a backwards scan
                 for i in range(4):
@@ -344,6 +387,22 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.raises(StopIteration, next, iterback5)
                 self.raises(StopIteration, next, iterback6)
+
+                slab.put(b'\x00', b'asdf', dupdata=True, db=bar)
+                slab.put(b'\x01', b'qwer', dupdata=True, db=bar)
+                iterback = slab.scanByRangeBack(b'\x00', db=bar)
+                self.eq((b'\x00', b'asdf'), next(iterback))
+                slab.delete(b'\x00', b'asdf', db=bar)
+                slab.forcecommit()
+                self.raises(StopIteration, next, iterback)
+
+                # range scan where we delete the entry we're on
+                # and it's the only thing in the slab.
+                iterrange = slab.scanByRange(b'\x00', db=bar)
+                self.eq((b'\x01', b'qwer'), next(iterrange))
+                slab.delete(b'\x01', b'qwer', db=bar)
+                slab.forcecommit()
+                self.raises(StopIteration, next, iterrange)
 
     async def test_lmdbslab_scanbump2(self):
 
@@ -516,6 +575,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.delete(b'1', val=b'2', db=dupndb)
                 self.eq((b'1', b'1'), next(it))
                 self.raises(StopIteration, next, it)
+
+    async def test_lmdbslab_count_empty(self):
+
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+                self.eq(0, await slab.countByPref(b'asdf'))
 
     async def test_lmdbslab_grow(self):
 
@@ -707,7 +773,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.true(info0.pop('woot', s_common.novalu) is s_common.novalu)
 
                 # Sad path case
-                self.raises(TypeError, info0.set, 'newp', {1, 2, 3})
+                self.raises(s_exc.NotMsgpackSafe, info0.set, 'newp', {1, 2, 3})
 
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 guidstor = s_lmdbslab.GuidStor(slab, 'guids')
@@ -828,7 +894,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchName):
                     mque.status('woot')
 
+                with self.raises(s_exc.NoSuchName):
+                    await mque.cull('woot', -1)
+
+                with self.raises(s_exc.NoSuchName):
+                    await mque.dele('woot', 1, 1)
+
+                with self.raises(s_exc.NoSuchName):
+                    await mque.sets('woot', 1, ('lols',))
+
                 await mque.add('woot', {'some': 'info'})
+                await self.asyncraises(s_exc.DupName, mque.add('woot', {}))
 
                 self.true(mque.exists('woot'))
 
@@ -838,36 +914,44 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.eq(3, mque.size('woot'))
 
+                self.eq(3, await mque.put('woot', 'lol', reqid='foo'))
+                self.eq(4, await mque.put('woot', 'lol', reqid='foo'))
+                self.eq(4, await mque.put('woot', 'lol', reqid='foo'))
+
+                self.eq(4, await mque.puts('woot', ('lol2', 'lol3'), reqid='foo2'))
+                self.eq(6, await mque.puts('woot', ('lol2', 'lol3'), reqid='foo2'))
+                self.eq(6, await mque.puts('woot', ('lol2', 'lol3'), reqid='foo2'))
+
                 self.eq((0, 'hehe'), await mque.get('woot', 0))
                 self.eq((1, 'haha'), await mque.get('woot', 1))
                 self.eq((1, 'haha'), await mque.get('woot', 0))
 
                 self.eq((-1, None), await mque.get('woot', 1000, cull=False))
 
-                self.eq(2, mque.size('woot'))
+                self.eq(5, mque.size('woot'))
 
                 status = mque.list()
                 self.len(1, status)
                 self.eq(status[0], {'name': 'woot',
                                     'meta': {'some': 'info'},
-                                    'size': 2,
-                                    'offs': 3,
+                                    'size': 5,
+                                    'offs': 6,
                                     })
 
                 await mque.cull('woot', -1)
                 self.eq(mque.status('woot'), status[0])
 
-                await self.asyncraises(s_exc.DupName, mque.add('woot', {}))
-
             async with await s_lmdbslab.Slab.anit(path) as slab:
 
                 mque = await slab.getMultiQueue('test')
 
-                self.eq(2, mque.size('woot'))
-                self.eq(3, mque.offset('woot'))
+                self.eq(5, mque.size('woot'))
+                self.eq(6, mque.offset('woot'))
 
                 self.eq(((1, 'haha'), ), [x async for x in mque.gets('woot', 0, size=1)])
-                self.eq(((1, 'haha'), (2, 'hoho')), [x async for x in mque.gets('woot', 0)])
+
+                correct = ((1, 'haha'), (2, 'hoho'), (3, 'lol'), (4, 'lol2'), (5, 'lol3'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
 
                 data = []
                 evnt = asyncio.Event()
@@ -885,16 +969,16 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 task = slab.schedCoro(getswait())
 
-                await asyncio.wait_for(evnt.wait(), 2)
+                await asyncio.wait_for(evnt.wait(), 5)
 
-                self.eq(data, ((1, 'haha'), (2, 'hoho')))
+                self.eq(data, correct)
 
                 await mque.put('woot', 'lulz')
                 await mque.put('woot', None)
 
                 await asyncio.wait_for(task, 2)
 
-                self.eq(data, ((1, 'haha'), (2, 'hoho'), (3, 'lulz')))
+                self.eq(data, (*correct, (6, 'lulz')))
 
                 self.true(mque.exists('woot'))
 
@@ -906,6 +990,113 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.false(mque.exists('woot'))
 
+                await mque.add('woot', {'some': 'info'})
+                self.eq(0, await mque.put('woot', 'hehe'))
+                self.eq(1, await mque.put('woot', 'haha'))
+                self.eq(2, await mque.put('woot', 'hoho'))
+
+                self.eq(3, mque.size('woot'))
+                self.eq(3, mque.offset('woot'))
+
+                # Replace one item in the queue
+                await mque.sets('woot', 1, ('lol',))
+                self.eq(3, mque.size('woot'))
+                self.eq(3, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (1, 'lol'), (2, 'hoho'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Replace multiple items in the queue
+                await mque.sets('woot', 1, ('lol2', 'lol3'))
+                self.eq(3, mque.size('woot'))
+                self.eq(3, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (1, 'lol2'), (2, 'lol3'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Replace items going past the end of the current queue
+                await mque.sets('woot', 2, ('lol4', 'lol5', 'lol6'))
+                self.eq(5, mque.size('woot'))
+                self.eq(5, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (1, 'lol2'), (2, 'lol4'), (3, 'lol5'), (4, 'lol6'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Delete from the middle of the queue
+                await mque.dele('woot', 1, 3)
+                self.eq(2, mque.size('woot'))
+                self.eq(5, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (4, 'lol6'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Add items in the gap we created
+                await mque.sets('woot', 2, ('lol7', 'lol8'))
+                self.eq(4, mque.size('woot'))
+                self.eq(5, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'), (3, 'lol8'), (4, 'lol6'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Delete a partially empty range
+                await mque.dele('woot', 3, 10)
+                self.eq(2, mque.size('woot'))
+                self.eq(5, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Delete a completely empty range
+                await mque.dele('woot', 100, 150)
+                self.eq(2, mque.size('woot'))
+                self.eq(5, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Set items past the end of the current queue
+                await mque.sets('woot', 200, ('lol9', 'lol0'))
+                self.eq(4, mque.size('woot'))
+                self.eq(202, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'), (200, 'lol9'), (201, 'lol0'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
+                # Adding items past the current end of queue should wake waiters
+                data = []
+
+                async def getswait():
+                    async for item in mque.gets('woot', 0, wait=True):
+
+                        data.append(item)
+
+                        if item[1] == 'lol0':
+                            break
+
+                task = slab.schedCoro(getswait())
+
+                await mque.sets('woot', 201, ('lol9', 'lol0'))
+                await asyncio.wait_for(task, 2)
+
+                self.eq(5, mque.size('woot'))
+                self.eq(203, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'), (200, 'lol9'), (201, 'lol9'), (202, 'lol0'))
+                self.eq(data, correct)
+
+                # Invalid offsets that won't do anything
+                await mque.dele('woot', -1, 20)
+                await mque.dele('woot', -5, -1)
+                await mque.dele('woot', 5, 1)
+                await mque.dele('woot', 5, -1)
+                await mque.sets('woot', -1, ('lolz', 'lol'))
+
+                self.eq(5, mque.size('woot'))
+                self.eq(203, mque.offset('woot'))
+
+                correct = ((0, 'hehe'), (2, 'lol7'), (200, 'lol9'), (201, 'lol9'), (202, 'lol0'))
+                self.eq(correct, [x async for x in mque.gets('woot', 0)])
+
     async def test_slababrv(self):
         with self.getTestDir() as dirn:
 
@@ -914,15 +1105,15 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 abrv = s_lmdbslab.SlabAbrv(slab, 'test')
 
-                valu = abrv.nameToAbrv('hehe')
+                valu = abrv.setBytsToAbrv('hehe'.encode())
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
-                valu = abrv.nameToAbrv('haha')
+                valu = abrv.setBytsToAbrv('haha'.encode())
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
                 name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x01')
                 self.eq(name, b'haha')
 
-                self.none(abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+                self.raises(s_exc.NoSuchAbrv, abrv.abrvToByts, b'\x00\x00\x00\x00\x00\x00\x00\x02')
 
             # And persistence
             async with await s_lmdbslab.Slab.anit(path) as slab:
@@ -943,14 +1134,32 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq('haha', abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01'))
 
                 # And we still have no valu for 02
-                self.none(abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+                self.raises(s_exc.NoSuchAbrv, abrv.abrvToByts, b'\x00\x00\x00\x00\x00\x00\x00\x02')
 
                 # And we don't overwrite existing values on restart
-                valu = abrv.nameToAbrv('hoho')
+                valu = abrv.setBytsToAbrv('hoho'.encode())
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x02')
 
                 valu = abrv.nameToAbrv('haha')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
+    async def test_lmdbslab_hotkeyval(self):
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab, \
+                    await s_lmdbslab.HotKeyVal.anit(slab, 'counts') as ctr:
+                self.eq(None, ctr.get('foo'))
+                self.eq({}, ctr.pack())
+                ctr.set('foo', 1)
+                ctr.set('bar', {'val': 42})
+                self.eq({'foo': 1, 'bar': {'val': 42}}, ctr.pack())
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab, \
+                    await s_lmdbslab.HotKeyVal.anit(slab, 'counts') as ctr:
+                self.eq({'foo': 1, 'bar': {'val': 42}}, ctr.pack())
+                self.eq({'val': 42}, ctr.get('bar'))
 
     async def test_lmdbslab_hotcount(self):
 
@@ -998,6 +1207,50 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # Can't re-open while already open
                 await self.asyncraises(s_exc.SlabAlreadyOpen, s_lmdbslab.Slab.anit(path))
+
+    async def test_lmdbslab_copyslab(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            copypath = os.path.join(dirn, 'copy.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                foo = slab.initdb('foo')
+                slab.put(b'\x00\x01', b'hehe', db=foo)
+
+                await slab.copyslab(copypath)
+
+                self.true(pathlib.Path(copypath).with_suffix('.opts.yaml').exists())
+
+                async with await s_lmdbslab.Slab.anit(copypath) as slabcopy:
+                    foo = slabcopy.initdb('foo')
+                    self.eq(b'hehe', slabcopy.get(b'\x00\x01', db=foo))
+
+                await self.asyncraises(s_exc.DataAlreadyExists, slab.copyslab(copypath))
+
+    async def test_lmdbslab_statinfo(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                foo = slab.initdb('foo')
+
+                slab.put(b'\x00\x01', b'hehe', db=foo)
+                slab.put(b'\x00\x02', b'haha', db=foo)
+                await slab.sync()
+
+                stats = slab.statinfo()
+
+                self.false(stats['locking_memory'])
+                self.false(stats['prefaulting'])
+
+                commitstats = stats['commitstats']
+                self.len(2, commitstats)
+                self.eq(2, commitstats[-1][1])
 
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 

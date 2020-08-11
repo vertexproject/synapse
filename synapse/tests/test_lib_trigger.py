@@ -119,6 +119,20 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=beep .test:univ=1 ]')
             self.len(1, await core.nodes('test:guid#propsetuniv2'))
 
+            # Add trigger with iden
+            iden = s_common.guid()
+            tdef0 = {'cond': 'node:add', 'storm': '[ +#withiden ]', 'form': 'test:int', 'iden': iden}
+            await view.addTrigger(tdef0)
+            self.nn(await view.getTrigger(iden))
+            await core.nodes('[ test:int=77 ]')
+            self.len(1, await core.nodes('test:int#withiden'))
+
+            # Attempting to add trigger with existing iden raises
+            with self.raises(s_exc.DupIden):
+                tdef = {'cond': 'node:add', 'storm': '[ +#dupiden ]', 'form': 'test:int', 'iden': iden}
+                await view.addTrigger(tdef)
+            self.eq(tdef0, (await view.getTrigger(iden)).tdef)
+
             # Bad trigger parms
             with self.raises(s_exc.BadConfValu):
                 await view.addTrigger({'cond': 'nocond', 'storm': 'test:int=4', 'form': 'test:str'})
@@ -139,13 +153,19 @@ class TrigTest(s_t_utils.SynTest):
                 tdef = {'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]', 'tag': 'foo', 'prop': 'test:str'}
                 await view.addTrigger(tdef)
 
+            with self.raises(s_exc.BadConfValu):
+                await view.addTrigger({'cond': 'node:add', 'storm': 'test:int=4', 'form': 'test:str', 'iden': 'foo'})
+
             # bad tagmatch
             with self.raises(s_exc.BadConfValu):
                 await view.addTrigger({'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]', 'tag': 'foo&baz'})
 
             # Trigger list
             triglist = await view.listTriggers()
-            self.len(10, triglist)
+            self.len(11, triglist)
+
+            # Delete not a trigger
+            await self.asyncraises(s_exc.NoSuchIden, view.delTrigger('foo'))
 
             # Delete trigger
             iden = [iden for iden, r in triglist if r.tdef['cond'] == 'prop:set'][0]
@@ -192,7 +212,8 @@ class TrigTest(s_t_utils.SynTest):
 
                 # Mod trigger auth failure
                 opts = {'vars': {'iden': iden}}
-                await self.asyncraises(s_exc.AuthDeny, fred.callStorm('$lib.trigger.get($iden)', opts=opts))
+                await self.asyncraises(s_exc.StormRuntimeError,
+                                       fred.callStorm('$lib.trigger.mod($iden, "{#foo}")', opts=opts))
 
             # additional NoSuchIden failures
             await self.asyncraises(s_exc.NoSuchIden, view.getTrigger('newp'))
@@ -287,10 +308,10 @@ class TrigTest(s_t_utils.SynTest):
                 trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=opts)
                 iden0 = trig['iden']
 
-                tdef = {'cond': 'node:add', 'form': 'inet:ipv6', 'storm': '[ +#foo ]'}
+                iden1 = s_common.guid()
+                tdef = {'cond': 'node:add', 'form': 'inet:ipv6', 'storm': '[ +#foo ]', 'iden': iden1}
                 opts = {'vars': {'tdef': tdef}}
                 trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=opts)
-                iden1 = trig['iden']
 
                 nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
                 self.nn(nodes[0].tags.get('foo'))

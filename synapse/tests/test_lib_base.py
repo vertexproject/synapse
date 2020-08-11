@@ -37,6 +37,12 @@ class Hehe(s_base.Base):
         await s_base.Base.__anit__(self)
         self.foo = foo
         self.bar = self.foo + 10
+        self.posted = False
+
+    async def postAnit(self):
+        self.posted = True
+        if self.foo == -1:
+            raise s_exc.BadArg(mesg='boom')
 
 class BaseTest(s_t_utils.SynTest):
 
@@ -58,6 +64,11 @@ class BaseTest(s_t_utils.SynTest):
         afoo = await Hehe.anit(20)
         self.eq(afoo.foo, 20)
         self.eq(afoo.bar, 30)
+        self.true(afoo.posted)
+
+        with self.raises(s_exc.BadArg) as cm:
+            await Hehe.anit(-1)
+        self.eq(cm.exception.get('mesg'), 'boom')
 
     async def test_coro_fini(self):
 

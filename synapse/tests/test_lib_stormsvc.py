@@ -8,6 +8,8 @@ import synapse.tests.utils as s_test
 import synapse.lib.cell as s_cell
 import synapse.lib.stormsvc as s_stormsvc
 
+import synapse.tools.backup as s_tools_backup
+
 old_pkg = {
     'name': 'old',
     'version': (0, 0, 1),
@@ -80,13 +82,13 @@ new_pkg = {
 class OldServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'chng'
     _storm_svc_pkgs = (
-        old_pkg,
+        old_pkg,  # type: ignore
     )
 
 class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'chng'
     _storm_svc_pkgs = (
-        new_old_pkg,
+        new_old_pkg,  # type: ignore
         new_pkg,
     )
 
@@ -111,7 +113,7 @@ class ChangingService(s_cell.Cell):
 class RealService(s_stormsvc.StormSvc):
     _storm_svc_name = 'real'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'foo',
             'version': (0, 0, 1),
             'modules': (
@@ -135,6 +137,10 @@ class RealService(s_stormsvc.StormSvc):
                     ),
                     'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
                 },
+                {
+                    'name': 'yoyo',
+                    'storm': 'for $ipv4 in $lib.service.get($cmdconf.svciden).ipv4s() { [inet:ipv4=$ipv4] }',
+                },
             )
         },
     )
@@ -156,10 +162,27 @@ class RealService(s_stormsvc.StormSvc):
         yield '5.5.5.5'
         yield '123.123.123.123'
 
+class NodeCreateService(s_stormsvc.StormSvc):
+    _storm_svc_name = 'ncreate'
+    _storm_svc_pkgs = (
+        {
+            'name': 'ncreate',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'baz',
+                    'storm': '''
+                    [inet:ipv4=8.8.8.8]
+                    ''',
+                },
+            )
+        },
+    )
+
 class BoomService(s_stormsvc.StormSvc):
     _storm_svc_name = 'boom'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'boom',
             'version': (0, 0, 1),
             'modules': (
@@ -189,7 +212,7 @@ class BoomService(s_stormsvc.StormSvc):
 class DeadService(s_stormsvc.StormSvc):
     _storm_svc_name = 'dead'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'dead',
             'version': (0, 0, 1),
             'commands': (
@@ -216,13 +239,13 @@ class NoService:
 class LifterService(s_stormsvc.StormSvc):
     _storm_svc_name = 'lifter'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'lifter',
             'version': (0, 0, 1),
             'commands': (
                 {
                     'name': 'lifter',
-                    'desc': 'Lift inet:ipv4=1.2.3.4',
+                    'descr': 'Lift inet:ipv4=1.2.3.4',
                     'storm': 'inet:ipv4=1.2.3.4',
                 },
             ),
@@ -240,16 +263,21 @@ class LifterService(s_stormsvc.StormSvc):
 class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'stormvar'
     _storm_svc_pkgs = (
-        {
+        {  # type: ignore
             'name': 'stormvar',
             'version': (0, 0, 1),
             'commands': (
                 {
                     'name': 'magic',
+                    'descr': 'Test stormvar support.',
                     'cmdargs': (
                         ('name', {}),
                         ('--debug', {'default': False, 'action': 'store_true'})
                     ),
+                    'forms': {
+                        'input': ('test:str', 'test:int'),
+                        'output': ('test:comp', 'inet:ipv4'),
+                    },
                     'storm': '''
                     $fooz = $cmdopts.name
                     if $cmdopts.debug {
@@ -263,6 +291,7 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
     )
 
 class StormvarServiceCell(s_cell.Cell):
+
     cellapi = StormvarService
 
 @contextlib.contextmanager
@@ -324,8 +353,9 @@ class StormSvcTest(s_test.SynTest):
                 await core.nodes('$lib.service.wait(fake)')
 
                 core.svcsbyname['fake'].proxy._t_conf['timeout'] = 0.1
+                proxy = core.svcsbyname['fake'].proxy._t_proxy
 
-            await core.svcsbyname['fake'].proxy._t_proxy.waitfini(6)
+            self.true(await proxy.waitfini(6))
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
@@ -347,7 +377,7 @@ class StormSvcTest(s_test.SynTest):
 
             await core.setStormCmd(cdef)
 
-            nodes = await core.nodes('[ test:str=asdf ] | lulz')
+            await core.nodes('[ test:str=asdf ] | lulz')
 
     async def test_storm_pkg_persist(self):
 
@@ -369,6 +399,37 @@ class StormSvcTest(s_test.SynTest):
             async with await s_cortex.Cortex.anit(dirn) as core:
                 nodes = await core.nodes('foobar')
                 self.eq(nodes[0].ndef, ('inet:asn', 30))
+
+    async def test_storm_svc_nodecreate(self):
+        '''
+        Regression test for var leakage
+        '''
+        with self.getTestDir() as dirn:
+
+            async with self.getTestDmon() as dmon:
+
+                dmon.share('real', RealService())
+                dmon.share('ncreate', NodeCreateService())
+
+                host, port = dmon.addr
+
+                lurl = f'tcp://127.0.0.1:{port}/real'
+                murl = f'tcp://127.0.0.1:{port}/ncreate'
+
+                async with await s_cortex.Cortex.anit(dirn) as core:
+
+                    await core.nodes(f'service.add real {lurl}')
+                    await core.nodes(f'service.add ncreate {murl}')
+
+                    await core.nodes('$lib.service.wait(real)')
+                    await core.nodes('$lib.service.wait(ncreate)')
+
+                    await core.nodes('[inet:ipv4=1.2.3.3]')
+
+                    # baz yields inbound *and* a new node
+                    # yoyo calls cmdconf.svciden in an iterator
+                    nodes = await core.nodes('inet:ipv4=1.2.3.3 | baz | yoyo')
+                    self.len(5, {n.ndef for n in nodes})
 
     async def test_storm_svcs(self):
 
@@ -512,6 +573,7 @@ class StormSvcTest(s_test.SynTest):
                     self.eq(ans, reprs)
 
                     badiden = []
+
                     async def badSetStormSvcEvents(iden, evts):
                         badiden.append(iden)
                         raise s_exc.SynErr('Kaboom')
@@ -576,7 +638,7 @@ class StormSvcTest(s_test.SynTest):
                     self.true(await waiter.wait(10))
                     async with await ChangingService.anit(svcd, {'updated': True}) as chng:
                         chng.dmon.share('chng', chng)
-                        _ = await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
+                        await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
 
                         await core.nodes('$lib.service.wait(chng)')
 
@@ -595,24 +657,26 @@ class StormSvcTest(s_test.SynTest):
                         pkg = await core.getStormPkg('old')
                         self.eq(pkg.get('version'), (0, 1, 0))
 
-                    cdef = OldServiceAPI._storm_svc_pkgs[0].get('commands')[-1]
-                    cdef['cmdconf'] = {'svciden': 'fakeiden'}
-                    await core.setStormCmd(cdef)
-                    self.nn(core.getStormCmd('oldcmd'))
+            # This test verifies that storm commands loaded from a previously connected service are still available,
+            # even if the service is not available now
+            with self.getLoggerStream('synapse.lib.nexus') as stream:
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    self.nn(core.getStormCmd('newcmd'))
+                    self.nn(core.getStormCmd('new.baz'))
+                    self.nn(core.getStormCmd('old.bar'))
+                    self.nn(core.getStormCmd('runtecho'))
+                    self.none(core.getStormCmd('oldcmd'))
+                    self.none(core.getStormCmd('old.baz'))
+                    self.isin('old', core.stormpkgs)
+                    self.isin('new', core.stormpkgs)
+                    self.isin('echo', core.stormmods)
+                    self.isin('old.bar', core.stormmods)
+                    self.isin('new.baz', core.stormmods)
+                    self.notin('old.baz', core.stormmods)
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
-                self.nn(core.getStormCmd('newcmd'))
-                self.nn(core.getStormCmd('new.baz'))
-                self.nn(core.getStormCmd('old.bar'))
-                self.nn(core.getStormCmd('runtecho'))
-                self.none(core.getStormCmd('oldcmd'))
-                self.none(core.getStormCmd('old.baz'))
-                self.isin('old', core.stormpkgs)
-                self.isin('new', core.stormpkgs)
-                self.isin('echo', core.stormmods)
-                self.isin('old.bar', core.stormmods)
-                self.isin('new.baz', core.stormmods)
-                self.notin('old.baz', core.stormmods)
+            stream.seek(0)
+            mesgs = stream.read()
+            self.notin('Exception while replaying', mesgs)
 
     async def test_storm_vars(self):
 
@@ -649,3 +713,74 @@ class StormSvcTest(s_test.SynTest):
             self.stormIsInPrint('DEBUG: fooz=1.2.3.4', msgs)
             self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
             self.stormIsInPrint('DEBUG: fooz=5.6.7.8', msgs)
+
+    async def test_storm_svc_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestDmon() as dmon:
+
+                dmon.share('real', RealService())
+                host, port = dmon.addr
+                lurl = f'tcp://127.0.0.1:{port}/real'
+
+                async with self.getTestCore(dirn=path00) as core00:
+                    await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                s_tools_backup.backup(path00, path01)
+
+                async with self.getTestCore(dirn=path00) as core00:
+
+                    url = core00.getLocalUrl()
+
+                    conf = {'mirror': url}
+                    async with await s_cortex.Cortex.anit(dirn=path01, conf=conf) as core01:
+
+                        await core01.sync()
+
+                        # Add a storm service
+                        await core01.nodes(f'service.add real {lurl}')
+                        await core01.nodes('$lib.service.wait(real)')
+
+                        # Make sure it shows up on leader
+                        msgs = await core00.stormlist('help')
+                        self.stormIsInPrint('service: real', msgs)
+                        self.stormIsInPrint('package: foo', msgs)
+                        self.stormIsInPrint('foobar', msgs)
+                        self.isin('foo.bar', core00.stormmods)
+
+                        queue = core00.multiqueue.list()
+                        self.len(1, queue)
+                        self.eq('vertex', queue[0]['name'])
+                        self.nn(core00.getStormCmd('ohhai'))
+
+                        # Make sure it shows up on mirror
+                        msgs = await core01.stormlist('help')
+                        self.stormIsInPrint('service: real', msgs)
+                        self.stormIsInPrint('package: foo', msgs)
+                        self.stormIsInPrint('foobar', msgs)
+                        self.isin('foo.bar', core01.stormmods)
+
+                        queue = core01.multiqueue.list()
+                        self.len(1, queue)
+                        self.eq('vertex', queue[0]['name'])
+                        self.nn(core01.getStormCmd('ohhai'))
+
+                        # Delete storm service
+                        iden = core01.getStormSvcs()[0].iden
+                        await core01.delStormSvc(iden)
+                        await core01.sync()
+
+                        # Make sure it got removed from both
+                        self.none(core00.getStormCmd('ohhai'))
+                        queue = core00.multiqueue.list()
+                        self.len(0, queue)
+                        self.notin('foo.bar', core00.stormmods)
+
+                        self.none(core01.getStormCmd('ohhai'))
+                        queue = core01.multiqueue.list()
+                        self.len(0, queue)
+                        self.notin('foo.bar', core01.stormmods)

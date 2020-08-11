@@ -146,10 +146,13 @@ class LinkShutDown(LinkErr): pass
 class NoCertKey(SynErr):
     ''' Raised when a Cert object requires a RSA Private Key to perform an operation and the key is not present.  '''
     pass
+class NoSuchCert(SynErr): pass
 
 class ModAlreadyLoaded(SynErr): pass
 class MustBeJsonSafe(SynErr): pass
+class NotMsgpackSafe(SynErr): pass
 
+class NoSuchAbrv(SynErr): pass
 class NoSuchAct(SynErr): pass
 class NoSuchAuthGate(SynErr): pass
 class NoSuchCmd(SynErr): pass
@@ -207,6 +210,7 @@ class SchemaViolation(SynErr): pass
 
 class SlabAlreadyOpen(SynErr): pass
 class SpawnExit(SynErr): pass
+class FeatureNotSupported(SynErr): pass
 
 class ReadOnlyLayer(SynErr): pass
 class ReadOnlyProp(SynErr): pass
@@ -227,3 +231,16 @@ class StormRuntimeError(SynErr): pass
 class StormVarListError(StormRuntimeError): pass
 
 class TeleRedir(SynErr): pass
+
+class StormCtrlFlow(Exception):
+    def __init__(self, item=None):
+        self.item = item
+
+class StormBreak(StormCtrlFlow):
+    pass
+
+class StormContinue(StormCtrlFlow):
+    pass
+
+class StormReturn(StormCtrlFlow):
+    pass

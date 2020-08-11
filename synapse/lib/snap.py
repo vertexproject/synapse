@@ -140,7 +140,12 @@ class Snap(s_base.Base):
         if user is None:
             user = self.user
 
-        query = self.core.getStormQuery(text)
+        if opts is None:
+            opts = {}
+
+        mode = opts.get('mode', 'storm')
+
+        query = self.core.getStormQuery(text, mode=mode)
         with self.getStormRuntime(opts=opts, user=user) as runt:
             async for x in runt.iterStormQuery(query):
                 yield x
@@ -153,8 +158,13 @@ class Snap(s_base.Base):
         if user is None:
             user = self.user
 
+        if opts is None:
+            opts = {}
+
+        mode = opts.get('mode', 'storm')
+
         # maintained for backward compatibility
-        query = self.core.getStormQuery(text)
+        query = self.core.getStormQuery(text, mode=mode)
         with self.getStormRuntime(opts=opts, user=user) as runt:
             async for node, path in runt.iterStormQuery(query):
                 yield node
@@ -236,7 +246,6 @@ class Snap(s_base.Base):
 
         node = self.livenodes.get(buid)
         if node is not None:
-            # moved here from getNodeByBuid() to cover more
             await asyncio.sleep(0)
             return node
 
@@ -844,7 +853,7 @@ class Snap(s_base.Base):
         Add/merge nodes in bulk.
 
         The addNodes API is designed for bulk adds which will
-        also set properties and add tags to existing nodes.
+        also set properties, add tags, add edges, and set nodedata to existing nodes.
         Nodes are specified as a list of the following tuples:
 
             ( (form, valu), {'props':{}, 'tags':{}})
@@ -884,6 +893,16 @@ class Snap(s_base.Base):
                                             f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
                                         logger.warning(mesg)
                                         continue
+
+                        nodedata = forminfo.get('nodedata')
+                        if nodedata is not None:
+                            for name, data in nodedata.items():
+                                await node.setData(name, data)
+
+                        edges = forminfo.get('edges')
+                        if edges is not None:
+                            for n2iden, edgeinfo in edges:
+                                await node.addEdge(edgeinfo.get('verb'), n2iden)
 
                 except Exception as e:
                     if not oldstrict:

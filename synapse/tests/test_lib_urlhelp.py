@@ -71,3 +71,17 @@ class UrlTest(s_t_utils.SynTest):
 
         self.raises(s_exc.BadUrl, s_urlhelp.chopurl,
                     'www.vertex.link')
+
+    def test_sanitizeUrl(self):
+        data = [
+            ('http://foo.com/path#fragment', None),
+            ('http://foo.com:1234?query=bar', None),
+            ('rando:this:is:valid:URI', None),
+            ('rando:this:is@valid:URI', None),
+            ('foo://user:password@host.com', 'foo://user:****@host.com'),
+            ('foo://user:password@host.com:999', 'foo://user:****@host.com:999'),
+            ('foo://user:@host.com', None),
+        ]
+
+        for in_, out in data:
+            self.eq(s_urlhelp.sanitizeUrl(in_), in_ if out is None else out)

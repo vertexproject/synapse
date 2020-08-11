@@ -8,6 +8,7 @@ import types
 import base64
 import shutil
 import struct
+import decimal
 import fnmatch
 import hashlib
 import logging
@@ -145,6 +146,13 @@ def intify(x):
     except (TypeError, ValueError):
         return None
 
+hugectx = decimal.Context(prec=15)
+def hugenum(valu):
+    '''
+    Return a decimal.Decimal with proper precision for use as a synapse hugenum.
+    '''
+    return decimal.Decimal(valu, context=hugectx)
+
 def vertup(vstr):
     '''
     Convert a version string to a tuple.
@@ -161,6 +169,12 @@ def todo(name, *args, **kwargs):
     Construct and return a todo tuple of (name, args, kwargs).
     '''
     return (name, args, kwargs)
+
+def tuplify(obj):
+    '''
+    Convert a nested set of python primitives into tupleized forms via msgpack.
+    '''
+    return s_msgpack.un(s_msgpack.en(obj))
 
 def genpath(*paths):
     path = os.path.join(*paths)
@@ -506,6 +520,10 @@ async def aspin(genr):
     async for _ in genr:
         pass
 
+async def agen(*items):
+    for item in items:
+        yield item
+
 def firethread(f):
     '''
     A decorator for making a function fire a thread.
@@ -646,7 +664,7 @@ def config(conf, confdefs):
     return conf
 
 def deprecated(name):
-    mesg = f'"{name}" is deprecated in 0.2.0.'
+    mesg = f'"{name}" is deprecated in 2.x and will be removed in 3.0.0'
     warnings.warn(mesg, DeprecationWarning)
 
 def reqjsonsafe(item):

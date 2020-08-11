@@ -19,12 +19,14 @@ terminalEnglishMap = {
     'ABSPROPNOUNIV': 'absolute property',
     'ALLTAGS': '#',
     'AND': 'and',
+    'BOOL': 'boolean',
     'BREAK': 'break',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
     'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
     'CMDRTOKN': 'An unquoted string parsed as a cmdr arg',
+    'WHITETOKN': 'An unquoted string terminated by whitespace',
     'CMPR': 'comparison operator',
     'BYNAME': 'named comparison operator',
     'COLON': ':',
@@ -89,7 +91,6 @@ terminalEnglishMap = {
     '_EDGEDELN2INIT': '<(',
     '_EDGEDELN2FINI': ')-',
     '_EMBEDQUERYSTART': '${',
-    '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
     '_WALKNPIVON1': '-->',
@@ -159,9 +160,19 @@ class AstConverter(lark.Transformer):
 
         return subq
 
+    def looklist(self, kids):
+        kids = self._convert_children(kids)
+        return s_ast.Lookup(kids)
+
     def yieldvalu(self, kids):
         kid = self._convert_child(kids[-1])
         return s_ast.YieldValu(kids=[kid])
+
+    @lark.v_args(meta=True)
+    def lookup(self, kids, meta):
+        kids = self._convert_children(kids)
+        look = s_ast.Lookup(kids=kids)
+        return look
 
     @lark.v_args(meta=True)
     def query(self, kids, meta):
@@ -311,9 +322,10 @@ class AstConverter(lark.Transformer):
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
-QueryParser = lark.Lark(_grammar, start='query', propagate_positions=True)
-StormCmdParser = lark.Lark(_grammar, start='stormcmdargs', propagate_positions=True)
-CmdrParser = lark.Lark(_grammar, start='cmdrargs', propagate_positions=True)
+QueryParser = lark.Lark(_grammar, regex=True, start='query', propagate_positions=True)
+LookupParser = lark.Lark(_grammar, regex=True, start='lookup', propagate_positions=True)
+StormCmdParser = lark.Lark(_grammar, regex=True, start='stormcmdargs', propagate_positions=True)
+CmdrParser = lark.Lark(_grammar, regex=True, start='cmdrargs', propagate_positions=True)
 
 _eofre = regex.compile(r'''Terminal\('(\w+)'\)''')
 
@@ -364,6 +376,15 @@ class Parser:
         newtree.text = self.text
         return newtree
 
+    def lookup(self):
+        try:
+            tree = LookupParser.parse(self.text)
+        except lark.exceptions.LarkError as e:
+            raise self._larkToSynExc(e) from None
+        newtree = AstConverter(self.text).transform(tree)
+        newtree.text = self.text
+        return newtree
+
     def cmdrargs(self):
         '''
         Parse command args that might have storm queries as arguments
@@ -375,10 +396,18 @@ class Parser:
         return AstConverter(self.text).transform(tree)
 
 @s_cache.memoize(size=100)
-def parseQuery(text):
+def parseQuery(text, mode='storm'):
     '''
     Parse a storm query and return the Lark AST.  Cached here to speed up unit tests
     '''
+    if mode == 'lookup':
+        return Parser(text).lookup()
+
+    if mode == 'autoadd':
+        look = Parser(text).lookup()
+        look.autoadd = True
+        return look
+
     return Parser(text).query()
 
 def massage_vartokn(x):
@@ -395,6 +424,7 @@ terminalClassMap = {
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'HEXNUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
+    'BOOL': lambda x: s_ast.Bool(x == 'true'),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
     'VARTOKN': massage_vartokn,
@@ -509,6 +539,7 @@ JUSTCHARS: /[^()=\[\]{}'"\s]*[^,()=\[\]{}'"\s]/
 
 CmdStringParser = lark.Lark(CmdStringGrammar,
                             start='cmdstring',
+                            regex=True,
                             propagate_positions=True)
 
 def parse_cmd_string(text, off):

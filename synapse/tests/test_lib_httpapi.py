@@ -1,6 +1,9 @@
 import json
-import asyncio
+
 import aiohttp
+import aiohttp.client_exceptions as a_exc
+
+import synapse.cortex as s_cortex
 
 import synapse.lib.httpapi as s_httpapi
 
@@ -37,7 +40,7 @@ class HttpApiTest(s_tests.SynTest):
 
             async with self.getHttpSess(auth=('user', '12345'), port=port) as sess:
                 async with sess.get(url) as resp:
-                    self.eq(resp.status, 200)
+                    self.eq(resp.status, 403)
                     retn = await resp.json()
                     self.eq(retn.get('status'), 'err')
                     self.eq(retn.get('code'), 'AuthDeny')
@@ -537,7 +540,7 @@ class HttpApiTest(s_tests.SynTest):
             visi = await core.auth.addUser('visi')
 
             await visi.setPasswd('secret')
-            await visi.addRule((True, ('storm', 'impersonate')))
+            await visi.addRule((True, ('impersonate',)))
 
             opts = {'user': core.auth.rootuser.iden}
 
@@ -770,6 +773,29 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.eq(0x01020304, node[0][1])
 
+                # check reqvalidstorm with various queries
+                tvs = (
+                    ('test:str=test', {}, 'ok'),
+                    ('1.2.3.4 | spin', {'mode': 'lookup'}, 'ok'),
+                    ('1.2.3.4 | spin', {'mode': 'autoadd'}, 'ok'),
+                    ('1.2.3.4', {}, 'err'),
+                    ('| 1.2.3.4 ', {'mode': 'lookup'}, 'err'),
+                    ('| 1.2.3.4', {'mode': 'autoadd'}, 'err'),
+                )
+                url = f'https://localhost:{port}/api/v1/reqvalidstorm'
+                for (query, opts, rcode) in tvs:
+                    body = {'query': query, 'opts': opts}
+                    async with sess.post(url, json=body) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            self.eq(data.get('status'), rcode)
+                # Sad path
+                async with aiohttp.client.ClientSession() as bad_sess:
+                    async with bad_sess.post(url, ssl=False) as resp:
+                        data = await resp.json()
+                        self.eq(data.get('status'), 'err')
+                        self.eq(data.get('code'), 'NotAuthenticated')
+
     async def test_healthcheck(self):
         async with self.getTestCore() as core:
             # Run http instead of https for this test
@@ -797,3 +823,27 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(url) as resp:
                     result = await resp.json()
                     self.eq(result.get('status'), 'ok')
+
+    async def test_streamhandler(self):
+
+        class SadHandler(s_httpapi.StreamHandler):
+            '''
+            data_received must be implemented
+            '''
+            async def post(self):
+                self.sendRestRetn('foo')
+                return
+
+        async with self.getTestCore() as core:
+            core.addHttpApi('/api/v1/sad', SadHandler, {'cell': core})
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            url = f'https://localhost:{port}/api/v1/sad'
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                with self.raises(a_exc.ServerDisconnectedError):
+                    async with sess.post(url, data=b'foo') as resp:
+                        pass

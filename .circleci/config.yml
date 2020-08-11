@@ -46,6 +46,16 @@ commands:
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
+  do_replay_test_execution:
+    description: "Execute unit tests via pytest"
+    steps:
+      - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            mkdir test-reports
+            circleci tests glob synapse/tests/test_cortex.py synapse/tests/test_lib_storm.py synapse/tests/test_lib_stormtypes.py synapse/tests/test_lib_stormlib_macro.py synapse/tests/test_lib_stormlib_model.py synapse/tests/test_lib_view.py synapse/tests/test_lib_hiveauth.py synapse/tests/test_lib_cell.py synapse/tests/test_lib_layer.py synapse/tests/test_lib_spawn.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+
   test_steps_doc:
     description: "Documentation test steps"
     steps:
@@ -129,6 +139,48 @@ commands:
       - store_artifacts:
           path: test-reports
 
+  test_steps_python_replay:
+    description: "Python test steps"
+    steps:
+      - checkout
+
+      - run:
+          name: checkout regression repo
+          command: |
+            git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
+
+      - run:
+          name: install deps
+          command: |
+            sudo apt-get -y install cron
+
+      - restore_cache:
+          keys:
+            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+
+      - do_venv_setup
+
+      - save_cache:
+          paths:
+            - ./venv
+          key: v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+
+      - run:
+          name: syntax
+          command: |
+            . venv/bin/activate
+            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
+            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
+
+      - do_replay_test_execution
+      - do_report_coverage
+
+      - store_test_results:
+          path: test-reports
+
+      - store_artifacts:
+          path: test-reports
+
   test_steps_osx:
     description: "OSX Test Steps"
     steps:
@@ -203,6 +255,32 @@ commands:
             . venv/bin/activate
             twine upload dist/*
 
+  check_docker_smoketests:
+    description: "Check docker smoke test results"
+    steps:
+      - run:
+          name: validate docker smoketest
+          command: |
+            sleep 60
+            docker ps
+            docker container ls -a
+            docker logs test01
+            docker logs test02
+            docker logs test03
+            dstatus01=`docker inspect test01 --format '{{.State.Health.Status}}'`
+            dstatus02=`docker inspect test02 --format '{{.State.Health.Status}}'`
+            dstatus03=`docker inspect test03 --format '{{.State.Health.Status}}'`
+            docker stop test01
+            docker stop test02
+            docker stop test03
+            docker rm test01
+            docker rm test02
+            docker rm test03
+            if [ $dstatus01 != "healthy" ]; then exit 1; fi
+            if [ $dstatus02 != "healthy" ]; then exit 1; fi
+            if [ $dstatus03 != "healthy" ]; then exit 1; fi
+            exit 0
+
   do_docker_login:
     description: "Login to docker"
     steps:
@@ -225,6 +303,16 @@ commands:
             docker build -t vertexproject/synapse-cortex:${CIRCLE_TAG} -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:${CIRCLE_TAG} -f docker/images/cryotank/Dockerfile .
       - run:
+          name: smoke test image
+          command: |
+            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_TAG} -m synapse.servers.cortex --help
+            dstatus00=$?
+            if [ $dstatus00 != "0" ]; then exit 1; fi
+            docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_TAG}
+            docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_TAG}
+            docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_TAG}
+      - check_docker_smoketests
+      - run:
           name: tag and push container
           command: |
             docker push vertexproject/synapse:${CIRCLE_TAG}
@@ -232,8 +320,8 @@ commands:
             docker push vertexproject/synapse-cortex:${CIRCLE_TAG}
             docker push vertexproject/synapse-cryotank:${CIRCLE_TAG}
 
-  deploy_docker_02x:
-    description: "Deploy current release tag to docker as v0.2.x"
+  deploy_docker_2xx:
+    description: "Build current release tag to docker as v2.x.x"
     steps:
       - checkout
       - setup_remote_docker
@@ -241,17 +329,27 @@ commands:
       - run:
           name: build image
           command: |
-            docker build -t vertexproject/synapse:v0.2.x -f Dockerfile .
-            docker build -t vertexproject/synapse-axon:v0.2.x -f docker/images/axon/Dockerfile .
-            docker build -t vertexproject/synapse-cortex:v0.2.x -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:v0.2.x -f docker/images/cryotank/Dockerfile .
+            docker build -t vertexproject/synapse:v2.x.x -f Dockerfile .
+            docker build -t vertexproject/synapse-axon:v2.x.x -f docker/images/axon/Dockerfile .
+            docker build -t vertexproject/synapse-cortex:v2.x.x -f docker/images/cortex/Dockerfile .
+            docker build -t vertexproject/synapse-cryotank:v2.x.x -f docker/images/cryotank/Dockerfile .
+      - run:
+          name: smoke test image
+          command: |
+            docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x -m synapse.servers.cortex --help
+            dstatus00=$?
+            if [ $dstatus00 != "0" ]; then exit 1; fi
+            docker run -d --name test01 vertexproject/synapse-axon:v2.x.x
+            docker run -d --name test02 vertexproject/synapse-cortex:v2.x.x
+            docker run -d --name test03 vertexproject/synapse-cryotank:v2.x.x
+      - check_docker_smoketests
       - run:
           name: tag and push container
           command: |
-            docker push vertexproject/synapse:v0.2.x
-            docker push vertexproject/synapse-axon:v0.2.x
-            docker push vertexproject/synapse-cortex:v0.2.x
-            docker push vertexproject/synapse-cryotank:v0.2.x
+            docker push vertexproject/synapse:v2.x.x
+            docker push vertexproject/synapse-axon:v2.x.x
+            docker push vertexproject/synapse-cortex:v2.x.x
+            docker push vertexproject/synapse-cryotank:v2.x.x
 
   deploy_docker_branches:
     description: "Deploy current branch images to docker"
@@ -266,6 +364,16 @@ commands:
             docker build -t vertexproject/synapse-axon:${CIRCLE_BRANCH} -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:${CIRCLE_BRANCH} -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:${CIRCLE_BRANCH} -f docker/images/cryotank/Dockerfile .
+      - run:
+          name: smoke test image
+          command: |
+            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH} -m synapse.servers.cortex --help
+            dstatus00=$?
+            if [ $dstatus00 != "0" ]; then exit 1; fi
+            docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_BRANCH}
+            docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
+            docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
+      - check_docker_smoketests
       - run:
           name: tag and push container
           command: |
@@ -293,7 +401,7 @@ jobs:
       - test_steps_osx
 
   python37:
-    parallelism: 6
+    parallelism: 8
     docker:
       - image: circleci/python:3.7
         environment:
@@ -307,6 +415,23 @@ jobs:
 
     steps:
       - test_steps_python
+
+  python37_replay:
+    parallelism: 6
+    docker:
+      - image: circleci/python:3.7
+        environment:
+          PYVERS: 3.7
+          RUN_SYNTAX: 1
+          CODECOV_FLAG: linux_replay
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          SYNDEV_NEXUS_REPLAY: 1
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python_replay
 
   doctests:
     parallelism: 1
@@ -339,11 +464,11 @@ jobs:
     steps:
       - deploy_docker_branches
 
-  docker_tags_02x:
+  docker_tags_2xx:
     docker:
       - image: docker:18.05.0-ce
     steps:
-      - deploy_docker_02x
+      - deploy_docker_2xx
 
 workflows:
   version: 2
@@ -371,13 +496,20 @@ workflows:
             branches:
               only: /.*/
 
+      - python37_replay:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+
       - deploy_pypi:
           requires:
             - doctests
             - python37
           filters:
             tags:
-              only: /^v0\.2\.[0-9]+((a|b|rc)[0-9]*)?$/
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 
@@ -396,17 +528,17 @@ workflows:
             - python37
           filters:
             tags:
-              only: /^v0\.2\.[0-9]+((a|b|rc)[0-9]*)?$/
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 
-      - docker_tags_02x:
+      - docker_tags_2xx:
           requires:
             - doctests
             - python37
           filters:
             tags:
-              only: /^v0\.2\.[0-9]+((a|b|rc)[0-9]*)?$/
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 
@@ -417,7 +549,6 @@ workflows:
           filters:
             branches:
               only:
-                - 01x
                 - master
     jobs:
       - doctests

@@ -2,304 +2,309 @@
 Synapse Changelog
 *****************
 
-v0.2.0 - 2020-xx-xx
+
+v2.5.1 - 2020-08-05
 ===================
 
 Features and Enhancements
 -------------------------
 
-- Refactored Layer Storage Format
+- Add performance oriented counting APIs per layer, and expose them via Stormtypes.
+  (`#1813 <https://github.com/vertexproject/synapse/pull/1813>`_)
+- Add the ability to clone a layer, primarily for benchmarking and testing purposes.
+  (`#1819 <https://github.com/vertexproject/synapse/pull/1819>`_)
+- Update the benchmark script to run on remote Cortexes.
+  (`#1829 <https://github.com/vertexproject/synapse/pull/1829>`_)
 
-This release includes significant storage optimizations for both performance and size.  However, the `0.2.0` migration
-contains no *model* migrations and is strictly limited to the internal LMDB layer storage format.  The new format
-provides performance enhancements that significantly improve data ingest performance and reduce the memory footprint of
-the layer.  See :ref:`020_migration` for details on migrating your `0.1.x` Cortex to `0.2.0`.
+Bugfixes
+--------
+- Sanitize passwords from Telepath URLs during specific cases where the URL may be logged.
+  (`#1830 <https://github.com/vertexproject/synapse/pull/1830>`_)
 
-- View/Layer Management
+Improved Documentation
+----------------------
 
-Views and layers may now be managed via simple storm commands or manipulated by the storm API.  Additionally,
-permissions may be assigned on a per-view or per-layer basis allowing granular control of users and roles.
-With proper permission, a view may now be easily forked to create an analyst owned "sandbox" where their edits are
-written to a separate layer which can later be merged by someone with appropriate permissions.  A user
-may now set a "default view" profile option to specify the view to be used when they issue a default storm query.
+- Fix a few typos in docstrings.
+  (`#1831 <https://github.com/vertexproject/synapse/pull/1831>`_)
 
-- Mirrors Are Now A Fully Operational Battle Station
 
-Previous support for Cortex "mirrors" has been limited to mirroring data from a single layer.  The mechanism for change
-control and distribution within a Cortex has been updated to facilitate true mirroring of all changes within a Cortex.
-Each change within a Cortex is assigned a sequential identifier which allows mirrors to be taken offline and catch-up
-once they are returned to operation.  Additionally, mirrors have been updated to facilitate "write-back" edits which
-propagate changes via their upstream mirror, making the mirror appear writable.  With this new mechanism, a set of
-mirrors may be configured to handle read offloading as well as write consolidation.
+v2.5.0 - 2020-07-30
+===================
 
-- Cron/Trigger Management
+Features and Enhancements
+-------------------------
 
-Cron jobs and triggers may now be managed via simple storm commands or manipulated by the storm API.  Additionally,
-permissions are now enforced on a per-object basis.
+- Refactor the Nexus to remove leadership awareness.
+  (`#1785 <https://github.com/vertexproject/synapse/pull/1785>`_)
+- Add support for client-side certificates in Telepath for SSL connections.
+  (`#1785 <https://github.com/vertexproject/synapse/pull/1785>`_)
+- Add multi-dir support for CertDir.
+  (`#1785 <https://github.com/vertexproject/synapse/pull/1785>`_)
+- Add a ``--no-edges`` option to the Storm ``graph`` command.
+  (`#1805 <https://github.com/vertexproject/synapse/pull/1805>`_)
+- Add ``:doc:url`` to the ``syn:tag`` form to allow recording a URL which may document a tag.
+  (`#1805 <https://github.com/vertexproject/synapse/pull/1805>`_)
+- Add ``CoreApi.reqValidStorm()`` and a ``/api/v1/reqvalidstorm`` Cortex HTTPAPI endpoint to validate that a given
+  Storm query is valid Storm syntax.
+  (`#1806 <https://github.com/vertexproject/synapse/pull/1806>`_)
+- Support Unicode white space in Storm. All Python `\s` (Unicode white space + ASCII separators) is now treated as
+  white space in Storm.
+  (`#1812 <https://github.com/vertexproject/synapse/pull/1812>`_)
+- Refactor how StormLib and StormPrim objects access their object locals, and add them to a global registry to support
+  runtime introspection of those classes.
+  (`#1804 <https://github.com/vertexproject/synapse/pull/1804>`_)
+- Add smoke tests for the Docker containers built in CircleCI, as well as adding Docker healthchecks to the Cortex,
+  Axon and Cryotank images.
+  (`#1815 <https://github.com/vertexproject/synapse/pull/1815>`_)
+- Initialize the names of the default view and layer in a fresh Cortex to ``default``.
+  (`#1814 <https://github.com/vertexproject/synapse/pull/1814>`_)
+- Add HTTPAPI endpoints for the Axon to upload, download and check for the existend of files.
+  (`#1817 <https://github.com/vertexproject/synapse/pull/1817>`_)
+  (`#1822 <https://github.com/vertexproject/synapse/pull/1822>`_)
+  (`#1824 <https://github.com/vertexproject/synapse/pull/1824>`_)
+  (`#1825 <https://github.com/vertexproject/synapse/pull/1825>`_)
+- Add a ``$lib.bytes.has()`` API to check if the Axon a Cortex is configured with knows about a given sha256 value.
+  (`#1822 <https://github.com/vertexproject/synapse/pull/1822>`_)
+- Add initial model for prices, currences, securities and exchanges.
+  (`#1820 <https://github.com/vertexproject/synapse/pull/1820>`_)
+- Add a ``:author`` field to the ``it:app:yara:rule`` form.
+  (`#1821 <https://github.com/vertexproject/synapse/pull/1821>`_)
+- Add an experimental option to set the NexusLog as a ``map_async`` slab.
+  (`#1826 <https://github.com/vertexproject/synapse/pull/1826>`_)
+- Add an initial transportation model.
+  (`#1816 <https://github.com/vertexproject/synapse/pull/1816>`_)
+- Add the ability to dereference an item, from a list of items, in Storm via index.
+  (`#1827 <https://github.com/vertexproject/synapse/pull/1827>`_)
+- Add a generic ``$lib.inet.http.request()`` Stormlib function make HTTP requests with arbitrary verbs.
+  (`#1828 <https://github.com/vertexproject/synapse/pull/1828>`_)
 
-- Experimental Spawn Runtime Improvements
+Bugfixes
+--------
+- Fix an issue with the Docker builds for Synapse where the package was not being installed properly.
+  (`#1815 <https://github.com/vertexproject/synapse/pull/1815>`_)
 
-The (still experimental) ``spawn: True`` option to the storm runtime, which facilitates execution of a storm query in a
-sub-process, has made progress toward feature parity.  Specifically, a number of storm library APIs have been updated to
-facilitate access from within a spawned sub-process transparently.  While the spawn option is still considered
-experimental, it has reached a level of maturity which may warrant review due to the powerful performance benefit for
-large or long running read queries.
+Improved Documentation
+----------------------
 
-Backward Compatibility Breaks
------------------------------
+- Update documentation for deploying Cortex mirrors.
+  (`#1811 <https://github.com/vertexproject/synapse/pull/1811>`_)
+- Add automatically generated documentation for all the Storm ``$lib...`` functions and Storm Primitive types.
+  (`#1804 <https://github.com/vertexproject/synapse/pull/1804>`_)
+- Add examples of creating a given Form to the automatically generated documentation for the automatically generated
+  datamodel documentation.
+  (`#1818 <https://github.com/vertexproject/synapse/pull/1818>`_)
+- Add additional documentation for Cortex automation.
+  (`#1797 <https://github.com/vertexproject/synapse/pull/1797>`_)
+- Add Devops documentation for the list of user permissions relevant to a Cell, Cortex and Axon.
+  (`#1823 <https://github.com/vertexproject/synapse/pull/1823>`_)
 
-Modified Node Permission Names
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-What changed
-    Node permissions were modified to allow all basic node edits to fall within a single hierarchy in order to
-    facilitate easily granting permissions for all node edits.
+v2.4.0 - 2020-07-15
+===================
 
-    The following permission table provides translation:
+Features and Enhancements
+-------------------------
 
-    ============== ==============
-    Old Permission New Permission
-    ============== ==============
-    node:add       node.add
-    node:del       node.del
-    prop:set       node.prop.set
-    prop:del       node.prop.del
-    \tag:add       node.tag.add
-    \tag:del       node.tag.del
-    ============== ==============
+- Update the Storm ``scrape`` command to make ``refs`` light edges, instead of ``edge:refs`` nodes.
+  (`#1801 <https://github.com/vertexproject/synapse/pull/1801>`_)
+  (`#1803 <https://github.com/vertexproject/synapse/pull/1803>`_)
+- Add ``:headers`` and ``:response:headers`` secondary properties to the ``inet:http:request`` form as Array types, so
+  that requests can be directly linked to headers.
+  (`#1800 <https://github.com/vertexproject/synapse/pull/1800>`_)
+- Add ``:headers`` secondary property to the ``inet:email:messaage`` form as Array types, so that messages can be
+  directly linked to headers.
+  (`#1800 <https://github.com/vertexproject/synapse/pull/1800>`_)
+- Add additional model elements to support recording additional data for binary reverse engineering.
+  (`#1802 <https://github.com/vertexproject/synapse/pull/1802>`_)
 
-Why make the change
-    By placing all node edit permissions under a single hierarchy, administrators may easily grant access to all node
-    modifications by adding the permission ``node``.  As previously, more granular versions of the given permissions are
-    available to individually control access.
 
-What you need to do
-    The Synpase ``0.2.x`` migration tool should take care of translating all relevant permissions changes within a
-    migrated Cortex.  However, any 3rd party code that modifies permissions should be updated to the new naming
-    convention.
+v2.3.1 - 2020-07-13
+===================
 
-Node Edits vs Splices
-~~~~~~~~~~~~~~~~~~~~~
+Bugfixes
+--------
+- Prohibit invalid rules from being set on a User or Role object.
+  (`#1798 <https://github.com/vertexproject/synapse/pull/1798>`_)
 
-What changed
-    The various splice events provided by the storm runtime have been consolidated and streamlined into a single
-    ``node:edits`` event type.  The new ``node:edits`` events contain a more compressed and aggregated representation of
-    node changes and include changes that were previous unreported.  Callers may now specify the format for the node
-    edits reported by the storm runtime by using the ``editformat`` optional parameter to the storm runtime, but the
-    default output will now be ``node:edits`` rather than splices.  The following table enumerates the options for the
-    ``editformat`` parameter:
 
-    ========== =========================================================
-    editformat Storm runtime behavior
-    ========== =========================================================
-    nodeedits  Provide new ``node:edits`` events.
-    splices    Provide ``0.1.x`` backward-compatible splice events.
-    count      Provide ``node:edits:count`` events with simple counts.
-    none       Do not transmit any representation for node edits.
-    ========== =========================================================
+v2.3.0 - 2020-07-09
+===================
 
-Why make the change
-    The splice format was originally designed to facilitate a single atomic edit per-splice.  As such, it required the
-    potentially large primary property value to be embedded in each splice.  When making multiple edits, this
-    representation is inefficient and causes the retransmission, and potential storage, of duplicate data.
-    Additionally, the key-value structure of the splice format provided unnecessary extensibility at the cost of
-    transmission/storage size.
+Features and Enhancements
+-------------------------
 
-What you need to do
-    Update any code that consumes/indexes the various splice events to handle the new ``node:edits`` format.
-    Additionally, callers may specify ``editformat: "splices"`` within their storm runtime options to enable
-    backward-compatible splice generation. External APIs for retrieving splices have been marked as deprecated and will
-    be removed in v0.3.0.
+- Add ``ps.list`` and ``ps.kill`` commands to Storm, to allow introspecting the runtime tasks during
+  (`#1782 <https://github.com/vertexproject/synapse/pull/1782>`_)
+- Add an ``autoadd`` mode to Storm, which will extract basic indicators and make nodes from them when executed. This is
+  a superset of the behavior in the ``lookup`` mode.
+  (`#1795 <https://github.com/vertexproject/synapse/pull/1795>`_)
+- Support skipping directories in the ``synapse.tools.backup`` tool.
+  (`#1792 <https://github.com/vertexproject/synapse/pull/1792>`_)
+- Add prefix based lifting to the Hex type.
+  (`#1796 <https://github.com/vertexproject/synapse/pull/1796>`_)
 
-Removed Remote Layers
-~~~~~~~~~~~~~~~~~~~~~
+Bugfixes
+--------
+- Fix an issue for prop pivot out syntax where the source data is an array type.
+  (`#1794 <https://github.com/vertexproject/synapse/pull/1794>`_)
 
-What changed
-    Support for remote layers has been removed.
+Improved Documentation
+----------------------
 
-Why make the change
-    The performance characteristics and stability of remote layers has never reached what we consider production
-    deployable status.  Additionally, complexities with model versions, migrations, and model synchronization have made
-    the use of remote layers highly fragile.  While we may eventually design a new remote layer capability, the current
-    implementation is being removed due to being unsupportable.
+- Add Synapse data model background on light edges and update the Storm data modification and pivot references for light
+  edges.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Add additional terms to the Synapse glossary.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Add documentation for additional Storm commands.
+  (`#1784 <https://github.com/vertexproject/synapse/pull/1784>`_)
+- Update documentation for Array types.
+  (`#1791 <https://github.com/vertexproject/synapse/pull/1791>`_)
 
-What you need to do
-    If you have remote layers deployed in production, you should update the view configuration to contain an "upstream"
-    layer.  This will create a copy of the remote layer data to the local Cortex and keep it in sync.
 
-Removed Pushing Splices
-~~~~~~~~~~~~~~~~~~~~~~~
+v2.2.2 - 2020-07-03
+===================
 
-What changed
-    The configuration options to enable pushing splices to a cryotank or to another cortex have been removed.
+Features and Enhancements
+-------------------------
 
-Why make the change
-    The archival of splices to a cryotank and the responsibility of a Cortex to "push" changes to another Cortex have
-    long been essentially vestigial.  Additionally, these options required a Cortex reboot to take effect and were not
-    runtime configurable.  The current mechanisms for mirroring and upstream layers allow for a more scalable and
-    dynamic configuration.
+- Add some small enhancements to the Cortex benchmarking script.
+  (`#1790 <https://github.com/vertexproject/synapse/pull/1790>`_)
 
-What you need to do
-    It is unlikely that this change will effect any known deployments.
+Bugfixes
+--------
 
-Removed Monolithic Feed Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Fix an error in the help for the ``macro.del`` command.
+  (`#1786 <https://github.com/vertexproject/synapse/pull/1786>`_)
+- Fix rule indexing for the ``synapse.tools.cellauth`` tool to correctly print the rule offsets.
+  (`#1787 <https://github.com/vertexproject/synapse/pull/1787>`_)
+- Remove extraneous output from the Storm Parser output.
+  (`#1789 <https://github.com/vertexproject/synapse/pull/1789>`_)
+- Rewrite the language (and private APIs) for the Storm ``model.edge`` related commands to remove references to extended
+  properties. That was confusing language which was unclear for users.
+  (`#1789 <https://github.com/vertexproject/synapse/pull/1789>`_)
+- During 2.0.0 migrations, ensure that Cortex and Layer idens are unique; and make minimum 0.1.6 version requirement for
+  migration.
+  (`#1788 <https://github.com/vertexproject/synapse/pull/1788>`_)
 
-What changed
-    The monolithic configuration option for pulling "feed" data from a Cryotank has been removed.
 
-Why make the change
-    The ability to feed a Cortex directly from a Cryotank represents a very early approach to automate data ingest into
-    a Cortex.  This capability has been superseded by Storm Services which provide a dynamically configurable way to
-    integrate services and data.
+v2.2.1 - 2020-06-30
+===================
 
-What you need to do
-    It is unlikely that this change will effect any known deployments.
+Bugfixes
+--------
 
-Removed Tag Prop Lifting Without Tag
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- The Axon test suite was missing a test for calling ``Axon.get()`` on a file it did not have. This is now included in
+  the test suite.
+  (`#1783 <https://github.com/vertexproject/synapse/pull/1783>`_)
 
-What changed
-    The ability to lift nodes by the presence of a tag property *without* specifying the tag name has been removed.
-    Given a tag property of "confidence", the ``#:confidence`` and ``#:confidence>90`` style syntax are no longer valid.
-    However, lifting by tag property *with* the tag, such as ``#foo.bar:confidence`` and ``#foo.bar:confidence>90``
-    remain valid.
+Improved Documentation
+----------------------
 
-Why make the change
-    The necessary indexing to provide a performant way to lift nodes by the tag property without the tag is too
-    expensive for the analytically dubious use case.
+- Improve Synapse devops documentation hierarchy. Add note about Cell directories being persistent.
+  (`#1781 <https://github.com/vertexproject/synapse/pull/1781>`_)
 
-What you need to do
-    Any instances of lifting nodes by tag property without the tag will need to be updated to include the tag name.
 
-Removed Insecure Mode
-~~~~~~~~~~~~~~~~~~~~~
+v2.2.0 - 2020-06-26
+===================
 
-What changed
-    The "insecure" option in cell.yaml has been removed.
+Features and Enhancements
+-------------------------
 
-Why make the change
-    Insecure mode of operation was a vestigial option originally designed to aid in bootstrapping and setting up initial
-    admin users.  Telepath now allows for ``cell://`` and ``unix://`` connection schemes that can bypass authentication
-    for local users making insecure mode unnecessary.  Additionally, it is currently possible to bootstrap a root
-    password directly using command line arguments, environment variables, or configuration files.
+- Add a ``postAnit()`` callback to the ``synapse.lib.base.Base()`` object which is called *after* the ``__anit__()``
+  call chain is completed, but before ``Base.anit()`` returns the object instance to the caller. This is used by the
+  Cell to defer certain Nexus actions until the Cell has completed initializing all of its instance attributes.
+  (`#1768 <https://github.com/vertexproject/synapse/pull/1768>`_)
+- Make ``synapse.lib.msgpack.en()`` raise a ``SynErr.NotMsgpackSafe`` exception instead of passing through the
+  exception raised by msgpack.
+  (`#1768 <https://github.com/vertexproject/synapse/pull/1768>`_)
 
-What you need to do
-    If you have services deployed in insecure mode, they will need to be transitioned to using proper authentication.
+Bugfixes
+--------
 
-Removed Default Values From Model
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Add a missing ``toprim()`` call in ``$lib.globals.set()``.
+  (`#1778 <https://github.com/vertexproject/synapse/pull/1778>`_)
+- Fix an issue in the quickstart documentation related to permissions. Thank you ``enadjoe`` for your contribution.
+  (`#1779 <https://github.com/vertexproject/synapse/pull/1779>`_)
+- Fix an Cell/Cortex startup issue which caused errors when starting up a Cortex when the last Nexus event was
+  replayed. This has a secondary effect that Cell implementers cannot be making Nexus changes during the ``__anit__``
+  methods.
+  (`#1768 <https://github.com/vertexproject/synapse/pull/1768>`_)
 
-What changed
-    Model properties may no longer have default values.
+Improved Documentation
+----------------------
 
-Why make the change
-    The root reason for this change is a complex cascade of requirements which hinge on the simple concept of populating
-    a default value.  In Synapse ``0.2.x``, nodes may be created and edited without lifting them.  This means that
-    ingest speeds can be significantly increased by taking an "upsert" approach.  However, it also has the side effect
-    of making it very difficult to know if a given node already has a value specified in another layer without lifting
-    and fusing the node from all the properties in all the layers within the view.  Ultimately, by removing the
-    expectation of default values for a given property, we have been able to allow the Cortex to create nodes without
-    needing to lift them, creating a large performance benefit.
+- Add a minimal Storm Service example to the developer documentation.
+  (`#1776 <https://github.com/vertexproject/synapse/pull/1776>`_)
+- Reorganize the Synapse User Guide into a more hierarchical format.
+  (`#1777 <https://github.com/vertexproject/synapse/pull/1777>`_)
+- Fill out additional glossary items.
+  (`#1780 <https://github.com/vertexproject/synapse/pull/1780>`_)
 
-What you need to do
-    If you have custom model elements that have default values, they will no longer be populated by default.  As a work
-    around, you may create a trigger which populates the property when the node is added, but use caution when merging
-    properties from multiple layers when populating defaults.
 
-Node Data Fields Must Be JSON Compatible
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+v2.1.2 - 2020-06-18
+===================
 
-What changed
-    Node properties of type ``data`` as well as untyped ``node data`` must be JSON serializable.
+Bugfixes
+--------
 
-Why make the change
-    Node properties of type ``data`` are stored using msgpack serialization, however many of our externally facing APIs
-    use JSON serialization.  By adding the requirement that these fields are JSON compatible, we prevent issues which
-    would preclude nodes from being returned via HTTP APIs.
+- Disallow command and bare string contensts from starting with ``//`` and ``/*`` in Storm syntax.
+  (`#1769 <https://github.com/vertexproject/synapse/pull/1769>`_)
 
-What you need to do
-    If you're using ``data`` fields or ``node data`` to store raw bytes or other data structures that are incompatible
-    with JSON serialization, you will need to migrate these values to JSON compatible structures prior to running your
-    ``0.2.0`` migration.
 
-Storm Command Argument Passing
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+v2.1.1 - 2020-06-16
+===================
 
-What changed
-    The Storm command architecture has been updated to allow passing variables, properties, and tag values as parameters.
-    As such, a couple commands have had parameters change to bring them in line with the new convention.
+Bugfixes
+--------
 
-Why make the change
-    This change allows dynamic resolution of command line arguments on a per-node basis and standardizes a mechanism
-    for giving inputs to commands.  Several variants of similar behavior existed in one-off implementations and this
-    change standardizes the various emerging patterns into a single supported design pattern.
+- Fix an issue in the autodoc tool which failed to account for Storm Service commands without cmdargs.
+  (`#1775 <https://github.com/vertexproject/synapse/pull/1775>`_)
 
-What you need to do
-    The following storm commands have changed:
 
-    ========== ======================================== =============================== ======================================
-    storm cmd  Description of the change                Old Use Example                 New Use Example
-    ========== ======================================== =============================== ======================================
-    movetags   No longer takes ``#`` prefixes on tags.  ``movetags #foo.bar #baz.faz``  ``movetags foo.bar baz.faz``
-    min/max    No longer take full property names       ``min file:bytes:size``         ``min :size``
-    scrape     Argument convention refactored.          ``scrape --props foo``          ``scrape :foo``
-    ========== ======================================== =============================== ======================================
+v2.1.0 - 2020-06-16
+===================
 
-Centralized Cortex Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Features and Enhancements
+-------------------------
 
-What changed
-    Standing up a Cortex was previously configured with a pair of files, ``cell.yaml`` and ``boot.yaml``, in addition to
-    command line arguments provided to to the server, ``synapse.servers.cortex``. The Cortex (and other Cell) startup
-    configuration data has been centralized. The ``boot.yaml`` file has been removed, along with the ``auth:admin``
-    value. ``auth:passwd`` has been added to the ``cell.yaml`` file that can be used to set the password for the
-    ``root`` user. In addition, the command line server can be used to pass various configuration elements, and may
-    also be used to pass configuration elements in via environment variables. Configuration structures are also schema
-    validated, to prevent erroneous values from being set by users.
+- Add information about light edges to graph carving output.
+  (`#1762 <https://github.com/vertexproject/synapse/pull/1762>`_)
+- Add a ``geo:json`` type and ``geo:place:geojson`` property to the model.
+  (`#1759 <https://github.com/vertexproject/synapse/pull/1759>`_)
+- Add the ability to record documentation for light edges.
+  (`#1760 <https://github.com/vertexproject/synapse/pull/1760>`_)
+- Add the ability to delete and set items inside of a MultiQueue.
+  (`#1766 <https://github.com/vertexproject/synapse/pull/1766>`_)
 
-Why make the change
-    This change reduced the overhead in managing and running a Cortex (and other Cells) by centralizing configuration to
-    a single location, as well as supporting environment variables for all boot-time configuration options.
+Improved Documentation
+----------------------
 
-What you need to do
-    The ``auth:admin`` value in any ``boot.yaml``, after splitting off the username, would need to be moved to a
-    ``cell.yaml`` file.
+- Refactor ``v2.0.0`` changelog documentation.
+  (`#1763 <https://github.com/vertexproject/synapse/pull/1763>`_)
+- Add Vertex branding to the Synapse documentation.
+  (`#1767 <https://github.com/vertexproject/synapse/pull/1767>`_)
+- Update Backups documentation in the Devops guide.
+  (`#1764 <https://github.com/vertexproject/synapse/pull/1764>`_)
+- Update the autodoc tool to generate documentation for Cell confdefs and StormService information.
+  (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
+- Update to separate the devops guides into distinct sections.
+  (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
+- Add documentation for how to do boot-time configuration for a a Synapse Cell.
+  (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
+- Remove duplicate information about backups.
+  (`#1774 <https://github.com/vertexproject/synapse/pull/1774>`_)
 
-    ::
+v2.0.0 - 2020-06-08
+===================
 
-        $cat boot.yaml
-        ---
-        auth:admin: root:superSekri7!
-        ...
+Initial 2.0.0 release. See :ref:`200_changes` for notable new features and changes, as well as backwards incompatible
+changes.
 
-        # Updated into the new cell.yaml file
-        $cat cell.yaml
-        ---
-        auth:passwd: superSekri7!
-        ...
-
-Additional Changes
-------------------
-
-- ``map_async`` is now enabled by default for all slabs.
-- Synapse tools may not be used to connect to services of a different minor version.
-- Storm API methods now support user-impersonation by providing a user iden in the ``opts`` dictionary. This ability is
-  permission enforced.
-- Deprecated annotations added to APIs that will be removed in ``0.3.0``.  This includes the Cortex ``.eval()`` API.
-- The ``sudo`` command has been deprecated and does nothing.
-- Removed cortex offset storage.
-- SYNDEV_OMIT_FINI_WARNS was added to silence tear down warnings.
-- Provenance is disabled by default. Enable by setting ``provenance:en: True`` in ``cell.yaml``.
-- The CellApi ``@adminapi`` decorator now must be called as a function, ``@adminapi()``.
-- The CellApi's used for managing users and roles have been updated to be iden oriented, as opposed to being name
-  oriented. User and Role management APIs have also been exposed via Storm.
-- The ``CoreApi.splices()`` method now takes a nodeedit offset tuple instead of an integer. It now yields a offset,
-  splice tuple together instead of just splices.
 
 v0.1.X Changelog
 ================
 
 For the Synapse 0.1.x changelog, see `01x Changelog`_ located in the v0.1.x documentation.
 
-.. _01x Changelog: https://vertexprojectsynapse.readthedocs.io/en/01x/synapse/changelog.html
+.. _01x Changelog: ../../01x/synapse/changelog.html

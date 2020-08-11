@@ -173,7 +173,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
             path = tuple(self.conf.get('auth:path').split('/'))
 
             node = await self.open(path)
-            self.auth = await s_hiveauth.Auth.anit(node)
+            self.auth = await s_hiveauth.Auth.anit(node, nexsroot=self.nexsroot)
             self.onfini(self.auth.fini)
 
         return self.auth
@@ -332,6 +332,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
         '''
         A set operation at the hive level (full path).
         '''
+        valu = s_common.tuplify(valu)
         if nexs:
             return await self._push('hive:set', full, valu)
 

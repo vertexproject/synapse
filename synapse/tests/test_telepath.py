@@ -360,6 +360,23 @@ class TeleTest(s_t_utils.SynTest):
             await self.asyncraises(ssl.SSLCertVerificationError,
                                    s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
 
+    async def test_telepath_ssl_client_cert(self):
+
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+
+            dmon.certdir.genCaCert('userca')
+            dmon.certdir.genUserCert('visi', signas='userca')
+
+            addr, port = await dmon.listen('ssl://127.0.0.1:0/?ca=userca&hostname=localhost')
+            dmon.share('foo', foo)
+
+            with self.raises(s_exc.LinkShutDown):
+                await s_telepath.openurl(f'ssl://localhost/foo', port=port, certdir=dmon.certdir)
+
+            proxy = await s_telepath.openurl(f'ssl://localhost/foo?certname=visi', port=port, certdir=dmon.certdir)
+            self.eq(20, await proxy.bar(15, 5))
+
     async def test_telepath_tls(self):
         self.thisHostMustNot(platform='darwin')
 
@@ -509,7 +526,7 @@ class TeleTest(s_t_utils.SynTest):
                 # make another customshare reference which will be
                 # tracked by the Sess object
                 evt = asyncio.Event()
-                async with await proxy.customshare() as _share:
+                async with await proxy.customshare():
                     self.len(3, sess.items)
                     _key = [k for k in sess.items.keys() if k and k != key][0]
                     _cshare = sess.getSessItem(_key)
@@ -668,8 +685,8 @@ class TeleTest(s_t_utils.SynTest):
                 snfo = await dmon.getSessInfo()
                 conninfo = snfo[0].get('conninfo')
                 self.eq(conninfo, {'family': 'tcp',
-                               'ipver': 'ipv6',
-                               'addr': prox.link.sock.getsockname()})
+                                   'ipver': 'ipv6',
+                                   'addr': prox.link.sock.getsockname()})
 
                 # check a standard return value
                 self.eq(30, await prox.bar(10, 20))
@@ -710,7 +727,14 @@ class TeleTest(s_t_utils.SynTest):
         dmon1.share('foo', rdir1)
 
         async with await s_telepath.Client.anit(url0) as targ:
+
+            with self.raises(s_exc.NotReady):
+                targ.dostuff(100)
+
             await targ.waitready()
+            proxy = await targ.proxy()
+            self.eq(proxy._getSynVers(), s_version.version)
+
             # Client implements some base helpers the proxy does
             self.eq(targ._getSynVers(), s_version.version)
             self.eq(targ._getClasses(),
@@ -751,7 +775,7 @@ class TeleTest(s_t_utils.SynTest):
         addr0 = await dmon0.listen('tcp://127.0.0.1:0/')
         addr1 = await dmon1.listen('tcp://127.0.0.1:0/')
 
-        url0 = f'tcp://127.0.0.1:{addr0[1]}/foo'
+        url0 = f'tcp://user:password@127.0.0.1:{addr0[1]}/foo'
         url1 = f'tcp://127.0.0.1:{addr1[1]}/foo'
 
         fail0 = TestFail()
@@ -778,7 +802,15 @@ class TeleTest(s_t_utils.SynTest):
 
         async with await s_telepath.Client.anit(urls) as targ:
 
-            await targ.waitready()
+            with self.getAsyncLoggerStream('synapse.telepath', 'Connect call failed') as stream:
+
+                await targ.waitready()
+
+                # Verify the password doesn't leak into the log
+                self.true(await stream.wait(2))
+                stream.seek(0)
+                mesgs = stream.read()
+                self.notin('password', mesgs)
 
             self.eq(110, await targ.dostuff(100))
 
@@ -834,7 +866,7 @@ class TeleTest(s_t_utils.SynTest):
             # link not being placed back into the pool
             self.eq(await genr0.list(), (10, 20, 30))
             self.len(2, prox.links)
-            links = set(l for l in prox.links)
+            links = set(lnk for lnk in prox.links)
             self.notin(l0, links)
             # And that link l0 has been fini'd
             self.true(l0.isfini)

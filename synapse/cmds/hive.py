@@ -51,13 +51,6 @@ Notes:
     the environment variable VISUAL or EDITOR must be set.
 '''
 
-def tuplify(obj):
-    if isinstance(obj, list):
-        return tuple(map(tuplify, obj))
-    if isinstance(obj, dict):
-        return {k: tuplify(v) for k, v in obj.items()}
-    return obj
-
 class HiveCmd(s_cli.Cmd):
     '''
 Manipulates values in a cell's Hive.
@@ -232,7 +225,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                         continue
 
                     # We lose the tuple/list distinction in the telepath round trip, so tuplify everything to compare
-                    if (opts.string and valu == old_valu) or (not opts.string and tuplify(valu) == old_valu):
+                    if (opts.string and valu == old_valu) or (not opts.string and s_common.tuplify(valu) == old_valu):
                         self.printf('Valu not changed.  Not writing key.')
                         return
                     await core.setHiveKey(path, valu)

@@ -298,7 +298,7 @@ class NodeTest(s_t_utils.SynTest):
                 # self.none(path.getVar('bar'))
                 self.eq(path.getVar('bar'), 'ru')
                 self.eq(path.getVar('key'), 'valu')
-                path.finiframe()
+                path.finiframe(path.runt)
                 self.len(0, path.frames)
                 self.eq(path.getVar('bar'), 'ru')
                 self.eq(path.getVar('key'), s_common.novalu)
@@ -310,7 +310,7 @@ class NodeTest(s_t_utils.SynTest):
                 path.initframe({'key': 'valu'}, initrunt='runt')
                 self.eq(path.runt, 'runt')
                 self.true(path.frames[0][1] is runt)
-                path.finiframe()
+                path.finiframe(runt)
                 self.true(path.runt is runt)
 
                 # Path clone() creates a fully independent Path object
@@ -332,13 +332,21 @@ class NodeTest(s_t_utils.SynTest):
                 self.len(1, pcln.frames)
                 self.eq(path.getVar('key'), 'valu')
                 self.eq(pcln.getVar('key'), 'valu')
-                pcln.finiframe()
-                path.finiframe()
+                pcln.finiframe(pcln.runt)
+                path.finiframe(path.runt)
                 pcln.setVar('bar', 'us')
                 self.eq(pcln.getVar('bar'), 'us')
                 self.eq(path.getVar('bar'), 'ru')
                 self.eq(pcln.getVar('key'), s_common.novalu)
                 self.eq(path.getVar('key'), s_common.novalu)
+
+                # Check that finiframe without frames resets vars and has correct runt
+                with snap.getStormRuntime() as subr:
+                    node = await snap.addNode('test:comp', (35, 'cat'))
+                    nodepaths = await alist(node.storm('-> test:int [:loc=$foo]', opts={'vars': {'foo': 'ca'}}))
+                    path = nodepaths[0][1]
+                    path.finiframe(subr)
+                    self.eq(path.getVar('foo'), s_common.novalu)
 
         # Ensure that path clone() behavior in storm is as expected
         # with a real-world style test..

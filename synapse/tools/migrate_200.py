@@ -1,5 +1,5 @@
 '''
-Migrate Synapse from 0.1.x to 0.2.x.
+Migrate Synapse from 0.1.x to 2.x.x.
 '''
 import os
 import sys
@@ -10,6 +10,7 @@ import argparse
 import contextlib
 import collections
 
+import synapse.exc as s_exc
 import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
@@ -31,7 +32,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 
 import synapse.tools.backup as s_backup
-import synapse.tools.sync_020 as s_sync
+import synapse.tools.sync_200 as s_sync
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ ALL_MIGROPS = (
     'cron',
     'triggers',
     'splices',
+    'queues'
 )
 
 ADD_MODES = (
@@ -81,7 +83,8 @@ OLDMODEL_PROPS = (
     'inet:fqdn:created', 'inet:fqdn:expires', 'inet:fqdn:updated',
 )
 
-MAX_01X_VERS = (0, 1, 3)
+REQ_01X_LYR_VERS = '==0.1.3'
+REQ_01X_CORE_VERS = '>=0.1.56,<0.2.0'
 
 class MigrSplices(s_sync.SyncMigrator):
     '''
@@ -109,7 +112,7 @@ class MigrSplices(s_sync.SyncMigrator):
     async def enableMigrationMode(self):  # pragma: no cover
         pass
 
-    async def _initCellDmon(self):
+    async def initServiceNetwork(self):
         pass
 
     async def _srcPullLyrSplices(self, lyriden):
@@ -186,9 +189,10 @@ class MigrSplices(s_sync.SyncMigrator):
 
 class MigrAuth:
     '''
-    Loads the Hive auth tree from 0.1.x and translates it to 0.2.x.
+    Loads the Hive auth tree from 0.1.x and translates it to 2.x.x.
 
-    Instance representation of auth:
+    Instance representation of auth::
+
         usersbyname (dict): { <name>: <iden>, ... }
         usersbyiden (dict): {
             <iden>: {
@@ -224,6 +228,7 @@ class MigrAuth:
             },
             ...
         }
+
     '''
     def __init__(self, srctree, defaultview, triggers, queues, crons):
         self.defaultview = defaultview
@@ -244,7 +249,7 @@ class MigrAuth:
 
     async def translate(self):
         '''
-        Execute data translation steps, finishing with a 0.2.x hive auth tree
+        Execute data translation steps, finishing with a 2.x.x hive auth tree
 
         Returns:
             (dict): Hive auth tree representation
@@ -383,7 +388,7 @@ class MigrAuth:
 
     async def _trnAuth(self):
         '''
-        Modify auth properties to translate to 0.2.x syntax.
+        Modify auth properties to translate to 2.x.x syntax.
         '''
         await self._trnAuthRoles()
         await self._trnAuthUsers()
@@ -394,18 +399,20 @@ class MigrAuth:
         Generic rule translations that need to occur for any rule set.
 
         Actions:
-            - Convert ('storm', 'queue', ...) rules to ('queue', ...)
+            - Convert all ('storm', 'foo', ...) rules to ('foo', ...)
             - Convert node/prop/tag rules to node.foo.bar format (assumes these are in 0th position)
         '''
         for i, rule in enumerate(rules):
-            if rule[1][:2] == ('storm', 'queue'):
+            prntrule = rule[1][0]
+
+            if len(rule[1]) > 1 and prntrule == 'storm':
                 rules[i] = (rule[0], rule[1][1:])
 
-            elif any([rule[1][0].startswith(m) for m in ('prop:', 'tag:')]):
-                rules[i] = (rule[0], tuple(['node'] + rule[1][0].split(':') + list(rule[1][1:])))
+            elif any([prntrule.startswith(m) for m in ('prop:', 'tag:')]):
+                rules[i] = (rule[0], tuple(['node'] + prntrule.split(':') + list(rule[1][1:])))
 
-            elif any([rule[1][0].startswith(m) for m in ('node:', 'layer:')]):
-                rules[i] = (rule[0], tuple(rule[1][0].split(':') + list(rule[1][1:])))
+            elif any([prntrule.startswith(m) for m in ('node:', 'layer:')]):
+                rules[i] = (rule[0], tuple(prntrule.split(':') + list(rule[1][1:])))
 
         return rules
 
@@ -596,11 +603,11 @@ class MigrAuth:
 
 class Migrator(s_base.Base):
     '''
-    Standalone tool for migrating Synapse from a source Cortex to a new destination 0.2.x Cortex.
+    Standalone tool for migrating Synapse from a source Cortex to a new destination 2.x.x Cortex.
 
     migrate() is the primary method which steps through sequential migration steps.
     The step is then carried out by a dedicated _migr* method which calls
-    _src*, _trn*, _dest* methods as needed to read from the 0.1.x source, translate data to 0.2.x syntax,
+    _src*, _trn*, _dest* methods as needed to read from the 0.1.x source, translate data to 2.x.x syntax,
     and finally write to the destination layer, respectively.
 
     Auth migration is handled through a standalone class MigrAuth.
@@ -723,6 +730,9 @@ class Migrator(s_base.Base):
             self.migrsplices.model.update(self.model.getModelDict())
             self.onfini(self.migrsplices.fini)
 
+        if 'queues' in self.migrops:
+            await self._migrQueues()
+
         # full layer data migration
         for iden, migrlyrinfo in lyrs.items():
             logger.info(f'Starting migration for layer {iden}')
@@ -819,12 +829,12 @@ class Migrator(s_base.Base):
             self.migrdb = self.migrslab.initdb('migr')
             self.onfini(self.migrslab.fini)
 
-        # optionally create migration nexus
-        if nexus and self.addmode == 'nexus':
+        if self.nexusroot is None:
             path = os.path.join(self.dest)
-            if self.nexusroot is None:
-                self.nexusroot = await s_nexus.NexsRoot.anit(path)
+            donexslog = self.addmode == 'nexus'
+            self.nexusroot = await s_nexus.NexsRoot.anit(path, donexslog=donexslog)
             self.onfini(self.nexusroot.fini)
+            await self.nexusroot.startup(None)
 
         # open cell
         if cell:
@@ -855,24 +865,50 @@ class Migrator(s_base.Base):
         '''
         migrop = 'chkvalid'
 
-        # remote layers
+        logger.info(f'Checking that source Cortex is in valid state to be migrated.')
+        vld = True
+
+        # check cortex version iff copied hive from src (otherwise will be 2.x.x after inplace migration)
+        if 'dirn' in self.migrops:
+            vers = await self.hive.get(('cellinfo', 'cortex:version')) or (-1, -1, -1)
+            await self._migrlogAdd(migrop, 'vers', 'src:cortex', vers)
+
+            try:
+                s_version.reqVersion(vers, REQ_01X_CORE_VERS)
+            except s_exc.BadVersion:
+                logger.error(f'Source Cortex does not meet minimum version: req={REQ_01X_CORE_VERS} actual={vers}')
+                vld = False
+
+        # check cell.guid exists and save to validate no layers have same iden
+        guidpath = os.path.join(self.dest, 'cell.guid')
+        coreiden = None
+        if not os.path.exists(guidpath):
+            logger.error(f'Unable to read cell guid at {guidpath}')
+            vld = False
+        else:
+            with open(guidpath, 'r') as fd:
+                coreiden = fd.read().strip()
+
+        await self._migrlogAdd(migrop, 'iden', 'src:cortex', coreiden)
+
+        # check layer info
         lyrs = await self.hive.open(('cortex', 'layers'))
         for lyriden, lyrinfo in lyrs:
+
+            # no remote layers
             lyrtype = lyrinfo.get('type')
             if lyrtype is not None and lyrtype.valu == 'remote':
                 logger.error(f'{lyriden} is a remote layer - it must be unconfigured to proceed with migration')
-                return False
+                vld = False
 
-        # check cortex version iff copied hive from src (otherwise will be 0.2.x after inplace migration)
-        # currently only storing and not halting migration
-        if 'dirn' in self.migrops:
-            vers = await self.hive.get(('cellinfo', 'cortex:version'))
-            if vers is None:
-                vers = (-1, -1, -1)
-                logger.warning(f'Unable to read src cortex version; consider upgrading before proceeding')
-            await self._migrlogAdd(migrop, 'vers', 'src:cortex', vers)
+            # iden unique from cortex
+            if lyriden == coreiden:
+                logger.error(f'{lyriden} equal to Cortex iden - source may not be properly updated to latest version')
+                vld = False
 
-        return True
+        logger.info(f'Completed check of source Cortex state: valid={vld}')
+
+        return vld
 
     async def formCounts(self):
         '''
@@ -981,7 +1017,7 @@ class Migrator(s_base.Base):
         Copies all data *except* the layers
 
         Returns:
-            (list): Discovered local physical layers
+            (list): Idens of discovered local physical layers
         '''
         dest = self.dest
         src = self.src
@@ -1064,6 +1100,23 @@ class Migrator(s_base.Base):
         # Set cortex:version to latest
         await self.hive.set(('cellinfo', 'cortex:version'), s_version.version)
 
+        # View owner -> creator
+        viewsd = await (await self.hive.open(('cortex', 'views'))).dict()
+
+        usersd = await (await self.hive.open(('auth', 'users'))).dict()
+        ubyname = {uname: uiden for uiden, uname in usersd.items()}
+        rootiden = ubyname.get('root')
+
+        for viden, _ in viewsd.items():
+            viewd = await (await self.hive.open(('cortex', 'views', viden))).dict()
+            owner = await viewd.pop('owner', None)
+            if owner is None:
+                owner = 'root'
+
+            creator = ubyname.get(owner, rootiden)
+
+            await viewd.set('creator', creator)
+
         # check/warn for boot.yaml with credentials
         bootpath = os.path.join(self.dest, 'boot.yaml')
         if os.path.exists(bootpath):
@@ -1081,14 +1134,23 @@ class Migrator(s_base.Base):
         # confdefs
         validconfs = s_cortex.Cortex.confdefs
         yamlpath = os.path.join(self.dest, 'cell.yaml')
+        remconfs = []
+        dedicated = False
         if os.path.exists(yamlpath):
             conf = s_common.yamlload(self.dest, 'cell.yaml')
+
+            # dedicated -> lockmemory
+            if conf.get('dedicated'):
+                dedicated = True
+
             remconfs = [k for k in conf.keys() if k not in validconfs]
             conf = {k: v for k, v in conf.items() if k not in remconfs}
             s_common.yamlsave(conf, self.dest, 'cell.yaml')
 
-            logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
-            await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
+        await self._migrlogAdd(migrop, 'conf', 'dedicated', dedicated)
+
+        logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
+        await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
 
     async def _migrDatamodel(self):
         '''
@@ -1165,6 +1227,9 @@ class Migrator(s_base.Base):
         '''
         migrop = 'hivelyr'
 
+        log = await self._migrlogGetOne('cell', 'conf', 'dedicated')
+        dedicated = log['val'] if log is not None else False
+
         # migration shadow copy
         migrlyrnode = await self.hive.open(('migr', 'layers', iden))
         migrlyrinfo = await migrlyrnode.dict()
@@ -1199,18 +1264,11 @@ class Migrator(s_base.Base):
         await layrinfo.pop('name')
         await layrinfo.pop('type')
 
-        # dedicated -> lockmemory
-        lockmemory = False
-        if srcconf is not None:
-            srcdedicated = srcconf.get('dedicated')
-            if srcdedicated is not None:
-                lockmemory = srcdedicated
-
-        # update layer info for 0.2.x
+        # update layer info for 2.x.x
         await layrinfo.set('iden', iden)
         await layrinfo.set('creator', creator)
         await layrinfo.set('readonly', False)
-        await layrinfo.set('lockmemory', lockmemory)
+        await layrinfo.set('lockmemory', dedicated)
         await layrinfo.set('logedits', True)
         await layrinfo.set('model:version', s_modelrev.maxvers)
 
@@ -1231,55 +1289,64 @@ class Migrator(s_base.Base):
 
         # get queues that need authgates added (no data migration/translation required)
         path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
-        qslab = await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False)
-        self.onfini(qslab.fini)
+        async with await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False) as qslab:
 
-        queues = []  # list of (<queue name>, <user iden>)
-        multiqueue = await qslab.getMultiQueue('cortex:queue')
-        for q in multiqueue.list():
-            name = q.get('name')
-            uiden = q.get('meta', {}).get('user')
+            queues = []  # list of (<queue name>, <user iden>)
+            multiqueue = await qslab.getMultiQueue('cortex:queue')
 
-            if name is None or uiden is None:
-                err = {'err': f'Missing iden values for queue', 'queue': q}
-                logger.warning(err)
-                await self._migrlogAdd(migrop, 'error', f'queue:{name}', err)
-                continue
+            for q in multiqueue.list():
+                name = q.get('name')
+                uiden = q.get('meta', {}).get('user')
 
-            queues.append((name, uiden))
+                if name is None or uiden is None:
+                    err = {'err': f'Missing iden values for queue', 'queue': q}
+                    logger.warning(err)
+                    await self._migrlogAdd(migrop, 'error', f'queue:{name}', err)
+                    continue
 
-        logger.info(f'Found {len(queues)} queues to migrate to AuthGates')
+                queues.append((name, uiden))
 
-        # get triggers that will need authgates added (in 020 format)
-        triggers = collections.defaultdict(set)
-        for _, viewnode in await self.hive.open(('cortex', 'views')):
-            for trigiden, trignode in await viewnode.open(('triggers',)):
-                triggers[trigiden].add(trignode.valu.get('user'))
+            logger.info(f'Found {len(queues)} queues to migrate to AuthGates')
 
-        # get cron jobs that need authgates added (in 020 format)
-        crons = []  # list of (<cron iden>, <user iden>)
-        for croniden, cronvals in (await self.hive.dict(('agenda', 'appts'))).items():
-            crons.append((croniden, cronvals.get('creator')))
+            # get triggers that will need authgates added (in 2.x.x format)
+            triggers = collections.defaultdict(set)
+            for _, viewnode in await self.hive.open(('cortex', 'views')):
+                for trigiden, trignode in await viewnode.open(('triggers',)):
+                    triggers[trigiden].add(trignode.valu.get('user'))
 
-        defaultview = await self.hive.get(('cellinfo', 'defaultview'))
+            # get cron jobs that need authgates added (in 2.x.x format)
+            crons = []  # list of (<cron iden>, <user iden>)
+            for croniden, cronvals in (await self.hive.dict(('agenda', 'appts'))).items():
+                crons.append((croniden, cronvals.get('creator')))
 
-        srctree = await self.hive.saveHiveTree(('auth',))
+            defaultview = await self.hive.get(('cellinfo', 'defaultview'))
 
-        migrauth = MigrAuth(srctree, defaultview, triggers, queues, crons)
-        desttree = await migrauth.translate()
+            srctree = await self.hive.saveHiveTree(('auth',))
 
-        # save a backup then replace
-        await self.hive.loadHiveTree(srctree, ('auth01x',))
-        await self.hive.loadHiveTree(desttree, ('auth',))
+            migrauth = MigrAuth(srctree, defaultview, triggers, queues, crons)
+            desttree = await migrauth.translate()
 
-        # save user hierarchy
-        dumpf = os.path.join(self.dest, self.migrdir, f'authhier_{s_common.now()}.mpk')
-        with open(dumpf, 'wb') as fd:
-            fd.write(s_msgpack.en(migrauth.userhierarchy))
-        logger.info(f'Saved msgpackd user hierarchy to {dumpf}')
+            # save a backup then replace
+            await self.hive.loadHiveTree(srctree, ('auth01x',))
+            await self.hive.loadHiveTree(desttree, ('auth',))
 
-        logger.info('Completed HiveAuth migration')
-        await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
+            # save user hierarchy
+            dumpf = os.path.join(self.dest, self.migrdir, f'authhier_{s_common.now()}.mpk')
+            with open(dumpf, 'wb') as fd:
+                fd.write(s_msgpack.en(migrauth.userhierarchy))
+            logger.info(f'Saved msgpackd user hierarchy to {dumpf}')
+
+            logger.info('Completed HiveAuth migration')
+            await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
+
+    async def _migrQueues(self):
+        path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
+        async with await s_lmdbslab.Slab.anit(path, map_async=True, lockmemory=False) as qslab:
+            multiqueue = await qslab.getMultiQueue('cortex:queue')
+
+            for q in multiqueue.list():
+                name = q.get('name')
+                multiqueue.abrv.setBytsToAbrv(name.encode())
 
     async def _migrCron(self):
         '''
@@ -1356,7 +1423,7 @@ class Migrator(s_base.Base):
 
         Args:
             iden (str): Iden of the layer
-            wlyr (Layer): 0.2.0 Layer to write to
+            wlyr (Layer): 2.x.x Layer to write to
         '''
         migrop = 'nodes'
         nodelim = self.nodelim
@@ -1419,10 +1486,9 @@ class Migrator(s_base.Base):
 
         logger.debug(f'Layer {iden} model version {vers}')
 
-        # even after a partial migration this vers should not be updated to 020 since
+        # even after a partial migration this vers should not be updated to 2.x.x since
         # layer:model:version is no longer used
-        if vers != MAX_01X_VERS:
-            raise Exception(f'Layer {iden} model version must be at latest 01x vers: {vers} != {MAX_01X_VERS}')
+        s_version.reqVersion(vers, REQ_01X_LYR_VERS, mesg=f'Layer {iden} model version does not match required.')
 
         # record offset
         path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')
@@ -1562,7 +1628,7 @@ class Migrator(s_base.Base):
 
         Args:
             iden (str): Iden of the layer
-            wlyr (Layer): 0.2.0 Layer to write to
+            wlyr (Layer): 2.x.x Layer to write to
         '''
         migrop = 'nodedata'
         nodelim = self.nodelim
@@ -1597,7 +1663,18 @@ class Migrator(s_base.Base):
             if stot % fairiter == 0:
                 await asyncio.sleep(0)
 
-            nodeedit = await self._trnNodedataToNodeedit(nodedata)
+            # resolve form for nodeedit
+            # if nodes have not already been migrated these lookups will not resolve
+            fenc = wlyr.layrslab.get(nodedata[0] + b'\x09', db=wlyr.bybuid)
+            if fenc is None:
+                err = f'Nodedata form not resolved from migrated node slab'
+                logger.warning(err)
+                await self._migrlogAdd(migrop, 'error', nodedata[0], err)
+                continue
+
+            form = fenc.decode()
+
+            nodeedit = await self._trnNodedataToNodeedit(nodedata, form)
             if nodeedit is None:
                 continue
 
@@ -1645,7 +1722,7 @@ class Migrator(s_base.Base):
 
     async def _migrSplices(self, iden):
         '''
-        Migrate 01x splices from the splices slab directly to the 02x nodeedits slab.
+        Migrate 01x splices from the splices slab directly to the 20x nodeedits slab.
 
         Args:
             iden: Layer iden to migate
@@ -1676,7 +1753,7 @@ class Migrator(s_base.Base):
 
         # create the source genr to use in splice sync
         async def genr(offs):
-            for indx, valu in splicelog.iter(offs):
+            for _, valu in splicelog.iter(offs):
                 yield valu
             return
 
@@ -1939,7 +2016,7 @@ class Migrator(s_base.Base):
 
     async def _trnNodeToNodeedit(self, node, model, fname=None, chknodes=True):
         '''
-        Create translation of node info to an 0.2.0 node edit.
+        Create translation of node info to an 2.x.x node edit.
 
         Args:
             node (tuple): (<buid>, {'ndef': ..., 'props': ..., 'tags': ..., 'tagprops': ...}
@@ -2054,12 +2131,13 @@ class Migrator(s_base.Base):
 
         return None, (buid, fname, edits)
 
-    async def _trnNodedataToNodeedit(self, nodedata):
+    async def _trnNodedataToNodeedit(self, nodedata, form):
         '''
-        Create translation of node info to an 0.2.0 node edit.
+        Create translation of node info to an 2.x.x node edit.
 
         Args:
             nodedata (tuple): (<buid>, <name>, <val>)
+            form (str): Form name associated with the buid
 
         Returns:
             nodeedit (tuple): (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
@@ -2070,10 +2148,10 @@ class Migrator(s_base.Base):
 
         edits = [(s_layer.EDIT_NODEDATA_SET, (name, valu, None), ())]
 
-        return buid, None, edits
+        return buid, form, edits
 
     #############################################################
-    # Destination (0.2.0) operations
+    # Destination (2.x.x) operations
     #############################################################
 
     @s_cache.memoize(16)
@@ -2149,8 +2227,12 @@ class Migrator(s_base.Base):
                 await wlyr.storNodeEditsNoLift(nodeedits, meta)
 
             elif addmode == 'nonexus':
+                meta = {
+                    'time': s_common.now(),
+                    'user': wlyr.layrinfo.get('creator'),
+                }
                 for ne in nodeedits:
-                    await wlyr._storNodeEdit(ne)
+                    await wlyr._storNodeEdit(ne, meta)
 
             elif addmode == 'editor':
                 # NOTE: This code must mirror Layer._editNodeAdd in synapse.lib.layer
@@ -2165,7 +2247,7 @@ class Migrator(s_base.Base):
                             if not wlyr.layrslab.put(buid + b'\x00', byts, db=wlyr.bybuid, overwrite=False):
                                 continue
 
-                            abrv = wlyr.getPropAbrv(form, None)
+                            abrv = wlyr.setPropAbrv(form, None)
 
                             if stortype & s_layer.STOR_FLAG_ARRAY:
 
@@ -2202,8 +2284,8 @@ class Migrator(s_base.Base):
         return None
 
 async def main(argv, outp=s_output.stdout):
-    desc = 'Tool for migrating Synapse Cortex storage from 0.1.x to 0.2.0'
-    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_020', description=desc)
+    desc = 'Tool for migrating Synapse Cortex storage from 0.1.x to 2.x.x'
+    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_200', description=desc)
 
     pars.add_argument('--src', required=True, type=str, help='Source cortex dirn to migrate from.')
     pars.add_argument('--dest', required=False, type=str, help='Destination cortex dirn to migrate to.')

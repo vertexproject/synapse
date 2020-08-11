@@ -15,6 +15,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_test
+import synapse.tests.test_lib_stormsvc as s_test_svc
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +200,6 @@ class CoreSpawnTest(s_test.SynTest):
                 # make sure graph rules work
                 msgs = await prox.storm('inet:dns:a', opts={'spawn': True, 'graph': True}).list()
                 podes = [m[1] for m in msgs if m[0] == 'node']
-
                 ndefs = list(sorted(p[0] for p in podes))
 
                 self.eq(ndefs, (
@@ -215,6 +215,21 @@ class CoreSpawnTest(s_test.SynTest):
                 self.stormIsInPrint("testcmd: ('inet:ipv4', 16909060)", msgs)
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 self.len(1, podes)
+
+                # Test a macro execution
+                msgs = await prox.storm('macro.set macrotest ${ inet:ipv4 }', opts=opts).list()
+                self.stormIsInPrint('Set macro: macrotest', msgs)
+                msgs = await prox.storm('macro.list', opts=opts).list()
+                self.stormIsInPrint('macrotest', msgs)
+                self.stormIsInPrint('owner: root', msgs)
+                msgs = await prox.storm('macro.exec macrotest', opts=opts).list()
+                podes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(1, podes)
+                self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
+                msgs = await prox.storm('macro.del macrotest', opts=opts).list()
+                self.stormIsInPrint('Removed macro: macrotest', msgs)
+                msgs = await prox.storm('macro.exec macrotest', opts=opts).list()
+                self.stormIsInErr('Macro name not found: macrotest', msgs)
 
                 # Test a simple stormlib command
                 msgs = await prox.storm('$lib.print("hello")', opts=opts).list()
@@ -281,7 +296,7 @@ class CoreSpawnTest(s_test.SynTest):
                 n = 4
                 tasks = [taskfunc(i) for i in range(n)]
                 try:
-                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=40)
+                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=80)
                 except asyncio.TimeoutError:
                     self.fail('Timeout awaiting for spawn tasks to finish.')
 
@@ -389,7 +404,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                 msgs = await prox.storm('''
                     $q = $lib.queue.get(blah)
-                    for ($offs, $ipv4) in $q.gets(0, cull=0, wait=0) {
+                    for ($offs, $ipv4) in $q.gets(0, cull=$lib.false, wait=$lib.false) {
                         inet:ipv4=$ipv4
                     }
                 ''', opts=opts).list()
@@ -398,7 +413,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                 msgs = await prox.storm('''
                     $q = $lib.queue.get(blah)
-                    for ($offs, $ipv4) in $q.gets(wait=0) {
+                    for ($offs, $ipv4) in $q.gets(wait=$lib.false) {
                         inet:ipv4=$ipv4
                         $q.cull($offs)
                     }
@@ -464,7 +479,7 @@ class CoreSpawnTest(s_test.SynTest):
                     msgs = await prox.storm(q, opts=opts).list()
 
                     # Ensure that the data was put into the queue by the spawnproc
-                    q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=False, cull=False))'
+                    q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=$lib.false, cull=$lib.false))'
                     msgs = await core.stormlist(q)
                     self.stormIsInPrint("(0, 'bar')", msgs)
 
@@ -478,7 +493,7 @@ class CoreSpawnTest(s_test.SynTest):
                     rule = (True, ('queue', 'get'))
                     await woot.addRule(rule, gateiden='queue:synq')
 
-                    q = '$lib.print($lib.queue.get(synq).get(wait=False))'
+                    q = '$lib.print($lib.queue.get(synq).get(wait=$lib.false))'
                     msgs = await prox.storm(q, opts=opts).list()
                     self.stormIsInPrint("(0, 'bar')", msgs)
 
@@ -508,25 +523,39 @@ class CoreSpawnTest(s_test.SynTest):
             'storm:log': True,
             'storm:log:level': logging.INFO,
         }
-        async with self.getTestCore(conf=conf) as core:
-            async with core.getLocalProxy() as prox:
-                opts = {'spawn': True}
+        async with self.getTestDmon() as dmon:
+            dmon.share('real', s_test_svc.RealService())
+            host, port = dmon.addr
 
-                msgs = await prox.storm('pkg.del asdf', opts=opts).list()
-                self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
+            lurl = f'tcp://127.0.0.1:{port}/real'
+            async with self.getTestCore(conf=conf) as core:
 
-                await core.addStormPkg(otherpkg)
-                msgs = await prox.storm('pkg.list', opts=opts).list()
-                self.stormIsInPrint('foosball', msgs)
+                await core.nodes(f'service.add real {lurl}')
+                await core.nodes('$lib.service.wait(real)')
+                msgs = await core.stormlist('help')
+                self.stormIsInPrint('foobar', msgs)
 
-                msgs = await prox.storm(f'pkg.del foosball', opts=opts).list()
-                self.stormIsInPrint('Removing package: foosball', msgs)
+                async with core.getLocalProxy() as prox:
+                    opts = {'spawn': True}
 
-                # Direct add via stormtypes
-                msgs = await prox.storm('$lib.pkg.add($pkg)',
-                                        opts={'vars': {'pkg': stormpkg}, 'spawn': True}).list()
-                msgs = await prox.storm('pkg.list', opts=opts).list()
-                self.stormIsInPrint('stormpkg', msgs)
+                    msgs = await prox.storm('help', opts=opts).list()
+                    self.stormIsInPrint('foobar', msgs)
+
+                    msgs = await prox.storm('pkg.del asdf', opts=opts).list()
+                    self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
+
+                    await core.addStormPkg(otherpkg)
+                    msgs = await prox.storm('pkg.list', opts=opts).list()
+                    self.stormIsInPrint('foosball', msgs)
+
+                    msgs = await prox.storm(f'pkg.del foosball', opts=opts).list()
+                    self.stormIsInPrint('Removing package: foosball', msgs)
+
+                    # Direct add via stormtypes
+                    msgs = await prox.storm('$lib.pkg.add($pkg)',
+                                            opts={'vars': {'pkg': stormpkg}, 'spawn': True}).list()
+                    msgs = await prox.storm('pkg.list', opts=opts).list()
+                    self.stormIsInPrint('stormpkg', msgs)
 
     async def test_spawn_node_data(self):
 
@@ -607,3 +636,18 @@ class CoreSpawnTest(s_test.SynTest):
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
             msgs = await prox.storm('$lib.dmon.del($ddef.iden)').list()
+
+    async def test_spawn_forked_view(self):
+        async with self.getTestCoreAndProxy() as (core, prox):
+            await core.nodes('[ test:str=1234 ]')
+            mainview = await core.callStorm('$iden=$lib.view.get().pack().iden '
+                                            'return ( $iden )')
+            forkview = await core.callStorm(f'$fork=$lib.view.get({mainview}).fork() '
+                                            f'return ( $fork.pack().iden )')
+            await core.nodes('[ test:str=beep ]', {'view': forkview})
+
+            opts = {'spawn': True, 'view': forkview}
+            msgs = await prox.storm('test:str $lib.print($node.value()) | spin', opts).list()
+
+            self.stormIsInPrint('1234', msgs)
+            self.stormIsInPrint('beep', msgs)

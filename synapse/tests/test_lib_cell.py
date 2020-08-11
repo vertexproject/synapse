@@ -33,7 +33,6 @@ class EchoAuth(s_cell.Cell):
         if doraise:
             raise s_exc.BadTime(mesg='call again later')
 
-
 class CellTest(s_t_utils.SynTest):
 
     async def test_cell_auth(self):
@@ -392,8 +391,18 @@ class CellTest(s_t_utils.SynTest):
                 todo = s_common.todo('stream', doraise=True)
                 await self.agenraises(s_exc.BadTime, await prox.dyncall('self', todo))
 
-    async def test_cell_nexuschanges(self):
+    async def test_cell_promote(self):
+
         with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn) as cell:
+                async with cell.getLocalProxy() as proxy:
+                    with self.raises(s_exc.BadConfValu):
+                        await proxy.promote()
+
+    async def test_cell_nexuschanges(self):
+
+        with self.getTestDir() as dirn:
+
             dir0 = s_common.genpath(dirn, 'cell00')
             dir1 = s_common.genpath(dirn, 'cell01')
 
@@ -405,24 +414,30 @@ class CellTest(s_t_utils.SynTest):
                     nexsiden, act, args, kwargs, meta = data
                     if nexsiden == 'auth:auth' and act == 'user:add':
                         retn.append(args)
-                    if len(retn) >= 2:
                         break
                 return yielded, retn
 
-            conf = {'nexslog:en': True}
+            conf = {
+                'nexslog:en': True,
+                'nexslog:async': True,
+                'dmon:listen': 'tcp://127.0.0.1:0/',
+                'https:port': 0,
+            }
             async with await s_cell.Cell.anit(dir0, conf=conf) as cell00, \
                     cell00.getLocalProxy() as prox00:
 
+                self.true(cell00.nexsroot.map_async)
                 self.true(cell00.nexsroot.donexslog)
 
-                testuser = await prox00.addUser('test')
+                await prox00.addUser('test')
+                self.true(await prox00.getNexsIndx() > 0)
 
                 # We should have a set of auth:auth changes to find
                 task = cell00.schedCoro(coro(prox00, 0))
                 yielded, data = await asyncio.wait_for(task, 6)
                 self.true(yielded)
                 usernames = [args[1] for args in data]
-                self.eq(usernames, ['root', 'test'])
+                self.eq(usernames, ['test'])
 
             # Disable change logging for this cell.
             conf = {'nexslog:en': False}
@@ -430,7 +445,7 @@ class CellTest(s_t_utils.SynTest):
                     cell01.getLocalProxy() as prox01:
                 self.false(cell01.nexsroot.donexslog)
 
-                testuser01 = await prox01.addUser('test')
+                await prox01.addUser('test')
 
                 task = cell01.schedCoro(coro(prox01, 0))
                 yielded, data = await asyncio.wait_for(task, 6)
@@ -487,3 +502,42 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(slab['readonly'])
                 self.nn(slab['lockmemory'])
                 self.nn(slab['recovering'])
+
+    async def test_cell_hiveapi(self):
+
+        async with self.getTestCore() as core:
+
+            await core.setHiveKey(('foo', 'bar'), 10)
+            await core.setHiveKey(('foo', 'baz'), 30)
+
+            async with core.getLocalProxy() as proxy:
+                self.eq((), await proxy.getHiveKeys(('lulz',)))
+                self.eq((('bar', 10), ('baz', 30)), await proxy.getHiveKeys(('foo',)))
+
+    async def test_cell_confprint(self):
+
+        with self.withSetLoggingMock():
+
+            with self.getTestDir() as dirn:
+
+                conf = {
+                    'dmon:listen': 'tcp://127.0.0.1:0',
+                    'https:port': 0,
+                }
+                s_common.yamlsave(conf, dirn, 'cell.yaml')
+
+                outp = self.getTestOutp()
+                async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
+                    outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
+                    outp.expect('...cell API (https): 0')
+
+                conf = {
+                    'dmon:listen': 'tcp://127.0.0.1:0',
+                    'https:port': None,
+                }
+                s_common.yamlsave(conf, dirn, 'cell.yaml')
+
+                outp = self.getTestOutp()
+                async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
+                    outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
+                    outp.expect('...cell API (https): disabled')

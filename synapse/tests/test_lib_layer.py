@@ -1,3 +1,4 @@
+import os
 import math
 import asyncio
 import contextlib
@@ -6,6 +7,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 
@@ -40,18 +42,18 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             layr = core.getLayer()
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.setPropAbrv('visi', 'foo'))
             # another to check the cache...
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x05', layr.getPropAbrv('whip', None))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x05', layr.setPropAbrv('whip', None))
             self.eq(('visi', 'foo'), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x04'))
             self.eq(('whip', None), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x05'))
-            self.eq(None, layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x06'))
+            self.raises(s_exc.NoSuchAbrv, layr.getAbrvProp, b'\x00\x00\x00\x00\x00\x00\x00\x06')
 
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.setTagPropAbrv('visi', 'foo'))
             # another to check the cache...
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x01', layr.getTagPropAbrv('whip', None))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x01', layr.setTagPropAbrv('whip', None))
 
     async def test_layer_upstream(self):
 
@@ -71,12 +73,14 @@ class LayerTest(s_t_utils.SynTest):
                 async with await core00.snap() as snap:
 
                     props = {'tick': 12345}
-                    node = await snap.addNode('test:str', 'foo', props=props)
-                    await node.setTagProp('bar', 'score', 10)
-                    await node.setData('baz', 'nodedataiscool')
+                    node1 = await snap.addNode('test:str', 'foo', props=props)
+                    await node1.setTagProp('bar', 'score', 10)
+                    await node1.setData('baz', 'nodedataiscool')
 
-                    node = await snap.addNode('test:str', 'bar', props=props)
-                    await node.setData('baz', 'nodedataiscool')
+                    node2 = await snap.addNode('test:str', 'bar', props=props)
+                    await node2.setData('baz', 'nodedataiscool')
+
+                    await node1.addEdge('refs', node2.iden())
 
                 async with self.getTestCore(dirn=path01) as core01:
 
@@ -91,7 +95,7 @@ class LayerTest(s_t_utils.SynTest):
                     await core01.view.addLayer(layr.iden)
 
                     # test initial sync
-                    offs = core00.getView().layers[0].getNodeEditOffset()
+                    offs = await core00.getView().layers[0].getNodeEditOffset()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -106,18 +110,19 @@ class LayerTest(s_t_utils.SynTest):
                         self.eq(node.props.get('tick'), 12345)
                         self.eq(node.tagprops.get(('bar', 'score')), 10)
                         self.eq(await node.getData('baz'), 'nodedataiscool')
+                        self.len(1, await alist(node.iterEdgesN1()))
 
                     # make sure updates show up
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
 
-                    offs = core00.getView().layers[0].getNodeEditOffset()
+                    offs = await core00.getView().layers[0].getNodeEditOffset()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
-                offs = core00.getView().layers[0].getNodeEditOffset()
+                offs = await core00.getView().layers[0].getNodeEditOffset()
 
                 # test what happens when we go down and come up again...
                 async with self.getTestCore(dirn=path01) as core01:
@@ -131,7 +136,7 @@ class LayerTest(s_t_utils.SynTest):
 
                     await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
 
-                    offs = core00.getView().layers[0].getNodeEditOffset()
+                    offs = await core00.getView().layers[0].getNodeEditOffset()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -177,7 +182,7 @@ class LayerTest(s_t_utils.SynTest):
                     layr = core01.getLayer(ldef.get('iden'))
 
                     # Sync core01 with core00
-                    offs = core00.getView().layers[0].getNodeEditOffset()
+                    offs = await core00.getView().layers[0].getNodeEditOffset()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=8.0)
 
@@ -230,7 +235,7 @@ class LayerTest(s_t_utils.SynTest):
                         await core02.view.addLayer(layr.iden)
 
                         # core00 is synced
-                        offs = core00.getView().layers[0].getNodeEditOffset()
+                        offs = await core00.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -240,7 +245,7 @@ class LayerTest(s_t_utils.SynTest):
                         self.nn(nodes[0].tags.get('hehe.haha'))
 
                         # core01 is synced
-                        offs = core01.getView().layers[0].getNodeEditOffset()
+                        offs = await core01.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -252,7 +257,7 @@ class LayerTest(s_t_utils.SynTest):
                         # updates from core00 show up
                         await core00.nodes('[ inet:fqdn=vertex.link ]')
 
-                        offs = core00.getView().layers[0].getNodeEditOffset()
+                        offs = await core00.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -261,7 +266,7 @@ class LayerTest(s_t_utils.SynTest):
                         # updates from core01 show up
                         await core01.nodes('[ inet:fqdn=google.com ]')
 
-                        offs = core01.getView().layers[0].getNodeEditOffset()
+                        offs = await core01.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -276,14 +281,14 @@ class LayerTest(s_t_utils.SynTest):
                         layr = core02.getView().layers[-1]
 
                         # test we catch up to core00
-                        offs = core00.getView().layers[0].getNodeEditOffset()
+                        offs = await core00.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:ipv4=5.5.5.5'))
 
                         # test we catch up to core01
-                        offs = core01.getView().layers[0].getNodeEditOffset()
+                        offs = await core01.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -292,7 +297,7 @@ class LayerTest(s_t_utils.SynTest):
                         # test we get updates from core00
                         await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
 
-                        offs = core00.getView().layers[0].getNodeEditOffset()
+                        offs = await core00.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -301,7 +306,7 @@ class LayerTest(s_t_utils.SynTest):
                         # test we get updates from core01
                         await core01.nodes('[ inet:ipv4=8.7.6.5 ]')
 
-                        offs = core01.getView().layers[0].getNodeEditOffset()
+                        offs = await core01.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -500,7 +505,7 @@ class LayerTest(s_t_utils.SynTest):
             # Get all but the first splice
             await self.agenlen(25, layr.splices((0, 0, 1)))
 
-            await self.agenlen(4, layr.splicesBack((1, 0, 0)))
+            await self.agenlen(4, layr.splicesBack((2, 0, 0)))
 
             # Make sure we still get two splices when
             # offset is not at the beginning of a nodeedit
@@ -528,69 +533,69 @@ class LayerTest(s_t_utils.SynTest):
                 layr.layrslab.put(key[0], val, db=tmpdb)
 
             # = -99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '=', -99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', -99999.9)]
             self.eq(retn, [-99999.9])
 
             # <= -99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', -99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', -99999.9)]
             self.eq(retn, [-math.inf, -99999.9])
 
             # < -99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<', -99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', -99999.9)]
             self.eq(retn, [-math.inf])
 
             # > 99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>', 99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', 99999.9)]
             self.eq(retn, [math.inf])
 
             # >= 99999.9
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>=', 99999.9)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', 99999.9)]
             self.eq(retn, [99999.9, math.inf])
 
             # <= 0.0
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', 0.0)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', 0.0)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0])
 
             # >= -0.0
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>=', -0.0)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', -0.0)]
             self.eq(retn, [-0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # >= -42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>=', -42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', -42.1)]
             self.eq(retn, [-42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # > -42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '>', -42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', -42.1)]
             self.eq(retn, [-0.0000000001, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # < 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<', 42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', 42.1)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0, 0.000001])
 
             # <= 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, '<=', 42.1)]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', 42.1)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1])
 
             # -42.1 to 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (-42.1, 42.1))]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (-42.1, 42.1))]
             self.eq(retn, [-42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1])
 
             # 1 to 42.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (1.0, 42.1))]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (1.0, 42.1))]
             self.eq(retn, [42.1])
 
             # -99999.9 to -0.1
-            retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
             self.eq(retn, [-99999.9, -42.1])
 
             # <= NaN
-            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, '<=', math.nan)
+            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '<=', math.nan))
 
             # >= NaN
-            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, '>=', math.nan)
+            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, '>=', math.nan))
 
             # 1.0 to NaN
-            self.genraises(s_exc.NotANumberCompared, stor.indxBy, indxby, 'range=', (1.0, math.nan))
+            await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, 'range=', (1.0, math.nan)))
 
     async def test_layer_stortype_merge(self):
 
@@ -656,6 +661,96 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar=2015 ]')
             self.eq((1325376000000, 1420070400001), nodes[0].getTag('foo.bar'))
 
+            nodeedits = [
+                (buid, None, (
+                    (s_layer.EDIT_PROP_SET, ('loc', 'us', None, s_layer.STOR_TYPE_LOC), ()),
+                )),
+            ]
+
+            nodeedits_out = await layr.storNodeEdits(nodeedits, {})
+            self.notin('loc', nodeedits_out[0][1]['props'])
+
+            nodeedits = [
+                (buid, None, (
+                    (s_layer.EDIT_TAG_SET, ('faz.baz', (None, None), (None, None)), ()),
+                )),
+            ]
+
+            nodeedits_out = await layr.storNodeEdits(nodeedits, {})
+            self.notin('faz.baz', nodeedits_out[0][1]['tags'])
+
+    async def test_layer_nodeedits_created(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:int=1 :loc=us ]')
+            created00 = nodes[0].get('.created')
+
+            layr = core.getLayer()
+
+            editlist00 = [nes async for nes in layr.iterLayerNodeEdits()]
+
+            await core.nodes('test:int=1 | delnode')
+            self.len(0, await core.nodes('test:int'))
+
+            # Simulate a nexus edit list (no .created)
+            nexslist00 = [(ne[0], ne[1], [e for e in ne[2] if e[1][0] != '.created']) for ne in editlist00]
+
+            # meta used for .created
+            await asyncio.sleep(0.01)
+            await layr.storNodeEdits(nexslist00, {'time': created00})
+
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+
+            self.eq(created00, nodes[0].get('.created'))
+
+            await core.nodes('test:int=1 | delnode')
+            self.len(0, await core.nodes('test:int'))
+
+            # If meta is not specified .created gets populated to now
+            await asyncio.sleep(0.01)
+            await layr.storNodeEdits(nexslist00, None)
+
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+
+            created01 = nodes[0].get('.created')
+            self.gt(created01, created00)
+
+            # edits with the same node has the same .created
+            await asyncio.sleep(0.01)
+            nodes = await core.nodes('[ test:int=1 ]')
+            self.eq(created01, nodes[0].get('.created'))
+
+            nodes = await core.nodes('[ test:int=1 :loc=us +#foo]')
+            self.eq(created01, nodes[0].get('.created'))
+
+            await core.nodes('test:int=1 | delnode')
+            self.len(0, await core.nodes('test:int'))
+
+            # Tests for behavior of storing nodeedits directly prior to using meta (i.e. meta['time'] != .created)
+            # .created is a MINTIME therefore earlier value wins, which is typically meta
+            created02 = s_time.parse('1990-10-10 12:30')
+            await layr.storNodeEdits(editlist00, {'time': created02})
+
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+
+            self.eq(created02, nodes[0].get('.created'))
+
+            await core.nodes('test:int=1 | delnode')
+            self.len(0, await core.nodes('test:int'))
+
+            # meta could be after .created for manual store operations
+            created03 = s_time.parse('2050-10-10 12:30')
+            await layr.storNodeEdits(editlist00, {'time': created03})
+
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+
+            self.eq(created00, nodes[0].get('.created'))
+
     async def test_layer_nodeedits(self):
 
         async with self.getTestCoreAndProxy() as (core0, prox0):
@@ -668,15 +763,12 @@ class LayerTest(s_t_utils.SynTest):
 
             nodelist0 = [node.pack() for node in nodelist0]
 
-            count = 0
             editlist = []
 
-            layr = core0.getLayer(None)
-            necount = layr.nodeeditlog.index()
-            async for _, nodeedits in prox0.syncLayerNodeEdits(0):
+            layr = core0.getLayer()
+            async for offs, nodeedits in prox0.syncLayerNodeEdits(0):
                 editlist.append(nodeedits)
-                count += 1
-                if count == necount:
+                if offs == layr.nodeeditlog.index() - 1:
                     break
 
             async with self.getTestCore() as core1:
@@ -726,6 +818,76 @@ class LayerTest(s_t_utils.SynTest):
                     for nodeedit in layr.nodeeditlog.sliceBack(lastoffs, 2):
                         self.eq(meta, nodeedit[1][1])
 
+    async def test_layer_form_by_buid(self):
+
+        async with self.getTestCore() as core:
+
+            layr00 = core.view.layers[0]
+
+            # add node - buid:form exists
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            buid0 = nodes[0].buid
+            self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+
+            # add edge and nodedata
+            nodes = await core.nodes('[ inet:ipv4=2.3.4.5 ]')
+            buid1 = nodes[0].buid
+            self.eq('inet:ipv4', await layr00.getNodeForm(buid1))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ +(refs)> {inet:ipv4=2.3.4.5} ] $node.data.set(spam, ham)')
+            self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+
+            # remove edge, map still exists
+            await core.nodes('inet:ipv4=1.2.3.4 [ -(refs)> {inet:ipv4=2.3.4.5} ]')
+            self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+
+            # remove nodedata, map still exists
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(spam)')
+            self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+
+            # delete node - buid:form removed
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode')
+            self.none(await layr00.getNodeForm(buid0))
+
+            await core.nodes('[ inet:ipv4=5.6.7.8 ]')
+
+            # fork a view
+            info = await core.view.fork()
+            layr01 = core.getLayer(info['layers'][0]['iden'])
+            view01 = core.getView(info['iden'])
+
+            await alist(view01.eval('[ inet:ipv4=6.7.8.9 ]'))
+
+            # buid:form for a node in child doesn't exist
+            self.none(await layr01.getNodeForm(buid1))
+
+            # add prop, buid:form map exists
+            nodes = await alist(view01.eval('inet:ipv4=2.3.4.5 [ :loc=ru ]'))
+            self.len(1, nodes)
+            self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+
+            # add nodedata and edge
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ +(refs)> {inet:ipv4=6.7.8.9} ] $node.data.set(faz, baz)'))
+
+            # remove prop, map still exists due to nodedata
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -:loc ]'))
+            self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+
+            # remove nodedata, map still exists due to edge
+            await alist(view01.eval('inet:ipv4=2.3.4.5 $node.data.pop(faz)'))
+            self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+
+            # remove edge, map is deleted
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -(refs)> {inet:ipv4=6.7.8.9} ]'))
+            self.none(await layr01.getNodeForm(buid1))
+
+            # edges between two nodes in parent
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ +(refs)> {inet:ipv4=5.6.7.8} ]'))
+            self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+
+            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -(refs)> {inet:ipv4=5.6.7.8} ]'))
+            self.none(await layr01.getNodeForm(buid1))
+
     async def test_layer(self):
 
         async with self.getTestCore() as core:
@@ -733,18 +895,30 @@ class LayerTest(s_t_utils.SynTest):
             await core.addTagProp('score', ('int', {}), {})
 
             layr = core.getLayer()
-            self.eq(str(layr), f'Layer (Layer): {layr.iden}')
+            self.isin(f'Layer (Layer): {layr.iden}', str(layr))
 
             nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
             buid = nodes[0].buid
 
-            self.eq('foo', layr.getNodeValu(buid))
-            self.eq((1420070400000, 1451606400000), layr.getNodeValu(buid, '.seen'))
-            self.none(layr.getNodeValu(buid, 'noprop'))
-            self.none(layr.getNodeTag(buid, 'faketag'))
+            self.eq('foo', await layr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
+            self.none(await layr.getNodeValu(buid, 'noprop'))
+            self.none(await layr.getNodeTag(buid, 'faketag'))
 
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
+
+    async def test_layer_waitForHot(self):
+
+        async with self.getTestCore() as core:
+            layr = core.getLayer()
+
+            await asyncio.wait_for(layr.waitForHot(), timeout=1.0)
+
+        conf = {'layers:lockmemory': True}
+        async with self.getTestCore(conf=conf) as core:
+            layr = core.getLayer()
+            await asyncio.wait_for(layr.waitForHot(), timeout=1.0)
 
     async def test_layer_no_extra_logging(self):
 
@@ -768,3 +942,55 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('.created | delnode --force')
             nodes = await core.nodes('.created')
             self.len(0, nodes)
+
+    async def test_layer_flat_edits(self):
+        nodeedits = (
+            (b'asdf', 'test:junk', (
+                (s_layer.EDIT_NODE_ADD, (10, s_layer.STOR_TYPE_U64), (
+                    (b'qwer', 'test:junk', (
+                        (s_layer.EDIT_NODE_ADD, (11, s_layer.STOR_TYPE_U64), ()),
+                    )),
+                )),
+            )),
+        )
+        self.len(2, s_layer.getFlatEdits(nodeedits))
+
+    async def test_layer_clone(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            layr = core.getLayer()
+            self.isin(f'Layer (Layer): {layr.iden}', str(layr))
+
+            nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            buid = nodes[0].buid
+
+            self.eq('foo', await layr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
+
+            s_common.gendir(layr.dirn, 'adir')
+
+            copylayrinfo = await core.cloneLayer(layr.iden)
+            self.len(2, core.layers)
+
+            copylayr = core.getLayer(copylayrinfo.get('iden'))
+            self.isin(f'Layer (Layer): {copylayr.iden}', str(copylayr))
+            self.ne(layr.iden, copylayr.iden)
+
+            self.eq('foo', await copylayr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(buid, '.seen'))
+
+            cdir = s_common.gendir(copylayr.dirn, 'adir')
+            self.true(os.path.exists(cdir))
+
+            await self.asyncraises(s_exc.NoSuchLayer, prox.cloneLayer('newp'))
+
+            self.false(layr.readonly)
+
+            # Test overriding layer config values
+            ldef = {'readonly': True}
+            readlayrinfo = await core.cloneLayer(layr.iden, ldef)
+            self.len(3, core.layers)
+
+            readlayr = core.getLayer(readlayrinfo.get('iden'))
+            self.true(readlayr.readonly)

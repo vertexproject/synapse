@@ -162,6 +162,7 @@ class HandlerBase:
 
         user = await self.user()
         if not user.allowed(path):
+            self.set_status(403)
             mesg = f'User {user.iden} ({user.name}) must have permission {".".join(path)}'
             self.sendRestErr('AuthDeny', mesg)
             return False
@@ -231,6 +232,24 @@ class HandlerBase:
     async def authenticated(self):
         return await self.user() is not None
 
+    async def getUserBody(self):
+        '''
+        Helper function to confirm that there is a auth user and a valid JSON body in the request.
+
+        Returns:
+            (User, object): The user and body of the request as deserialized JSON, or a tuple of s_common.novalu
+                objects if there was no user or json body.
+        '''
+        if not await self.reqAuthUser():
+            return (s_common.novalu, s_common.novalu)
+
+        body = self.getJsonBody()
+        if body is None:
+            return (s_common.novalu, s_common.novalu)
+
+        user = await self.user()
+        return (user, body)
+
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
     async def xmit(self, name, **info):
@@ -249,7 +268,6 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
             raise s_exc.AuthDeny(mesg=mesg, perm=perm)
 
 class Handler(HandlerBase, t_web.RequestHandler):
-    pass
 
     async def _reqValidOpts(self, opts):
 
@@ -260,9 +278,25 @@ class Handler(HandlerBase, t_web.RequestHandler):
 
         opts.setdefault('user', user.iden)
         if opts.get('user') != user.iden:
-            user.confirm(('storm', 'impersonate'))
+            user.confirm(('impersonate',))
 
         return opts
+
+@t_web.stream_request_body
+class StreamHandler(Handler):
+    '''
+    Subclass for Tornado streaming uploads.
+
+    Notes:
+        - Async method prepare() is called after headers are read but before body processing.
+        - Sync method on_finish() can be used to cleanup after a request.
+        - Sync method on_connection_close() can be used to cleanup after a client disconnect.
+        - Async methods post(), put(), etc are called after the streaming has completed.
+    '''
+
+    async def data_received(self, chunk):
+        raise s_exc.NoSuchImpl(mesg='data_received must be implemented by subclasses.',
+                               name='data_received')
 
 class StormNodesV1(Handler):
 
@@ -271,13 +305,8 @@ class StormNodesV1(Handler):
 
     async def get(self):
 
-        if not await self.reqAuthUser():
-            return
-
-        user = await self.user()
-
-        body = self.getJsonBody()
-        if body is None:
+        user, body = await self.getUserBody()
+        if body is s_common.novalu:
             return
 
         # dont allow a user to be specified
@@ -300,16 +329,12 @@ class StormV1(Handler):
 
     async def get(self):
 
-        if not await self.reqAuthUser():
-            return
-
-        user = await self.user()
-        body = self.getJsonBody()
-        if body is None:
+        user, body = await self.getUserBody()
+        if body is s_common.novalu:
             return
 
         # dont allow a user to be specified
-        opts = body.get('opts', {})
+        opts = body.get('opts')
         query = body.get('query')
 
         # Maintain backwards compatibility with 0.1.x output
@@ -321,6 +346,28 @@ class StormV1(Handler):
         async for mesg in self.cell.storm(query, opts=opts):
             self.write(json.dumps(mesg))
             await self.flush()
+
+class ReqValidStormV1(Handler):
+
+    async def post(self):
+        return await self.get()
+
+    async def get(self):
+
+        _, body = await self.getUserBody()
+        if body is s_common.novalu:
+            return
+
+        opts = body.get('opts', {})
+        query = body.get('query')
+
+        try:
+            valid = await self.cell.reqValidStorm(query, opts)
+        except s_exc.SynErr as e:
+            mesg = e.get('mesg', str(e))
+            return self.sendRestErr(e.__class__.__name__, mesg)
+        else:
+            return self.sendRestRetn(valid)
 
 class WatchSockV1(WebSocket):
     '''
@@ -476,12 +523,8 @@ class AuthUserPasswdV1(Handler):
 
     async def post(self, iden):
 
-        if not await self.reqAuthUser():
-            return
-        current_user = await self.user()
-
-        body = self.getJsonBody()
-        if body is None:
+        current_user, body = await self.getUserBody()
+        if body is s_common.novalu:
             return
 
         user = self.cell.auth.user(iden)

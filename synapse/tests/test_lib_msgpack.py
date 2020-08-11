@@ -1,5 +1,6 @@
 import msgpack
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.const as s_const
@@ -137,6 +138,15 @@ class MsgPackTest(s_t_utils.SynTest):
         self.false(s_msgpack.isok({1, 2}))  # set
         self.false(s_msgpack.isok(print))  # function
 
+        buf2 = b'\x81\xc0\xcd\x04\xd2'
+        struct2 = {
+            None: 1234
+        }
+        ustruct2 = s_msgpack.un(buf2)
+        self.eq(ustruct2, struct2)
+        pbuf2 = s_msgpack.en(ustruct2)
+        self.eq(buf2, pbuf2)
+
     def test_msgpack_large_data(self):
 
         big_string = s_const.mebibyte * 129 * 'V'
@@ -164,9 +174,13 @@ class MsgPackTest(s_t_utils.SynTest):
         self.eq(objs[0], (135266320, struct))
 
     def test_msgpack_bad_types(self):
-        self.raises(TypeError, s_msgpack.en, {1, 2})
-        self.raises(TypeError, s_msgpack.en, Exception())
-        self.raises(TypeError, s_msgpack.en, s_msgpack.en)
+        self.raises(s_exc.NotMsgpackSafe, s_msgpack.en, {1, 2})
+        self.raises(s_exc.NotMsgpackSafe, s_msgpack.en, Exception())
+        self.raises(s_exc.NotMsgpackSafe, s_msgpack.en, s_msgpack.en)
+        # too long
+        with self.raises(s_exc.NotMsgpackSafe) as cm:
+            s_msgpack.en({'longlong': 45234928034723904723906})
+        self.isin('OverflowError', cm.exception.get('mesg'))
 
     def test_msgpack_surrogates(self):
         bads = '\u01cb\ufffd\ud842\ufffd\u0012'

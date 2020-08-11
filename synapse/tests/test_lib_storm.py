@@ -18,6 +18,10 @@ class StormTest(s_t_utils.SynTest):
             vals = [n.ndef[1] for n in nodes]
             self.eq(('www.vertex.link', 'vertex.link', 'link'), vals)
 
+            # Max recursion fail
+            q = '[ inet:fqdn=www.vertex.link ] | tree { inet:fqdn=www.vertex.link }'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
     async def test_storm_movetag(self):
 
         async with self.getTestCore() as core:
@@ -276,12 +280,12 @@ class StormTest(s_t_utils.SynTest):
 
             # Universal prop for relative path
             nodes = await core.nodes('.created>=$minc | max .created',
-                                    {'vars': {'minc': minc}})
+                                     {'vars': {'minc': minc}})
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
             nodes = await core.nodes('.created>=$minc | min .created',
-                                    {'vars': {'minc': minc}})
+                                     {'vars': {'minc': minc}})
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
@@ -323,7 +327,7 @@ class StormTest(s_t_utils.SynTest):
             maxnodes = await core.nodes('[ ou:org=* ]')
             maxnodes = await core.nodes('[ ou:org=* +#minmax ]')
             minnodes = await core.nodes('[ ou:org=* +#minmax=(1981, 2010) ]')
-            midnodes = await core.nodes('[ ou:org=* +#minmax=(1982, 2018) ]')
+            await core.nodes('[ ou:org=* +#minmax=(1982, 2018) ]')
             maxnodes = await core.nodes('[ ou:org=* +#minmax=(1997, 2020) ]')
 
             testmin = await core.nodes('ou:org | min #minmax')
@@ -370,9 +374,15 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
-            nodes = await core.nodes('inet:search:query | scrape :text --refs --yield')
+            nodes = await core.nodes('inet:search:query | scrape :text --refs | -(refs)> *')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('edge:refs', (('inet:search:query', guid), ('inet:ipv4', 0x05050505))))
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+
+            # test runtsafe and non-runtsafe failure to create node
+            msgs = await core.stormlist('scrape "https://t.c…"')
+            self.stormIsInWarn('BadTypeValue', msgs)
+            msgs = await core.stormlist('[ media:news=* :title="https://t.c…" ] | scrape :title')
+            self.stormIsInWarn('BadTypeValue', msgs)
 
     async def test_storm_tee(self):
 
@@ -812,6 +822,16 @@ class StormTest(s_t_utils.SynTest):
         pars.add_argument('--hehe')
         self.none(pars.parse_args(['--lol']))
         self.isin("ERROR: Expected 0 positional arguments. Got 1: ['--lol']", pars.mesgs)
+
+        pars = s_storm.Parser(prog='hehe')
+        pars.add_argument('hehe')
+        opts = pars.parse_args(['-h'])
+        self.notin("ERROR: The argument <hehe> is required.", pars.mesgs)
+        self.isin('Usage: hehe [options] <hehe>', pars.mesgs)
+        self.isin('Options:', pars.mesgs)
+        self.isin('  --help                      : Display the command usage.', pars.mesgs)
+        self.isin('Arguments:', pars.mesgs)
+        self.isin('  <hehe>                      : No help available', pars.mesgs)
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')

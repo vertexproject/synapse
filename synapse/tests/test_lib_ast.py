@@ -1,9 +1,10 @@
 import json
-import synapse.exc as s_exc
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
+
 import synapse.tests.utils as s_test
 
 foo_stormpkg = {
@@ -43,8 +44,8 @@ foo_stormpkg = {
         {
             'name': 'importnest',
             'storm': '''
-            $counter = 0
-            $foobar = 0
+            $foobar = $(0)
+            $counter = $(0)
 
             function inner(arg2, add) {
                 $foobar = $( $foobar + $add )
@@ -129,6 +130,61 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ test:str=foo :tick?=notatime ]')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), 1546300800000)
+
+    async def test_ast_autoadd(self):
+
+        async with self.getTestCore() as core:
+            opts = {'mode': 'autoadd'}
+            nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:fqdn', 'woot.com'))
+            self.eq(nodes[2].ndef, ('inet:email', 'visi@vertex.link'))
+
+    async def test_ast_lookup(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                inet:ipv4=1.2.3.4
+                inet:fqdn=foo.bar.com
+                inet:email=visi@vertex.link
+                inet:url="https://[ff::00]:4443/hehe?foo=bar&baz=faz"
+            ]''')
+            ndefs = [n.ndef for n in nodes]
+            self.len(4, ndefs)
+
+            opts = {'mode': 'lookup'}
+            nodes = await core.nodes('1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz', opts=opts)
+            self.eq(ndefs, [n.ndef for n in nodes])
+
+            nodes = await core.nodes('1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz | [ +#hehe ]', opts=opts)
+            self.len(4, nodes)
+            self.eq(ndefs, [n.ndef for n in nodes])
+            self.true(all(n.tags.get('hehe') is not None for n in nodes))
+
+            # AST object passes through inbound genrs
+            await core.nodes('[test:str=beep]')
+            beep_opts = {'ndefs': [('test:str', 'beep')], 'mode': 'lookup'}
+            nodes = await core.nodes('foo.bar.com | [+#beep]', beep_opts)
+            self.len(2, nodes)
+            self.eq({('test:str', 'beep'), ('inet:fqdn', 'foo.bar.com')},
+                    {n.ndef for n in nodes})
+            self.true(all([n.tags.get('beep') for n in nodes]))
+
+            # The lookup mode must get *something* to parse.
+            self.len(0, await core.nodes('', opts))
+
+            # The lookup must be *before* anything else, otherwise we
+            # parse it as a cmd name.
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('[+#thebeforetimes] | foo.bar.com', opts)
+
+            # And it works remotely
+            async with core.getLocalProxy() as prox:
+                msgs = await s_test.alist(prox.storm('1.2.3.4', opts))
+                nodes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(1, nodes)
+                self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
 
     async def test_ast_subq_vars(self):
 
@@ -448,6 +504,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:arrayprop:ints -> test:int')
             self.len(3, nodes)
 
+            nodes = await core.nodes('test:arrayprop:ints :ints -> test:int')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('test:arrayprop:ints :ints -> *')
+            self.len(3, nodes)
+
             nodes = await core.nodes('test:arrayprop:ints -> *')
             self.len(3, nodes)
 
@@ -681,6 +743,38 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchName):
                 nodes = await core.nodes('test.nodes')
 
+            visi = await core.auth.addUser('visi')
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+
+                # Test permissions
+                msgs = await s_test.alist(asvisi.storm('$lib.pkg.del(stormpkg)'))
+                errs = [m for m in msgs if m[0] == 'err']
+                self.len(1, errs)
+                self.eq(errs[0][1][0], 'AuthDeny')
+
+                await core.addUserRule(visi.iden, (True, ('pkg', 'del')))
+
+                await s_test.alist(asvisi.storm('$lib.pkg.del(stormpkg)'))
+
+                mesgs = await core.stormlist('pkg.list')
+                print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+                self.notin('stormpkg', print_str)
+
+                msgs = await s_test.alist(asvisi.storm('$lib.pkg.add($pkg)',
+                                                       opts={'vars': {'pkg': stormpkg}}))
+                errs = [m for m in msgs if m[0] == 'err']
+                self.len(1, errs)
+                self.eq(errs[0][1][0], 'AuthDeny')
+
+                await core.addUserRule(visi.iden, (True, ('pkg', 'add')))
+
+                await s_test.alist(asvisi.storm('$lib.pkg.add($pkg)',
+                                                opts={'vars': {'pkg': stormpkg}}))
+
+                msgs = await core.stormlist('pkg.list')
+                self.stormIsInPrint('stormpkg', msgs)
+
     async def test_function(self):
         async with self.getTestCore() as core:
             await core.addStormPkg(foo_stormpkg)
@@ -904,13 +998,13 @@ class AstTest(s_test.SynTest):
             # call an import and have it's module local variables be mapped in to its own scope
             q = '''
             $test = $lib.import(importnest)
-            $haha = $test.outer(False, $(33))
+            $haha = $test.outer($lib.false, $(33))
             $lib.print($haha)
-            $hehe = $test.outer(True, $(17))
+            $hehe = $test.outer($lib.true, $(17))
             $lib.print($hehe)
-            $retn = $lib.import(importnest).outer(True, $(90))
+            $retn = $lib.import(importnest).outer($lib.true, $(90))
             $lib.print($retn)
-            $lib.print("counter is {c}", c$counter)
+            $lib.print("counter is {c}", c=$counter)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -1138,12 +1232,12 @@ class AstTest(s_test.SynTest):
                     '''
                     query = core.getStormQuery(q)
                     runt.loadRuntVars(query)
-                    async for item in query.run(runt, s_ast.agen()):
+                    async for item in query.run(runt, s_common.agen()):
                         pass
                     func = list(filter(lambda o: isinstance(o, s_ast.Function), query.kids))[0]
                     oldfunc = runt.vars['lolol']
                     funcrunt = await runt.getScopeRuntime(func.kids[2])
-                    async for item in func.run(funcrunt, s_ast.agen()):
+                    async for item in func.run(funcrunt, s_common.agen()):
                         pass
                     funcrunt.globals.add('nope')
                     funcrunt.globals.add('lolol')
@@ -1328,7 +1422,7 @@ class AstTest(s_test.SynTest):
                 ),
                 'storm': '''
                     $ival = $lib.cast(ival, $cmdopts.bar)
-                    [ inet:ipv4=1.2.3.4 +#foo=$ival ]
+                    [ test:str=1234 +#foo=$ival ]
                 ''',
             }
 
@@ -1346,19 +1440,22 @@ class AstTest(s_test.SynTest):
                     // subquery forces per-node evaluation of even runt safe vars
                     {
                         $ival = $lib.cast(ival, $cmdopts.faz)
-                        [ inet:ipv4=5.5.5.5 +#foo=$ival ]
+                        [ test:str=beep +#foo=$ival ]
                     }
                 ''',
             }
 
             await core.setStormCmd(scmd)
 
-            await core.nodes('[ inet:ipv4=5.6.7.8 +#foo=(2018, 2021) ]')
-            await core.nodes('[ inet:ipv4=1.1.1.1 +#foo=(1977, 2019) ]')
+            await core.nodes('[ test:int=5678 +#foo=(2018, 2021) ]')
+            await core.nodes('[ test:int=1111 +#foo=(1977, 2019) ]')
 
-            nodes = await core.nodes('inet:ipv4 | baz --faz #foo | +inet:ipv4=5.5.5.5 +#foo@=1984 +#foo@=202002')
+            nodes = await core.nodes('test:int | baz --faz #foo')
+            self.len(2, nodes)
 
+            nodes = await core.nodes('test:str +#foo@=1984 +#foo@=202002')
             self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'beep'))
 
     async def test_ast_pullone(self):
 
@@ -1384,3 +1481,31 @@ class AstTest(s_test.SynTest):
 
         vals = [x async for x in await s_ast.pullone(hasone())]
         self.eq((1,), vals)
+
+    async def test_ast_expr(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('if (true) { [inet:ipv4=1.2.3.4] }')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('if (false) { [inet:ipv4=1.2.3.4] }')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('[ test:int=(18 + 2) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 20))
+
+    async def test_ast_subgraph_light_edges(self):
+        async with self.getTestCore() as core:
+            await core.nodes('[ test:int=20 <(refs)+ { [media:news=*] } ]')
+            msgs = await core.stormlist('media:news', opts={'graph': True})
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.len(1, nodes[0][1]['path']['edges'])
+            self.eq('refs', nodes[0][1]['path']['edges'][0][1]['verb'])
+
+            msgs = await core.stormlist('media:news | graph --no-edges')
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, nodes[0][1]['path']['edges'])

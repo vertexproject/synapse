@@ -6,8 +6,22 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
+import synapse.lib.config as s_config
 
 logger = logging.getLogger(__name__)
+
+reqValidRules = s_config.getJsValidator({
+    'type': 'array',
+    'items': {
+        'type': 'array',
+        'items': [
+            {'type': 'boolean'},
+            {'type': 'array', 'items': {'type': 'string'}},
+        ],
+        'minItems': 2,
+        'maxItems': 2,
+    }
+})
 
 class Auth(s_nexus.Pusher):
     '''
@@ -32,30 +46,31 @@ class Auth(s_nexus.Pusher):
     user defined prior and rules specific to that role or user; they do not
     duplicate the metadata of the role or user.
 
-    Node layout:
+    Node layout::
 
-    Auth root (passed into constructor)
-    ├ roles
-    │   ├ <role iden 1>
-    │   ├ ...
-    │   └ last role
-    ├ users
-    │   ├ <user iden 1>
-    │   ├ ...
-    │   └ last user
-    └ authgates
-        ├ <iden 1>
-        │   ├ roles
-        │   │   ├ <role iden 1>
-        │   │   ├ ...
-        │   │   └ last role
-        │   └ users
-        │       ├ <user iden 1>
-        │       ├ ...
-        │       └ last user
-        ├ <iden 2>
+        Auth root (passed into constructor)
+        ├ roles
+        │   ├ <role iden 1>
         │   ├ ...
-        └ ... last authgate
+        │   └ last role
+        ├ users
+        │   ├ <user iden 1>
+        │   ├ ...
+        │   └ last user
+        └ authgates
+            ├ <iden 1>
+            │   ├ roles
+            │   │   ├ <role iden 1>
+            │   │   ├ ...
+            │   │   └ last role
+            │   └ users
+            │       ├ <user iden 1>
+            │       ├ ...
+            │       └ last user
+            ├ <iden 2>
+            │   ├ ...
+            └ ... last authgate
+
     '''
 
     async def __anit__(self, node, nexsroot=None):
@@ -75,6 +90,9 @@ class Auth(s_nexus.Pusher):
         self.rolesbyname = {}
         self.authgates = {}
 
+        self.allrole = None
+        self.rootuser = None
+
         roles = await self.node.open(('roles',))
         for _, node in roles:
             await self._addRoleNode(node)
@@ -93,12 +111,16 @@ class Auth(s_nexus.Pusher):
         self.allrole = await self.getRoleByName('all')
         if self.allrole is None:
             # initialize the role of which all users are a member
-            self.allrole = await self.addRole('all')
+            guid = s_common.guid()
+            await self._addRole(guid, 'all')
+            self.allrole = self.role(guid)
 
         # initialize an admin user named root
         self.rootuser = await self.getUserByName('root')
         if self.rootuser is None:
-            self.rootuser = await self.addUser('root')
+            guid = s_common.guid()
+            await self._addUser(guid, 'root')
+            self.rootuser = self.user(guid)
 
         await self.rootuser.setAdmin(True, logged=False)
         await self.rootuser.setLocked(False, logged=False)
@@ -184,8 +206,13 @@ class Auth(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('user:name')
     async def setUserName(self, iden, name):
+        if not isinstance(name, str):
+            raise s_exc.BadArg(mesg='setUserName() name must be a string')
 
-        if self.usersbyname.get(name) is not None:
+        user = self.usersbyname.get(name)
+        if user is not None:
+            if user.iden == iden:
+                return
             raise s_exc.DupUserName(name=name)
 
         user = await self.reqUser(iden)
@@ -198,8 +225,13 @@ class Auth(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('role:name')
     async def setRoleName(self, iden, name):
+        if not isinstance(name, str):
+            raise s_exc.BadArg(mesg='setRoleName() name must be a string')
 
-        if self.rolesbyname.get(name) is not None:
+        role = self.rolesbyname.get(name)
+        if role is not None:
+            if role.iden == iden:
+                return
             raise s_exc.DupRoleName(name=name)
 
         role = await self.reqRole(iden)
@@ -302,8 +334,13 @@ class Auth(s_nexus.Pusher):
 
     async def addUser(self, name, passwd=None, email=None):
 
+        if self.usersbyname.get(name) is not None:
+            raise s_exc.DupUserName(name=name)
+
         iden = s_common.guid()
-        user = await self._push('user:add', iden, name)
+        await self._push('user:add', iden, name)
+
+        user = self.user(iden)
 
         if passwd is not None:
             await user.setPasswd(passwd)
@@ -319,37 +356,51 @@ class Auth(s_nexus.Pusher):
     @s_nexus.Pusher.onPush('user:add')
     async def _addUser(self, iden, name):
 
-        if self.usersbyname.get(name) is not None:
-            raise s_exc.DupUserName(name=name)
+        user = self.usersbyname.get(name)
+        if user is not None:
+            return user
 
         node = await self.node.open(('users', iden))
         await node.set(name)
 
-        return await self._addUserNode(node)
+        await self._addUserNode(node)
 
     async def addRole(self, name):
+        if self.rolesbyname.get(name) is not None:
+            raise s_exc.DupRoleName(name=name)
+
         iden = s_common.guid()
-        return await self._push('role:add', iden, name)
+        await self._push('role:add', iden, name)
+
+        return self.role(iden)
 
     @s_nexus.Pusher.onPush('role:add')
     async def _addRole(self, iden, name):
 
-        if self.rolesbyname.get(name) is not None:
-            raise s_exc.DupRoleName(name=name)
+        role = self.rolesbyname.get(name)
+        if role is not None:
+            return role
 
         node = await self.node.open(('roles', iden))
         await node.set(name)
 
-        return await self._addRoleNode(node)
+        await self._addRoleNode(node)
 
-    @s_nexus.Pusher.onPushAuto('user:del')
     async def delUser(self, iden):
+
+        await self.reqUser(iden)
+        return await self._push('user:del', iden)
+
+    @s_nexus.Pusher.onPush('user:del')
+    async def _delUser(self, iden):
 
         if iden == self.rootuser.iden:
             mesg = 'User "root" may not be deleted.'
             raise s_exc.BadArg(mesg=mesg)
 
-        user = await self.reqUser(iden)
+        user = self.user(iden)
+        if user is None:
+            return
 
         self.usersbyiden.pop(user.iden)
         self.usersbyname.pop(user.name)
@@ -367,17 +418,23 @@ class Auth(s_nexus.Pusher):
             if role.iden in user.info.get('roles', ()):
                 yield user
 
-    @s_nexus.Pusher.onPushAuto('role:del')
     async def delRole(self, iden):
+        await self.reqRole(iden)
+        return await self._push('role:del', iden)
+
+    @s_nexus.Pusher.onPush('role:del')
+    async def _delRole(self, iden):
 
         if iden == self.allrole.iden:
             mesg = 'Role "all" may not be deleted.'
             raise s_exc.BadArg(mesg=mesg)
 
-        role = await self.reqRole(iden)
+        role = self.role(iden)
+        if role is None:
+            return
 
         for user in self._getUsersInRole(role):
-            await user.revoke(role.iden)
+            await user.revoke(role.iden, nexs=False)
 
         for gate in self.authgates.values():
             await gate._delGateRole(role.iden)
@@ -540,20 +597,20 @@ class HiveRuler(s_base.Base):
 
         return list(gateinfo.get('rules', ()))
 
-    async def setRules(self, rules, gateiden=None):
-        return await self._setRulrInfo('rules', rules, gateiden=gateiden)
+    async def setRules(self, rules, gateiden=None, nexs=True):
+        reqValidRules(rules)
+        return await self._setRulrInfo('rules', rules, gateiden=gateiden, nexs=nexs)
 
-    async def addRule(self, rule, indx=None, gateiden=None):
+    async def addRule(self, rule, indx=None, gateiden=None, nexs=True):
 
         rules = self.getRules(gateiden=gateiden)
-        assert len(rule) == 2
 
         if indx is None:
             rules.append(rule)
         else:
             rules.insert(indx, rule)
 
-        await self.setRules(rules, gateiden=gateiden)
+        await self.setRules(rules, gateiden=gateiden, nexs=nexs)
 
     async def delRule(self, rule, gateiden=None):
 
@@ -581,8 +638,11 @@ class HiveRole(HiveRuler):
             'authgates': {name: info.pack() for (name, info) in self.authgates.items()},
         }
 
-    async def _setRulrInfo(self, name, valu, gateiden=None):
-        return await self.auth.setRoleInfo(self.iden, name, valu, gateiden=gateiden)
+    async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True):
+        if nexs:
+            return await self.auth.setRoleInfo(self.iden, name, valu, gateiden=gateiden)
+        else:
+            return await self.auth._hndlsetRoleInfo(self.iden, name, valu, gateiden=gateiden)
 
     async def setName(self, name):
         return await self.auth.setRoleName(self.iden, name)
@@ -643,8 +703,11 @@ class HiveUser(HiveRuler):
             'authgates': {name: info.pack() for (name, info) in self.authgates.items()},
         }
 
-    async def _setRulrInfo(self, name, valu, gateiden=None):
-        return await self.auth.setUserInfo(self.iden, name, valu, gateiden=gateiden)
+    async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True):
+        if nexs:
+            return await self.auth.setUserInfo(self.iden, name, valu, gateiden=gateiden)
+        else:
+            return await self.auth._hndlsetUserInfo(self.iden, name, valu, gateiden=gateiden)
 
     async def setName(self, name):
         return await self.auth.setUserName(self.iden, name)
@@ -752,7 +815,7 @@ class HiveUser(HiveRuler):
 
         await self.auth.setUserInfo(self.iden, 'roles', roles)
 
-    async def revoke(self, iden):
+    async def revoke(self, iden, nexs=True):
 
         role = await self.auth.reqRole(iden)
 
@@ -765,7 +828,10 @@ class HiveUser(HiveRuler):
             return
 
         roles.remove(role.iden)
-        await self.auth.setUserInfo(self.iden, 'roles', roles)
+        if nexs:
+            await self.auth.setUserInfo(self.iden, 'roles', roles)
+        else:
+            await self.auth._hndlsetUserInfo(self.iden, 'roles', roles)
 
     def isLocked(self):
         return self.info.get('locked')
@@ -782,18 +848,25 @@ class HiveUser(HiveRuler):
         return gateinfo.get('admin', False)
 
     async def setAdmin(self, admin, gateiden=None, logged=True):
+        if not isinstance(admin, bool):
+            raise s_exc.BadArg(mesg='setAdmin requires a boolean')
         if logged:
             await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
         else:
             await self.auth._hndlsetUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
 
     async def setLocked(self, locked, logged=True):
+        if not isinstance(locked, bool):
+            raise s_exc.BadArg(mesg='setLocked requires a boolean')
         if logged:
             await self.auth.setUserInfo(self.iden, 'locked', locked)
         else:
             await self.auth._hndlsetUserInfo(self.iden, 'locked', locked)
 
     async def setArchived(self, archived):
+        if not isinstance(archived, bool):
+            raise s_exc.BadArg(mesg='setArchived requires a boolean')
+        archived = bool(archived)
         await self.auth.setUserInfo(self.iden, 'archived', archived)
         if archived:
             await self.setLocked(True)
@@ -817,10 +890,13 @@ class HiveUser(HiveRuler):
 
         return False
 
-    async def setPasswd(self, passwd):
+    async def setPasswd(self, passwd, nexs=True):
         # Prevent empty string or non-string values
         if not passwd or not isinstance(passwd, str):
             raise s_exc.BadArg(mesg='Password must be a string')
         salt = s_common.guid()
         hashed = s_common.guid((salt, passwd))
-        await self.auth.setUserInfo(self.iden, 'passwd', (salt, hashed))
+        if nexs:
+            await self.auth.setUserInfo(self.iden, 'passwd', (salt, hashed))
+        else:
+            await self.auth._hndlsetUserInfo(self.iden, 'passwd', (salt, hashed))

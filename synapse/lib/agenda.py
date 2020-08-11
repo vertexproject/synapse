@@ -5,6 +5,7 @@ import asyncio
 import logging
 import calendar
 import datetime
+import functools
 import itertools
 from datetime import timezone as tz
 from collections.abc import Iterable, Mapping
@@ -57,11 +58,11 @@ reqValidCdef = s_config.getJsValidator({
         'req': {
             'type': 'object',
             'properties': {
-                'minute': {'type': 'number'},
-                'hour': {'type': 'number'},
-                'dayofmonth': {'type': 'number'},
-                'month': {'type': 'number'},
-                'year': {'type': 'number'},
+                'minute': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'hour': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'dayofmonth': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'month': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'year': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
             }
         }
     }
@@ -134,7 +135,8 @@ class ApptRec:
     Represents a single element of a single combination of an appointment
     '''
     def __init__(self, reqdict, incunit=None, incval=1):
-        self.reqdict = reqdict
+        if incunit is not None:
+            incunit = TimeUnit(incunit)
         self.incunit = incunit
         self.incval = incval if incunit is not None else None
 
@@ -158,9 +160,10 @@ class ApptRec:
             if not boundmin <= incval <= boundmax:
                 raise s_exc.BadTime(mesg='Out of bounds incval')
 
+        reqdict = {TimeUnit(k): v for k, v in reqdict.items()}
+        self.reqdict = reqdict
+
         for reqkey, reqval in reqdict.items():
-            if reqkey not in TimeUnit:
-                raise s_exc.BadTime(mesg='Keys of reqdict parameter must be valid TimeUnit values')
             boundmin, boundmax = _UnitBounds[reqkey][0]
             if not boundmin <= reqval <= boundmax:
                 raise s_exc.BadTime(mesg='Out of bounds reqdict value')
@@ -463,9 +466,12 @@ class Agenda(s_base.Base):
 
         self._hivedict = await self.core.hive.dict(('agenda', 'appts'))  # Persistent storage
         self.onfini(self._hivedict)
+        self.onfini(self.stop)
 
         self.enabled = False
         self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
+
+        self._running_tasks = []  # The actively running cron job tasks
         await self._load_all()
 
     async def start(self):
@@ -487,6 +493,16 @@ class Agenda(s_base.Base):
 
         self._schedtask = self.schedCoro(self._scheduleLoop())
         self.enabled = True
+
+    async def stop(self):
+        "Cancel the scheduler loop, and set self.enabled to False."
+        if not self.enabled:
+            return
+        self._schedtask.cancel()
+        for task in self._running_tasks:
+            await task.fini()
+
+        self.enabled = False
 
     async def _load_all(self):
         '''
@@ -584,6 +600,9 @@ class Agenda(s_base.Base):
         recur = incunit is not None
         indx = self._next_indx
         self._next_indx += 1
+
+        if iden in self.appts:
+            raise s_exc.DupIden()
 
         if not query:
             raise ValueError('empty query')
@@ -709,9 +728,6 @@ class Agenda(s_base.Base):
                 if not appt.enabled or not self.enabled:
                     continue
 
-                if self.core.mirror:
-                    continue
-
                 if appt.isrunning:
                     logger.warning(
                         'Appointment %s is still running from previous time when scheduled to run.  Skipping.',
@@ -728,10 +744,11 @@ class Agenda(s_base.Base):
             logger.warning('Unknown user %s in stored appointment', appt.creator)
             await self._markfailed(appt)
             return
-        await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user,
-                                     info={'iden': appt.iden,
-                                           'query': appt.query,
-                                           })
+        info = {'iden': appt.iden, 'query': appt.query}
+        task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
+        self._running_tasks.append(task)
+
+        task.onfini(functools.partial(self._running_tasks.remove, task))
 
     async def _markfailed(self, appt):
         appt.lastfinishtime = appt.laststarttime = time.time()
@@ -756,7 +773,7 @@ class Agenda(s_base.Base):
             starttime = time.time()
             try:
                 opts = {'user': user.iden}
-                async for _ in self.core.eval(appt.query, opts=opts):
+                async for node in self.core.eval(appt.query, opts=opts):
                     count += 1
             except asyncio.CancelledError:
                 result = 'cancelled'

@@ -2,7 +2,6 @@ import os
 import shutil
 import asyncio
 import pathlib
-import functools
 import threading
 import collections
 
@@ -23,6 +22,7 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
+import synapse.lib.slabseqn as s_slabseqn
 
 COPY_CHUNKSIZE = 512
 PROGRESS_PERIOD = COPY_CHUNKSIZE * 1024
@@ -34,7 +34,7 @@ int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
 # The paths of all open slabs, to prevent accidental opening of the same slab in two places
-_AllSlabs = set()   # type: ignore
+_AllSlabs = {}   # type: ignore
 
 class Hist:
     '''
@@ -169,18 +169,27 @@ class SlabAbrv:
         if item is not None:
             self.offs = s_common.int64un(item[0]) + 1
 
-    @s_cache.memoize(10000)
+    @s_cache.memoize()
     def abrvToByts(self, abrv):
         byts = self.slab.get(abrv, db=self.abrv2name)
-        if byts is not None:
-            return byts
+        if byts is None:
+            raise s_exc.NoSuchAbrv
 
-    @s_cache.memoize(10000)
+        return byts
+
+    @s_cache.memoize()
     def bytsToAbrv(self, byts):
-
         abrv = self.slab.get(byts, db=self.name2abrv)
-        if abrv is not None:
-            return abrv
+        if abrv is None:
+            raise s_exc.NoSuchAbrv
+
+        return abrv
+
+    def setBytsToAbrv(self, byts):
+        try:
+            return self.bytsToAbrv(byts)
+        except s_exc.NoSuchAbrv:
+            pass
 
         abrv = s_common.int64en(self.offs)
 
@@ -191,29 +200,29 @@ class SlabAbrv:
 
         return abrv
 
-    @s_cache.memoize(10000)
     def nameToAbrv(self, name):
         return self.bytsToAbrv(name.encode())
 
-    @s_cache.memoize(10000)
     def abrvToName(self, byts):
         return self.abrvToByts(byts).decode()
 
-class HotCount(s_base.Base):
+class HotKeyVal(s_base.Base):
     '''
-    A hot-loop capable counter that only sync's on commit.
+    A hot-loop capable keyval that only syncs on commit.
     '''
+    EncFunc = staticmethod(s_msgpack.en)
+    DecFunc = staticmethod(s_msgpack.un)
+
     async def __anit__(self, slab, name):
         await s_base.Base.__anit__(self)
 
         self.slab = slab
         self.cache = collections.defaultdict(int)
         self.dirty = set()
+        self.db = self.slab.initdb(name)
 
-        self.countdb = self.slab.initdb(name)
-
-        for lkey, lval in self.slab.scanByFull(db=self.countdb):
-            self.cache[lkey] = s_common.int64un(lval)
+        for lkey, lval in self.slab.scanByFull(db=self.db):
+            self.cache[lkey] = self.DecFunc(lval)
 
         slab.on('commit', self._onSlabCommit)
 
@@ -223,30 +232,40 @@ class HotCount(s_base.Base):
         if self.dirty:
             self.sync()
 
+    def get(self, name: str, defv=None):
+        return self.cache.get(name.encode(), defv)
+
+    def set(self, name: str, valu):
+        byts = name.encode()
+        self.cache[byts] = valu
+        self.dirty.add(byts)
+        return valu
+
+    def sync(self):
+        tups = [(p, self.EncFunc(self.cache[p])) for p in self.dirty]
+        if not tups:
+            return
+
+        self.slab.putmulti(tups, db=self.db)
+        self.dirty.clear()
+
+    def pack(self):
+        return {n.decode(): v for (n, v) in self.cache.items()}
+
+class HotCount(HotKeyVal):
+    '''
+    Like HotKeyVal, but optimized for integer/count vals
+    '''
+    EncFunc = staticmethod(s_common.int64en)
+    DecFunc = staticmethod(s_common.int64un)
+
     def inc(self, name: str, valu=1):
         byts = name.encode()
         self.cache[byts] += valu
         self.dirty.add(byts)
 
-    def set(self, name: str, valu: int):
-        byts = name.encode()
-        self.cache[byts] = valu
-        self.dirty.add(byts)
-
     def get(self, name: str, defv=0):
         return self.cache.get(name.encode(), defv)
-
-    def sync(self):
-
-        tups = [(p, s_common.int64en(self.cache[p])) for p in self.dirty]
-        if not tups:
-            return
-
-        self.slab.putmulti(tups, db=self.countdb)
-        self.dirty.clear()
-
-    def pack(self):
-        return {n.decode(): v for (n, v) in self.cache.items()}
 
 class MultiQueue(s_base.Base):
     '''
@@ -265,6 +284,8 @@ class MultiQueue(s_base.Base):
         self.sizes = SlabDict(self.slab, db=self.slab.initdb(f'{name}:sizes'))
         self.queues = SlabDict(self.slab, db=self.slab.initdb(f'{name}:meta'))
         self.offsets = SlabDict(self.slab, db=self.slab.initdb(f'{name}:offs'))
+        self.lastreqid = await HotKeyVal.anit(self.slab, 'reqid')
+        self.onfini(self.lastreqid)
 
         self.waiters = collections.defaultdict(asyncio.Event)  # type: ignore
 
@@ -300,6 +321,8 @@ class MultiQueue(s_base.Base):
             mesg = f'A queue already exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
+        self.abrv.setBytsToAbrv(name.encode())
+
         self.queues.set(name, info)
         self.sizes.set(name, 0)
         self.offsets.set(name, 0)
@@ -327,10 +350,10 @@ class MultiQueue(s_base.Base):
             return itemoffs, item
         return -1, None
 
-    async def put(self, name, item):
-        return await self.puts(name, (item,))
+    async def put(self, name, item, reqid=None):
+        return await self.puts(name, (item,), reqid=reqid)
 
-    async def puts(self, name, items):
+    async def puts(self, name, items, reqid=None):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -339,6 +362,12 @@ class MultiQueue(s_base.Base):
         abrv = self.abrv.nameToAbrv(name)
 
         offs = retn = self.offsets.get(name, 0)
+
+        if reqid is not None:
+            if reqid == self.lastreqid.get(name):
+                return retn
+
+        self.lastreqid.set(name, reqid)
 
         for item in items:
 
@@ -398,16 +427,80 @@ class MultiQueue(s_base.Base):
         '''
         Remove up-to (and including) the queue entry at offs.
         '''
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
         if offs < 0:
             return
 
         indx = s_common.int64en(offs)
+
         abrv = self.abrv.nameToAbrv(name)
 
         for lkey, _ in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
             self.slab.delete(lkey, db=self.qdata)
             self.sizes.set(name, self.sizes.get(name) - 1)
             await asyncio.sleep(0)
+
+    async def dele(self, name, minoffs, maxoffs):
+        '''
+        Remove queue entries from minoffs, up-to (and including) the queue entry at maxoffs.
+        '''
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        if minoffs < 0 or maxoffs < 0 or maxoffs < minoffs:
+            return
+
+        minindx = s_common.int64en(minoffs)
+        maxindx = s_common.int64en(maxoffs)
+
+        abrv = self.abrv.nameToAbrv(name)
+
+        for lkey, _ in self.slab.scanByRange(abrv + minindx, abrv + maxindx, db=self.qdata):
+            self.slab.delete(lkey, db=self.qdata)
+            self.sizes.set(name, self.sizes.get(name) - 1)
+            await asyncio.sleep(0)
+
+    async def sets(self, name, offs, items):
+        '''
+        Overwrite queue entries with the values in items, starting at offs.
+        '''
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        if offs < 0:
+            return
+
+        abrv = self.abrv.nameToAbrv(name)
+        wake = False
+
+        for item in items:
+            indx = s_common.int64en(offs)
+
+            if offs >= self.offsets.get(name, 0):
+                self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
+                offs = self.offsets.set(name, offs + 1)
+                self.sizes.inc(name, 1)
+                wake = True
+            else:
+                byts = self.slab.get(abrv + indx, db=self.qdata)
+                self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
+
+                if byts is None:
+                    self.sizes.inc(name, 1)
+
+                offs += 1
+
+            await asyncio.sleep(0)
+
+        if wake:
+            evnt = self.waiters.get(name)
+            if evnt is not None:
+                evnt.set()
 
 class GuidStor:
 
@@ -498,10 +591,9 @@ class Slab(s_base.Base):
     async def syncLoopTask(clas):
         while True:
             try:
+                await s_coro.event_wait(clas.syncevnt, timeout=clas.COMMIT_PERIOD)
 
                 clas.syncevnt.clear()
-
-                await s_coro.event_wait(clas.syncevnt, timeout=clas.COMMIT_PERIOD)
 
                 await clas.syncLoopOnce()
 
@@ -566,6 +658,7 @@ class Slab(s_base.Base):
 
         # save the transaction deltas in case of error...
         self.xactops = []
+        self.max_xactops_len = opts.pop('max_replay_log', 10000)
         self.recovering = False
 
         opts.setdefault('max_dbs', 128)
@@ -585,7 +678,7 @@ class Slab(s_base.Base):
         self._saveOptsFile()
 
         self.lenv = lmdb.open(str(path), **opts)
-        _AllSlabs.add(abspath)
+        _AllSlabs[abspath] = self
 
         self.scans = set()
 
@@ -612,10 +705,14 @@ class Slab(s_base.Base):
                 await self.memlocktask
             self.memlocktask = s_coro.executor(self._memorylockloop)
             self.onfini(memlockfini)
+        else:
+            self.lockdoneevent.set()
 
         self.dbnames = {None: (None, False)}  # prepopulate the default DB for speed
 
         self.onfini(self._onCoFini)
+
+        self.commitstats = collections.deque(maxlen=1000)  # stores Tuple[time, replayloglen, commit time delta]
 
         if not self.readonly:
             await Slab.initSyncLoop(self)
@@ -641,6 +738,9 @@ class Slab(s_base.Base):
         self.onfini(item)
         return item
 
+    def getSeqn(self, name):
+        return s_slabseqn.SlabSeqn(self, name)
+
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
 
@@ -655,10 +755,13 @@ class Slab(s_base.Base):
             'max_could_lock': self.max_could_lock,  # the maximum this system could lock
             'lock_progress': self.lock_progress,  # how much we've locked so far
             'lock_goal': self.lock_goal,  # how much we want to lock
-            'prefaulting': self.prefaulting  # whether we are right meow prefaulting
+            'prefaulting': self.prefaulting,  # whether we are right meow prefaulting
+            'commitstats': list(self.commitstats),  # last X tuple(time,replaylogsize,commit time)
         }
 
     def _acqXactForReading(self):
+        if self.isfini: # pragma: no cover
+            raise s_exc.IsFini()
         if not self.readonly:
             return self.xact
         if not self.txnrefcount:
@@ -709,7 +812,7 @@ class Slab(s_base.Base):
             break
 
         self.lenv.close()
-        _AllSlabs.discard(self.abspath)
+        _AllSlabs.pop(self.abspath, None)
         del self.lenv
 
     def _finiCoXact(self):
@@ -938,10 +1041,56 @@ class Slab(s_base.Base):
         finally:
             self._relXactForReading()
 
+    def lastkey(self, db=None):
+        '''
+        Return the last key or None from the given db.
+        '''
+        self._acqXactForReading()
+        realdb, _ = self.dbnames[db]
+        try:
+            with self.xact.cursor(db=realdb) as curs:
+                if not curs.last():
+                    return None
+                return curs.key()
+        finally:
+            self._relXactForReading()
+
     def hasdup(self, lkey, lval, db=None):
         realdb, dupsort = self.dbnames[db]
         with self.xact.cursor(db=realdb) as curs:
             return curs.set_key_dup(lkey, lval)
+
+    def prefexists(self, byts, db=None):
+        '''
+        Returns True if a prefix exists in the db.
+        '''
+        realdb, _ = self.dbnames[db]
+        with self.xact.cursor(db=realdb) as curs:
+            if not curs.set_range(byts):
+                return False
+
+            lkey = curs.key()
+
+            if lkey[:len(byts)] == byts:
+                return True
+
+            return False
+
+    def rangeexists(self, lmin, lmax=None, db=None):
+        '''
+        Returns True if at least one key exists in the range.
+        '''
+        realdb, _ = self.dbnames[db]
+        with self.xact.cursor(db=realdb) as curs:
+            if not curs.set_range(lmin):
+                return False
+
+            lkey = curs.key()
+
+            if lkey[:len(lmin)] >= lmin and (lmax is None or lkey[:len(lmax)] <= lmax):
+                return True
+
+            return False
 
     def stat(self, db=None):
         self._acqXactForReading()
@@ -951,37 +1100,62 @@ class Slab(s_base.Base):
         finally:
             self._relXactForReading()
 
-    # non-scan ("atomic") interface.
-    # def getByDup(self, lkey, db=None):
-    # def getByPref(self, lkey, db=None):
-    # def getByRange(self, lkey, db=None):
-
     def scanKeys(self, db=None):
 
-        with Scan(self, db) as scan:
+        with ScanKeys(self, db) as scan:
 
-            if not scan.firstkeys():
+            if not scan.first():
                 return
 
-            yield from scan.iterkeys()
+            yield from scan.iternext()
+
+    async def countByPref(self, byts, db=None):
+        '''
+        Return the number of rows in the given db with the matching prefix bytes.
+        '''
+        count = 0
+        size = len(byts)
+        with ScanKeys(self, db) as scan:
+
+            if not scan.set_range(byts):
+                return 0
+
+            for lkey in scan.iternext():
+
+                if lkey[:size] != byts:
+                    return count
+
+                count += 1
+                await asyncio.sleep(0)
+
+            return count
 
     def scanByDups(self, lkey, db=None):
 
-        with Scan(self, db, singlekey=True) as scan:
+        with Scan(self, db) as scan:
 
             if not scan.set_key(lkey):
                 return
 
-            yield from scan.iternext()
+            for item in scan.iternext():
+                if item[0] != lkey:
+                    break
+
+                yield item
 
     def scanByDupsBack(self, lkey, db=None):
 
-        with ScanBack(self, db, singlekey=True) as scan:
+        with ScanBack(self, db) as scan:
 
             if not scan.set_key(lkey):
                 return
 
-            yield from scan.iternext()
+            for item in scan.iternext():
+
+                if item[0] != lkey:
+                    break
+
+                yield item
 
     def scanByPref(self, byts, db=None):
 
@@ -1070,9 +1244,6 @@ class Slab(s_base.Base):
 
             yield from scan.iternext()
 
-    # def keysByRange():
-    # def valsByRange():
-
     def _initCoXact(self):
         try:
             self.xact = self.lenv.begin(write=not self.readonly)
@@ -1086,6 +1257,9 @@ class Slab(s_base.Base):
 
     def _logXactOper(self, func, *args, **kwargs):
         self.xactops.append((func, args, kwargs))
+
+        if len(self.xactops) == self.max_xactops_len:
+            self.syncevnt.set()
 
     def _runXactOpers(self):
         # re-run transaction operations in the event of an abort.  Return the last operation's return value.
@@ -1205,6 +1379,26 @@ class Slab(s_base.Base):
 
         return rowcount
 
+    async def copyslab(self, dstpath, compact=True):
+
+        dstpath = pathlib.Path(dstpath)
+        if dstpath.exists():
+            raise s_exc.DataAlreadyExists()
+
+        dstoptspath = dstpath.with_suffix('.opts.yaml')
+        s_common.gendir(dstpath)
+
+        await self.sync()
+
+        self.lenv.copy(str(dstpath), compact=compact)
+
+        try:
+            shutil.copy(self.optspath, dstoptspath)
+        except FileNotFoundError:  # pragma: no cover
+            pass
+
+        return True
+
     def pop(self, lkey, db=None):
         return self._xact_action(self.pop, lmdb.Transaction.pop, lkey, db=db)
 
@@ -1229,8 +1423,15 @@ class Slab(s_base.Base):
         if not self.dirty:
             return False
 
+        xactopslen = len(self.xactops)
+
         # ok... lets commit and re-open
+        starttime = s_common.now()
         self._finiCoXact()
+        donetime = s_common.now()
+
+        self.commitstats.append((starttime, xactopslen, donetime - starttime))
+
         self._initCoXact()
         return True
 
@@ -1242,20 +1443,10 @@ class Scan:
 
         slab (Slab):  which slab the scan is over
         db (str):  name of open database on the slab
-        singlekey(bool):  whether the scan should iterate over the values in a single key
     '''
-    def __init__(self, slab, db, singlekey=False):
+    def __init__(self, slab, db):
         self.slab = slab
         self.db, self.dupsort = slab.dbnames[db]
-
-        assert not singlekey or self.dupsort  # singlekey doesn't make sense with non dupsort db
-
-        self.singlekey = singlekey
-
-        if self.singlekey:
-            self.iterfunc = functools.partial(lmdb.Cursor.iternext_dup, keys=True)
-        else:
-            self.iterfunc = lmdb.Cursor.iternext
 
         self.atitem = None
         self.bumped = False
@@ -1287,17 +1478,9 @@ class Scan:
         if not self.curs.first():
             return False
 
-        self.genr = self.curs.iternext()
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
-        return True
 
-    def firstkeys(self):
-
-        if not self.curs.first():
-            return False
-
-        self.genr = self.curs.iternext(values=False)
-        self.atitem = next(self.genr)
         return True
 
     def set_key(self, lkey):
@@ -1305,47 +1488,19 @@ class Scan:
         if not self.curs.set_key(lkey):
             return False
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
         return True
 
     def set_range(self, lkey):
 
-        assert not self.singlekey
-
         if not self.curs.set_range(lkey):
             return False
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
 
         return True
-
-    def iterkeys(self):
-
-        try:
-            while True:
-
-                yield self.atitem
-                # we only want to iterate keys even in dupsort case
-
-                if self.bumped:
-
-                    self.bumped = False
-                    self.curs = self.slab.xact.cursor(db=self.db)
-                    if not self.curs.set_range(self.atitem):
-                        return
-
-                    self.genr = self.curs.iternext(self.curs, values=False)
-
-                    # if we restore and the atitem key is still there, skip it.
-                    if self.atitem == self.curs.key():
-                        next(self.genr)
-
-                self.atitem = next(self.genr)
-
-        except StopIteration:
-            return
 
     def iternext(self):
 
@@ -1364,26 +1519,11 @@ class Scan:
 
                     self.curs = self.slab.xact.cursor(db=self.db)
 
-                    if self.dupsort:
-
-                        ret = self.curs.set_range_dup(*self.atitem)
-                        if not ret:
-                            if self.singlekey:
-                                raise StopIteration
-                            key = self.atitem[0]
-                            ret = self.curs.set_range(key)
-                            if ret and self.curs.key() == key:
-                                ret = self.curs.next_nodup()
-
-                    else:
-                        ret = self.curs.set_range(self.atitem[0])
-
-                    if not ret:
+                    if not self.resume():
                         raise StopIteration
 
-                    self.genr = self.iterfunc(self.curs)
-
-                    if self.curs.item() == self.atitem:
+                    self.genr = self.iterfunc()
+                    if self.isatitem():
                         next(self.genr)
 
                 self.atitem = next(self.genr)
@@ -1396,26 +1536,82 @@ class Scan:
             self.curs.close()
             self.bumped = True
 
+    def iterfunc(self):
+        return self.curs.iternext()
+
+    def resume(self):
+        item = self.atitem
+
+        if not self.dupsort:
+            return self.curs.set_range(item[0])
+
+        if self.curs.set_range_dup(*item):
+            return True
+
+        if not self.curs.set_range(item[0]):
+            return False
+
+        # if the key is the same, we're at a previous
+        # entry and need to skip dups to the next key
+        if self.curs.key() == item[0]:
+            return self.curs.next_nodup()
+
+        return True
+
+    def isatitem(self):
+        '''
+        Returns if the cursor is at the value in atitem
+        '''
+        return self.atitem == self.curs.item()
+
+class ScanKeys(Scan):
+    '''
+    An iterator over the keys of the database.  If the database is dupsort, a key with multiple values with be yielded
+    once for each value.
+    '''
+    def iterfunc(self):
+        if self.dupsort:
+            return Scan.iterfunc(self)
+
+        return self.curs.iternext(keys=True, values=False)
+
+    def resume(self):
+        if self.dupsort:
+            return Scan.resume(self)
+
+        return self.curs.set_range(self.atitem)
+
+    def isatitem(self):
+        '''
+        Returns if the cursor is at the value in atitem
+        '''
+        if self.dupsort:
+            return Scan.isatitem(self)
+
+        return self.atitem == self.curs.key()
+
+    def iternext(self):
+        if self.dupsort:
+            yield from (item[0] for item in Scan.iternext(self))
+            return
+
+        yield from Scan.iternext(self)
+
 class ScanBack(Scan):
     '''
     A state-object used by Slab.  Not to be instantiated directly.
 
     Scans backwards.
     '''
-    def __init__(self, slab, db, singlekey=False):
-        Scan.__init__(self, slab, db, singlekey)
-        if self.singlekey:
-            self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True)
-        else:
-            self.iterfunc = lmdb.Cursor.iterprev
+    def iterfunc(self):
+        return self.curs.iterprev()
 
     def first(self):
 
         if not self.curs.last():
             return False
 
-        self.genr = self.curs.iterprev()
-
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
         return True
 
@@ -1424,81 +1620,59 @@ class ScanBack(Scan):
         if not self.curs.set_key(lkey):
             return False
 
-        # set_key for a scan is only logical if it's a dup scan
         if self.dupsort:
-            if not self.curs.last_dup():
-                return False # pragma: no cover
+            self.curs.last_dup()
 
-        self.genr = self.iterfunc(self.curs)
+        self.genr = self.iterfunc()
         self.atitem = next(self.genr)
         return True
 
     def set_range(self, lkey):
 
-        assert not self.singlekey
-
         if not self.curs.set_range(lkey):
             if not self.curs.last():
                 return False
 
-        self.genr = self.iterfunc(self.curs)
-        self.atitem = next(self.genr)
+        else:
+            if self.curs.key() != lkey:
+                if not self.curs.prev():
+                    return False
 
-        if not self.atitem[0] <= lkey:
-            self.atitem = next(self.genr)
+        if self.dupsort:
+            self.curs.last_dup()
+
+        self.genr = self.iterfunc()
+        self.atitem = next(self.genr)
 
         return True
 
-    def iternext(self):
+    def resume(self):
+        item = self.atitem
 
-        try:
+        if not self.dupsort:
 
-            while True:
-                yield self.atitem
+            if self.curs.set_range(item[0]):
+                return self.curs.prev()
 
-                if self.slab.isfini:
-                    raise s_exc.IsFini()
+            if not self.curs.last():
+                return False
 
-                if not self.bumped:
-                    self.atitem = next(self.genr)
-                    continue
+            return True
 
-                self.bumped = False
-                advance = True
+        # dupsort resume...
 
-                self.curs = self.slab.xact.cursor(db=self.db)
+        # see if we get lucky and land on it
+        if self.curs.set_range_dup(*item):
+            return self.curs.prev()
 
-                if self.dupsort:
+        # if we fail to set the range, try for the last
+        if not self.curs.set_range(item[0]):
+            return self.curs.last()
 
-                    # Grab the >= val with the exact key
-                    ret = self.curs.set_range_dup(*self.atitem)
-                    if not ret:
-                        # Grab >= key
-                        key = self.atitem[0]
-                        ret = self.curs.set_range(key)
+        # if we're on the next key, step back
+        if not self.curs.key() == item[0]:
+            if not self.curs.prev():
+                return False
 
-                        # If we got the same key, advance to the last val
-                        if ret and self.curs.key() == key:
-                            self.curs.last_dup()
-
-                            # We're already guaranteed to be < self.atitem because set_range_dup returned False
-                            advance = False
-
-                        elif self.singlekey:  # if set_range failed or we didn't get the same key, we're done
-                            raise StopIteration
-
-                else:
-                    ret = self.curs.set_range(self.atitem[0])
-
-                if not ret:
-                    if not self.curs.last():
-                        raise StopIteration
-
-                self.genr = self.iterfunc(self.curs)
-                if ret and advance:
-                    next(self.genr)
-
-                self.atitem = next(self.genr)
-
-        except StopIteration:
-            return
+        self.curs.last_dup()
+        return True

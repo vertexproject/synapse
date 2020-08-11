@@ -137,6 +137,7 @@ class Config(c_abc.MutableMapping):
             conf = {}
         self.conf = conf
         self._argparse_conf_names = {}
+        self._argparse_conf_parsed_names = {}
         self.envar_prefix = envar_prefix
         self.validator = getJsValidator(self.json_schema)
 
@@ -160,14 +161,20 @@ class Config(c_abc.MutableMapping):
             if conf.get('hideconf'):
                 continue
 
+            typename = conf.get('type')
+            # only allow single-typed values to have command line arguments
+            if not isinstance(typename, str):
+                continue
+
             atyp = jsonschematype2argparse.get(conf.get('type'))
             if atyp is None:
                 continue
 
-            akwargs = {'help': conf.get('description', ''),
-                       'action': 'store',
-                       'type': atyp,
-                       }
+            akwargs = {
+                'help': conf.get('description', ''),
+                'action': 'store',
+                'type': atyp,
+            }
 
             if atyp is bool:
 
@@ -183,10 +190,17 @@ class Config(c_abc.MutableMapping):
             parsed_name = name.replace(':', '-')
             replace_name = name.replace(':', '_')
             self._argparse_conf_names[replace_name] = name
+            self._argparse_conf_parsed_names[name] = parsed_name
             argname = '--' + parsed_name
             argdata.append((argname, akwargs))
 
         return argdata
+
+    def getCmdlineMapping(self):
+        if not self._argparse_conf_parsed_names:
+            # Giv a shot at populating the data
+            _ = self.getArgParseArgs()
+        return {k: v for k, v in self._argparse_conf_parsed_names.items()}
 
     def setConfFromOpts(self, opts):
         '''
@@ -234,17 +248,30 @@ class Config(c_abc.MutableMapping):
         Returns:
             None: Returns None.
         '''
-        for name, conf in self.json_schema.get('properties', {}).items():
-            if conf.get('hideconf'):
-                continue
-
-            envar = make_envar_name(name, prefix=self.envar_prefix)
+        name2envar = self.getEnvarMapping()
+        for name, envar in name2envar.items():
             envv = os.getenv(envar)
             if envv is not None:
                 envv = yaml.safe_load(envv)
                 resp = self.setdefault(name, envv)
                 if resp == envv:
                     logger.debug(f'Set config valu from envar: [{envar}]')
+
+    def getEnvarMapping(self):
+        '''
+        Get a mapping of config values to envars.
+
+        Configuration values which have the ``hideconf`` value set to True are not resolved from environment
+        variables.
+        '''
+        ret = {}
+        for name, conf in self.json_schema.get('properties', {}).items():
+            if conf.get('hideconf'):
+                continue
+
+            envar = make_envar_name(name, prefix=self.envar_prefix)
+            ret[name] = envar
+        return ret
 
     # General methods
     def reqConfValid(self):

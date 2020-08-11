@@ -121,8 +121,8 @@ dmonwrap = (
 
 async def t2call(link, meth, args, kwargs):
     '''
-    Call the given meth(*args, **kwargs) and handle the response
-    to provide telepath task v2 events to the given link.
+    Call the given ``meth(*args, **kwargs)`` and handle the response to provide
+    telepath task v2 events to the given link.
     '''
     try:
 
@@ -228,7 +228,7 @@ class Daemon(s_base.Base):
         self.cells = {}     # all cells are shared.  not all shared are cells.
         self.shared = {}    # objects provided by daemon
         self.listenservers = [] # the sockets we're listening on
-        self.connectedlinks = [] # the links we're currently connected on
+        self.links = set()
 
         self.sessions = {}
 
@@ -272,7 +272,16 @@ class Daemon(s_base.Base):
 
             sslctx = None
             if scheme == 'ssl':
-                sslctx = self.certdir.getServerSSLContext(hostname=host)
+
+                caname = None
+                hostname = None
+
+                query = info.get('query')
+                if query is not None:
+                    hostname = query.get('hostname', host)
+                    caname = query.get('ca')
+
+                sslctx = self.certdir.getServerSSLContext(hostname=hostname, caname=caname)
 
             server = await s_link.listen(host, port, self._onLinkInit, ssl=sslctx)
 
@@ -317,7 +326,7 @@ class Daemon(s_base.Base):
         if finis:
             await asyncio.wait(finis)
 
-        finis = [link.fini() for link in self.connectedlinks]
+        finis = [link.fini() for link in self.links]
         if finis:
             await asyncio.wait(finis)
 
@@ -326,6 +335,12 @@ class Daemon(s_base.Base):
                 await share.fini()
 
     async def _onLinkInit(self, link):
+
+        self.links.add(link)
+        async def fini():
+            self.links.discard(link)
+
+        link.onfini(fini)
 
         async def rxloop():
 
@@ -339,7 +354,7 @@ class Daemon(s_base.Base):
                 coro = self._onLinkMesg(link, mesg)
                 link.schedCoro(coro)
 
-        self.schedCoro(rxloop())
+        link.schedCoro(rxloop())
 
     async def _onLinkMesg(self, link, mesg):
 

@@ -5,6 +5,7 @@ import itertools
 import contextlib
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
@@ -15,8 +16,8 @@ import synapse.lib.queue as s_queue
 
 import synapse.tests.utils as s_t_utils
 
-import synapse.tools.sync_020 as s_sync
-import synapse.tools.migrate_020 as s_migr
+import synapse.tools.sync_200 as s_sync
+import synapse.tools.migrate_200 as s_migr
 
 REGR_VER = '0.1.56-migr'
 
@@ -35,16 +36,6 @@ def getAssetBytes(*paths):
 def getAssetJson(*paths):
     byts = getAssetBytes(*paths)
     obj = json.loads(byts.decode())
-    return obj
-
-def tupleize(obj):
-    '''
-    Convert list objects to tuples in a nested python struct.
-    '''
-    if isinstance(obj, (list, tuple)):
-        return tuple([tupleize(o) for o in obj])
-    if isinstance(obj, dict):
-        return {k: tupleize(v) for k, v in obj.items()}
     return obj
 
 class FakeCoreApi(s_cell.CellApi):
@@ -68,7 +59,7 @@ class FakeCore(s_cell.Cell):
 
     async def loadSplicelog(self, splicelog):
         for lyriden, items in splicelog.items():
-            self.splicelog[lyriden] = tupleize(items)
+            self.splicelog[lyriden] = s_common.tuplify(items)
 
     async def setSplicelim(self, lim):
         self.splicelim = lim
@@ -170,7 +161,7 @@ class SyncTest(s_t_utils.SynTest):
         with self.getRegrDir('assets', REGR_VER) as assetdir:
             podesj = getAssetJson(assetdir, 'splicepodes.json')
             podesj = [p for p in podesj if p[0] not in NOMIGR_NDEF]
-            tpodes = tupleize(podesj)
+            tpodes = s_common.tuplify(podesj)
 
             # check all nodes (removing empty nodedata key)
             nodes = await core.nodes('.created -meta:source:name=test')
@@ -505,12 +496,12 @@ class SyncTest(s_t_utils.SynTest):
                 else:
                     errs.append(err)
 
-            # expect one error for migration module not loaded in 0.20 cortex
+            # expect one error for migration module not loaded in 2.x.x cortex
             self.len(1, errs)
             self.isin('migr:test', errs[0]['mesg'])
             self.eq(len(batches) - 1, len(nodeedits))
 
-            # feed nodeedits to 0.2.x cortex and get back the sodes
+            # feed nodeedits to 2.x.x cortex and get back the sodes
             sodes = []
             for ne, meta in nodeedits:
                 sodes.extend(await wlyr.storNodeEdits([ne], meta))

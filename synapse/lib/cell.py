@@ -26,7 +26,6 @@ import synapse.lib.health as s_health
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 
@@ -68,7 +67,6 @@ def adminapi(log=False):
 
     return decrfunc
 
-
 class CellApi(s_base.Base):
 
     async def __anit__(self, cell, link, user):
@@ -92,7 +90,7 @@ class CellApi(s_base.Base):
 
             Form a path and check the permission from a remote proxy::
 
-                perm = ('node:add', 'inet:ipv4')
+                perm = ('node', 'add', 'inet:ipv4')
                 allowed = await prox.allowed(perm)
                 if allowed:
                     dostuff()
@@ -139,6 +137,14 @@ class CellApi(s_base.Base):
     def getCellIden(self):
         return self.cell.getCellIden()
 
+    @adminapi()
+    def getNexsIndx(self):
+        return self.cell.getNexsIndx()
+
+    @adminapi()
+    async def promote(self):
+        return await self.cell.promote()
+
     def getCellUser(self):
         return self.user.pack()
 
@@ -163,36 +169,10 @@ class CellApi(s_base.Base):
         return True
 
     async def ps(self):
-
-        retn = []
-
-        isallowed = await self.allowed(('task', 'get'))
-
-        for task in self.cell.boss.ps():
-            if (task.user == self.user) or isallowed:
-                retn.append(task.pack())
-
-        return retn
+        return await self.cell.ps(self.user)
 
     async def kill(self, iden):
-        perm = ('task', 'del')
-        isallowed = await self.allowed(perm)
-
-        logger.info(f'User [{self.user.name}] Requesting task kill: {iden}')
-        task = self.cell.boss.get(iden)
-        if task is None:
-            logger.info(f'Task does not exist: {iden}')
-            return False
-
-        if (task.user == self.user) or isallowed:
-            logger.info(f'Killing task: {iden}')
-            await task.kill()
-            logger.info(f'Task killed: {iden}')
-            return True
-
-        perm = '.'.join(perm)
-        raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
-                             task=iden, user=str(self.user), perm=perm)
+        return await self.cell.kill(self.user, iden)
 
     @adminapi(log=True)
     async def addUser(self, name, passwd=None, email=None):
@@ -440,6 +420,10 @@ class CellApi(s_base.Base):
         return await self.cell.listHiveKey(path=path)
 
     @adminapi()
+    async def getHiveKeys(self, path):
+        return await self.cell.getHiveKeys(path)
+
+    @adminapi()
     async def getHiveKey(self, path):
         return await self.cell.getHiveKey(path)
 
@@ -469,57 +453,104 @@ class CellApi(s_base.Base):
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
+
+    A Cell has 5 phases of startup:
+        1. Universal cell data structures
+        2. Service specific storage/data (pre-nexs)
+        3. Nexus subsystem initialization
+        4. Service specific startup (with nexus)
+        5. Networking and mirror services
+
     '''
     cellapi = CellApi
 
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
+        'cell:guid': {
+            'description': 'An optional hard-coded GUID to store as the permanent GUID for the cell.',
+            'type': 'string',
+        },
+        'mirror': {
+            'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
+            'type': 'string',
+        },
         'auth:passwd': {
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
             'type': 'string'
         },
         'nexslog:en': {
-            'default': True,
+            'default': False,
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
             'type': 'boolean'
         },
+        'nexslog:async': {
+            'default': False,
+            'description': '(Experimental) Map the nexus log LMDB instance with map_async=True.',
+            'type': 'boolean',
+        },
+        'dmon:listen': {
+            'description': 'A config-driven way to specify the telepath bind URL.',
+            'type': ['string', 'null'],
+        },
+        'https:port': {
+            'description': 'A config-driven way to specify the HTTPS port.',
+            'type': ['integer', 'null'],
+        },
     }
 
-    async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
+    async def __anit__(self, dirn, conf=None, readonly=False):
+
+        # phase 1
+        if conf is None:
+            conf = {}
 
         s_telepath.Aware.__init__(self)
-
         self.dirn = s_common.gendir(dirn)
 
         self.auth = None
         self.sessions = {}
+        self.isactive = False
         self.inaugural = False
 
+        self.conf = self._initCellConf(conf)
+
         # each cell has a guid
-        path = s_common.genpath(dirn, 'cell.guid')
+        path = s_common.genpath(self.dirn, 'cell.guid')
 
         # generate a guid file if needed
         if not os.path.isfile(path):
+
             self.inaugural = True
+
+            guid = conf.get('cell:guid')
+            if guid is None:
+                guid = s_common.guid()
+
             with open(path, 'w') as fd:
-                fd.write(s_common.guid())
+                fd.write(guid)
 
         # read our guid file
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
 
-        if conf is None:
-            conf = {}
-
-        self.conf = self._initCellConf(conf)
-
         self.donexslog = self.conf.get('nexslog:en')
 
+        if self.conf.get('mirror') and not self.conf.get('nexslog:en'):
+            mesg = 'Mirror mode requires nexslog:en=True'
+            raise s_exc.BadConfValu(mesg=mesg)
+
+        # construct our nexsroot instance ( but do not start it )
         await s_nexus.Pusher.__anit__(self, self.iden)
 
-        await self._initCellSlab(readonly=readonly)
+        root = await self._ctorNexsRoot()
 
-        self.setNexsRoot(await self._initNexsRoot())
+        # mutually assured destruction with our nexs root
+        self.onfini(root.fini)
+        root.onfini(self.fini)
+
+        self.setNexsRoot(root)
+
+        await self._initCellSlab(readonly=readonly)
 
         self.hive = await self._initCellHive()
 
@@ -541,33 +572,109 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         auth_passwd = self.conf.get('auth:passwd')
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
-            await user.setPasswd(auth_passwd)
 
-        await self._initCellDmon()
+            if not user.tryPasswd(auth_passwd):
+                await user.setPasswd(auth_passwd, nexs=False)
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss)
-
-        await self._initCellHttp()
-
-        self._health_funcs = []
-        self.addHealthFunc(self._cellHealth)
-
-        async def fini():
-            [await s.fini() for s in self.sessions.values()]
-
-        self.onfini(fini)
 
         self.dynitems = {
             'auth': self.auth,
             'cell': self
         }
 
-    async def _initNexsRoot(self):
-        nexsroot = await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
-        self.onfini(nexsroot.fini)
-        nexsroot.onfini(self)
-        return nexsroot
+        # initialize web app and callback data structures
+        self._health_funcs = []
+        self.addHealthFunc(self._cellHealth)
+
+        # initialize network daemons (but do not listen yet)
+        # to allow registration of callbacks and shared objects
+        # within phase 2/4.
+        await self._initCellHttp()
+        await self._initCellDmon()
+
+        # phase 2 - service storage
+        await self.initServiceStorage()
+        # phase 3 - nexus subsystem
+        await self.initNexusSubsystem()
+        # phase 4 - service logic
+        await self.initServiceRuntime()
+        # phase 5 - service networking
+        await self.initServiceNetwork()
+
+    async def initServiceStorage(self):
+        pass
+
+    async def initNexusSubsystem(self):
+        mirror = self.conf.get('mirror')
+        await self.nexsroot.startup(mirror, celliden=self.iden)
+        await self.setCellActive(mirror is None)
+
+    async def initServiceNetwork(self):
+
+        # start a unix local socket daemon listener
+        sockpath = os.path.join(self.dirn, 'sock')
+        sockurl = f'unix://{sockpath}'
+
+        try:
+            await self.dmon.listen(sockurl)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except OSError as e:
+            logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
+            logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
+        except Exception:  # pragma: no cover
+            logging.exception(f'Unknown dmon listen error.')
+            raise
+
+        turl = self.conf.get('dmon:listen')
+        if turl is not None:
+            await self.dmon.listen(turl)
+            logger.info(f'dmon listening: {turl}')
+
+        port = self.conf.get('https:port')
+        if port is not None:
+            await self.addHttpsPort(port)
+            logger.info(f'https listening: {port}')
+
+    async def initServiceRuntime(self):
+        pass
+
+    async def _ctorNexsRoot(self):
+        '''
+        Initialize a NexsRoot to use for the cell.
+        '''
+        map_async = self.conf.get('nexslog:async')
+        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog, map_async=map_async)
+
+    async def getNexsIndx(self):
+        return await self.nexsroot.index()
+
+    async def promote(self):
+        '''
+        Transform this cell from a passive follower to
+        an active cell that writes changes locally.
+        '''
+        if self.conf.get('mirror') is None:
+            mesg = 'promote() called on non-mirror'
+            raise s_exc.BadConfValu(mesg=mesg)
+
+        await self.nexsroot.promote()
+        await self.setCellActive(True)
+
+    async def setCellActive(self, active):
+        self.isactive = active
+        if self.isactive:
+            await self.initServiceActive()
+        else:
+            await self.initServicePassive()
+
+    async def initServiceActive(self): # pragma: no cover
+        pass
+
+    async def initServicePassive(self): # pragma: no cover
+        pass
 
     async def getNexusChanges(self, offs):
         async for item in self.nexsroot.iter(offs):
@@ -814,6 +921,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sessstor = s_lmdbslab.GuidStor(self.slab, 'http:sess')
 
         async def fini():
+            [await s.fini() for s in self.sessions.values()]
             for http in self.httpds:
                 http.stop()
 
@@ -858,23 +966,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ))
 
     async def _initCellDmon(self):
-        # start a unix local socket daemon listener
-        sockpath = os.path.join(self.dirn, 'sock')
-        sockurl = f'unix://{sockpath}'
+        cdir = s_common.gendir(self.dirn, 'certs')
 
-        self.dmon = await s_daemon.Daemon.anit()
+        self.dmon = await s_daemon.Daemon.anit(certdir=(cdir, s_certdir.defdir))
         self.dmon.share('*', self)
-
-        try:
-            await self.dmon.listen(sockurl)
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
-        except OSError as e:
-            logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
-            logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
-        except Exception:  # pragma: no cover
-            logging.exception(f'Unknown dmon listen error.')
-            raise
 
         self.onfini(self.dmon.fini)
 
@@ -893,7 +988,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if tree is not None:
                     # Pack and unpack the tree to avoid tuple/list issues
                     # for in-memory structures.
-                    tree = s_msgpack.un(s_msgpack.en(tree))
+                    tree = s_common.tuplify(tree)
                     await hive.loadHiveTree(tree)
 
         return hive
@@ -1087,16 +1182,34 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
 
-            await cell.addHttpsPort(opts.https)
-            await cell.dmon.listen(opts.telepath)
+            if 'dmon:listen' not in cell.conf:
+                await cell.dmon.listen(opts.telepath)
+                if outp is not None:
+                    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
+            else:
+
+                if outp is not None:
+                    lisn = cell.conf.get('dmon:listen')
+                    if lisn is None:
+                        lisn = cell.getLocalUrl()
+
+                    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (lisn,))
+
+            if 'https:port' not in cell.conf:
+                await cell.addHttpsPort(opts.https)
+                if outp is not None:
+                    outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
+            else:
+                if outp is not None:
+                    port = cell.conf.get('https:port')
+                    if port is None:
+                        outp.printf(f'...{cell.getCellType()} API (https): disabled')
+                    else:
+                        outp.printf(f'...{cell.getCellType()} API (https): %s' % (port,))
 
             if opts.name is not None:
                 cell.dmon.share(opts.name, cell)
-
-            if outp is not None:
-                outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
-                outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
-                if opts.name is not None:
+                if outp is not None:
                     outp.printf(f'...{cell.getCellType()} API (telepath name): %s' % (opts.name,))
 
         except Exception:
@@ -1173,6 +1286,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return None
         return [item[0] for item in items]
 
+    async def getHiveKeys(self, path):
+        '''
+        Return a list of (name, value) tuples for nodes under the path.
+        '''
+        items = self.hive.dir(path)
+        if items is None:
+            return ()
+
+        return [(i[0], i[1]) for i in items]
+
     async def getHiveKey(self, path):
         '''
         Get the value of a key in the cell default hive
@@ -1213,3 +1336,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         the writes that occurred on the leader before this call.
         '''
         return
+
+    async def ps(self, user):
+        isallowed = await self.isUserAllowed(user.iden, ('task', 'get'))
+
+        retn = []
+        for task in self.boss.ps():
+            if (task.user.iden == user.iden) or isallowed:
+                retn.append(task.pack())
+
+        return retn
+
+    async def kill(self, user, iden):
+        perm = ('task', 'del')
+        isallowed = await self.isUserAllowed(user.iden, perm)
+
+        logger.info(f'User [{user.name}] Requesting task kill: {iden}')
+        task = self.boss.get(iden)
+        if task is None:
+            logger.info(f'Task does not exist: {iden}')
+            return False
+
+        if (task.user.iden == user.iden) or isallowed:
+            logger.info(f'Killing task: {iden}')
+            await task.kill()
+            logger.info(f'Task killed: {iden}')
+            return True
+
+        perm = '.'.join(perm)
+        raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
+                             task=iden, user=str(user), perm=perm)

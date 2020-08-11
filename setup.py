@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '0.2.0rc12'
+VERSION = '2.5.1'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -36,14 +36,14 @@ setup(
         'pyOpenSSL>=16.2.0,<20.0.0',
         'msgpack>=0.6.1,<0.7.0',
         'xxhash>=1.0.1,<2.0.0',
-        'lmdb>=0.94,<1.0.0',
+        'lmdb>=0.98,<1.0.0',
         'tornado>=6.0.3,<7.0.0',
-        'regex>=2017.9.23',
+        'regex>=2020.5.14',
         'PyYAML>=5.1,<6.0',
         'aiohttp>=3.5.4,<4.0',
-        'prompt-toolkit>=2.0.7,<2.1.0',
-        'lark-parser>=0.7.1,<0.8.0,!=0.7.4',
-        'Pygments>=2.3.0,<2.6.0',
+        'prompt-toolkit>=3.0.4,<3.1.0',
+        'lark-parser>=0.9.0,<0.10.0',
+        'Pygments>=2.6.0,<2.7.0',
         'packaging>=20.0,<21.0',
         'fastjsonschema>=2.14.3,<2.15',
     ],
@@ -57,11 +57,12 @@ setup(
             'sphinx-rtd-theme>=0.4.2,<1.0.0',
         ],
         'dev': [
-            'pytest>=4.0.0,<5.0.0',
-            'autopep8>=1.4.3,<2.0.0',
-            'pytest-cov>=2.6.0,<3.0.0',
-            'pycodestyle>=2.4.0,<3.0.0',
-            'pytest-xdist>=1.25.0,<2.0.0',
+            'pytest>=5.0.0,<6.0.0',
+            'autopep8>=1.5.3,<2.0.0',
+            'pytest-cov>=2.9.0,<3.0.0',
+            'pycodestyle>=2.6.0,<3.0.0',
+            'bump2version>=1.0.0,<1.1.0',
+            'pytest-xdist>=1.32.0,<2.0.0',
         ],
     },
 

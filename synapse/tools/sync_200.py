@@ -1,5 +1,5 @@
 '''
-Sync splices from an 0.1.x cortex to 0.2.x
+Sync splices from an 0.1.x cortex to 2.x.x
 '''
 import os
 import sys
@@ -52,7 +52,7 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
             },
             {
                 'name': f'{_storm_svc_name}.startfromfile',
-                'descr': 'Start 0.2.x Layer sync from last 0.1.x splice offset recorded during migration.',
+                'descr': 'Start 2.x.x Layer sync from last 0.1.x splice offset recorded during migration.',
                 'cmdargs': (),
                 'cmdconf': {},
                 'storm': '''
@@ -65,7 +65,7 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
             },
             {
                 'name': f'{_storm_svc_name}.startfromlast',
-                'descr': 'Start 0.2.x Layer sync from last 0.1.x splice offset completed by this service.',
+                'descr': 'Start 2.x.x Layer sync from last 0.1.x splice offset completed by this service.',
                 'cmdargs': (),
                 'cmdconf': {},
                 'storm': '''
@@ -78,7 +78,7 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
             },
             {
                 'name': f'{_storm_svc_name}.stopsync',
-                'descr': 'Stop 0.2.x Layer sync from 0.1.x splices',
+                'descr': 'Stop 2.x.x Layer sync from 0.1.x splices',
                 'cmdargs': (),
                 'cmdconf': {},
                 'storm': '''
@@ -91,7 +91,7 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
             },
             {
                 'name': f'{_storm_svc_name}.migrationmode.enable',
-                'descr': 'Prevent crons and triggers from running on 0.2.x Cortex',
+                'descr': 'Prevent crons and triggers from running on 2.x.x Cortex',
                 'cmdargs': (),
                 'cmdconf': {},
                 'storm': '''
@@ -103,7 +103,7 @@ class SyncMigratorApi(s_stormsvc.StormSvc, s_cell.CellApi):
             },
             {
                 'name': f'{_storm_svc_name}.migrationmode.disable',
-                'descr': 'Allow crons and triggers to run on 0.2.x Cortex',
+                'descr': 'Allow crons and triggers to run on 2.x.x Cortex',
                 'cmdargs': (),
                 'cmdconf': {},
                 'storm': '''
@@ -145,7 +145,7 @@ class SyncMigrator(s_cell.Cell):
         },
         'dest': {
             'type': 'string',
-            'description': 'Telepath URL for the destination 0.2.x cortex.',
+            'description': 'Telepath URL for the destination 2.x.x cortex.',
         },
         'offsfile': {
             'type': 'string',

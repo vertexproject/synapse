@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import datetime
 from datetime import timezone as tz
 from unittest import mock
@@ -12,13 +13,13 @@ MINSECS = 60
 HOURSECS = 60 * MINSECS
 DAYSECS = 24 * HOURSECS
 
+logger = logging.getLogger(__name__)
+
 class CmdCronTest(s_t_utils.SynTest):
 
     async def test_cron(self):
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
-        sync = asyncio.Event()
-        lastquery = None
         s_provenance.reset()
 
         def timetime():
@@ -26,13 +27,6 @@ class CmdCronTest(s_t_utils.SynTest):
 
         def looptime():
             return unixtime - MONO_DELT
-
-        async def myeval(query, user=None):
-            nonlocal lastquery
-            lastquery = query
-            sync.set()
-            return
-            yield None
 
         loop = asyncio.get_running_loop()
 
