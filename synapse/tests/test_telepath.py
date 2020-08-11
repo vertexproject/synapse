@@ -727,6 +727,10 @@ class TeleTest(s_t_utils.SynTest):
         dmon1.share('foo', rdir1)
 
         async with await s_telepath.Client.anit(url0) as targ:
+
+            with self.raises(s_exc.NotReady):
+                targ.dostuff(100)
+
             await targ.waitready()
             proxy = await targ.proxy()
             self.eq(proxy._getSynVers(), s_version.version)

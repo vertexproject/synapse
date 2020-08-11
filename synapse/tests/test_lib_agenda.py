@@ -394,67 +394,83 @@ class AgendaTest(s_t_utils.SynTest):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:
 
-            async with self.getTestCore(dirn=fdir) as core:
-                agenda = core.agenda
-                # Schedule a query to run every Wednesday and Friday at 10:15am
-                cdef = {'useriden': 'visi', 'iden': 'IDEN1', 'storm': '[test:str=bar]',
-                        'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
-                        'incunit': s_agenda.TimeUnit.DAYOFWEEK,
-                        'incvals': (2, 4)}
-                adef = await agenda.add(cdef)
-                guid1 = adef.get('iden')
+            core = mock.Mock()
 
-                # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                cdef = {'useriden': 'visi', 'iden': 'IDEN2', 'storm': '[test:str=baz]',
-                        'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
-                        'incunit': s_agenda.TimeUnit.MONTH,
-                        'incvals': 1}
-                await agenda.add(cdef)
+            def raiseOnBadStorm(q):
+                ''' Just enough storm parsing for this test '''
+                if (q[0] == '[') != (q[-1] == ']'):
+                    raise s_exc.BadSyntax(mesg='mismatched braces')
 
-                # Add an appt with an invalid query
-                cdef = {'useriden': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
-                        'reqs': {s_tu.HOUR: (7, 8)},
-                        'incunit': s_agenda.TimeUnit.MONTH,
-                        'incvals': 1}
-                adef = await agenda.add(cdef)
-                badguid1 = adef.get('iden')
+            core.getStormQuery = raiseOnBadStorm
 
-                # Add an appt with a bad version in storage
-                cdef = {'useriden': 'visi', 'iden': 'BAD2', 'storm': '[test:str=foo]',
-                        'reqs': {s_tu.HOUR: (7, 8)},
-                        'incunit': s_agenda.TimeUnit.MONTH,
-                        'incvals': 1}
-                adef = await agenda.add(cdef)
-                badguid2 = adef.get('iden')
+            async with await s_lmdbslab.Slab.anit(fdir, map_size=100000) as slab:
+                db = slab.initdb('hive')
+                hive = await s_hive.SlabHive.anit(slab, db=db)
+                core.hive = hive
 
-                adef['ver'] = 1337
-                await agenda._hivedict.set(badguid2, adef)
+                async with await s_agenda.Agenda.anit(core) as agenda:
+                    await agenda.start()
+                    # Schedule a query to run every Wednesday and Friday at 10:15am
+                    cdef = {'useriden': 'visi', 'iden': 'IDEN1', 'storm': '[test:str=bar]',
+                            'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                            'incunit': s_agenda.TimeUnit.DAYOFWEEK,
+                            'incvals': (2, 4)}
+                    adef = await agenda.add(cdef)
+                    guid1 = adef.get('iden')
 
-                xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2099}
-                lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2099}
+                    # every 6th of the month at 7am and 8am (the 6th is a Thursday)
+                    cdef = {'useriden': 'visi', 'iden': 'IDEN2', 'storm': '[test:str=baz]',
+                            'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
+                            'incunit': s_agenda.TimeUnit.MONTH,
+                            'incvals': 1}
+                    await agenda.add(cdef)
 
-                await agenda.delete(guid1)
+                    # Add an appt with an invalid query
+                    cdef = {'useriden': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
+                            'reqs': {s_tu.HOUR: (7, 8)},
+                            'incunit': s_agenda.TimeUnit.MONTH,
+                            'incvals': 1}
+                    adef = await agenda.add(cdef)
+                    badguid1 = adef.get('iden')
 
-                # And one-shots for Christmas and last day of Hanukkah of 2018
-                cdef = {'useriden': 'visi', 'iden': 'IDEN3', 'storm': '#happyholidays',
-                        'reqs': (xmas, lasthanu)}
-                adef = await agenda.add(cdef)
-                guid3 = adef.get('iden')
+                    # Add an appt with a bad version in storage
+                    cdef = {'useriden': 'visi', 'iden': 'BAD2', 'storm': '[test:str=foo]',
+                            'reqs': {s_tu.HOUR: (7, 8)},
+                            'incunit': s_agenda.TimeUnit.MONTH,
+                            'incvals': 1}
+                    adef = await agenda.add(cdef)
+                    badguid2 = adef.get('iden')
 
-                await agenda.mod(guid3, '#bahhumbug')
+                    adef['ver'] = 1337
+                    await agenda._hivedict.set(badguid2, adef)
 
-            async with self.getTestCore(dirn=fdir) as core:
-                agenda = core.agenda
+                    xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2099}
+                    lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2099}
 
-                appts = agenda.list()
-                self.len(3, appts)
-                last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
-                self.eq(last_appt.query, '#bahhumbug')
+                    await agenda.delete(guid1)
 
-                bad_appt = [appt for (iden, appt) in appts if iden == badguid1][0]
-                self.false(bad_appt.enabled)
+                    # And one-shots for Christmas and last day of Hanukkah of 2018
+                    cdef = {'useriden': 'visi', 'iden': 'IDEN3', 'storm': '#happyholidays',
+                            'reqs': (xmas, lasthanu)}
 
-                self.len(0, [appt for (iden, appt) in appts if iden == badguid2])
+                    adef = await agenda.add(cdef)
+                    guid3 = adef.get('iden')
+
+                    await agenda.mod(guid3, '#bahhumbug')
+
+                async with await s_agenda.Agenda.anit(core) as agenda:
+                    await agenda.start()
+                    agenda.enabled = True
+
+                    appts = agenda.list()
+                    self.len(3, appts)
+                    last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
+                    self.eq(last_appt.query, '#bahhumbug')
+
+                    bad_appt = [appt for (iden, appt) in appts if iden == badguid1][0]
+                    self.false(bad_appt.enabled)
+
+                    self.len(0, [appt for (iden, appt) in appts if iden == badguid2])
 
     async def test_cron_perms(self):
 
