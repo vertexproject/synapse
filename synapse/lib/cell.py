@@ -90,7 +90,7 @@ class CellApi(s_base.Base):
 
             Form a path and check the permission from a remote proxy::
 
-                perm = ('node:add', 'inet:ipv4')
+                perm = ('node', 'add', 'inet:ipv4')
                 allowed = await prox.allowed(perm)
                 if allowed:
                     dostuff()
@@ -483,6 +483,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
             'type': 'boolean'
         },
+        'nexslog:async': {
+            'default': False,
+            'description': '(Experimental) Map the nexus log LMDB instance with map_async=True.',
+            'type': 'boolean',
+        },
         'dmon:listen': {
             'description': 'A config-driven way to specify the telepath bind URL.',
             'type': ['string', 'null'],
@@ -640,7 +645,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Initialize a NexsRoot to use for the cell.
         '''
-        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog)
+        map_async = self.conf.get('nexslog:async')
+        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog, map_async=map_async)
 
     async def getNexsIndx(self):
         return await self.nexsroot.index()

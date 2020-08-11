@@ -2427,9 +2427,14 @@ class TreeCmd(Cmd):
                 async for item in recurse(nnode, npath):
                     yield item
 
-        async for node, path in genr:
-            async for nodepath in recurse(node, path):
-                yield nodepath
+        try:
+
+            async for node, path in genr:
+                async for nodepath in recurse(node, path):
+                    yield nodepath
+
+        except s_exc.RecursionLimitHit:
+            raise s_exc.StormRuntimeError(mesg='tree command exceeded maximum depth') from None
 
 class ScrapeCmd(Cmd):
     '''

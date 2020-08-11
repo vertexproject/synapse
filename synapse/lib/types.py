@@ -614,6 +614,87 @@ intstors = {
     (16, False): s_layer.STOR_TYPE_U128,
 }
 
+hugemax = 170141183460469231731687
+class HugeNum(Type):
+
+    _opt_defs = (
+        ('norm', True),
+    )
+
+    stortype = s_layer.STOR_TYPE_HUGENUM
+
+    def __init__(self, modl, name, info, opts):
+
+        Type.__init__(self, modl, name, info, opts)
+
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+
+        self.storlifts.update({
+            '<': self._storLiftNorm,
+            '>': self._storLiftNorm,
+            '<=': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+            'range=': self._storLiftRange,
+        })
+
+    def norm(self, valu):
+
+        huge = s_common.hugenum(valu)
+        if huge > hugemax:
+            mesg = f'Value ({valu}) is too large for hugenum.'
+            raise s_exc.BadTypeValu(mesg)
+
+        if abs(huge) > hugemax:
+            mesg = f'Value ({valu}) is too small for hugenum.'
+            raise s_exc.BadTypeValu(mesg)
+
+        if self.opts.get('norm'):
+            huge.normalize(), {}
+        return huge.to_eng_string(), {}
+
+    def _ctorCmprEq(self, text):
+        base = s_common.hugenum(text)
+        def cmpr(valu):
+            valu = s_common.hugenum(valu)
+            return valu == base
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        base = s_common.hugenum(text)
+        def cmpr(valu):
+            valu = s_common.hugenum(valu)
+            return valu > base
+        return cmpr
+
+    def _ctorCmprLt(self, text):
+        base = s_common.hugenum(text)
+        def cmpr(valu):
+            valu = s_common.hugenum(valu)
+            return valu < base
+        return cmpr
+
+    def _ctorCmprGe(self, text):
+        base = s_common.hugenum(text)
+        def cmpr(valu):
+            valu = s_common.hugenum(valu)
+            return valu >= base
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        base = s_common.hugenum(text)
+        def cmpr(valu):
+            valu = s_common.hugenum(valu)
+            return valu <= base
+        return cmpr
+
+    def _storLiftRange(self, cmpr, valu):
+        minv, minfo = self.norm(valu[0])
+        maxv, maxfo = self.norm(valu[1])
+        return ((cmpr, (minv, maxv), self.stortype),)
+
 class IntBase(Type):
 
     def __init__(self, modl, name, info, opts):
@@ -1344,6 +1425,7 @@ class Str(Type):
         ('regex', None),
         ('lower', False),
         ('strip', False),
+        ('replace', ()),
         ('onespace', False),
         ('globsuffix', False),
     )
@@ -1396,6 +1478,9 @@ class Str(Type):
         if self.opts.get('lower'):
             valu = valu.lower()
 
+        for look, repl in self.opts.get('replace', ()):
+            valu = valu.replace(look, repl)
+
         # Only strip the left side of the string for prefix match
         if self.opts.get('strip'):
             valu = valu.lstrip()
@@ -1425,6 +1510,9 @@ class Str(Type):
 
         if self.opts['lower']:
             norm = norm.lower()
+
+        for look, repl in self.opts.get('replace', ()):
+            norm = norm.replace(look, repl)
 
         if self.opts['strip']:
             norm = norm.strip()
@@ -1542,12 +1630,13 @@ class Time(IntBase):
         if valu == '?':
             return self.futsize, {}
 
-        # self contained relative time string
+        # parse timezone
+        valu, base = s_time.parsetz(valu)
 
         # we need to be pretty sure this is meant for us, otherwise it might
         # just be a slightly messy time parse
         unitcheck = [u for u in s_time.timeunits.keys() if u in valu]
-        if unitcheck and '-' in valu or '+' in valu:
+        if unitcheck and ('-' in valu or '+' in valu):
             splitter = '+'
             if '-' in valu:
                 splitter = '-'
@@ -1555,13 +1644,13 @@ class Time(IntBase):
             bgn, end = valu.split(splitter, 1)
             delt = s_time.delta(splitter + end)
             if bgn:
-                bgn = self._normPyStr(bgn)[0]
+                bgn = self._normPyStr(bgn)[0] + base
             else:
                 bgn = s_common.now()
 
             return self._normPyInt(delt + bgn)
 
-        valu = s_time.parse(valu)
+        valu = s_time.parse(valu, base=base)
         return self._normPyInt(valu)
 
     def _normPyInt(self, valu):

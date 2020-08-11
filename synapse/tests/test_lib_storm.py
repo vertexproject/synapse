@@ -18,6 +18,10 @@ class StormTest(s_t_utils.SynTest):
             vals = [n.ndef[1] for n in nodes]
             self.eq(('www.vertex.link', 'vertex.link', 'link'), vals)
 
+            # Max recursion fail
+            q = '[ inet:fqdn=www.vertex.link ] | tree { inet:fqdn=www.vertex.link }'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
     async def test_storm_movetag(self):
 
         async with self.getTestCore() as core:
@@ -276,12 +280,12 @@ class StormTest(s_t_utils.SynTest):
 
             # Universal prop for relative path
             nodes = await core.nodes('.created>=$minc | max .created',
-                                    {'vars': {'minc': minc}})
+                                     {'vars': {'minc': minc}})
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
             nodes = await core.nodes('.created>=$minc | min .created',
-                                    {'vars': {'minc': minc}})
+                                     {'vars': {'minc': minc}})
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
@@ -323,7 +327,7 @@ class StormTest(s_t_utils.SynTest):
             maxnodes = await core.nodes('[ ou:org=* ]')
             maxnodes = await core.nodes('[ ou:org=* +#minmax ]')
             minnodes = await core.nodes('[ ou:org=* +#minmax=(1981, 2010) ]')
-            midnodes = await core.nodes('[ ou:org=* +#minmax=(1982, 2018) ]')
+            await core.nodes('[ ou:org=* +#minmax=(1982, 2018) ]')
             maxnodes = await core.nodes('[ ou:org=* +#minmax=(1997, 2020) ]')
 
             testmin = await core.nodes('ou:org | min #minmax')

@@ -705,6 +705,9 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, errs)
             self.eq(errs[0][0], 'StormRuntimeError')
 
+            self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.1)'))
+            self.eq('foo', await core.callStorm('$foo = (foo, bar) return($foo."-2")'))
+
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
             text = '$lib.fire(foo:bar, baz=faz)'
@@ -1461,6 +1464,11 @@ class StormTypesTest(s_test.SynTest):
                 text = '($size, $sha2) = $lib.bytes.put($bytes)'
                 nodes = await core.nodes(text, opts=opts)
 
+            asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
+
+            ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
+            self.false(ret)
+
             opts = {'vars': {'bytes': b'asdfasdf'}}
             text = '($size, $sha2) = $lib.bytes.put($bytes) [ test:int=$size test:str=$sha2 ]'
 
@@ -1468,11 +1476,14 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, nodes)
 
             self.eq(nodes[0].ndef, ('test:int', 8))
-            self.eq(nodes[1].ndef, ('test:str', '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'))
+            self.eq(nodes[1].ndef, ('test:str', asdfhash_h))
 
-            bkey = s_common.uhex('2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
+            bkey = s_common.uhex(asdfhash_h)
             byts = b''.join([b async for b in core.axon.get(bkey)])
             self.eq(b'asdfasdf', byts)
+
+            ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
+            self.true(ret)
 
             # Allow bytes to be directly decoded as a string
             opts = {'vars': {'buf': 'hehe'.encode()}}
@@ -3111,8 +3122,13 @@ class StormTypesTest(s_test.SynTest):
 
             await core.nodes('[inet:ipv4=1.2.3.4]')
 
-            #TODO: should we asciify the buid here so it is json compatible?
-            nodeedits = await core.callStorm('$list = $lib.list() for ($offs, $edit) in $lib.layer.get().edits(wait=$lib.false) { $list.append($edit) } return($list)')
+            # TODO: should we asciify the buid here so it is json compatible?
+            q = '''$list = $lib.list()
+            for ($offs, $edit) in $lib.layer.get().edits(wait=$lib.false) {
+                $list.append($edit)
+            }
+            return($list)'''
+            nodeedits = await core.callStorm(q)
 
             retn = []
             for edits in nodeedits:
@@ -3121,3 +3137,16 @@ class StormTypesTest(s_test.SynTest):
                         retn.append(edit)
 
             self.len(1, retn)
+
+    async def test_stormtypes_layer_counts(self):
+        async with self.getTestCore() as core:
+            self.eq(0, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
+            await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 :asn=20 inet:asn=20 +#foo.bar ]')
+            self.eq(0, await core.callStorm('return($lib.layer.get().getPropCount(ps:person))'))
+            self.eq(2, await core.callStorm('return($lib.layer.get().getPropCount(inet:ipv4))'))
+            self.eq(2, await core.callStorm('return($lib.layer.get().getPropCount(inet:ipv4:asn))'))
+            self.eq(3, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
+            self.eq(2, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar, formname=inet:ipv4))'))
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('return($lib.layer.get().getPropCount(newp:newp))')

@@ -63,7 +63,6 @@ import struct
 import asyncio
 import logging
 import ipaddress
-import itertools
 import contextlib
 import collections
 
@@ -79,6 +78,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
+import synapse.lib.urlhelp as s_urlhelp
 
 import synapse.lib.config as s_config
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -94,7 +94,8 @@ reqValidLdef = s_config.getJsValidator({
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'lockmemory': {'type': 'boolean'},
-        'logedits': {'type': 'boolean'}, 'default': True
+        'logedits': {'type': 'boolean'}, 'default': True,
+        'name': {'type': 'string'},
     },
     'additionalProperties': True,
     'required': ['iden', 'creator', 'lockmemory'],
@@ -200,6 +201,7 @@ STOR_TYPE_I128 = 20
 STOR_TYPE_MINTIME = 21
 
 STOR_TYPE_FLOAT64 = 22
+STOR_TYPE_HUGENUM = 23
 
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
@@ -649,6 +651,66 @@ class StorTypeInt(StorType):
         for item in liftby.buidsByRange(pkeymin, pkeymax):
             yield item
 
+class StorTypeHugeNum(StorType):
+
+    def __init__(self, layr, stortype):
+        StorType.__init__(self, layr, STOR_TYPE_HUGENUM)
+        self.lifters.update({
+            '=': self._liftHugeEq,
+            '<': self._liftHugeLt,
+            '>': self._liftHugeGt,
+            '<=': self._liftHugeLe,
+            '>=': self._liftHugeGe,
+            'range=': self._liftHugeRange,
+        })
+
+        self.one = s_common.hugenum(1)
+        self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffff)
+
+        self.zerobyts = b'\x00' * 16
+        self.fullbyts = b'\xff' * 16
+
+    def getHugeIndx(self, norm):
+        scaled = s_common.hugenum(norm).scaleb(15)
+        byts = int(scaled + self.offset).to_bytes(16, byteorder='big')
+        return byts
+
+    def indx(self, norm):
+        return (self.getHugeIndx(norm),)
+
+    async def _liftHugeEq(self, liftby, valu):
+        byts = self.getHugeIndx(valu)
+        for item in liftby.buidsByDups(byts):
+            yield item
+
+    async def _liftHugeGt(self, liftby, valu):
+        valu = s_common.hugenum(valu)
+        async for item in self._liftHugeGe(liftby, valu + self.one):
+            yield item
+
+    async def _liftHugeLt(self, liftby, valu):
+        valu = s_common.hugenum(valu)
+        async for item in self._liftHugeLe(liftby, valu - self.one):
+            yield item
+
+    async def _liftHugeGe(self, liftby, valu):
+        pkeymin = self.getHugeIndx(valu)
+        pkeymax = self.fullbyts
+        for item in liftby.buidsByRange(pkeymin, pkeymax):
+            yield item
+
+    async def _liftHugeLe(self, liftby, valu):
+        pkeymin = self.zerobyts
+        pkeymax = self.getHugeIndx(valu)
+        for item in liftby.buidsByRange(pkeymin, pkeymax):
+            yield item
+
+    async def _liftHugeRange(self, liftby, valu):
+        pkeymin = self.getHugeIndx(valu[0])
+        pkeymax = self.getHugeIndx(valu[1])
+        for item in liftby.buidsByRange(pkeymin, pkeymax):
+            yield item
+
 class StorTypeFloat(StorType):
     FloatPacker = struct.Struct('>d')
     fpack = FloatPacker.pack
@@ -700,7 +762,6 @@ class StorTypeFloat(StorType):
             yield item[1]
 
     async def _liftFloatGt(self, liftby, valu):
-        genr = self._liftFloatGeCommon(liftby, valu)
         valupack = self.fpack(valu)
         async for item in self._liftFloatGeCommon(liftby, valu):
             if item[0] == valupack:
@@ -727,7 +788,6 @@ class StorTypeFloat(StorType):
             yield item[1]
 
     async def _liftFloatLt(self, liftby, valu):
-        genr = self._liftFloatLeCommon(liftby, valu)
         valupack = self.fpack(valu)
         async for item in self._liftFloatLeCommon(liftby, valu):
             if item[0] == valupack:
@@ -977,6 +1037,7 @@ class Layer(s_nexus.Pusher):
             StorTypeTime(self), # STOR_TYPE_MINTIME
 
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
+            StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
         ]
 
         self.editors = [
@@ -1017,7 +1078,9 @@ class Layer(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('layer:truncate')
     async def truncate(self):
-
+        '''
+        Nuke all the contents in the layer, leaving an empty layer
+        '''
         self.buidcache.clear()
 
         await self.layrslab.trash()
@@ -1025,6 +1088,46 @@ class Layer(s_nexus.Pusher):
         await self.dataslab.trash()
 
         await self._initLayerStorage()
+
+    async def clone(self, newdirn):
+        '''
+        Copy the contents of this layer to a new layer
+        '''
+        for root, dnames, fnames in os.walk(self.dirn, topdown=True):
+
+            relpath = os.path.relpath(root, start=self.dirn)
+
+            for name in list(dnames):
+
+                relname = os.path.join(relpath, name)
+
+                srcpath = s_common.genpath(root, name)
+                dstpath = s_common.genpath(newdirn, relname)
+
+                if srcpath in s_lmdbslab._AllSlabs:
+                    slab = s_lmdbslab._AllSlabs.get(srcpath)
+                    await slab.copyslab(dstpath)
+
+                    dnames.remove(name)
+                    continue
+
+                s_common.gendir(dstpath)
+
+            for name in fnames:
+
+                srcpath = s_common.genpath(root, name)
+                # skip unix sockets etc...
+                if not os.path.isfile(srcpath):
+                    continue
+
+                dstpath = s_common.genpath(newdirn, relpath, name)
+                shutil.copy(srcpath, dstpath)
+
+    async def waitForHot(self):
+        '''
+        Wait for the layer's slab to be prefaulted and locked into memory if lockmemory is true, otherwise return.
+        '''
+        await self.layrslab.lockdoneevent.wait()
 
     async def _initLayerStorage(self):
 
@@ -1200,6 +1303,31 @@ class Layer(s_nexus.Pusher):
             logger.warning(f'unrecognized storage row: {s_common.ehex(buid)}:{flag}')
 
         return (buid, info)
+
+    async def getTagCount(self, tagname, formname=None):
+        '''
+        Return the number of tag rows in the layer for the given tag/form.
+        '''
+        try:
+            abrv = self.tagabrv.bytsToAbrv(tagname.encode())
+            if formname is not None:
+                abrv += self.getPropAbrv(formname, None)
+
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        return await self.layrslab.countByPref(abrv, db=self.bytag)
+
+    async def getPropCount(self, formname, propname=None):
+        '''
+        Return the number of property rows in the layer for the given form/prop.
+        '''
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        return await self.layrslab.countByPref(abrv, db=self.byprop)
 
     async def liftByTag(self, tag, form=None):
 
@@ -2111,7 +2239,7 @@ class Layer(s_nexus.Pusher):
 
                     iden = await proxy.getIden()
                     offs = self.offsets.get(iden)
-                    logger.warning(f'upstream sync connected ({url} offset={offs})')
+                    logger.warning(f'upstream sync connected ({s_urlhelp.sanitizeUrl(url)} offset={offs})')
 
                     if offs == 0:
                         offs = await proxy.getNodeEditOffset()

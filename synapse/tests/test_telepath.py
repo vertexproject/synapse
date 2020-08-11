@@ -526,7 +526,7 @@ class TeleTest(s_t_utils.SynTest):
                 # make another customshare reference which will be
                 # tracked by the Sess object
                 evt = asyncio.Event()
-                async with await proxy.customshare() as _share:
+                async with await proxy.customshare():
                     self.len(3, sess.items)
                     _key = [k for k in sess.items.keys() if k and k != key][0]
                     _cshare = sess.getSessItem(_key)
@@ -685,8 +685,8 @@ class TeleTest(s_t_utils.SynTest):
                 snfo = await dmon.getSessInfo()
                 conninfo = snfo[0].get('conninfo')
                 self.eq(conninfo, {'family': 'tcp',
-                               'ipver': 'ipv6',
-                               'addr': prox.link.sock.getsockname()})
+                                   'ipver': 'ipv6',
+                                   'addr': prox.link.sock.getsockname()})
 
                 # check a standard return value
                 self.eq(30, await prox.bar(10, 20))
@@ -727,6 +727,10 @@ class TeleTest(s_t_utils.SynTest):
         dmon1.share('foo', rdir1)
 
         async with await s_telepath.Client.anit(url0) as targ:
+
+            with self.raises(s_exc.NotReady):
+                targ.dostuff(100)
+
             await targ.waitready()
             proxy = await targ.proxy()
             self.eq(proxy._getSynVers(), s_version.version)
@@ -771,7 +775,7 @@ class TeleTest(s_t_utils.SynTest):
         addr0 = await dmon0.listen('tcp://127.0.0.1:0/')
         addr1 = await dmon1.listen('tcp://127.0.0.1:0/')
 
-        url0 = f'tcp://127.0.0.1:{addr0[1]}/foo'
+        url0 = f'tcp://user:password@127.0.0.1:{addr0[1]}/foo'
         url1 = f'tcp://127.0.0.1:{addr1[1]}/foo'
 
         fail0 = TestFail()
@@ -798,7 +802,15 @@ class TeleTest(s_t_utils.SynTest):
 
         async with await s_telepath.Client.anit(urls) as targ:
 
-            await targ.waitready()
+            with self.getAsyncLoggerStream('synapse.telepath', 'Connect call failed') as stream:
+
+                await targ.waitready()
+
+                # Verify the password doesn't leak into the log
+                self.true(await stream.wait(2))
+                stream.seek(0)
+                mesgs = stream.read()
+                self.notin('password', mesgs)
 
             self.eq(110, await targ.dostuff(100))
 

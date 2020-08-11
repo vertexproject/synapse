@@ -1,5 +1,6 @@
 import os
 import sys
+import glob
 import logging
 import argparse
 
@@ -36,7 +37,17 @@ def main(argv, outp=None):
         if tags:
             outp.printf('adding tags: %r' % (list(tags.keys())))
 
-    for path in opts.filenames:
+    filepaths = set()
+    for item in opts.filenames:
+        paths = glob.glob(item, recursive=opts.recursive)
+
+        if not paths:
+            outp.printf(f'filepath does not contain any files: {item}')
+            continue
+
+        filepaths.update([path for path in paths if os.path.isfile(path)])
+
+    for path in filepaths:
 
         bname = os.path.basename(path)
 
@@ -104,7 +115,9 @@ def makeargparser():
                    help='URL for a target Axon to store files at.')
     pars.add_argument('-c', '--cortex', default=None, type=str, dest='cortex',
                    help='URL for a target Cortex to make file:bytes nodes.')
-    pars.add_argument('filenames', nargs='+', help='files to upload')
+    pars.add_argument('filenames', nargs='+', help='File names (or glob patterns) to upload')
+    pars.add_argument('-r', '--recursive', action='store_true',
+                      help='Recursively search paths to upload files.')
     pars.add_argument('-t', '--tags', help='comma separated list of tags to add to the nodes')
     return pars
 

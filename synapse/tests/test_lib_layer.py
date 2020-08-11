@@ -1,3 +1,4 @@
+import os
 import math
 import asyncio
 import contextlib
@@ -762,7 +763,6 @@ class LayerTest(s_t_utils.SynTest):
 
             nodelist0 = [node.pack() for node in nodelist0]
 
-            count = 0
             editlist = []
 
             layr = core0.getLayer()
@@ -908,6 +908,18 @@ class LayerTest(s_t_utils.SynTest):
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
 
+    async def test_layer_waitForHot(self):
+
+        async with self.getTestCore() as core:
+            layr = core.getLayer()
+
+            await asyncio.wait_for(layr.waitForHot(), timeout=1.0)
+
+        conf = {'layers:lockmemory': True}
+        async with self.getTestCore(conf=conf) as core:
+            layr = core.getLayer()
+            await asyncio.wait_for(layr.waitForHot(), timeout=1.0)
+
     async def test_layer_no_extra_logging(self):
 
         async with self.getTestCore() as core:
@@ -942,3 +954,43 @@ class LayerTest(s_t_utils.SynTest):
             )),
         )
         self.len(2, s_layer.getFlatEdits(nodeedits))
+
+    async def test_layer_clone(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            layr = core.getLayer()
+            self.isin(f'Layer (Layer): {layr.iden}', str(layr))
+
+            nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
+            buid = nodes[0].buid
+
+            self.eq('foo', await layr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
+
+            s_common.gendir(layr.dirn, 'adir')
+
+            copylayrinfo = await core.cloneLayer(layr.iden)
+            self.len(2, core.layers)
+
+            copylayr = core.getLayer(copylayrinfo.get('iden'))
+            self.isin(f'Layer (Layer): {copylayr.iden}', str(copylayr))
+            self.ne(layr.iden, copylayr.iden)
+
+            self.eq('foo', await copylayr.getNodeValu(buid))
+            self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(buid, '.seen'))
+
+            cdir = s_common.gendir(copylayr.dirn, 'adir')
+            self.true(os.path.exists(cdir))
+
+            await self.asyncraises(s_exc.NoSuchLayer, prox.cloneLayer('newp'))
+
+            self.false(layr.readonly)
+
+            # Test overriding layer config values
+            ldef = {'readonly': True}
+            readlayrinfo = await core.cloneLayer(layr.iden, ldef)
+            self.len(3, core.layers)
+
+            readlayr = core.getLayer(readlayrinfo.get('iden'))
+            self.true(readlayr.readonly)

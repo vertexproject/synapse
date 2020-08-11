@@ -6,9 +6,6 @@ import synapse.models.crypto as s_m_crypto
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
-# 010 TODO / Fixme!
-# Test it:prod:softver by range!
-#
 
 class InfotechModelTest(s_t_utils.SynTest):
 
@@ -659,12 +656,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             rule = s_common.guid()
             opts = {'vars': {'rule': rule}}
 
-            nodes = await core.nodes('[ it:app:yara:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts)
+            nodes = await core.nodes('[ it:app:yara:rule=$rule :text=gronk :author=* :name=foo :version=1.2.3 ]', opts=opts)
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
             self.eq(0x10000200003, nodes[0].get('version'))
+
+            self.len(1, await core.nodes('it:app:yara:rule=$rule -> ps:contact', opts=opts))
 
             nodes = await core.nodes('[ it:app:yara:match=($rule, "*") :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)

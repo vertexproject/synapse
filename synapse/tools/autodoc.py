@@ -1,10 +1,11 @@
 import sys
 import asyncio
+import inspect
 import logging
 import argparse
-
 import collections
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
@@ -16,12 +17,18 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
 
+import synapse.lib.stormtypes as s_stormtypes
+
 logger = logging.getLogger(__name__)
 
 poptsToWords = {
-        'ex': 'Example',
-        'ro': 'Read Only',
-    }
+    'ex': 'Example',
+    'ro': 'Read Only',
+}
+
+info_ignores = (
+    'stortype',
+)
 
 raw_back_slash_colon = r'\:'
 
@@ -34,11 +41,11 @@ rstlvls = [
     ('^', {}),
 ]
 
-
 class DocHelp:
     '''
     Helper to pre-compute all doc strings hierarchically
     '''
+
     def __init__(self, ctors, types, forms, props, univs):
         self.ctors = {c[0]: c[3].get('doc', 'BaseType has no doc string.') for c in ctors}
         self.types = {t[0]: t[2].get('doc', self.ctors.get(t[1][0])) for t in types}
@@ -54,6 +61,23 @@ class DocHelp:
                 tn = prop[1][0]
                 doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ctors.get(tn))))
                 self.props[(form, prop[0])] = doc
+        typed = {t[0]: t for t in types}
+        ctord = {c[0]: c for c in ctors}
+        self.formhelp = {}  # form name -> ex string for a given type
+        for form in forms:
+            formname = form[0]
+            tnfo = typed.get(formname)
+            ctor = ctord.get(formname)
+            if tnfo:
+                tnfo = tnfo[2]
+                example = tnfo.get('ex')
+                self.formhelp[formname] = example
+            elif ctor:
+                ctor = ctor[3]
+                example = ctor.get('ex')
+                self.formhelp[formname] = example
+            else:  # pragma: no cover
+                logger.warning(f'No ctor/type available for [{formname}]')
 
 class RstHelp:
 
@@ -124,7 +148,7 @@ def processCtors(rst, dochelp, ctors):
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'A example of ``{name}``{raw_back_slash_colon}',
+                         f'An example of ``{name}``{raw_back_slash_colon}',
                          '',
                          f' * ``{ex}``',
                          )
@@ -136,6 +160,9 @@ def processCtors(rst, dochelp, ctors):
                          )
             for k, v in opts.items():
                 rst.addLines(f' * {k}: ``{v}``')
+
+        for key in info_ignores:
+            info.pop(key, None)
 
         if info:
             logger.warning(f'Base type {name} has unhandled info: {info}')
@@ -180,7 +207,7 @@ def processTypes(rst, dochelp, types):
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'A example of {name}{raw_back_slash_colon}:',
+                         f'An example of ``{name}``{raw_back_slash_colon}',
                          '',
                          f' * ``{ex}``',
                          )
@@ -193,11 +220,13 @@ def processTypes(rst, dochelp, types):
             for k, v in sorted(topt.items(), key=lambda x: x[0]):
                 rst.addLines(f' * {k}: ``{v}``')
 
+        for key in info_ignores:
+            info.pop(key, None)
+
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
 
 def processFormsProps(rst, dochelp, forms, univ_names):
-
     rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
     rst.addLines('',
                  'Forms are derived from types, or base types. Forms represent node types in the graph.'
@@ -216,8 +245,20 @@ def processFormsProps(rst, dochelp, forms, univ_names):
         link = f'.. _dm-form-{name.replace(":", "-")}:'
         rst.addHead(hname, lvl=2, link=link)
 
+        baseline = f'The base type for the form can be found at :ref:`dm-type-{name.replace(":", "-")}`.'
         rst.addLines(doc,
+                     '',
+                     baseline,
                      '')
+
+        ex = dochelp.formhelp.get(name)
+        if ex:
+            rst.addLines('',
+                         f'An example of ``{name}``{raw_back_slash_colon}',
+                         '',
+                         f' * ``{ex}``',
+                         ''
+                         )
 
         if props:
             rst.addLines('Properties:',
@@ -312,7 +353,7 @@ def processUnivs(rst, dochelp, univs):
                 rst.addLines('  ' + f'* {k}: ``{v}``')
 
 async def docModel(outp,
-             core):
+                   core):
     coreinfo = await core.getCoreInfo()
     _, model = coreinfo.get('modeldef')[0]
 
@@ -335,6 +376,25 @@ async def docModel(outp,
     [v.sort() for k, v in props.items()]
 
     dochelp = DocHelp(ctors, types, forms, props, univs)
+
+    # Validate examples
+    for form, example in dochelp.formhelp.items():
+        if example is None:
+            continue
+        if example.startswith('('):
+            q = f"[{form}={example}]"
+        else:
+            q = f"[{form}='{example}']"
+        node = False
+        async for (mtyp, mnfo) in core.storm(q, {'editformat': 'none'}):
+            if mtyp in ('init', 'fini'):
+                continue
+            if mtyp == 'err':  # pragma: no cover
+                raise s_exc.SynErr(mesg='Invalid example', form=form, example=example, info=mnfo)
+            if mtyp == 'node':
+                node = True
+        if not node:  # pramga: no cover
+            raise s_exc.SynErr(mesg='Unable to make a node from example.', form=form, example=example)
 
     rst = RstHelp()
     rst.addHead('Synapse Data Model - Types', lvl=0)
@@ -475,7 +535,7 @@ async def docStormsvc(ctor):
         if ':' in pname:
             hname = pname.replace(':', raw_back_slash_colon)
 
-        rst.addHead(f'Storm Package\: {hname}', lvl=1)
+        rst.addHead(f'Storm Package\\: {hname}', lvl=1)
 
         rst.addLines(f'This documentation for {pname} is generated for version {s_version.fmtVersion(*pver)}')
 
@@ -536,9 +596,186 @@ async def docStormsvc(ctor):
 
     return rst, clsname
 
+def ljuster(ilines):
+    '''Helper to lstrip lines of whitespace an appropriate amount.'''
+    baseline = ilines[0]
+    assert baseline != ''
+    newbaseline = baseline.lstrip()
+    assert newbaseline != ''
+    diff = len(baseline) - len(newbaseline)
+    assert diff >= 0
+    newlines = [line[diff:] for line in ilines]
+    return newlines
+
+def scrubLines(lines):
+    '''Remove any empty lines until we encounter non-empty linee'''
+    newlines = []
+    for line in lines:
+        if line == '' and not newlines:
+            continue
+        newlines.append(line)
+
+    return newlines
+
+def getDoc(obj, errstr):
+    '''Helper to get __doc__'''
+    doc = getattr(obj, '__doc__')
+    if doc is None:
+        doc = f'No doc for {errstr}'
+        logger.warning(doc)
+    return doc
+
+def cleanArgsRst(doc):
+    '''Clean up args strings to be RST friendly.'''
+    replaces = (('*args', '\\*args'),
+                ('*vals', '\\*vals'),
+                ('**info', '\\*\\*info'),
+                ('**kwargs', '\\*\\*kwargs'),
+                )
+    for (new, old) in replaces:
+        doc = doc.replace(new, old)
+    return doc
+
+def getCallsig(func):
+    '''Get the callsig of a function, stripping self if present.'''
+    callsig = inspect.signature(func)
+    params = list(callsig.parameters.values())
+    if params and params[0].name == 'self':
+        callsig = callsig.replace(parameters=params[1:])
+    return callsig
+
+def prepareRstLines(doc, cleanargs=False):
+    '''Prepare a __doc__ string for RST lines.'''
+    if cleanargs:
+        doc = cleanArgsRst(doc)
+    lines = doc.split('\n')
+    lines = scrubLines(lines)
+    lines = ljuster(lines)
+    return lines
+
+def docStormLibs(libs):
+    page = RstHelp()
+
+    page.addHead('Storm Libraries', lvl=0, link='.. _stormtypes-libs-header:')
+
+    lines = (
+        '',
+        'Storm Libraries represent powerful tools available inside of the Storm query language.',
+        ''
+    )
+    page.addLines(*lines)
+
+    basepath = 'lib'
+
+    for (path, lib) in libs:
+        libpath = '.'.join((basepath,) + path)
+        fulllibpath = f'${libpath}'
+
+        liblink = f'.. _stormlibs-{libpath.replace(".", "-")}:'
+        page.addHead(fulllibpath, lvl=1, link=liblink)
+
+        libdoc = getDoc(lib, fulllibpath)
+        lines = prepareRstLines(libdoc)
+
+        page.addLines(*lines)
+
+        for (name, locl) in sorted(list(lib.getObjLocals(lib).items())):  # python trick
+
+            loclpath = '.'.join((libpath, name))
+            locldoc = getDoc(locl, loclpath)
+
+            loclfullpath = f'${loclpath}'
+            header = loclfullpath
+            link = f'.. _stormlibs-{loclpath.replace(".", "-")}:'
+            lines = None
+
+            if callable(locl):
+                lines = prepareRstLines(locldoc, cleanargs=True)
+                callsig = getCallsig(locl)
+                header = f'{header}{callsig}'
+                header = header.replace('*', r'\*')
+
+            elif isinstance(locl, property):
+                lines = prepareRstLines(locldoc)
+
+            else:  # pragma: no cover
+                logger.warning(f'Unknown constant found: {loclfullpath} -> {locl}')
+
+            if lines:
+                page.addHead(header, lvl=2, link=link)
+                page.addLines(*lines)
+
+    return page
+
+def docStormPrims(types):
+    page = RstHelp()
+
+    page.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
+
+    lines = (
+        '',
+        'Storm Objects are used as view objects for manipulating data in the Storm Runtime and in the Cortex itself.'
+        ''
+    )
+    page.addLines(*lines)
+
+    for (sname, styp) in types:
+
+        typelink = f'.. _stormprims-{sname}:'
+        page.addHead(sname, lvl=1, link=typelink)
+
+        typedoc = getDoc(styp, sname)
+        lines = prepareRstLines(typedoc)
+
+        page.addLines(*lines)
+
+        locls = styp.getObjLocals(styp)
+
+        for (name, locl) in sorted(list(locls.items())):
+
+            loclname = '.'.join((sname, name))
+            locldoc = getDoc(locl, loclname)
+
+            header = loclname
+            link = f'.. _stormprims-{loclname.replace(".", "-")}:'
+            lines = None
+
+            if callable(locl):
+
+                lines = prepareRstLines(locldoc, cleanargs=True)
+
+                callsig = getCallsig(locl)
+
+                header = f'{loclname}{callsig}'
+                header = header.replace('*', r'\*')
+
+            elif isinstance(locl, property):
+
+                lines = prepareRstLines(locldoc)
+
+            else:  # pragma: no cover
+                logger.warning(f'Unknown constant found: {loclname} -> {locl}')
+
+            if lines:
+                page.addHead(header, lvl=2, link=link)
+                page.addLines(*lines)
+
+    return page
+
+async def docStormTypes():
+    registry = s_stormtypes.registry
+    libs = registry.iterLibs()
+    types = registry.iterTypes()
+
+    libs.sort(key=lambda x: x[0])
+    types.sort(key=lambda x: x[0])
+
+    libspage = docStormLibs(libs)  # type: RstHelp
+    typespage = docStormPrims(types)  # type: RstHelp
+
+    return libspage, typespage
 
 async def main(argv, outp=None):
-
     if outp is None:
         outp = s_output.OutPut()
 
@@ -577,6 +814,14 @@ async def main(argv, outp=None):
             with open(s_common.genpath(opts.savedir, f'stormsvc_{svcname.lower()}.rst'), 'wb') as fd:
                 fd.write(confdocs.getRstText().encode())
 
+    if opts.doc_stormtypes:
+        libdocs, typedocs = await docStormTypes()
+        if opts.savedir:
+            with open(s_common.genpath(opts.savedir, f'stormtypes_libs.rst'), 'wb') as fd:
+                fd.write(libdocs.getRstText().encode())
+            with open(s_common.genpath(opts.savedir, f'stormtypes_prims.rst'), 'wb') as fd:
+                fd.write(typedocs.getRstText().encode())
+
     return 0
 
 def makeargparser():
@@ -597,6 +842,9 @@ def makeargparser():
 
     doc_type.add_argument('--doc-storm', default=None,
                           help='Generate RST docs for a stormssvc implemented by a given Cell')
+
+    doc_type.add_argument('--doc-stormtypes', default=None, action='store_true',
+                          help='Generate RST docs for StormTypes')
 
     return pars
 

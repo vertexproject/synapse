@@ -34,8 +34,11 @@ import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.stormhttp as s_stormhttp
-import synapse.lib.stormwhois as s_stormwhois
+
+# Importing these registers their commands
+import synapse.lib.stormhttp as s_stormhttp  # NOQA
+import synapse.lib.stormwhois as s_stormwhois  # NOQA
+
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -701,6 +704,14 @@ class CoreApi(s_cell.CellApi):
     async def disableMigrationMode(self):
         await self.cell._disableMigrationMode()
 
+    @s_cell.adminapi()
+    async def cloneLayer(self, iden, ldef=None):
+
+        ldef = ldef or {}
+        ldef['creator'] = self.user.iden
+
+        return await self.cell.cloneLayer(iden, ldef)
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -893,7 +904,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'cron': self.agenda,
             'cortex': self,
             'multiqueue': self.multiqueue,
-            'axon': self.axon
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
@@ -1867,6 +1877,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             path = os.path.join(self.dirn, 'axon')
             self.axon = await s_axon.Axon.anit(path)
             self.axon.onfini(self.axready.clear)
+            self.dynitems['axon'] = self.axon
             self.axready.set()
             return
 
@@ -1876,6 +1887,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 try:
                     self.axon = await s_telepath.openurl(turl)
                     self.axon.onfini(teleloop)
+                    self.dynitems['axon'] = self.axon
                     self.axready.set()
                     return
                 except asyncio.CancelledError:
@@ -1949,38 +1961,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Registration for built-in Storm Libraries
         '''
-        self.addStormLib(('ps',), s_stormtypes.LibPs)
-        self.addStormLib(('csv',), s_stormtypes.LibCsv)
-        self.addStormLib(('str',), s_stormtypes.LibStr)
-        self.addStormLib(('pkg',), s_stormtypes.LibPkg)
-        self.addStormLib(('cron',), s_stormtypes.LibCron)
-        self.addStormLib(('dmon',), s_stormtypes.LibDmon)
-        self.addStormLib(('feed',), s_stormtypes.LibFeed)
-        self.addStormLib(('lift',), s_stormtypes.LibLift)
-        self.addStormLib(('time',), s_stormtypes.LibTime)
-        self.addStormLib(('user',), s_stormtypes.LibUser)
-        self.addStormLib(('vars',), s_stormtypes.LibVars)
-        self.addStormLib(('view',), s_stormtypes.LibView)
-        self.addStormLib(('queue',), s_stormtypes.LibQueue)
-        self.addStormLib(('stats',), s_stormtypes.LibStats)
-        self.addStormLib(('bytes',), s_stormtypes.LibBytes)
-        self.addStormLib(('layer',), s_stormtypes.LibLayer)
-        self.addStormLib(('globals',), s_stormtypes.LibGlobals)
-        self.addStormLib(('trigger',), s_stormtypes.LibTrigger)
-        self.addStormLib(('service',), s_stormtypes.LibService)
-        self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 
-        self.addStormLib(('macro',), s_stormlib_macro.LibMacro)
-        self.addStormLib(('model',), s_stormlib_model.LibModel)
-
-        self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
-        self.addStormLib(('inet', 'whois'), s_stormwhois.LibWhois)
-        self.addStormLib(('base64',), s_stormtypes.LibBase64)
-
-        self.addStormLib(('auth', ), s_stormtypes.LibAuth)
-        self.addStormLib(('auth', 'gates'), s_stormtypes.LibGates)
-        self.addStormLib(('auth', 'users'), s_stormtypes.LibUsers)
-        self.addStormLib(('auth', 'roles'), s_stormtypes.LibRoles)
+        for path, ctor in s_stormtypes.registry.iterLibs():
+            # Skip libbase which is registered as a default ctor in the storm Runtime
+            if path:
+                self.addStormLib(path, ctor)
 
     def _initSplicers(self):
         '''
@@ -2226,9 +2211,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
             assert self.inaugural, 'Cortex initialization failed: there are no views.'
-            ldef = await self.addLayer(nexs=False)
+            ldef = {'name': 'default'}
+            ldef = await self.addLayer(ldef=ldef, nexs=False)
             layriden = ldef.get('iden')
             vdef = {
+                'name': 'default',
                 'layers': (layriden,),
                 'worldreadable': True,
             }
@@ -2521,6 +2508,61 @@ class Cortex(s_cell.Cell):  # type: ignore
         for _, node in node:
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)
+
+    async def cloneLayer(self, iden, ldef=None):
+        '''
+        Make a copy of a Layer in the cortex.
+
+        Args:
+            iden (str): Layer iden to clone
+            ldef (Optional[Dict]): Layer configuration overrides
+
+        Note:
+            This should only be called with a reasonably static Cortex
+            due to possible races.
+        '''
+        layr = self.layers.get(iden, None)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=iden)
+
+        ldef = ldef or {}
+        ldef['iden'] = s_common.guid()
+        ldef.setdefault('creator', self.auth.rootuser.iden)
+
+        return await self._push('layer:clone', iden, ldef)
+
+    @s_nexus.Pusher.onPush('layer:clone')
+    async def _cloneLayer(self, iden, ldef):
+
+        layr = self.layers.get(iden)
+        if layr is None:
+            return
+
+        newiden = ldef.get('iden')
+        if newiden in self.layers:
+            return
+
+        newpath = s_common.gendir(self.dirn, 'layers', newiden)
+        await layr.clone(newpath)
+
+        node = await self.hive.open(('cortex', 'layers', iden))
+        copynode = await self.hive.open(('cortex', 'layers', newiden))
+
+        layrinfo = await node.dict()
+        copyinfo = await copynode.dict()
+        for name, valu in layrinfo.items():
+            await copyinfo.set(name, valu)
+
+        for name, valu in ldef.items():
+            await copyinfo.set(name, valu)
+
+        copylayr = await self._initLayr(copyinfo)
+
+        creator = copyinfo.get('creator')
+        user = await self.auth.reqUser(creator)
+        await user.setAdmin(True, gateiden=newiden, logged=False)
+
+        return copylayr.pack()
 
     def addStormCmd(self, ctor):
         '''

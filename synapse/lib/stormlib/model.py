@@ -76,40 +76,70 @@ stormcmds = [
     },
 ]
 
+@s_stormtypes.registry.registerLib
 class LibModel(s_stormtypes.Lib):
     '''
-    A collection of method around the data model
+    A Storm Library for interacting with the Data Model in the Cortex.
     '''
+    _storm_lib_path = ('model',)
+
     def __init__(self, runt, name=()):
         s_stormtypes.Lib.__init__(self, runt, name)
         self.model = runt.model
 
-    def addLibFuncs(self):
-        self.locls.update({
+    def getObjLocals(self):
+        return {
             'type': self._methType,
             'prop': self._methProp,
             'form': self._methForm,
-            'edge': ModelEdge(self.runt),
-        })
+        }
 
     @s_cache.memoize(size=100)
     async def _methType(self, name):
+        '''
+        Get a ModelType by name.
+
+        Args:
+            name (str): The name of the type to retrieve.
+
+        Returns:
+            ModelType: A Storm ModelType object.
+        '''
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
 
     @s_cache.memoize(size=100)
     async def _methProp(self, name):
+        '''
+        Get a ModelProp by name.
+
+        Args:
+            name (str): The name of the prop to retrieve.
+
+        Returns:
+            ModelProp: A Storm ModelProp object.
+        '''
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
 
     @s_cache.memoize(size=100)
     async def _methForm(self, name):
+        '''
+        Get a ModelForm by name.
+
+        Args:
+            name (str): The name of the form to retrieve.
+
+        Returns:
+            ModelForm: A Storm ModelForm object.
+        '''
         form = self.model.form(name)
         if form is not None:
             return ModelForm(form)
 
+@s_stormtypes.registry.registerType
 class ModelForm(s_stormtypes.Prim):
 
     def __init__(self, form, path=None):
@@ -118,12 +148,17 @@ class ModelForm(s_stormtypes.Prim):
 
         self.locls.update({
             'name': form.name,
-            'prop': self._getFormProp,
         })
+        self.locls.update(self.getObjLocals())
 
         self.ctors.update({
             'type': self._ctorFormType,
         })
+
+    def getObjLocals(self):
+        return {
+            'prop': self._getFormProp
+        }
 
     def _ctorFormType(self, path=None):
         return ModelType(self.valu.type, path=path)
@@ -133,12 +168,14 @@ class ModelForm(s_stormtypes.Prim):
         if prop is not None:
             return ModelProp(prop)
 
+@s_stormtypes.registry.registerType
 class ModelProp(s_stormtypes.Prim):
 
     def __init__(self, prop, path=None):
 
         s_stormtypes.Prim.__init__(self, prop, path=path)
 
+        # Todo: Plumb name and full access via a @property and implement getObjLocals
         self.locls.update({
             'name': prop.name,
             'full': prop.full,
@@ -155,6 +192,7 @@ class ModelProp(s_stormtypes.Prim):
     def _ctorPropForm(self, path=None):
         return ModelForm(self.valu.form, path=path)
 
+@s_stormtypes.registry.registerType
 class ModelType(s_stormtypes.Prim):
     '''
     A Storm types wrapper around a lib.types.Type
@@ -163,9 +201,15 @@ class ModelType(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.locls.update({
             'name': valu.name,
+        })
+        self.locls.update(self.getObjLocals())
+
+    # Todo: Plumb name access via a @property
+    def getObjLocals(self):
+        return {
             'repr': self._methRepr,
             'norm': self._methNorm,
-        })
+        }
 
     async def _methRepr(self, valu):
         nval = self.valu.norm(valu)
@@ -174,9 +218,11 @@ class ModelType(s_stormtypes.Prim):
     async def _methNorm(self, valu):
         return self.valu.norm(valu)
 
-class ModelEdge(s_stormtypes.Prim):
+
+@s_stormtypes.registry.registerLib
+class LibModelEdge(s_stormtypes.Lib):
     '''
-    Inspect light edges and manipulate key-value attributes.
+    A Storm Library for interacting with light edges and manipulating their key-value attributes.
     '''
     # Note: The use of extprops in hive paths in this class is an artifact of the
     # original implementation which used extended property language which had a
@@ -187,21 +233,21 @@ class ModelEdge(s_stormtypes.Prim):
     validedgekeys = (
         'doc',
     )
+    hivepath = ('cortex', 'model', 'edges')
 
-    def __init__(self, runt):
+    _storm_lib_path = ('model', 'edge')
 
-        s_stormtypes.Prim.__init__(self, None)
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name)
 
-        self.runt = runt
-
-        self.hivepath = ('cortex', 'model', 'edges')
-
-        self.locls.update({
+    def getObjLocals(self):
+        return {
             'get': self._methEdgeGet,
             'set': self._methEdgeSet,
             'del': self._methEdgeDel,
             'list': self._methEdgeList,
-        })
+            'validkeys': self._methValidKeys,
+        }
 
     async def _chkEdgeVerbInView(self, verb):
         async for vverb in self.runt.snap.view.getEdgeVerbs():
@@ -215,7 +261,25 @@ class ModelEdge(s_stormtypes.Prim):
             raise s_exc.NoSuchProp(mesg=f'The requested key is not valid for light edge metadata.',
                                    name=key)
 
+    def _methValidKeys(self):
+        '''
+        Get a list of the valid keys that can be set on an Edge verb.
+
+        Returns:
+            list: A list of the valid keys.
+        '''
+        return self.validedgekeys
+
     async def _methEdgeGet(self, verb):
+        '''
+        Get the key-value data for a given Edge verb.
+
+        Args:
+            verb (str): The Edge verb to look up.
+
+        Returns:
+            dict: A dictionary representing the key-value data set on a verb.
+        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -223,6 +287,19 @@ class ModelEdge(s_stormtypes.Prim):
         return await self.runt.snap.core.getHiveKey(path) or {}
 
     async def _methEdgeSet(self, verb, key, valu):
+        '''
+        Set a key-value for a given Edge verb.
+
+        Args:
+            verb (str): The Edge verb to set a value for.
+
+            key (str): The key to set.
+
+            valu (str): The value to set.
+
+        Returns:
+            None: Returns None.
+        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -238,6 +315,17 @@ class ModelEdge(s_stormtypes.Prim):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeDel(self, verb, key):
+        '''
+        Delete a key from the key-value store for a verb.
+
+        Args:
+            verb (str): The name of the Edge verb to remove a key from.
+
+            key (str): The name of the key to remove from the key-value store.
+
+        Returns:
+            None: Returns None.
+        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -255,6 +343,12 @@ class ModelEdge(s_stormtypes.Prim):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeList(self):
+        '''
+        Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.
+
+        Returns:
+            list: A list of (str, dict) tuples for each verb in the current Cortex View.
+        '''
         retn = []
         async for verb in self.runt.snap.view.getEdgeVerbs():
             path = self.hivepath + (verb, 'extprops')

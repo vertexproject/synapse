@@ -3,14 +3,13 @@ import logging
 import functools
 import contextlib
 
-from typing import List, Dict, Any, Callable, Tuple, Optional, AsyncIterator, Union
+from typing import List, Dict, Any, Callable, Tuple, Optional, AsyncIterator
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +72,11 @@ class ChangeDist(s_base.Base):
 
 class NexsRoot(s_base.Base):
 
-    async def __anit__(self, dirn: str, donexslog: bool = True):  # type: ignore
+    async def __anit__(self, dirn: str, donexslog: bool = True, map_async=False):  # type: ignore
 
         await s_base.Base.__anit__(self)
 
         import synapse.lib.lmdbslab as s_lmdbslab  # avoid import cycle
-        import synapse.lib.slabseqn as s_slabseqn  # avoid import cycle
 
         self.dirn = dirn
         self.client = None
@@ -94,7 +92,8 @@ class NexsRoot(s_base.Base):
 
         path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
 
-        self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=False)
+        self.map_async = map_async
+        self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=map_async)
 
         self.nexslog = self.nexsslab.getSeqn('nexuslog')
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
@@ -114,9 +113,10 @@ class NexsRoot(s_base.Base):
         self.onfini(fini)
 
     @contextlib.contextmanager
-    def _getResponseFuture(self):
+    def _getResponseFuture(self, iden=None):
 
-        iden = s_common.guid()
+        if iden is None:
+            iden = s_common.guid()
         futu = self.loop.create_future()
 
         self._futures[iden] = futu
@@ -155,7 +155,7 @@ class NexsRoot(s_base.Base):
         except Exception:
             logger.exception('Exception while replaying log')
 
-    async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any],
+    async def issue(self, nexsiden: str, event: str, args: Tuple[Any, ...], kwargs: Dict[str, Any],
                     meta: Optional[Dict] = None) -> Any:
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
@@ -175,14 +175,17 @@ class NexsRoot(s_base.Base):
             mesg = 'Mirror cannot reach leader for write request'
             raise s_exc.LinkErr(mesg=mesg) from None
 
-        with self._getResponseFuture() as (iden, futu):
+        if meta is None:
+            meta = {}
 
-            if meta is None:
-                meta = {}
+        # If this issue came from a downstream mirror, just in case I'm forwarding to upstream mirror,
+        # make my response iden the same as what's coming from downstream
+
+        with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
 
             meta['resp'] = iden
 
-            await self.client.issue(nexsiden, event, args, kwargs, meta)
+            await client.issue(nexsiden, event, args, kwargs, meta)
             return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def eat(self, nexsiden, event, args, kwargs, meta):
@@ -355,7 +358,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         self._nexshands: Dict[str, Tuple[Callable, bool]] = {}
 
         self.nexsiden = iden
-        self.nexsroot = None
+        self.nexsroot: Optional[NexsRoot] = None
 
         if nexsroot is not None:
             self.setNexsRoot(nexsroot)
@@ -417,4 +420,5 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         Note:
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
+        assert self.nexsroot
         return await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)

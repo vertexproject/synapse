@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.tests.utils as s_utils
 
 import synapse.common as s_common
@@ -23,6 +24,8 @@ class EconTest(s_utils.SynTest):
             text = f'''[
                 econ:purchase="*"
 
+                    :price=13.37
+                    :currency=USD
                     :by:contact={bycont}
                     :from:contact={fromcont}
 
@@ -34,6 +37,52 @@ class EconTest(s_utils.SynTest):
             ]'''
 
             perc = (await core.nodes(text))[0]
+
+            self.eq('13.37', perc.get('price'))
+            self.eq('usd', perc.get('currency'))
+
+            self.len(1, await core.nodes('econ:purchase:price=13.37'))
+            self.len(1, await core.nodes('econ:purchase:price=13.370'))
+            self.len(0, await core.nodes('econ:purchase:price=13.372'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('econ:purchase [ :price=170141183460469231731688 ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('econ:purchase [ :price=-170141183460469231731688 ]')
+
+            self.len(1, await core.nodes('econ:purchase:price*range=(13,14)'))
+
+            self.len(1, await core.nodes('econ:purchase:price>10.00'))
+            self.len(1, await core.nodes('econ:purchase:price<20.00'))
+            self.len(1, await core.nodes('econ:purchase:price>=10.00'))
+            self.len(1, await core.nodes('econ:purchase:price>=13.37'))
+            self.len(1, await core.nodes('econ:purchase:price<=20.00'))
+            self.len(1, await core.nodes('econ:purchase:price<=13.37'))
+
+            self.len(0, await core.nodes('econ:purchase:price<10.00'))
+            self.len(0, await core.nodes('econ:purchase:price>20.00'))
+            self.len(0, await core.nodes('econ:purchase:price>=20.00'))
+            self.len(0, await core.nodes('econ:purchase:price<=10.00'))
+
+            # runtime filter/cmpr test for econ:price
+            self.len(1, await core.nodes('econ:purchase:price +:price=13.37'))
+            self.len(1, await core.nodes('econ:purchase:price +:price=13.370'))
+            self.len(0, await core.nodes('econ:purchase:price +:price=13.372'))
+
+            self.len(1, await core.nodes('econ:purchase:price +:price*range=(13,14)'))
+
+            self.len(1, await core.nodes('econ:purchase:price +:price>10.00'))
+            self.len(1, await core.nodes('econ:purchase:price +:price<20.00'))
+            self.len(1, await core.nodes('econ:purchase:price +:price>=10.00'))
+            self.len(1, await core.nodes('econ:purchase:price +:price>=13.37'))
+            self.len(1, await core.nodes('econ:purchase:price +:price<=20.00'))
+            self.len(1, await core.nodes('econ:purchase:price +:price<=13.37'))
+
+            self.len(0, await core.nodes('econ:purchase:price +:price<10.00'))
+            self.len(0, await core.nodes('econ:purchase:price +:price>20.00'))
+            self.len(0, await core.nodes('econ:purchase:price +:price>=20.00'))
+            self.len(0, await core.nodes('econ:purchase:price +:price<=10.00'))
 
             self.eq(bycont, perc.get('by:contact'))
             self.eq(fromcont, perc.get('from:contact'))
@@ -64,6 +113,8 @@ class EconTest(s_utils.SynTest):
                     :from:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
 
                     :from:pay:card={card.ndef[1]}
+                    :amount = 20.30
+                    :currency = usd
 
                     :time=20180202
                     :purchase={perc.ndef[1]}
@@ -75,3 +126,64 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:acct:payment -> econ:purchase'))
             self.len(1, await core.nodes('econ:acct:payment -> econ:pay:card'))
             self.len(2, await core.nodes('econ:acct:payment -> ps:contact | uniq'))
+
+            nodes = await core.nodes('''
+                [ econ:fin:exchange=(us,nasdaq) :name=nasdaq :currency=usd :org=* ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].ndef[1])
+            self.nn(nodes[0].get('org'))
+            self.eq('usd', nodes[0].get('currency'))
+            self.eq('nasdaq', nodes[0].get('name'))
+
+            nodes = await core.nodes('''
+                [
+                    econ:fin:security=(us, nasdaq, tsla)
+                        :exchange=(us, nasdaq)
+                        :ticker=nasdaq/tsla
+                        :type=STOCK
+                        :price=9999.00
+                        :time=202002
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].ndef[1])
+            self.eq('stock', nodes[0].get('type'))
+            self.eq('nasdaq/tsla', nodes[0].get('ticker'))
+            self.eq('9999.00', nodes[0].get('price'))
+            self.eq(1580515200000, nodes[0].get('time'))
+
+            self.len(1, await core.nodes('econ:fin:security -> econ:fin:exchange +:name=nasdaq'))
+
+            nodes = await core.nodes('''
+                [
+                    econ:fin:tick=*
+                        :time=20200202
+                        :security=(us, nasdaq, tsla)
+                        :price=9999.00
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(1580601600000, nodes[0].get('time'))
+            self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].get('security'))
+            self.eq('9999.00', nodes[0].get('price'))
+
+            nodes = await core.nodes('''
+                [
+                    econ:fin:bar=*
+                        :ival=(20200202, 20200203)
+                        :security=(us, nasdaq, tsla)
+                        :price:open=9999.00
+                        :price:close=9999.01
+                        :price:high=999999999999.00
+                        :price:low=0.00001
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq((1580601600000, 1580688000000), nodes[0].get('ival'))
+            self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].get('security'))
+            self.eq('9999.00', nodes[0].get('price:open'))
+            self.eq('9999.01', nodes[0].get('price:close'))
+            self.eq('999999999999.00', nodes[0].get('price:high'))
+            self.eq('0.00001', nodes[0].get('price:low'))

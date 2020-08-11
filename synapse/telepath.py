@@ -626,6 +626,7 @@ class Client(s_base.Base):
         self._t_proxy = None
         self._t_ready = asyncio.Event()
         self._t_onlink = onlink
+        self._t_methinfo = None
 
         async def fini():
             if self._t_proxy is not None:
@@ -676,7 +677,7 @@ class Client(s_base.Base):
                 raise
 
             except Exception as e:
-                logger.warning(f'telepath client ({url}): {e}')
+                logger.warning(f'telepath client ({s_urlhelp.sanitizeUrl(url)}): {e}')
                 await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
 
     async def proxy(self, timeout=10):
@@ -717,13 +718,15 @@ class Client(s_base.Base):
             except s_exc.TeleRedir as e:
                 url = e.errinfo.get('url')
                 self._setNextUrl(url)
-                logger.warning(f'telepath task redirected: ({url})')
+                logger.warning(f'telepath task redirected: ({s_urlhelp.sanitizeUrl(url)})')
                 await self._t_proxy.fini()
 
     async def waitready(self, timeout=10):
         await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
 
     def __getattr__(self, name):
+        if self._t_methinfo is None:
+            raise s_exc.NotReady(mesg='Must call waitready() on Client before first method call')
 
         info = self._t_methinfo.get(name)
         if info is not None and info.get('genr'):
@@ -776,7 +779,7 @@ async def disc_consul(info):
 
         The following HTTP parameters are supported:
 
-        - consul: This is the consul host (schema, fqdn and port) to connect too.
+        - consul: This is the consul host (schema, fqdn and port) to connect to.
         - consul_tag: If set, iterate through the catalog results until a result
           is found which matches the tag value. This is a case sensitive match.
         - consul_tag_address: If set, prefer the ``TaggedAddresses`` from the catalog.
