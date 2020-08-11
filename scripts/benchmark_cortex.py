@@ -6,6 +6,7 @@ import random
 import asyncio
 import logging
 import pathlib
+import binascii
 import tempfile
 import argparse
 import datetime
@@ -37,6 +38,9 @@ import synapse.lib.time as s_time
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
+
+# Increment this when the stored benchmark data changes
+BENCHMARK_DATA_VERSION = 1
 
 SimpleConf = {'layers:lockmemory': False, 'layer:lmdb:map_async': False, 'nexslog:en': False, 'layers:logedits': False}
 MapAsyncConf = {**SimpleConf, 'layer:lmdb:map_async': True}
@@ -78,20 +82,36 @@ async def acount(genr):
 
 syntest = s_t_utils.SynTest()
 
+async def layerByName(prox: s_telepath.Proxy, name: str):
+    retn = await prox.callStorm('''
+               for $layr in $lib.layer.list() {
+                   if ($name=$layr.get(name)) {
+                       return ($layr.iden)
+                   }
+               }''', opts={'vars': {'name': name}})
+    return retn
+
 class TestData(s_base.Base):
     '''
     Pregenerates a bunch of data for future test runs
     '''
-    async def __anit__(self, num_records, dirn, remote=None):
+    async def __anit__(self, work_factor: int, dirn: str, remote: str = None, keep=False):  # type: ignore
         '''
-        # inet:ipv4 -> inet:dns:a -> inet:fqdn
-        # For each even ipv4 record, make an inet:dns:a record that points to <ipaddress>.website, if it is
-        # divisible by ten also make a inet:dns:a that points to blackhole.website
+        Args:
+            work_factor:  a rough scale of the amount of data to generate
+            dirn: directory where to put a temporary cortex.  Not used if remote is set
+            remote: Telepath URL to a remote cortex
+            keep: Whether to keep (and use if already there) the benchmark data between runs of this tool
+
+        Notes:
+            inet:ipv4 -> inet:dns:a -> inet:fqdn
+            For each even ipv4 record, make an inet:dns:a record that points to <ipaddress>.website, if it is
+            divisible by ten also make a inet:dns:a that points to blackhole.website
         '''
         await s_base.Base.__anit__(self)
-        self.nrecs = num_records
+        self.nrecs = work_factor
         random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
-        ips = list(range(num_records))
+        ips = list(range(work_factor))
         random.shuffle(ips)
         dnsas = [(f'{ip}.website', ip) for ip in ips if ip % 2 == 0]
         dnsas += [('blackhole.website', ip) for ip in ips if ip % 10 == 0]
@@ -103,21 +123,23 @@ class TestData(s_base.Base):
 
         # Ip addresses with an all tag with half having an 'even' tag and the other an 'odd' tag
         self.ips = [(('inet:ipv4', ip), {'tags': {'all': (None, None), oe(ip): (None, None)}}) for ip in ips]
-        self.dnsas = [(('inet:dns:a', dnsas), {}) for dnsas in dnsas]
+        self.dnsas: List[Tuple[Tuple, Dict]] = [(('inet:dns:a', dnsas), {}) for dnsas in dnsas]
 
-        self.asns = [(('inet:asn', asn * 2), {}) for asn in range(num_records)]
-        self.asns2 = [(('inet:asn', asn * 2 + 1), {}) for asn in range(num_records)]
+        self.asns: List[Tuple[Tuple, Dict]] = [(('inet:asn', asn * 2), {}) for asn in range(work_factor)]
+        self.asns2: List[Tuple[Tuple, Dict]] = [(('inet:asn', asn * 2 + 1), {}) for asn in range(work_factor)]
         random.shuffle(self.asns)
         random.shuffle(self.asns2)
 
         self.asns2prop = [(asn[0], {'props': {'name': 'x'}}) for asn in self.asns]
 
-        fredguid = s_common.guid('fred')
+        fredguid = self.myguid()
         self.asns2formexist = [(asn[0], {'props': {'owner': fredguid}}) for asn in self.asns]
-        self.asns2formnoexist = [(asn[0], {'props': {'owner': '*'}}) for asn in self.asns]
+        self.asns2formnoexist = [(asn[0], {'props': {'owner': self.myguid()}}) for asn in self.asns]
 
-        self.urls = [(('inet:url', f'http://{hex(n)}.ninja'), {}) for n in range(num_records)]
+        self.urls: List[Tuple[Tuple, Dict]] = [(('inet:url', f'http://{hex(n)}.ninja'), {}) for n in range(work_factor)]
         random.shuffle(self.urls)
+        orgs: List[Tuple[Tuple, Dict]] = [(('ou:org', fredguid), {})]
+        already_got_one = False
 
         if remote:
             self.dirn = None
@@ -130,36 +152,50 @@ class TestData(s_base.Base):
             core = await s_cortex.Cortex.anit(self.dirn, conf=DefaultConf)
             prox = await self.enter_context(core.getLocalProxy())
 
-        name = 'benchmark base'
+        self.layriden = None
+
+        name = str(('benchmark base', BENCHMARK_DATA_VERSION, work_factor))
+        if remote and keep:
+            self.layriden = await layerByName(prox, name)
+
+        if self.layriden is None:
+            retn = await prox.callStorm('''
+                $layr = $lib.layer.add($lib.dict(name=$name)) return ($layr.iden)''', opts={'vars': {'name': name}})
+            self.layriden = retn
+        else:
+            logger.info('Reusing existing benchmarking layer')
+            already_got_one = True
+
         retn = await prox.callStorm('''
-            $layr = $lib.layer.add($lib.dict(name=$name))
-
-            $view = $lib.view.add(($layr.iden,))
+            $view = $lib.view.add(($layr,))
             $view.set(name, $name)
+            return ($view.iden)''', opts={'vars': {'name': name, 'layr': self.layriden}})
 
-            return($lib.dict(view=$view,  layr=$layr))
-            ''', opts={'vars': {'name': name}})
+        self.viewiden = retn
 
-        self.viewiden, self.layriden = retn['view']['iden'], retn['layr']['iden']
-
-        orgs = [(('ou:org', fredguid), {})]
-        gen = itertools.chain(self.ips, self.dnsas, self.urls, self.asns, orgs)
-        await prox.addFeedData('syn.nodes', list(gen), viewiden=self.viewiden)
+        if not already_got_one:
+            gen = itertools.chain(self.ips, self.dnsas, self.urls, self.asns, orgs)
+            await prox.addFeedData('syn.nodes', list(gen), viewiden=self.viewiden)
 
         if core:
             await core.fini()
 
         async def fini():
             opts = {'vars': {'view': self.viewiden, 'layer': self.layriden}}
-            await prox.callStorm('''
-                $lib.view.del($view)
-                $lib.layer.del($layer)
-            ''', opts=opts)
+            await prox.callStorm('$lib.view.del($view)', opts=opts)
+            if not keep:
+                await prox.callStorm('$lib.layer.del($layer)', opts=opts)
             await self.prox.fini()
 
         if remote:
             self.onfini(fini)
 
+    @staticmethod
+    def myguid():
+        '''
+        Like s_common.guid but uses the rng seed so is predictable
+        '''
+        return binascii.hexlify(random.getrandbits(128).to_bytes(16, 'big')).decode('utf8')
 
 def benchmark(tags=None):
 
@@ -532,6 +568,7 @@ async def benchmarkAll(confignames: List = None,
                        do_profiling=False,
                        tags: Sequence = None,
                        remote: str = None,
+                       keep: bool = False,
                        ) -> None:
 
     if jsondir:
@@ -542,7 +579,7 @@ async def benchmarkAll(confignames: List = None,
 
     with syntest.getTestDir(startdir=tmpdir) as dirn:
 
-        async with await TestData.anit(workfactor, dirn, remote=remote) as testdata:
+        async with await TestData.anit(workfactor, dirn, remote=remote, keep=keep) as testdata:
 
             if not confignames:
                 confignames = ['simple']
@@ -601,6 +638,8 @@ def getParser():
     parser.add_argument('--tags', '-t', nargs='*',
                         help='Tag(s) of which suite to run (defaults to "official" if bench not set)')
     parser.add_argument('--do-profiling', action='store_true')
+    parser.add_argument('--keep', action='store_true',
+                        help='Whether to keep and use existing initial benchmark data')
     return parser
 
 if __name__ == '__main__':
@@ -624,4 +663,4 @@ if __name__ == '__main__':
     asyncio.run(benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir,
                              jsondir=opts.jsondir, jsonprefix=opts.jsonprefix,
                              niters=opts.niters, bench=opts.bench, do_profiling=opts.do_profiling, tags=opts.tags,
-                             remote=opts.remote))
+                             remote=opts.remote, keep=opts.keep))
