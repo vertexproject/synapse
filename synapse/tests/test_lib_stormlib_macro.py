@@ -31,6 +31,13 @@ class MacroTest(s_test.SynTest):
             nodes = await core.nodes('macro.exec hehe | macro.exec hoho', opts=asvisi)
             self.len(0, nodes)
 
+            await core.nodes('macro.set bam ${ [ +#foo ] }')
+            nodes = await core.nodes('inet:ipv4 | macro.exec bam')
+            self.len(1, nodes)
+            self.isin('foo', [t[0] for t in nodes[0].getTags()])
+
+            self.len(1, await core.nodes('inet:ipv4 | macro.exec hoho'))
+
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ test:str=hehe ] $name=$node.value() | macro.exec $name')
 
@@ -57,6 +64,10 @@ class MacroTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.macro.get(hehe))'))
 
+    async def test_stormlib_macro_vars(self):
+
+        async with self.getTestCore() as core:
+
             # Make a macro that operates on a variable to make a node
             q = 'macro.set data ${ [test:str=$data.value +#cool.story ] }'
             msgs = await core.stormlist(q)
@@ -67,3 +78,32 @@ class MacroTest(s_test.SynTest):
             nodes = await core.nodes(q, opts={'vars': {'data': data}})
             self.len(1, nodes)
             self.eq(('test:str', 'stuff'), nodes[0].ndef)
+
+            q = 'macro.set data3 ${ [test:str=$val] }'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('Set macro: data3', msgs)
+
+            q = '[test:str=cat] $val=$node.value() | macro.exec data3'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq({'cat'}, {n.ndef[1] for n in nodes})
+
+            q = '[test:str=cat] $val=cool | macro.exec data3'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq({'cool', 'cat'}, {n.ndef[1] for n in nodes})
+
+            q = '$val=cooler macro.exec data3'
+            nodes = await core.nodes(q)
+            self.eq([('test:str', 'cooler')], [n.ndef for n in nodes])
+
+            # Inner vars win on conflict
+            q = 'macro.set data2 ${ $data=$lib.dict(value=beef) [test:str=$data.value +#cool.story] }'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('Set macro: data2', msgs)
+
+            data = {'value': 'otherstuff'}
+            q = 'macro.exec data2'
+            nodes = await core.nodes(q, opts={'vars': {'data': data}})
+            self.len(1, nodes)
+            self.eq(('test:str', 'beef'), nodes[0].ndef)
