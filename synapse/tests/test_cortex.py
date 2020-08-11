@@ -3971,6 +3971,23 @@ class CortexBasicTest(s_t_utils.SynTest):
             # but getPropNorm won't handle that
             await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:lower', 'ASDF'))
 
+    async def test_addview(self):
+        async with self.getTestCore() as core:
+            (await core.addLayer()).get('iden')
+            deflayr = (await core.getLayerDef()).get('iden')
+
+            vdef = {'layers': (deflayr,)}
+            view = (await core.addView(vdef)).get('iden')
+            self.nn(core.getView(view))
+
+            # Missing layers
+            vdef = {'name': 'mylayer'}
+            await self.asyncraises(s_exc.SchemaViolation, core.addView(vdef))
+
+            # Layer not a string
+            vdef = {'layers': (123,)}
+            await self.asyncraises(s_exc.SchemaViolation, core.addView(vdef))
+
     async def test_view_setlayers(self):
 
         async with self.getTestCore() as core:
