@@ -853,7 +853,7 @@ class Snap(s_base.Base):
         Add/merge nodes in bulk.
 
         The addNodes API is designed for bulk adds which will
-        also set properties and add tags to existing nodes.
+        also set properties, add tags, add edges, and set nodedata to existing nodes.
         Nodes are specified as a list of the following tuples:
 
             ( (form, valu), {'props':{}, 'tags':{}})
@@ -893,6 +893,16 @@ class Snap(s_base.Base):
                                             f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
                                         logger.warning(mesg)
                                         continue
+
+                        nodedata = forminfo.get('nodedata')
+                        if nodedata is not None:
+                            for name, data in nodedata.items():
+                                await node.setData(name, data)
+
+                        edges = forminfo.get('edges')
+                        if edges is not None:
+                            for n2iden, edgeinfo in edges:
+                                await node.addEdge(edgeinfo.get('verb'), n2iden)
 
                 except Exception as e:
                     if not oldstrict:
