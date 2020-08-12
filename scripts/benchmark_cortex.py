@@ -112,12 +112,13 @@ class TestData(s_base.Base):
         '''
         await s_base.Base.__anit__(self)
         self.nrecs = work_factor
-        random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
+        rando = random.Random(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
+        self.rando = rando
         ips = list(range(work_factor))
-        random.shuffle(ips)
+        rando.shuffle(ips)
         dnsas = [(f'{ip}.website', ip) for ip in ips if ip % 2 == 0]
         dnsas += [('blackhole.website', ip) for ip in ips if ip % 10 == 0]
-        random.shuffle(dnsas)
+        rando.shuffle(dnsas)
         self.remote = remote
 
         def oe(num):
@@ -129,8 +130,8 @@ class TestData(s_base.Base):
 
         self.asns: FeedT = [(('inet:asn', asn * 2), {}) for asn in range(work_factor)]
         self.asns2: FeedT = [(('inet:asn', asn * 2 + 1), {}) for asn in range(work_factor)]
-        random.shuffle(self.asns)
-        random.shuffle(self.asns2)
+        rando.shuffle(self.asns)
+        rando.shuffle(self.asns2)
 
         self.asns2prop: FeedT = [(asn[0], {'props': {'name': 'x'}}) for asn in self.asns]
 
@@ -139,7 +140,7 @@ class TestData(s_base.Base):
         self.asns2formnoexist: FeedT = [(asn[0], {'props': {'owner': self.myguid()}}) for asn in self.asns]
 
         self.urls: FeedT = [(('inet:url', f'http://{hex(n)}.ninja'), {}) for n in range(work_factor)]
-        random.shuffle(self.urls)
+        rando.shuffle(self.urls)
         orgs: FeedT = [(('ou:org', fredguid), {})]
         already_got_one = False
 
@@ -192,12 +193,11 @@ class TestData(s_base.Base):
         if remote:
             self.onfini(fini)
 
-    @staticmethod
-    def myguid():
+    def myguid(self):
         '''
         Like s_common.guid but uses the rng seed so is predictable
         '''
-        return binascii.hexlify(random.getrandbits(128).to_bytes(16, 'big')).decode('utf8')
+        return binascii.hexlify(self.rando.getrandbits(128).to_bytes(16, 'big')).decode('utf8')
 
 def benchmark(tags=None):
 
