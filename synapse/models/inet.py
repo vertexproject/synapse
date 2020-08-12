@@ -1296,23 +1296,18 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The ingest source file/iden. Used for reparsing.'
                         }),
                         ('dst', ('inet:server', {}), {
-                            'ro': True,
                             'doc': 'The destination address / port for a connection.'
                         }),
                         ('dst:ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
                             'doc': 'The destination IPv4 address.'
                         }),
                         ('dst:ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
                             'doc': 'The destination IPv6 address.'
                         }),
                         ('dst:port', ('inet:port', {}), {
-                            'ro': True,
                             'doc': 'The destination port.'
                         }),
                         ('dst:proto', ('str', {'lower': True}), {
-                            'ro': True,
                             'doc': 'The destination protocol.'
                         }),
                         ('dst:host', ('it:host', {}), {
@@ -1322,47 +1317,36 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The guid of the destination process.'
                         }),
                         ('dst:exe', ('file:bytes', {}), {
-                            'ro': True,
                             'doc': 'The file (executable) that received the connection.'
                         }),
                         ('dst:txbytes', ('int', {}), {
-                            'ro': True,
                             'doc': 'The number of bytes sent by the destination host / process / file.'
                         }),
                         ('src', ('inet:client', {}), {
-                            'ro': True,
                             'doc': 'The source address / port for a connection.'
                         }),
                         ('src:ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
                             'doc': 'The source IPv4 address.'
                         }),
                         ('src:ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
                             'doc': 'The source IPv6 address.'
                         }),
                         ('src:port', ('inet:port', {}), {
-                            'ro': True,
                             'doc': 'The source port.'
                         }),
                         ('src:proto', ('str', {'lower': True}), {
-                            'ro': True,
                             'doc': 'The source protocol.'
                         }),
                         ('src:host', ('it:host', {}), {
-                            'ro': True,
                             'doc': 'The guid of the source host.'
                         }),
                         ('src:proc', ('it:exec:proc', {}), {
-                            'ro': True,
                             'doc': 'The guid of the source process.'
                         }),
                         ('src:exe', ('file:bytes', {}), {
-                            'ro': True,
                             'doc': 'The file (executable) that created the connection.'
                         }),
                         ('src:txbytes', ('int', {}), {
-                            'ro': True,
                             'doc': 'The number of bytes sent by the source host / process / file.'
                         }),
                     )),
@@ -1425,14 +1409,14 @@ class InetModule(s_module.CoreModule):
 
                         ('flow', ('inet:flow', {}), {}),
 
-                        ('client', ('inet:client', {}), {'ro': True}),
-                        ('client:ipv4', ('inet:ipv4', {}), {'ro': True}),
-                        ('client:ipv6', ('inet:ipv6', {}), {'ro': True}),
+                        ('client', ('inet:client', {}), {}),
+                        ('client:ipv4', ('inet:ipv4', {}), {}),
+                        ('client:ipv6', ('inet:ipv6', {}), {}),
 
-                        ('server', ('inet:server', {}), {'ro': True}),
-                        ('server:ipv4', ('inet:ipv4', {}), {'ro': True}),
-                        ('server:ipv6', ('inet:ipv6', {}), {'ro': True}),
-                        ('server:port', ('inet:port', {}), {'ro': True}),
+                        ('server', ('inet:server', {}), {}),
+                        ('server:ipv4', ('inet:ipv4', {}), {}),
+                        ('server:ipv6', ('inet:ipv6', {}), {}),
+                        ('server:port', ('inet:port', {}), {}),
 
                         ('time', ('time', {}), {
                             'doc': 'The time that the HTTP request was sent.'}),
