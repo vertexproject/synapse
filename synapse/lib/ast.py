@@ -2619,7 +2619,9 @@ class TagName(RunValue):
     async def compute(self, path):
         if self.isconst:
             return self.value()
-        vals = [(await kid.compute(path)) for kid in self.kids]
+        vals = []
+        for kid in self.kids:
+            vals.append(await tostr(await kid.compute(path)))
         return '.'.join(vals)
 
 class TagMatch(TagName):
