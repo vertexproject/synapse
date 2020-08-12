@@ -91,6 +91,8 @@ async def layerByName(prox: s_telepath.Proxy, name: str):
                }''', opts={'vars': {'name': name}})
     return retn
 
+FeedT = List[Tuple[Tuple, Dict[str, Any]]]
+
 class TestData(s_base.Base):
     '''
     Pregenerates a bunch of data for future test runs
@@ -125,20 +127,20 @@ class TestData(s_base.Base):
         self.ips = [(('inet:ipv4', ip), {'tags': {'all': (None, None), oe(ip): (None, None)}}) for ip in ips]
         self.dnsas: List[Tuple[Tuple, Dict]] = [(('inet:dns:a', dnsas), {}) for dnsas in dnsas]
 
-        self.asns: List[Tuple[Tuple, Dict]] = [(('inet:asn', asn * 2), {}) for asn in range(work_factor)]
-        self.asns2: List[Tuple[Tuple, Dict]] = [(('inet:asn', asn * 2 + 1), {}) for asn in range(work_factor)]
+        self.asns: FeedT = [(('inet:asn', asn * 2), {}) for asn in range(work_factor)]
+        self.asns2: FeedT = [(('inet:asn', asn * 2 + 1), {}) for asn in range(work_factor)]
         random.shuffle(self.asns)
         random.shuffle(self.asns2)
 
-        self.asns2prop = [(asn[0], {'props': {'name': 'x'}}) for asn in self.asns]
+        self.asns2prop: FeedT = [(asn[0], {'props': {'name': 'x'}}) for asn in self.asns]
 
         fredguid = self.myguid()
-        self.asns2formexist = [(asn[0], {'props': {'owner': fredguid}}) for asn in self.asns]
-        self.asns2formnoexist = [(asn[0], {'props': {'owner': self.myguid()}}) for asn in self.asns]
+        self.asns2formexist: FeedT = [(asn[0], {'props': {'owner': fredguid}}) for asn in self.asns]
+        self.asns2formnoexist: FeedT = [(asn[0], {'props': {'owner': self.myguid()}}) for asn in self.asns]
 
-        self.urls: List[Tuple[Tuple, Dict]] = [(('inet:url', f'http://{hex(n)}.ninja'), {}) for n in range(work_factor)]
+        self.urls: FeedT = [(('inet:url', f'http://{hex(n)}.ninja'), {}) for n in range(work_factor)]
         random.shuffle(self.urls)
-        orgs: List[Tuple[Tuple, Dict]] = [(('ou:org', fredguid), {})]
+        orgs: FeedT = [(('ou:org', fredguid), {})]
         already_got_one = False
 
         if remote:
