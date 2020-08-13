@@ -3,6 +3,43 @@ Synapse Changelog
 *****************
 
 
+v2.6.0 - 2020-08-13
+===================
+
+Features and Enhancements
+-------------------------
+
+- Support ``+hh:mm`` and ``+hh:mm`` timezone offset parsing when normalizing ``time`` values.
+  (`#1833 <https://github.com/vertexproject/synapse/pull/1833>`_)
+- Enable making mirrors of Cortex mirrors work.
+  (`#1836 <https://github.com/vertexproject/synapse/pull/1836>`_)
+- Remove read-only properties from ``inet:flow`` and ``inet:http:request`` forms.
+  (`#1840 <https://github.com/vertexproject/synapse/pull/1840>`_)
+- Add support for setting nodedata and light edges in the ``syn.nodes`` ingest format.
+  (`#1839 <https://github.com/vertexproject/synapse/pull/1839>`_)
+- Sync the LMDB Slab replay log if it gets too large instead of waiting for a force commit operation.
+  (`#1838 <https://github.com/vertexproject/synapse/pull/1838>`_)
+- Make the Agenda unit tests an actual component test to reduce test complexity.
+  (`#1837 <https://github.com/vertexproject/synapse/pull/1837>`_)
+- Support glob patterns when specifying files to upload to an Axon with ``synapse.tools.pushfile``.
+  (`#1837 <https://github.com/vertexproject/synapse/pull/1837>`_)
+- Use the node edit metadata to store and set the ``.created`` property on nodes, so that mirrors of Cortexes have
+  consistent ``.created`` timestamps.
+  (`#1765 <https://github.com/vertexproject/synapse/pull/1765>`_)
+- Support parent runtime variables being accessed during the execution of a ``macro.exec`` command.
+  (`#1841 <https://github.com/vertexproject/synapse/pull/1841>`_)
+- Setting tags from variable values in Storm now calls ``s_stormtypes.tostr()`` on the variable value.
+  (`#1843 <https://github.com/vertexproject/synapse/pull/1843>`_)
+
+Bugfixes
+--------
+- The Storm ``tree`` command now catches the Synapse ``RecursionLimitHit`` error and raises a ``StormRuntimeError``
+  instead. The ``RecursionLimitHit`` being raised by that command was, in practice, confusing.
+  (`#1832 <https://github.com/vertexproject/synapse/pull/1832>`_)
+- Resolve memory leak issues related to callStorm and Base object teardowns with exceptions.
+  (`#1842 <https://github.com/vertexproject/synapse/pull/1842>`_)
+
+
 v2.5.1 - 2020-08-05
 ===================
 
