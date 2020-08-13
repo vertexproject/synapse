@@ -12,6 +12,8 @@ import synapse.tests.utils as s_t_utils
 
 nullhash = hashlib.sha256(b'').digest()
 visihash = hashlib.sha256(b'visi').digest()
+foohash = hashlib.sha256(b'foo').digest()
+barhash = hashlib.sha256(b'bar').digest()
 
 class TestPushFile(s_t_utils.SynTest):
 
@@ -57,14 +59,17 @@ class TestPushFile(s_t_utils.SynTest):
                                 self.eq(0, s_pushfile.main(args, outp))
                                 self.true(outp.expect('Axon already had [visi.txt]'))
 
-                                self.len(1, coreprox.eval(f'file:bytes={s_common.ehex(visihash)}'))
-                                self.len(1, coreprox.eval('file:bytes:size=4'))
-                                self.len(1, coreprox.eval('#foo.bar'))
-                                self.len(1, coreprox.eval('#baz.faz'))
+                                self.eq(1, coreprox.count(f'file:bytes={s_common.ehex(visihash)}'))
+                                self.eq(1, coreprox.count('file:bytes:size=4'))
+                                self.eq(1, coreprox.count('#foo.bar'))
+                                self.eq(1, coreprox.count('#baz.faz'))
 
                                 # Ensure user can't push a non-existant file and that it won't exist
                                 args = ['-a', axonurl, nullpath]
-                                self.raises(s_exc.NoSuchFile, s_pushfile.main, args, outp=outp)
+
+                                outp = self.getTestOutp()
+                                self.eq(0, s_pushfile.main(args, outp))
+                                self.true(outp.expect(f'filepath does not contain any files: {nullpath}'))
 
                                 self.len(1, axonprox.wants([nullhash]))
 
@@ -81,6 +86,53 @@ class TestPushFile(s_t_utils.SynTest):
 
                                 self.len(0, axonprox.wants([nullhash]))
                                 self.eq(b'', b''.join([buf for buf in axonprox.get(nullhash)]))
+
+                                # Wilcard without recursive option
+                                barpath = os.path.join(dirn, 'bar.txt')
+                                foopath = os.path.join(dirn, 'foo', 'foo.txt')
+
+                                with s_common.genfile(barpath) as fd:
+                                    fd.write(b'bar')
+
+                                with s_common.genfile(foopath) as fd:
+                                    fd.write(b'foo')
+
+                                self.len(2, axonprox.wants([barhash, foohash]))
+
+                                outp = self.getTestOutp()
+                                args = ['-a', axonurl,
+                                        '-c', coreurl,
+                                        '-t', 'beef',
+                                        f'{dirn}/**']
+
+                                self.eq(0, s_pushfile.main(args, outp))
+                                self.true(outp.expect('Uploaded [bar.txt] to axon'))
+                                self.true(outp.expect('file: bar.txt (3) added to core'))
+
+                                self.len(0, axonprox.wants([barhash]))
+                                self.eq(b'bar', b''.join([buf for buf in axonprox.get(barhash)]))
+
+                                self.len(1, axonprox.wants([foohash]))
+
+                                # Wilcard with recursive option
+                                self.len(1, axonprox.wants([barhash, foohash]))
+
+                                outp = self.getTestOutp()
+                                args = ['-a', axonurl,
+                                        '-c', coreurl,
+                                        '-t', 'beef',
+                                        '-r',
+                                        f'{dirn}/**']
+
+                                self.eq(0, s_pushfile.main(args, outp))
+                                self.true(outp.expect('Uploaded [foo.txt] to axon'))
+                                self.true(outp.expect('file: foo.txt (3) added to core'))
+
+                                self.len(0, axonprox.wants([barhash]))
+                                self.eq(b'bar', b''.join([buf for buf in axonprox.get(barhash)]))
+
+                                self.len(0, axonprox.wants([foohash]))
+
                             return 1
 
                         loop = asyncio.get_running_loop()

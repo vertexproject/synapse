@@ -2889,14 +2889,31 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_feed_syn_nodes(self):
         async with self.getTestCore() as core0:
-            q = '[test:int=1 test:int=2 test:int=3]'
-            podes = [n.pack() async for n in core0.eval(q)]
-            self.len(3, podes)
+
+            podes = []
+
+            node1 = (await core0.nodes('[ test:int=1 ]'))[0]
+            await node1.setData('foo', 'bar')
+            pack = node1.pack()
+            pack[1]['nodedata']['foo'] = 'bar'
+            podes.append(pack)
+
+            node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
+            pack = node2.pack()
+            pack[1]['edges'] = [(node1.iden(), {'verb': 'refs'})]
+            podes.append(pack)
+
+            node3 = (await core0.nodes('[ test:int=3 ]'))[0]
+            podes.append(node3.pack())
 
         async with self.getTestCore() as core1:
 
             await core1.addFeedData('syn.nodes', podes)
             await self.agenlen(3, core1.eval('test:int'))
+
+            node1 = (await core1.nodes('test:int=1'))[0]
+            self.eq('bar', await node1.getData('foo'))
+            self.len(1, await core1.nodes('test:int=2 -(refs)> *'))
 
             await core1.addTagProp('test', ('int', {}), {})
             async with await core1.snap() as snap:
@@ -2918,6 +2935,18 @@ class CortexBasicTest(s_t_utils.SynTest):
             data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
             await core1.addFeedData('syn.nodes', data)
             self.len(1, await core1.nodes('test:str=opps +#test.newp'))
+
+            data = [(('test:str', 'ahh'), {'nodedata': 123})]
+            await core1.addFeedData('syn.nodes', data)
+            nodes = await core1.nodes('test:str=ahh')
+            self.len(1, nodes)
+            await self.agenlen(0, nodes[0].iterData())
+
+            data = [(('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
+            await core1.addFeedData('syn.nodes', data)
+            nodes = await core1.nodes('test:str=beef')
+            self.len(1, nodes)
+            await self.agenlen(0, nodes[0].iterEdgesN1())
 
     async def test_feed_syn_splice(self):
 
@@ -3746,6 +3775,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.false(core00.conf.get('mirror'))
 
                 await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                ip00 = await core00.nodes('[ inet:ipv4=3.3.3.3 ]')
+
                 await core00.nodes('$lib.queue.add(hehe)')
                 q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
                 await core00.nodes(q)
@@ -3765,6 +3797,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core00.nodes('queue.add visi')
 
                     await core01.sync()
+
+                    ip01 = await core01.nodes('inet:ipv4=3.3.3.3')
+                    self.eq(ip00[0].get('.created'), ip01[0].get('.created'))
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
@@ -3970,6 +4005,23 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, 'asdf')
             # but getPropNorm won't handle that
             await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:lower', 'ASDF'))
+
+    async def test_addview(self):
+        async with self.getTestCore() as core:
+            (await core.addLayer()).get('iden')
+            deflayr = (await core.getLayerDef()).get('iden')
+
+            vdef = {'layers': (deflayr,)}
+            view = (await core.addView(vdef)).get('iden')
+            self.nn(core.getView(view))
+
+            # Missing layers
+            vdef = {'name': 'mylayer'}
+            await self.asyncraises(s_exc.SchemaViolation, core.addView(vdef))
+
+            # Layer not a string
+            vdef = {'layers': (123,)}
+            await self.asyncraises(s_exc.SchemaViolation, core.addView(vdef))
 
     async def test_view_setlayers(self):
 

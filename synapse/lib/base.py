@@ -129,11 +129,6 @@ class Base:
         self.anitted = True  # For assertion purposes
         self.finievt = None
         self.entered = False
-        self.exitinfo = None
-
-        self.exitok = None
-        self.entered = False
-        self.exitinfo = None
 
         # hold a weak ref to other bases we should fini if they
         # are still around when we go down...
@@ -210,19 +205,7 @@ class Base:
         except RuntimeError:
             pass
 
-        self.exitok = cls is None
-        self.exitinfo = (exc, cls, tb)
         await self.fini()
-
-    def _isExitExc(self):
-        # if entered but not exited *or* exitinfo has exc
-        if not self.entered:
-            return False
-
-        if self.exitinfo is None:
-            return True
-
-        return self.exitinfo[0] is not None
 
     def incref(self):
         '''

@@ -83,7 +83,6 @@ class BaseTest(s_t_utils.SynTest):
 
         self.true(f.isfini)
         self.true(event.is_set())
-        self.false(f._isExitExc())
 
     async def test_enter_context(self):
         state = None

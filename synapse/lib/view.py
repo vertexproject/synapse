@@ -23,9 +23,13 @@ reqValidVdef = s_config.getJsValidator({
         'name': {'type': 'string'},
         'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'layers': {
+            'type': 'array',
+            'items': {'type': 'string', 'pattern': s_config.re_iden}
+        },
     },
     'additionalProperties': True,
-    'required': ['iden', 'parent', 'creator'],
+    'required': ['iden', 'parent', 'creator', 'layers'],
 })
 
 class View(s_nexus.Pusher):  # type: ignore

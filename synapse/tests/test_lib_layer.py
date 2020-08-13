@@ -7,6 +7,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 
@@ -677,6 +678,78 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits_out = await layr.storNodeEdits(nodeedits, {})
             self.notin('faz.baz', nodeedits_out[0][1]['tags'])
+
+    async def test_layer_nodeedits_created(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:int=1 :loc=us ]')
+            created00 = nodes[0].get('.created')
+
+            layr = core.getLayer()
+
+            editlist00 = [nes async for nes in layr.iterLayerNodeEdits()]
+
+            await core.nodes('test:int=1 | delnode')
+            self.len(0, await core.nodes('test:int'))
+
+            # Simulate a nexus edit list (no .created)
+            nexslist00 = [(ne[0], ne[1], [e for e in ne[2] if e[1][0] != '.created']) for ne in editlist00]
+
+            # meta used for .created
+            await asyncio.sleep(0.01)
+            await layr.storNodeEdits(nexslist00, {'time': created00})
+
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+
+            self.eq(created00, nodes[0].get('.created'))
+
+            await core.nodes('test:int=1 | delnode')
+            self.len(0, await core.nodes('test:int'))
+
+            # If meta is not specified .created gets populated to now
+            await asyncio.sleep(0.01)
+            await layr.storNodeEdits(nexslist00, None)
+
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+
+            created01 = nodes[0].get('.created')
+            self.gt(created01, created00)
+
+            # edits with the same node has the same .created
+            await asyncio.sleep(0.01)
+            nodes = await core.nodes('[ test:int=1 ]')
+            self.eq(created01, nodes[0].get('.created'))
+
+            nodes = await core.nodes('[ test:int=1 :loc=us +#foo]')
+            self.eq(created01, nodes[0].get('.created'))
+
+            await core.nodes('test:int=1 | delnode')
+            self.len(0, await core.nodes('test:int'))
+
+            # Tests for behavior of storing nodeedits directly prior to using meta (i.e. meta['time'] != .created)
+            # .created is a MINTIME therefore earlier value wins, which is typically meta
+            created02 = s_time.parse('1990-10-10 12:30')
+            await layr.storNodeEdits(editlist00, {'time': created02})
+
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+
+            self.eq(created02, nodes[0].get('.created'))
+
+            await core.nodes('test:int=1 | delnode')
+            self.len(0, await core.nodes('test:int'))
+
+            # meta could be after .created for manual store operations
+            created03 = s_time.parse('2050-10-10 12:30')
+            await layr.storNodeEdits(editlist00, {'time': created03})
+
+            nodes = await core.nodes('test:int')
+            self.len(1, nodes)
+
+            self.eq(created00, nodes[0].get('.created'))
 
     async def test_layer_nodeedits(self):
 

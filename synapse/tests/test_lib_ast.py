@@ -400,6 +400,11 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
 
+            q = 'test:str $var=(11) [+#base.$var]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.sorteq(nodes[0].tags, ('base', 'base.11', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
+
     async def test_ast_var_in_deref(self):
 
         async with self.getTestCore() as core:
