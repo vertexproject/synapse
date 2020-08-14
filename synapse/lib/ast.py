@@ -1663,10 +1663,14 @@ class PropPivotOut(PivotOper):
 
             prop = node.form.props.get(name)
             if prop is None:
+                # all filters must sleep
+                await asyncio.sleep(0)
                 continue
 
             valu = node.get(name)
             if valu is None:
+                # all filters must sleep
+                await asyncio.sleep(0)
                 continue
 
             if prop.type.isarray:
@@ -1732,6 +1736,8 @@ class PropPivot(PivotOper):
 
             srcprop, valu = await self.kids[0].getPropAndValu(path)
             if valu is None:
+                # all filters must sleep
+                await asyncio.sleep(0)
                 continue
 
             # TODO cache/bypass normalization in loop!
