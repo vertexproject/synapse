@@ -543,6 +543,13 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('geo:nloc', nodes[0].ndef[0])
 
+    async def test_ast_pivot(self):
+        # a general purpose pivot test. come on in!
+        async with self.getTestCore() as core:
+            self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :asn -> *'))
+            self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :foo -> *'))
+            self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :asn -> inet:asn'))
+
     async def test_ast_lift_filt_array(self):
 
         async with self.getTestCore() as core:
