@@ -785,3 +785,54 @@ class HealthCheckV1(Handler):
             return
         resp = await self.cell.getHealthCheck()
         return self.sendRestRetn(resp)
+
+class StormVarsGetV1(Handler):
+
+    async def get(self):
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        varname = str(body.get('name'))
+        defvalu = body.get('default')
+
+        if not await self.reqAuthAllowed(('globals', 'get', varname)):
+            return
+
+        valu = await self.cell.getStormVar(varname, default=defvalu)
+        return self.sendRestRetn(valu)
+
+class StormVarsPopV1(Handler):
+
+    async def post(self):
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        varname = str(body.get('name'))
+        defvalu = body.get('default')
+
+        if not await self.reqAuthAllowed(('globals', 'pop', varname)):
+            return
+
+        valu = await self.cell.popStormVar(varname, default=defvalu)
+        return self.sendRestRetn(valu)
+
+class StormVarsSetV1(Handler):
+
+    async def post(self):
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        varname = str(body.get('name'))
+        varvalu = body.get('value')
+
+        if not await self.reqAuthAllowed(('globals', 'set', varname)):
+            return
+
+        await self.cell.setStormVar(varname, varvalu)
+        return self.sendRestRetn(True)

@@ -712,6 +712,18 @@ class CoreApi(s_cell.CellApi):
 
         return await self.cell.cloneLayer(iden, ldef)
 
+    async def getStormVar(self, name, default=None):
+        self.user.confirm(('globals', 'get', name))
+        return await self.cell.getStormVar(name, default=default)
+
+    async def popStormVar(self, name, default=None):
+        self.user.confirm(('globals', 'pop', name))
+        return await self.cell.popStormVar(name, default=default)
+
+    async def setStormVar(self, name, valu):
+        self.user.confirm(('globals', 'set', name))
+        return await self.cell.setStormVar(name, valu)
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -1999,6 +2011,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/storm/vars/set', s_httpapi.StormVarsSetV1, {'cell': self})
+        self.addHttpApi('/api/v1/storm/vars/get', s_httpapi.StormVarsGetV1, {'cell': self})
+        self.addHttpApi('/api/v1/storm/vars/pop', s_httpapi.StormVarsPopV1, {'cell': self})
 
         self.addHttpApi('/api/v1/model', s_httpapi.ModelV1, {'cell': self})
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
