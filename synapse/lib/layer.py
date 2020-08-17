@@ -1477,7 +1477,7 @@ class Layer(s_nexus.Pusher):
             changes = [r for r in results if r[2]]
             if changes:
                 offs = self.nodeeditlog.add((changes, meta), indx=nexsindx)
-                [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
+                [(await wind.put((offs, changes, meta))) for wind in tuple(self.windows)]
 
         await asyncio.sleep(0)
 
@@ -2403,22 +2403,36 @@ class Layer(s_nexus.Pusher):
         for offs, (edits, meta) in self.nodeeditlog.iterBack(offs):
             yield (offs, edits, meta)
 
-    async def syncNodeEdits(self, offs, wait=True):
+    async def syncNodeEdits(self, offs, wait=True, meta=False):
         '''
         Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
 
         Once caught up with storage, yield them in realtime.
+
+        Args:
+            meta (bool): If true, yield (offs, edits, meta) tripples.
         '''
         if not self.logedits:
             return
 
-        for offs, splice in self.nodeeditlog.iter(offs):
-            yield (offs, splice[0])
+        if meta:
 
-        if wait:
-            async with self.getNodeEditWindow() as wind:
-                async for offs, splice in wind:
-                    yield (offs, splice)
+            for offs, (nodeedits, meta) in self.nodeeditlog.iter(offs):
+                yield (offs, nodeedits, meta)
+
+            if wait:
+                async with self.getNodeEditWindow() as wind:
+                    async for item in wind:
+                        yield item
+
+        else:
+            for offs, splice in self.nodeeditlog.iter(offs):
+                yield (offs, splice[0])
+
+            if wait:
+                async with self.getNodeEditWindow() as wind:
+                    async for offs, nodeedits, meta in wind:
+                        yield (offs, nodeedits)
 
     async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''

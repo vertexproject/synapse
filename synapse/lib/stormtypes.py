@@ -2727,16 +2727,22 @@ class Layer(Prim):
         gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
         return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
-    async def _methLayerEdits(self, offs=0, wait=True):
+    async def _methLayerEdits(self, offs=0, wait=True, meta=False):
         '''
         Yield (offs, nodeedits) tuples from the given offset.
         If wait=True, also consume them in real-time once caught up.
+
+        Args:
+            offs (int): The offset to begin at.
+            wait (bool): Swtich to blocking / real-time once caught up
+            meta (bool): Yield (offs, edits, meta) tripples
         '''
         offs = await toint(offs)
         wait = await tobool(wait)
+        meta = await tobool(meta)
         layriden = self.valu.get('iden')
         gatekeys = ((self.runt.user.iden, ('layer', 'edits', 'read'), layriden),)
-        todo = s_common.todo('syncNodeEdits', offs, wait=wait)
+        todo = s_common.todo('syncNodeEdits', offs, wait=wait, meta=meta)
         async for item in self.runt.dyniter(layriden, todo, gatekeys=gatekeys):
             yield item
 
