@@ -761,7 +761,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return name
 
     async def _execBackTask(self, dirn):
-        await self.boss.promote('backup', self.auth.rootuser.iden)
+        await self.boss.promote('backup', self.auth.rootuser)
         todo = s_common.todo(s_t_backup.backup, self.dirn, dirn)
         await s_coro.spawn(todo)
 
