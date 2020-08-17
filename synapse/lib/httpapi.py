@@ -829,7 +829,9 @@ class StormVarsSetV1(Handler):
             return
 
         varname = str(body.get('name'))
-        varvalu = body.get('value')
+        varvalu = body.get('value', s_common.novalu)
+        if varvalu is s_common.novalu:
+            return self.sendRestErr('BadArg', 'The "value" field is required.')
 
         if not await self.reqAuthAllowed(('globals', 'set', varname)):
             return

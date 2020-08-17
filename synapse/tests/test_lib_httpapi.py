@@ -862,6 +862,10 @@ class HttpApiTest(s_tests.SynTest):
 
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
 
+                body = {'name': 'hehe'}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/set', json=body)
+                self.eq('BadArg', (await resp.json())['code'])
+
                 body = {'name': 'hehe', 'value': 'haha'}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/set', json=body)
                 self.eq({'status': 'ok', 'result': True}, await resp.json())
