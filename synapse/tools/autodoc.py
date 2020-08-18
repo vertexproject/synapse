@@ -590,6 +590,14 @@ async def docStormsvc(ctor):
                         lines.append(f'- ``{form}``')
                     lines.append('\n')
 
+                nodedata = cdef.get('nodedata', ())
+                if nodedata:
+                    line = 'The command may add nodedata with the following keys to the corresponding forms:\n'
+                    lines.append(line)
+                    for key, form in nodedata:
+                        lines.append(f'- ``{key}`` on ``{form}``')
+                    lines.append('\n')
+
                 rst.addLines(*lines)
 
         # TODO: Modules are not currently documented.
