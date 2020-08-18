@@ -25,7 +25,6 @@ import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
-
 class StormTypesRegistry:
     def __init__(self):
         self._LIBREG = {}

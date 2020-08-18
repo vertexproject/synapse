@@ -541,3 +541,49 @@ class CellTest(s_t_utils.SynTest):
                 async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
                     outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
                     outp.expect('...cell API (https): disabled')
+
+    async def test_cell_backup(self):
+
+        async with  self.getTestCore() as core:
+            with self.raises(s_exc.NeedConfValu):
+                await core.runBackup()
+            with self.raises(s_exc.NeedConfValu):
+                await core.getBackups()
+            with self.raises(s_exc.NeedConfValu):
+                await core.delBackup('foo')
+
+        with self.getTestDir() as dirn:
+            s_common.yamlsave({'backup:dir': dirn}, dirn, 'cell.yaml')
+            with self.raises(s_exc.BadConfValu):
+                async with self.getTestCore(dirn=dirn) as core:
+                    pass
+
+        with self.getTestDir() as dirn:
+
+            backdirn = os.path.join(dirn, 'backups')
+            coredirn = os.path.join(dirn, 'cortex')
+
+            conf = {'backup:dir': backdirn}
+            s_common.yamlsave(conf, coredirn, 'cell.yaml')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+
+                async with core.getLocalProxy() as proxy:
+
+                    with self.raises(s_exc.BadArg):
+                        await proxy.runBackup('../woot')
+
+                    name = await proxy.runBackup()
+                    self.eq((name,), await proxy.getBackups())
+                    await proxy.delBackup(name)
+                    self.eq((), await proxy.getBackups())
+                    name = await proxy.runBackup(name='foo/bar')
+
+                    with self.raises(s_exc.BadArg):
+                        await proxy.delBackup(name='foo')
+
+                    self.true(os.path.isdir(os.path.join(backdirn, 'foo', 'bar')))
+                    self.eq(('foo/bar',), await proxy.getBackups())
+
+                    with self.raises(s_exc.BadArg):
+                        await proxy.runBackup(name='foo/bar')
