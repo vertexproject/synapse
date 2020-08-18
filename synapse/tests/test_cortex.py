@@ -4671,3 +4671,23 @@ class CortexBasicTest(s_t_utils.SynTest):
                     if view == core.view:
                         continue
                     self.eq(core.view, view.parent)
+
+    async def test_cortex_vars(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as proxy:
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.setStormVar('hehe', 'haha')
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.getStormVar('hehe')
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.popStormVar('hehe')
+
+            async with core.getLocalProxy() as proxy:
+                self.none(await proxy.setStormVar('hehe', 'haha'))
+                self.eq('haha', await proxy.getStormVar('hehe'))
+                self.eq('hoho', await proxy.getStormVar('lolz', default='hoho'))
+                self.eq('haha', await proxy.popStormVar('hehe'))
+                self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
