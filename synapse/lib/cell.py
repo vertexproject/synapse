@@ -1,9 +1,12 @@
 import os
 import ssl
+import time
+import shutil
 import socket
 import asyncio
 import logging
 import argparse
+import datetime
 import functools
 import contextlib
 
@@ -28,8 +31,9 @@ import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
-
 import synapse.lib.lmdbslab as s_lmdbslab
+
+import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
@@ -445,6 +449,40 @@ class CellApi(s_base.Base):
             yield item
 
     @adminapi()
+    async def runBackup(self, name=None, wait=True):
+        '''
+        Run a new backup.
+
+        Args:
+            name (str): The optional name of the backup.
+            wait (bool): On True, wait for backup to complete before returning.
+
+        Returns:
+            str: The name of the newly created backup.
+        '''
+        return await self.cell.runBackup(name=name, wait=wait)
+
+    @adminapi()
+    async def getBackups(self):
+        '''
+        Retrieve a list of backups.
+
+        Returns:
+            list[str]: A list of backup names.
+        '''
+        return await self.cell.getBackups()
+
+    @adminapi()
+    async def delBackup(self, name):
+        '''
+        Delete a backup by name.
+
+        Args:
+            name (str): The name of the backup to delete.
+        '''
+        return await self.cell.delBackup(name)
+
+    @adminapi()
     async def getDiagInfo(self):
         return {
             'slabs': await s_lmdbslab.Slab.getSlabStats(),
@@ -496,6 +534,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'A config-driven way to specify the HTTPS port.',
             'type': ['integer', 'null'],
         },
+        'backup:dir': {
+            'description': 'A directory outside the service directory where backups will be saved.',
+            'type': 'string',
+        },
     }
 
     async def __anit__(self, dirn, conf=None, readonly=False):
@@ -534,6 +576,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.iden = fd.read().strip()
 
         self.donexslog = self.conf.get('nexslog:en')
+
+        backdirn = self.conf.get('backup:dir')
+        if backdirn is not None:
+            backdirn = s_common.genpath(backdirn)
+            if backdirn.startswith(self.dirn):
+                mesg = 'backup:dir must not be within the service directory'
+                raise s_exc.BadConfValu(mesg=mesg)
+
+            backdirn = s_common.gendir(backdirn)
+
+        self.backdirn = backdirn
 
         if self.conf.get('mirror') and not self.conf.get('nexslog:en'):
             mesg = 'Mirror mode requires nexslog:en=True'
@@ -679,6 +732,76 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getNexusChanges(self, offs):
         async for item in self.nexsroot.iter(offs):
             yield item
+
+    def _reqBackDirn(self, name):
+        self._reqBackConf()
+
+        path = s_common.genpath(self.backdirn, name)
+        if not path.startswith(self.backdirn):
+            mesg = 'Directory traversal detected'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return path
+
+    async def runBackup(self, name=None, wait=True):
+
+        if name is None:
+            name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
+
+        path = self._reqBackDirn(name)
+        if os.path.isdir(path):
+            mesg = 'Backup with name already exists'
+            raise s_exc.BadArg(mesg=mesg)
+
+        task = self.schedCoro(self._execBackTask(path))
+
+        if wait:
+            await task
+
+        return name
+
+    async def _execBackTask(self, dirn):
+        await self.boss.promote('backup', self.auth.rootuser)
+        todo = s_common.todo(s_t_backup.backup, self.dirn, dirn)
+        await s_coro.spawn(todo)
+
+    def _reqBackConf(self):
+        if self.backdirn is None:
+            mesg = 'Backup APIs require the backup:dir config option is set'
+            raise s_exc.NeedConfValu(mesg=mesg)
+
+    async def delBackup(self, name):
+
+        self._reqBackConf()
+        path = self._reqBackDirn(name)
+
+        cellguid = os.path.join(path, 'cell.guid')
+        if not os.path.isfile(cellguid):
+            mesg = 'Specified backup path has no cell.guid file.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+
+    async def getBackups(self):
+        self._reqBackConf()
+        backups = []
+
+        def walkpath(path):
+
+            for name in os.listdir(path):
+
+                full = os.path.join(path, name)
+                cellguid = os.path.join(full, 'cell.guid')
+
+                if os.path.isfile(cellguid):
+                    backups.append(os.path.relpath(full, self.backdirn))
+                    continue
+
+                if os.path.isdir(full):
+                    walkpath(full)
+
+        walkpath(self.backdirn)
+        return backups
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
         user = self.auth.user(iden)

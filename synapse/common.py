@@ -164,11 +164,11 @@ def vertup(vstr):
     '''
     return tuple([int(x) for x in vstr.split('.')])
 
-def todo(name, *args, **kwargs):
+def todo(_todoname, *args, **kwargs):
     '''
     Construct and return a todo tuple of (name, args, kwargs).
     '''
-    return (name, args, kwargs)
+    return (_todoname, args, kwargs)
 
 def tuplify(obj):
     '''
