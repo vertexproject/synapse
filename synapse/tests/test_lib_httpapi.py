@@ -847,3 +847,56 @@ class HttpApiTest(s_tests.SynTest):
                 with self.raises(a_exc.ServerDisconnectedError):
                     async with sess.post(url, data=b'foo') as resp:
                         pass
+
+    async def test_http_storm_vars(self):
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = core.auth.rootuser
+            visi = await core.auth.addUser('visi')
+
+            await visi.setPasswd('secret')
+            await root.setPasswd('secret')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/set')
+                self.eq('SchemaViolation', (await resp.json())['code'])
+
+                resp = await sess.get(f'https://localhost:{port}/api/v1/storm/vars/get')
+                self.eq('SchemaViolation', (await resp.json())['code'])
+
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/pop')
+                self.eq('SchemaViolation', (await resp.json())['code'])
+
+                body = {'name': 'hehe'}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/set', json=body)
+                self.eq('BadArg', (await resp.json())['code'])
+
+                body = {'name': 'hehe', 'value': 'haha'}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/set', json=body)
+                self.eq({'status': 'ok', 'result': True}, await resp.json())
+
+                body = {'name': 'hehe', 'default': 'lolz'}
+                resp = await sess.get(f'https://localhost:{port}/api/v1/storm/vars/get', json=body)
+                self.eq({'status': 'ok', 'result': 'haha'}, await resp.json())
+
+                body = {'name': 'hehe', 'default': 'lolz'}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/pop', json=body)
+                self.eq({'status': 'ok', 'result': 'haha'}, await resp.json())
+
+            async with self.getHttpSess(auth=('visi', 'secret'), port=port) as sess:
+
+                body = {'name': 'hehe', 'value': 'haha'}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/set', json=body)
+                self.eq('AuthDeny', (await resp.json())['code'])
+
+                body = {'name': 'hehe', 'default': 'lolz'}
+                resp = await sess.get(f'https://localhost:{port}/api/v1/storm/vars/get', json=body)
+                self.eq('AuthDeny', (await resp.json())['code'])
+
+                body = {'name': 'hehe', 'default': 'lolz'}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/pop', json=body)
+                self.eq('AuthDeny', (await resp.json())['code'])
