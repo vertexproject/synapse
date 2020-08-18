@@ -1202,7 +1202,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         ctor.pkgname = cdef.get('pkgname')
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
-        ctor.nodedata = cdef.get('nodedata', ())
 
         def getStorNode(form):
             ndef = (form.name, form.type.norm(cdef.get('name'))[0])
@@ -1214,6 +1213,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             inpt = ctor.forms.get('input')
             outp = ctor.forms.get('output')
+            nodedata = ctor.forms.get('nodedata')
 
             if inpt:
                 props['input'] = tuple(inpt)
@@ -1221,14 +1221,14 @@ class Cortex(s_cell.Cell):  # type: ignore
             if outp:
                 props['output'] = tuple(outp)
 
+            if nodedata:
+                props['nodedata'] = tuple(nodedata)
+
             if ctor.svciden:
                 props['svciden'] = ctor.svciden
 
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
-
-            if ctor.nodedata:
-                props['nodedata'] = tuple(ctor.nodedata)
 
             pnorms = {}
             for prop, valu in props.items():

@@ -23,11 +23,11 @@ class TestService(s_stormsvc.StormSvc):
                         'output': [
                             'inet:fqdn',
                         ],
+                        'nodedata': [
+                            ('foo', 'inet:ipv4'),
+                            ('bar', 'inet:fqdn'),
+                        ],
                     },
-                    'nodedata': (
-                        ('foo', 'inet:ipv4'),
-                        ('bar', 'inet:fqdn'),
-                    ),
                     'storm': '',
                 },
                 {
