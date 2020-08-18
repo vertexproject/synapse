@@ -4111,8 +4111,25 @@ class CronJob(Prim):
     def getObjLocals(self):
         return {
             'pack': self._methCronJobPack,
+            'set': self._methCronJobSet,
             'pprint': self._methCronJobPprint,
         }
+
+    async def _methCronJobSet(self, name, valu):
+        '''
+        Set an editable field in the cron job definition.
+
+        Example:
+            $lib.cron.get($iden).set(name, "foo bar cron job")
+        '''
+        name = await tostr(name)
+        valu = await toprim(valu)
+        iden = self.valu.get('iden')
+
+        gatekeys = ((self.runt.user.iden, ('cron', 'set', name), iden),)
+        todo = s_common.todo('editCronJob', iden, name, valu)
+        self.valu = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        return self
 
     async def _methCronJobPack(self):
         return self.valu

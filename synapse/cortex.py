@@ -215,6 +215,15 @@ class CoreApi(s_cell.CellApi):
 
         return crons
 
+    async def editCronJob(self, iden, name, valu):
+        '''
+        Update a value in a cron definition.
+        '''
+        iden = str(iden)
+        name = str(name)
+        self.user.confirm(('cron', 'set', name), gateiden=iden)
+        return await self.cell.editCronJob(iden, name, valu)
+
     async def setStormCmd(self, cdef):
         '''
         Set the definition of a pure storm command in the cortex.
@@ -3366,6 +3375,25 @@ class Cortex(s_cell.Cell):  # type: ignore
             crons.append(info)
 
         return crons
+
+    @s_nexus.Pusher.onPushAuto('cron:edit')
+    async def editCronJob(self, iden, name, valu):
+        '''
+        Modify a cron job definition.
+        '''
+        appt = await self.agenda.get(iden)
+        #TODO make this generic and check cdef
+
+        if name == 'name':
+            await appt.setName(str(valu))
+            return appt.pack()
+
+        if name == 'doc':
+            await appt.setDoc(str(valu))
+            return appt.pack()
+
+        mesg = f'editCronJob name {name} is not supported for editing.'
+        raise s_exc.BadArg(mesg=mesg)
 
     async def _enableMigrationMode(self):
         '''

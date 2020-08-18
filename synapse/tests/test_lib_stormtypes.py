@@ -2303,6 +2303,45 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(f'trigger.del {goodbuid2}').list()
                 self.stormIsInPrint('Deleted trigger', mesgs)
 
+    async def test_storm_lib_cron_notime(self):
+        # test cron APIs that dont require time stepping
+        async with self.getTestCore() as core:
+
+            cdef = await core.callStorm('return($lib.cron.add(query="{[graph:node=*]}", hourly=30).pack())')
+            self.eq('', cdef.get('doc'))
+            self.eq('', cdef.get('name'))
+
+            iden = cdef.get('iden')
+            opts = {'vars': {'iden': iden}}
+
+            cdef = await core.callStorm('return($lib.cron.get($iden).set(name, foobar))', opts=opts)
+            self.eq('foobar', cdef.get('name'))
+
+            cdef = await core.callStorm('return($lib.cron.get($iden).set(doc, foodoc))', opts=opts)
+            self.eq('foodoc', cdef.get('doc'))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.cron.get($iden).set(hehe, haha))', opts=opts)
+
+            mesgs = await core.stormlist('cron.add --hour +1 {[graph:node=*]} --name myname --doc mydoc')
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    iden0 = mesg[1]['mesg'].split(' ')[-1]
+
+            opts = {'vars': {'iden': iden0}}
+
+            cdef = await core.callStorm('return($lib.cron.get($iden).pack())', opts=opts)
+            self.eq('mydoc', cdef.get('doc'))
+            self.eq('myname', cdef.get('name'))
+
+            async with core.getLocalProxy() as proxy:
+
+                cdef = await proxy.editCronJob(iden0, 'name', 'lolz')
+                self.eq('lolz', cdef.get('name'))
+
+                cdef = await proxy.editCronJob(iden0, 'doc', 'zoinks')
+                self.eq('zoinks', cdef.get('doc'))
+
     async def test_storm_lib_cron(self):
 
         MONO_DELT = 1543827303.0
