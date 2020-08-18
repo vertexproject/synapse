@@ -166,6 +166,9 @@ class PsModule(s_module.CoreModule):
                     ('address', ('geo:address', {}), {
                         'doc': 'The street address listed for the contact.',
                     }),
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place associated with this contact.',
+                    }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The main phone number for this contact.',
                     }),
