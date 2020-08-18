@@ -537,7 +537,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'backup:dir': {
             'default': None,
             'description': 'A directory outside the service directory where backups will be saved.',
-            'type': 'string',
+            'type': ['string', 'null'],
         },
     }
 
