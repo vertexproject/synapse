@@ -24,6 +24,10 @@ class TestService(s_stormsvc.StormSvc):
                             'inet:fqdn',
                         ],
                     },
+                    'nodedata': (
+                        ('foo', 'inet:ipv4'),
+                        ('bar', 'inet:fqdn'),
+                    ),
                     'storm': '',
                 },
                 {
@@ -424,6 +428,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('doc'), 'foobar is a great service')
                 self.eq(nodes[0].get('input'), ('inet:ipv4', 'inet:ipv6'))
                 self.eq(nodes[0].get('output'), ('inet:fqdn',))
+                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
                 self.eq(nodes[0].get('package'), 'foo')
                 self.eq(nodes[0].get('svciden'), iden)
 
@@ -431,6 +436,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[1].get('doc'), 'No description')
                 self.none(nodes[1].get('input'))
                 self.eq(nodes[1].get('output'), ('inet:ipv4',))
+                self.none(nodes[1].get('nodedata'))
                 self.eq(nodes[1].get('package'), 'foo')
                 self.eq(nodes[1].get('svciden'), iden)
 

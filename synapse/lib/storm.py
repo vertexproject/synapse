@@ -1614,11 +1614,24 @@ class Cmd:
                     ),
                 }
 
+        The ``nodedata`` attribute may also be overridden with a list of (key, form) tuples to provide information
+        about forms which may have additional nodedata added to them by the Cmd.
+
+        Example:
+
+            ::
+
+                (
+                    ('foodata', 'inet:http:request'),
+                    ('bardata', 'inet:ipv4'),
+                )
+
     '''
     name = 'cmd'
     pkgname = ''
     svciden = ''
     forms = {}  # type: ignore
+    nodedata = ()  # type: ignore
 
     def __init__(self, runt, runtsafe):
 
@@ -1687,6 +1700,9 @@ class Cmd:
 
         if cls.pkgname:
             props['package'] = cls.pkgname
+
+        if cls.nodedata:
+            props['nodedata'] = tuple(cls.nodedata)
 
         pnorms = {}
         for prop, valu in props.items():
