@@ -42,6 +42,12 @@ class BackupLib(s_stormtypes.Lib):
         return await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _delBackup(self, name):
+        '''
+        Remove a backup by name.
+
+        Args:
+            name (str): The name of the backup to remove.
+        '''
         name = await s_stormtypes.tostr(name)
         todo = s_common.todo('delBackup', name)
         gatekeys = ((self.runt.user.iden, ('backup', 'del'), None),)
