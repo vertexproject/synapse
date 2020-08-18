@@ -222,7 +222,7 @@ class CoreApi(s_cell.CellApi):
         iden = str(iden)
         name = str(name)
         self.user.confirm(('cron', 'set', name), gateiden=iden)
-        return self.cell.editCronJob(iden, name, valu)
+        return await self.cell.editCronJob(iden, name, valu)
 
     async def setStormCmd(self, cdef):
         '''

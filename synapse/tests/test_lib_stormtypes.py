@@ -2334,6 +2334,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq('mydoc', cdef.get('doc'))
             self.eq('myname', cdef.get('name'))
 
+            async with core.getLocalProxy() as proxy:
+
+                cdef = await proxy.editCronJob(iden0, 'name', 'lolz')
+                self.eq('lolz', cdef.get('name'))
+
+                cdef = await proxy.editCronJob(iden0, 'doc', 'zoinks')
+                self.eq('zoinks', cdef.get('doc'))
+
     async def test_storm_lib_cron(self):
 
         MONO_DELT = 1543827303.0
