@@ -621,6 +621,8 @@ stormcmds = (
         'cmdargs': (
             ('query', {'help': 'Query for the cron job to execute.'}),
             ('--minute', {'help': 'Minute value for job or recurrence period.'}),
+            ('--name', {'help': 'An optional name for the cron job.'}),
+            ('--doc', {'help': 'An optional doc string for the cron job.'}),
             ('--hour', {'help': 'Hour value for job or recurrence period.'}),
             ('--day', {'help': 'Day value for job or recurrence period.'}),
             ('--month', {'help': 'Month value for job or recurrence period.'}),
@@ -641,6 +643,9 @@ stormcmds = (
                                   daily=$cmdopts.daily,
                                   monthly=$cmdopts.monthly,
                                   yearly=$cmdopts.yearly)
+
+            if $cmdopts.doc { $cron.set(doc, $cmdopts.doc) }
+            if $cmdopts.name { $cron.set(name, $cmdopts.name) }
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',

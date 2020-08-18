@@ -2323,6 +2323,17 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.cron.get($iden).set(hehe, haha))', opts=opts)
 
+            mesgs = await core.stormlist('cron.add --hour +1 {[graph:node=*]} --name myname --doc mydoc')
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    iden0 = mesg[1]['mesg'].split(' ')[-1]
+
+            opts = {'vars': {'iden': iden0}}
+
+            cdef = await core.callStorm('return($lib.cron.get($iden).pack())', opts=opts)
+            self.eq('mydoc', cdef.get('doc'))
+            self.eq('myname', cdef.get('name'))
+
     async def test_storm_lib_cron(self):
 
         MONO_DELT = 1543827303.0
