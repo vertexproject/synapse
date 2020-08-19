@@ -87,6 +87,45 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(t.norm('HAHA1')[0], 'haha1')
             self.eq(t.norm('GOV_MFA')[0], 'gov_mfa')
 
+            # ou:position / ou:org:subs
+            orgiden = s_common.guid()
+            contact = s_common.guid()
+            position = s_common.guid()
+            subpos = s_common.guid()
+            suborg = s_common.guid()
+
+            opts = {'vars': {
+                'orgiden': orgiden,
+                'contact': contact,
+                'position': position,
+                'subpos': subpos,
+                'suborg': suborg,
+            }}
+
+            nodes = await core.nodes('''
+                [ ou:org=$orgiden :orgchart=$position ]
+                -> ou:position
+                [ :contact=$contact :title=ceo :org=$orgiden ]
+            ''', opts=opts)
+            self.eq('ceo', nodes[0].get('title'))
+            self.eq(orgiden, nodes[0].get('org'))
+            self.eq(contact, nodes[0].get('contact'))
+
+            nodes = await core.nodes('''
+                ou:org=$orgiden
+                -> ou:position
+                [ :reports+=$subpos ]
+                -> ou:position
+            ''', opts=opts)
+            self.eq(('ou:position', subpos), nodes[0].ndef)
+
+            nodes = await core.nodes('''
+                ou:org=$orgiden
+                [ :subs+=$suborg ]
+                -> ou:org
+            ''', opts=opts)
+            self.eq(('ou:org', suborg), nodes[0].ndef)
+
             async with await core.snap() as snap:
                 guid0 = s_common.guid()
                 name = '\u21f1\u21f2 Inc.'

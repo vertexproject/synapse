@@ -79,10 +79,12 @@ class TelcoModelTest(s_t_utils.SynTest):
 
                 # tel:mob:telem
                 guid = s_common.guid()
+                host = s_common.guid()
                 softguid = s_common.guid()
                 props = {'time': '2001',
                          'latlong': (-1, 1),
                          'place': place,
+                         'host': host,
                          'loc': 'us',
                          'accuracy': '100mm',
                          'cell': (('001', '02'), 3, 4),
@@ -108,6 +110,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('time'), 978307200000)
                 self.eq(node.get('latlong'), (-1.0, 1.0))
                 self.eq(node.get('place'), place)
+                self.eq(node.get('host'), host)
                 self.eq(node.get('loc'), 'us')
                 self.eq(node.get('accuracy'), 100)
                 self.eq(node.get('cell'), (('001', '02'), 3, 4))

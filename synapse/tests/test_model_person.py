@@ -83,12 +83,14 @@ class PsModelTest(s_t_utils.SynTest):
 
                 org0 = s_common.guid()
                 con0 = s_common.guid()
+                place = s_common.guid()
                 cprops = {
                     'org': org0,
                     'asof': '20080414',
                     'person': person0,
                     'name': 'Tony  Stark',
                     'title': 'CEO',
+                    'place': place,
                     'orgname': 'Stark Industries, INC',
                     # 'img': '',  # fixme file:bytes
                     'user': 'ironman',
@@ -108,6 +110,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('asof'), 1208131200000)
                 self.eq(node.get('person'), person0)
+                self.eq(node.get('place'), place)
                 self.eq(node.get('name'), 'tony stark')
                 self.eq(node.get('title'), 'ceo')
                 self.eq(node.get('orgname'), 'stark industries, inc')
