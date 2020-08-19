@@ -717,15 +717,6 @@ class StormSvcTest(s_test.SynTest):
             self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
             self.stormIsInPrint('DEBUG: fooz=5.6.7.8', msgs)
 
-            nodes = await core.nodes('syn:cmd +:package')
-            self.len(1, nodes)
-
-            self.eq(nodes[0].ndef, ('syn:cmd', 'magic'))
-            self.eq(nodes[0].get('doc'), 'Test stormvar support.')
-            self.eq(nodes[0].get('input'), ('test:str', 'test:int'))
-            self.eq(nodes[0].get('output'), ('test:comp', 'inet:ipv4'))
-            self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'),))
-
     async def test_storm_svc_mirror(self):
 
         with self.getTestDir() as dirn:
