@@ -1283,6 +1283,11 @@ class PivotOut(PivotOper):
             if form is None:
                 continue
 
+            if prop.isrunt:
+                async for pivo in runt.snap.nodesByPropValu(form.name, '=', valu):
+                    yield pivo, path.fork(pivo)
+                continue
+
             pivo = await runt.snap.getNodeByNdef((form.name, valu))
             if pivo is None:  # pragma: no cover
                 continue

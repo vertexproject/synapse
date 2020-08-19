@@ -3,7 +3,9 @@ import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
 class BackupLib(s_stormtypes.Lib):
-
+    '''
+    A Storm Library for interacting with the backup APIs in the Cortex.
+    '''
     _storm_lib_path = ('backup',)
 
     def getObjLocals(self):
@@ -19,6 +21,7 @@ class BackupLib(s_stormtypes.Lib):
 
         Args:
             name (str): The name of the backup to generate.
+
             wait (bool): If true, wait for the backup to complete before returning.
 
         Returns:
