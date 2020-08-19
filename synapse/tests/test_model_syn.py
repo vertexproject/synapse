@@ -473,6 +473,15 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
 
+                # Check that testcmd sets form props
+                nodes = await core.nodes('syn:cmd=testcmd')
+                self.len(1, nodes)
+
+                self.eq(nodes[0].ndef, ('syn:cmd', 'testcmd'))
+                self.eq(nodes[0].get('input'), ('test:str', 'inet:ipv6'))
+                self.eq(nodes[0].get('output'), ('inet:fqdn',))
+                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
+
     async def test_syn_cron_runts(self):
 
         async with self.getTestCore() as core:

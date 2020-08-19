@@ -311,6 +311,19 @@ class TestCmd(s_storm.Cmd):
     '''
 
     name = 'testcmd'
+    forms = {
+        'input': [
+            'test:str',
+            'inet:ipv6',
+        ],
+        'output': [
+            'inet:fqdn',
+        ],
+        'nodedata': [
+            ('foo', 'inet:ipv4'),
+            ('bar', 'inet:fqdn'),
+        ],
+    }
 
     def getArgParser(self):
         pars = s_storm.Cmd.getArgParser(self)
