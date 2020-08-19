@@ -251,6 +251,13 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.ge(len(nodes), 7)
 
+            # Wildcard pivot out from a prop and ensure we got the form
+            q = 'syn:prop=test:comp -> * '
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq({('syn:form', 'test:comp'), ('syn:type', 'test:comp')},
+                    {n.ndef for n in nodes})
+
             # Some forms inherit from a single type
             nodes = await core.nodes('syn:type="inet:addr" -> syn:type:subof')
             self.ge(len(nodes), 2)
