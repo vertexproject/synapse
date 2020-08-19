@@ -526,9 +526,10 @@ class LibBase(Lib):
             raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         text = mdef.get('storm')
+        modconf = mdef.get('modconf')
 
         query = await self.runt.getStormQuery(text)
-        runt = await self.runt.getScopeRuntime(query, impd=True)
+        runt = await self.runt.getScopeRuntime(query, opts={'vars': modconf}, impd=True)
 
         # execute the query in a module scope
         async for item in query.run(runt, s_common.agen()):

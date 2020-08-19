@@ -174,7 +174,8 @@ reqValidPkgdef = s_config.getJsValidator({
             'type': 'object',
             'properties': {
                 'name': {'type': 'string'},
-                'storm': {'type': 'string'}
+                'storm': {'type': 'string'},
+                'modconf': {'type': 'object'},
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
