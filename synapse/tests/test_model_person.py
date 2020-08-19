@@ -25,6 +25,8 @@ class PsModelTest(s_t_utils.SynTest):
                     'name:sur': 'grey',
                     'name:middle': 'clown',
                     'name:given': 'robert',
+                    'nicks': ['pwise71', 'SoulchilD'],
+                    'names': ['Billy Bob']
                 }
                 node = await snap.addNode('ps:person', person0, person_props)
                 self.eq(node.ndef[1], person0)
@@ -35,6 +37,8 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('name:sur'), 'grey')
                 self.eq(node.get('name:middle'), 'clown')
                 self.eq(node.get('name:given'), 'robert')
+                self.eq(node.get('nicks'), ['pwise71', 'soulchild'])
+                self.eq(node.get('names'), ['billy bob'])
                 # self.eq(node.get('img'), '')  # fixme file:bytes
                 # self.eq(node.get('guidname'), '')  # fixme guid aliases
 
@@ -47,6 +51,8 @@ class PsModelTest(s_t_utils.SynTest):
                     'name:sur': 'Гольдштейн',
                     'name:middle': 'брат',
                     'name:given': 'эммануэль',
+                    'nicks': ['beeper88', 'W1ntermut3'],
+                    'names': ['Bob Ross']
                 }
                 node = await snap.addNode('ps:persona', persona0, persona_props)
                 self.eq(node.ndef[1], persona0)
@@ -58,6 +64,8 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('name:sur'), 'гольдштейн')
                 self.eq(node.get('name:middle'), 'брат')
                 self.eq(node.get('name:given'), 'эммануэль')
+                self.eq(node.get('nicks'), ['beeper88', 'w1ntermut3'])
+                self.eq(node.get('names'), ['bob ross'])
                 # self.eq(node.get('img'), '')  # fixme file:bytes
                 # self.eq(node.get('guidname'), '')  # fixme guid aliases
 

@@ -333,6 +333,17 @@ class Auth(s_nexus.Pusher):
         return gate
 
     async def addUser(self, name, passwd=None, email=None):
+        '''
+        Add a User to the Hive.
+
+        Args:
+            name (str): The name of the User.
+            passwd (str): A optional password for the user.
+            email (str): A optional emall for the user.
+
+        Returns:
+            HiveUser: A Hive User.
+        '''
 
         if self.usersbyname.get(name) is not None:
             raise s_exc.DupUserName(name=name)
