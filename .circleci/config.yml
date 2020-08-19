@@ -250,6 +250,28 @@ commands:
             python setup.py bdist_wheel --python-tag=py37
 
       - run:
+          name: smoke packages
+          command: |
+            mkdir -p /tmp/wheeltest
+            mkdir -p /tmp/sdisttest
+            python3 -m venv /tmp/wheeltest/venv
+            python3 -m venv /tmp/sdisttest/venv
+            cp dist/*.whl /tmp/wheeltest
+            cp dist/*.tar.gz /tmp/sdisttest
+            cd /tmp/wheeltest
+            . ./venv/bin/activate
+            python3 -m pip install -U wheel pip
+            python3 -m pip install *.whl
+            python3 -c "$PYPI_SMOKE_CODE"
+            deactivate
+            cd /tmp/sdisttest
+            . ./venv/bin/activate
+            python3 -m pip install -U wheel pip
+            python3 -m pip install *.tar.gz
+            python3 -c "$PYPI_SMOKE_CODE"
+            deactivate
+
+      - run:
           name: upload to pypi
           command: |
             . venv/bin/activate
@@ -448,6 +470,8 @@ jobs:
   deploy_pypi:
     docker:
       - image: circleci/python:3.7
+        environment:
+          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
 
     steps:
       - deploy_to_pypi
