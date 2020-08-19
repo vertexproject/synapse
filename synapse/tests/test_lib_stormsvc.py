@@ -120,7 +120,10 @@ class RealService(s_stormsvc.StormSvc):
                 {'name': 'foo.bar',
                  'storm': '''
                  function asdf(x, y) { return ($($x + $y)) }
-                 function printmodconf() { $lib.print("yes") $lib.print($modconf.svciden) $lib.print($modconf.key) return ($lib.true) }
+                 function printmodconf() {
+                     for ($k, $v) in $modconf { $lib.print('{k}={v}', k=$k, v=$v) }
+                     return ( $lib.true )
+                 }
                  ''',
                  'modconf': {'key': 'valu'},
                  },
@@ -532,9 +535,9 @@ class StormSvcTest(s_test.SynTest):
                     self.len(1, nodes)
 
                     # modconf data is available to commands
-                    msgs = await core.stormlist('$real_lib = $lib.import("foo.bar") $ret=$real_lib.printmodconf()')
-                    for m in msgs:
-                        print(m)
+                    msgs = await core.stormlist('$real_lib = $lib.import("foo.bar") $real_lib.printmodconf()')
+                    self.stormIsInPrint(f'svciden={iden}', msgs)
+                    self.stormIsInPrint('key=valu', msgs)
 
                 async with await s_cortex.Cortex.anit(dirn) as core:
 
