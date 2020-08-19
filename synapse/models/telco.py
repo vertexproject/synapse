@@ -330,6 +330,9 @@ class TelcoModule(s_module.CoreModule):
                     ('time', ('time', {}), {}),
                     ('latlong', ('geo:latlong', {}), {}),
 
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host that generated the mobile telemetry data.'}),
+
                     ('place', ('geo:place', {}), {
                         'doc': 'The place representing the location of the mobile telemetry sample.'}),
 

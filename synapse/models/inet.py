@@ -2382,6 +2382,9 @@ class InetModule(s_module.CoreModule):
 
                         ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the wireless access point.'}),
+
+                        ('org', ('ou:org', {}), {
+                            'doc': 'The organization that owns/operates the access point.'}),
                     )),
 
                     ('inet:wifi:ssid', {}, ()),

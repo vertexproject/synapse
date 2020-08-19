@@ -36,6 +36,9 @@ class OuModule(s_module.CoreModule):
                 ('ou:member', ('comp', {'fields': (('org', 'ou:org'), ('person', 'ps:person'))}), {
                     'doc': 'A person who is (or was) a member of an organization.',
                 }),
+                ('ou:position', ('guid', {}), {
+                    'doc': 'A position within an org.  May be organized into an org chart.',
+                }),
                 ('ou:suborg', ('comp', {'fields': (('org', 'ou:org'), ('sub', 'ou:org'))}), {
                     'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
                 }),
@@ -154,6 +157,26 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The date on which the org was dissolved.'}),
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the organization.',
+                    }),
+                    ('subs', ('array', {'type': 'ou:org'}), {
+                        'doc': 'An array of sub-organizations.'
+                    }),
+                    ('orgchart', ('ou:position', {}), {
+                        'doc': 'The root node for an orgchart made up ou:position nodes.',
+                    }),
+                )),
+                ('ou:position', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org which has the position.',
+                    }),
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact info for the person who holds the position.',
+                    }),
+                    ('title', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                        'doc': 'The title of the position.',
+                    }),
+                    ('reports', ('array', {'type': 'ou:position'}), {
+                        'doc': 'An array of positions which report to this position.',
                     }),
                 )),
                 ('ou:name', {}, ()),
