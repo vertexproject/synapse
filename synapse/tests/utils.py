@@ -605,6 +605,20 @@ class HttpReflector(s_httpapi.Handler):
         resp['path'] = self.request.path
         self.sendRestRetn(resp)
 
+    async def post(self):
+        resp = {}
+        if self.request.arguments:
+            d = collections.defaultdict(list)
+            resp['params'] = d
+            for k, items in self.request.arguments.items():
+                for v in items:
+                    d[k].append(v.decode())
+        resp['headers'] = dict(self.request.headers)
+        resp['path'] = self.request.path
+        if self.request.body:
+            resp['body'] = s_common.enbase64(self.request.body)
+        self.sendRestRetn(resp)
+
 s_task.vardefault('applynest', lambda: None)
 
 async def _doubleapply(self, indx, item):

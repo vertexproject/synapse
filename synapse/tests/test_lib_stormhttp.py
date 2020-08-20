@@ -109,6 +109,19 @@ class StormHttpTest(s_test.SynTest):
             self.len(1, nodes)
             self.assertIn('vertex', [u.name for u in core.auth.users()])
 
+            core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url, 'buf': b'1234'}}
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar)
+            $resp = $lib.inet.http.post($url, params=$params, body=$buf, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('body'), 'MTIzNA==')
+
     async def test_storm_http_post_file(self):
 
         async with self.getTestCore() as core:
