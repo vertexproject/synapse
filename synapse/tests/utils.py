@@ -59,6 +59,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
+import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thishost as s_thishost
@@ -589,6 +590,20 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
         if timeout is None:
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
+
+class HttpReflector(s_httpapi.Handler):
+
+    async def get(self):
+        resp = {}
+        if self.request.arguments:
+            d = collections.defaultdict(list)
+            resp['params'] = d
+            for k, items in self.request.arguments.items():
+                for v in items:
+                    d[k].append(v.decode())
+        resp['headers'] = dict(self.request.headers)
+        resp['path'] = self.request.path
+        self.sendRestRetn(resp)
 
 s_task.vardefault('applynest', lambda: None)
 

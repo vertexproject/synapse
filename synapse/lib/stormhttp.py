@@ -37,24 +37,6 @@ class LibHttp(s_stormtypes.Lib):
         Returns:
             HttpResp: A Storm HttpResp object.
         '''
-        # url = await s_stormtypes.toprim(url)
-        # headers = await s_stormtypes.toprim(headers)
-        # params = await s_stormtypes.toprim(params)
-        #
-        # kwargs = {}
-        # if not ssl_verify:
-        #     kwargs['ssl'] = False
-        # if params:
-        #     kwargs['params'] = params
-        #
-        # async with aiohttp.ClientSession() as sess:
-        #     async with sess.get(url, headers=headers, **kwargs) as resp:
-        #         info = {
-        #             'code': resp.status,
-        #             'body': await resp.content.read(),
-        #         }
-        #         return HttpResp(info)
-
         return await self._httpRequest('get', url, headers=headers, ssl_verify=ssl_verify, params=params)
 
     async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None):
@@ -125,9 +107,9 @@ class LibHttp(s_stormtypes.Lib):
                         'body': await resp.content.read()
                     }
                     return HttpResp(info)
-            except ValueError as e:
+            except (TypeError, ValueError) as e:
                 mesg = f'Error during http {meth} - {str(e)}'
-                raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body) from None
+                raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body, params=params) from None
 
 @s_stormtypes.registry.registerType
 class HttpResp(s_stormtypes.StormType):

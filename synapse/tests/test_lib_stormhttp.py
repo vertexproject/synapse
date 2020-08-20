@@ -8,19 +8,53 @@ class StormHttpTest(s_test.SynTest):
             addr, port = await core.addHttpsPort(0)
             root = await core.auth.getUserByName('root')
             await root.setPasswd('root')
-            text = '''
-                $hdr = (
-                    ("User-Agent", "Storm HTTP Stuff"),
-                )
-                $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/model", port=$port)
 
-                for ($name, $fdef) in $lib.inet.http.get($url, headers=$hdr, ssl_verify=$(0)).json().result.forms {
-                    [ test:str=$name ]
-                }
+            core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url}}
+
+            # Header and params as dict
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar)
+            $hdr = (
+                    ("User-Agent", "Storm HTTP Stuff"),
+            )
+            $resp = $lib.inet.http.get($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
             '''
-            opts = {'vars': {'port': port}}
-            nodes = await core.nodes(text, opts=opts)
-            self.len(1, await core.nodes('test:str=inet:ipv4'))
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('headers').get('User-Agent'), 'Storm HTTP Stuff')
+
+            # params as list of key/value pairs
+            q = '''
+            $params=((foo, bar), (key, valu))
+            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+
+            # params as a urlencoded string
+            q = '''
+            $params="foo=bar&key=valu&foo=baz"
+            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar', 'baz')})
+
+            # Bad param
+            q = '''
+            $params=(1138)
+            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInErr('Error during http get - Invalid query type', msgs)
 
     async def test_storm_http_request(self):
 
