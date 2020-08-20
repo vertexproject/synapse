@@ -1598,7 +1598,9 @@ class Cmd:
 
     Notes:
         Python Cmd implementers may override the ``forms`` attribute with a dictionary to provide information
-        about Synapse forms which are possible input and output nodes that a Cmd may recognize.
+        about Synapse forms which are possible input and output nodes that a Cmd may recognize. A list of
+        (key, form) tuples may also be added to provide information about forms which may have additional
+        nodedata added to them by the Cmd.
 
         Example:
 
@@ -1611,6 +1613,10 @@ class Cmd:
                     ),
                     'output': (
                         'geo:place',
+                    ),
+                    'nodedata': (
+                        ('foodata', 'inet:http:request'),
+                        ('bardata', 'inet:ipv4'),
                     ),
                 }
 
@@ -1675,12 +1681,16 @@ class Cmd:
 
         inpt = cls.forms.get('input')
         outp = cls.forms.get('output')
+        nodedata = cls.forms.get('nodedata')
 
         if inpt:
             props['input'] = tuple(inpt)
 
         if outp:
             props['output'] = tuple(outp)
+
+        if nodedata:
+            props['nodedata'] = tuple(nodedata)
 
         if cls.svciden:
             props['svciden'] = cls.svciden

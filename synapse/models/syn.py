@@ -129,6 +129,9 @@ class SynModule(s_module.CoreModule):
                 ('syn:splice', ('guid', {'strip': True}), {
                     'doc': 'A splice from a layer.'
                 }),
+                ('syn:nodedata', ('comp', {'fields': (('key', 'str'), ('form', 'syn:form'))}), {
+                    'doc': 'A nodedata key and the form it may be present on.',
+                }),
             ),
 
             'forms': (
@@ -252,6 +255,8 @@ class SynModule(s_module.CoreModule):
                         'doc': 'The list of forms accepted by the command as input.', 'ro': True}),
                     ('output', ('array', {'type': 'syn:form'}), {
                         'doc': 'The list of forms produced by the command as output.', 'ro': True}),
+                    ('nodedata', ('array', {'type': 'syn:nodedata'}), {
+                        'doc': 'The list of nodedata that may be added by the command.', 'ro': True}),
                 )),
                 ('syn:splice', {'runt': True}, (
                     ('type', ('str', {'strip': True}), {

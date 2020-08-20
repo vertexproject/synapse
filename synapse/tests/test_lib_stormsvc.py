@@ -277,6 +277,9 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                     'forms': {
                         'input': ('test:str', 'test:int'),
                         'output': ('test:comp', 'inet:ipv4'),
+                        'nodedata': (
+                            ('foo', 'inet:ipv4'),
+                        ),
                     },
                     'storm': '''
                     $fooz = $cmdopts.name

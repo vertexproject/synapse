@@ -96,6 +96,8 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('``test:str``', s)
             self.isin('nodes in the graph', s)
             self.isin('``test:comp``', s)
+            self.isin('nodedata with the following keys', s)
+            self.isin('``foo`` on ``inet:ipv4``', s)
 
     async def test_tools_autodoc_stormtypes(self):
         with self.getTestDir() as path:

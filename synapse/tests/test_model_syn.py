@@ -23,6 +23,10 @@ class TestService(s_stormsvc.StormSvc):
                         'output': [
                             'inet:fqdn',
                         ],
+                        'nodedata': [
+                            ('foo', 'inet:ipv4'),
+                            ('bar', 'inet:fqdn'),
+                        ],
                     },
                     'storm': '',
                 },
@@ -431,6 +435,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('doc'), 'foobar is a great service')
                 self.eq(nodes[0].get('input'), ('inet:ipv4', 'inet:ipv6'))
                 self.eq(nodes[0].get('output'), ('inet:fqdn',))
+                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
                 self.eq(nodes[0].get('package'), 'foo')
                 self.eq(nodes[0].get('svciden'), iden)
 
@@ -438,6 +443,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[1].get('doc'), 'No description')
                 self.none(nodes[1].get('input'))
                 self.eq(nodes[1].get('output'), ('inet:ipv4',))
+                self.none(nodes[1].get('nodedata'))
                 self.eq(nodes[1].get('package'), 'foo')
                 self.eq(nodes[1].get('svciden'), iden)
 
@@ -466,6 +472,15 @@ class SynModelTest(s_t_utils.SynTest):
                 # Check that runt nodes for the commands are gone
                 nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
+
+                # Check that testcmd sets form props
+                nodes = await core.nodes('syn:cmd=testcmd')
+                self.len(1, nodes)
+
+                self.eq(nodes[0].ndef, ('syn:cmd', 'testcmd'))
+                self.eq(nodes[0].get('input'), ('test:str', 'inet:ipv6'))
+                self.eq(nodes[0].get('output'), ('inet:fqdn',))
+                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
 
     async def test_syn_cron_runts(self):
 
