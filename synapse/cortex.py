@@ -1213,12 +1213,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             inpt = ctor.forms.get('input')
             outp = ctor.forms.get('output')
+            nodedata = ctor.forms.get('nodedata')
 
             if inpt:
                 props['input'] = tuple(inpt)
 
             if outp:
                 props['output'] = tuple(outp)
+
+            if nodedata:
+                props['nodedata'] = tuple(nodedata)
 
             if ctor.svciden:
                 props['svciden'] = ctor.svciden
