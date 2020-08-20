@@ -1356,6 +1356,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         for mdef in mods:
             modtext = mdef.get('storm')
             self.getStormQuery(modtext)
+            mdef.setdefault('modconf', {})
+            if svciden:
+                mdef['modconf']['svciden'] = svciden
 
         for cdef in cmds:
             cdef['pkgname'] = pkgname

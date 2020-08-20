@@ -117,7 +117,16 @@ class RealService(s_stormsvc.StormSvc):
             'name': 'foo',
             'version': (0, 0, 1),
             'modules': (
-                {'name': 'foo.bar', 'storm': 'function asdf(x, y) { return ($($x + $y)) }'},
+                {'name': 'foo.bar',
+                 'storm': '''
+                 function asdf(x, y) { return ($($x + $y)) }
+                 function printmodconf() {
+                     for ($k, $v) in $modconf { $lib.print('{k}={v}', k=$k, v=$v) }
+                     return ( $lib.true )
+                 }
+                 ''',
+                 'modconf': {'key': 'valu'},
+                 },
             ),
             'commands': (
                 {
@@ -527,6 +536,11 @@ class StormSvcTest(s_test.SynTest):
                     # even though it has invalid add/del, it should still work
                     nodes = await core.nodes('lifter')
                     self.len(1, nodes)
+
+                    # modconf data is available to commands
+                    msgs = await core.stormlist('$real_lib = $lib.import("foo.bar") $real_lib.printmodconf()')
+                    self.stormIsInPrint(f'svciden={iden}', msgs)
+                    self.stormIsInPrint('key=valu', msgs)
 
                 async with await s_cortex.Cortex.anit(dirn) as core:
 
