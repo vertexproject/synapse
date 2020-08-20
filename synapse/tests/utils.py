@@ -592,7 +592,7 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
         return await s_coro.event_wait(self, timeout=timeout)
 
 class HttpReflector(s_httpapi.Handler):
-
+    '''Test handler which reflects get/post data back to the caller'''
     async def get(self):
         resp = {}
         if self.request.arguments:
