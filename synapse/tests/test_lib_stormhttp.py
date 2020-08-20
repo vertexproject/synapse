@@ -107,4 +107,4 @@ class StormHttpTest(s_test.SynTest):
             self.len(1, errs)
             err = errs[0]
             self.eq(err[0], 'StormRuntimeError')
-            self.isin('Error during http post - data and json parameters can not be used at the same time', err[1].get('mesg'))
+            self.isin('Error during http POST - data and json parameters can not be used at the same time', err[1].get('mesg'))
