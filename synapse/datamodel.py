@@ -487,7 +487,7 @@ class Model:
         item = s_types.TimeEdge(self, 'timeedge', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'Arbitrary msgpack compatible data stored without an index.'}
+        info = {'doc': 'Arbitrary json compatible data.'}
         item = s_types.Data(self, 'data', info, {})
         self.addBaseType(item)
 
