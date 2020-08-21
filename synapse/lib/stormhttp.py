@@ -21,7 +21,7 @@ class LibHttp(s_stormtypes.Lib):
             'request': self._httpRequest,
         }
 
-    async def _httpEasyGet(self, url, headers=None, ssl_verify=True):
+    async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None):
         '''
         Get the contents of a given URL.
 
@@ -32,24 +32,14 @@ class LibHttp(s_stormtypes.Lib):
 
             ssl_verify (bool): Perform SSL/TLS verification. Defaults to true.
 
+            params (dict): Optional parameters which may be passed to the request.
+
         Returns:
             HttpResp: A Storm HttpResp object.
         '''
-        url = await s_stormtypes.toprim(url)
-        headers = await s_stormtypes.toprim(headers)
+        return await self._httpRequest('get', url, headers=headers, ssl_verify=ssl_verify, params=params)
 
-        kwargs = {}
-        if not ssl_verify:
-            kwargs['ssl'] = False
-        async with aiohttp.ClientSession() as sess:
-            async with sess.get(url, headers=headers, **kwargs) as resp:
-                info = {
-                    'code': resp.status,
-                    'body': await resp.content.read(),
-                }
-                return HttpResp(info)
-
-    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True):
+    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None):
         '''
         Post data to a given URL.
 
@@ -64,12 +54,16 @@ class LibHttp(s_stormtypes.Lib):
 
             ssl_verify (bool): Perform SSL/TLS verification. Defaults to true.
 
+            params (dict): Optional parameters which may be passed to the request.
+
         Returns:
             HttpResp: A Storm HttpResp object.
         '''
-        return await self._httpRequest('POST', url, headers=headers, json=json, body=body, ssl_verify=ssl_verify)
+        return await self._httpRequest('POST', url, headers=headers, json=json,
+                                       body=body, ssl_verify=ssl_verify, params=params)
 
-    async def _httpRequest(self, meth, url, headers=None, json=None, body=None, ssl_verify=True):
+    async def _httpRequest(self, meth, url, headers=None, json=None, body=None, ssl_verify=True,
+                           params=None):
         '''
         Make an HTTP request using the given HTTP method to the url.
 
@@ -86,6 +80,8 @@ class LibHttp(s_stormtypes.Lib):
 
             ssl_verify (bool): Perform SSL/TLS verification. Defaults to true.
 
+            params (dict): Optional parameters which may be passed to the request.
+
         Returns:
             HttpResp: A Storm HttpResp object.
         '''
@@ -95,10 +91,13 @@ class LibHttp(s_stormtypes.Lib):
         json = await s_stormtypes.toprim(json)
         body = await s_stormtypes.toprim(body)
         headers = await s_stormtypes.toprim(headers)
+        params = await s_stormtypes.toprim(params)
 
         kwargs = {}
         if not ssl_verify:
             kwargs['ssl'] = False
+        if params:
+            kwargs['params'] = params
 
         async with aiohttp.ClientSession() as sess:
             try:
@@ -108,9 +107,9 @@ class LibHttp(s_stormtypes.Lib):
                         'body': await resp.content.read()
                     }
                     return HttpResp(info)
-            except ValueError as e:
-                mesg = f'Error during http post - {str(e)}'
-                raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body) from None
+            except (TypeError, ValueError) as e:
+                mesg = f'Error during http {meth} - {str(e)}'
+                raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body, params=params) from None
 
 @s_stormtypes.registry.registerType
 class HttpResp(s_stormtypes.StormType):
