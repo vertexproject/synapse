@@ -160,6 +160,8 @@ The following permissions exist for controlling access to nodes and tags.
 *node.tag.del.<tag>*
      Remove a specific tag or subtag to a node. (ex. ``node.tag.del.foo.bar``)
 
+For a complete list of permissions which may be used, see :ref:`devops-cell-permissions`.
+
 Remote Access
 =============
 
