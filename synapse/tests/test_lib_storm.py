@@ -108,7 +108,6 @@ class StormTest(s_t_utils.SynTest):
 
         # Test moving a tag to another tag which is a string prefix of the source
         async with self.getTestCore() as core:
-            # core.conf['storm:log'] = True
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'V')
                 await node.addTag('aaa.b.ccc', (None, None))
