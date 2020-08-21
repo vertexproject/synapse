@@ -20,7 +20,7 @@ Features and Enhancements
   (`#1852 <https://github.com/vertexproject/synapse/pull/1852>`_)
 - Add a new ``ou:position`` form and a few associated secondary properties.
   (`#1849 <https://github.com/vertexproject/synapse/pull/1849>`_)
-- Add a step to the CI build process to smoke test the sdist and wheel packages before publishing them to PyPi.
+- Add a step to the CI build process to smoke test the sdist and wheel packages before publishing them to PyPI.
   (`#1853 <https://github.com/vertexproject/synapse/pull/1853>`_)
 - Add support for representing ``nodedata`` in the command hinting for Storm command implementations and expose it on
   the ``syn:cmd`` runt nodes.
