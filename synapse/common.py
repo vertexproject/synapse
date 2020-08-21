@@ -663,8 +663,11 @@ def config(conf, confdefs):
 
     return conf
 
-def deprecated(name):
-    mesg = f'"{name}" is deprecated in 2.x and will be removed in 3.0.0'
+def deprecated(name, template=None):
+    if template is None:
+        mesg = f'"{name}" is deprecated in 2.x and will be removed in 3.0.0'
+    else:
+        mesg = template.format(name=name)
     warnings.warn(mesg, DeprecationWarning)
 
 def reqjsonsafe(item):
