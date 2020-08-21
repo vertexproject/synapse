@@ -3,6 +3,49 @@ Synapse Changelog
 *****************
 
 
+v2.7.0 - 2020-08-21
+===================
+
+Features and Enhancements
+-------------------------
+- Add Telepath and HTTP API support to set and remove global Storm variables.
+  (`#1846 <https://github.com/vertexproject/synapse/pull/1846>`_)
+- Add Cell level APIs for performing the backup of a Cell. These APIs are exposed inside of a Cortex via a Storm Library.
+  (`#1844 <https://github.com/vertexproject/synapse/pull/1844>`_)
+- Add support for Cron name and doc fields to be editable.
+  (`#1848 <https://github.com/vertexproject/synapse/pull/1848>`_)
+- Add support for Runtime-only (``runt``) nodes in the PivotOut operation (``-> * ``).
+  (`#1851 <https://github.com/vertexproject/synapse/pull/1851>`_)
+- Add ``:nicks`` and ``:names`` secondary properties to ``ps:person`` and ``ps:persona`` types.
+  (`#1852 <https://github.com/vertexproject/synapse/pull/1852>`_)
+- Add a new ``ou:position`` form and a few associated secondary properties.
+  (`#1849 <https://github.com/vertexproject/synapse/pull/1849>`_)
+- Add a step to the CI build process to smoke test the sdist and wheel packages before publishing them to PyPi.
+  (`#1853 <https://github.com/vertexproject/synapse/pull/1853>`_)
+- Add support for representing ``nodedata`` in the command hinting for Storm command implementations and expose it on
+  the ``syn:cmd`` runt nodes.
+  (`#1850 <https://github.com/vertexproject/synapse/pull/1850>`_)
+- Add package level configuration data to Storm Packages in the ``modconf`` value of a package definition. This is added
+  to the runtime variables when a Storm package is imported, and includes the ``svciden`` for packages which come from
+  Storm Services.
+  (`#1855 <https://github.com/vertexproject/synapse/pull/1855>`_)
+- Add support for passing HTTP params when using ``$lib.inet.http.*`` functions to make HTTP calls in Storm.
+  (`#1856 <https://github.com/vertexproject/synapse/pull/1856>`_)
+- Log Storm queries made via the ``callStorm()`` and ``count()`` APIs.
+  (`#1857 <https://github.com/vertexproject/synapse/pull/1857>`_)
+
+Bugfixes
+--------
+- Fix an issue were some Storm filter operations were not yielding CPU time appropriately.
+  (`#1845 <https://github.com/vertexproject/synapse/pull/1845>`_)
+
+Improved Documentation
+----------------------
+
+- Remove a reference to deprecated ``eval()`` API from quickstart documentation.
+  (`#1858 <https://github.com/vertexproject/synapse/pull/1858>`_)
+
+
 v2.6.0 - 2020-08-13
 ===================
 
