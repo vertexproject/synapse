@@ -1,3 +1,5 @@
+.. _devops-cell-permissions:
+
 Cell Permissions
 ################
 
