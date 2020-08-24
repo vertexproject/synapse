@@ -34,6 +34,9 @@ async def main(argv):  # pragma: no cover
 
     s_common.setlogging(logger, 'WARNING')
 
+    # Ensure that SYN_DIR is available
+    _ = s_common.getSynDir()
+
     async with await s_telepath.openurl(argv[0]) as item:
         try:
             s_version.reqVersion(item._getSynVers(), reqver)
