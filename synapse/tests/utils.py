@@ -59,8 +59,9 @@ import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
+import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.lmdbslab as s_slab
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -342,7 +343,9 @@ class TestModule(s_module.CoreModule):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
 
         async with await self.core.snap() as snap:
-            await snap.addNode('meta:source', self.testguid, {'name': 'test'})
+            node = await snap.getNodeByNdef(('meta:source', self.testguid))
+            if node is None:
+                await snap.addNode('meta:source', self.testguid, {'name': 'test'})
 
         self.core.addStormLib(('test',), LibTst)
 
@@ -502,85 +505,6 @@ class TstOutPut(s_output.OutPutStr):
     def clear(self):
         self.mesgs.clear()
 
-class TestSteps:
-    '''
-    A class to assist with interlocking for multi-thread tests.
-
-    Args:
-        names (list): A list of names of tests steps as strings.
-    '''
-    def __init__(self, names):
-        self.steps = {}
-        self.names = names
-
-        for name in names:
-            self.steps[name] = threading.Event()
-
-    def done(self, step):
-        '''
-        Mark the step name as complete.
-
-        Args:
-            step (str): The step name to mark complete
-        '''
-        self.steps[step].set()
-
-    def wait(self, step, timeout=None):
-        '''
-        Wait (up to timeout seconds) for a step to complete.
-
-        Args:
-            step (str): The step name to wait for.
-            timeout (int): The timeout in seconds (or None)
-
-        Returns:
-            bool: True if the step is completed within the wait timeout.
-
-        Raises:
-            StepTimeout: on wait timeout
-        '''
-        if not self.steps[step].wait(timeout=timeout):
-            raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
-        return True
-
-    def step(self, done, wait, timeout=None):
-        '''
-        Complete a step and wait for another.
-
-        Args:
-            done (str): The step name to complete.
-            wait (str): The step name to wait for.
-            timeout (int): The wait timeout.
-        '''
-        self.done(done)
-        return self.wait(wait, timeout=timeout)
-
-    def waitall(self, timeout=None):
-        '''
-        Wait for all the steps to be complete.
-
-        Args:
-            timeout (int): The wait timeout (per step).
-
-        Returns:
-            bool: True when all steps have completed within the alloted time.
-
-        Raises:
-            StepTimeout: When the first step fails to complete in the given time.
-        '''
-        for name in self.names:
-            self.wait(name, timeout=timeout)
-        return True
-
-    def clear(self, step):
-        '''
-        Clear the event for a given step.
-
-        Args:
-            step (str): The name of the step.
-        '''
-        self.steps[step].clear()
-
 class CmdGenerator:
 
     def __init__(self, cmds):
@@ -668,6 +592,34 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
         if timeout is None:
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
+
+class HttpReflector(s_httpapi.Handler):
+    '''Test handler which reflects get/post data back to the caller'''
+    async def get(self):
+        resp = {}
+        if self.request.arguments:
+            d = collections.defaultdict(list)
+            resp['params'] = d
+            for k, items in self.request.arguments.items():
+                for v in items:
+                    d[k].append(v.decode())
+        resp['headers'] = dict(self.request.headers)
+        resp['path'] = self.request.path
+        self.sendRestRetn(resp)
+
+    async def post(self):
+        resp = {}
+        if self.request.arguments:
+            d = collections.defaultdict(list)
+            resp['params'] = d
+            for k, items in self.request.arguments.items():
+                for v in items:
+                    d[k].append(v.decode())
+        resp['headers'] = dict(self.request.headers)
+        resp['path'] = self.request.path
+        if self.request.body:
+            resp['body'] = s_common.enbase64(self.request.body)
+        self.sendRestRetn(resp)
 
 s_task.vardefault('applynest', lambda: None)
 
@@ -1750,7 +1702,7 @@ class SynTest(unittest.TestCase):
         import synapse.lib.const as s_const
         map_size = s_const.gibibyte
 
-        async with await s_slab.Slab.anit(dirn, map_size=map_size) as slab:
+        async with await s_lmdbslab.Slab.anit(dirn, map_size=map_size) as slab:
 
             nexsroot = await s_nexus.NexsRoot.anit(dirn)
             await nexsroot.startup(None)
