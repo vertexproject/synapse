@@ -71,11 +71,12 @@ class Type:
         }
 
         self.deprecated = False
-        if not self.opts.get('deprecated'):
+        if self.opts.get('deprecated'):
             self.deprecated = True
-        # if self.opts.get('deprecated'):
-        #     template = 'The type {name} is deprecated and will be removed in 3.0.0'
-        #     s_common.deprecated(self.name, template)
+            if self.info.get('custom'):
+                mesg = f'The type {self.name} is based on a deprecated type [{self.subof}] which which will' \
+                       f' be removed in 3.0.0'
+                logger.warning(mesg)
 
         self.postTypeInit()
 

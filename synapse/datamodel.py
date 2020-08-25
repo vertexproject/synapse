@@ -607,6 +607,7 @@ class Model:
 
         # load all the base type ctors in order...
         for _, mdef in mods:
+            custom = mdef.get('custom', False)
 
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
@@ -615,7 +616,9 @@ class Model:
 
         # load all the types in order...
         for _, mdef in mods:
+            custom = mdef.get('custom', False)
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+                typeinfo['custom'] = custom
                 self.addType(typename, basename, typeopts, typeinfo)
 
         # Load all the universal properties

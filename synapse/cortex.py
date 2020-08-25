@@ -879,9 +879,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.model = s_datamodel.Model()
 
         # Perform module loading
-        mods = list(s_modules.coremods)
-        mods.extend(self.conf.get('modules'))
-        await self._loadCoreMods(mods)
+        await self._loadCoreMods()
         await self._loadExtModel()
         await self._initStormCmds()
 
@@ -3136,15 +3134,13 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return modu
 
-    async def _loadCoreMods(self, ctors):
+    async def _loadCoreMods(self):
 
         mods = []
-
         cmds = []
         mdefs = []
 
-        for ctor in ctors:
-
+        async def loadit(ctor, custom=False):
             conf = None
 
             # allow module entry to be (ctor, conf) tuple
@@ -3153,7 +3149,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             modu = self._loadCoreModule(ctor, conf=conf)
             if modu is None:
-                continue
+                return
 
             mods.append(modu)
 
@@ -3164,10 +3160,19 @@ class Cortex(s_cell.Cell):  # type: ignore
             except Exception:
                 logger.exception(f'module preCoreModule failed: {ctor}')
                 self.modules.pop(ctor, None)
-                continue
+                return
 
             cmds.extend(modu.getStormCmds())
-            mdefs.extend(modu.getModelDefs())
+            model_defs = modu.getModelDefs()
+            if custom:
+                for mdef, mnfo in model_defs:
+                    mnfo['custom'] = True
+            mdefs.extend(model_defs)
+
+        for ctor in list(s_modules.coremods):
+            await loadit(ctor)
+        for ctor in self.conf.get('modules'):
+            await loadit(ctor, custom=True)
 
         self.model.addDataModels(mdefs)
         [self.addStormCmd(c) for c in cmds]
