@@ -683,6 +683,11 @@ class Model:
         base = '.' + name
         univ = Prop(self, None, base, tdef, info)
 
+        if univ.type.deprecated:
+            mesg = f'The universal property {univ.full} is using a deprecated type {univ.type.name} which will' \
+                   f' be removed in 3.0.0'
+            logger.warning(mesg)
+
         self.props[base] = univ
         self.univs[base] = univ
 
@@ -693,7 +698,7 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             raise s_exc.NoSuchForm(name=formname)
-        self._addFormProp(form, propname, tdef, info)
+        return self._addFormProp(form, propname, tdef, info)
 
     def _addFormProp(self, form, name, tdef, info):
 
@@ -704,6 +709,7 @@ class Model:
             self.arraysbytype[prop.type.arraytype.name].append(prop)
 
         self.props[prop.full] = prop
+        return prop
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)
@@ -714,6 +720,12 @@ class Model:
 
         prop = TagProp(self, name, tdef, info)
         self.tagprops[name] = prop
+
+        if prop.type.deprecated:
+            mesg = f'The tag property {prop.name} is using a deprecated type {prop.type.name} which will' \
+                   f' be removed in 3.0.0'
+            logger.warning(mesg)
+
         return prop
 
     def getTagProp(self, name):

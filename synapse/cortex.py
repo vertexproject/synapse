@@ -1622,11 +1622,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         for form, prop, tdef, info in self.extprops.values():
             try:
-                self.model.addFormProp(form, prop, tdef, info)
+                prop = self.model.addFormProp(form, prop, tdef, info)
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
                 logger.warning(f'ext prop ({form}:{prop}) error: {e}')
+            else:
+                if prop.type.deprecated:
+                    mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
+                           f' be removed in 3.0.0'
+                    logger.warning(mesg)
 
         for prop, tdef, info in self.extunivs.values():
             try:

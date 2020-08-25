@@ -70,9 +70,12 @@ class Type:
             'range=': self._storLiftRange,
         }
 
-        if self.opts.get('deprecated'):
-            template = 'The type {name} is deprecated and will be removed in 3.0.0'
-            s_common.deprecated(self.name, template)
+        self.deprecated = False
+        if not self.opts.get('deprecated'):
+            self.deprecated = True
+        # if self.opts.get('deprecated'):
+        #     template = 'The type {name} is deprecated and will be removed in 3.0.0'
+        #     s_common.deprecated(self.name, template)
 
         self.postTypeInit()
 
