@@ -410,6 +410,10 @@ class Array(Type):
             mesg = 'Array type of array values is not (yet) supported.'
             raise s_exc.BadTypeDef(mesg)
 
+        if self.arraytype.deprecated:
+            pass
+            # FIXME - flag deprecated array type
+
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 

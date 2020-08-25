@@ -116,9 +116,9 @@ class Prop:
             form.setProp(name, self)
             self.modl.propsbytype[self.type.name].append(self)
 
-        if self.info.get('deprecated'):
+        if self.info.get('deprecated') or self.type.deprecated:
             async def depfunc(node, oldv):
-                mesg = f'The property {self.full} is deprecated and will be removed in 3.0.0'
+                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
                 await node.snap.warn(mesg)
             self.onSet(depfunc)
 
