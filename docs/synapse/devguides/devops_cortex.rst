@@ -69,7 +69,7 @@ Configuring A Remote Axon
 -------------------------
 
 By default a Cortex will initialize a local :ref:`gloss-axon` for general object / blob storage. This allows certain
-Cortex functionality to work without additional configuration. The local Axon not exposed in a remote fashion.
+Cortex functionality to work without additional configuration. The local Axon is not exposed in a remote fashion.
 
 An Axon can instead be deployed as a remote server (see :ref:`devops-axon`) and the Cortex can be configured to be aware
 of it, by specifying the Axon's Telepath URL in the ``axon`` configuration parameter (see :ref:`autodoc-cortex-conf`).
