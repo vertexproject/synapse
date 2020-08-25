@@ -180,7 +180,7 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:name', {}, ()),
-                ('ou:hasalias', {}, (
+                ('ou:hasalias', {'deprecated': True}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
                         'doc': 'The org guid which has the alias.',

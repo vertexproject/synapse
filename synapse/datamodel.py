@@ -116,6 +116,12 @@ class Prop:
             form.setProp(name, self)
             self.modl.propsbytype[self.type.name].append(self)
 
+        if self.info.get('deprecated'):
+            async def depfunc(node, oldv):
+                mesg = f'The property {self.full} is deprecated and will be removed in 3.0.0'
+                await node.snap.warn(mesg)
+            self.onSet(depfunc)
+
     def __repr__(self):
         return f'DataModel Prop: {self.full}'
 
@@ -246,6 +252,12 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.refsout = None
+
+        if self.info.get('deprecated'):
+            async def depfunc(node):
+                mesg = f'The form {self.full} is deprecated and will be removed in 3.0.0'
+                await node.snap.warn(mesg)
+            self.onAdd(depfunc)
 
     def getStorNode(self, form):
 
