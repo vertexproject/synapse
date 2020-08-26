@@ -1165,10 +1165,11 @@ class Layer(s_nexus.Pusher):
         # 00 - formvalu (buid, 00) = (form, valu, stortype)
         # 01 - property (buid, 01, penc) = (valu, stortype)
         # 02 - tag (buid, 01, tenc) = valu
-        # 09 - form
-        # 0a - form tombstone (buid, 0a) = <editinfo>
-        # 0b - prop tombstone (buid, 0b, penc) = <editinfo>
-        # 0c - tag tombstone (buid, 0c, tenc) = <editinfo>
+        # 03 - tagprop
+        # 04 - form tombstone (buid, 04) = <editinfo>
+        # 05 - prop tombstone (buid, 05, penc) = <editinfo>
+        # 06 - tag tombstone (buid, 06, tenc) = <editinfo>
+        # 09 - form marker
         self.bybuid = self.layrslab.initdb('bybuid')
 
         self.byverb = self.layrslab.initdb('byverb', dupsort=True)
@@ -1308,15 +1309,15 @@ class Layer(s_nexus.Pusher):
             if flag == 0x09:
                 continue
 
-            if flag == 0x0a:
+            if flag == 0x04:
                 info['mask:form'] = True
                 continue
 
-            if flag == 0x0b:
+            if flag == 0x05:
                 info['mask:props'][lkey[33:].decode()] = True
                 continue
 
-            if flag == 0x0c:
+            if flag == 0x06:
                 info['mask:tags'][lkey[33:].decode()] = True
                 continue
 
@@ -1553,7 +1554,7 @@ class Layer(s_nexus.Pusher):
 
         deltypes = {EDIT_NODE_DEL, EDIT_PROP_DEL, EDIT_TAG_DEL, EDIT_TAGPROP_DEL, EDIT_NODEDATA_DEL, EDIT_EDGE_DEL}
         if postedits and all(e[0] in deltypes for e in postedits):
-            hasref = self.layrslab.rangeexists(buid + b'\x00', buid + b'\x03', db=self.bybuid)
+            hasref = self.layrslab.rangeexists(buid + b'\x00', buid + b'\x06', db=self.bybuid)
 
             if not hasref:
                 hasref = self.dataslab.prefexists(buid, self.nodedata)
@@ -1612,7 +1613,7 @@ class Layer(s_nexus.Pusher):
         byts = self.layrslab.pop(buid + b'\x00', db=self.bybuid)
         if byts is None:
             # if we are asked to remove a node we dont have, we must tombstone
-            self.layrslab.put(buid + b'\x0a', s_msgpack.en(edit), db=self.bybuid)
+            self.layrslab.put(buid + b'\x04', s_msgpack.en(edit), db=self.bybuid)
             sode['ndef'] = None
             sode['mask:form'] = True
             return (edit,)
@@ -1659,7 +1660,7 @@ class Layer(s_nexus.Pusher):
         bkey = buid + b'\x01' + penc
 
         # delete a tombstone if present
-        self.layrslab.pop(buid + b'\x0b' + penc, db=self.bybuid)
+        self.layrslab.pop(buid + b'\x05' + penc, db=self.bybuid)
 
         abrv = self.setPropAbrv(form, prop)
         univabrv = None
@@ -1734,6 +1735,9 @@ class Layer(s_nexus.Pusher):
 
         if sode is not None:
             sode['props'][prop] = valu
+            masks = sode.get('mask:props')
+            if masks is not None:
+                masks.pop(prop, None)
 
         return (
             (EDIT_PROP_SET, (prop, valu, oldv, stortype), ()),
@@ -1758,8 +1762,9 @@ class Layer(s_nexus.Pusher):
             if sode is not None:
                 sode['props'].pop(prop, None)
                 sode['mask:props'][prop] = True
+
             # if we are asked to remove a property we dont have we must record a tombstone
-            self.layrslab.put(buid + b'\x0b' + penc, s_msgpack.en(edit), db=self.bybuid)
+            self.layrslab.put(buid + b'\x05' + penc, s_msgpack.en(edit), db=self.bybuid)
             # may need to store the form since we're storing info about the node
             self.layrslab.put(buid + b'\x09', form.encode(), db=self.bybuid, overwrite=False)
             return (edit,)
@@ -1808,7 +1813,7 @@ class Layer(s_nexus.Pusher):
         formabrv = self.setPropAbrv(form, None)
 
         # delete a tombstone if present
-        self.layrslab.pop(buid + b'\x0c' + tenc, db=self.bybuid)
+        self.layrslab.pop(buid + b'\x06' + tenc, db=self.bybuid)
 
         oldb = self.layrslab.replace(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
 
@@ -1855,7 +1860,7 @@ class Layer(s_nexus.Pusher):
         oldb = self.layrslab.pop(buid + b'\x02' + tenc, db=self.bybuid)
         if oldb is None:
             # if we are asked to remove a tag we dont have, we must tombstone
-            self.layrslab.put(buid + b'\x0c' + tenc, s_msgpack.en(edit), db=self.bybuid)
+            self.layrslab.put(buid + b'\x06' + tenc, s_msgpack.en(edit), db=self.bybuid)
 
             # may need to store the form since we're storing info about the node
             self.layrslab.put(buid + b'\x09', form.encode(), db=self.bybuid, overwrite=False)
@@ -2198,7 +2203,8 @@ class Layer(s_nexus.Pusher):
             buid = lkey[:32]
             flag = lkey[32]
 
-            if not buid == nodeedits[0]:
+            if buid != nodeedits[0]:
+
                 await asyncio.sleep(0)
 
                 if nodeedits[0] is not None:
@@ -2215,48 +2221,60 @@ class Layer(s_nexus.Pusher):
 
                 nodeedits = [buid, None, []]
 
-            if flag == 0:
+            if flag == 0x00:
                 form, valu, stortype = s_msgpack.un(lval)
                 nodeedits[1] = form
                 nodeedits[2].append((EDIT_NODE_ADD, (valu, stortype), ()))
                 continue
 
-            if flag == 1:
+            if flag == 0x01:
                 name = lkey[33:].decode()
                 valu, stortype = s_msgpack.un(lval)
                 nodeedits[2].append((EDIT_PROP_SET, (name, valu, None, stortype), ()))
                 continue
 
-            if flag == 2:
+            if flag == 0x02:
                 name = lkey[33:].decode()
                 tagv = s_msgpack.un(lval)
                 nodeedits[2].append((EDIT_TAG_SET, (name, tagv, None), ()))
                 continue
 
-            if flag == 3:
+            if flag == 0x03:
                 tag, prop = lkey[33:].decode().split(':')
                 valu, stortype = s_msgpack.un(lval)
                 edit = (EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ())
                 nodeedits[2].append(edit)
                 continue
 
-            if flag == 9:
+            if flag == 0x04:
+                nodeedits[2].append(s_msgpack.un(lval))
+                continue
+
+            if flag == 0x05:
+                nodeedits[2].append(s_msgpack.un(lval))
+                continue
+
+            if flag == 0x06:
+                nodeedits[2].append(s_msgpack.un(lval))
+                continue
+
+            if flag == 0x09:
                 nodeedits[1] = lval.decode()
                 continue
 
-            if flag == 0x0a:
-                nodeedits[2].append(s_msgpack.un(lval))
-                continue
-
-            if flag == 0x0b:
-                nodeedits[2].append(s_msgpack.un(lval))
-                continue
-
-            if flag == 0x0c:
-                nodeedits[2].append(s_msgpack.un(lval))
-                continue
-
             logger.warning(f'unrecognized storage row: {s_common.ehex(buid)}:{flag}')
+
+        if nodeedits[0] is not None:
+
+            async for prop, valu in self.iterNodeData(nodeedits[0]):
+                edit = (EDIT_NODEDATA_SET, (prop, valu, None), ())
+                nodeedits[2].append(edit)
+
+            async for verb, n2iden in self.iterNodeEdgesN1(nodeedits[0]):
+                edit = (EDIT_EDGE_ADD, (verb, n2iden), ())
+                nodeedits[2].append(edit)
+
+            yield tuple(nodeedits)
 
     async def initUpstreamSync(self, url):
         self.schedCoro(self._initUpstreamSync(url))

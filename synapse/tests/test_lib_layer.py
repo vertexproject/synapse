@@ -1030,3 +1030,25 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
             self.len(0, await core.nodes('inet:ipv4', opts=opts))
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=opts))
+
+            # test that merging tombstones works correctly
+            await core.nodes('[ inet:ipv4=5.5.5.5 :asn=99 +#hehe.haha]')
+
+            self.len(1, await core.nodes('inet:ipv4:asn=99'))
+            iden = await core.callStorm('return($lib.view.get().fork().iden)')
+            await core.nodes('inet:ipv4=5.5.5.5 [ -:asn ]', opts={'view': iden})
+            self.len(0, await core.nodes('inet:ipv4:asn=99', opts={'view': iden}))
+            await core.callStorm('return($lib.view.get($iden).merge())', opts={'vars': {'iden': iden}})
+            self.len(0, await core.nodes('inet:ipv4:asn=99'))
+
+            self.len(1, await core.nodes('inet:ipv4#hehe.haha'))
+            iden = await core.callStorm('return($lib.view.get().fork().iden)')
+            await core.nodes('inet:ipv4=5.5.5.5 [ -#hehe.haha ]', opts={'view': iden})
+            await core.callStorm('return($lib.view.get($iden).merge())', opts={'vars': {'iden': iden}})
+            self.len(0, await core.nodes('inet:ipv4#hehe.haha'))
+
+            self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
+            iden = await core.callStorm('return($lib.view.get().fork().iden)')
+            await core.nodes('inet:ipv4=5.5.5.5 | delnode', opts={'view': iden})
+            await core.callStorm('return($lib.view.get($iden).merge())', opts={'vars': {'iden': iden}})
+            self.len(0, await core.nodes('inet:ipv4=5.5.5.5'))
