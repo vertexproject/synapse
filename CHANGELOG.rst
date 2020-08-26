@@ -3,6 +3,28 @@ Synapse Changelog
 *****************
 
 
+v2.7.1 - 2020-08-26
+===================
+
+Features and Enhancements
+-------------------------
+- Refactor an Axon unit test to make it easier to test alternative Axon implementations.
+  (`#1862 <https://github.com/vertexproject/synapse/pull/1862>`_)
+
+Bugfixes
+--------
+- Fix an issue in ``synapse.tools.cmdr`` where it did not ensure that the users Synapse directory was created before
+  trying to open files in the directory.
+  (`#1860 <https://github.com/vertexproject/synapse/issues/1860>`_)
+  (`#1861 <https://github.com/vertexproject/synapse/pull/1861>`_)
+
+Improved Documentation
+----------------------
+- Fix an incorrect statement in our documentation about the intrinsic Axon that a Cortex creates being remotely
+  accessible.
+  (`#1862 <https://github.com/vertexproject/synapse/pull/1862>`_)
+
+
 v2.7.0 - 2020-08-21
 ===================
 
@@ -41,7 +63,6 @@ Bugfixes
 
 Improved Documentation
 ----------------------
-
 - Remove a reference to deprecated ``eval()`` API from quickstart documentation.
   (`#1858 <https://github.com/vertexproject/synapse/pull/1858>`_)
 
