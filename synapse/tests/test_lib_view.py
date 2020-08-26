@@ -10,6 +10,7 @@ class ViewTest(s_t_utils.SynTest):
     async def test_view_fork_merge(self):
 
         async with self.getTestCore() as core:
+            await core.nodes('[ test:int=7 ]')
             await core.nodes('[ test:int=8 +#faz ]')
             await core.nodes('[ test:int=9 test:int=10 ]')
             await core.auth.addUser('visi')
@@ -17,7 +18,7 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(1, await alist(core.eval('test:int=8 +#faz')))
             self.len(2, await alist(core.eval('test:int=9 test:int=10')))
-            self.eq(3, (await core.getFormCounts()).get('test:int'))
+            self.eq(4, (await core.getFormCounts()).get('test:int'))
 
             # Fork the main view
             vdef2 = await core.view.fork()
@@ -33,7 +34,7 @@ class ViewTest(s_t_utils.SynTest):
             # A node added to the parent after the fork is still seen by the child
             nodes = await alist(view2.eval('test:int=11'))
             self.len(1, nodes)
-            self.eq(4, (await core.getFormCounts()).get('test:int'))
+            self.eq(5, (await core.getFormCounts()).get('test:int'))
 
             # A node added to the child is not seen by the parent
             nodes = await alist(view2.eval('[ test:int=12 ]'))
@@ -41,20 +42,7 @@ class ViewTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int=12')
             self.len(0, nodes)
-            self.eq(4, (await core.view.getFormCounts()).get('test:int'))
-
-            # Deleting nodes from the child view should not affect the main
-            await alist(view2.eval('test:int | delnode'))
-
-            self.eq(4, (await core.view.getFormCounts()).get('test:int'))
-            nodes = await alist(view2.eval('test:int=10'))
-            self.len(1, nodes)
-
-            self.eq(4, (await core.getFormCounts()).get('test:int'))
-            await self.agenlen(0, view2.eval('test:int=12'))
-
-            # Until we get tombstoning, the child view can't delete a node in the lower layer
-            await self.agenlen(1, view2.eval('test:int=10'))
+            self.eq(5, (await core.view.getFormCounts()).get('test:int'))
 
             # Add a node back
             await self.agenlen(1, view2.eval('[ test:int=12 ]'))
@@ -88,6 +76,13 @@ class ViewTest(s_t_utils.SynTest):
             await alist(view2.eval('test:int=12 [ +(refs)> {test:int=11} ]'))
             self.len(2, await alist(view2.eval('test:int -(refs)> *')))
             self.len(0, await core.nodes('test:int -(refs)> *'))
+
+            # Deleting nodes from the child view
+            await alist(view2.eval('test:int=7 | delnode'))
+
+            self.eq(5, (await core.view.getFormCounts()).get('test:int'))
+            nodes = await alist(view2.eval('test:int=7'))
+            self.len(0, nodes)
 
             # Forker and forkee have their layer configuration frozen
             tmplayr = await core.addLayer()
@@ -123,13 +118,13 @@ class ViewTest(s_t_utils.SynTest):
                     await prox.eval('test:int=12', opts={'view': view2.iden}).list()
 
             # The parent count is correct
-            self.eq(4, (await core.view.getFormCounts()).get('test:int'))
+            self.eq(5, (await core.view.getFormCounts()).get('test:int'))
 
             # Merge the child back into the parent
             await view2.merge()
 
             # The parent counts includes all the nodes that were merged
-            self.eq(1005, (await core.view.getFormCounts()).get('test:int'))
+            self.eq(1004, (await core.view.getFormCounts()).get('test:int'))
 
             # A node added to the child is now present in the parent
             nodes = await core.nodes('test:int=12')
@@ -159,7 +154,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:int -(refs)> *'))
 
             # The child count includes all the nodes in the view
-            self.eq(1005, (await view2.getFormCounts()).get('test:int'))
+            self.eq(1004, (await view2.getFormCounts()).get('test:int'))
 
             # The child can see nodes that got merged
             nodes = await view2.nodes('test:int=12')

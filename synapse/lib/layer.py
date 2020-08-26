@@ -2245,15 +2245,15 @@ class Layer(s_nexus.Pusher):
                 continue
 
             if flag == 0x0a:
-                nodeedits[2].append((EDIT_NODE_DEL, s_msgpack.un(lval), ()))
+                nodeedits[2].append(s_msgpack.un(lval))
                 continue
 
             if flag == 0x0b:
-                nodeedits[2].append((EDIT_PROP_DEL, s_msgpack.un(lval), ()))
+                nodeedits[2].append(s_msgpack.un(lval))
                 continue
 
             if flag == 0x0c:
-                nodeedits[2].append((EDIT_TAG_DEL, s_msgpack.un(lval), ()))
+                nodeedits[2].append(s_msgpack.un(lval))
                 continue
 
             logger.warning(f'unrecognized storage row: {s_common.ehex(buid)}:{flag}')
