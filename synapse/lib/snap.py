@@ -295,6 +295,32 @@ class Snap(s_base.Base):
             if stordata is not None:
                 nodedata.update(stordata)
 
+            if info.get('mask:form'):
+                ndef = None
+                bylayer['ndef'] = layr
+
+            maskprops = info.get('mask:props')
+            if maskprops is not None:
+                for name in maskprops.keys():
+                    props.pop(name, None)
+                    bylayer['props'][name] = layr
+
+            masktags = info.get('mask:tags')
+            if masktags is not None:
+                for name in masktags.keys():
+
+                    if tags.pop(name, None):
+
+                        pref = f'{name}.'
+                        topop = [n for n in tags.keys() if n.startswith(pref)]
+                        for n in topop:
+                            bylayer['tags'][n] = layr
+                            tags.pop(n, None)
+
+                    bylayer['tags'][name] = layr
+
+            # TODO support tagprop masking
+
         if ndef is None:
             return None
 
@@ -373,10 +399,13 @@ class Snap(s_base.Base):
         # Prop is secondary prop
 
         for layr in self.layers:
+
             genr = layr.liftByProp(formname, prop.name)
             async for node in self._joinStorGenr(layr, genr):
+
                 if node.bylayer['props'].get(prop.name) != layr:
                     continue
+
                 yield node
 
     async def nodesByPropValu(self, full, cmpr, valu):

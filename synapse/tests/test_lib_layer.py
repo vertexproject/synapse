@@ -994,3 +994,39 @@ class LayerTest(s_t_utils.SynTest):
 
             readlayr = core.getLayer(readlayrinfo.get('iden'))
             self.true(readlayr.readonly)
+
+    async def test_layer_mask(self):
+
+        async with self.getTestCore(conf={}) as core:
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=10 +#foo.bar.baz ]')
+            iden = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            # remove a prop in the view...
+            opts = {'view': iden}
+            await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts=opts)
+            self.len(0, await core.nodes('inet:ipv4:asn', opts=opts))
+            self.len(0, await core.nodes('inet:ipv4:asn=10', opts=opts))
+
+            # set the prop in the view ( confirm tombstone removed )
+            await core.nodes('inet:ipv4=1.2.3.4 [ :asn=13 ]', opts=opts)
+            self.len(1, await core.nodes('inet:ipv4:asn', opts=opts))
+            self.len(1, await core.nodes('inet:ipv4:asn=13', opts=opts))
+            self.len(0, await core.nodes('inet:ipv4:asn=10', opts=opts))
+
+            # remove a tag in the view...
+            await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.bar ]', opts=opts)
+            self.len(1, await core.nodes('inet:ipv4#foo', opts=opts))
+            self.len(0, await core.nodes('inet:ipv4#foo.bar', opts=opts))
+            self.len(0, await core.nodes('inet:ipv4#foo.bar.baz', opts=opts))
+
+            # complex case... bottom layer adds a new sub-tag beneath a tombstoned tag
+            await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar.baz.lol ]')
+            self.len(0, await core.nodes('inet:ipv4#foo.bar.baz.lol', opts=opts))
+
+            # remove the node itself...
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=opts)
+            self.len(1, await core.nodes('inet:ipv4'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+            self.len(0, await core.nodes('inet:ipv4', opts=opts))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=opts))
