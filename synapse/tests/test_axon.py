@@ -32,7 +32,6 @@ pennretn = (9, pennhash)
 rgryretn = (11, rgryhash)
 bbufretn = (len(bbuf), bbufhash)
 
-
 class AxonTest(s_t_utils.SynTest):
 
     async def check_blob(self, axon, fhash):
@@ -188,136 +187,139 @@ class AxonTest(s_t_utils.SynTest):
 
         # HTTP handlers on a standalone Axon
         async with self.getTestAxon() as axon:
-            host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+            await self.runAxonTestHttp(axon)
 
-            newb = await axon.auth.addUser('newb')
-            await newb.setPasswd('secret')
+    async def runAxonTestHttp(self, axon):
+        host, port = await axon.addHttpsPort(0, host='127.0.0.1')
 
-            url_ul = f'https://localhost:{port}/api/v1/axon/files/put'
-            url_hs = f'https://localhost:{port}/api/v1/axon/files/has/sha256'
-            url_dl = f'https://localhost:{port}/api/v1/axon/files/by/sha256'
+        newb = await axon.auth.addUser('newb')
+        await newb.setPasswd('secret')
 
-            asdfhash_h = s_common.ehex(asdfhash)
-            bbufhash_h = s_common.ehex(bbufhash)
-            emptyhash_h = s_common.ehex(emptyhash)
+        url_ul = f'https://localhost:{port}/api/v1/axon/files/put'
+        url_hs = f'https://localhost:{port}/api/v1/axon/files/has/sha256'
+        url_dl = f'https://localhost:{port}/api/v1/axon/files/by/sha256'
 
-            # Perms
-            async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
-                async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
-                    self.eq(403, resp.status)
-                    item = await resp.json()
-                    self.eq('err', item.get('status'))
+        asdfhash_h = s_common.ehex(asdfhash)
+        bbufhash_h = s_common.ehex(bbufhash)
+        emptyhash_h = s_common.ehex(emptyhash)
 
-                async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
-                    self.eq(403, resp.status)
-                    item = await resp.json()
-                    self.eq('err', item.get('status'))
+        # Perms
+        async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
+            async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
+                self.eq(403, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
 
-                async with sess.post(url_ul, data=abuf) as resp:
-                    self.eq(403, resp.status)
-                    item = await resp.json()
-                    self.eq('err', item.get('status'))
+            async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
+                self.eq(403, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
 
-                # Stream file
-                byts = io.BytesIO(bbuf)
+            async with sess.post(url_ul, data=abuf) as resp:
+                self.eq(403, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
 
-                with self.raises(a_exc.ServerDisconnectedError):
-                    async with sess.post(url_ul, data=byts) as resp:
-                        pass
+            # Stream file
+            byts = io.BytesIO(bbuf)
 
-            await newb.addRule((True, ('axon', 'get')))
-            await newb.addRule((True, ('axon', 'has')))
-            await newb.addRule((True, ('axon', 'upload')))
-
-            # Basic
-            async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
-                async with sess.get(f'{url_dl}/foobar') as resp:
-                    self.eq(404, resp.status)
-
-                async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
-                    self.eq(404, resp.status)
-                    item = await resp.json()
-                    self.eq('err', item.get('status'))
-
-                async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
-                    self.eq(200, resp.status)
-                    item = await resp.json()
-                    self.eq('ok', item.get('status'))
-                    self.false(item.get('result'))
-
-                async with sess.post(url_ul, data=abuf) as resp:
-                    self.eq(200, resp.status)
-                    item = await resp.json()
-                    self.eq('ok', item.get('status'))
-                    result = item.get('result')
-                    self.eq(set(result.keys()), {'size', 'md5', 'sha1', 'sha256', 'sha512'})
-                    self.eq(result.get('size'), asdfretn[0])
-                    self.eq(result.get('sha256'), asdfhash_h)
-                    self.true(await axon.has(asdfhash))
-
-                async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
-                    self.eq(200, resp.status)
-                    item = await resp.json()
-                    self.eq('ok', item.get('status'))
-                    self.true(item.get('result'))
-
-                async with sess.put(url_ul, data=abuf) as resp:
-                    self.eq(200, resp.status)
-                    item = await resp.json()
-                    self.eq('ok', item.get('status'))
-                    result = item.get('result')
-                    self.eq(result.get('size'), asdfretn[0])
-                    self.eq(result.get('sha256'), asdfhash_h)
-                    self.true(await axon.has(asdfhash))
-
-                async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
-                    self.eq(200, resp.status)
-                    self.eq(abuf, await resp.read())
-
-                # Streaming upload
-                byts = io.BytesIO(bbuf)
-
+            with self.raises(a_exc.ServerDisconnectedError):
                 async with sess.post(url_ul, data=byts) as resp:
-                    self.eq(200, resp.status)
-                    item = await resp.json()
-                    self.eq('ok', item.get('status'))
-                    result = item.get('result')
-                    self.eq(result.get('size'), bbufretn[0])
-                    self.eq(result.get('sha256'), bbufhash_h)
-                    self.true(await axon.has(bbufhash))
+                    pass
 
-                byts = io.BytesIO(bbuf)
+        await newb.addRule((True, ('axon', 'get')))
+        await newb.addRule((True, ('axon', 'has')))
+        await newb.addRule((True, ('axon', 'upload')))
 
-                async with sess.put(url_ul, data=byts) as resp:
-                    self.eq(200, resp.status)
-                    item = await resp.json()
-                    self.eq('ok', item.get('status'))
-                    result = item.get('result')
-                    self.eq(result.get('size'), bbufretn[0])
-                    self.eq(result.get('sha256'), bbufhash_h)
-                    self.true(await axon.has(bbufhash))
+        # Basic
+        async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
+            async with sess.get(f'{url_dl}/foobar') as resp:
+                self.eq(404, resp.status)
 
-                byts = io.BytesIO(b'')
+            async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
+                self.eq(404, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
 
-                async with sess.post(url_ul, data=byts) as resp:
-                    self.eq(200, resp.status)
-                    item = await resp.json()
-                    self.eq('ok', item.get('status'))
-                    result = item.get('result')
-                    self.eq(result.get('size'), emptyretn[0])
-                    self.eq(result.get('sha256'), emptyhash_h)
-                    self.true(await axon.has(emptyhash))
+            async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                self.false(item.get('result'))
 
-                # Streaming download
-                async with sess.get(f'{url_dl}/{bbufhash_h}') as resp:
-                    self.eq(200, resp.status)
+            async with sess.post(url_ul, data=abuf) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                result = item.get('result')
+                self.eq(set(result.keys()), {'size', 'md5', 'sha1', 'sha256', 'sha512'})
+                self.eq(result.get('size'), asdfretn[0])
+                self.eq(result.get('sha256'), asdfhash_h)
+                self.true(await axon.has(asdfhash))
 
-                    byts = []
-                    async for bytz in resp.content.iter_chunked(1024):
-                        byts.append(bytz)
+            async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                self.true(item.get('result'))
 
-                    self.gt(len(byts), 1)
-                    self.eq(bbuf, b''.join(byts))
+            async with sess.put(url_ul, data=abuf) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                result = item.get('result')
+                self.eq(result.get('size'), asdfretn[0])
+                self.eq(result.get('sha256'), asdfhash_h)
+                self.true(await axon.has(asdfhash))
+
+            async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
+                self.eq(200, resp.status)
+                self.eq(abuf, await resp.read())
+
+            # Streaming upload
+            byts = io.BytesIO(bbuf)
+
+            async with sess.post(url_ul, data=byts) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                result = item.get('result')
+                self.eq(result.get('size'), bbufretn[0])
+                self.eq(result.get('sha256'), bbufhash_h)
+                self.true(await axon.has(bbufhash))
+
+            byts = io.BytesIO(bbuf)
+
+            async with sess.put(url_ul, data=byts) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                result = item.get('result')
+                self.eq(result.get('size'), bbufretn[0])
+                self.eq(result.get('sha256'), bbufhash_h)
+                self.true(await axon.has(bbufhash))
+
+            byts = io.BytesIO(b'')
+
+            async with sess.post(url_ul, data=byts) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                result = item.get('result')
+                self.eq(result.get('size'), emptyretn[0])
+                self.eq(result.get('sha256'), emptyhash_h)
+                self.true(await axon.has(emptyhash))
+
+            # Streaming download
+            async with sess.get(f'{url_dl}/{bbufhash_h}') as resp:
+                self.eq(200, resp.status)
+
+                byts = []
+                async for bytz in resp.content.iter_chunked(1024):
+                    byts.append(bytz)
+
+                self.gt(len(byts), 1)
+                self.eq(bbuf, b''.join(byts))
 
     async def test_axon_perms(self):
         async with self.getTestAxon() as axon:
