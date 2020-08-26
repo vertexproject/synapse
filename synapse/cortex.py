@@ -3140,42 +3140,41 @@ class Cortex(s_cell.Cell):  # type: ignore
         cmds = []
         mdefs = []
 
-        async def loadit(ctor, custom=False):
-            conf = None
-
-            # allow module entry to be (ctor, conf) tuple
-            if isinstance(ctor, (list, tuple)):
-                ctor, conf = ctor
-
-            modu = self._loadCoreModule(ctor, conf=conf)
-            if modu is None:
-                return
-
-            mods.append(modu)
-
-            try:
-                await s_coro.ornot(modu.preCoreModule)
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-            except Exception:
-                logger.exception(f'module preCoreModule failed: {ctor}')
-                self.modules.pop(ctor, None)
-                return
-
-            cmds.extend(modu.getStormCmds())
-            model_defs = modu.getModelDefs()
-            if custom:
-                for mdef, mnfo in model_defs:
-                    mnfo['custom'] = True
-            mdefs.extend(model_defs)
-
         for ctor in list(s_modules.coremods):
-            await loadit(ctor)
+            await self._preLoadCoreModule(ctor, mods, cmds, mdefs)
         for ctor in self.conf.get('modules'):
-            await loadit(ctor, custom=True)
+            await self._preLoadCoreModule(ctor, mods, cmds, mdefs, custom=True)
 
         self.model.addDataModels(mdefs)
         [self.addStormCmd(c) for c in cmds]
+
+    async def _preLoadCoreModule(self, ctor, mods, cmds, mdefs, custom=False):
+        conf = None
+        # allow module entry to be (ctor, conf) tuple
+        if isinstance(ctor, (list, tuple)):
+            ctor, conf = ctor
+
+        modu = self._loadCoreModule(ctor, conf=conf)
+        if modu is None:
+            return
+
+        mods.append(modu)
+
+        try:
+            await s_coro.ornot(modu.preCoreModule)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception:
+            logger.exception(f'module preCoreModule failed: {ctor}')
+            self.modules.pop(ctor, None)
+            return
+
+        cmds.extend(modu.getStormCmds())
+        model_defs = modu.getModelDefs()
+        if custom:
+            for mdef, mnfo in model_defs:
+                mnfo['custom'] = True
+        mdefs.extend(model_defs)
 
     async def _initCoreMods(self):
 

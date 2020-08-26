@@ -167,8 +167,6 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
 
-        ('test:deprecated', ('pol:iso2', {}), {}),
-
         ('test:arrayprop', ('guid', {}), {}),
 
         ('test:comp', ('comp', {'fields': (
