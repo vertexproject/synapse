@@ -119,7 +119,7 @@ class Prop:
         if self.info.get('deprecated') or self.type.deprecated:
             async def depfunc(node, oldv):
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
-                await node.snap.warn(mesg)
+                await node.snap.warnonce(mesg)
             self.onSet(depfunc)
 
     def __repr__(self):
@@ -256,7 +256,7 @@ class Form:
         if self.info.get('deprecated'):
             async def depfunc(node):
                 mesg = f'The form {self.full} is deprecated and will be removed in 3.0.0'
-                await node.snap.warn(mesg)
+                await node.snap.warnonce(mesg)
             self.onAdd(depfunc)
 
     def getStorNode(self, form):
