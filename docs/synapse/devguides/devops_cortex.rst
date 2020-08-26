@@ -68,11 +68,11 @@ in near real-time provided it can maintain the network link.
 Configuring A Remote Axon
 -------------------------
 
-By default a Cortex will initialize a local :ref:`gloss-axon` for general object / blob storage, which will also
-be shared as ``axon`` on the same Telepath URL as the Cortex.
+By default a Cortex will initialize a local :ref:`gloss-axon` for general object / blob storage. This allows certain
+Cortex functionality to work without additional configuration. The local Axon is not exposed in a remote fashion.
 
-However, an Axon can instead be deployed as a remote server (see :ref:`devops-axon`) and configured in the Cortex by
-specifying the Axon's Telepath URL in the ``axon`` configuration parameter (see :ref:`autodoc-cortex-conf`).
+An Axon can instead be deployed as a remote server (see :ref:`devops-axon`) and the Cortex can be configured to be aware
+of it, by specifying the Axon's Telepath URL in the ``axon`` configuration parameter (see :ref:`autodoc-cortex-conf`).
 
 For example, if the remote Axon is listening on port ``27592``, and has a service user ``core00``, then the
 Cortex ``cell.yaml`` file could have the following configuration::
