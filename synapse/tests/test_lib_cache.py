@@ -31,6 +31,18 @@ class CacheTest(s_t_utils.SynTest):
         self.nn(cache.cache.get('BAR'))
         self.nn(cache.cache.get('BAZ'))
 
+        self.eq('bar', cache.pop('BAR'))
+        self.eq('baz', cache.pop('BAZ'))
+
+        self.len(0, cache.fifo)
+        self.len(0, cache.cache)
+
+        self.eq('foo', cache.get('FOO'))
+        self.eq('bar', cache.get('BAR'))
+
+        self.len(2, cache.fifo)
+        self.len(2, cache.cache)
+
         cache.clear()
 
         self.len(0, cache.fifo)

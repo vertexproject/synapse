@@ -27,6 +27,8 @@ class FixedCache:
         return len(self.cache)
 
     def pop(self, key):
+        if key in self.fifo:
+            self.fifo.remove(key)
         return self.cache.pop(key, None)
 
     def put(self, key, val):
