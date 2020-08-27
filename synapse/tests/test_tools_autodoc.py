@@ -90,7 +90,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('StormvarServiceCell Storm Service', s)
             self.isin('This documentation is generated for version 0.0.1 of the service.', s)
             self.isin('Storm Package\\: stormvar', s)
-            self.isin('.. _stormcmd-stormvar-magic')
+            self.isin('.. _stormcmd-stormvar-magic:\n', s)
             self.isin('magic\n-----', s)
             self.isin('Test stormvar support', s)
             self.isin('forms as input nodes', s)
