@@ -74,7 +74,7 @@ class Type:
         if self.opts.get('deprecated'):
             self.deprecated = True
             if self.info.get('custom'):
-                mesg = f'The type {self.name} is based on a deprecated type [{self.subof}] which which will' \
+                mesg = f'The type {self.name} is based on a deprecated type which which will' \
                        f' be removed in 3.0.0'
                 logger.warning(mesg)
 

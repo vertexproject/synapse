@@ -1,8 +1,33 @@
 import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
-import synapse.lib.msgpack as s_msgpack
+import synapse.lib.module as s_module
+
+import synapse.lib.modules as s_modules
+import synapse.lib.types as s_types
 
 import synapse.tests.utils as s_t_utils
+
+depmodel = {
+    'types': (
+        ('test:dep:easy', ('test:str', {'deprecated': True}), {}),
+        ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
+        ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {})
+    ),
+    'forms': (
+        ('test:dep:easy', {'deprecated': True}, (
+            ('guid', ('test:guid', {'deprecated': True}), {}),
+            ('array', ('test:dep:array', {}), {}),
+            ('comp', ('test:dep:comp', {}), {}),
+        )),
+    )
+}
+
+class DeprecatedModel(s_module.CoreModule):
+
+    def getModelDefs(self):
+        return (
+            ('test:dep', depmodel),
+        )
 
 class DataModelTest(s_t_utils.SynTest):
 
@@ -97,3 +122,26 @@ class DataModelTest(s_t_utils.SynTest):
 
             refs = core.model.form('test:comp').getRefsOut()
             self.len(1, refs['prop'])
+
+    import contextlib
+
+    async def test_model_deprecation(self):
+        mods = ['synapse.tests.utils.TestModule',
+                'synapse.tests.test_datamodel.DeprecatedModel',
+                ]
+        conf = {'modules': mods}
+        import synapse.cortex as s_cortex
+        with self.getTestDir() as dirn:
+            async with await s_cortex.Cortex.anit(dirn, conf) as core:
+
+                # msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
+                # for m in msgs:
+                #     print(m)
+
+                msgs = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
+                for m in msgs:
+                    print(m)
+                #
+                # msgs = await core.stormlist('[test:dep:easy=test3 :array=(one, two)] [:array+=three]')
+                # for m in msgs:
+                #     print(m)
