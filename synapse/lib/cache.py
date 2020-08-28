@@ -27,7 +27,12 @@ class FixedCache:
         return len(self.cache)
 
     def pop(self, key):
-        return self.cache.pop(key, None)
+        val = self.cache.pop(key, s_common.novalu)
+        if val is s_common.novalu:
+            return None
+
+        self.fifo.remove(key)
+        return val
 
     def put(self, key, val):
 

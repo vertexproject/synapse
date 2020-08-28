@@ -1,6 +1,8 @@
 import csv
+from unittest import mock
 
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.tests.utils as s_t_utils
 
@@ -38,6 +40,9 @@ test:int $lib.csv.emit($node, $node.props.loc) | count
 
 class CsvToolTest(s_t_utils.SynTest):
 
+    def _getOldSynVers(self):
+        return (0, 0, 0)
+
     async def test_csvtool(self):
 
         async with self.getTestCore() as core:
@@ -62,6 +67,11 @@ class CsvToolTest(s_t_utils.SynTest):
             await s_csvtool.main(argv, outp=outp)
             outp.expect('oh hai')
             outp.expect('2 nodes')
+
+            with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
+                outp = self.getTestOutp()
+                await s_csvtool.main(argv, outp=outp)
+                outp.expect('Cortex version 0.0.0 is outside of the csvtool supported range')
 
     async def test_csvtool_missingvals(self):
 
@@ -177,3 +187,8 @@ class CsvToolTest(s_t_utils.SynTest):
             with open(csvpath, 'r') as fd:
                 rows = [row for row in csv.reader(fd)]
                 self.eq(rows, (['20', 'us'], ['30', 'cn'], ['40', '']))
+
+            with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
+                outp = self.getTestOutp()
+                await s_csvtool.main(argv, outp=outp)
+                outp.expect(f'Cortex version 0.0.0 is outside of the csvtool supported range')
