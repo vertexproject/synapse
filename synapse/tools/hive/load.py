@@ -54,5 +54,7 @@ async def main(argv, outp=s_output.stdout):
                 f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
             return 1
 
+    return 0
+
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))
