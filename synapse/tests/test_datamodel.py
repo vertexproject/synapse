@@ -126,8 +126,6 @@ class DataModelTest(s_t_utils.SynTest):
             refs = core.model.form('test:comp').getRefsOut()
             self.len(1, refs['prop'])
 
-    import contextlib
-
     async def test_model_deprecation(self):
         # Note: Inverting these currently causes model loading to fail (20200831)
         mods = ['synapse.tests.utils.TestModule',
