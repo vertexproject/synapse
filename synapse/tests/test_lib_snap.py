@@ -54,7 +54,7 @@ class SnapTest(s_t_utils.SynTest):
                 await snap.warn('warn2', False)
                 self.len(2, events)
                 self.eq(events[0], ('warn', {'mesg': 'warn', 'key': 'valu'}))
-                self.eq(events[0], ('warn', {'mesg': 'warn2'}))
+                self.eq(events[1], ('warn', {'mesg': 'warn2'}))
 
     async def test_snap_feed_genr(self):
 

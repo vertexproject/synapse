@@ -73,10 +73,6 @@ class Type:
         self.deprecated = False
         if self.opts.get('deprecated'):
             self.deprecated = True
-            # if self.info.get('custom'):
-            #     mesg = f'The type {self.name} is a deprecated type which which will' \
-            #            f' be removed in 3.0.0'
-            #     logger.warning(mesg)
 
         self.postTypeInit()
 
