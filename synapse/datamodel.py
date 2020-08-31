@@ -624,6 +624,7 @@ class Model:
         # Load all the universal properties
         for _, mdef in mods:
             for univname, typedef, univinfo in mdef.get('univs', ()):
+                # univinfo['custom'] = custom
                 self.addUnivProp(univname, typedef, univinfo)
 
         # Load all the tagprops
@@ -643,6 +644,12 @@ class Model:
             raise s_exc.NoSuchType(name=basename)
 
         newtype = base.extend(typename, typeopts, typeinfo)
+
+        if newtype.deprecated and typeinfo.get('custom'):
+            mesg = f'ADDTYPE The type[{typename}] {newtype.name} is a deprecated type which which will' \
+                   f' be removed in 3.0.0'
+            logger.warning(mesg)
+
         self.types[typename] = newtype
         self._modeldef['types'].append(newtype.getTypeDef())
 

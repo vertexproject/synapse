@@ -19,6 +19,10 @@ depmodel = {
             ('array', ('test:dep:array', {}), {}),
             ('comp', ('test:dep:comp', {}), {}),
         )),
+    ),
+    'univs': (
+        ('udep', ('test:dep:easy', {}), {}),
+        ('pdep', ('test:str', {}), {'deprecated': True})
     )
 }
 
@@ -134,6 +138,7 @@ class DataModelTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             async with await s_cortex.Cortex.anit(dirn, conf) as core:
 
+                print(core)
                 # msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
                 # for m in msgs:
                 #     print(m)
@@ -141,7 +146,11 @@ class DataModelTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
                 for m in msgs:
                     print(m)
-                #
-                # msgs = await core.stormlist('[test:dep:easy=test3 :array=(one, two)] [:array+=three]')
-                # for m in msgs:
-                #     print(m)
+
+                msgs = await core.stormlist('[test:dep:easy=test3 :array=(one, two)] [:array+=three]')
+                for m in msgs:
+                    print(m)
+
+                msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
+                for m in msgs:
+                    print(m)
