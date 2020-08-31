@@ -14,7 +14,7 @@ class PolModule(s_module.CoreModule):
                     ),
 
                     ('pol:iso2',
-                        ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$', 'deprecated': True}),
+                        ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}),
                         {'doc': 'The 2 digit ISO country code.', 'ex': 'us'}
                     ),
 
