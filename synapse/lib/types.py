@@ -468,7 +468,7 @@ class Comp(Type):
         # calc and save field offsets...
         self.fieldoffs = {n: i for (i, (n, t)) in enumerate(fields)}
 
-        self.tcache = FieldHelper(self.modl, fields)
+        self.tcache = FieldHelper(self.modl, self.name, fields)
 
     def _normPyTuple(self, valu):
 
@@ -518,9 +518,10 @@ class FieldHelper(collections.defaultdict):
     '''
     Helper for Comp types. Performs Type lookup/creation upon first use.
     '''
-    def __init__(self, modl, fields):
+    def __init__(self, modl, tname, fields):
         collections.defaultdict.__init__(self)
         self.modl = modl
+        self.tname = tname
         self.fields = {name: tname for name, tname in fields}
 
     def __missing__(self, key):
@@ -538,6 +539,10 @@ class FieldHelper(collections.defaultdict):
             if not basetype:
                 raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
             _type = basetype.clone(opts)
+        if _type.deprecated:
+            mesg = f'The type {self.tname} field {key} uses a deprecated ' \
+                   f'type {_type.name} which will removed in 3.0.0'
+            logger.warning(mesg)
         self.setdefault(key, _type)
         return _type
 

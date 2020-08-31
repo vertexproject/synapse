@@ -135,22 +135,27 @@ class DataModelTest(s_t_utils.SynTest):
                 ]
         conf = {'modules': mods}
         import synapse.cortex as s_cortex
-        with self.getTestDir() as dirn:
-            async with await s_cortex.Cortex.anit(dirn, conf) as core:
+
+        at_mesg = 'Array type test:dep:array is based on a deprecated type test:dep:easy'
+
+        with self.getAsyncLoggerStream('synaspe.lib.types', at_mesg) as tstream,
+            with self.getTestDir() as dirn:
+                core = await s_cortex.Cortex.anit(dirn, conf)
 
                 print(core)
-                # msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
-                # for m in msgs:
-                #     print(m)
+                print('8' * 120)
+                msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
+                self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
+                self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
 
-                msgs = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
-                for m in msgs:
-                    print(m)
-
-                msgs = await core.stormlist('[test:dep:easy=test3 :array=(one, two)] [:array+=three]')
-                for m in msgs:
-                    print(m)
+                print('8' * 120)
+                # Comp type warning is logged by the server, not sent back to users
+                mesg = 'type test:dep:comp field str uses a deprecated type test:dep:easy'
+                with self.getAsyncLoggerStream('synapse.lib.types', mesg) as cstream:
+                    _ = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
+                    self.true(cstream.wait(6))
 
                 msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
-                for m in msgs:
-                    print(m)
+                self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
+
+                await core.fini()
