@@ -1533,5 +1533,11 @@ class AstTest(s_test.SynTest):
                 await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts={'readonly': True})
 
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 | limit 10', opts={'readonly': True}))
+            with self.raises(s_exc.IsReadOnly):
+                self.len(1, await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts={'readonly': True}))
 
+            iden = await core.callStorm('return($lib.view.get().iden)')
             await core.nodes('view.list', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes(f'view.fork {iden}', opts={'readonly': True})
