@@ -1541,3 +1541,6 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes(f'view.fork {iden}', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes(f'vertex.link', opts={'readonly': True, 'mode': 'autoadd'})

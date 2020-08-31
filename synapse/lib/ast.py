@@ -189,6 +189,10 @@ class Lookup(Query):
 
     async def run(self, runt, genr):
 
+        if runt.readonly and self.autoadd:
+            mesg = 'Autoadd may not be executed in readonly Storm runtime.'
+            raise s_exc.IsReadOnly(mesg=mesg)
+
         async def lookgenr():
 
             async for item in genr:
