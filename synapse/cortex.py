@@ -1706,7 +1706,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = 'ext prop must begin with "_"'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
-        self.model.addFormProp(form, prop, tdef, info)
+        _prop = self.model.addFormProp(form, prop, tdef, info)
+        if _prop.type.deprecated:
+            mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
+                   f' be removed in 3.0.0'
+            logger.warning(mesg)
         await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='add', type='formprop')

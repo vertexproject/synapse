@@ -156,11 +156,27 @@ class DataModelTest(s_t_utils.SynTest):
 
             # Comp type warning is logged by the server, not sent back to users
             mesg = 'type test:dep:comp field str uses a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.lib.types', mesg) as cstream:
+            with self.getAsyncLoggerStream('synapse.lib.types', mesg) as tstream:
                 _ = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
-                self.true(cstream.wait(6))
+                self.true(await tstream.wait(6))
 
             msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
             self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
+
+            # Extended props, custom universals and tagprops can all trigger deprecation notices
+            mesg = 'tag property depr is using a deprecated type test:dep:easy'
+            with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
+                await core.addTagProp('depr', ('test:dep:easy', {}), {})
+                self.true(await dstream.wait(6))
+
+            mesg = 'universal property ._test is using a deprecated type test:dep:easy'
+            with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
+                await core.addUnivProp('_test', ('test:dep:easy', {}), {})
+                self.true(await dstream.wait(6))
+
+            mesg = 'extended property test:str:_depr is using a deprecated type test:dep:easy'
+            with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
+                await core.addFormProp('test:str', '_depr', ('test:dep:easy', {}), {})
+                self.true(await cstream.wait(6))
 
             await core.fini()
