@@ -28,6 +28,34 @@ class SnapTest(s_t_utils.SynTest):
 
                 self.len(3, await alist(snap.storm('test:str')))
 
+    async def test_snap_fires(self):
+        events = []
+        async with self.getTestCore() as core:
+
+            async with await core.snap() as snap:
+                def on(evnt):
+                    events.append(evnt)
+                snap.on('print', on)
+                await snap.printf('beep')
+                await snap.printf('boop')
+                self.len(2, events)
+                self.eq(['beep', 'boop'],
+                        [m[1].get('mesg') for m in events])
+
+                events.clear()
+                snap.on('warn', on)
+                await snap.warnonce('warnonce', False, key='valu')
+                await snap.warnonce('warnonce', False, key='valu')
+                self.len(1, events)
+                self.eq(events[0], ('warn', {'mesg': 'warnonce', 'key': 'valu'}))
+
+                events.clear()
+                await snap.warn('warn', False, key='valu')
+                await snap.warn('warn2', False)
+                self.len(2, events)
+                self.eq(events[0], ('warn', {'mesg': 'warn', 'key': 'valu'}))
+                self.eq(events[0], ('warn', {'mesg': 'warn2'}))
+
     async def test_snap_feed_genr(self):
 
         async def testGenrFunc(snap, items):
