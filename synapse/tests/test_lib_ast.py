@@ -1521,3 +1521,17 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('media:news | graph --no-edges')
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(0, nodes[0][1]['path']['edges'])
+
+    async def test_ast_storm_readonly(self):
+
+        async with self.getTestCore() as core:
+
+            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 ]'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4', opts={'readonly': True}))
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts={'readonly': True})
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 | limit 10', opts={'readonly': True}))
+
+            await core.nodes('view.list', opts={'readonly': True})

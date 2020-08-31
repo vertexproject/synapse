@@ -679,6 +679,9 @@ class Path:
         self.model = runt.model
         self.nodes = nodes
 
+        # streamline perf for readonly checks
+        self.readonly = runt.readonly
+
         self.traces = []
 
         if len(nodes):

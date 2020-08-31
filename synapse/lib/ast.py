@@ -31,7 +31,6 @@ class AstNode:
     '''
     Base class for all nodes in the STORM abstract syntax tree.
     '''
-
     def __init__(self, kids=()):
         self.kids = []
         [self.addKid(k) for k in kids]
@@ -692,6 +691,9 @@ class CmdOper(Oper):
         runtsafe = self.kids[1].isRuntSafe(runt)
 
         scmd = ctor(runt, runtsafe)
+
+        if runt.readonly and not scmd.isReadOnly():
+            raise s_exc.IsReadOnly()
 
         with s_provenance.claim('stormcmd', name=name):
 
@@ -2501,17 +2503,31 @@ class VarDeref(RunValue):
 class FuncCall(RunValue):
 
     async def compute(self, path):
+
         func = await self.kids[0].compute(path)
+
+        if path.readonly and not getattr(func, '_storm_readonly', False):
+            mesg = f'Funciton ({func.__name__}) is not marked readonly safe.'
+            raise s_exc.IsReadOnly(mesg=mesg)
+
         argv = await self.kids[1].compute(path)
         kwlist = await self.kids[2].compute(path)
         kwargs = dict(kwlist)
+
         return await s_coro.ornot(func, *argv, **kwargs)
 
     async def runtval(self, runt):
+
         func = await self.kids[0].runtval(runt)
+
+        if runt.readonly and not getattr(func, '_storm_readonly', False):
+            mesg = f'Funciton ({func.__name__}) is not marked readonly safe.'
+            raise s_exc.IsReadOnly(mesg=mesg)
+
         argv = await self.kids[1].runtval(runt)
         kwlist = await self.kids[2].compute(runt)
         kwargs = dict(kwlist)
+
         return await s_coro.ornot(func, *argv, **kwargs)
 
 class DollarExpr(RunValue, Cond):
@@ -2713,6 +2729,9 @@ class EditParens(Edit):
 
     async def run(self, runt, genr):
 
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
+
         nodeadd = self.kids[0]
         assert isinstance(nodeadd, EditNodeAdd)
 
@@ -2805,6 +2824,9 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
+
         runtsafe = self.isruntsafe(runt)
 
         async def feedfunc():
@@ -2852,6 +2874,9 @@ class EditNodeAdd(Edit):
 class EditPropSet(Edit):
 
     async def run(self, runt, genr):
+
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
 
         oper = self.kids[1].value()
         excignore = (s_exc.BadTypeValu,) if oper in ('?=', '?+=', '?-=') else ()
@@ -2917,6 +2942,9 @@ class EditPropDel(Edit):
 
     async def run(self, runt, genr):
 
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
+
         async for node, path in genr:
             name = await self.kids[0].compute(path)
 
@@ -2935,6 +2963,9 @@ class EditPropDel(Edit):
 class EditUnivDel(Edit):
 
     async def run(self, runt, genr):
+
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
 
         univprop = self.kids[0]
         assert isinstance(univprop, UnivProp)
@@ -3041,6 +3072,9 @@ class EditEdgeAdd(Edit):
 
     async def run(self, runt, genr):
 
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
+
         # SubQuery -> Query
         query = self.kids[1].kids[0]
 
@@ -3067,6 +3101,7 @@ class EditEdgeAdd(Edit):
 
             opts = {
                 'vars': varz,
+                'readonly': runt.readonly,
             }
 
             with runt.snap.getStormRuntime(opts=opts, user=runt.user) as runt:
@@ -3086,6 +3121,10 @@ class EditEdgeDel(Edit):
         self.n2 = n2
 
     async def run(self, runt, genr):
+
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
+
         query = self.kids[1].kids[0]
 
         hits = set()
@@ -3126,6 +3165,10 @@ class EditEdgeDel(Edit):
 class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
+
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
+
         if len(self.kids) > 1 and isinstance(self.kids[0], Const) and self.kids[0].value() == '?':
             oper_offset = 1
         else:
@@ -3164,6 +3207,9 @@ class EditTagDel(Edit):
 
     async def run(self, runt, genr):
 
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
+
         async for node, path in genr:
 
             name = await self.kids[0].compute(path)
@@ -3182,6 +3228,9 @@ class EditTagPropSet(Edit):
     [ #foo.bar:baz=10 ]
     '''
     async def run(self, runt, genr):
+
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
 
         oper = self.kids[1].value()
         excignore = s_exc.BadTypeValu if oper == '?=' else ()
@@ -3214,6 +3263,9 @@ class EditTagPropDel(Edit):
     [ -#foo.bar:baz ]
     '''
     async def run(self, runt, genr):
+
+        if runt.readonly:
+            raise s_exc.IsReadOnly()
 
         async for node, path in genr:
 

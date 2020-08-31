@@ -1069,6 +1069,7 @@ class Runtime:
         self.snap = snap
         self.user = user
 
+        self.readonly = opts.get('readonly', False) # EXPERIMENTAL: Make it safe to run untrusted queries
         self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
@@ -1236,6 +1237,10 @@ class Runtime:
         variable values and functions.
         '''
         runt = Runtime(self.snap, user=self.user, opts=opts)
+
+        # inherit readonly status downward
+        runt.readonly = self.readonly
+
         # imported implies module level
         runt.isModuleRunt = impd
         if not impd:  # respect the import boundary
@@ -1625,6 +1630,7 @@ class Cmd:
     name = 'cmd'
     pkgname = ''
     svciden = ''
+    readonly = False
     forms = {}  # type: ignore
 
     def __init__(self, runt, runtsafe):
@@ -1637,6 +1643,9 @@ class Cmd:
 
         self.pars = self.getArgParser()
         self.pars.printf = runt.snap.printf
+
+    def isReadOnly(self):
+        return self.readonly
 
     @classmethod
     def getCmdBrief(cls):
@@ -1712,6 +1721,11 @@ class Cmd:
 
 class PureCmd(Cmd):
 
+    # pure commands are all "readonly" safe because their perms are enforced
+    # by the underlying runtime executing storm operations that are readonly
+    # or not
+    readonly = True
+
     def __init__(self, cdef, runt, runtsafe):
         self.cdef = cdef
         Cmd.__init__(self, runt, runtsafe)
@@ -1740,6 +1754,8 @@ class PureCmd(Cmd):
             }
         }
         with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+
+            subr.readonly = runt.readonly
 
             if self.opts is not None:
                 subr.setVar('cmdopts', vars(self.opts))
@@ -1838,6 +1854,7 @@ class LimitCmd(Cmd):
     '''
 
     name = 'limit'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -1869,6 +1886,7 @@ class UniqCmd(Cmd):
     '''
 
     name = 'uniq'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -1901,6 +1919,7 @@ class MaxCmd(Cmd):
     '''
 
     name = 'max'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -1947,6 +1966,7 @@ class MinCmd(Cmd):
         file:bytes +#foo.bar | min .seen
     '''
     name = 'min'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -2176,6 +2196,7 @@ class SpinCmd(Cmd):
 
     '''
     name = 'spin'
+    readonly = True
 
     async def execStormCmd(self, runt, genr):
 
@@ -2196,6 +2217,7 @@ class CountCmd(Cmd):
 
     '''
     name = 'count'
+    readonly = True
 
     async def execStormCmd(self, runt, genr):
 
@@ -2216,6 +2238,7 @@ class IdenCmd(Cmd):
         iden b25bc9eec7e159dce879f9ec85fb791f83b505ac55b346fcb64c3c51e98d1175 | count
     '''
     name = 'iden'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -2254,6 +2277,7 @@ class SleepCmd(Cmd):
 
     '''
     name = 'sleep'
+    readonly = True
 
     async def execStormCmd(self, runt, genr):
         async for item in genr:
@@ -2377,6 +2401,7 @@ class TeeCmd(Cmd):
 
     '''
     name = 'tee'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -2425,6 +2450,7 @@ class TreeCmd(Cmd):
         inet:fqdn=www.vertex.link | tree { :domain -> inet:fqdn }
     '''
     name = 'tree'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -2562,6 +2588,7 @@ class SpliceListCmd(Cmd):
     '''
 
     name = 'splice.list'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
