@@ -1,17 +1,13 @@
-
 import io
 import json
 
 import msgpack
 
-from unittest.mock import Mock
-
+import unittest.mock as mock
 
 import synapse.lib.msgpack as s_msgpack
-
-import synapse.tools.cryo.cat as s_cryocat
-
 import synapse.tests.utils as s_t_utils
+import synapse.tools.cryo.cat as s_cryocat
 
 class CryoCatTest(s_t_utils.SynTest):
 
@@ -45,7 +41,7 @@ class CryoCatTest(s_t_utils.SynTest):
             argv = ['--ingest', '--msgpack', cryourl]
             to_ingest1 = s_msgpack.en({'foo': 'bar'})
             to_ingest2 = s_msgpack.en(['lol', 'brb'])
-            inp = Mock()
+            inp = mock.Mock()
             inp.buffer = io.BytesIO(to_ingest1 + to_ingest2)
             with self.redirectStdin(inp):
                 retn, outp = await self.execToolMain(s_cryocat.main, argv)
@@ -56,7 +52,7 @@ class CryoCatTest(s_t_utils.SynTest):
             good_encoding = s_msgpack.en({'foo': 'bar'})
             bad_encoding = bytearray(good_encoding)
             bad_encoding[2] = 0xff
-            inp = Mock()
+            inp = mock.Mock()
             inp.buffer = io.BytesIO(bad_encoding)
             with self.redirectStdin(inp):
                 with self.raises(msgpack.UnpackValueError):
@@ -85,8 +81,26 @@ class CryoCatTest(s_t_utils.SynTest):
             self.eq(0, retn)
             self.true(outp.expect("(0, (None, {'key': 0}))"))
             self.true(outp.expect("(9, (None, {'key': 9}))"))
+            self.true(outp.expect("(19, (None, {'key': 19}))"))
 
             argv = ['--offset', '10', '--size', '20', cryourl]
             retn, outp = await self.execToolMain(s_cryocat.main, argv)
             self.eq(0, retn)
             self.false(outp.expect("(9, (None, {'key': 9}))", throw=False))
+
+            stdout = mock.Mock()
+            stdout.buffer = io.BytesIO()
+
+            with mock.patch('sys.stdout', stdout):
+                with self.getLoggerStream('synapse.tools.cryo.cat') as stream:
+                    argv = ['--verbose', '--msgpack', '--size', '20', cryourl]
+                    retn, _ = await self.execToolMain(s_cryocat.main, argv)
+                    self.eq(0, retn)
+
+                stream.seek(0)
+                mesgs = stream.read()
+                self.isin(f'connecting to: {cryourl}', mesgs)
+
+            stdout.buffer.seek(0)
+            outdata = list(msgpack.Unpacker(stdout.buffer, raw=False, use_list=False))
+            self.eq(items, outdata)
