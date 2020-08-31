@@ -646,8 +646,8 @@ class Model:
         newtype = base.extend(typename, typeopts, typeinfo)
 
         if newtype.deprecated and typeinfo.get('custom'):
-            mesg = f'ADDTYPE The type[{typename}] {newtype.name} is a deprecated type which which will' \
-                   f' be removed in 3.0.0'
+            mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
+                   f'which which will be removed in 3.0.0.'
             logger.warning(mesg)
 
         self.types[typename] = newtype

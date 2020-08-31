@@ -2,8 +2,7 @@ import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 import synapse.lib.module as s_module
 
-import synapse.lib.modules as s_modules
-import synapse.lib.types as s_types
+import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_t_utils
 
@@ -130,32 +129,38 @@ class DataModelTest(s_t_utils.SynTest):
     import contextlib
 
     async def test_model_deprecation(self):
+        # Note: Inverting these currently causes model loading to fail (20200831)
         mods = ['synapse.tests.utils.TestModule',
                 'synapse.tests.test_datamodel.DeprecatedModel',
                 ]
         conf = {'modules': mods}
-        import synapse.cortex as s_cortex
 
-        at_mesg = 'Array type test:dep:array is based on a deprecated type test:dep:easy'
+        with self.getTestDir() as dirn:
 
-        with self.getAsyncLoggerStream('synaspe.lib.types', at_mesg) as tstream,
-            with self.getTestDir() as dirn:
+            with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
+                    self.getAsyncLoggerStream('synapse.datamodel') as dstream:
                 core = await s_cortex.Cortex.anit(dirn, conf)
 
-                print(core)
-                print('8' * 120)
-                msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
-                self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
-                self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
+            dstream.seek(0)
+            ds = dstream.read()
+            self.isin('universal property .udep is using a deprecated type', ds)
+            self.isin('type test:dep:easy is based on a deprecated type test:dep:easy', ds)
+            tstream.seek(0)
+            ts = tstream.read()
+            self.isin('Array type test:dep:array is based on a deprecated type test:dep:easy', ts)
 
-                print('8' * 120)
-                # Comp type warning is logged by the server, not sent back to users
-                mesg = 'type test:dep:comp field str uses a deprecated type test:dep:easy'
-                with self.getAsyncLoggerStream('synapse.lib.types', mesg) as cstream:
-                    _ = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
-                    self.true(cstream.wait(6))
+            # Using deprecated forms and props is warned to the user
+            msgs = await core.stormlist('[test:dep:easy=test1 :guid=(t1,)] [:guid=(t2,)]')
+            self.stormIsInWarn('The form test:dep:easy is deprecated', msgs)
+            self.stormIsInWarn('The property test:dep:easy:guid is deprecated or using a deprecated type', msgs)
 
-                msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
-                self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
+            # Comp type warning is logged by the server, not sent back to users
+            mesg = 'type test:dep:comp field str uses a deprecated type test:dep:easy'
+            with self.getAsyncLoggerStream('synapse.lib.types', mesg) as cstream:
+                _ = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
+                self.true(cstream.wait(6))
 
-                await core.fini()
+            msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
+            self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
+
+            await core.fini()
