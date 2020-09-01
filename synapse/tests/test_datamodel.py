@@ -1,5 +1,6 @@
 import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
+
 import synapse.lib.module as s_module
 
 import synapse.cortex as s_cortex
@@ -7,6 +8,9 @@ import synapse.cortex as s_cortex
 import synapse.tests.utils as s_t_utils
 
 depmodel = {
+    'ctors': (
+        ('test:dep:str', 'synapse.lib.types.Str', {'deprecated': True, 'strip': True}, {}),
+    ),
     'types': (
         ('test:dep:easy', ('test:str', {'deprecated': True}), {}),
         ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
@@ -17,6 +21,9 @@ depmodel = {
             ('guid', ('test:guid', {'deprecated': True}), {}),
             ('array', ('test:dep:array', {}), {}),
             ('comp', ('test:dep:comp', {}), {}),
+        )),
+        ('test:dep:str', {}, (
+            ('beep', ('test:dep:str', {}), {}),
         )),
     ),
     'univs': (
@@ -176,6 +183,11 @@ class DataModelTest(s_t_utils.SynTest):
             with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
                 await core.addFormProp('test:str', '_depr', ('test:dep:easy', {}), {})
                 self.true(await cstream.wait(6))
+
+            # Deprecated ctor information propagates upward to types and forms
+            msgs = await core.stormlist('[test:dep:str=" test" :beep=" boop "]')
+            self.stormIsInWarn('form test:dep:str is deprecated or using a deprecated type', msgs)
+            self.stormIsInWarn('property test:dep:str:beep is deprecated or using a deprecated type', msgs)
 
             await core.fini()
 

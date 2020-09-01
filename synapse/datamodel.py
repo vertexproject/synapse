@@ -253,9 +253,9 @@ class Form:
         self.props = {}     # name: Prop()
         self.refsout = None
 
-        if self.info.get('deprecated'):
+        if self.info.get('deprecated') or self.type.deprecated:
             async def depfunc(node):
-                mesg = f'The form {self.full} is deprecated and will be removed in 3.0.0'
+                mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
                 await node.snap.warnonce(mesg)
             self.onAdd(depfunc)
 
@@ -607,7 +607,6 @@ class Model:
 
         # load all the base type ctors in order...
         for _, mdef in mods:
-            custom = mdef.get('custom', False)
 
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
@@ -624,7 +623,7 @@ class Model:
         # Load all the universal properties
         for _, mdef in mods:
             for univname, typedef, univinfo in mdef.get('univs', ()):
-                # univinfo['custom'] = custom
+                univinfo['custom'] = custom
                 self.addUnivProp(univname, typedef, univinfo)
 
         # Load all the tagprops
