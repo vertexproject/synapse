@@ -27,16 +27,20 @@ class FixedCache:
         return len(self.cache)
 
     def pop(self, key):
-        return self.cache.pop(key, None)
+        val = self.cache.pop(key, s_common.novalu)
+        if val is s_common.novalu:
+            return None
+
+        self.fifo.remove(key)
+        return val
 
     def put(self, key, val):
+        while len(self.fifo) > self.size - 1:
+            delkey = self.fifo.popleft()
+            self.cache.pop(delkey, None)
 
         self.cache[key] = val
         self.fifo.append(key)
-
-        while len(self.fifo) > self.size:
-            key = self.fifo.popleft()
-            self.cache.pop(key, None)
 
     def get(self, key):
         if self.iscorocall:
@@ -50,13 +54,7 @@ class FixedCache:
         if valu is s_common.novalu:
             return valu
 
-        self.cache[key] = valu
-        self.fifo.append(key)
-
-        while len(self.fifo) > self.size:
-            key = self.fifo.popleft()
-            self.cache.pop(key, None)
-
+        self.put(key, valu)
         return valu
 
     async def aget(self, key):
@@ -71,13 +69,7 @@ class FixedCache:
         if valu is s_common.novalu:
             return valu
 
-        self.cache[key] = valu
-        self.fifo.append(key)
-
-        while len(self.fifo) > self.size:
-            key = self.fifo.popleft()
-            self.cache.pop(key, None)
-
+        self.put(key, valu)
         return valu
 
     def clear(self):
@@ -187,7 +179,7 @@ class TagGlobs:
             def fini():
                 try:
                     self.globs.remove(glob)
-                except ValueError:
+                except ValueError:  # pragma: no cover
                     pass
                 self.cache.clear()
             base.onfini(fini)

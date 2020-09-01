@@ -1,5 +1,7 @@
 import regex
 
+import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 import synapse.lib.base as s_base
@@ -8,6 +10,13 @@ import synapse.lib.cache as s_cache
 class CacheTest(s_t_utils.SynTest):
 
     def test_lib_cache_fixed(self):
+
+        async def acallback(name):
+            return name.lower()
+
+        cache = s_cache.FixedCache(acallback, size=2)
+        with self.raises(s_exc.BadArg):
+            cache.get('FOO')
 
         def callback(name):
             return name.lower()
@@ -31,7 +40,89 @@ class CacheTest(s_t_utils.SynTest):
         self.nn(cache.cache.get('BAR'))
         self.nn(cache.cache.get('BAZ'))
 
+        self.eq('bar', cache.pop('BAR'))
+        self.eq('baz', cache.pop('BAZ'))
+
+        self.len(0, cache.fifo)
+        self.len(0, cache.cache)
+
+        self.none(cache.pop('FOO'))
+        self.none(cache.pop('FAZ'))
+
+        self.eq('foo', cache.get('FOO'))
+        self.eq('bar', cache.get('BAR'))
+
+        self.len(2, cache.fifo)
+        self.len(2, cache.cache)
+
         cache.clear()
+
+        self.len(0, cache.fifo)
+        self.len(0, cache.cache)
+
+        cache.put('FOO', 'FOO')
+        cache.put('BAR', 'BAR')
+        cache.put('BAZ', 'BAZ')
+
+        self.len(2, cache)
+
+        self.eq('BAR', cache.get('BAR'))
+        self.eq('BAZ', cache.get('BAZ'))
+        self.eq('foo', cache.get('FOO'))
+
+        cache.clear()
+
+        self.eq('bar', cache.get('BAR'))
+        self.eq('baz', cache.get('BAZ'))
+
+        self.len(2, cache)
+
+        cache.put('BAR', 'BAZ')
+        self.eq('BAZ', cache.get('BAR'))
+
+        self.len(2, cache)
+
+        def callback(name):
+            return s_common.novalu
+
+        cache = s_cache.FixedCache(callback, size=2)
+        self.eq(s_common.novalu, cache.get('FOO'))
+        self.eq(s_common.novalu, cache.get('BAR'))
+
+        self.len(0, cache.fifo)
+        self.len(0, cache.cache)
+
+    async def test_lib_cache_fixed_async(self):
+        def callback(name):
+            return name.lower()
+
+        cache = s_cache.FixedCache(callback, size=2)
+
+        await self.asyncraises(s_exc.BadOperArg, cache.aget('FOO'))
+
+        async def acallback(name):
+            return name.lower()
+
+        cache = s_cache.FixedCache(acallback, size=2)
+
+        self.eq('foo', await cache.aget('FOO'))
+        self.eq('bar', await cache.aget('BAR'))
+
+        self.len(2, cache.fifo)
+        self.len(2, cache.cache)
+
+        self.nn(cache.cache.get('FOO'))
+        self.nn(cache.cache.get('BAR'))
+
+        self.eq('foo', await cache.aget('FOO'))
+        self.eq('faz', await cache.aget('FAZ'))
+
+        async def acallback(name):
+            return s_common.novalu
+
+        cache = s_cache.FixedCache(acallback, size=2)
+        self.eq(s_common.novalu, await cache.aget('FOO'))
+        self.eq(s_common.novalu, await cache.aget('BAR'))
 
         self.len(0, cache.fifo)
         self.len(0, cache.cache)
