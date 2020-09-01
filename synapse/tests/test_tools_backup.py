@@ -47,35 +47,33 @@ class BackupTest(s_t_utils.SynTest):
 
     async def test_backup(self):
 
-        async with self.getTestCore() as core:
-            layriden = core.getLayer().iden
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                layriden = core.getLayer().iden
 
-            # For additional complication, open a spooled set that shouldn't be backed up
-            async with await s_spooled.Set.anit(dirn=core.dirn, size=2) as sset:
-                await sset.add(10)
-                await sset.add(20)
-                await sset.add(30)
+                # For additional complication, open a spooled set that shouldn't be backed up
+                async with await s_spooled.Set.anit(dirn=core.dirn, size=2) as sset:
+                    await sset.add(10)
+                    await sset.add(20)
+                    await sset.add(30)
 
-                await core.fini()  # Avoid having the same DB open twice
+            with self.getTestDir() as dirn2:
 
-                with self.getTestDir() as dirn2:
+                argv = (core.dirn, dirn2)
 
-                    argv = (core.dirn, dirn2)
+                self.eq(0, s_backup.main(argv))
 
-                    self.eq(0, s_backup.main(argv))
+                fpset = self.compare_dirs(core.dirn, dirn2, skipfns={'lock.mdb'}, skipdirs={'tmp'})
+                self.false(os.path.exists(s_common.genpath(dirn2, 'tmp')))
 
-                    fpset = self.compare_dirs(core.dirn, dirn2, skipfns={'lock.mdb'}, skipdirs={'tmp'})
-                    self.false(os.path.exists(s_common.genpath(dirn2, 'tmp')))
-
-                    # We expect the data.mdb file to be in the fpset
-                    self.isin(f'/layers/{layriden}/layer_v2.lmdb/data.mdb', fpset)
+                # We expect the data.mdb file to be in the fpset
+                self.isin(f'/layers/{layriden}/layer_v2.lmdb/data.mdb', fpset)
 
     async def test_backup_exclude(self):
 
-        async with self.getTestCore() as core:
-            layriden = core.getLayer().iden
-
-            await core.fini()
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                layriden = core.getLayer().iden
 
             with self.getTestDir() as dirn2:
 

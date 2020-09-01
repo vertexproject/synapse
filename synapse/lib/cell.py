@@ -9,6 +9,7 @@ import argparse
 import datetime
 import functools
 import contextlib
+import multiprocessing
 
 import tornado.web as t_web
 
@@ -553,6 +554,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sessions = {}
         self.isactive = False
         self.inaugural = False
+        self.slabs = set()  # all of this cell's slabs
 
         self.conf = self._initCellConf(conf)
 
@@ -656,6 +658,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 5 - service networking
         await self.initServiceNetwork()
 
+    async def initslab(self, path, **kwargs):
+        slab = await s_lmdbslab.Slab.anit(path, **kwargs)
+        self.slabs.add(slab)
+        self.onfini(slab)
+
+        def fini():
+            self.slabs.remove(slab)
+        slab.onfini(fini)
+
+        return slab
+
     async def initServiceStorage(self):
         pass
 
@@ -753,17 +766,77 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Backup with name already exists'
             raise s_exc.BadArg(mesg=mesg)
 
-        task = self.schedCoro(self._execBackTask(path))
+        task = self.schedCoro(self._execBackupTask(path))
 
         if wait:
             await task
 
         return name
 
-    async def _execBackTask(self, dirn):
+    async def _execBackupTask(self, dirn):
+        '''
+
+        Returns:
+            The return value of executing the todo function.
+        '''
         await self.boss.promote('backup', self.auth.rootuser)
-        todo = s_common.todo(s_t_backup.backup, self.dirn, dirn)
-        await s_coro.spawn(todo)
+
+        while True:
+            await self.slab.syncLoopOnce()
+            if not any(slab.dirty for slab in self.slabs):
+                break
+
+        ctx = multiprocessing.get_context('spawn')
+
+        pipe = ctx.Pipe()
+        paths = [str(slab.path.absolute()) for slab in self.slabs]
+
+        def _backupProc(pipe, srcdir, dstdir, lmdbpaths):
+            '''
+            (In a separate process) Actually do the backup
+            '''
+            while True:
+                with s_t_backup.capturelmdbs(onlydirs=paths) as lmdbinfo:
+                    msg = pipe.recv()
+                    if msg != 'proceed':
+                        continue
+                    s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
+                    break
+
+        proc = ctx.Process(target=_backupProc, args=(pipe, self.dir, dirn, paths))
+
+        proc.start()
+        while True:
+            try:
+                # Note:  we're purposefully blocking the I/O loop here
+                hasdata = pipe.poll(timeout=0.25)
+                if not hasdata:
+                    raise s_exc.SynErr(mesg='subprocess stuck')
+
+                if not any(slab.dirty for slab in self.slabs):
+                    pipe.send('proceed')
+                    break
+
+                logger.info('Backup task having to retry syncing')
+                await self.slab.syncLoopOnce()
+
+                pipe.send('retry')
+
+            except (asyncio.CancelledError, Exception):
+                proc.terminate()
+                raise
+
+        def waitforproc():
+            proc.join()
+            if proc.exitcode:
+                raise s_exc.SpawnExit(code=proc.exitcode)
+
+        try:
+            return await s_coro.executor(waitforproc)
+
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            proc.terminate()
+            raise
 
     def _reqBackConf(self):
         if self.backdirn is None:

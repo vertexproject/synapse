@@ -608,6 +608,7 @@ class Slab(s_base.Base):
         for slab in clas.syncset:
             if slab.dirty:
                 await slab.sync()
+                await asyncio.sleep(0)
 
     @classmethod
     async def getSlabStats(clas):

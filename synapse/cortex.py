@@ -1135,8 +1135,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
 
-        slab = await s_lmdbslab.Slab.anit(path)
-        self.onfini(slab.fini)
+        slab = await self.initslab(path)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
 
@@ -2541,7 +2540,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # In case that we're a mirror follower and we have a downstream layer, disable upstream sync
         # TODO allow_upstream needs to be separated out
         mirror = self.conf.get('mirror')
-        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot, allow_upstream=not mirror)
+        return await s_layer.Layer.anit(layrinfo, path, self, nexsroot=self.nexsroot, allow_upstream=not mirror)
 
     async def _initCoreLayers(self):
         node = await self.hive.open(('cortex', 'layers'))

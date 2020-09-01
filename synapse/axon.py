@@ -230,9 +230,8 @@ class Axon(s_cell.Cell):
         self.dmon.share('axon', self)
 
         path = s_common.gendir(self.dirn, 'axon.lmdb')
-        self.axonslab = await s_lmdbslab.Slab.anit(path)
+        self.axonslab = await self.initslab(path)
         self.sizes = self.axonslab.initdb('sizes')
-        self.onfini(self.axonslab.fini)
 
         self.axonhist = s_lmdbslab.Hist(self.axonslab, 'history')
         self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
@@ -254,9 +253,8 @@ class Axon(s_cell.Cell):
 
     async def _initBlobStor(self):
         path = s_common.gendir(self.dirn, 'blob.lmdb')
-        self.blobslab = await s_lmdbslab.Slab.anit(path)
+        self.blobslab = await self.initslab(path)
         self.blobs = self.blobslab.initdb('blobs')
-        self.onfini(self.blobslab.fini)
 
     def _initAxonHttpApi(self):
         self.addHttpApi('/api/v1/axon/files/put', AxonHttpUploadV1, {'cell': self})
