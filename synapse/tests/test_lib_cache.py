@@ -64,11 +64,23 @@ class CacheTest(s_t_utils.SynTest):
         cache.put('BAR', 'BAR')
         cache.put('BAZ', 'BAZ')
 
-        self.eq(2, len(cache))
+        self.len(2, cache)
 
         self.eq('BAR', cache.get('BAR'))
         self.eq('BAZ', cache.get('BAZ'))
         self.eq('foo', cache.get('FOO'))
+
+        cache.clear()
+
+        self.eq('bar', cache.get('BAR'))
+        self.eq('baz', cache.get('BAZ'))
+
+        self.len(2, cache)
+
+        cache.put('BAR', 'BAZ')
+        self.eq('BAZ', cache.get('BAR'))
+
+        self.len(2, cache)
 
         def callback(name):
             return s_common.novalu
