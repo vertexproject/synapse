@@ -47,20 +47,25 @@ def initloop():
             _glob_loop = asyncio.get_running_loop()
             # if we get here, it's us!
             _glob_thrd = threading.currentThread()
+            # Enable debug and greedy coro collection
+            setGreedCoro(_glob_loop)
 
         except RuntimeError:
-
-            # otherwise, lets fire one...
             _glob_loop = asyncio.new_event_loop()
-            greedy_threshold = os.environ.get('SYN_GREEDY_CORO')
-            if greedy_threshold is not None:
-                _glob_loop.slow_callback_duration = float(greedy_threshold)
+            setGreedCoro(_glob_loop)
 
             _glob_thrd = threading.Thread(target=_glob_loop.run_forever, name='SynLoop')
             _glob_thrd.setDaemon(True)
             _glob_thrd.start()
 
     return _glob_loop
+
+def setGreedCoro(loop: asyncio.AbstractEventLoop):
+    greedy_threshold = os.environ.get('SYN_GREEDY_CORO')
+    if greedy_threshold is not None:
+        print(f'setting ioloop.slow_callback_duration to {greedy_threshold}')
+        loop.set_debug(True)
+        loop.slow_callback_duration = float(greedy_threshold)
 
 def iAmLoop():
     initloop()
