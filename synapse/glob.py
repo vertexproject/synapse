@@ -65,7 +65,7 @@ def initloop():
 
 def setGreedCoro(loop: asyncio.AbstractEventLoop):
     greedy_threshold = os.environ.get('SYN_GREEDY_CORO')
-    if greedy_threshold is not None:
+    if greedy_threshold is not None:  # pragma: no cover
         logger.info(f'Setting ioloop.slow_callback_duration to {greedy_threshold}')
         loop.set_debug(True)
         loop.slow_callback_duration = float(greedy_threshold)
