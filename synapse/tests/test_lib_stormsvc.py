@@ -486,7 +486,7 @@ class StormSvcTest(s_test.SynTest):
                     with self.raises(s_exc.NoSuchStormSvc):
                         await core._runStormSvcAdd(s_common.guid())
 
-                    # force a wait for command loads
+                    # # force a wait for command loads
                     await core.nodes('$lib.service.wait(fake)')
                     await core.nodes('$lib.service.wait(prim)')
                     await core.nodes('$lib.service.wait(boom)')
@@ -544,27 +544,43 @@ class StormSvcTest(s_test.SynTest):
 
                     # Check some service related permissions
                     user = await core.auth.addUser('user')
-                    # Old permissions no longer work
-                    await user.addRule((True, ('service', 'get', 'fake')))
+
+                    # No permissions is a failure too!
                     msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
                     self.stormIsInErr(f'must have permission service.get.{iden}', msgs)
 
-                    # storm service permissions must use service idens
-                    await user.addRule((True, ('service', 'get', iden)))
+                    # Old permissions still wrk for now but cause warnings
+                    await user.addRule((True, ('service', 'get', 'fake')))
                     msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
-                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    self.stormIsInWarn('service.get.<servicename> permissions are deprecated.', msgs)
+                    await user.delRule((True, ('service', 'get', 'fake')))
 
+                    # storm service permissions should use svcidens
                     await user.addRule((True, ('service', 'get', iden)))
-                    msgs = await core.stormlist(f'$svc=$lib.service.get({iden})', {'user': user.iden})
-                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    msgs = await core.stormlist('$svc=$lib.service.get(fake) $lib.print($svc)', {'user': user.iden})
+                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.len(0, [m for m in msgs if m[0] == 'warn'])
 
-                    # lib.service.wait doesn't care how it is called since it does not
-                    # check the name, just service.get
-                    msgs = await core.stormlist('$svc=$lib.service.wait(fake)', {'user': user.iden})
-                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    msgs = await core.stormlist(f'$svc=$lib.service.get({iden}) $lib.print($svc)', {'user': user.iden})
+                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.len(0, [m for m in msgs if m[0] == 'warn'])
 
-                    msgs = await core.stormlist(f'$svc=$lib.service.wait({iden})', {'user': user.iden})
+                    # Since there ws a chnage to how $lib.service.wait handles permissions, anyone that can
+                    # get a service can also wait for it, so ensure that those permissions still work.
+                    # lib.service.wait can still be called both ways (iden or name)
+                    msgs = await core.stormlist('$svc=$lib.service.wait(fake) $lib.print(yup)', {'user': user.iden})
                     self.len(0, [m for m in msgs if m[0] == 'err'])
+                    self.stormIsInPrint('yup', msgs)
+
+                    msgs = await core.stormlist(f'$svc=$lib.service.wait({iden}) $lib.print(yup)', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    self.stormIsInPrint('yup', msgs)
+
+                    await user.delRule((True, ('service', 'get', iden)))
+                    await user.addRule((True, ('service', 'get')))
+                    msgs = await core.stormlist(f'$svc=$lib.service.wait({iden}) $lib.print(yup)', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    self.stormIsInPrint('yup', msgs)
 
                 async with self.getTestCore(dirn=dirn) as core:
 
