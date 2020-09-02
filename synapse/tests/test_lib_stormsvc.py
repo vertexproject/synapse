@@ -585,7 +585,7 @@ class StormSvcTest(s_test.SynTest):
                     self.len(0, core.getStormSvcs())
                     # make sure all the dels ran, except for the BoomService (which should fail)
                     nodes = await core.nodes('inet:ipv4')
-                    ans = set(['1.2.3.4', '5.5.5.5', '6.6.6.6', '8.8.8.8', '123.123.123.123'])
+                    ans = {'1.2.3.4', '5.5.5.5', '6.6.6.6', '8.8.8.8', '123.123.123.123'}
                     reprs = set(map(lambda k: k.repr(), nodes))
                     self.eq(ans, reprs)
 

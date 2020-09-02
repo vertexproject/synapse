@@ -390,11 +390,11 @@ class LibService(Lib):
         Returns:
             dict: A Storm Service definition.
         '''
-        self.runt.user.confirm(('service', 'get', name))
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
+        self.runt.user.confirm(('service', 'get', ssvc.iden))
         return ssvc
 
     async def _libSvcList(self):
