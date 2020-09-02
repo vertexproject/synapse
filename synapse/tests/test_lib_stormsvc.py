@@ -463,7 +463,7 @@ class StormSvcTest(s_test.SynTest):
                 curl = f'tcp://127.0.0.1:{port}/lift'
                 durl = f'tcp://127.0.0.1:{port}/dead'
 
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                async with self.getTestCore(dirn=dirn) as core:
 
                     await core.nodes(f'service.add fake {lurl}')
                     iden = core.getStormSvcs()[0].iden
@@ -542,7 +542,7 @@ class StormSvcTest(s_test.SynTest):
                     self.stormIsInPrint(f'svciden={iden}', msgs)
                     self.stormIsInPrint('key=valu', msgs)
 
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                async with self.getTestCore(dirn=dirn) as core:
 
                     nodes = await core.nodes('$lib.service.wait(fake)')
                     nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
