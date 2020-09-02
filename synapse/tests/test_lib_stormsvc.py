@@ -542,6 +542,30 @@ class StormSvcTest(s_test.SynTest):
                     self.stormIsInPrint(f'svciden={iden}', msgs)
                     self.stormIsInPrint('key=valu', msgs)
 
+                    # Check some service related permissions
+                    user = await core.auth.addUser('user')
+                    # Old permissions no longer work
+                    await user.addRule((True, ('service', 'get', 'fake')))
+                    msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
+                    self.stormIsInErr(f'must have permission service.get.{iden}', msgs)
+
+                    # storm service permissions must use service idens
+                    await user.addRule((True, ('service', 'get', iden)))
+                    msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+
+                    await user.addRule((True, ('service', 'get', iden)))
+                    msgs = await core.stormlist(f'$svc=$lib.service.get({iden})', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+
+                    # lib.service.wait doesn't care how it is called since it does not
+                    # check the name, just service.get
+                    msgs = await core.stormlist('$svc=$lib.service.wait(fake)', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+
+                    msgs = await core.stormlist(f'$svc=$lib.service.wait({iden})', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+
                 async with self.getTestCore(dirn=dirn) as core:
 
                     nodes = await core.nodes('$lib.service.wait(fake)')
