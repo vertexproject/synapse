@@ -486,7 +486,7 @@ class StormSvcTest(s_test.SynTest):
                     with self.raises(s_exc.NoSuchStormSvc):
                         await core._runStormSvcAdd(s_common.guid())
 
-                    # # force a wait for command loads
+                    # force a wait for command loads
                     await core.nodes('$lib.service.wait(fake)')
                     await core.nodes('$lib.service.wait(prim)')
                     await core.nodes('$lib.service.wait(boom)')
