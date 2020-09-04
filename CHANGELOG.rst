@@ -3,6 +3,33 @@ Synapse Changelog
 *****************
 
 
+v2.7.2 - 2020-09-04
+===================
+
+Features and Enhancements
+-------------------------
+- Update tests for additional test code coverage. This was a community contribution from blackout.
+  (`#1867 <https://github.com/vertexproject/synapse/pull/1867>`_)
+- Add implicit links to documentation generated for Storm services, to allow for direct linking inside of documentation
+  to specific Storm commands.
+  (`#1866 <https://github.com/vertexproject/synapse/pull/1866>`_)
+- Add future support for deprecating model elements in the Synapse data model. This support will produce client and
+  server side warnings when deprecated model elements are used or loaded by custom model extensions or CoreModules.
+  (`#1863 <https://github.com/vertexproject/synapse/pull/1863>`_)
+
+Bugfixes
+--------
+- Update ``FixedCache.put()`` to avoid a cache miss. This was a community contribution from blackout.
+  (`#1868 <https://github.com/vertexproject/synapse/pull/1868>`_)
+- Fix the ioloop construction to be aware of ``SYN_GREEDY_CORO`` environment variable to put the ioloop into debug mode
+  and log long-running coroutines.
+  (`#1870 <https://github.com/vertexproject/synapse/pull/1870>`_)
+- Fix how service permissions are checked in ``$lib.service.get()`` and ``$lib.service.wait()`` Storm library calls.
+  These APIs now first check ``service.get.<service iden>`` before checking ``service.get.<service name>`` permissions.
+  A successful ``service.get.<service name>`` check will result in a warning to the client and the server.
+  (`#1871 <https://github.com/vertexproject/synapse/pull/1871>`_)
+
+
 v2.7.1 - 2020-08-26
 ===================
 
