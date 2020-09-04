@@ -94,7 +94,6 @@ class NexsRoot(s_base.Base):
 
         self.map_async = map_async
 
-        # Nic FIXME:  need to slabinit
         self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=map_async)
 
         self.nexslog = self.nexsslab.getSeqn('nexuslog')

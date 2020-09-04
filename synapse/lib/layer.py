@@ -62,6 +62,7 @@ import shutil
 import struct
 import asyncio
 import logging
+import pathlib
 import ipaddress
 import contextlib
 import collections
@@ -982,9 +983,8 @@ class Layer(s_nexus.Pusher):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, cell, nexsroot=None, allow_upstream=True):
+    async def __anit__(self, layrinfo, dirn, nexsroot=None, allow_upstream=True):
 
-        self.cell = cell
         self.nexsroot = nexsroot
         self.layrinfo = layrinfo
         self.allow_upstream = allow_upstream
@@ -1102,11 +1102,11 @@ class Layer(s_nexus.Pusher):
 
                 relname = os.path.join(relpath, name)
 
-                srcpath = s_common.genpath(root, name)
+                srcpath = pathlib.Path(s_common.genpath(root, name)).resolve()
                 dstpath = s_common.genpath(newdirn, relname)
 
-                if srcpath in s_lmdbslab._AllSlabs:
-                    slab = s_lmdbslab._AllSlabs.get(srcpath)
+                if srcpath in s_lmdbslab.Slab.allslabs:
+                    slab = s_lmdbslab.Slab.allslabs[srcpath]
                     await slab.copyslab(dstpath)
 
                     dnames.remove(name)
@@ -1144,13 +1144,14 @@ class Layer(s_nexus.Pusher):
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
         nodedatapath = s_common.genpath(self.dirn, 'nodedata.lmdb')
 
-        self.layrslab = await self.cell.initslab(path, **slabopts)
-        self.dataslab = await self.cell.initslab(nodedatapath, map_async=True, readahead=False, readonly=self.readonly)
+        self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
+        self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, map_async=True,
+                                                   readahead=False, readonly=self.readonly)
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
         path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
-        self.nodeeditslab = await self.cell.initslab(path, readonly=self.readonly)
+        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
         self.offsets = await self.layrslab.getHotCount('offsets')
 
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')

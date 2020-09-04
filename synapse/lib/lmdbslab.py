@@ -33,9 +33,6 @@ MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
-# The paths of all open slabs, to prevent accidental opening of the same slab in two places
-_AllSlabs = {}   # type: ignore
-
 class Hist:
     '''
     A class for storing items in a slab by time.
@@ -552,7 +549,8 @@ class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
-    syncset = set()  # type:  ignore
+    # The paths of all open slabs, to prevent accidental opening of the same slab in two places
+    allslabs = {}  # type: ignore
     synctask = None
     syncevnt = None  # set this event to trigger a sync
 
@@ -561,21 +559,22 @@ class Slab(s_base.Base):
     DEFAULT_GROWSIZE = None
 
     @classmethod
-    async def initSyncLoop(clas, inst):
+    def getSlabsInDir(clas, dirn):
+        '''
+        Returns all open slabs under a directory
+        '''
+        toppath = pathlib.Path(dirn).resolve()
+        return [slab for slab in clas.allslabs.values() if toppath in slab.path.parents or toppath == slab.path]
 
-        clas.syncset.add(inst)
+    @classmethod
+    async def initSyncLoop(clas, inst):
 
         async def fini():
 
-            # no need to sync
-            clas.syncset.discard(inst)
-
-            if not clas.syncset:
+            if not clas.allslabs:
                 clas.synctask.cancel()
                 clas.synctask = None
                 clas.syncevnt = None
-
-        inst.onfini(fini)
 
         if clas.synctask is not None:
             return
@@ -605,7 +604,7 @@ class Slab(s_base.Base):
 
     @classmethod
     async def syncLoopOnce(clas):
-        for slab in clas.syncset:
+        for slab in list(clas.allslabs.values()):
             if slab.dirty:
                 await slab.sync()
                 await asyncio.sleep(0)
@@ -613,7 +612,7 @@ class Slab(s_base.Base):
     @classmethod
     async def getSlabStats(clas):
         retn = []
-        for slab in clas.syncset:
+        for slab in clas.allslabs.values():
             retn.append({
                 'path': str(slab.path),
                 'xactops': len(slab.xactops),
@@ -634,15 +633,13 @@ class Slab(s_base.Base):
 
         opts = kwargs
 
-        path = pathlib.Path(path)
+        path = pathlib.Path(path).resolve()
         self.path = path
         self.optspath = path.with_suffix('.opts.yaml')
 
         # Make sure we don't have this lmdb DB open already.  (This can lead to seg faults)
-        abspath = str(path.resolve())
-        if abspath in _AllSlabs:
+        if path in self.allslabs:
             raise s_exc.SlabAlreadyOpen(mesg=path)
-        self.abspath = abspath
 
         if self.optspath.exists():
             opts.update(s_common.yamlload(self.optspath))
@@ -679,7 +676,7 @@ class Slab(s_base.Base):
         self._saveOptsFile()
 
         self.lenv = lmdb.open(str(path), **opts)
-        _AllSlabs[abspath] = self
+        self.allslabs[path] = self
 
         self.scans = set()
 
@@ -813,7 +810,7 @@ class Slab(s_base.Base):
             break
 
         self.lenv.close()
-        _AllSlabs.pop(self.abspath, None)
+        self.allslabs.pop(self.path, None)
         del self.lenv
 
     def _finiCoXact(self):
