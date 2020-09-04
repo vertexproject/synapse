@@ -6,7 +6,7 @@ from setuptools.command.install import install
 
 VERSION = '2.7.1'
 
-with open('README.rst'), encoding='utf-8') as f:
+with open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
 
 class VerifyVersionCommand(install):
