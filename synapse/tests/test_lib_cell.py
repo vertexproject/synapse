@@ -527,7 +527,7 @@ class CellTest(s_t_utils.SynTest):
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
                 outp = self.getTestOutp()
-                async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
+                async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
                     outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
                     outp.expect('...cell API (https): 0')
 
@@ -538,13 +538,13 @@ class CellTest(s_t_utils.SynTest):
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
                 outp = self.getTestOutp()
-                async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
+                async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
                     outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
                     outp.expect('...cell API (https): disabled')
 
     async def test_cell_backup(self):
 
-        async with  self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with self.raises(s_exc.NeedConfValu):
                 await core.runBackup()
             with self.raises(s_exc.NeedConfValu):
