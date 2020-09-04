@@ -763,37 +763,45 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _execBackupTask(self, dirn):
         '''
-
-        Returns:
-            The return value of executing the todo function.
+        A task that backs up the cell to the target directory
         '''
         await self.boss.promote('backup', self.auth.rootuser)
         slabs = s_lmdbslab.Slab.getSlabsInDir(self.dirn)
         assert slabs
-
-        while True:
-            await s_lmdbslab.Slab.syncLoopOnce()
-            if not any(slab.dirty for slab in slabs):
-                break
 
         ctx = multiprocessing.get_context('spawn')
 
         mypipe, child_pipe = ctx.Pipe()
         paths = [str(slab.path) for slab in slabs]
 
-        proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths))
+        def spawnproc():
+            proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths))
+            proc.start()
+            hasdata = mypipe.poll(timeout=2.0)
+            if not hasdata:
+                raise s_exc.SynErr(mesg='backup subprocess stuck')
+            data = mypipe.recv()
+            assert data == 'ready'
+            return proc
 
-        proc.start()
+        proc = await s_coro.executor(spawnproc)
+
+        while True:
+            await s_lmdbslab.Slab.syncLoopOnce()
+            if not any(slab.dirty for slab in slabs):
+                break
+
         try:
-            # Note:  we're purposefully blocking the I/O loop here; we don't want any new slab operations to sneak in
-            hasdata = mypipe.poll(timeout=0.5)
+            mypipe.send('proceed')
+
+            # This is technically pending the ioloop waiting for the backup process to acquire a bunch of
+            # transactions.  We're effectively locking out new write requests the brute force way.
+            hasdata = mypipe.poll(timeout=.5)
             if not hasdata:
                 raise s_exc.SynErr(mesg='backup subprocess stuck')
 
             data = mypipe.recv()
             assert data == 'captured'
-
-            # It is now safe to let other tasks run
 
             def waitforproc():
                 proc.join()
@@ -811,6 +819,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         (In a separate process) Actually do the backup
         '''
+        pipe.send('ready')
+        data = pipe.recv()
+        assert data == 'proceed'
         with s_t_backup.capturelmdbs(srcdir, onlydirs=lmdbpaths) as lmdbinfo:
             # Let parent know we have the transactions so he can resume the ioloop
             pipe.send('captured')

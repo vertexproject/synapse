@@ -1102,7 +1102,7 @@ class Layer(s_nexus.Pusher):
 
                 relname = os.path.join(relpath, name)
 
-                srcpath = pathlib.Path(s_common.genpath(root, name)).resolve()
+                srcpath = pathlib.Path(s_common.genpath(root, name))
                 dstpath = s_common.genpath(newdirn, relname)
 
                 if srcpath in s_lmdbslab.Slab.allslabs:

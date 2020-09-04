@@ -97,6 +97,15 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
 
+            slabs = slab.getSlabsInDir(dirn)
+            self.eq(slabs, [slab])
+
+            slabs = slab.getSlabsInDir(pathlib.Path(dirn) / 'nowhere')
+            self.len(0, slabs)
+
+            slabs = slab.getSlabsInDir(pathlib.Path(dirn).parent)
+            self.ge(1, len(slabs))
+
             foo = slab.initdb('foo')
             baz = slab.initdb('baz')
             bar = slab.initdb('bar', dupsort=True)
@@ -273,6 +282,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             self.raises(s_exc.IsFini, next, scan)
             self.raises(s_exc.IsFini, next, scanback)
+
+            slabs = s_lmdbslab.Slab.getSlabsInDir(dirn)
+            self.len(0, slabs)
 
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:

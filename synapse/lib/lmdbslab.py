@@ -564,7 +564,8 @@ class Slab(s_base.Base):
         Returns all open slabs under a directory
         '''
         toppath = pathlib.Path(dirn).resolve()
-        return [slab for slab in clas.allslabs.values() if toppath in slab.path.parents or toppath == slab.path]
+        return [slab for slab in clas.allslabs.values()
+                if toppath == slab.path or str(slab.path).startswith(str(toppath) + os.sep)]
 
     @classmethod
     async def initSyncLoop(clas, inst):
