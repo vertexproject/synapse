@@ -463,7 +463,7 @@ class StormSvcTest(s_test.SynTest):
                 curl = f'tcp://127.0.0.1:{port}/lift'
                 durl = f'tcp://127.0.0.1:{port}/dead'
 
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                async with self.getTestCore(dirn=dirn) as core:
 
                     await core.nodes(f'service.add fake {lurl}')
                     iden = core.getStormSvcs()[0].iden
@@ -542,7 +542,47 @@ class StormSvcTest(s_test.SynTest):
                     self.stormIsInPrint(f'svciden={iden}', msgs)
                     self.stormIsInPrint('key=valu', msgs)
 
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                    # Check some service related permissions
+                    user = await core.auth.addUser('user')
+
+                    # No permissions is a failure too!
+                    msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
+                    self.stormIsInErr(f'must have permission service.get.{iden}', msgs)
+
+                    # Old permissions still wrk for now but cause warnings
+                    await user.addRule((True, ('service', 'get', 'fake')))
+                    msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
+                    self.stormIsInWarn('service.get.<servicename> permissions are deprecated.', msgs)
+                    await user.delRule((True, ('service', 'get', 'fake')))
+
+                    # storm service permissions should use svcidens
+                    await user.addRule((True, ('service', 'get', iden)))
+                    msgs = await core.stormlist('$svc=$lib.service.get(fake) $lib.print($svc)', {'user': user.iden})
+                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.len(0, [m for m in msgs if m[0] == 'warn'])
+
+                    msgs = await core.stormlist(f'$svc=$lib.service.get({iden}) $lib.print($svc)', {'user': user.iden})
+                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.len(0, [m for m in msgs if m[0] == 'warn'])
+
+                    # Since there ws a chnage to how $lib.service.wait handles permissions, anyone that can
+                    # get a service can also wait for it, so ensure that those permissions still work.
+                    # lib.service.wait can still be called both ways (iden or name)
+                    msgs = await core.stormlist('$svc=$lib.service.wait(fake) $lib.print(yup)', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    self.stormIsInPrint('yup', msgs)
+
+                    msgs = await core.stormlist(f'$svc=$lib.service.wait({iden}) $lib.print(yup)', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    self.stormIsInPrint('yup', msgs)
+
+                    await user.delRule((True, ('service', 'get', iden)))
+                    await user.addRule((True, ('service', 'get')))
+                    msgs = await core.stormlist(f'$svc=$lib.service.wait({iden}) $lib.print(yup)', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    self.stormIsInPrint('yup', msgs)
+
+                async with self.getTestCore(dirn=dirn) as core:
 
                     nodes = await core.nodes('$lib.service.wait(fake)')
                     nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
@@ -585,7 +625,7 @@ class StormSvcTest(s_test.SynTest):
                     self.len(0, core.getStormSvcs())
                     # make sure all the dels ran, except for the BoomService (which should fail)
                     nodes = await core.nodes('inet:ipv4')
-                    ans = set(['1.2.3.4', '5.5.5.5', '6.6.6.6', '8.8.8.8', '123.123.123.123'])
+                    ans = {'1.2.3.4', '5.5.5.5', '6.6.6.6', '8.8.8.8', '123.123.123.123'}
                     reprs = set(map(lambda k: k.repr(), nodes))
                     self.eq(ans, reprs)
 

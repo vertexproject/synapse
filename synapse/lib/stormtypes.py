@@ -347,6 +347,21 @@ class LibService(Lib):
             'wait': self._libSvcWait,
         }
 
+    async def _checkSvcGetPerm(self, ssvc):
+        '''
+        Helper to handle service.get.* permissions
+        '''
+        try:
+            self.runt.user.confirm(('service', 'get', ssvc.iden))
+        except s_exc.AuthDeny as e:
+            try:
+                self.runt.user.confirm(('service', 'get', ssvc.name))
+            except s_exc.AuthDeny as sub_e:
+                raise e from None
+            else:
+                mesg = 'Use of service.get.<servicename> permissions are deprecated.'
+                await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
+
     async def _libSvcAdd(self, name, url):
         '''
         Add a Storm Service to the Cortex.
@@ -390,11 +405,11 @@ class LibService(Lib):
         Returns:
             dict: A Storm Service definition.
         '''
-        self.runt.user.confirm(('service', 'get', name))
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
+        await self._checkSvcGetPerm(ssvc)
         return ssvc
 
     async def _libSvcList(self):
@@ -428,12 +443,11 @@ class LibService(Lib):
         Returns:
             True: When the service is ready.
         '''
-        self.runt.user.confirm(('service', 'get'))
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
-
+        await self._checkSvcGetPerm(ssvc)
         await ssvc.ready.wait()
 
 @registry.registerLib
