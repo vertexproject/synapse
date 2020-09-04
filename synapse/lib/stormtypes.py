@@ -360,7 +360,7 @@ class LibService(Lib):
                 raise e from None
             else:
                 mesg = 'Use of service.get.<servicename> permissions are deprecated.'
-                await self.runt.warn(mesg, svcname=ssvc.name, svciden=ssvc.iden)
+                await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
 
     async def _libSvcAdd(self, name, url):
         '''
