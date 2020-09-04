@@ -6,6 +6,9 @@ from setuptools.command.install import install
 
 VERSION = '2.7.1'
 
+with open('README.rst'), encoding='utf-8') as f:
+    long_description = f.read()
+
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
     description = 'verify that the git tag matches our version'
@@ -22,6 +25,7 @@ setup(
     name='synapse',
     version=VERSION,
     description='Synapse Intelligence Analysis Framework',
+    long_description=long_description,
     author='The Vertex Project LLC',
     author_email='synapse@vertex.link',
     url='https://github.com/vertexproject/synapse',
