@@ -879,9 +879,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.model = s_datamodel.Model()
 
         # Perform module loading
-        mods = list(s_modules.coremods)
-        mods.extend(self.conf.get('modules'))
-        await self._loadCoreMods(mods)
+        await self._loadCoreMods()
         await self._loadExtModel()
         await self._initStormCmds()
 
@@ -1622,11 +1620,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         for form, prop, tdef, info in self.extprops.values():
             try:
-                self.model.addFormProp(form, prop, tdef, info)
+                prop = self.model.addFormProp(form, prop, tdef, info)
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
                 logger.warning(f'ext prop ({form}:{prop}) error: {e}')
+            else:
+                if prop.type.deprecated:
+                    mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
+                           f' be removed in 3.0.0'
+                    logger.warning(mesg)
 
         for prop, tdef, info in self.extunivs.values():
             try:
@@ -1703,7 +1706,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = 'ext prop must begin with "_"'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
-        self.model.addFormProp(form, prop, tdef, info)
+        _prop = self.model.addFormProp(form, prop, tdef, info)
+        if _prop.type.deprecated:
+            mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
+                   f' be removed in 3.0.0'
+            logger.warning(mesg)
         await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='add', type='formprop')
@@ -3131,41 +3138,47 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return modu
 
-    async def _loadCoreMods(self, ctors):
+    async def _loadCoreMods(self):
 
         mods = []
-
         cmds = []
         mdefs = []
 
-        for ctor in ctors:
-
-            conf = None
-
-            # allow module entry to be (ctor, conf) tuple
-            if isinstance(ctor, (list, tuple)):
-                ctor, conf = ctor
-
-            modu = self._loadCoreModule(ctor, conf=conf)
-            if modu is None:
-                continue
-
-            mods.append(modu)
-
-            try:
-                await s_coro.ornot(modu.preCoreModule)
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-            except Exception:
-                logger.exception(f'module preCoreModule failed: {ctor}')
-                self.modules.pop(ctor, None)
-                continue
-
-            cmds.extend(modu.getStormCmds())
-            mdefs.extend(modu.getModelDefs())
+        for ctor in list(s_modules.coremods):
+            await self._preLoadCoreModule(ctor, mods, cmds, mdefs)
+        for ctor in self.conf.get('modules'):
+            await self._preLoadCoreModule(ctor, mods, cmds, mdefs, custom=True)
 
         self.model.addDataModels(mdefs)
         [self.addStormCmd(c) for c in cmds]
+
+    async def _preLoadCoreModule(self, ctor, mods, cmds, mdefs, custom=False):
+        conf = None
+        # allow module entry to be (ctor, conf) tuple
+        if isinstance(ctor, (list, tuple)):
+            ctor, conf = ctor
+
+        modu = self._loadCoreModule(ctor, conf=conf)
+        if modu is None:
+            return
+
+        mods.append(modu)
+
+        try:
+            await s_coro.ornot(modu.preCoreModule)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception:
+            logger.exception(f'module preCoreModule failed: {ctor}')
+            self.modules.pop(ctor, None)
+            return
+
+        cmds.extend(modu.getStormCmds())
+        model_defs = modu.getModelDefs()
+        if custom:
+            for mdef, mnfo in model_defs:
+                mnfo['custom'] = True
+        mdefs.extend(model_defs)
 
     async def _initCoreMods(self):
 

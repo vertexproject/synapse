@@ -1792,7 +1792,7 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('name:en', ('inet:user', {}), {
                             'doc': 'The English version of the name associated with the (may be different from '
-                                   'the account identifier, e.g., a display name).'
+                                   'the account identifier, e.g., a display name).',
                         }),
                         ('occupation', ('str', {'lower': True}), {
                             'doc': 'A self-declared occupation for the account.'

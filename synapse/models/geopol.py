@@ -14,12 +14,12 @@ class PolModule(s_module.CoreModule):
                     ),
 
                     ('pol:iso2',
-                        ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$', 'nullval': '??'}),
+                        ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}),
                         {'doc': 'The 2 digit ISO country code.', 'ex': 'us'}
                     ),
 
                     ('pol:iso3',
-                        ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$', 'nullval': '??'}),
+                        ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$'}),
                         {'doc': 'The 3 digit ISO country code.', 'ex': 'usa'}
                     ),
 
