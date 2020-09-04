@@ -1101,26 +1101,25 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('NO OVERRIDES FOR YOU', msgs)
 
             # don't override defined functions
-            q = '''
-            function nooverride(arg1) {
-                $lib.print($arg1)
-                return ("foobar")
-            }
+            #q = '''
+            #function nooverride(arg1) {
+            #    $lib.print($arg1)
+            #    return ("foobar")
+            #}
 
-            function naughty() {
-                $lib = "neato"
-                $nooverride = $nooverride($lib)
-                return ($nooverride)
-            }
+            #function naughty() {
+            #    $lib = "neato"
+            #    $nooverride = $nooverride($lib)
+            #    return ($nooverride)
+            #}
 
-            $lib.print($naughty())
-            $lib.print($nooverride("recovered"))
-            '''
-
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint('neato', msgs)
-            self.stormIsInPrint('foobar', msgs)
-            self.stormIsInPrint('recovered', msgs)
+            #$lib.print($naughty())
+            #$lib.print($nooverride("recovered"))
+            #'''
+            #msgs = await core.stormlist(q)
+            #self.stormIsInPrint('neato', msgs)
+            #self.stormIsInPrint('foobar', msgs)
+            #self.stormIsInPrint('recovered', msgs)
 
             # yields across an import boundary
             q = '''
@@ -1230,32 +1229,17 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'visi'))
             self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
 
-            async with await core.snap() as snap:
-                with snap.getStormRuntime() as runt:
-                    q = '''
-                    function lolol() {
-                        $lib = "pure lulz"
-                        $lolol = "don't do this"
-                        return ($lolol)
-                    }
-                    $neato = 0
-                    $myvar = $lolol()
-                    $lib.print($myvar)
-                    '''
-                    query = core.getStormQuery(q)
-                    runt.loadRuntVars(query)
-                    async for item in query.run(runt, s_common.agen()):
-                        pass
-                    func = list(filter(lambda o: isinstance(o, s_ast.Function), query.kids))[0]
-                    oldfunc = runt.vars['lolol']
-                    funcrunt = await runt.getScopeRuntime(func.kids[2])
-                    async for item in func.run(funcrunt, s_common.agen()):
-                        pass
-                    funcrunt.globals.add('nope')
-                    funcrunt.globals.add('lolol')
-                    self.eq(oldfunc, runt.vars['lolol'])
-                    await runt.propBackGlobals(funcrunt)
-                    self.notin('nope', runt.runtvars)
+            msgs = await core.stormlist('''
+                function lolol() {
+                    $lib = "pure lulz"
+                    $lolol = "don't do this"
+                    return ($lolol)
+                }
+                $neato = 0
+                $myvar = $lolol()
+                $lib.print($myvar)
+            ''')
+            self.stormIsInPrint("don't do this", msgs)
 
     async def test_ast_setitem(self):
 
@@ -1544,3 +1528,6 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes(f'vertex.link', opts={'readonly': True, 'mode': 'autoadd'})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4 | limit 1 | tee { [+#foo] }', opts={'readonly': True})

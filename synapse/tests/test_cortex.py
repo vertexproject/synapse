@@ -223,12 +223,12 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             iden = await core.callStorm('''
-                $que = $lib.queue.add(que)
+                $que = $lib.queue.add(foo)
 
                 $ddef = $lib.dmon.add(${
                     $lib.print(hi)
                     $lib.warn(omg)
-                    $que = $lib.queue.get(que)
+                    $que = $lib.queue.get(foo)
                     $que.put(done)
                 })
 
@@ -3780,7 +3780,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core00.nodes('$lib.queue.add(hehe)')
                 q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
-                await core00.nodes(q)
+                msgs = await core00.stormlist(q)
+                for m in msgs:
+                    print(m)
+
+                print(repr(core00.getStormQuery(q)))
 
                 url = core00.getLocalUrl()
 

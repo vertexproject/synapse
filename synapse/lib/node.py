@@ -74,7 +74,7 @@ class Node:
         async for edge in self.snap.iterNodeEdgesN2(self.buid, verb=verb):
             yield edge
 
-    async def storm(self, text, opts=None, user=None, path=None):
+    async def storm(self, runt, text, opts=None, path=None):
         '''
         Args:
             path (Path):
@@ -85,32 +85,21 @@ class Node:
             If opts is not None and opts['vars'] is set and path is not None, then values of path vars take precedent
         '''
         query = self.snap.core.getStormQuery(text)
+        async with runt.getSubRuntime(query, opts=opts) as subr:
 
-        # Merge vars from path into opts.vars
-        pathvars = path.vars if path is not None else None
-        if opts is None:
-            if pathvars is None:
-                newopts = None
-            else:
-                newopts = {'vars': pathvars}
-        else:
-            vars = opts.get('vars')
-            if pathvars is None:
-                newopts = opts
-            elif vars is None:
-                newopts = {**opts, **{'vars': pathvars}}
-            else:
-                newopts = {**opts, **{'vars': {**vars, **pathvars}}}
+            if path is not None:
+                subr.vars.update(path.vars)
 
-        with self.snap.getStormRuntime(opts=newopts, user=user) as runt:
-            runt.addInput(self)
-            async for item in runt.iterStormQuery(query):
-                yield item
-            if path:
-                path.vars.update(runt.vars)
+            subr.addInput(self)
 
-    async def filter(self, text, opts=None, user=None, path=None):
-        async for item in self.storm(text, opts=opts, user=user, path=path):
+            async for subn, subp in subr.execute():
+                yield subn, subp
+
+            if path is not None:
+                path.vars.update(subr.vars)
+
+    async def filter(self, runt, text, opts=None, path=None):
+        async for item in self.storm(runt, text, opts=opts, path=path):
             return False
         return True
 
@@ -670,17 +659,18 @@ class Path:
     '''
     A path context tracked through the storm runtime.
     '''
-    def __init__(self, runt, vars, nodes):
+    #def __init__(self, runt, vars, nodes):
+    def __init__(self, vars, nodes):
 
         self.node = None
-        self.runt = runt
+        #self.runt = runt
         # we must "smell" like a runt for some AST ops
-        self.snap = runt.snap
-        self.model = runt.model
+        #self.snap = runt.snap
+        #self.model = runt.model
         self.nodes = nodes
 
-        # streamline perf for readonly checks
-        self.readonly = runt.readonly
+        #streamline perf for readonly checks
+        #self.readonly = runt.readonly
 
         self.traces = []
 
@@ -726,7 +716,8 @@ class Path:
             self.vars[name] = valu
             return valu
 
-        return self.runt.getVar(name, defv=defv)
+        return s_common.novalu
+        #return self.runt.getVar(name, defv=defv)
 
     def setVar(self, name, valu):
         self.vars[name] = valu
@@ -748,7 +739,7 @@ class Path:
         nodes = list(self.nodes)
         nodes.append(node)
 
-        path = Path(self.runt, dict(self.vars), nodes)
+        path = Path(self.vars.copy(), nodes)
         path.traces.extend(self.traces)
 
         [t.addFork(path) for t in self.traces]
@@ -756,36 +747,34 @@ class Path:
         return path
 
     def clone(self):
-        path = Path(self.runt,
-                    copy.copy(self.vars),
-                    copy.copy(self.nodes),)
+        path = Path(copy.copy(self.vars), copy.copy(self.nodes))
         path.traces = list(self.traces)
-        path.frames = [(copy.copy(vars), runt) for (vars, runt) in self.frames]
+        path.frames = [v.copy() for v in self.frames]
         return path
 
-    def initframe(self, initvars=None, initrunt=None):
+    def initframe(self, initvars=None):
 
         # full copy for now...
         framevars = self.vars.copy()
         if initvars is not None:
             framevars.update(initvars)
 
-        if initrunt is None:
-            initrunt = self.runt
+        self.frames.append(self.vars)
 
-        self.frames.append((self.vars, self.runt))
-
-        self.runt = initrunt
         self.vars = framevars
 
-    def finiframe(self, runt):
-
+    def finiframe(self):
+        '''
+        Pop a scope frame from the path, restoring runt if at the top
+        Args:
+            runt (Runtime): A storm runtime to restore if we're at the top
+            merge (bool): Set to true to merge vars back up into the next frame
+        '''
         if not self.frames:
             self.vars.clear()
-            self.runt = runt
             return
 
-        (self.vars, self.runt) = self.frames.pop()
+        self.vars = self.frames.pop()
 
 class Trace:
     '''

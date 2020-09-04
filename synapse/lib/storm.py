@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import argparse
+import contextlib
 import collections
 
 import synapse.exc as s_exc
@@ -516,8 +517,7 @@ stormcmds = (
         ),
         'storm': '''
             $trig = $lib.trigger.add($cmdopts)
-
-            $lib.print("Added trigger: {iden}", iden=$iden)
+            $lib.print("Added trigger: {iden}", iden=$trig.iden)
         ''',
     },
     {
@@ -1055,7 +1055,7 @@ class Runtime:
     opaque object which is called through, but not dereferenced.
 
     '''
-    def __init__(self, snap, opts=None, user=None):
+    def __init__(self, query, snap, opts=None, user=None, root=None):
 
         if opts is None:
             opts = {}
@@ -1068,6 +1068,11 @@ class Runtime:
         self.opts = opts
         self.snap = snap
         self.user = user
+
+        self.root = root
+        self.funcscope = False
+
+        self.query = query
 
         self.readonly = opts.get('readonly', False) # EXPERIMENTAL: Make it safe to run untrusted queries
         self.model = snap.core.getDataModel()
@@ -1085,11 +1090,14 @@ class Runtime:
         self.runtvars = set()
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
-        self.isModuleRunt = False
-        self.globals = set()
-        self.modulefuncs = {}
 
         self.proxies = {}
+
+        # inherit runtsafe vars from our root
+        if self.root is not None:
+            self.runtvars.update(root.runtvars)
+
+        self._loadRuntVars(query)
 
     async def dyncall(self, iden, todo, gatekeys=()):
         return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
@@ -1139,7 +1147,7 @@ class Runtime:
         self.task.cancel()
 
     def initPath(self, node):
-        return s_node.Path(self, dict(self.vars), [node])
+        return s_node.Path(dict(self.vars), [node])
 
     def getOpt(self, name, defval=None):
         return self.opts.get(name, defval)
@@ -1159,10 +1167,31 @@ class Runtime:
             self.vars[name] = item
             return item
 
+        if self.root is not None:
+            valu = self.root.getVar(name, defv=s_common.novalu)
+            if valu is not s_common.novalu:
+                return valu
+
         return defv
 
+    def _isRootScope(self, name):
+        if self.root is None:
+            return False
+        if not self.funcscope:
+            return True
+        return name in self.root.vars
+
     def setVar(self, name, valu):
+
+        if name in self.ctors or name in self.vars:
+            self.vars[name] = valu
+            return
+
+        if self._isRootScope(name):
+            return self.root.setVar(name, valu)
+
         self.vars[name] = valu
+        return
 
     def addInput(self, node):
         '''
@@ -1202,96 +1231,49 @@ class Runtime:
         '''
         return self.user.confirm(perms, gateiden=gateiden)
 
-    def loadRuntVars(self, query):
+    def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
             for name in oper.getRuntVars(self):
-                if self.isModuleRunt and isinstance(oper, s_ast.Function):
-                    self.modulefuncs[name] = oper
                 self.runtvars.add(name)
 
-    async def iterStormQuery(self, query, genr=None):
-
-        with s_provenance.claim('storm', q=query.text, user=self.user.iden):
-
-            self.loadRuntVars(query)
-
-            # init any options from the query
-            # (but dont override our own opts)
-            for name, valu in query.opts.items():
-                self.opts.setdefault(name, valu)
-
-            async for node, path in query.iterNodePaths(self, genr=genr):
+    async def execute(self, genr=None):
+        with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
+            async for item in self.query.iterNodePaths(self, genr=genr):
                 self.tick()
-                yield node, path
+                yield item
 
-    def canPropName(self, name):
-        if name not in self.modulefuncs and name not in self.ctors:
-            return True
-        return False
-
-    async def getScopeRuntime(self, query, opts=None, impd=False):
+    @contextlib.asynccontextmanager
+    async def getSubRuntime(self, query, opts=None):
         '''
-        Derive a new runt off of an existing runt. It will pass down any global level vars. It has to
-        re run the oper.run function on any function opers so that it gets the correct context of
-        variable values and functions.
+        Yield a runtime with shared scope that will populate changes upward.
         '''
-        runt = Runtime(self.snap, user=self.user, opts=opts)
+        # pass along our root runtime
+        root = self
+        if self.root is not None:
+            root = self.root
 
-        # inherit readonly status downward
+        runt = Runtime(query, self.snap, user=self.user, opts=opts, root=root)
         runt.readonly = self.readonly
 
-        # imported implies module level
-        runt.isModuleRunt = impd
-        if not impd:  # respect the import boundary
+        yield runt
 
-            # if we are a top level module we need to
-            # push down our runtvars
-            if self.isModuleRunt:
-                for name in self.runtvars:
-                    valu = self.vars.get(name, s_common.novalu)
-                    if valu is s_common.novalu:
-                        continue
-                    if self.canPropName(name):
-                        runt.globals.add(name)
-                        runt.runtvars.add(name)
-                        runt.vars[name] = valu
+    @contextlib.asynccontextmanager
+    async def getCmdRuntime(self, query, opts=None):
+        '''
+        Yield a runtime with proper scoping for use in executing a pure storm command.
+        '''
+        runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt.readonly = self.readonly
+        yield runt
 
-            # propagate down all the global variables
-            for name in self.globals:
-                if self.canPropName(name):
-                    runt.vars[name] = self.vars[name]
-                    runt.globals.add(name)
-                    runt.runtvars.add(name)
-
-            # regardless of module level, we have to reload the module functions
-            # we were given so they run with the right runt. We need this so we have
-            # the whole function telescoping going on, and module level variables get
-            # set to the right values
-            runt.modulefuncs = dict(self.modulefuncs)
-            for name, oper in self.modulefuncs.items():
-                runt.runtvars.add(name)
-                async for item in oper.run(runt, s_common.agen()):
-                    pass  # pragma: no cover
-
-        runt.loadRuntVars(query)
+    async def getModRuntime(self, query, opts=None):
+        '''
+        Construct a non-context managed runtime for use in module imports.
+        '''
+        runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt.readonly = self.readonly
         return runt
-
-    async def propBackGlobals(self, runt):
-        '''
-        From a called runt (passed in by parameter), propagate the vars we know to be global
-        to the module back up into the calling runt. *Don't* propagate any functions, since
-        those need the context of which runt they're being called from, and just for safety
-        don't mess with the base lib object.
-        '''
-        for name in runt.globals:
-            valu = runt.vars.get(name, s_common.novalu)
-            if valu is s_common.novalu:
-                continue
-            if not self.canPropName(name):
-                # don't override our parent's version of a function
-                continue
-            self.vars[name] = valu
 
 class Parser:
 
@@ -1749,35 +1731,26 @@ class PureCmd(Cmd):
 
         opts = {
             'vars': {
-                'cmdopts': None,
-                'cmdconf': self.cdef.get('cmdconf', {})
+                'cmdconf': self.cdef.get('cmdconf', {}),
             }
         }
-        with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
 
-            subr.readonly = runt.readonly
+        if self.opts is not None:
+            opts['vars']['cmdopts'] = vars(self.opts)
 
-            if self.opts is not None:
-                subr.setVar('cmdopts', vars(self.opts))
-
-            subr.setVar('cmdconf', self.cdef.get('cmdconf', {}))
+        async with runt.getCmdRuntime(query, opts=opts) as subr:
 
             async def wrapgenr():
 
                 async for node, path in genr:
-
                     # In the event of a non-runtsafe command invocation our
                     # setArgv() method will be called with an argv computed
                     # for each node, so we need to remap cmdopts into our path & subr
-                    cmdopts = vars(self.opts)
-                    path.initframe(initvars={'cmdopts': cmdopts}, initrunt=subr)
-                    subr.setVar('cmdopts', cmdopts)
+                    path.initframe(initvars={'cmdopts': vars(self.opts)})
                     yield node, path
 
-            subr.loadRuntVars(query)
-
-            async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
-                path.finiframe(subr)
+            async for node, path in subr.execute(genr=wrapgenr()):
+                path.finiframe()
                 yield node, path
 
 class HelpCmd(Cmd):
@@ -2357,10 +2330,10 @@ class GraphCmd(Cmd):
             rules['edges'] = False
 
         for pivo in self.opts.pivot:
-            rules['pivots'].append(pivo[1:-1])
+            rules['pivots'].append(pivo)
 
         for filt in self.opts.filter:
-            rules['filters'].append(filt[1:-1])
+            rules['filters'].append(filt)
 
         for name, pivo in self.opts.form_pivot:
 
@@ -2369,7 +2342,7 @@ class GraphCmd(Cmd):
                 formrule = {'pivots': [], 'filters': []}
                 rules['forms'][name] = formrule
 
-            formrule['pivots'].append(pivo[1:-1])
+            formrule['pivots'].append(pivo)
 
         for name, filt in self.opts.form_filter:
 
@@ -2378,7 +2351,7 @@ class GraphCmd(Cmd):
                 formrule = {'pivots': [], 'filters': []}
                 rules['forms'][name] = formrule
 
-            formrule['filters'].append(filt[1:-1])
+            formrule['filters'].append(filt)
 
         subg = s_ast.SubGraph(rules)
 
@@ -2420,25 +2393,19 @@ class TeeCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
                                           name=self.name)
 
-        hasnodes = False
-        async for node, path in genr:  # type: s_node.Node, s_node.Path
-            hasnodes = True
-            for text in self.opts.query:
-                text = text[1:-1]
-                # This does update path with any vars set in the last npath (node.storm behavior)
-                async for nnode, npath in node.storm(text, user=runt.user, path=path):
-                    yield nnode, npath
+        async with contextlib.AsyncExitStack() as stack:
 
-            if self.opts.join:
-                yield node, path
-
-        if not hasnodes:
+            runts = []
             for text in self.opts.query:
-                text = text[1:-1]
                 query = await runt.getStormQuery(text)
-                subr = await runt.getScopeRuntime(query)
-                async for nnode, npath in subr.iterStormQuery(query):
-                    yield nnode, npath
+                subr = await stack.enter_async_context(runt.getSubRuntime(query))
+                runts.append(subr)
+
+            async for item in genr:
+                for subr in runts:
+                    subg = s_common.agen(item)
+                    async for subitem in subr.execute(genr=subg):
+                        yield subitem
 
 class TreeCmd(Cmd):
     '''
@@ -2459,13 +2426,13 @@ class TreeCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        text = self.opts.query[1:-1]
+        text = self.opts.query
 
         async def recurse(node, path):
 
             yield node, path
 
-            async for nnode, npath in node.storm(text, user=runt.user, path=path):
+            async for nnode, npath in node.storm(runt, text, path=path):
                 async for item in recurse(nnode, npath):
                     yield item
 

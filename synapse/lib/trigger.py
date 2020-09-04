@@ -320,15 +320,7 @@ class Trigger:
         if not self.tdef.get('enabled'):
             return
 
-        if vars is not None:
-            opts['vars'] = vars
-
         useriden = self.tdef.get('user')
-
-        user = node.snap.core.auth.user(useriden)
-        if user is None:
-            logger.warning('Unknown user %s in stored trigger', useriden)
-            return
 
         tag = self.tdef.get('tag')
         cond = self.tdef.get('cond')
@@ -336,14 +328,28 @@ class Trigger:
         prop = self.tdef.get('prop')
         storm = self.tdef.get('storm')
 
+        query = self.view.core.getStormQuery(storm)
+
+        opts = {
+            'user': useriden,
+            'view': self.view.iden,
+        }
+
+        if vars is not None:
+            opts['vars'] = vars
+
         with s_provenance.claim('trig', cond=cond, form=form, tag=tag, prop=prop):
 
-            try:
-                await s_common.aspin(node.storm(storm, opts=opts, user=user))
-            except (asyncio.CancelledError, s_exc.RecursionLimitHit):
-                raise
-            except Exception:
-                logger.exception('Trigger encountered exception running storm query %s', storm)
+            async with self.view.core.getStormRuntime(query, opts=opts) as runt:
+
+                runt.addInput(node)
+
+                try:
+                    await s_common.aspin(runt.execute())
+                except (asyncio.CancelledError, s_exc.RecursionLimitHit):
+                    raise
+                except Exception:
+                    logger.exception('Trigger encountered exception running storm query %s', storm)
 
     def pack(self):
         tdef = self.tdef.copy()

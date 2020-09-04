@@ -231,20 +231,6 @@ class StormTest(s_t_utils.SynTest):
                 await self.agenlen(0, core.eval(q))
                 self.true(stream.wait(1))
 
-    async def test_storm_input(self):
-
-        async with self.getTestCore() as core:
-
-            async with await core.snap() as snap:
-
-                node = await snap.addNode('test:str', 'woot')
-                await s_common.aspin(node.storm('[ +#hehe ]'))
-
-                await self.agenlen(1, snap.eval('#hehe'))
-
-                await s_common.aspin(node.storm('[ -#hehe ]'))
-                await self.agenlen(0, snap.eval('#hehe'))
-
     async def test_minmax(self):
 
         async with self.getTestCore() as core:

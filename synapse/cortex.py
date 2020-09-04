@@ -2972,6 +2972,18 @@ class Cortex(s_cell.Cell):  # type: ignore
         query.init(self)
         return query
 
+    @contextlib.asynccontextmanager
+    async def getStormRuntime(self, query, opts=None):
+
+        opts = self._initStormOpts(opts)
+
+        view = self._viewFromOpts(opts)
+        user = self._userFromOpts(opts)
+
+        async with await self.snap(user=user, view=view) as snap:
+            async with snap.getStormRuntime(query, opts=opts, user=user) as runt:
+                yield runt
+
     async def reqValidStorm(self, text, opts=None):
         '''
         Parse a storm query to validate it.

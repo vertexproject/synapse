@@ -101,13 +101,12 @@ class Snap(s_base.Base):
 
         return meta
 
-    @contextlib.contextmanager
-    def getStormRuntime(self, opts=None, user=None):
+    @contextlib.asynccontextmanager
+    async def getStormRuntime(self, query, opts=None, user=None):
         if user is None:
             user = self.user
 
-        runt = s_storm.Runtime(self, opts=opts, user=user)
-        runt.isModuleRunt = True
+        runt = s_storm.Runtime(query, self, opts=opts, user=user)
 
         yield runt
 
@@ -146,8 +145,8 @@ class Snap(s_base.Base):
         mode = opts.get('mode', 'storm')
 
         query = self.core.getStormQuery(text, mode=mode)
-        with self.getStormRuntime(opts=opts, user=user) as runt:
-            async for x in runt.iterStormQuery(query):
+        async with self.getStormRuntime(query, opts=opts, user=user) as runt:
+            async for x in runt.execute():
                 yield x
 
     @s_coro.genrhelp
@@ -165,8 +164,8 @@ class Snap(s_base.Base):
 
         # maintained for backward compatibility
         query = self.core.getStormQuery(text, mode=mode)
-        with self.getStormRuntime(opts=opts, user=user) as runt:
-            async for node, path in runt.iterStormQuery(query):
+        async with self.getStormRuntime(query, opts=opts, user=user) as runt:
+            async for node, path in runt.execute():
                 yield node
 
     async def nodes(self, text, opts=None, user=None):

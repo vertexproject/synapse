@@ -196,7 +196,6 @@ class View(s_nexus.Pusher):  # type: ignore
             ((str,dict)): Storm messages.
         '''
         opts = self.core._initStormOpts(opts)
-
         user = self.core._userFromOpts(opts)
 
         MSG_QUEUE_SIZE = 1000
@@ -440,11 +439,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async with await self.parent.snap(user=user) as snap:
 
-            with snap.getStormRuntime(user=user):
-                meta = await snap.getSnapMeta()
-
-                async for nodeedits in fromlayr.iterLayerNodeEdits():
-                    await parentlayr.storNodeEditsNoLift([nodeedits], meta)
+            meta = await snap.getSnapMeta()
+            async for nodeedits in fromlayr.iterLayerNodeEdits():
+                await parentlayr.storNodeEditsNoLift([nodeedits], meta)
 
         await fromlayr.truncate()
 
