@@ -306,7 +306,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                     self.true(slab.syncevnt.is_set())
 
-                    self.len(1, await waiter.wait(timeout=1))
+                    retn = await waiter.wait(timeout=1)
+                    self.nn(retn)
+                    self.len(1, retn)
 
     async def test_lmdbslab_maxsize(self):
         with self.getTestDir() as dirn:

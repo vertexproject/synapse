@@ -570,13 +570,6 @@ class Slab(s_base.Base):
     @classmethod
     async def initSyncLoop(clas, inst):
 
-        async def fini():
-
-            if not clas.allslabs:
-                clas.synctask.cancel()
-                clas.synctask = None
-                clas.syncevnt = None
-
         if clas.synctask is not None:
             return
 
@@ -818,6 +811,12 @@ class Slab(s_base.Base):
         self.allslabs.pop(self.path, None)
         del self.lenv
 
+        if not self.allslabs:
+            if self.synctask:
+                self.synctask.cancel()
+            self.__class__.synctask = None
+            self.__class__.syncevnt = None
+
     def _finiCoXact(self):
         '''
         Note:
@@ -870,7 +869,7 @@ class Slab(s_base.Base):
         '''
         Separate thread loop that manages the prefaulting and locking of the memory backing the data file
         '''
-        if not s_thishost.get('hasmemlocking'):
+        if not s_thishost.get('hasmemlocking'):  # pragma: no cover
             return
         MAX_TOTAL_PERCENT = .90  # how much of all the RAM to take
         MAX_LOCK_AT_ONCE = s_const.gibibyte
@@ -921,7 +920,7 @@ class Slab(s_base.Base):
 
             try:
                 memstart, memlen = s_thisplat.getFileMappedRegion(path)
-            except s_exc.NoSuchFile:
+            except s_exc.NoSuchFile:  # pragma: no cover
                 logger.warning('map not found for %s', path)
 
                 if not self.resizeevent.is_set():
@@ -1466,15 +1465,6 @@ class Scan:
         self.slab.scans.discard(self)
         self.slab._relXactForReading()
         self.curs = None
-
-    def last_key(self):
-        '''
-        Return the last key in the database.  Returns none if database is empty.
-        '''
-        if not self.curs.last():
-            return None
-
-        return self.curs.key()
 
     def first(self):
 
