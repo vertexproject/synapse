@@ -1131,6 +1131,9 @@ class Runtime:
     async def warn(self, mesg, **info):
         return await self.snap.warn(mesg, **info)
 
+    async def warnonce(self, mesg, **info):
+        return await self.snap.warnonce(mesg, **info)
+
     def tick(self):
         pass
 
