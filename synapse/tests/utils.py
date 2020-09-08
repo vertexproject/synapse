@@ -2,7 +2,7 @@
 This contains the core test helper code used in Synapse.
 
 This gives the opportunity for third-party users of Synapse to test their
-code using some of the same of the same helpers used to test Synapse.
+code using some of the same helpers used to test Synapse.
 
 The core class, synapse.tests.utils.SynTest is a subclass of unittest.TestCase,
 with several wrapper functions to allow for easier calls to assert* functions,
