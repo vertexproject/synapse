@@ -669,6 +669,11 @@ class Slab(s_base.Base):
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
+        if self.lockmemory:
+            lockmem_override = os.getenv('SYN_LOCKMEM_DISABLE', False)
+            if lockmem_override:
+                logger.info(f'SYN_LOCKMEM_DISABLE envar set, skipping lockmem for {self.path}')
+                self.lockmemory = False
         opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
