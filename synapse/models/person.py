@@ -190,6 +190,9 @@ class PsModule(s_module.CoreModule):
                     ('phone:work', ('tel:phone', {}), {
                         'doc': 'The work phone number for this contact.',
                     }),
+                    ('id:number', ('ou:id:number', {}), {
+                        'doc': 'An ID number issued by an org and associated with this contact.',
+                    }),
                 )),
             )
         }

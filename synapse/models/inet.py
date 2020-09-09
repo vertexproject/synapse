@@ -2376,7 +2376,12 @@ class InetModule(s_module.CoreModule):
                         ('accuracy', ('geo:dist', {}), {
                             'doc': 'The reported accuracy of the latlong telemetry reading.',
                         }),
-
+                        ('channel', ('int', {}), {
+                            'doc': 'The WIFI channel that the AP was last observed operating on.',
+                        }),
+                        ('encryption', ('str', {'lower': True, 'strip': True}), {
+                            'doc': 'The type of encryption used by the WIFI AP such as "wpa2".',
+                        }),
                         ('place', ('geo:place', {}), {
                             'doc': 'The geo:place assocated with the latlong property.'}),
 
