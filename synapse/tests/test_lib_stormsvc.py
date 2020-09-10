@@ -612,7 +612,7 @@ class StormSvcTest(s_test.SynTest):
                     self.none(core.getStormCmd('ohhai'))
 
                     # ensure del event ran
-                    q = 'for ($offs, $mesg) in $lib.queue.get(vertex).gets(wait=10) {return (($offs, $mesg))}'
+                    q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
                     retn = await core.callStorm(q)
                     self.eq(retn, (0, 'done'))
 
@@ -834,11 +834,11 @@ class StormSvcTest(s_test.SynTest):
 
                         # Make sure it got removed from both
                         self.none(core00.getStormCmd('ohhai'))
-                        queue = core00.multiqueue.list()
-                        self.len(0, queue)
-                        self.notin('foo.bar', core00.stormmods)
+                        q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                        retn = await core00.callStorm(q)
+                        self.eq(retn, (0, 'done'))
 
                         self.none(core01.getStormCmd('ohhai'))
-                        queue = core01.multiqueue.list()
-                        self.len(0, queue)
-                        self.notin('foo.bar', core01.stormmods)
+                        q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                        retn = await core01.callStorm(q)
+                        self.eq(retn, (0, 'done'))
