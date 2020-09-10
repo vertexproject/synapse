@@ -1581,7 +1581,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         opts = {'vars': {'cmdconf': {'svciden': iden}}}
         coro = s_common.aspin(self.storm(evnt, opts=opts))
-        if name is 'add':
+        if name == 'add':
             await coro
         else:
             self.schedCoro(coro)
