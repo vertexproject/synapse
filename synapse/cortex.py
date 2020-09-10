@@ -1568,6 +1568,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.svchive.set(iden, sdef)
 
     async def runStormSvcEvent(self, iden, name):
+        assert name in ('add', 'del')
+
         sdef = self.svchive.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
@@ -1576,7 +1578,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         evnt = sdef.get('evts', {}).get(name, {}).get('storm')
         if evnt is None:
             return
-        await s_common.aspin(self.storm(evnt, opts={'vars': {'cmdconf': {'svciden': iden}}}))
+
+        opts = {'vars': {'cmdconf': {'svciden': iden}}}
+        coro = s_common.aspin(self.storm(evnt, opts=opts))
+        if name == 'add':
+            await coro
+        else:
+            self.schedCoro(coro)
 
     async def _setStormSvc(self, sdef):
 

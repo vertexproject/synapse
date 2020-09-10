@@ -159,7 +159,7 @@ class RealService(s_stormsvc.StormSvc):
             'storm': '$lib.queue.add(vertex)',
         },
         'del': {
-            'storm': '$lib.queue.del(vertex)',
+            'storm': '$que=$lib.queue.get(vertex) $que.put(done)',
         },
     }
 
@@ -611,9 +611,10 @@ class StormSvcTest(s_test.SynTest):
                     # make sure stormcmd got deleted
                     self.none(core.getStormCmd('ohhai'))
 
-                    # ensure fini ran
-                    queue = core.multiqueue.list()
-                    self.len(0, queue)
+                    # ensure del event ran
+                    q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                    retn = await core.callStorm(q)
+                    self.eq(retn, (0, 'done'))
 
                     # specifically call teardown
                     for svc in core.getStormSvcs():
@@ -833,11 +834,11 @@ class StormSvcTest(s_test.SynTest):
 
                         # Make sure it got removed from both
                         self.none(core00.getStormCmd('ohhai'))
-                        queue = core00.multiqueue.list()
-                        self.len(0, queue)
-                        self.notin('foo.bar', core00.stormmods)
+                        q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                        retn = await core00.callStorm(q)
+                        self.eq(retn, (0, 'done'))
 
                         self.none(core01.getStormCmd('ohhai'))
-                        queue = core01.multiqueue.list()
-                        self.len(0, queue)
-                        self.notin('foo.bar', core01.stormmods)
+                        q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                        retn = await core01.callStorm(q)
+                        self.eq(retn, (0, 'done'))
