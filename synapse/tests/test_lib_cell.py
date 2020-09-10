@@ -590,11 +590,13 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup('../woot')
 
-                    with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
-                        await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+                    with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
+                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
 
-                    with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
-                        await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+                    with mock.patch.object(s_cell.Cell, 'BACKUP_ACQUIRE_TIMEOUT', 0.1):
+                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
 
                     with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
                         await self.asyncraises(s_exc.SpawnExit, proxy.runBackup())

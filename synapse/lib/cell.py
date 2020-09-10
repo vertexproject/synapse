@@ -541,6 +541,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
     }
 
+    BACKUP_SPAWN_TIMEOUT = 4.0
+    BACKUP_ACQUIRE_TIMEOUT = 0.5
+
     async def __anit__(self, dirn, conf=None, readonly=False):
 
         # phase 1
@@ -777,7 +780,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         def spawnproc():
             proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths))
             proc.start()
-            hasdata = mypipe.poll(timeout=2.0)
+            hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
             if not hasdata:
                 raise s_exc.SynErr(mesg='backup subprocess stuck')
             data = mypipe.recv()
@@ -796,7 +799,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             # This is technically pending the ioloop waiting for the backup process to acquire a bunch of
             # transactions.  We're effectively locking out new write requests the brute force way.
-            hasdata = mypipe.poll(timeout=.5)
+            hasdata = mypipe.poll(timeout=self.BACKUP_ACQUIRE_TIMEOUT)
             if not hasdata:
                 raise s_exc.SynErr(mesg='backup subprocess stuck')
 
