@@ -69,6 +69,13 @@ class BackupTest(s_t_utils.SynTest):
                 # We expect the data.mdb file to be in the fpset
                 self.isin(f'/layers/{layriden}/layer_v2.lmdb/data.mdb', fpset)
 
+            # Test corner case no-lmdbinfo
+            with self.getTestDir() as dirn2:
+                with self.getLoggerStream('synapse.tools.backup') as stream:
+                    s_backup.txnbackup([], core.dirn, dirn2)
+                    stream.seek(0)
+                    self.isin('not copied', stream.read())
+
     async def test_backup_exclude(self):
 
         with self.getTestDir() as dirn:
