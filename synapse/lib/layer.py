@@ -1505,7 +1505,7 @@ class Layer(s_nexus.Pusher):
         results = await self._push('edits', nodeedits, meta)
 
         retn = []
-        for buid, form, edits in results:
+        for buid, _, edits in results:
             sode = self._getStorNode(buid)
             retn.append((buid, sode.copy(), edits))
 
@@ -1852,9 +1852,6 @@ class Layer(s_nexus.Pusher):
 
         tpkey = (tag, prop)
 
-        tenc = tag.encode()
-        penc = prop.encode()
-
         tp_abrv = self.setTagPropAbrv(None, tag, prop)
         ftp_abrv = self.setTagPropAbrv(form, tag, prop)
 
@@ -1893,9 +1890,6 @@ class Layer(s_nexus.Pusher):
             return ()
 
         self.setSodeDirty(buid, sode, form)
-
-        tenc = tag.encode()
-        penc = prop.encode()
 
         tp_abrv = self.setTagPropAbrv(None, tag, prop)
         ftp_abrv = self.setTagPropAbrv(form, tag, prop)
@@ -2069,8 +2063,6 @@ class Layer(s_nexus.Pusher):
 
     async def iterPropRows(self, form, prop):
 
-        penc = prop.encode()
-
         try:
             abrv = self.getPropAbrv(form, prop)
 
@@ -2087,12 +2079,9 @@ class Layer(s_nexus.Pusher):
             if valt is None:
                 continue
 
-            #valu, stortype = valt
             yield buid, valt[0]
 
     async def iterUnivRows(self, prop):
-
-        penc = prop.encode()
 
         try:
             abrv = self.getPropAbrv(None, prop)
@@ -2110,7 +2099,6 @@ class Layer(s_nexus.Pusher):
             if valt is None:
                 continue
 
-            #valu, stortype = valt
             yield buid, valt[0]
 
     async def getNodeData(self, buid, name):
@@ -2145,8 +2133,6 @@ class Layer(s_nexus.Pusher):
         Scan the full layer and yield artificial sets of nodeedits.
         '''
         await self._saveDirtySodes()
-
-        nodeedits = (None, None, None)
 
         for buid, byts in self.layrslab.scanByFull(db=self.bybuidv3):
 
@@ -2374,7 +2360,7 @@ class Layer(s_nexus.Pusher):
         if not self.logedits:
             return
 
-        for offs, (nodeedits, meta) in self.nodeeditlog.iter(offs):
+        for offs, (nodeedits, _) in self.nodeeditlog.iter(offs):
             yield (offs, nodeedits)
 
         if wait:
