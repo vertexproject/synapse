@@ -191,10 +191,13 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A arbitrary, unversioned software product.',
                 }),
 
-                ('it:os:ios:idfa', ('str', {'lower': 1}), {
+                ('it:adid', ('str', {'lower': 1}), {
+                    'doc': 'An advertising identification string.'}),
+
+                ('it:os:ios:idfa', ('it:adid', {}), {
                     'doc': 'An iOS advertising identification string.'}),
 
-                ('it:os:android:aaid', ('str', {'lower': 1}), {
+                ('it:os:android:aaid', ('it:adid', {}), {
                     'doc': 'An android advertising identification string.'}),
 
                 ('it:os:android:perm', ('str', {}), {

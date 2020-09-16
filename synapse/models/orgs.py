@@ -181,6 +181,9 @@ class OuModule(s_module.CoreModule):
                     ('name', ('ou:name', {}), {
                         'doc': 'The localized name of an organization.',
                     }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the org.',
+                    }),
                     ('names', ('array', {'type': 'ou:name'}), {
                        'doc': 'A list of alternate names for the organization.',
                     }),

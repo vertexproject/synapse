@@ -193,6 +193,9 @@ class PsModule(s_module.CoreModule):
                     ('id:number', ('ou:id:number', {}), {
                         'doc': 'An ID number issued by an org and associated with this contact.',
                     }),
+                    ('adid', ('it:adid', {}), {
+                        'doc': 'A Advertising ID associated with this contact.',
+                    }),
                 )),
             )
         }
