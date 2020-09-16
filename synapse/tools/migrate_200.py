@@ -619,7 +619,7 @@ class Migrator(s_base.Base):
     async def __anit__(self, conf):
         await s_base.Base.__anit__(self)
 
-        logger.warning('The 0.1.x to 2.0.0 migration code will be removed from Synapse in 2.9.0')
+        logger.warning('The 0.1.x to 2.0.0 migration tool will be removed from Synapse in 2.9.0')
         self.migrdir = 'migration'
 
         logger.debug(f'Migrator conf: {conf}')
