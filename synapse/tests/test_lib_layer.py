@@ -322,7 +322,7 @@ class LayerTest(s_t_utils.SynTest):
             splices = await alist(layr.splices(None, 10))
             spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
-            await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
+            await core.addTagProp('risk', ('int', {'min': 0, 'max': 100}), {'doc': 'risk score'})
 
             # Convert a node:add splice
             await core.nodes('[ test:str=foo ]')
