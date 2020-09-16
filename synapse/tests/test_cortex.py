@@ -328,7 +328,7 @@ class CortexTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
 
                 await core.addTagProp('user', ('str', {}), {})
-                await core.addTagProp('score', ('int', {'min': 0, 'max': 100}), {'doc': 'hi there'})
+                await core.addTagProp('score', ('int', {'min': 0, 'max': 110}), {'doc': 'hi there'})
                 await core.addTagProp('at', ('geo:latlong', {}), {'doc':
                                                                   'Where the node was when the tag was applied.'})
 
@@ -380,13 +380,13 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score?=asdf ] +#foo.bar:score=40'))
 
                 # test the "set existing" cases for lift indexes
-                self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=95 ]'))
+                self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=100 ]'))
                 self.len(1, await core.nodes('#foo.bar'))
                 self.len(1, await core.nodes('#foo.bar:score'))
-                self.len(1, await core.nodes('#foo.bar:score=95'))
-                self.len(1, await core.nodes('#foo.bar:score<=100'))
+                self.len(1, await core.nodes('#foo.bar:score=100'))
+                self.len(1, await core.nodes('#foo.bar:score<=110'))
                 self.len(1, await core.nodes('#foo.bar:score>=90'))
-                self.len(1, await core.nodes('#foo.bar:score*range=(90, 100)'))
+                self.len(1, await core.nodes('#foo.bar:score*range=(90, 110)'))
 
                 # remove the tag
                 await core.nodes('test:int=10 [ -#foo.bar ]')
