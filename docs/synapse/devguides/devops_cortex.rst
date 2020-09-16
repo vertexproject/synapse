@@ -89,6 +89,11 @@ the Axon.
 0.1.x to 2.x.x Migration
 ------------------------
 
+.. warning::
+    The ``0.1.x`` to ``2.x.x`` migration tools will be removed in Synapse ``v2.9.0``. The
+    tools will continue to be available in previous versions of the ``2.x.x`` releases.
+    A Cortex should be completely migrated in ``v2.8.x`` before moving to ``v2.9.0``.
+
 Two tools have been created to execute migration of an ``0.1.x`` Cortex to ``2.x.x``:
 
 * ``migrate_200`` migrates all data from the source to a new destination ``2.x.x`` Cortex.
