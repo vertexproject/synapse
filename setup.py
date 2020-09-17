@@ -6,9 +6,6 @@ from setuptools.command.install import install
 
 VERSION = '2.7.2'
 
-with open('README.rst', encoding='utf-8') as f:
-    long_description = f.read()
-
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
     description = 'verify that the git tag matches our version'
@@ -21,6 +18,19 @@ class VerifyVersionCommand(install):
             info = f"Git tag: {tag} does not match the version of this app: {VERSION}"
             sys.exit(info)
 
+long_description_content_type = None
+long_description = None
+readme = './README.rst'
+if os.path.exists(readme):
+
+    print(f'Adding {readme} contents as the long description.')
+
+    with open('./README.rst', 'rb') as fd:
+        buf = fd.read()
+    long_description = buf.decode()
+    long_description_content_type = 'text/x-rst'
+
+    
 setup(
     name='synapse',
     version=VERSION,
