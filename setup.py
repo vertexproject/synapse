@@ -36,6 +36,7 @@ setup(
     version=VERSION,
     description='Synapse Intelligence Analysis Framework',
     long_description=long_description,
+    long_description_content_type=long_description_content_type,
     author='The Vertex Project LLC',
     author_email='synapse@vertex.link',
     url='https://github.com/vertexproject/synapse',
