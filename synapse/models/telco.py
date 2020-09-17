@@ -361,6 +361,10 @@ class TelcoModule(s_module.CoreModule):
                     ('wifi:bssid', ('inet:mac', {}), {}),
 
                     # host specific data
+                    ('host', ('it:host', {}), {}),
+                    ('adid', ('it:adid', {}), {}),
+
+                    # TODO depricate?
                     ('aaid', ('it:os:android:aaid', {}), {}),
                     ('idfa', ('it:os:ios:idfa', {}), {}),
 
