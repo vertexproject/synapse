@@ -1843,7 +1843,7 @@ class StormTypesTest(s_test.SynTest):
 
             root = await core.auth.getUserByName('root')
 
-            await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
+            await core.addTagProp('risk', ('int', {'min': 0, 'max': 100}), {'doc': 'risk score'})
             await core.nodes('[test:int=12 +#tag.test +#tag.proptest:risk=20]')
 
             # Get the main view
