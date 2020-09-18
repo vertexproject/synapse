@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.7.2'
+VERSION = '2.7.3'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -65,6 +65,7 @@ setup(
 
     extras_require={
         'docs': [
+            'nbconvert==5.6.1',
             'sphinx>=1.8.2,<2.0.0',
             'jupyter>=1.0.0,<2.0.0',
             'hide-code>=0.5.2,<0.5.3',
