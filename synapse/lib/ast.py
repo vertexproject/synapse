@@ -2452,7 +2452,7 @@ class FuncCall(Value):
 
         func = await self.kids[0].compute(runt, path)
         if runt.readonly and not getattr(func, '_storm_readonly', False):
-            mesg = f'Funciton ({func.__name__}) is not marked readonly safe.'
+            mesg = f'Function ({func.__name__}) is not marked readonly safe.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
         argv = await self.kids[1].compute(runt, path)
