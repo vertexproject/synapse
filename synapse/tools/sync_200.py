@@ -176,6 +176,8 @@ class SyncMigrator(s_cell.Cell):
     async def __anit__(self, dirn, conf=None):
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
+        logger.warning('The 0.1.x to 2.0.0 sync service will be removed from Synapse in 2.9.0')
+
         self.src = self.conf.get('src')
         self.dest = self.conf.get('dest')
         self.offsfile = self.conf.get('offsfile')
