@@ -3,6 +3,36 @@ Synapse Changelog
 *****************
 
 
+v2.7.3 - 2020-09-16
+===================
+
+Deprecations
+------------
+
+- The ``0.1.x`` to ``2.x.x`` Migration tool and and associated Cortex sync service will be removed from Synapse in
+  the ``2.9.0`` release. In order to move forward to ``2.9.0``, please make sure that any Cortexes which still need to
+  be migrated will first be migrated to ``2.8.x`` prior to attempting to use ``2.9.x``.
+  (`#1880 <https://github.com/vertexproject/synapse/pull/1880>`_)
+
+Bugfixes
+--------
+- Remove duplicate words in a comment. This was a community contribution from enadjoe.
+  (`#1874 <https://github.com/vertexproject/synapse/pull/1874>`_)
+- Fix a nested Nexus log event in Storm Service deletion. The ``del`` event causing Storm code execution could lead to
+  nested Nexus events, which is incongruent with how Nexus change handlers work. This now spins off the Storm code in
+  a free-running coroutine. This does change the service ``del`` semantics since any support Storm packages a service
+  had may be removed by the time the handler executes.
+  (`#1876 <https://github.com/vertexproject/synapse/pull/1876>`_)
+- Fix an issue where the ``cull`` parameter was not being passed to the multiqueue properly when calling ``.gets()``
+  on a Storm Types Queue object.
+  (`#1876 <https://github.com/vertexproject/synapse/pull/1876>`_)
+- Pin the ``nbconvert`` package to a known working version, as ``v6.0.0`` of that package broke the Synapse document
+  generation by changing how templates work.
+  (`#1876 <https://github.com/vertexproject/synapse/pull/1876>`_)
+- Correct ``min`` and ``max`` integer examples in tagprop documentation and tests.
+  (`#1878 <https://github.com/vertexproject/synapse/pull/1878>`_)
+
+
 v2.7.2 - 2020-09-04
 ===================
 

@@ -328,7 +328,7 @@ class CortexTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
 
                 await core.addTagProp('user', ('str', {}), {})
-                await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+                await core.addTagProp('score', ('int', {'min': 0, 'max': 110}), {'doc': 'hi there'})
                 await core.addTagProp('at', ('geo:latlong', {}), {'doc':
                                                                   'Where the node was when the tag was applied.'})
 
@@ -441,6 +441,12 @@ class CortexTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.DupPropName):
                     await core.addTagProp('score', ('int', {}), {})
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes('test:int=10 [ +#bar:score=200 ]')
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes('test:int=10 [ +#bar:score=-200 ]')
 
                 await core.delTagProp('score')
 
