@@ -77,6 +77,7 @@ class Snap(s_base.Base):
         # Keeps alive the most recently accessed node objects
         self.buidcache = collections.deque(maxlen=self._buidcachesize)
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
+        self._warnonce_keys = set()
 
         self.onfini(self.stack.close)
         self.changelog = []
@@ -183,6 +184,12 @@ class Snap(s_base.Base):
         if log:
             logger.warning(mesg)
         await self.fire('warn', mesg=mesg, **info)
+
+    async def warnonce(self, mesg, log=True, **info):
+        if mesg in self._warnonce_keys:
+            return
+        self._warnonce_keys.add(mesg)
+        await self.warn(mesg, log, **info)
 
     async def getNodeByBuid(self, buid):
         '''

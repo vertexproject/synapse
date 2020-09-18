@@ -578,7 +578,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
+            await core.addTagProp('risk', ('int', {'min': 0, 'max': 100}), {'doc': 'risk score'})
 
             visi = await prox.addUser('visi', passwd='secret')
 

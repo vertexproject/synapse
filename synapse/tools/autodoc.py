@@ -551,8 +551,8 @@ async def docStormsvc(ctor):
                 cargs = cdef.get('cmdargs')
 
                 # command names cannot have colons in them thankfully
-
-                rst.addHead(cname, lvl=3)
+                cref = f'.. _stormcmd-{pname.replace(":", "-")}-{cname.replace(".", "-")}:'
+                rst.addHead(cname, lvl=3, link=cref)
 
                 # Form the description
                 lines = ['::\n']
