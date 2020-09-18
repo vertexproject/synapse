@@ -245,7 +245,7 @@ class Daemon(s_base.Base):
 
         # by default we are ready... ( backward compat )
         self.dmonready = asyncio.Event()
-        self.setReady(True)
+        await self.setReady(True)
 
     async def setReady(self, ready):
         if not ready:
@@ -355,7 +355,7 @@ class Daemon(s_base.Base):
 
     async def _onLinkInit(self, link):
 
-        if not self._waitForReady():
+        if not await self._waitForReady():
             logger.warning(f'onLinkInit is not ready: {repr(link)}')
             return await link.fini()
 

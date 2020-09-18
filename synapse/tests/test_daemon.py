@@ -1,8 +1,12 @@
 import synapse.common as s_common
 import synapse.daemon as s_daemon
-
+import synapse.telepath as s_telepath
 
 import synapse.tests.utils as s_t_utils
+
+class Foo:
+    def woot(self):
+        return 10
 
 class DaemonTest(s_t_utils.SynTest):
 
@@ -27,3 +31,16 @@ class DaemonTest(s_t_utils.SynTest):
                         await dmon.listen(listpath)
 
                 self.true(await stream.wait(1))
+
+    async def test_dmon_ready(self):
+
+        async with await s_daemon.Daemon.anit() as dmon:
+
+            host, port = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('foo', Foo())
+
+            async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/foo') as foo:
+                self.eq(10, await foo.woot())
+                await dmon.setReady(False)
+                await foo.waitfini(timeout=2)
+                self.true(foo.isfini)
