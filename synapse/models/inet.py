@@ -866,6 +866,11 @@ class InetModule(s_module.CoreModule):
                         'ex': '(54959, (1.2.3.4, 1.2.3.20))',
                     }),
 
+                    ('inet:asnet6', ('comp', {'fields': (('asn', 'inet:asn'), ('net6', 'inet:net6'))}), {
+                        'doc': 'An Autonomous System Number (ASN) and its associated IPv6 address range.',
+                        'ex': '(54959, (ff::00, ff::02))',
+                    }),
+
                     ('inet:client', ('inet:addr', {}), {
                         'doc': 'A network client address.'
                     }),
@@ -1171,6 +1176,25 @@ class InetModule(s_module.CoreModule):
                         ('net4:max', ('inet:ipv4', {}), {
                             'ro': True,
                             'doc': 'The last IPv4 in the range assigned to the ASN.'
+                        }),
+                    )),
+
+                    ('inet:asnet6', {}, (
+                        ('asn', ('inet:asn', {}), {
+                            'ro': True,
+                            'doc': 'The Autonomous System Number (ASN) of the netblock.'
+                        }),
+                        ('net6', ('inet:net6', {}), {
+                            'ro': True,
+                            'doc': 'The IPv6 address range assigned to the ASN.'
+                        }),
+                        ('net6:min', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The first IPv6 in the range assigned to the ASN.'
+                        }),
+                        ('net6:max', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The last IPv6 in the range assigned to the ASN.'
                         }),
                     )),
 

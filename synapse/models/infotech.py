@@ -427,6 +427,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Set to True if the software is a library.'}),
                 )),
 
+                ('it:adid', {}, ()),
                 ('it:os:ios:idfa', {}, ()),
                 ('it:os:android:aaid', {}, ()),
                 ('it:os:android:perm', {}, ()),

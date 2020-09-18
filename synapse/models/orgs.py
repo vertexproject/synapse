@@ -82,7 +82,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:id:value', ('str', {'strip': True}), {
                     'doc': 'The value of an org:id:number.',
                 }),
-                ('ou:id:number', ('comp', {'fields': (('type', 'ou:id:type'), ('value', 'ou:id:value'))})), {
+                ('ou:id:number', ('comp', {'fields': (('type', 'ou:id:type'), ('value', 'ou:id:value'))}), {
                     'doc': 'A unique id number issued by a specific organization.',
                 }),
                 ('ou:id:update', ('guid', {}), {
@@ -97,8 +97,8 @@ class OuModule(s_module.CoreModule):
                     ('name', ('str', {}), {
                         'doc': 'The friendly name of the id number type.',
                     }),
-                ),
-                ('ou:id:number', {}, {
+                )),
+                ('ou:id:number', {}, (
                     ('type', ('ou:id:type', {}), {
                         'doc': 'The type of org id',
                     }),
@@ -114,18 +114,18 @@ class OuModule(s_module.CoreModule):
                     ('expires', ('time', {}), {
                         'doc': 'The time at which the ID number expires.',
                     }),
-                }),
-                ('ou:id:update', {}, {
+                )),
+                ('ou:id:update', {}, (
                     ('number', ('ou:id:number', {}), {
                         'doc': 'The id number that was updated.',
-                    })
+                    }),
                     ('status', ('str', {'strip': True, 'lower': True}), {
                         'doc': 'The updated status of the id number.',
-                    })
+                    }),
                     ('time', ('time', {}), {
                         'doc': 'The date/time that the id number was updated.',
-                    })
-                }),
+                    }),
+                )),
                 ('ou:goal', {}, (
                     ('name', ('str', {}), {
                         'doc': 'A terse name for the goal.',
