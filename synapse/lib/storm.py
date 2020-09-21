@@ -1251,12 +1251,7 @@ class Runtime:
         '''
         Yield a runtime with shared scope that will populate changes upward.
         '''
-        # pass along our root runtime
-        root = self
-        if self.root is not None:
-            root = self.root
-
-        runt = Runtime(query, self.snap, user=self.user, opts=opts, root=root)
+        runt = Runtime(query, self.snap, user=self.user, opts=opts, root=self)
         runt.readonly = self.readonly
 
         yield runt

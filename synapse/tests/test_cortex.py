@@ -3787,10 +3787,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core00.nodes('$lib.queue.add(hehe)')
                 q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
                 msgs = await core00.stormlist(q)
-                for m in msgs:
-                    print(m)
-
-                print(repr(core00.getStormQuery(q)))
 
                 url = core00.getLocalUrl()
 

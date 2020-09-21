@@ -2231,9 +2231,6 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.add node:add --tag tag1 --query {test:str}')
             self.stormIsInErr("data must contain ['form']", mesgs)
 
-            mesgs = await core.stormlist(f'trigger.mod {goodbuid2} test:str')
-            self.stormIsInErr('start with {', mesgs)
-
             # Bad storm syntax
             mesgs = await core.stormlist('trigger.add node:add --form test:str --query {[ | | test:int=1 ] }')
             self.stormIsInErr('No terminal defined', mesgs)

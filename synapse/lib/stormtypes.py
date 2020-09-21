@@ -2211,6 +2211,8 @@ class Query(Prim):
     '''
     def __init__(self, text, varz, runt, path=None):
 
+        text = text.strip()
+
         Prim.__init__(self, text, path=path)
 
         self.text = text

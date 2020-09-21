@@ -110,66 +110,66 @@ class Triggers:
         finally:
             RecursionDepth.reset(token)
 
-    async def runNodeAdd(self, node):
+    async def runNodeAdd(self, node, view=None):
         with self._recursion_check():
-            [await trig.execute(node) for trig in self.nodeadd.get(node.form.name, ())]
+            [await trig.execute(node, view=view) for trig in self.nodeadd.get(node.form.name, ())]
 
-    async def runNodeDel(self, node):
+    async def runNodeDel(self, node, view=None):
         with self._recursion_check():
-            [await trig.execute(node) for trig in self.nodedel.get(node.form.name, ())]
+            [await trig.execute(node, view=view) for trig in self.nodedel.get(node.form.name, ())]
 
-    async def runPropSet(self, node, prop, oldv):
+    async def runPropSet(self, node, prop, oldv, view=None):
         vars = {'propname': prop.name, 'propfull': prop.full}
         with self._recursion_check():
-            [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.full, ())]
+            [await trig.execute(node, vars=vars, view=view) for trig in self.propset.get(prop.full, ())]
             if prop.univ is not None:
-                [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.univ.full, ())]
+                [await trig.execute(node, vars=vars, view=view) for trig in self.propset.get(prop.univ.full, ())]
 
-    async def runTagAdd(self, node, tag):
+    async def runTagAdd(self, node, tag, view=None):
 
         vars = {'tag': tag}
         with self._recursion_check():
 
             for trig in self.tagadd.get((node.form.name, tag), ()):
-                await trig.execute(node, vars=vars)
+                await trig.execute(node, vars=vars, view=view)
 
             for trig in self.tagadd.get((None, tag), ()):
-                await trig.execute(node, vars=vars)
+                await trig.execute(node, vars=vars, view=view)
 
             # check for form specific globs
             globs = self.tagaddglobs.get(node.form.name)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
+                    await trig.execute(node, vars=vars, view=view)
 
             # check for form agnostic globs
             globs = self.tagaddglobs.get(None)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
+                    await trig.execute(node, vars=vars, view=view)
 
-    async def runTagDel(self, node, tag):
+    async def runTagDel(self, node, tag, view=None):
 
         vars = {'tag': tag}
         with self._recursion_check():
 
             for trig in self.tagdel.get((node.form.name, tag), ()):
-                await trig.execute(node, vars=vars)
+                await trig.execute(node, vars=vars, view=view)
 
             for trig in self.tagdel.get((None, tag), ()):
-                await trig.execute(node, vars=vars)
+                await trig.execute(node, vars=vars, view=view)
 
             # check for form specific globs
             globs = self.tagdelglobs.get(node.form.name)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
+                    await trig.execute(node, vars=vars, view=view)
 
             # check for form agnostic globs
             globs = self.tagdelglobs.get(None)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
+                    await trig.execute(node, vars=vars, view=view)
 
     def load(self, tdef):
 
@@ -311,7 +311,7 @@ class Trigger:
     def get(self, name):
         return self.tdef.get(name)
 
-    async def execute(self, node, vars=None):
+    async def execute(self, node, vars=None, view=None):
         '''
         Actually execute the query
         '''
@@ -330,9 +330,12 @@ class Trigger:
 
         query = self.view.core.getStormQuery(storm)
 
+        if view is None:
+            view = self.view.iden
+
         opts = {
             'user': useriden,
-            'view': self.view.iden,
+            'view': view,
         }
 
         if vars is not None:
