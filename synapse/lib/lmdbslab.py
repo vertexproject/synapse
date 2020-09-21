@@ -700,6 +700,7 @@ class Slab(s_base.Base):
         # LMDB layer uses these for status reporting
         self.locking_memory = False
         self.prefaulting = False
+        self.memlocktask = None
         self.max_could_lock = 0
         self.lock_progress = 0
         self.lock_goal = 0
