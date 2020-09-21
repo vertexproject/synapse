@@ -670,7 +670,7 @@ class Slab(s_base.Base):
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
         if self.lockmemory:
-            lockmem_override = os.getenv('SYN_LOCKMEM_DISABLE', False)
+            lockmem_override = s_common.envbool('SYN_LOCKMEM_DISABLE')
             if lockmem_override:
                 logger.info(f'SYN_LOCKMEM_DISABLE envar set, skipping lockmem for {self.path}')
                 self.lockmemory = False
