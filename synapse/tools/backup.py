@@ -75,6 +75,9 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
         dstdir (str): Path to backup target directory.
         skipdirs (list or None): Optional list of relative directory name glob patterns to exclude from the backup.
         compact (bool): Whether to optimize storage while copying to the destination.
+
+    Note:
+        Running this method from the same process as a running user of the directory may lead to a segmentation fault
     '''
     tick = s_common.now()
 
@@ -112,7 +115,7 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
                 abssrcpath = os.path.abspath(srcpath)
                 lmdbinfos = [info for info in lmdbinfo if info[0] == abssrcpath]
                 if not lmdbinfos:
-                    logger.warning('lmdb file %s not copied', srcpath)
+                    logger.warning('lmdb file %s not copied', srcpath)  # pragma: no cover
                     continue
 
                 assert len(lmdbinfos) == 1
