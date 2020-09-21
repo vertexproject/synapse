@@ -2404,10 +2404,20 @@ class TeeCmd(Cmd):
                 subr = await stack.enter_async_context(runt.getSubRuntime(query))
                 runts.append(subr)
 
+            item = None
             async for item in genr:
+
                 for subr in runts:
                     subg = s_common.agen(item)
                     async for subitem in subr.execute(genr=subg):
+                        yield subitem
+
+                if self.opts.join:
+                    yield item
+
+            if item is None and self.runtsafe:
+                for subr in runts:
+                    async for subitem in subr.execute():
                         yield subitem
 
 class TreeCmd(Cmd):

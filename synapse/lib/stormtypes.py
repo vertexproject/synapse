@@ -2230,8 +2230,8 @@ class Query(Prim):
     async def _getRuntGenr(self):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
-        with self.runt.snap.getStormRuntime(opts=opts) as runt:
-            async for item in query.run(runt, s_common.agen()):
+        async with self.runt.getSubRuntime(query, opts=opts) as runt:
+            async for item in runt.execute():
                 yield item
 
     async def nodes(self):

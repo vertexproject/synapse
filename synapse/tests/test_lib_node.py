@@ -277,32 +277,31 @@ class NodeTest(s_t_utils.SynTest):
                     # Path present, opts not present
                     nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', path=path))
                     self.eq(nodes[0][0].props.get('loc'), 'ca')
-                    self.eq(path.vars.get('bar'), 'us')
+                    # path is not updated due to frame scope
+                    self.none(path.vars.get('bar'), 'us')
 
                     # Path present, opts present but no opts['vars']
                     nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', opts={}, path=path))
                     self.eq(nodes[0][0].props.get('loc'), 'ca')
-                    self.eq(path.vars.get('bar'), 'us')
+                    # path is not updated due to frame scope
+                    self.none(path.vars.get('bar'))
 
                     # Path present, opts present with vars
                     nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$baz',
                                                    opts={'vars': {'baz': 'ru'}},
                                                    path=path))
                     self.eq(nodes[0][0].props.get('loc'), 'ca')
-                    self.eq(path.vars.get('bar'), 'ru')
+                    # path is not updated due to frame scope
+                    self.none(path.vars.get('bar'))
 
                     # Path can push / pop vars in frames
-                    self.eq(path.getVar('bar'), 'ru')
                     self.eq(path.getVar('key'), s_common.novalu)
                     self.len(0, path.frames)
                     path.initframe({'key': 'valu'})
                     self.len(1, path.frames)
-                    # self.none(path.getVar('bar'))
-                    self.eq(path.getVar('bar'), 'ru')
                     self.eq(path.getVar('key'), 'valu')
                     path.finiframe()
                     self.len(0, path.frames)
-                    self.eq(path.getVar('bar'), 'ru')
                     self.eq(path.getVar('key'), s_common.novalu)
 
                     # Path can push / pop a runt as well
@@ -318,7 +317,7 @@ class NodeTest(s_t_utils.SynTest):
                     # Ensure that path vars are independent
                     pcln.setVar('bar', 'us')
                     self.eq(pcln.getVar('bar'), 'us')
-                    self.eq(path.getVar('bar'), 'ru')
+                    self.eq(path.getVar('bar'), s_common.novalu)
                     # Ensure the path nodes are independent
                     self.eq(len(pcln.nodes), len(path.nodes))
                     pcln.nodes.pop(-1)
@@ -336,7 +335,7 @@ class NodeTest(s_t_utils.SynTest):
                     path.finiframe()
                     pcln.setVar('bar', 'us')
                     self.eq(pcln.getVar('bar'), 'us')
-                    self.eq(path.getVar('bar'), 'ru')
+                    self.eq(path.getVar('bar'), s_common.novalu)
                     self.eq(pcln.getVar('key'), s_common.novalu)
                     self.eq(path.getVar('key'), s_common.novalu)
 
