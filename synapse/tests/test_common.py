@@ -276,6 +276,13 @@ class CommonTest(s_t_utils.SynTest):
                 fd.write(s.encode())
             self.raises(yaml.YAMLError, s_common.yamlload, dirn, 'explode.yaml')
 
+    def test_switchext(self):
+        retn = s_common.switchext('foo.txt', ext='.rdf')
+        self.eq(retn, s_common.genpath('foo.rdf'))
+
+        retn = s_common.switchext('.vim', ext='.rdf')
+        self.eq(retn, s_common.genpath('.vim.rdf'))
+
     def test_envbool(self):
         with self.setTstEnvars(SYN_FOO='true', SYN_BAR='1', SYN_BAZ='foobar'):
             self.true(s_common.envbool('SYN_FOO'))
