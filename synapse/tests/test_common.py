@@ -282,3 +282,16 @@ class CommonTest(s_t_utils.SynTest):
 
         retn = s_common.switchext('.vim', ext='.rdf')
         self.eq(retn, s_common.genpath('.vim.rdf'))
+
+    def test_envbool(self):
+        with self.setTstEnvars(SYN_FOO='true', SYN_BAR='1', SYN_BAZ='foobar'):
+            self.true(s_common.envbool('SYN_FOO'))
+            self.true(s_common.envbool('SYN_BAR'))
+            self.true(s_common.envbool('SYN_BAZ'))
+            # non-existent and default behaviors
+            self.false(s_common.envbool('SYN_NEWP'))
+            self.true(s_common.envbool('SYN_NEWP', '1'))
+
+        with self.setTstEnvars(SYN_FOO='false', SYN_BAR='0'):
+            self.false(s_common.envbool('SYN_FOO'))
+            self.false(s_common.envbool('SYN_BAR'))

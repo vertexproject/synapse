@@ -663,6 +663,13 @@ class Slab(s_base.Base):
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
+
+        if self.lockmemory:
+            lockmem_override = s_common.envbool('SYN_LOCKMEM_DISABLE')
+            if lockmem_override:
+                logger.info(f'SYN_LOCKMEM_DISABLE envar set, skipping lockmem for {self.path}')
+                self.lockmemory = False
+
         self.mapasync = opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
@@ -689,6 +696,7 @@ class Slab(s_base.Base):
         # LMDB layer uses these for status reporting
         self.locking_memory = False
         self.prefaulting = False
+        self.memlocktask = None
         self.max_could_lock = 0
         self.lock_progress = 0
         self.lock_goal = 0

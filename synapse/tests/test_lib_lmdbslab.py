@@ -286,6 +286,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
             slabs = s_lmdbslab.Slab.getSlabsInDir(dirn)
             self.len(0, slabs)
 
+            # Ensure that our envar override for memory locking is acknowledged
+            with self.setTstEnvars(SYN_LOCKMEM_DISABLE='1'):
+                slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
+                self.false(slab.lockmemory)
+                self.none(slab.memlocktask)
+
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'test.lmdb')
