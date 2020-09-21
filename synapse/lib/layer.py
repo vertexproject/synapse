@@ -62,7 +62,6 @@ import shutil
 import struct
 import asyncio
 import logging
-import pathlib
 import ipaddress
 import contextlib
 import collections
@@ -1102,7 +1101,7 @@ class Layer(s_nexus.Pusher):
 
                 relname = os.path.join(relpath, name)
 
-                srcpath = pathlib.Path(s_common.genpath(root, name))
+                srcpath = s_common.genpath(root, name)
                 dstpath = s_common.genpath(newdirn, relname)
 
                 if srcpath in s_lmdbslab.Slab.allslabs:
