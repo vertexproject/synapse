@@ -600,7 +600,7 @@ if syndir is None:
 
 def envbool(name, defval='false'):
     '''
-    Resolve a environment variable to a boolean value.
+    Resolve an environment variable to a boolean value.
 
     Args:
         name (str): Environment variable to resolve.
@@ -613,7 +613,7 @@ def envbool(name, defval='false'):
         boolean: True if the envar is set, false if it is set to a false value.
 
     '''
-    return not os.getenv(name, defval).lower() in ('0', 'false')
+    return os.getenv(name, defval).lower() not in ('0', 'false')
 
 def getSynPath(*paths):
     return genpath(syndir, *paths)
