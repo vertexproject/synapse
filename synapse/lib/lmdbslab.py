@@ -1,7 +1,6 @@
 import os
 import shutil
 import asyncio
-import pathlib
 import threading
 import collections
 
@@ -563,9 +562,9 @@ class Slab(s_base.Base):
         '''
         Returns all open slabs under a directory
         '''
-        toppath = pathlib.Path(dirn).resolve()
+        toppath = s_common.genpath(dirn)
         return [slab for slab in clas.allslabs.values()
-                if toppath == slab.path or str(slab.path).startswith(str(toppath) + os.sep)]
+                if toppath == slab.path or slab.path.startswith(toppath + os.sep)]
 
     @classmethod
     async def initSyncLoop(clas, inst):
@@ -631,23 +630,22 @@ class Slab(s_base.Base):
 
         opts = kwargs
 
-        path = pathlib.Path(path).resolve()
         self.path = path
-        self.optspath = path.with_suffix('.opts.yaml')
+        self.optspath = s_common.switchext(path, ext='.opts.yaml')
 
         # Make sure we don't have this lmdb DB open already.  (This can lead to seg faults)
         if path in self.allslabs:
             raise s_exc.SlabAlreadyOpen(mesg=path)
 
-        if self.optspath.exists():
+        if os.path.isfile(self.optspath):
             opts.update(s_common.yamlload(self.optspath))
 
         initial_mapsize = opts.get('map_size')
         if initial_mapsize is None:
             raise s_exc.BadArg('Slab requires map_size')
 
-        mdbpath = path / 'data.mdb'
-        if mdbpath.exists():
+        mdbpath = s_common.genpath(path, 'data.mdb')
+        if os.path.isfile(mdbpath):
             mapsize = max(initial_mapsize, os.path.getsize(mdbpath))
         else:
             mapsize = initial_mapsize
@@ -896,7 +894,7 @@ class Slab(s_base.Base):
 
         self.max_could_lock = max_to_lock
 
-        path = self.path.absolute() / 'data.mdb'  # Path to the file that gets mapped
+        path = s_common.genpath(self.path, 'data.mdb')  # Path to the file that gets mapped
         fh = open(path, 'r+b')
         fileno = fh.fileno()
 
@@ -1383,12 +1381,13 @@ class Slab(s_base.Base):
 
     async def copyslab(self, dstpath, compact=True):
 
-        dstpath = pathlib.Path(dstpath)
-        if dstpath.exists():
+        dstpath = s_common.genpath(dstpath)
+        if os.path.isdir(dstpath):
             raise s_exc.DataAlreadyExists()
 
-        dstoptspath = dstpath.with_suffix('.opts.yaml')
         s_common.gendir(dstpath)
+
+        dstoptspath = s_common.switchext(dstpath, ext='.opts.yaml')
 
         await self.sync()
 
