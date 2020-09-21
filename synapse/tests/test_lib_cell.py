@@ -598,8 +598,9 @@ class CellTest(s_t_utils.SynTest):
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
                             await self.asyncraises(s_exc.SynErr, proxy.runBackup())
 
-                    with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                        await self.asyncraises(s_exc.SpawnExit, proxy.runBackup())
+                    with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
+                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
+                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup())
 
                     name = await proxy.runBackup()
                     self.eq((name,), await proxy.getBackups())
