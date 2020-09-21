@@ -356,10 +356,12 @@ class TelcoModule(s_module.CoreModule):
                     ('ipv4', ('inet:ipv4', {}), {}),
                     ('ipv6', ('inet:ipv6', {}), {}),
 
+                    ('wifi', ('inet:wifi:ap', {}), {}),
                     ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
                     ('wifi:bssid', ('inet:mac', {}), {}),
 
                     # host specific data
+                    ('adid', ('it:adid', {}), {}),
                     ('aaid', ('it:os:android:aaid', {}), {}),
                     ('idfa', ('it:os:ios:idfa', {}), {}),
 

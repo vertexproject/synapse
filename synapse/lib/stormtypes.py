@@ -1444,13 +1444,13 @@ class Queue(StormType):
         if size is not None:
             size = await toint(size)
 
-        todo = s_common.todo('coreQueueGets', self.name, offs, wait=wait, size=size)
+        todo = s_common.todo('coreQueueGets', self.name, offs, cull=cull, wait=wait, size=size)
         gatekeys = self._getGateKeys('get')
 
         async for item in self.runt.dyniter('cortex', todo, gatekeys=gatekeys):
             yield item
 
-    async def _methQueuePuts(self, items, wait=False):
+    async def _methQueuePuts(self, items):
         todo = s_common.todo('coreQueuePuts', self.name, items)
         gatekeys = self._getGateKeys('put')
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)

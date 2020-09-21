@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.7.2'
+VERSION = '2.7.3'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -18,10 +18,25 @@ class VerifyVersionCommand(install):
             info = f"Git tag: {tag} does not match the version of this app: {VERSION}"
             sys.exit(info)
 
+long_description_content_type = None
+long_description = None
+readme = './README.rst'
+if os.path.exists(readme):
+
+    print(f'Adding {readme} contents as the long description.')
+
+    with open('./README.rst', 'rb') as fd:
+        buf = fd.read()
+    long_description = buf.decode()
+    long_description_content_type = 'text/x-rst'
+
+    
 setup(
     name='synapse',
     version=VERSION,
     description='Synapse Intelligence Analysis Framework',
+    long_description=long_description,
+    long_description_content_type=long_description_content_type,
     author='The Vertex Project LLC',
     author_email='synapse@vertex.link',
     url='https://github.com/vertexproject/synapse',
@@ -50,6 +65,7 @@ setup(
 
     extras_require={
         'docs': [
+            'nbconvert==5.6.1',
             'sphinx>=1.8.2,<2.0.0',
             'jupyter>=1.0.0,<2.0.0',
             'hide-code>=0.5.2,<0.5.3',
