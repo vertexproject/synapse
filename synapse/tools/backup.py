@@ -115,7 +115,7 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
                 abssrcpath = os.path.abspath(srcpath)
                 lmdbinfos = [info for info in lmdbinfo if info[0] == abssrcpath]
                 if not lmdbinfos:
-                    logger.warning('lmdb file %s not copied', srcpath)  # pragma: no cover
+                    logger.warning('lmdb file %s not copied', srcpath)
                     continue
 
                 assert len(lmdbinfos) == 1

@@ -813,7 +813,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             return await s_coro.executor(waitforproc)
 
-        except (asyncio.CancelledError, asyncio.TimeoutError):
+        except (asyncio.CancelledError, Exception):
             proc.terminate()
             raise
 
