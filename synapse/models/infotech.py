@@ -191,10 +191,13 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A arbitrary, unversioned software product.',
                 }),
 
-                ('it:os:ios:idfa', ('str', {'lower': 1}), {
+                ('it:adid', ('str', {'lower': True, 'strip': True}), {
+                    'doc': 'An advertising identification string.'}),
+
+                ('it:os:ios:idfa', ('it:adid', {}), {
                     'doc': 'An iOS advertising identification string.'}),
 
-                ('it:os:android:aaid', ('str', {'lower': 1}), {
+                ('it:os:android:aaid', ('it:adid', {}), {
                     'doc': 'An android advertising identification string.'}),
 
                 ('it:os:android:perm', ('str', {}), {
@@ -347,6 +350,9 @@ class ItModule(s_module.CoreModule):
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.',
                     }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org that operates the given host.',
+                    }),
                 )),
                 ('it:hosturl', {}, (
                     ('host', ('it:host', {}), {
@@ -421,6 +427,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Set to True if the software is a library.'}),
                 )),
 
+                ('it:adid', {}, ()),
                 ('it:os:ios:idfa', {}, ()),
                 ('it:os:android:aaid', {}, ()),
                 ('it:os:android:perm', {}, ()),
