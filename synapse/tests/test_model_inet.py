@@ -148,6 +148,16 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    async def test_asnet6(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:asnet6=(99, (ff::00, ff::0100)) ]')
+            self.len(1, nodes)
+            self.eq(('inet:asnet6', (99, ('ff::', 'ff::100'))), nodes[0].ndef)
+            self.eq(99, nodes[0].get('asn'))
+            self.eq(('ff::', 'ff::100'), nodes[0].get('net6'))
+            self.eq('ff::', nodes[0].get('net6:min'))
+            self.eq('ff::100', nodes[0].get('net6:max'))
+
     async def test_cidr4(self):
         formname = 'inet:cidr4'
         async with self.getTestCore() as core:
@@ -1735,6 +1745,8 @@ class InetModelTest(s_t_utils.SynTest):
             'accuracy': '10km',
             'latlong': (20, 30),
             'place': place,
+            'channel': 99,
+            'encryption': 'wpa2',
         }
         expected_props = {
             'ssid': valu[0],
@@ -1742,6 +1754,8 @@ class InetModelTest(s_t_utils.SynTest):
             'latlong': (20.0, 30.0),
             'accuracy': 10000000,
             'place': place,
+            'channel': 99,
+            'encryption': 'wpa2',
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
