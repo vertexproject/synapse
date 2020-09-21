@@ -598,6 +598,23 @@ syndir = os.getenv('SYN_DIR')
 if syndir is None:
     syndir = '~/.syn'
 
+def envbool(name, defval='false'):
+    '''
+    Resolve an environment variable to a boolean value.
+
+    Args:
+        name (str): Environment variable to resolve.
+        defval (str): Default string value to resolve as.
+
+    Notes:
+        False values will be consider strings "0" or "false" after lower casing.
+
+    Returns:
+        boolean: True if the envar is set, false if it is set to a false value.
+
+    '''
+    return os.getenv(name, defval).lower() not in ('0', 'false')
+
 def getSynPath(*paths):
     return genpath(syndir, *paths)
 
