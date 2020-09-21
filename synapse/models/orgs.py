@@ -76,8 +76,56 @@ class OuModule(s_module.CoreModule):
                 ('ou:campaign', ('guid', {}), {
                     'doc': 'Represents an orgs activity in pursuit of a goal.',
                 }),
+                ('ou:id:type', ('guid', {}), {
+                    'doc': 'A type of id number issued by an org.',
+                }),
+                ('ou:id:value', ('str', {'strip': True}), {
+                    'doc': 'The value of an org:id:number.',
+                }),
+                ('ou:id:number', ('comp', {'fields': (('type', 'ou:id:type'), ('value', 'ou:id:value'))}), {
+                    'doc': 'A unique id number issued by a specific organization.',
+                }),
+                ('ou:id:update', ('guid', {}), {
+                    'doc': 'A status update to an org:id:number.',
+                }),
             ),
             'forms': (
+                ('ou:id:type', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org which issues id numbers of this type.',
+                    }),
+                    ('name', ('str', {}), {
+                        'doc': 'The friendly name of the id number type.',
+                    }),
+                )),
+                ('ou:id:number', {}, (
+                    ('type', ('ou:id:type', {}), {
+                        'doc': 'The type of org id',
+                    }),
+                    ('value', ('ou:id:value', {}), {
+                        'doc': 'The type of org id',
+                    }),
+                    ('status', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'A freeform status such as valid, suspended, expired.',
+                    }),
+                    ('issued', ('time', {}), {
+                        'doc': 'The time at which the org issued the ID number.',
+                    }),
+                    ('expires', ('time', {}), {
+                        'doc': 'The time at which the ID number expires.',
+                    }),
+                )),
+                ('ou:id:update', {}, (
+                    ('number', ('ou:id:number', {}), {
+                        'doc': 'The id number that was updated.',
+                    }),
+                    ('status', ('str', {'strip': True, 'lower': True}), {
+                        'doc': 'The updated status of the id number.',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The date/time that the id number was updated.',
+                    }),
+                )),
                 ('ou:goal', {}, (
                     ('name', ('str', {}), {
                         'doc': 'A terse name for the goal.',
@@ -133,6 +181,9 @@ class OuModule(s_module.CoreModule):
                     ('name', ('ou:name', {}), {
                         'doc': 'The localized name of an organization.',
                     }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the org.',
+                    }),
                     ('names', ('array', {'type': 'ou:name'}), {
                        'doc': 'A list of alternate names for the organization.',
                     }),
@@ -163,6 +214,15 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('orgchart', ('ou:position', {}), {
                         'doc': 'The root node for an orgchart made up ou:position nodes.',
+                    }),
+                    ('hq', ('ps:contact', {}), {
+                        'doc': 'A collection of contact information for the "main office" of an org.',
+                    }),
+                    ('locations', ('array', {'type': 'ps:contact'}), {
+                        'doc': 'An array of contacts for facilities operated by the org.',
+                    }),
+                    ('dns:mx', ('array', {'type': 'inet:fqdn'}), {
+                        'doc': 'An array of MX domains used by email addresses issued by the org.',
                     }),
                 )),
                 ('ou:position', {}, (

@@ -54,6 +54,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode('it:hostname', 'Bobs Computer')
                 self.eq(node.ndef[1], 'bobs computer')
+                org0 = s_common.guid()
                 host0 = s_common.guid()
                 sver0 = s_common.guid()
                 hprops = {
@@ -67,6 +68,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'model': 'Lutitude 8249',
                     'serial': '111-222',
                     'loc': 'us.hehe.haha',
+                    'org': org0,
                 }
                 node = await snap.addNode('it:host', host0, hprops)
                 self.eq(node.ndef[1], host0)
@@ -77,6 +79,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('place'), place)
                 self.eq(node.get('os'), sver0)
                 self.eq(node.get('loc'), 'us.hehe.haha')
+                self.eq(node.get('org'), org0)
 
                 node = await snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
                 self.eq(node.ndef[1], (host0, 'http://vertex.ninja/cool.php'))
@@ -114,6 +117,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('hash:lm'), s_m_crypto.ex_md5)
                 self.eq(node.get('hash:ntlm'), s_m_crypto.ex_md5)
                 self.eq(node.get('passwd'), "I've got the same combination on my luggage!")
+
+            nodes = await core.nodes('[ it:adid=visi ]')
+            self.eq(('it:adid', 'visi'), nodes[0].ndef)
 
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms

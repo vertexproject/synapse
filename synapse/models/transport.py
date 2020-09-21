@@ -48,6 +48,18 @@ class TransportModule(s_module.CoreModule):
                 ('transport:air:craft', {}, (
                     ('tailnum', ('transport:air:tailnum', {}), {
                         'doc': 'The aircraft tail number.'}),
+                    ('type', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The type of aircraft.'}),
+                    ('built', ('time', {}), {
+                        'doc': 'The date the aircraft was constructed.'}),
+                    ('make', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The make of the aircraft.'}),
+                    ('model', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The model of the aircraft.'}),
+                    ('serial', ('str', {'strip': True}), {
+                        'doc': 'The serial number of the aircraft.'}),
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'Contact info representing the person or org that operates the aircraft.'}),
                 )),
                 ('transport:air:port', {}, (
                     ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
@@ -144,6 +156,9 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The Maritime Mobile Service Identifier assigned to the vessel.'}),
                     ('built', ('time', {}), {
                         'doc': 'The year the vessel was constructed.'}),
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'The contact information of the operator.'}),
+                    # TODO tonnage / gross tonnage?
                 )),
                 ('transport:sea:telem', {}, (
                     ('vessel', ('transport:sea:vessel', {}), {
