@@ -95,8 +95,6 @@ class TelcoModelTest(s_t_utils.SynTest):
                          'ipv4': '1.2.3.4',
                          'ipv6': '::1',
                          'wifi': ('The Best SSID2', '00:11:22:33:44:55'),
-                         #'wifi:ssid': 'The Best SSID2',
-                         #'wifi:bssid': '00:11:22:33:44:55',
                          'adid': 'someadid',
                          'aaid': 'somestr',
                          'idfa': 'someotherstr',

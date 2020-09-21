@@ -191,7 +191,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A arbitrary, unversioned software product.',
                 }),
 
-                ('it:adid', ('str', {'lower': 1}), {
+                ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),
 
                 ('it:os:ios:idfa', ('it:adid', {}), {
