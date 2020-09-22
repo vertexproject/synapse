@@ -754,6 +754,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.BackupAlreadyRunning(mesg='Another backup is already running')
 
         try:
+            task = None
             self.backuprunning = True
 
             if name is None:
@@ -777,7 +778,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return name
 
         except (asyncio.CancelledError, Exception):
-            task.cancel()
+            if task is not None:
+                task.cancel()
             self.backuprunning = False
             raise
 
