@@ -167,6 +167,8 @@ def vertup(vstr):
 def todo(_todoname, *args, **kwargs):
     '''
     Construct and return a todo tuple of (name, args, kwargs).
+
+    Note:  the odd name for the first parameter is to avoid collision with keys in kwargs.
     '''
     return (_todoname, args, kwargs)
 
@@ -177,18 +179,60 @@ def tuplify(obj):
     return s_msgpack.un(s_msgpack.en(obj))
 
 def genpath(*paths):
+    '''
+    Return an absolute path of the joining of the arguments as path elements
+
+    Performs home directory(``~``) and environment variable expansion on the joined path
+
+    Args:
+        *paths ([str,...]): A list of path elements
+
+    Note:
+        All paths used by Synapse operations (i.e. everything but the data) shall use this function or one of its
+        callers before storing as object properties.
+    '''
     path = os.path.join(*paths)
     path = os.path.expanduser(path)
     path = os.path.expandvars(path)
     return os.path.abspath(path)
 
+def switchext(*paths, ext):
+    '''
+    Return an absolute path of the joining of the arguments with the extension replaced.
+
+    If an extension does not exist, it will be added.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        ext (str):  A file extension (e.g. '.txt').  It should begin with a period.
+    '''
+    return os.path.splitext(genpath(*paths))[0] + ext
+
 def reqpath(*paths):
+    '''
+    Return the absolute path of the joining of the arguments, raising an exception if a file doesn't exist at resulting
+    path
+
+    Args:
+        *paths ([str,...]): A list of path elements
+    '''
     path = genpath(*paths)
     if not os.path.isfile(path):
         raise s_exc.NoSuchFile(name=path)
     return path
 
 def reqfile(*paths, **opts):
+    '''
+    Return a file at the path resulting from joining of the arguments, raising an exception if the file does not
+    exist.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        **opts:  arguments as kwargs to io.open
+
+    Returns:
+        io.BufferedRandom: A file-object which can be read/written too.
+    '''
     path = genpath(*paths)
     if not os.path.isfile(path):
         raise s_exc.NoSuchFile(path=path)
@@ -196,6 +240,16 @@ def reqfile(*paths, **opts):
     return io.open(path, **opts)
 
 def getfile(*paths, **opts):
+    '''
+    Return a file at the path resulting from joining of the arguments, or None if the file does not exist.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        **opts:  arguments as kwargs to io.open
+
+    Returns:
+        io.BufferedRandom: A file-object which can be read/written too.
+    '''
     path = genpath(*paths)
     if not os.path.isfile(path):
         return None
@@ -216,7 +270,7 @@ def reqbytes(*paths):
 
 def genfile(*paths):
     '''
-    Create or open ( for read/write ) a file path join.
+    Create or open (for read/write) a file path join.
 
     Args:
         *paths: A list of paths to join together to make the file.
@@ -296,7 +350,16 @@ def listdir(*paths, glob=None):
     return retn
 
 def gendir(*paths, **opts):
+    '''
+    Return the absolute path of the joining of the arguments, creating a directory at the resulting path if one does
+    not exist.
 
+    Performs home directory(~) and environment variable expansion.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        **opts:  arguments as kwargs to os.makedirs
+    '''
     mode = opts.get('mode', 0o700)
     path = genpath(*paths)
 
@@ -309,6 +372,16 @@ def gendir(*paths, **opts):
     return path
 
 def reqdir(*paths):
+    '''
+    Return the absolute path of the joining of the arguments, raising an exception if a directory does not exist at
+    the resulting path.
+
+    Performs home directory(~) and environment variable expansion.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        **opts:  arguments as kwargs to os.makedirs
+    '''
     path = genpath(*paths)
     if not os.path.isdir(path):
         raise s_exc.NoSuchDir(path=path)
