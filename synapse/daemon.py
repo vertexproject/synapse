@@ -243,6 +243,15 @@ class Daemon(s_base.Base):
 
         self.onfini(self._onDmonFini)
 
+        # by default we are ready... ( backward compat )
+        self.dmonready = True
+
+    async def setReady(self, ready):
+        self.dmonready = ready
+        if not self.dmonready:
+            for link in list(self.links):
+                await link.fini()
+
     async def listen(self, url, **opts):
         '''
         Bind and listen on the given host/port with possible SSL.
@@ -335,6 +344,10 @@ class Daemon(s_base.Base):
                 await share.fini()
 
     async def _onLinkInit(self, link):
+
+        if not self.dmonready:
+            logger.warning(f'onLinkInit is not ready: {repr(link)}')
+            return await link.fini()
 
         self.links.add(link)
         async def fini():
@@ -474,7 +487,6 @@ class Daemon(s_base.Base):
     async def _onTaskV2Init(self, link, mesg):
 
         # t2:init is used by the pool sockets on the client
-
         name = mesg[1].get('name')
         sidn = mesg[1].get('sess')
         todo = mesg[1].get('todo')
