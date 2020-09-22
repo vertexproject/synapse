@@ -1,4 +1,7 @@
 import os
+import asyncio
+
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_test
@@ -31,3 +34,12 @@ class BackupTest(s_test.SynTest):
 
                 await core.callStorm('$lib.backup.del(foo)')
                 self.false(os.path.isdir(os.path.join(backdirn, 'foo')))
+
+                async def mockBackupTask(dirn):
+                    await asyncio.sleep(5)
+
+                core._execBackupTask = mockBackupTask
+
+                with self.raises(s_exc.BackupAlreadyRunning):
+                    q = 'return(($lib.backup.run(wait=(false)) + $lib.backup.run(wait=(false))))'
+                    name = await core.callStorm(q)

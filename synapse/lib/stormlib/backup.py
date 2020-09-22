@@ -29,6 +29,7 @@ class BackupLib(s_stormtypes.Lib):
         '''
         name = await s_stormtypes.tostr(name, noneok=True)
         wait = await s_stormtypes.tobool(wait)
+
         todo = s_common.todo('runBackup', name=name, wait=wait)
         gatekeys = ((self.runt.user.iden, ('backup', 'run'), None),)
         return await self.dyncall('cortex', todo, gatekeys=gatekeys)
