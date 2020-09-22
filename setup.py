@@ -30,7 +30,6 @@ if os.path.exists(readme):
     long_description = buf.decode()
     long_description_content_type = 'text/x-rst'
 
-    
 setup(
     name='synapse',
     version=VERSION,
