@@ -591,6 +591,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             backdirn = s_common.gendir(backdirn)
 
         self.backdirn = backdirn
+        self.backuprunning = False
 
         if self.conf.get('mirror') and not self.conf.get('nexslog:en'):
             mesg = 'Mirror mode requires nexslog:en=True'
@@ -749,20 +750,36 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def runBackup(self, name=None, wait=True):
 
-        if name is None:
-            name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
+        if self.backuprunning:
+            raise s_exc.BackupAlreadyRunning(mesg='Another backup is already running')
 
-        path = self._reqBackDirn(name)
-        if os.path.isdir(path):
-            mesg = 'Backup with name already exists'
-            raise s_exc.BadArg(mesg=mesg)
+        try:
+            self.backuprunning = True
 
-        task = self.schedCoro(self._execBackupTask(path))
+            if name is None:
+                name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
 
-        if wait:
-            await task
+            path = self._reqBackDirn(name)
+            if os.path.isdir(path):
+                mesg = 'Backup with name already exists'
+                raise s_exc.BadArg(mesg=mesg)
 
-        return name
+            task = self.schedCoro(self._execBackupTask(path))
+
+            def done(self, task):
+                self.backuprunning = False
+
+            task.add_done_callback(functools.partial(done, self))
+
+            if wait:
+                await task
+
+            return name
+
+        except (asyncio.CancelledError, Exception):
+            task.cancel()
+            self.backuprunning = False
+            raise
 
     async def _execBackupTask(self, dirn):
         '''
