@@ -712,7 +712,7 @@ class Slab(s_base.Base):
 
         self.dbnames = {None: (None, False)}  # prepopulate the default DB for speed
 
-        self.onfini(self._onCoFini)
+        self.onfini(self._onSlabFini)
 
         self.commitstats = collections.deque(maxlen=1000)  # stores Tuple[time, replayloglen, commit time delta]
 
@@ -800,10 +800,12 @@ class Slab(s_base.Base):
             self._handle_mapfull()
             # There's no need to re-try self.forcecommit as _growMapSize does it
 
-    async def _onCoFini(self):
-        assert s_glob.iAmLoop()
-
+    async def fini(self):
         await self.fire('commit')
+        return await s_base.Base.fini(self)
+
+    async def _onSlabFini(self):
+        assert s_glob.iAmLoop()
 
         while True:
             try:

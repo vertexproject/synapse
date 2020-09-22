@@ -30,7 +30,8 @@ def make_core(dirn, conf, queries, queue, event):
             await core.addTagProp('added', ('time', {}), {})
             for q in queries:
                 await core.nodes(q)
-            core.view.layers[0].layrslab.forcecommit()
+
+            await  core.view.layers[0].layrslab.sync()
 
             spawninfo = await core.getSpawnInfo()
             queue.put(spawninfo)
