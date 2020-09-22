@@ -257,7 +257,6 @@ class Snap(s_base.Base):
             return node
 
         ndef = None
-
         tags = {}
         props = {}
         nodedata = {}
@@ -276,36 +275,37 @@ class Snap(s_base.Base):
             if sode is None:
                 sode = await layr.getStorNode(buid)
 
-            info = sode[1]
-
-            storndef = info.get('ndef')
-            if storndef is not None:
-                ndef = storndef
+            form = sode.get('form')
+            valt = sode.get('valu')
+            if valt is not None:
+                ndef = (form, valt[0])
                 bylayer['ndef'] = layr
 
-            storprops = info.get('props')
+            storprops = sode.get('props')
             if storprops is not None:
-                props.update(storprops)
-                bylayer['props'].update({p: layr for p in storprops.keys()})
+                for prop, (valu, stype) in storprops.items():
+                    props[prop] = valu
+                    bylayer['props'][prop] = layr
 
-            stortags = info.get('tags')
+            stortags = sode.get('tags')
             if stortags is not None:
                 tags.update(stortags)
                 bylayer['tags'].update({p: layr for p in stortags.keys()})
 
-            stortagprops = info.get('tagprops')
+            stortagprops = sode.get('tagprops')
             if stortagprops is not None:
-                tagprops.update(stortagprops)
-                bylayer['tagprops'].update({p: layr for p in stortagprops.keys()})
+                for tagprop, (valu, stype) in stortagprops.items():
+                    tagprops[tagprop] = valu
+                    bylayer['tagprops'][tagprop] = layr
 
-            stordata = info.get('nodedata')
+            stordata = sode.get('nodedata')
             if stordata is not None:
                 nodedata.update(stordata)
 
         if ndef is None:
             return None
 
-        fullnode = (buid, {
+        pode = (buid, {
             'ndef': ndef,
             'tags': tags,
             'props': props,
@@ -313,7 +313,7 @@ class Snap(s_base.Base):
             'tagprops': tagprops,
         })
 
-        node = s_node.Node(self, fullnode, bylayer=bylayer)
+        node = s_node.Node(self, pode, bylayer=bylayer)
         self.livenodes[buid] = node
         self.buidcache.append(node)
 
@@ -323,9 +323,9 @@ class Snap(s_base.Base):
 
     async def _joinStorGenr(self, layr, genr):
         cache = {}
-        async for sode in genr:
+        async for buid, sode in genr:
             cache[layr.iden] = sode
-            node = await self._joinStorNode(sode[0], cache)
+            node = await self._joinStorNode(buid, cache)
             if node is not None:
                 yield node
 
@@ -368,6 +368,7 @@ class Snap(s_base.Base):
             for layr in self.layers:
                 genr = layr.liftByProp(None, prop.name)
                 async for node in self._joinStorGenr(layr, genr):
+                    # TODO should these type of filters yield?
                     if node.bylayer['props'].get(prop.name) != layr:
                         continue
                     yield node
@@ -623,7 +624,7 @@ class Snap(s_base.Base):
         meta = await self.getSnapMeta()
 
         todo = s_common.todo('storNodeEdits', edits, meta)
-        sodes = await self.core.dyncall(self.wlyr.iden, todo)
+        results = await self.core.dyncall(self.wlyr.iden, todo)
 
         wlyr = self.wlyr
         nodes = []
@@ -634,11 +635,11 @@ class Snap(s_base.Base):
         # and collect up all the callbacks to fire at once at the end.  It is
         # critical to fire all callbacks after applying all Node() changes.
 
-        for sode in sodes:
+        for buid, sode, postedits in results:
 
             cache = {wlyr.iden: sode}
 
-            node = await self._joinStorNode(sode[0], cache)
+            node = await self._joinStorNode(buid, cache)
 
             if node is None:
                 # We got part of a node but no ndef
@@ -646,10 +647,8 @@ class Snap(s_base.Base):
 
             nodes.append(node)
 
-            postedits = sode[1].get('edits', ())
-
             if postedits:
-                actualedits.append((sode[0], sode[1]['form'], postedits))
+                actualedits.append((buid, node.form.name, postedits))
 
             for edit in postedits:
 
@@ -793,6 +792,7 @@ class Snap(s_base.Base):
             raise
 
         nodes = await self.applyNodeEdits(adds)
+        assert len(nodes) >= 1
 
         # Adds is top-down, so the first node is what we want
         return nodes[0]
@@ -933,6 +933,7 @@ class Snap(s_base.Base):
         todo = s_common.todo('runRuntLift', full, valu, cmpr)
         async for sode in self.core.dyniter('cortex', todo):
 
+            buid = s_common.buid()
             node = s_node.Node(self, sode)
             node.isrunt = True
 
