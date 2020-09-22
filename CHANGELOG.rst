@@ -1,3 +1,5 @@
+.. vim: set textwidth=79
+
 *****************
 Synapse Changelog
 *****************
@@ -8,25 +10,30 @@ v2.8.0 - 2020-09-22
 
 Features and Enhancements
 -------------------------
-- Module updates to support generic organization identifiers, generic adverstisting identifiers, asnet6 and a few other
-  secondary property additions.
+- Module updates to support generic organization identifiers, generic
+  advertising identifiers, asnet6 and a few other secondary property additions.
   (`#1879 <https://github.com/vertexproject/synapse/pull/1879>`_)
-- Update the Cell backup APIs to perform a consistent backup across all slabs for a Cell.
+- Update the Cell backup APIs to perform a consistent backup across all slabs
+  for a Cell.
   (`#1873 <https://github.com/vertexproject/synapse/pull/1873>`_)
-- Add support for a environment variable, ``SYN_LOCKMEM_DISABLE`` which will disable any memory locking of LMDB slabs.
+- Add support for a environment variable, ``SYN_LOCKMEM_DISABLE`` which will
+  disable any memory locking of LMDB slabs.
   (`#1882 <https://github.com/vertexproject/synapse/pull/1882>`_)
 
 Deprecations
 ------------
 
-- The ``0.1.x`` to ``2.x.x`` Migration tool and and associated Cortex sync service will be removed from Synapse in
-  the ``2.9.0`` release. In order to move forward to ``2.9.0``, please make sure that any Cortexes which still need to
-  be migrated will first be migrated to ``2.8.x`` prior to attempting to use ``2.9.x``.
+- The ``0.1.x`` to ``2.x.x`` Migration tool and and associated Cortex sync
+  service will be removed from Synapse in the ``2.9.0`` release. In order to
+  move forward to ``2.9.0``, please make sure that any Cortexes which still
+  need to be migrated will first be migrated to ``2.8.x`` prior to attempting
+  to use ``2.9.x``.
 
 Improved Documentation
 ----------------------
-- Add Synapse README content to the Pypi page. This was a community contribution from https://github.com/wesinator.
-  (`#1872 <https://github.com/vertexproject/synapse/pull/1872>`_)
+- Add Synapse README content to the Pypi page. This was a community
+  contribution from https://github.com/wesinator.  (`#1872
+  <https://github.com/vertexproject/synapse/pull/1872>`_)
 
 
 v2.7.3 - 2020-09-16
