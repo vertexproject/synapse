@@ -661,35 +661,17 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar=2015 ]')
             self.eq((1325376000000, 1420070400001), nodes[0].getTag('foo.bar'))
 
-            nodeedits = [
-                (buid, None, (
-                    (s_layer.EDIT_PROP_SET, ('loc', 'us', None, s_layer.STOR_TYPE_LOC), ()),
-                )),
-            ]
-
-            nodeedits_out = await layr.storNodeEdits(nodeedits, {})
-            self.notin('loc', nodeedits_out[0][1]['props'])
-
-            nodeedits = [
-                (buid, None, (
-                    (s_layer.EDIT_TAG_SET, ('faz.baz', (None, None), (None, None)), ()),
-                )),
-            ]
-
-            nodeedits_out = await layr.storNodeEdits(nodeedits, {})
-            self.notin('faz.baz', nodeedits_out[0][1]['tags'])
-
     async def test_layer_nodeedits_created(self):
 
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ test:int=1 :loc=us ]')
             created00 = nodes[0].get('.created')
+            self.nn(created00)
 
             layr = core.getLayer()
 
             editlist00 = [nes async for nes in layr.iterLayerNodeEdits()]
-
             await core.nodes('test:int=1 | delnode')
             self.len(0, await core.nodes('test:int'))
 
@@ -710,7 +692,7 @@ class LayerTest(s_t_utils.SynTest):
 
             # If meta is not specified .created gets populated to now
             await asyncio.sleep(0.01)
-            await layr.storNodeEdits(nexslist00, None)
+            await layr.storNodeEdits(nexslist00, {})
 
             nodes = await core.nodes('test:int')
             self.len(1, nodes)
@@ -994,3 +976,17 @@ class LayerTest(s_t_utils.SynTest):
 
             readlayr = core.getLayer(readlayrinfo.get('iden'))
             self.true(readlayr.readonly)
+
+    async def test_layer_v3(self):
+
+        async with self.getRegrCore('2.0-layerv2tov3') as core:
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].get('asn'), 33)
+            self.true(nodes[0].getTag('foo.bar'), (None, None))
+            self.true(nodes[0].getTagProp('foo.bar', 'confidence'), 22)
+
+            for layr in core.layers.values():
+                self.eq(layr.layrvers, 3)
