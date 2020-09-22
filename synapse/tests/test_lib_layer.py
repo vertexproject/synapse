@@ -661,24 +661,6 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar=2015 ]')
             self.eq((1325376000000, 1420070400001), nodes[0].getTag('foo.bar'))
 
-            #nodeedits = [
-            #    (buid, None, (
-            #        (s_layer.EDIT_PROP_SET, ('loc', 'us', None, s_layer.STOR_TYPE_LOC), ()),
-            #    )),
-            #]
-
-            #nodeedits_out = await layr.storNodeEdits(nodeedits, {})
-            #self.notin('loc', nodeedits_out[0][1]['props'])
-
-            #nodeedits = [
-            #    (buid, None, (
-            #        (s_layer.EDIT_TAG_SET, ('faz.baz', (None, None), (None, None)), ()),
-            #    )),
-            #]
-
-            #nodeedits_out = await layr.storNodeEdits(nodeedits, {})
-            #self.notin('faz.baz', nodeedits_out[0][1]['tags'])
-
     async def test_layer_nodeedits_created(self):
 
         async with self.getTestCore() as core:
