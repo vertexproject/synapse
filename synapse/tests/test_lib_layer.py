@@ -994,3 +994,17 @@ class LayerTest(s_t_utils.SynTest):
 
             readlayr = core.getLayer(readlayrinfo.get('iden'))
             self.true(readlayr.readonly)
+
+    async def test_layer_v3(self):
+
+        async with self.getRegrCore('2.0-layerv2tov3') as core:
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].get('asn'), 33)
+            self.true(nodes[0].getTag('foo.bar'), (None, None))
+            self.true(nodes[0].getTagProp('foo.bar', 'confidence'), 22)
+
+            for layr in core.layers.values():
+                self.eq(layr.layrvers, 3)

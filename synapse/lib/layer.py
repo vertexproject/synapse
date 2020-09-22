@@ -1003,6 +1003,8 @@ class Layer(s_nexus.Pusher):
 
         self.fresh = not os.path.exists(path)
 
+        self.dirty = {}
+
         await self._initLayerStorage()
 
         self.stortypes = [
@@ -1062,7 +1064,6 @@ class Layer(s_nexus.Pusher):
         self.windows = []
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
-        self.dirty = {}
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
         uplayr = layrinfo.get('upstream')
@@ -1140,6 +1141,8 @@ class Layer(s_nexus.Pusher):
         tostor = []
         lastbuid = None
 
+        logger.warning(f'Converting layer from v2 to v3 storage: {self.dirn}')
+
         for lkey, lval in self.layrslab.scanByFull(db=bybuid):
 
             flag = lkey[32]
@@ -1154,7 +1157,7 @@ class Layer(s_nexus.Pusher):
                     sode.clear()
 
                     if len(tostor) >= 10000:
-                        print('SYNC 10k')
+                        logger.warning('...syncing 10k nodes')
                         self.layrslab.putmulti(tostor, db=self.bybuidv3)
                         tostor.clear()
 
@@ -1185,10 +1188,16 @@ class Layer(s_nexus.Pusher):
                 sode['form'] = lval.decode()
                 continue
 
+        # mop up the left overs
+        if tostor:
+            self.layrslab.putmulti(tostor, db=self.bybuidv3)
+
         self.layrslab.dropdb('bybuid')
 
         self.meta.set('version', 3)
         self.layrvers = 3
+
+        logger.warning('...complete!')
 
     async def _initLayerStorage(self):
 
@@ -1793,7 +1802,7 @@ class Layer(s_nexus.Pusher):
 
     def _editTagSet(self, buid, form, edit, sode, meta):
 
-        if form is None:
+        if form is None: # pragma: no cover
             logger.warning(f'Invalid tag set edit, form is None: {edit}')
             return ()
 
@@ -1844,7 +1853,7 @@ class Layer(s_nexus.Pusher):
 
     def _editTagPropSet(self, buid, form, edit, sode, meta):
 
-        if form is None:
+        if form is None: # pragma: no cover
             logger.warning(f'Invalid tagprop set edit, form is None: {edit}')
             return ()
 
@@ -1942,7 +1951,7 @@ class Layer(s_nexus.Pusher):
 
     def _editNodeEdgeAdd(self, buid, form, edit, sode, meta):
 
-        if form is None:
+        if form is None: # pragma: no cover
             logger.warning(f'Invalid node edge edit, form is None: {edit}')
             return ()
 
