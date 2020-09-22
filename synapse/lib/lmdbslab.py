@@ -1,7 +1,6 @@
 import os
 import shutil
 import asyncio
-import pathlib
 import threading
 import collections
 
@@ -32,9 +31,6 @@ MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 
 int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
-
-# The paths of all open slabs, to prevent accidental opening of the same slab in two places
-_AllSlabs = {}   # type: ignore
 
 class Hist:
     '''
@@ -552,7 +548,8 @@ class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
-    syncset = set()  # type:  ignore
+    # The paths of all open slabs, to prevent accidental opening of the same slab in two places
+    allslabs = {}  # type: ignore
     synctask = None
     syncevnt = None  # set this event to trigger a sync
 
@@ -561,21 +558,16 @@ class Slab(s_base.Base):
     DEFAULT_GROWSIZE = None
 
     @classmethod
+    def getSlabsInDir(clas, dirn):
+        '''
+        Returns all open slabs under a directory
+        '''
+        toppath = s_common.genpath(dirn)
+        return [slab for slab in clas.allslabs.values()
+                if toppath == slab.path or slab.path.startswith(toppath + os.sep)]
+
+    @classmethod
     async def initSyncLoop(clas, inst):
-
-        clas.syncset.add(inst)
-
-        async def fini():
-
-            # no need to sync
-            clas.syncset.discard(inst)
-
-            if not clas.syncset:
-                clas.synctask.cancel()
-                clas.synctask = None
-                clas.syncevnt = None
-
-        inst.onfini(fini)
 
         if clas.synctask is not None:
             return
@@ -605,14 +597,15 @@ class Slab(s_base.Base):
 
     @classmethod
     async def syncLoopOnce(clas):
-        for slab in clas.syncset:
+        for slab in list(clas.allslabs.values()):
             if slab.dirty:
                 await slab.sync()
+                await asyncio.sleep(0)
 
     @classmethod
     async def getSlabStats(clas):
         retn = []
-        for slab in clas.syncset:
+        for slab in clas.allslabs.values():
             retn.append({
                 'path': str(slab.path),
                 'xactops': len(slab.xactops),
@@ -620,6 +613,10 @@ class Slab(s_base.Base):
                 'readonly': slab.readonly,
                 'lockmemory': slab.lockmemory,
                 'recovering': slab.recovering,
+                'maxsize': slab.maxsize,
+                'growsize': slab.growsize,
+                'mapasync': slab.mapasync,
+
             })
         return retn
 
@@ -633,25 +630,22 @@ class Slab(s_base.Base):
 
         opts = kwargs
 
-        path = pathlib.Path(path)
         self.path = path
-        self.optspath = path.with_suffix('.opts.yaml')
+        self.optspath = s_common.switchext(path, ext='.opts.yaml')
 
         # Make sure we don't have this lmdb DB open already.  (This can lead to seg faults)
-        abspath = str(path.resolve())
-        if abspath in _AllSlabs:
+        if path in self.allslabs:
             raise s_exc.SlabAlreadyOpen(mesg=path)
-        self.abspath = abspath
 
-        if self.optspath.exists():
+        if os.path.isfile(self.optspath):
             opts.update(s_common.yamlload(self.optspath))
 
         initial_mapsize = opts.get('map_size')
         if initial_mapsize is None:
             raise s_exc.BadArg('Slab requires map_size')
 
-        mdbpath = path / 'data.mdb'
-        if mdbpath.exists():
+        mdbpath = s_common.genpath(path, 'data.mdb')
+        if os.path.isfile(mdbpath):
             mapsize = max(initial_mapsize, os.path.getsize(mdbpath))
         else:
             mapsize = initial_mapsize
@@ -669,7 +663,14 @@ class Slab(s_base.Base):
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
-        opts.setdefault('map_async', True)
+
+        if self.lockmemory:
+            lockmem_override = s_common.envbool('SYN_LOCKMEM_DISABLE')
+            if lockmem_override:
+                logger.info(f'SYN_LOCKMEM_DISABLE envar set, skipping lockmem for {self.path}')
+                self.lockmemory = False
+
+        self.mapasync = opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:
@@ -678,7 +679,7 @@ class Slab(s_base.Base):
         self._saveOptsFile()
 
         self.lenv = lmdb.open(str(path), **opts)
-        _AllSlabs[abspath] = self
+        self.allslabs[path] = self
 
         self.scans = set()
 
@@ -695,6 +696,7 @@ class Slab(s_base.Base):
         # LMDB layer uses these for status reporting
         self.locking_memory = False
         self.prefaulting = False
+        self.memlocktask = None
         self.max_could_lock = 0
         self.lock_progress = 0
         self.lock_goal = 0
@@ -812,8 +814,14 @@ class Slab(s_base.Base):
             break
 
         self.lenv.close()
-        _AllSlabs.pop(self.abspath, None)
+        self.allslabs.pop(self.path, None)
         del self.lenv
+
+        if not self.allslabs:
+            if self.synctask:
+                self.synctask.cancel()
+            self.__class__.synctask = None
+            self.__class__.syncevnt = None
 
     def _finiCoXact(self):
         '''
@@ -867,7 +875,7 @@ class Slab(s_base.Base):
         '''
         Separate thread loop that manages the prefaulting and locking of the memory backing the data file
         '''
-        if not s_thishost.get('hasmemlocking'):
+        if not s_thishost.get('hasmemlocking'):  # pragma: no cover
             return
         MAX_TOTAL_PERCENT = .90  # how much of all the RAM to take
         MAX_LOCK_AT_ONCE = s_const.gibibyte
@@ -894,7 +902,7 @@ class Slab(s_base.Base):
 
         self.max_could_lock = max_to_lock
 
-        path = self.path.absolute() / 'data.mdb'  # Path to the file that gets mapped
+        path = s_common.genpath(self.path, 'data.mdb')  # Path to the file that gets mapped
         fh = open(path, 'r+b')
         fileno = fh.fileno()
 
@@ -918,7 +926,7 @@ class Slab(s_base.Base):
 
             try:
                 memstart, memlen = s_thisplat.getFileMappedRegion(path)
-            except s_exc.NoSuchFile:
+            except s_exc.NoSuchFile:  # pragma: no cover
                 logger.warning('map not found for %s', path)
 
                 if not self.resizeevent.is_set():
@@ -1381,12 +1389,13 @@ class Slab(s_base.Base):
 
     async def copyslab(self, dstpath, compact=True):
 
-        dstpath = pathlib.Path(dstpath)
-        if dstpath.exists():
+        dstpath = s_common.genpath(dstpath)
+        if os.path.isdir(dstpath):
             raise s_exc.DataAlreadyExists()
 
-        dstoptspath = dstpath.with_suffix('.opts.yaml')
         s_common.gendir(dstpath)
+
+        dstoptspath = s_common.switchext(dstpath, ext='.opts.yaml')
 
         await self.sync()
 
@@ -1463,15 +1472,6 @@ class Scan:
         self.slab.scans.discard(self)
         self.slab._relXactForReading()
         self.curs = None
-
-    def last_key(self):
-        '''
-        Return the last key in the database.  Returns none if database is empty.
-        '''
-        if not self.curs.last():
-            return None
-
-        return self.curs.key()
 
     def first(self):
 

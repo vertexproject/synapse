@@ -9,6 +9,7 @@ import argparse
 import datetime
 import functools
 import contextlib
+import multiprocessing
 
 import tornado.web as t_web
 
@@ -540,6 +541,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
     }
 
+    BACKUP_SPAWN_TIMEOUT = 4.0
+    BACKUP_ACQUIRE_TIMEOUT = 0.5
+
     async def __anit__(self, dirn, conf=None, readonly=False):
 
         # phase 1
@@ -753,17 +757,79 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Backup with name already exists'
             raise s_exc.BadArg(mesg=mesg)
 
-        task = self.schedCoro(self._execBackTask(path))
+        task = self.schedCoro(self._execBackupTask(path))
 
         if wait:
             await task
 
         return name
 
-    async def _execBackTask(self, dirn):
+    async def _execBackupTask(self, dirn):
+        '''
+        A task that backs up the cell to the target directory
+        '''
         await self.boss.promote('backup', self.auth.rootuser)
-        todo = s_common.todo(s_t_backup.backup, self.dirn, dirn)
-        await s_coro.spawn(todo)
+        slabs = s_lmdbslab.Slab.getSlabsInDir(self.dirn)
+        assert slabs
+
+        ctx = multiprocessing.get_context('spawn')
+
+        mypipe, child_pipe = ctx.Pipe()
+        paths = [str(slab.path) for slab in slabs]
+
+        def spawnproc():
+            proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths))
+            proc.start()
+            hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
+            if not hasdata:
+                raise s_exc.SynErr(mesg='backup subprocess stuck')
+            data = mypipe.recv()
+            assert data == 'ready'
+            return proc
+
+        proc = await s_coro.executor(spawnproc)
+
+        while True:
+            await s_lmdbslab.Slab.syncLoopOnce()
+            if not any(slab.dirty for slab in slabs):
+                break
+
+        try:
+            mypipe.send('proceed')
+
+            # This is technically pending the ioloop waiting for the backup process to acquire a bunch of
+            # transactions.  We're effectively locking out new write requests the brute force way.
+            hasdata = mypipe.poll(timeout=self.BACKUP_ACQUIRE_TIMEOUT)
+            if not hasdata:
+                raise s_exc.SynErr(mesg='backup subprocess stuck')
+
+            data = mypipe.recv()
+            assert data == 'captured'
+
+            def waitforproc():
+                proc.join()
+                if proc.exitcode:
+                    raise s_exc.SpawnExit(code=proc.exitcode)
+
+            return await s_coro.executor(waitforproc)
+
+        except (asyncio.CancelledError, Exception):
+            proc.terminate()
+            raise
+
+    @staticmethod
+    def _backupProc(pipe, srcdir, dstdir, lmdbpaths):
+        '''
+        (In a separate process) Actually do the backup
+        '''
+        pipe.send('ready')
+        data = pipe.recv()
+        assert data == 'proceed'
+        with s_t_backup.capturelmdbs(srcdir, onlydirs=lmdbpaths) as lmdbinfo:
+            # Let parent know we have the transactions so he can resume the ioloop
+            pipe.send('captured')
+
+            s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
 
     def _reqBackConf(self):
         if self.backdirn is None:

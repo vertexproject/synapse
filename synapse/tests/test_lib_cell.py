@@ -1,5 +1,9 @@
 import os
+import sys
+import time
 import asyncio
+
+from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -8,6 +12,19 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 
 import synapse.tests.utils as s_t_utils
+
+# Defective versions of spawned backup processes
+def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths):
+    time.sleep(3.0)
+
+def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths):
+    pipe.send('ready')
+    time.sleep(2.0)
+
+def _exiterProc(pipe, srcdir, dstdir, lmdbpaths):
+    pipe.send('ready')
+    pipe.send('captured')
+    sys.exit(1)
 
 class EchoAuthApi(s_cell.CellApi):
 
@@ -527,7 +544,7 @@ class CellTest(s_t_utils.SynTest):
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
                 outp = self.getTestOutp()
-                async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
+                async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
                     outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
                     outp.expect('...cell API (https): 0')
 
@@ -538,13 +555,13 @@ class CellTest(s_t_utils.SynTest):
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
                 outp = self.getTestOutp()
-                async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
+                async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
                     outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
                     outp.expect('...cell API (https): disabled')
 
     async def test_cell_backup(self):
 
-        async with  self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with self.raises(s_exc.NeedConfValu):
                 await core.runBackup()
             with self.raises(s_exc.NeedConfValu):
@@ -572,6 +589,20 @@ class CellTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup('../woot')
+
+                    with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
+                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+
+                    # Test runners can take an unusually long time to spawn a process
+                    with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
+
+                        with mock.patch.object(s_cell.Cell, 'BACKUP_ACQUIRE_TIMEOUT', 0.1):
+                            with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
+                                await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+
+                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
+                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup())
 
                     name = await proxy.runBackup()
                     self.eq((name,), await proxy.getBackups())
