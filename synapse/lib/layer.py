@@ -1108,8 +1108,8 @@ class Layer(s_nexus.Pusher):
                 srcpath = s_common.genpath(root, name)
                 dstpath = s_common.genpath(newdirn, relname)
 
-                if srcpath in s_lmdbslab._AllSlabs:
-                    slab = s_lmdbslab._AllSlabs.get(srcpath)
+                if srcpath in s_lmdbslab.Slab.allslabs:
+                    slab = s_lmdbslab.Slab.allslabs[srcpath]
                     await slab.copyslab(dstpath)
 
                     dnames.remove(name)
