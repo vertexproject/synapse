@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -44,3 +45,7 @@ class DaemonTest(s_t_utils.SynTest):
                 await dmon.setReady(False)
                 await foo.waitfini(timeout=2)
                 self.true(foo.isfini)
+
+            with self.raises(s_exc.LinkShutDown):
+                async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/foo') as foo:
+                    pass

@@ -244,16 +244,13 @@ class Daemon(s_base.Base):
         self.onfini(self._onDmonFini)
 
         # by default we are ready... ( backward compat )
-        self.dmonready = asyncio.Event()
-        await self.setReady(True)
+        self.dmonready = True
 
     async def setReady(self, ready):
-        if not ready:
-            self.dmonready.clear()
+        self.dmonready = ready
+        if not self.dmonready:
             for link in list(self.links):
                 await link.fini()
-        else:
-            self.dmonready.set()
 
     async def listen(self, url, **opts):
         '''
@@ -346,16 +343,9 @@ class Daemon(s_base.Base):
             if isinstance(share, s_base.Base):
                 await share.fini()
 
-    async def _waitForReady(self, timeout=30):
-        try:
-            await asyncio.wait_for(self.dmonready.wait(), timeout=timeout)
-            return True
-        except TimeoutError:
-            return False
-
     async def _onLinkInit(self, link):
 
-        if not await self._waitForReady():
+        if not self.dmonready:
             logger.warning(f'onLinkInit is not ready: {repr(link)}')
             return await link.fini()
 
