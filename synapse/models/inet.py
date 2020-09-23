@@ -436,6 +436,10 @@ class IPv6(s_types.Type):
         self.setNormFunc(int, self._normPyStr)
         self.setNormFunc(str, self._normPyStr)
 
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
+
     def _normPyStr(self, valu):
 
         try:
@@ -460,6 +464,80 @@ class IPv6(s_types.Type):
 
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+
+    def getTypeVals(self, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+
+                minv, maxv = self.getCidrRange(valu)
+                while minv < maxv:
+                    yield minv.compressed
+                    minv += 1
+
+                return
+
+            if valu.find('-') != -1:
+
+                minv, maxv = self.getNetRange(valu)
+                while minv <= maxv:
+                    yield minv.compressed
+                    minv += 1
+
+                return
+
+        yield valu
+
+    def getCidrRange(self, text):
+        netw = ipaddress.IPv6Network(text)
+        minv = netw[0]
+        maxv = netw[-1]
+        return minv, maxv
+
+    def getNetRange(self, text):
+        minv, maxv = text.split('-')
+        return ipaddress.IPv6Address(minv), ipaddress.IPv6Address(maxv)
+
+    def _ctorCmprEq(self, valu):
+
+        if type(valu) == str:
+
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+
+                def cmpr(norm):
+                    norm = ipaddress.IPv6Address(norm)
+                    return norm >= minv and norm < maxv
+                return cmpr
+
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+
+                def cmpr(norm):
+                    norm = ipaddress.IPv6Address(norm)
+                    return norm >= minv and norm <= maxv
+                return cmpr
+
+        return s_types.Type._ctorCmprEq(self, valu)
+
+    def _storLiftEq(self, cmpr, valu):
+
+        if type(valu) == str:
+
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+                return (
+                    ('range=', (minv.compressed, maxv.compressed), self.stortype),
+                )
+
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+                return (
+                    ('range=', (minv.compressed, maxv.compressed), self.stortype),
+                )
+
+        return self._storLiftNorm(cmpr, valu)
 
 class IPv4Range(s_types.Range):
 
