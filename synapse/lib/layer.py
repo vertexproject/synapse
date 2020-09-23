@@ -1199,6 +1199,7 @@ class Layer(s_nexus.Pusher):
         if tostor:
             self.layrslab.putmulti(tostor, db=self.bybuidv3)
 
+        logger.warning('...removing old bybuid index')
         self.layrslab.dropdb('bybuid')
 
         self.meta.set('version', 3)
