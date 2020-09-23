@@ -259,36 +259,37 @@ class TelcoModule(s_module.CoreModule):
                 )),
                 ('tel:mob:imei', {}, (
                     ('tac', ('tel:mob:tac', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The Type Allocate Code within the IMEI.'
                     }),
                     ('serial', ('int', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The serial number within the IMEI.',
                     })
                 )),
                 ('tel:mob:imsi', {}, (
                     ('mcc', ('tel:mob:mcc', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The Mobile Country Code.',
                     }),
                 )),
                 ('tel:mob:imid', {}, (
-                    ('imei', ('tel:mob:imei', {}), {'ro': 1,
+                    ('imei', ('tel:mob:imei', {}), {
+                        'ro': True,
                         'doc': 'The IMEI for the phone hardware.'
                     }),
                     ('imsi', ('tel:mob:imsi', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The IMSI for the phone subscriber.'
                     }),
                 )),
                 ('tel:mob:imsiphone', {}, (
                     ('phone', ('tel:phone', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The phone number assigned to the IMSI.'
                     }),
                     ('imsi', ('tel:mob:imsi', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The IMSI with the assigned phone number.'
                     }),
                 )),
@@ -297,10 +298,10 @@ class TelcoModule(s_module.CoreModule):
                 )),
                 ('tel:mob:carrier', {}, (
                     ('mcc', ('tel:mob:mcc', {}), {
-                        'ro': 1,
+                        'ro': True,
                     }),
                     ('mnc', ('tel:mob:mnc', {}), {
-                        'ro': 1,
+                        'ro': True,
                     }),
                     ('org', ('ou:org', {}), {
                         'doc': 'Organization operating the carrier.'
