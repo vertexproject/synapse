@@ -301,7 +301,7 @@ class StreamHandler(Handler):
 class StormNodesV1(Handler):
 
     def on_connection_close(self):
-        if self.task:
+        if self.task is not None:
             self.task.schedCoroSafe(self.task.fini())
 
     async def post(self):
@@ -330,7 +330,7 @@ class StormNodesV1(Handler):
 class StormV1(Handler):
 
     def on_connection_close(self):
-        if self.task:
+        if self.task is not None:
             self.task.schedCoroSafe(self.task.fini())
 
     async def post(self):
