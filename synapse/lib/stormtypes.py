@@ -1650,6 +1650,9 @@ class Str(Prim):
             'rjust': self._methStrRjust,
             'encode': self._methEncode,
             'replace': self._methStrReplace,
+            'strip': self._methStrStrip,
+            'lstrip': self._methStrLstrip,
+            'rstrip': self._methStrRstrip,
         }
 
     def __int__(self):
@@ -1702,13 +1705,62 @@ class Str(Prim):
         optionally restricting the number of replacements.
 
         Example:
+            Replace instances of the string "bar" with the string "baz"::
 
-            $foo.replace('bar', 'baz')
+                $foo.replace('bar', 'baz')
         '''
         if maxv is None:
             return self.valu.replace(oldv, newv)
         else:
             return self.valu.replace(oldv, newv, int(maxv))
+
+    async def _methStrStrip(self, chars=None):
+        '''
+        Remove leading and trailing characters from a string.
+
+        Args:
+            chars (str): A list of characters to remove. If not specified, whitespace is stripped.
+
+        Examples:
+            Removing whitespace and specific characters::
+
+                $strippedFoo = $foo.strip()
+                $strippedBar = $bar.strip(asdf)
+
+        '''
+        return self.valu.strip(chars)
+
+    async def _methStrLstrip(self, chars=None):
+        '''
+        Remove leading characters from a string.
+
+        Args:
+            chars (str): A list of characters to remove. If not specified, whitespace is stripped.
+
+        Examples:
+            Removing whitespace and specific characters::
+
+                $strippedFoo = $foo.lstrip()
+                $strippedBar = $bar.lstrip(w)
+
+        '''
+        return self.valu.lstrip(chars)
+
+    async def _methStrRstrip(self, chars=None):
+        '''
+        Remove trailing characters from a string.
+
+        Args:
+            chars (str): A list of characters to remove. If not specified, whitespace is stripped.
+
+        Examples:
+            Removing whitespace and specific characters::
+
+                $strippedFoo = $foo.rstrip()
+                $strippedBar = $bar.rstrip(asdf)
+
+        '''
+        return self.valu.rstrip(chars)
 
 @registry.registerType
 class Bytes(Prim):
