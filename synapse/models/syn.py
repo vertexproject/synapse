@@ -138,7 +138,7 @@ class SynModule(s_module.CoreModule):
 
                 ('syn:tag', {}, (
 
-                    ('up', ('syn:tag', {}), {'ro': 1,
+                    ('up', ('syn:tag', {}), {'ro': True,
                         'doc': 'The parent tag for the tag.'}),
 
                     ('isnow', ('syn:tag', {}), {
@@ -149,12 +149,12 @@ class SynModule(s_module.CoreModule):
                     ('doc:url', ('inet:url', {}), {
                         'doc': 'A URL link to additional documentation about the tag.'}),
 
-                    ('depth', ('int', {}), {'ro': 1,
+                    ('depth', ('int', {}), {'ro': True,
                         'doc': 'How deep the tag is in the hierarchy.'}),
 
                     ('title', ('str', {}), {'doc': 'A display title for the tag.'}),
 
-                    ('base', ('str', {}), {'ro': 1,
+                    ('base', ('str', {}), {'ro': True,
                         'doc': 'The tag base name. Eg baz for foo.bar.baz .'}),
                 )),
                 ('syn:type', {'runt': True}, (

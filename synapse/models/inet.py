@@ -1602,19 +1602,19 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:banner', {}, (
 
-                        ('server', ('inet:server', {}), {'ro': 1,
+                        ('server', ('inet:server', {}), {'ro': True,
                             'doc': 'The server which presented the banner string.'}),
 
-                        ('server:ipv4', ('inet:ipv4', {}), {'ro': 1,
+                        ('server:ipv4', ('inet:ipv4', {}), {'ro': True,
                             'doc': 'The IPv4 address of the server.'}),
 
-                        ('server:ipv6', ('inet:ipv6', {}), {'ro': 1,
+                        ('server:ipv6', ('inet:ipv6', {}), {'ro': True,
                             'doc': 'The IPv6 address of the server.'}),
 
-                        ('server:port', ('inet:port', {}), {'ro': 1,
+                        ('server:port', ('inet:port', {}), {'ro': True,
                             'doc': 'The network port.'}),
 
-                        ('text', ('it:dev:str', {}), {'ro': 1,
+                        ('text', ('it:dev:str', {}), {'ro': True,
                             'doc': 'The banner text.'}),
                     )),
 
