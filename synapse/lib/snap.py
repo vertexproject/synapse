@@ -933,7 +933,6 @@ class Snap(s_base.Base):
         todo = s_common.todo('runRuntLift', full, valu, cmpr)
         async for sode in self.core.dyniter('cortex', todo):
 
-            buid = s_common.buid()
             node = s_node.Node(self, sode)
             node.isrunt = True
 
