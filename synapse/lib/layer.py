@@ -1141,7 +1141,11 @@ class Layer(s_nexus.Pusher):
         tostor = []
         lastbuid = None
 
-        logger.warning(f'Converting layer from v2 to v3 storage: {self.dirn}')
+        count = 0
+        forms = await self.getFormCounts()
+        minforms = sum(forms.values())
+
+        logger.warning(f'Converting layer from v2 to v3 storage (>={minforms} nodes): {self.dirn}')
 
         for lkey, lval in self.layrslab.scanByFull(db=bybuid):
 
@@ -1152,12 +1156,13 @@ class Layer(s_nexus.Pusher):
 
                 if lastbuid is not None:
 
+                    count += 1
                     tostor.append((lastbuid, s_msgpack.en(sode)))
 
                     sode.clear()
 
                     if len(tostor) >= 10000:
-                        logger.warning('...syncing 10k nodes')
+                        logger.warning(f'...syncing 10k nodes @{count}')
                         self.layrslab.putmulti(tostor, db=self.bybuidv3)
                         tostor.clear()
 
@@ -1188,16 +1193,19 @@ class Layer(s_nexus.Pusher):
                 sode['form'] = lval.decode()
                 continue
 
+        count += 1
+
         # mop up the left overs
         if tostor:
             self.layrslab.putmulti(tostor, db=self.bybuidv3)
 
+        logger.warning('...removing old bybuid index')
         self.layrslab.dropdb('bybuid')
 
         self.meta.set('version', 3)
         self.layrvers = 3
 
-        logger.warning('...complete!')
+        logger.warning(f'...complete! ({count} nodes)')
 
     async def _initLayerStorage(self):
 
@@ -1219,6 +1227,8 @@ class Layer(s_nexus.Pusher):
 
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
+        if self.fresh:
+            self.meta.set('version', 3)
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
