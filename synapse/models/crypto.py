@@ -124,9 +124,9 @@ class CryptoModule(s_module.CoreModule):
                 ('hash:sha384', {}, ()),
                 ('hash:sha512', {}, ()),
                 ('rsa:key', {}, (
-                    ('mod', ('hex', {}), {'ro': 1,
+                    ('mod', ('hex', {}), {'ro': True,
                        'doc': 'The RSA key modulus.'}),
-                    ('pub:exp', ('int', {}), {'ro': 1,
+                    ('pub:exp', ('int', {}), {'ro': True,
                        'doc': 'The public exponent of the key.'}),
                     ('bits', ('int', {}),
                      {'doc': 'The length of the modulus in bits.'}),
