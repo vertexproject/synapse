@@ -300,11 +300,16 @@ class StreamHandler(Handler):
 
 class StormNodesV1(Handler):
 
+    def on_connection_close(self):
+        if self.task:
+            self.task.schedCoroSafe(self.task.fini())
+
     async def post(self):
         return await self.get()
 
     async def get(self):
 
+        self.task = None
         user, body = await self.getUserBody()
         if body is s_common.novalu:
             return
@@ -313,7 +318,7 @@ class StormNodesV1(Handler):
         opts = body.get('opts')
         query = body.get('query')
 
-        await self.cell.boss.promote('storm', user=user, info={'query': query})
+        self.task = await self.cell.boss.promote('storm', user=user, info={'query': query})
 
         opts = await self._reqValidOpts(opts)
 
@@ -324,11 +329,15 @@ class StormNodesV1(Handler):
 
 class StormV1(Handler):
 
+    def on_connection_close(self):
+        if self.task:
+            self.task.schedCoroSafe(self.task.fini())
+
     async def post(self):
         return await self.get()
 
     async def get(self):
-
+        self.task = None
         user, body = await self.getUserBody()
         if body is s_common.novalu:
             return
@@ -341,7 +350,7 @@ class StormV1(Handler):
         opts = await self._reqValidOpts(opts)
         opts['editformat'] = 'splices'
 
-        await self.cell.boss.promote('storm', user=user, info={'query': query})
+        self.task = await self.cell.boss.promote('storm', user=user, info={'query': query})
 
         async for mesg in self.cell.storm(query, opts=opts):
             self.write(json.dumps(mesg))
