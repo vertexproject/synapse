@@ -789,7 +789,7 @@ class HttpApiTest(s_tests.SynTest):
                             break
 
                 self.nn(task)
-                self.true(await task.waitfini(10))
+                self.true(await task.waitfini(6))
                 self.len(0, core.boss.tasks)
 
                 task = None
@@ -806,7 +806,7 @@ class HttpApiTest(s_tests.SynTest):
                         break
 
                 self.nn(task)
-                self.true(await task.waitfini(10))
+                self.true(await task.waitfini(6))
                 self.len(0, core.boss.tasks)
 
                 # check reqvalidstorm with various queries

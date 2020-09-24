@@ -269,6 +269,12 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
 class Handler(HandlerBase, t_web.RequestHandler):
 
+    def prepare(self):
+        self.task = asyncio.current_task()
+
+    def on_connection_close(self):
+        self.task.cancel()
+
     async def _reqValidOpts(self, opts):
 
         if opts is None:
@@ -300,16 +306,11 @@ class StreamHandler(Handler):
 
 class StormNodesV1(Handler):
 
-    def on_connection_close(self):
-        if self.task is not None:
-            self.task.schedCoroSafe(self.task.fini())
-
     async def post(self):
         return await self.get()
 
     async def get(self):
 
-        self.task = None
         user, body = await self.getUserBody()
         if body is s_common.novalu:
             return
@@ -318,7 +319,7 @@ class StormNodesV1(Handler):
         opts = body.get('opts')
         query = body.get('query')
 
-        self.task = await self.cell.boss.promote('storm', user=user, info={'query': query})
+        await self.cell.boss.promote('storm', user=user, info={'query': query})
 
         opts = await self._reqValidOpts(opts)
 
@@ -329,15 +330,11 @@ class StormNodesV1(Handler):
 
 class StormV1(Handler):
 
-    def on_connection_close(self):
-        if self.task is not None:
-            self.task.schedCoroSafe(self.task.fini())
-
     async def post(self):
         return await self.get()
 
     async def get(self):
-        self.task = None
+
         user, body = await self.getUserBody()
         if body is s_common.novalu:
             return
@@ -350,7 +347,7 @@ class StormV1(Handler):
         opts = await self._reqValidOpts(opts)
         opts['editformat'] = 'splices'
 
-        self.task = await self.cell.boss.promote('storm', user=user, info={'query': query})
+        await self.cell.boss.promote('storm', user=user, info={'query': query})
 
         async for mesg in self.cell.storm(query, opts=opts):
             self.write(json.dumps(mesg))
