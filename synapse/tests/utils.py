@@ -222,13 +222,13 @@ testmodel = {
         ('test:type', {}, ()),
 
         ('test:comp', {}, (
-            ('hehe', ('test:int', {}), {'ro': 1}),
-            ('haha', ('test:lower', {}), {'ro': 1}),
+            ('hehe', ('test:int', {}), {'ro': True}),
+            ('haha', ('test:lower', {}), {'ro': True}),
         )),
 
         ('test:complexcomp', {}, (
-            ('foo', ('test:int', {}), {'ro': 1}),
-            ('bar', ('str', {'lower': 1}), {'ro': 1})
+            ('foo', ('test:int', {}), {'ro': True}),
+            ('bar', ('str', {'lower': 1}), {'ro': True})
         )),
 
         ('test:int', {}, (
@@ -242,10 +242,10 @@ testmodel = {
         )),
 
         ('test:edge', {}, (
-            ('n1', ('ndef', {}), {'ro': 1}),
-            ('n1:form', ('str', {}), {'ro': 1}),
-            ('n2', ('ndef', {}), {'ro': 1}),
-            ('n2:form', ('str', {}), {'ro': 1}),
+            ('n1', ('ndef', {}), {'ro': True}),
+            ('n1:form', ('str', {}), {'ro': True}),
+            ('n2', ('ndef', {}), {'ro': True}),
+            ('n2:form', ('str', {}), {'ro': True}),
         )),
 
         ('test:guid', {}, (
@@ -295,7 +295,7 @@ testmodel = {
         )),
 
         ('test:ndef', {}, (
-            ('form', ('str', {}), {'ro': 1}),
+            ('form', ('str', {}), {'ro': True}),
         )),
 
         ('test:runt', {'runt': True}, (
