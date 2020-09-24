@@ -357,6 +357,13 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x06050403))
 
+            nodes = await core.nodes('$foo="6[.]5[.]4[.]3" | scrape $foo --yield')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x06050403))
+
+            nodes = await core.nodes('$foo="6[.]5[.]4[.]3" | scrape $foo --yield --skiprefang')
+            self.len(0, nodes)
+
             # per-node tests
 
             guid = s_common.guid()
