@@ -101,3 +101,59 @@ class ScrapeTest(s_t_utils.SynTest):
 
         txt = f'hehe {email[0]} {fqdn[0]} haha'
         self.eq({email[0], 'bar.io', fqdn[0], }, {n[1] for n in s_scrape.scrape(txt)})
+
+    def test_refang(self):
+
+        defanged = '10[.]0[.]0[.]1'
+        refanged = '10.0.0.1'
+        self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'www(.)spam(.)net'
+        refanged = 'www.spam.net'
+        self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'http[:]//foo.faz.com[:]12312/bam'
+        refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'hxxp://foo.faz.edu/'
+        refanged = 'http://foo.faz.edu/'
+        self.eq({refanged, 'foo.faz.edu'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'hXXps://foo.faz.edu/'
+        refanged = 'https://foo.faz.edu/'
+        self.eq({refanged, 'foo.faz.edu'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'FXP://255.255.255.255'
+        refanged = 'ftp://255.255.255.255'
+        self.eq({refanged, '255.255.255.255'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'fxps://255.255.255.255'
+        refanged = 'ftps://255.255.255.255'
+        self.eq({refanged, '255.255.255.255'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'foo[at]bar.com'
+        refanged = 'foo@bar.com'
+        self.eq({refanged, 'bar.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'foo[@]bar.com'
+        refanged = 'foo@bar.com'
+        self.eq({refanged, 'bar.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'Im a text BLOB with 255(.)255(.)255.0 and hxxps[:]yowza(.)baz[.]edu/foofaz'
+        exp = {
+            'yowza.baz.edu',
+            '255.255.255.0'
+        }
+        self.eq(exp, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'HXXP[:]//example.com?faz=hxxp and im talking about HXXP over here'
+        exp = {
+            'http://example.com?faz=hxxp',
+            'example.com'
+        }
+        self.eq(exp, {n[1] for n in s_scrape.scrape(defanged)})
+
+        # Test scrape without refang
+        defanged = 'HXXP[:]//example.com?faz=hxxp and im talking about HXXP over here'
+        self.eq({'example.com'}, {n[1] for n in s_scrape.scrape(defanged, refang=False)})
