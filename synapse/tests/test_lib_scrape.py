@@ -154,6 +154,6 @@ class ScrapeTest(s_t_utils.SynTest):
         }
         self.eq(exp, {n[1] for n in s_scrape.scrape(defanged)})
 
-        # Test scrape without refang
+        # Test scrape without re-fang
         defanged = 'HXXP[:]//example.com?faz=hxxp and im talking about HXXP over here'
         self.eq({'example.com'}, {n[1] for n in s_scrape.scrape(defanged, refang=False)})

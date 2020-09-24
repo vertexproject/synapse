@@ -2473,7 +2473,7 @@ class ScrapeCmd(Cmd):
         # Scrape properties inbound nodes and yield newly scraped nodes.
         inet:search:query | scrape --yield
 
-        # Skip refanging text before scraping.
+        # Skip re-fanging text before scraping.
         inet:search:query | scrape --skiprefang
     '''
 
@@ -2487,7 +2487,7 @@ class ScrapeCmd(Cmd):
         pars.add_argument('--yield', dest='doyield', default=False, action='store_true',
                           help='Include newly scraped nodes in the output')
         pars.add_argument('--skiprefang', dest='dorefang', default=True, action='store_false',
-                          help='Do not remove defanging from text before scraping')
+                          help='Do not remove de-fanging from text before scraping')
         pars.add_argument('values', nargs='*',
                           help='Specific relative properties or variables to scrape')
         return pars

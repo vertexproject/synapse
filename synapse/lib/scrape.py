@@ -62,7 +62,7 @@ def scrape(text, ptype=None, refang=True):
     Args:
         text (str): Text to scrape.
         ptype (str): Optional ptype to scrape. If present, only scrape rules which match the provided type.
-        refang (bool): Whether to remove defanging schemes from text before scraping.
+        refang (bool): Whether to remove de-fanging schemes from text before scraping.
 
     Returns:
         (str, str): Yield tuples of type, valu strings.
