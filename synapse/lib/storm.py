@@ -2859,9 +2859,20 @@ class SpliceUndoCmd(Cmd):
 
 class LiftByVerb(Cmd):
     '''
-    Words
+    Lift nodes from the current view by an light edge verb.
 
-    More words
+    Examples:
+
+        # Lift all the n1 nodes for the light edge "foo"
+        lift.byedge "foo"
+
+        # Lift all the n2 nodes for the light edge "foo"
+        lift.byedge --n2 "foo"
+
+    Notes:
+
+        Only a single instance of a node will be yielded from this command
+        when that node is lifted via the light edge membership.
     '''
     name = 'lift.byedge'
 
