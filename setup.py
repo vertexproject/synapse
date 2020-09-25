@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.7.3'
+VERSION = '2.8.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -30,7 +30,6 @@ if os.path.exists(readme):
     long_description = buf.decode()
     long_description_content_type = 'text/x-rst'
 
-    
 setup(
     name='synapse',
     version=VERSION,
@@ -51,7 +50,7 @@ setup(
         'pyOpenSSL>=16.2.0,<20.0.0',
         'msgpack>=0.6.1,<0.7.0',
         'xxhash>=1.0.1,<2.0.0',
-        'lmdb>=0.98,<1.0.0',
+        'lmdb>=1.0.0,<2.0.0',
         'tornado>=6.0.3,<7.0.0',
         'regex>=2020.5.14',
         'PyYAML>=5.1,<6.0',

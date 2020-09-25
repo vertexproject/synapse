@@ -2470,6 +2470,9 @@ class ScrapeCmd(Cmd):
 
         # Scrape properties inbound nodes and yield newly scraped nodes.
         inet:search:query | scrape --yield
+
+        # Skip re-fanging text before scraping.
+        inet:search:query | scrape --skiprefang
     '''
 
     name = 'scrape'
@@ -2481,6 +2484,8 @@ class ScrapeCmd(Cmd):
                           help='Create refs light edges to any scraped nodes from the input node')
         pars.add_argument('--yield', dest='doyield', default=False, action='store_true',
                           help='Include newly scraped nodes in the output')
+        pars.add_argument('--skiprefang', dest='dorefang', default=True, action='store_false',
+                          help='Do not remove de-fanging from text before scraping')
         pars.add_argument('values', nargs='*',
                           help='Specific relative properties or variables to scrape')
         return pars
@@ -2498,7 +2503,7 @@ class ScrapeCmd(Cmd):
                 text = str(await s_stormtypes.toprim(item))
 
                 try:
-                    for form, valu in s_scrape.scrape(text):
+                    for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
                         addnode = await runt.snap.addNode(form, valu)
                         if self.opts.doyield:
                             yield addnode, runt.initPath(addnode)
@@ -2523,7 +2528,7 @@ class ScrapeCmd(Cmd):
 
                 text = str(text)
 
-                for form, valu in s_scrape.scrape(text):
+                for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
 
                     try:
                         nnode = await node.snap.addNode(form, valu)

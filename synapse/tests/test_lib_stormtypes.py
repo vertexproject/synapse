@@ -538,6 +538,24 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('$s = foo-bar-baz [ test:str=$s.replace("-", ".", 1) ]')
             self.eq('foo.bar-baz', nodes[0].ndef[1])
 
+            q = '$foo=" foo " return ( $foo.strip() )'
+            self.eq('foo', await core.callStorm(q))
+
+            q = '$foo=" foo " return ( $foo.lstrip() )'
+            self.eq('foo ', await core.callStorm(q))
+
+            q = '$foo=" foo " return ( $foo.rstrip() )'
+            self.eq(' foo', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.strip(quxk) )'
+            self.eq('ickbrownfo', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.lstrip(quxk) )'
+            self.eq('ickbrownfox', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.rstrip(quxk) )'
+            self.eq('quickbrownfo', await core.callStorm(q))
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:

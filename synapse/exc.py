@@ -32,6 +32,11 @@ class SynErr(Exception):
 
 class AuthDeny(SynErr): pass
 
+class BackupAlreadyRunning(SynErr):
+    '''
+    Only one backup may be running at a time
+    '''
+
 class BadPkgDef(SynErr): pass
 class BadCmdName(SynErr): pass
 class BadCmprValu(SynErr): pass
