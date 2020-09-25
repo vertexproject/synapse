@@ -1516,6 +1516,45 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts={'readonly': True})
 
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ :asn=20 ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ -#foo ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo:bar=10 ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ -#foo:bar ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ .seen=2020 ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ -.seen ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ +(refs)> { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ -(refs)> { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ <(refs)+ { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ <(refs)- { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('[ (inet:ipv4=1.2.3.4 :asn=20) ]', opts={'readonly': True})
+
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 | limit 10', opts={'readonly': True}))
             with self.raises(s_exc.IsReadOnly):
                 self.len(1, await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts={'readonly': True}))
@@ -1525,6 +1564,9 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes(f'view.fork {iden}', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes(f'$lib.view.get().fork()', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes(f'vertex.link', opts={'readonly': True, 'mode': 'autoadd'})
