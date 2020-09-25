@@ -15,6 +15,7 @@ import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
+import synapse.lib.spooled as s_spooled
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -2855,3 +2856,47 @@ class SpliceUndoCmd(Cmd):
             # Yield to other tasks occasionally
             if not i % 1000:
                 await asyncio.sleep(0)
+
+class LiftByVerb(Cmd):
+    '''
+    Words
+
+    More words
+    '''
+    name = 'lift.byedge'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('verb', type=str, required=True,
+                          help='The edge verb to lift nodes by.')
+        pars.add_argument('--n2', action='store_true', default=False,
+                          help='Lift by the N2 value instead of N1 value.')
+        return pars
+
+    async def iterEdgeNodes(self, verb, idenset, n2=False):
+        if n2:
+            async for (_, _, n2) in self.runt.snap.view.getEdges(verb):
+                if n2 in idenset:
+                    continue
+                await idenset.add(n2)
+                node = await self.runt.snap.getNodeByBuid(s_common.uhex(n2))
+                if node:
+                    yield node
+        else:
+            async for (n1, _, _) in self.runt.snap.view.getEdges(verb):
+                if n1 in idenset:
+                    continue
+                await idenset.add(n1)
+                node = await self.runt.snap.getNodeByBuid(s_common.uhex(n1))
+                if node:
+                    yield node
+
+    async def execStormCmd(self, runt, genr):
+
+        verb = self.opts.verb
+        n2 = self.opts.n2
+        assert verb is not None
+
+        async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as idenset:
+            async for node in self.iterEdgeNodes(verb, idenset, n2):
+                yield node, runt.initPath(node)
