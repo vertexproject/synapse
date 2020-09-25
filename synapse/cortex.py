@@ -1961,6 +1961,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.SleepCmd)
         self.addStormCmd(s_storm.ScrapeCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
+        self.addStormCmd(s_storm.LiftByVerb)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.SpliceListCmd)
