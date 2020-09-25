@@ -2893,10 +2893,24 @@ class LiftByVerb(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        verb = self.opts.verb
-        n2 = self.opts.n2
-        assert verb is not None
-
         async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as idenset:
-            async for node in self.iterEdgeNodes(verb, idenset, n2):
-                yield node, runt.initPath(node)
+
+            if self.runtsafe:
+                verb = await s_stormtypes.tostr(self.opts.verb)
+                n2 = self.opts.n2
+
+                async for x in genr:
+                    yield x
+
+                async for node in self.iterEdgeNodes(verb, idenset, n2):
+                    yield node, runt.initPath(node)
+
+            else:
+                async for _node, _path in genr:
+                    verb = await s_stormtypes.tostr(self.opts.verb)
+                    n2 = self.opts.n2
+
+                    yield _node, _path
+
+                    async for node in self.iterEdgeNodes(verb, idenset, n2):
+                        yield node, _path.fork(node)

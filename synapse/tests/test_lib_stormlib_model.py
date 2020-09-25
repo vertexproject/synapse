@@ -154,18 +154,3 @@ class StormlibModelTest(s_test.SynTest):
                 elist = await core.callStorm('return($lib.model.edge.list())')
                 self.sorteq([('cat', 'ran up a tree'), ('dog', ''), ('refs', '')],
                             [(e[0], e[1].get('doc', '')) for e in elist])
-
-    async def test_liftby_edge(self):
-        async with self.getTestCore() as core:
-            # Multiple adds on a verb
-            await core.nodes('[ test:str=test1 +(refs)> { [test:int=7] } ]')
-            await core.nodes('[ test:str=test1 +(refs)> { [test:int=8] } ]')
-            await core.nodes('[ test:str=test2 +(refs)> { [test:int=8] } ]')
-
-            nodes = await core.nodes('lift.byedge refs')
-            for node in nodes:
-                print(node)
-
-            nodes = await core.nodes('lift.byedge --n2 refs ')
-            for node in nodes:
-                print(node)
