@@ -659,18 +659,10 @@ class Path:
     '''
     A path context tracked through the storm runtime.
     '''
-    #def __init__(self, runt, vars, nodes):
     def __init__(self, vars, nodes):
 
         self.node = None
-        #self.runt = runt
-        # we must "smell" like a runt for some AST ops
-        #self.snap = runt.snap
-        #self.model = runt.model
         self.nodes = nodes
-
-        #streamline perf for readonly checks
-        #self.readonly = runt.readonly
 
         self.traces = []
 
@@ -717,7 +709,6 @@ class Path:
             return valu
 
         return s_common.novalu
-        #return self.runt.getVar(name, defv=defv)
 
     def setVar(self, name, valu):
         self.vars[name] = valu
