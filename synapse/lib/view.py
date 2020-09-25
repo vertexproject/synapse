@@ -138,6 +138,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 async for edge in layr.getEdges(verb=verb):
 
+                    await asyncio.sleep(0)
+
                     if edge in eset:
                         continue
 
