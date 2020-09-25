@@ -945,21 +945,21 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
-            # Multiple adds on a verb
+
             await core.nodes('[ test:str=test1 +(refs)> { [test:int=7] } ]')
             await core.nodes('[ test:str=test1 +(refs)> { [test:int=8] } ]')
             await core.nodes('[ test:str=test2 +(refs)> { [test:int=8] } ]')
 
-            nodes = await core.nodes('lift.byedge refs')
+            nodes = await core.nodes('lift.byverb refs')
             self.eq(sorted([n.ndef[1] for n in nodes]), ['test1', 'test2'])
 
-            nodes = await core.nodes('lift.byedge --n2 refs ')
+            nodes = await core.nodes('lift.byverb --n2 refs ')
             self.eq(sorted([n.ndef[1] for n in nodes]), [7, 8])
 
-            nodes = await core.nodes('lift.byedge $v', {'vars': {'v': 'refs'}})
+            nodes = await core.nodes('lift.byverb $v', {'vars': {'v': 'refs'}})
             self.eq(sorted([n.ndef[1] for n in nodes]), ['test1', 'test2'])
 
-            q = '[(test:str=refs) (test:str=foo)] $v=$node.value() | lift.byedge $v'
+            q = '[(test:str=refs) (test:str=foo)] $v=$node.value() | lift.byverb $v'
             nodes = await core.nodes(q)
             self.len(4, nodes)
             self.eq({n.ndef[1] for n in nodes},

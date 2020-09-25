@@ -2864,17 +2864,17 @@ class LiftByVerb(Cmd):
     Examples:
 
         # Lift all the n1 nodes for the light edge "foo"
-        lift.byedge "foo"
+        lift.byverb "foo"
 
         # Lift all the n2 nodes for the light edge "foo"
-        lift.byedge --n2 "foo"
+        lift.byverb --n2 "foo"
 
     Notes:
 
         Only a single instance of a node will be yielded from this command
         when that node is lifted via the light edge membership.
     '''
-    name = 'lift.byedge'
+    name = 'lift.byverb'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
