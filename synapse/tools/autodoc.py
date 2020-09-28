@@ -1,4 +1,5 @@
 import sys
+import json
 import asyncio
 import inspect
 import logging
@@ -25,6 +26,12 @@ poptsToWords = {
     'ex': 'Example',
     'ro': 'Read Only',
 }
+
+pprint_keys = (
+    'enums',
+    'schema',
+    'fields',
+)
 
 info_ignores = (
     'stortype',
@@ -178,7 +185,7 @@ def processTypes(rst, dochelp, types):
     Returns:
         None
     '''
-
+    long_data = {}
     rst.addHead('Types', lvl=1, link='.. _dm-types:')
 
     rst.addLines('',
@@ -217,14 +224,61 @@ def processTypes(rst, dochelp, types):
                          f'The type ``{name}`` has the following options set:',
                          ''
                          )
+            def toolong(obj):
+                olines = json.dumps(obj, indent=1, sort_keys=True)
+                if len(olines.split('\n')) > 40:
+                    print('TOO MANY LINES!')
+                    return True
+                if len(str(obj)) > 86:
+                    print('STR TOO LONG')
+                    return True
+
             for k, v in sorted(topt.items(), key=lambda x: x[0]):
-                rst.addLines(f' * {k}: ``{v}``')
+                if toolong(v):
+                    print(F'{name} KEY {k} TOO LARGE!')
+                    long_data[(name, k)] = v
+                    ref = f':ref:`dm-type-long-data-{name.replace(":", "-")}`'
+                    _line = f'The complete information for the {k} can be found at {ref}'
+                    rst.addLines(f' * {k}: {_line}')
+                else:
+                    rst.addLines(f' * {k}: ``{v}``')
 
         for key in info_ignores:
             info.pop(key, None)
 
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
+
+    return long_data
+
+def processLongData(rst, long_data):
+
+    rst.addHead('Large data structures', lvl=1, link='.. _dm-types-long-data:')
+
+    rst.addLines('',
+                 'This contains large sections of data which we do not include line with other type documentation.'
+                 '')
+
+    sorted_data = collections.defaultdict(list)
+    for (name, key), valu in long_data.items():
+        sorted_data[name].append((key, valu))
+
+    for name, data in sorted_data.items():
+        hname = name
+        if ':' in name:
+            hname = name.replace(':', raw_back_slash_colon)
+
+        link = f'.. _dm-type-long-data-{name.replace(":", "-")}:'
+        rst.addHead(hname, lvl=2, link=link)
+
+        # TODO link back to type.
+
+        for (key, valu) in data:
+            lines = [f' * {key}:\n  ::\n']
+            json_lines = json.dumps(valu, indent=1, sort_keys=True)
+            json_lines = ['   ' + line for line in json_lines.split('\n')]
+            lines.extend(json_lines)
+            rst.addLines(*lines)
 
 def processFormsProps(rst, dochelp, forms, univ_names):
     rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
@@ -400,7 +454,9 @@ async def docModel(outp,
     rst.addHead('Synapse Data Model - Types', lvl=0)
 
     processCtors(rst, dochelp, ctors)
-    processTypes(rst, dochelp, types)
+    long_data = processTypes(rst, dochelp, types)
+    rst3 = RstHelp()
+    processLongData(rst3, long_data)
 
     rst2 = RstHelp()
     rst2.addHead('Synapse Data Model - Forms', lvl=0)
@@ -410,7 +466,7 @@ async def docModel(outp,
 
     # outp.printf(rst.getRstText())
     # outp.printf(rst2.getRstText())
-    return rst, rst2
+    return rst, rst2, rst3
 
 async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
     cls = s_dyndeps.tryDynLocal(ctor)
@@ -796,17 +852,19 @@ async def main(argv, outp=None):
 
         if opts.cortex:
             async with await s_telepath.openurl(opts.cortex) as core:
-                rsttypes, rstforms = await docModel(outp, core)
+                rsttypes, rstforms, rstlongdata = await docModel(outp, core)
 
         else:
             async with s_cortex.getTempCortex() as core:
-                rsttypes, rstforms = await docModel(outp, core)
+                rsttypes, rstforms, rstlongdata = await docModel(outp, core)
 
         if opts.savedir:
             with open(s_common.genpath(opts.savedir, 'datamodel_types.rst'), 'wb') as fd:
                 fd.write(rsttypes.getRstText().encode())
             with open(s_common.genpath(opts.savedir, 'datamodel_forms.rst'), 'wb') as fd:
                 fd.write(rstforms.getRstText().encode())
+            with open(s_common.genpath(opts.savedir, 'datamodel_long_types.rst'), 'wb') as fd:
+                fd.write(rstlongdata.getRstText().encode())
 
     if opts.doc_conf:
         confdocs, cname = await docConfdefs(opts.doc_conf,
