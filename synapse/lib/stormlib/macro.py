@@ -116,7 +116,7 @@ class MacroExecCmd(s_storm.Cmd):
 
         query = await runt.getStormQuery(mdef['storm'])
 
-        async with runt.getSubRuntime(query) as subr:
+        with runt.getSubRuntime(query) as subr:
             async for nnode, npath in subr.execute(genr=genr):
                 yield nnode, npath
 

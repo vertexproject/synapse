@@ -695,7 +695,8 @@ class CmdOper(Oper):
         scmd = ctor(runt, runtsafe)
 
         if runt.readonly and not scmd.isReadOnly():
-            raise s_exc.IsReadOnly()
+            mesg = f'Command ({name}) is not marked safe for readonly use.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         with s_provenance.claim('stormcmd', name=name):
 
@@ -1216,7 +1217,7 @@ class RawPivot(PivotOper):
         query = self.kids[0]
         async for node, path in genr:
             opts = {'vars': path.vars.copy()}
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            with runt.getSubRuntime(query, opts=opts) as subr:
                 async for node, path in subr.execute():
                     yield node, path
 
@@ -1973,42 +1974,6 @@ class TagCond(Cond):
     async def getCondEval(self, runt):
 
         assert len(self.kids) == 1
-        #kid = self.kids[0]
-
-        #if isinstance(kid, TagMatch) and kid.isconst:
-            #name = await self.kids[0].compute(runt, None)
-        #else:
-            #name = None
-
-        #if name is not None:
-
-            # Allow for a user to ask for #* to signify "any tags on this node"
-            #if name == '*':
-                #async def cond(node, path):
-                    ## Check if the tags dictionary has any members
-                    #return bool(node.tags)
-                #return cond
-
-            # Allow a user to use tag globbing to do regex matching of a node.
-            #if '*' in name:
-                #reobj = s_cache.getTagGlobRegx(name)
-
-                #def getIsHit(tag):
-                    #return reobj.fullmatch(tag)
-
-                # This cache persists per-query
-                #cache = s_cache.FixedCache(getIsHit)
-
-                #async def cond(node, path):
-                    #return any((cache.get(p) for p in node.tags))
-
-                #return cond
-
-            # Default exact match
-            #async def cond(node, path):
-                #return node.tags.get(name) is not None
-
-            #return cond
 
         # kid is a non-runtsafe VarValue: dynamically evaluate value of variable for each node
         async def cond(node, path):
@@ -2682,7 +2647,6 @@ class EditParens(Edit):
                 formname = await nodeadd.kids[0].compute(runt, path)
                 form = runt.model.form(formname)
 
-                # TODO does this open up a back-propagation of path changes issue?
                 yield node, path
 
                 async def editgenr():
@@ -3021,7 +2985,7 @@ class EditEdgeAdd(Edit):
             allowed(verb)
 
             opts = {'vars': path.vars.copy()}
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            with runt.getSubRuntime(query, opts=opts) as subr:
                 async for subn, subp in subr.execute():
                     if self.n2:
                         await subn.addEdge(verb, iden)
@@ -3061,7 +3025,7 @@ class EditEdgeDel(Edit):
             allowed(verb)
 
             opts = {'vars': path.vars.copy()}
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            with runt.getSubRuntime(query, opts=opts) as subr:
                 async for subn, subp in subr.execute():
                     if self.n2:
                         await subn.delEdge(verb, iden)
@@ -3339,11 +3303,9 @@ class Function(AstNode):
         async def realfunc(*args, **kwargs):
             return await self.callfunc(runt, args, kwargs)
 
-        # TODO mark the function as readonly safe?
         runt.setVar(self.name, realfunc)
 
         async for node, path in genr:
-            #path.setVar(self.name, realfunc)
             yield node, path
 
     def getRuntVars(self, runt):
@@ -3387,7 +3349,7 @@ class Function(AstNode):
                                           )
 
         opts = {'vars': real_args}
-        async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
+        with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
             # inform the sub runtime to use function scope rules
             subr.funcscope = True

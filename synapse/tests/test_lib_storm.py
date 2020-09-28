@@ -950,3 +950,20 @@ class StormTest(s_t_utils.SynTest):
             self.len(4, nodes)
             self.eq({n.ndef[1] for n in nodes},
                     {'test1', 'test2', 'refs', 'foo'})
+
+    async def test_storm_nested_root(self):
+        async with self.getTestCore() as core:
+            self.eq(20, await core.callStorm('''
+            $foo = (100)
+            function x() {
+                function y() {
+                    function z() {
+                        $foo = (20)
+                    }
+                    $z()
+                }
+                $y()
+            }
+            $x()
+            return ($foo)
+            '''))

@@ -551,7 +551,7 @@ class LibBase(Lib):
         modconf = mdef.get('modconf')
 
         query = await self.runt.getStormQuery(text)
-        modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
+        modr = self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
 
         async for item in modr.execute():
             await asyncio.sleep(0) # pragma: no cover
@@ -2284,7 +2284,7 @@ class Query(Prim):
     async def _getRuntGenr(self):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
-        async with self.runt.getSubRuntime(query, opts=opts) as runt:
+        with self.runt.getSubRuntime(query, opts=opts) as runt:
             async for item in runt.execute():
                 yield item
 

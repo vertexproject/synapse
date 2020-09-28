@@ -1100,27 +1100,6 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('Hi :)', msgs)
             self.stormIsInPrint('NO OVERRIDES FOR YOU', msgs)
 
-            # don't override defined functions
-            #q = '''
-            #function nooverride(arg1) {
-            #    $lib.print($arg1)
-            #    return ("foobar")
-            #}
-
-            #function naughty() {
-            #    $lib = "neato"
-            #    $nooverride = $nooverride($lib)
-            #    return ($nooverride)
-            #}
-
-            #$lib.print($naughty())
-            #$lib.print($nooverride("recovered"))
-            #'''
-            #msgs = await core.stormlist(q)
-            #self.stormIsInPrint('neato', msgs)
-            #self.stormIsInPrint('foobar', msgs)
-            #self.stormIsInPrint('recovered', msgs)
-
             # yields across an import boundary
             q = '''
             $test = $lib.import(yieldsforever)

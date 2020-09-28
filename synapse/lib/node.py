@@ -85,7 +85,7 @@ class Node:
             If opts is not None and opts['vars'] is set and path is not None, then values of path vars take precedent
         '''
         query = self.snap.core.getStormQuery(text)
-        async with runt.getSubRuntime(query, opts=opts) as subr:
+        with runt.getSubRuntime(query, opts=opts) as subr:
 
             if path is not None:
                 subr.vars.update(path.vars)

@@ -2997,7 +2997,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         user = self._userFromOpts(opts)
 
         async with await self.snap(user=user, view=view) as snap:
-            async with snap.getStormRuntime(query, opts=opts, user=user) as runt:
+            with snap.getStormRuntime(query, opts=opts, user=user) as runt:
                 yield runt
 
     async def reqValidStorm(self, text, opts=None):

@@ -1183,7 +1183,9 @@ class Runtime:
             return False
         if not self.funcscope:
             return True
-        return name in self.root.vars
+        if name in self.root.vars:
+            return True
+        return self.root._isRootScope(name)
 
     def setVar(self, name, valu):
 
@@ -1247,8 +1249,8 @@ class Runtime:
                 self.tick()
                 yield item
 
-    @contextlib.asynccontextmanager
-    async def getSubRuntime(self, query, opts=None):
+    @contextlib.contextmanager
+    def getSubRuntime(self, query, opts=None):
         '''
         Yield a runtime with shared scope that will populate changes upward.
         '''
@@ -1257,8 +1259,8 @@ class Runtime:
 
         yield runt
 
-    @contextlib.asynccontextmanager
-    async def getCmdRuntime(self, query, opts=None):
+    @contextlib.contextmanager
+    def getCmdRuntime(self, query, opts=None):
         '''
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
@@ -1266,7 +1268,7 @@ class Runtime:
         runt.readonly = self.readonly
         yield runt
 
-    async def getModRuntime(self, query, opts=None):
+    def getModRuntime(self, query, opts=None):
         '''
         Construct a non-context managed runtime for use in module imports.
         '''
@@ -1737,7 +1739,7 @@ class PureCmd(Cmd):
         if self.opts is not None:
             opts['vars']['cmdopts'] = vars(self.opts)
 
-        async with runt.getCmdRuntime(query, opts=opts) as subr:
+        with runt.getCmdRuntime(query, opts=opts) as subr:
 
             async def wrapgenr():
 
@@ -2392,12 +2394,12 @@ class TeeCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
                                           name=self.name)
 
-        async with contextlib.AsyncExitStack() as stack:
+        with contextlib.ExitStack() as stack:
 
             runts = []
             for text in self.opts.query:
                 query = await runt.getStormQuery(text)
-                subr = await stack.enter_async_context(runt.getSubRuntime(query))
+                subr = stack.enter_context(runt.getSubRuntime(query))
                 runts.append(subr)
 
             item = None
