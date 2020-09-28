@@ -269,6 +269,12 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
 class Handler(HandlerBase, t_web.RequestHandler):
 
+    def prepare(self):
+        self.task = asyncio.current_task()
+
+    def on_connection_close(self):
+        self.task.cancel()
+
     async def _reqValidOpts(self, opts):
 
         if opts is None:

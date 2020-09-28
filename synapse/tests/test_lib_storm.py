@@ -357,6 +357,13 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x06050403))
 
+            nodes = await core.nodes('$foo="6[.]5[.]4[.]3" | scrape $foo --yield')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x06050403))
+
+            nodes = await core.nodes('$foo="6[.]5[.]4[.]3" | scrape $foo --yield --skiprefang')
+            self.len(0, nodes)
+
             # per-node tests
 
             guid = s_common.guid()
@@ -935,3 +942,25 @@ class StormTest(s_t_utils.SynTest):
         self.none(pars.parse_args(['--ques', 'lolz', 'hehe']))
         helptext = '\n'.join(pars.mesgs)
         self.isin("Invalid value for type (<class 'int'>): lolz", helptext)
+
+    async def test_liftby_edge(self):
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=test1 +(refs)> { [test:int=7] } ]')
+            await core.nodes('[ test:str=test1 +(refs)> { [test:int=8] } ]')
+            await core.nodes('[ test:str=test2 +(refs)> { [test:int=8] } ]')
+
+            nodes = await core.nodes('lift.byverb refs')
+            self.eq(sorted([n.ndef[1] for n in nodes]), ['test1', 'test2'])
+
+            nodes = await core.nodes('lift.byverb --n2 refs ')
+            self.eq(sorted([n.ndef[1] for n in nodes]), [7, 8])
+
+            nodes = await core.nodes('lift.byverb $v', {'vars': {'v': 'refs'}})
+            self.eq(sorted([n.ndef[1] for n in nodes]), ['test1', 'test2'])
+
+            q = '[(test:str=refs) (test:str=foo)] $v=$node.value() | lift.byverb $v'
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            self.eq({n.ndef[1] for n in nodes},
+                    {'test1', 'test2', 'refs', 'foo'})

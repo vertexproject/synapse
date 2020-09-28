@@ -773,6 +773,42 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.eq(0x01020304, node[0][1])
 
+                # Task cancellation during long running storm queries works as intended
+                body = {'query': '.created | sleep 10'}
+                task = None
+                async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
+
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        mesg = json.loads(byts)
+                        if mesg[0] == 'node':
+                            task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
+                            break
+
+                self.nn(task)
+                self.true(await task.waitfini(6))
+                self.len(0, core.boss.tasks)
+
+                task = None
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
+
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        mesg = json.loads(byts)
+                        self.len(2, mesg) # Is if roughly shaped like a node?
+                        task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
+                        break
+
+                self.nn(task)
+                self.true(await task.waitfini(6))
+                self.len(0, core.boss.tasks)
+
                 # check reqvalidstorm with various queries
                 tvs = (
                     ('test:str=test', {}, 'ok'),
