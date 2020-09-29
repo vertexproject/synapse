@@ -23,9 +23,7 @@ Welcome to the Synapse documentation!
    synapse/apidocs
    synapse/httpapi
 
-   synapse/autodocs/datamodel_types
-   synapse/autodocs/datamodel_forms
-
+   synapse/datamodel
    synapse/stormtypes
 
    synapse/200_changes
