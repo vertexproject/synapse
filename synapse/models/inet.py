@@ -472,7 +472,7 @@ class IPv6(s_types.Type):
             if valu.find('/') != -1:
 
                 minv, maxv = self.getCidrRange(valu)
-                while minv < maxv:
+                while minv <= maxv:
                     yield minv.compressed
                     minv += 1
 
@@ -490,7 +490,7 @@ class IPv6(s_types.Type):
         yield valu
 
     def getCidrRange(self, text):
-        netw = ipaddress.IPv6Network(text)
+        netw = ipaddress.IPv6Network(text, strict=False)
         minv = netw[0]
         maxv = netw[-1]
         return minv, maxv
@@ -508,7 +508,7 @@ class IPv6(s_types.Type):
 
                 def cmpr(norm):
                     norm = ipaddress.IPv6Address(norm)
-                    return norm >= minv and norm < maxv
+                    return norm >= minv and norm <= maxv
                 return cmpr
 
             if valu.find('-') != -1:

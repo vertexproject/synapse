@@ -778,6 +778,66 @@ class InetModelTest(s_t_utils.SynTest):
 
             await self.agenlen(1, core.eval('inet:ipv6*range=(0::1, 0::1)'))
 
+    async def test_ipv6_lift_range(self):
+
+        async with self.getTestCore() as core:
+
+            async with await core.snap() as snap:
+
+                await snap.addNode('inet:ipv6', '0::f000')
+                await snap.addNode('inet:ipv6', '0::f001')
+                await snap.addNode('inet:ipv6', '0::f002')
+                await snap.addNode('inet:ipv6', '0::f003')
+                await snap.addNode('inet:ipv6', '0::f004')
+
+            self.len(3, await core.nodes('inet:ipv6=0::f001-0::f003'))
+            self.len(3, await core.nodes('[inet:ipv6=0::f001-0::f003]'))
+            self.len(3, await core.nodes('inet:ipv6 +inet:ipv6=0::f001-0::f003'))
+            self.len(3, await core.nodes('inet:ipv6*range=(0::f001, 0::f003)'))
+
+    async def test_ipv6_filt_cidr(self):
+
+        async with self.getTestCore() as core:
+
+            self.len(5, await core.nodes('[ inet:ipv6=0::f000/126 inet:ipv6=0::ffff:a2c4 ]'))
+            self.len(4, await core.nodes('inet:ipv6 +inet:ipv6=0::f000/126'))
+            self.len(1, await core.nodes('inet:ipv6 -inet:ipv6=0::f000/126'))
+
+            self.len(256, await core.nodes('[ inet:ipv6=0::ffff:192.168.1.0/120]'))
+            self.len(256, await core.nodes('[ inet:ipv6=0::ffff:192.168.2.0/120]'))
+            self.len(256, await core.nodes('inet:ipv6=0::ffff:192.168.1.0/120'))
+
+            # Seed some nodes for bounds checking
+            pnodes = [(('inet:ipv6', f'0::10.2.1.{d}'), {}) for d in range(1, 33)]
+            nodes = await alist(core.addNodes(pnodes))
+
+            nodes = await core.nodes('inet:ipv6=0::10.2.1.4/128')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('inet:ipv6 +inet:ipv6=0::10.2.1.4/128'))
+
+            nodes = await core.nodes('inet:ipv6=0::10.2.1.4/127')
+            self.len(2, nodes)
+            self.len(2, await core.nodes('inet:ipv6 +inet:ipv6=0::10.2.1.4/127'))
+
+            # 0::10.2.1.0 -> 0::10.2.1.3 but we don't have 0::10.2.1.0 in the core
+            nodes = await core.nodes('inet:ipv6=0::10.2.1.1/126')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('inet:ipv6=0::10.2.1.2/126')
+            self.len(3, nodes)
+
+            # 0::10.2.1.0 -> 0::10.2.1.7 but we don't have 0::10.2.1.0 in the core
+            nodes = await core.nodes('inet:ipv6=0::10.2.1.0/125')
+            self.len(7, nodes)
+
+            # 0::10.2.1.8 -> 0::10.2.1.15
+            nodes = await core.nodes('inet:ipv6=0::10.2.1.8/125')
+            self.len(8, nodes)
+
+            # 0::10.2.1.0 -> 0::10.2.1.15 but we don't have 0::10.2.1.0 in the core
+            nodes = await core.nodes('inet:ipv6=0::10.2.1.1/124')
+            self.len(15, nodes)
+
     async def test_mac(self):
         formname = 'inet:mac'
         async with self.getTestCore() as core:
