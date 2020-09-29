@@ -256,7 +256,8 @@ def processLongData(rst, long_data):
     rst.addHead('Large data structures', lvl=1, link='.. _dm-types-long-data:')
 
     rst.addLines('',
-                 'This contains large sections of data which we do not include line with other type documentation.'
+                 'This contains large sections of type information which does not fit inline with the main type '
+                 'documentation.',
                  '')
 
     sorted_data = collections.defaultdict(list)
