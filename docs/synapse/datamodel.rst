@@ -1,9 +1,9 @@
-.. _stormtypes_index:
+.. _dm-index:
 
 Synapse Data Model
 ##################
 
-This contains detailed documentation for Synapse Data Model, including the data model deprecation policy.
+This contains documentation for Synapse Data Model, including the data model deprecation policy.
 
 The current sections are:
 
