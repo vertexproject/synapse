@@ -116,16 +116,9 @@ class MacroExecCmd(s_storm.Cmd):
 
         query = await runt.getStormQuery(mdef['storm'])
 
-        subr = await runt.getScopeRuntime(query)
-
-        async def wrapgenr():
-
-            async for node, path in genr:
-                path.initframe(initrunt=subr)
-                yield node, path
-
-        async for nnode, npath in subr.iterStormQuery(query, genr=wrapgenr()):
-            yield nnode, npath
+        with runt.getSubRuntime(query) as subr:
+            async for nnode, npath in subr.execute(genr=genr):
+                yield nnode, npath
 
 @s_stormtypes.registry.registerLib
 class LibMacro(s_stormtypes.Lib):
