@@ -15,11 +15,18 @@ class OuModule(s_module.CoreModule):
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit.',
                 }),
+                ('ou:contract', ('guid', {}), {
+                    'doc': 'An contract between multiple entities.',
+                }),
+                ('ou:industry', ('guid', {}), {
+                    'doc': 'An indistry classification type.',
+                }),
                 ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
                     'doc': 'An alias for the org GUID.',
                     'ex': 'vertexproject',
                 }),
                 ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
+                    'deprecated': True,
                     'doc': 'The knowledge that an organization has an alias.',
                 }),
                 ('ou:orgnet4', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net4'))}), {
@@ -197,7 +204,11 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The Standard Industrial Classification code for the organization.',
                     }),
                     ('naics', ('ou:naics', {}), {
+                        'deprecated': True,
                         'doc': 'The North American Industry Classification System code for the organization.',
+                    }),
+                    ('industries', ('array', {'type': 'ou:industry'}), {
+                        'doc': 'The industries associated with the org.',
                     }),
                     ('us:cage', ('gov:us:cage', {}), {
                         'doc': 'The Commercial and Government Entity (CAGE) code for the organization.',
@@ -240,6 +251,38 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:name', {}, ()),
+                ('ou:contract', {}, (
+                    ('title', ('str', {}), {
+                        'doc': 'A terse title for the contract.'}),
+                    ('type', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'A user-specified type for the contract.'}),
+                    ('sponsor', ('ps:contact', {}), {
+                        'doc': 'The contract sponsor.'}),
+                    ('parties', ('array', {'type': 'ps:contact', 'uniq': True}), {
+                        'doc': 'The non-sponsor entities bound by the contract.'}),
+                    ('document', ('file:bytes', {}), {
+                        'doc': 'The best/current contract document.'}),
+                    ('signed', ('time', {}), {
+                        'doc': 'The date that the contract signing was complete.'}),
+                    ('begins', ('time', {}), {
+                        'doc': 'The date that the contract goes into effect.'}),
+                    ('expires', ('time', {}), {
+                        'doc': 'The date that the contract expires.'}),
+                    ('award:price', ('econ:currency', {}), {
+                        'doc': 'The value of the contract at time of award.'}),
+                    ('purchase', ('econ:purchase', {}), {
+                        'doc': 'Purchase details of the contract.'}),
+                    ('requirements', ('array', {'type': 'ou:goal', 'uniq': True}), {
+                        'doc': 'The requirements levied upon the parties.'}),
+                )),
+                ('ou:industry', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'A terse name for the industry.'}),
+                    ('subs', ('array', {'type': 'ou:industry', 'uniq': True}), {
+                        'doc': 'An array of sub-industries.'}),
+                    ('naics', ('array', {'type': 'ou:naics', 'uniq': True}), {
+                        'doc': 'An array of NAICS codes that map to the industry.'}),
+                )),
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,

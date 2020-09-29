@@ -752,12 +752,22 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(fnode[0].get('function'), snode[0].get('function'))
             self.eq(vstr, snode[0].get('string'))
 
-            funcnode = await core.nodes('it:reveng:function [ :name=$name :description=$descrp :impcalls=$impcalls ]', opts=funcopt)
+            funcnode = await core.nodes('''
+                it:reveng:function [
+                    :name=$name
+                    :description=$descrp
+                    :impcalls=$impcalls
+                    :strings=(bar,foo,foo)
+            ]''', opts=funcopt)
             self.len(1, funcnode)
             self.eq(name, funcnode[0].get('name'))
+            self.eq(('bar', 'foo'), funcnode[0].get('strings'))
             self.eq(descrp, funcnode[0].get('description'))
             self.len(len(impcalls), funcnode[0].get('impcalls'))
             self.eq(impcalls[0], funcnode[0].get('impcalls')[0])
+
+            nodes = await core.nodes('it:reveng:function -> it:dev:str')
+            self.len(2, nodes)
 
             nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function')
             self.len(1, nodes)
