@@ -1170,6 +1170,12 @@ class AstTest(s_test.SynTest):
             self.eq(erfo[1][1].get('name'), 'pprint')
             self.eq(erfo[1][1].get('valu'), 'newp')
 
+            # test isRuntSafe on ast function
+            self.len(0, await core.nodes('init { function x() { return((0)) } }'))
+
+            # force sleep in iter with ret
+            self.len(0, await core.nodes('function x() { [ inet:asn=2 ] if ($node.value() = (3)) { return((3)) } } $x()'))
+
     async def test_ast_function_scope(self):
 
         async with self.getTestCore() as core:

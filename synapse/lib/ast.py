@@ -2352,11 +2352,6 @@ class FormTagProp(Value):
         prop = await self.kids[2].compute(runt, path)
         return (form, tag, prop)
 
-class OnlyTagProp(Value):
-
-    async def compute(self, runt, path):
-        return await self.kids[0].compute(runt, path)
-
 class TagPropValue(Value):
     async def compute(self, runt, path):
         tag, prop = await self.kids[0].compute(runt, path)
