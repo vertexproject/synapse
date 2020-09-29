@@ -2,6 +2,7 @@ import bz2
 import gzip
 import json
 import time
+import types
 import base64
 import pprint
 import asyncio
@@ -70,6 +71,12 @@ class StormTypesRegistry:
         return list(self._TYPREG.items())
 
 registry = StormTypesRegistry()
+
+def stormfunc(readonly=False):
+    def wrap(f):
+        f._storm_readonly = readonly
+        return f
+    return wrap
 
 def intify(x):
 
@@ -524,6 +531,7 @@ class LibBase(Lib):
         '''
         return None
 
+    @stormfunc(readonly=True)
     async def _libBaseImport(self, name):
         '''
         Import a Storm Package.
@@ -543,17 +551,18 @@ class LibBase(Lib):
         modconf = mdef.get('modconf')
 
         query = await self.runt.getStormQuery(text)
-        runt = await self.runt.getScopeRuntime(query, opts={'vars': {'modconf': modconf}}, impd=True)
+        modr = self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
 
-        # execute the query in a module scope
-        async for item in query.run(runt, s_common.agen()):
-            pass  # pragma: no cover
+        async for item in modr.execute():
+            await asyncio.sleep(0) # pragma: no cover
 
-        modlib = Lib(self.runt)
-        modlib.locls.update(runt.vars)
+        modlib = Lib(modr)
+        modlib.locls.update(modr.vars)
         modlib.locls['__module__'] = mdef
+
         return modlib
 
+    @stormfunc(readonly=True)
     async def _cast(self, name, valu):
         '''
         Normalize a value as a Synapse Data Model Type.
@@ -579,6 +588,7 @@ class LibBase(Lib):
         norm, info = typeitem.norm(valu)
         return fromprim(norm, basetypes=False)
 
+    @stormfunc(readonly=True)
     async def _sorted(self, valu):
         '''
         Yield sorted values.
@@ -630,6 +640,7 @@ class LibBase(Lib):
         valu = ''.join(args)
         return Text(valu)
 
+    @stormfunc(readonly=True)
     async def _guid(self, *args):
         '''
         Get a random guid, or generate a guid from the arguments.
@@ -644,6 +655,7 @@ class LibBase(Lib):
             return s_common.guid(args)
         return s_common.guid()
 
+    @stormfunc(readonly=True)
     async def _len(self, item):
         '''
         Get the length of a item.
@@ -666,6 +678,7 @@ class LibBase(Lib):
             name = f'{item.__class__.__module__}.{item.__class__.__name__}'
             raise s_exc.StormRuntimeError(mesg=f'Unknown error during len(): {repr(e)}', name=name)
 
+    @stormfunc(readonly=True)
     async def _min(self, *args):
         '''
         Get the minimum value in a list of arguments
@@ -687,6 +700,7 @@ class LibBase(Lib):
         ints = [await toint(x) for x in vals]
         return min(*ints)
 
+    @stormfunc(readonly=True)
     async def _max(self, *args):
         '''
         Get the maximum value in a list of arguments
@@ -716,6 +730,7 @@ class LibBase(Lib):
             mesg = kwarg_format(mesg, **kwargs)
         return mesg
 
+    @stormfunc(readonly=True)
     async def _print(self, mesg, **kwargs):
         '''
         Print a message to the runtime.
@@ -753,6 +768,7 @@ class LibBase(Lib):
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
 
+    @stormfunc(readonly=True)
     async def _pprint(self, item, prefix='', clamp=None):
         '''
         The pprint API should not be considered a stable interface.
@@ -773,6 +789,7 @@ class LibBase(Lib):
             else:
                 await self.runt.printf(fline)
 
+    @stormfunc(readonly=True)
     async def _warn(self, mesg, **kwargs):
         '''
         Print a warning message to the runtime.
@@ -791,6 +808,7 @@ class LibBase(Lib):
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.warn(mesg, log=False)
 
+    @stormfunc(readonly=True)
     async def _dict(self, **kwargs):
         '''
         Get a Storm Dict object.
@@ -803,6 +821,7 @@ class LibBase(Lib):
         '''
         return Dict(kwargs)
 
+    @stormfunc(readonly=True)
     async def _fire(self, name, **info):
         '''
         Fire an event onto the runtime.
@@ -2244,6 +2263,8 @@ class Query(Prim):
     '''
     def __init__(self, text, varz, runt, path=None):
 
+        text = text.strip()
+
         Prim.__init__(self, text, path=path)
 
         self.text = text
@@ -2263,8 +2284,8 @@ class Query(Prim):
     async def _getRuntGenr(self):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
-        with self.runt.snap.getStormRuntime(opts=opts) as runt:
-            async for item in query.run(runt, s_common.agen()):
+        with self.runt.getSubRuntime(query, opts=opts) as runt:
+            async for item in runt.execute():
                 yield item
 
     async def nodes(self):
@@ -2302,12 +2323,15 @@ class NodeProps(Prim):
     async def _derefGet(self, name):
         return self.valu.get(name)
 
+    @stormfunc(readonly=True)
     async def get(self, name, defv=None):
         return self.valu.get(name)
 
+    @stormfunc(readonly=True)
     async def list(self):
         return list(self.valu.props.items())
 
+    @stormfunc(readonly=True)
     def value(self):
         return dict(self.valu.props)
 
@@ -2335,6 +2359,7 @@ class NodeData(Prim):
             mesg = f'User is not allowed permission: {pstr}'
             raise s_exc.AuthDeny(perm=perm, mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def _getNodeData(self, name):
         self._reqAllowed(('node', 'data', 'get', name))
         return await self.valu.getData(name)
@@ -2349,10 +2374,12 @@ class NodeData(Prim):
         self._reqAllowed(('node', 'data', 'pop', name))
         return await self.valu.popData(name)
 
+    @stormfunc(readonly=True)
     async def _listNodeData(self):
         self._reqAllowed(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
+    @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
         self._reqAllowed(('node', 'data', 'get', name))
         valu = await self.valu.getData(name)
@@ -2392,6 +2419,7 @@ class Node(Prim):
     def _ctorNodeProps(self, path=None):
         return NodeProps(self.valu, path=path)
 
+    @stormfunc(readonly=True)
     async def _methNodePack(self, dorepr=False):
         '''
         Return the serializable/packed version of the Node.
@@ -2404,6 +2432,7 @@ class Node(Prim):
         '''
         return self.valu.pack(dorepr=dorepr)
 
+    @stormfunc(readonly=True)
     async def _methNodeEdges(self, verb=None):
         '''
         Yields the (verb, iden) tuples for this nodes edges.
@@ -2412,9 +2441,11 @@ class Node(Prim):
         async for edge in self.valu.iterEdgesN1(verb=verb):
             yield edge
 
+    @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
         return self.valu.form.name == name
 
+    @stormfunc(readonly=True)
     async def _methNodeTags(self, glob=None):
         tags = list(self.valu.tags.keys())
         if glob is not None:
@@ -2422,6 +2453,7 @@ class Node(Prim):
             tags = [t for t in tags if regx.fullmatch(t)]
         return tags
 
+    @stormfunc(readonly=True)
     async def _methNodeGlobTags(self, glob):
         tags = list(self.valu.tags.keys())
         regx = s_cache.getTagGlobRegx(glob)
@@ -2440,15 +2472,19 @@ class Node(Prim):
                     ret.append(groups)
         return ret
 
+    @stormfunc(readonly=True)
     async def _methNodeValue(self):
         return self.valu.ndef[1]
 
+    @stormfunc(readonly=True)
     async def _methNodeForm(self):
         return self.valu.ndef[0]
 
+    @stormfunc(readonly=True)
     async def _methNodeNdef(self):
         return self.valu.ndef
 
+    @stormfunc(readonly=True)
     async def _methNodeRepr(self, name=None, defv=None):
         '''
         Get the repr for the primary property or secondary propert of a Node.
@@ -2466,6 +2502,7 @@ class Node(Prim):
         '''
         return self.valu.repr(name=name, defv=defv)
 
+    @stormfunc(readonly=True)
     async def _methNodeIden(self):
         return self.valu.iden()
 
@@ -2885,6 +2922,7 @@ class LibView(Lib):
         todo = ('delView', (iden,), {})
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
+    @stormfunc(readonly=True)
     async def _methViewGet(self, iden=None):
         '''
         Get a View from the Cortex.
@@ -2902,6 +2940,7 @@ class LibView(Lib):
 
         return View(self.runt, vdef, path=self.path)
 
+    @stormfunc(readonly=True)
     async def _methViewList(self):
         '''
         List the Views in the Cortex.
@@ -2941,12 +2980,14 @@ class View(Prim):
             'getEdgeVerbs': self._methGetEdgeVerbs,
         }
 
+    @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
         verb = await toprim(verb)
         todo = s_common.todo('getEdges', verb=verb)
         async for edge in self.viewDynIter(todo, ('view', 'read')):
             yield edge
 
+    @stormfunc(readonly=True)
     async def _methGetEdgeVerbs(self):
         todo = s_common.todo('getEdgeVerbs')
         async for verb in self.viewDynIter(todo, ('view', 'read')):
@@ -2965,6 +3006,7 @@ class View(Prim):
         gatekeys = ((useriden, perm, viewiden),)
         return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
+    @stormfunc(readonly=True)
     async def _methViewGet(self, name, defv=None):
         return self.valu.get(name, defv)
 
@@ -2973,6 +3015,7 @@ class View(Prim):
         valu = await self.viewDynCall(todo, ('view', 'set', name))
         self.valu[name] = valu
 
+    @stormfunc(readonly=True)
     async def _methViewRepr(self):
 
         iden = self.valu.get('iden')
@@ -2993,6 +3036,7 @@ class View(Prim):
 
         return '\n'.join(lines)
 
+    @stormfunc(readonly=True)
     async def _methViewPack(self):
         return self.valu
 
@@ -3155,13 +3199,6 @@ class LibTrigger(Lib):
         '''
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
-
-        if not query.startswith('{'):
-            mesg = 'Expected second argument to start with {'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
-
-        # Remove the curly braces
-        query = query[1:-1]
 
         trig = await self._matchIdens(prefix)
         iden = trig.iden
@@ -3868,10 +3905,6 @@ class LibCron(Lib):
             mesg = 'Query parameter is required.'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
-        if not query.startswith('{'):
-            mesg = 'Query parameter must start with {'
-            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-
         try:
             alias_opts = self._parseAlias(kwargs)
         except ValueError as e:
@@ -3961,7 +3994,7 @@ class LibCron(Lib):
             incunit = valinfo[requnit][1]
             incval = 1
 
-        cdef = {'storm': query[1:-1],
+        cdef = {'storm': query,
                 'reqs': reqdict,
                 'incunit': incunit,
                 'incvals': incval,
@@ -3990,10 +4023,6 @@ class LibCron(Lib):
         query = kwargs.get('query', None)
         if query is None:
             mesg = 'Query parameter is required.'
-            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-
-        if not query.startswith('{'):
-            mesg = 'Query parameter must start with {'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         for optname in ('day', 'hour', 'minute'):
@@ -4037,7 +4066,7 @@ class LibCron(Lib):
 
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
 
-        cdef = {'storm': query[1:-1],
+        cdef = {'storm': query,
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
@@ -4081,13 +4110,6 @@ class LibCron(Lib):
         Returns:
             None: Returns None.
         '''
-        if not query.startswith('{'):
-            mesg = 'Expected second argument to start with {'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
-
-        # Remove the curly braces
-        query = query[1:-1]
-
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
@@ -4243,7 +4265,7 @@ class CronJob(Prim):
 # These will go away once we have value objects in storm runtime
 async def toprim(valu, path=None):
 
-    if isinstance(valu, (str, int, bool, float, bytes)) or valu is None:
+    if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType)) or valu is None:
         return valu
 
     if isinstance(valu, (tuple, list)):

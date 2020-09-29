@@ -557,7 +557,7 @@ class TypesTest(s_t_utils.SynTest):
             q = '[test:str=newp .seen=("?","-1 day")]'
             await self.agenraises(s_exc.BadTypeValu, core.eval(q))
             # *range= not supported for ival
-            q = 'test:str +:.seen*range=((20090601, 20090701), (20110905, 20110906,))'
+            q = 'test:str +.seen*range=((20090601, 20090701), (20110905, 20110906,))'
             await self.agenraises(s_exc.NoSuchCmpr, core.eval(q))
             q = 'test:str.seen*range=((20090601, 20090701), (20110905, 20110906,))'
             await self.agenraises(s_exc.NoSuchCmpr, core.eval(q))

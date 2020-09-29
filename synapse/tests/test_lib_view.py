@@ -216,6 +216,40 @@ class ViewTest(s_t_utils.SynTest):
             trigs = await view2.listTriggers()
             self.len(2, trigs)
 
+            await core.view.addTrigger({
+                'cond': 'tag:add',
+                'tag': 'foo',
+                'storm': '[ +#bar ]',
+            })
+
+            await core.view.addTrigger({
+                'cond': 'tag:del',
+                'tag': 'foo',
+                'storm': '[ -#bar ]',
+            })
+
+            await core.view.addTrigger({
+                'cond': 'tag:add',
+                'tag': 'foo',
+                'storm': '| newpnewp',
+            })
+
+            await core.view.addTrigger({
+                'cond': 'tag:del',
+                'tag': 'foo',
+                'storm': '| newpnewp',
+            })
+
+            nodes = await view2.nodes('test:str=forkhit [+#foo]')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('foo'))
+            self.nn(nodes[0].getTag('bar'))
+
+            nodes = await view2.nodes('test:str=forkhit [-#foo]')
+            self.len(1, nodes)
+            self.none(nodes[0].getTag('foo'))
+            self.none(nodes[0].getTag('bar'))
+
             await view2.fini()
             await view2.delete()
 
