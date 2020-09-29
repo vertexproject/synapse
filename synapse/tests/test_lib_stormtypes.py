@@ -788,8 +788,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(csv_rows[1], ('csv:row', {'row': [32535216000000, None], 'table': None}))
 
             # Sad path case...
-            q = '''$data=() $genr=$lib.feed.genr(syn.node, $data)
-            $lib.csv.emit($genr)
+            q = '''
+                [ test:str=woot ]
+                $lib.csv.emit($path)
             '''
             mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
             err = mesgs[-2]
@@ -2248,9 +2249,6 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.add node:add --tag tag1 --query {test:str}')
             self.stormIsInErr("data must contain ['form']", mesgs)
 
-            mesgs = await core.stormlist(f'trigger.mod {goodbuid2} test:str')
-            self.stormIsInErr('start with {', mesgs)
-
             # Bad storm syntax
             mesgs = await core.stormlist('trigger.add node:add --form test:str --query {[ | | test:int=1 ] }')
             self.stormIsInErr('No terminal defined', mesgs)
@@ -2387,7 +2385,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = 'cron.add foo'
                 mesgs = await core.stormlist(q)
-                self.stormIsInErr('must start with {', mesgs)
+                self.stormIsInErr('Must provide at least one optional argument', mesgs)
 
                 q = "cron.add --month nosuchmonth --day=-2 {#foo}"
                 mesgs = await core.stormlist(q)
@@ -2516,10 +2514,6 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('does not match', mesgs)
 
-                q = f"cron.mod xxx yyy"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Expected second argument to start with {', mesgs)
-
                 # Make sure the old one didn't run and the new query ran
                 unixtime += 60
                 await asyncio.sleep(0)
@@ -2641,11 +2635,6 @@ class StormTypesTest(s_test.SynTest):
                 ##################
 
                 # Test 'at' command
-
-                q = 'cron.at foo'
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('must start with {', mesgs)
-
                 q = 'cron.at {#foo}'
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('At least', mesgs)
