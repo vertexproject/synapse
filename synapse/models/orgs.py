@@ -135,6 +135,7 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the goal.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('prev', ('ou:goal', {}), {
                         'doc': 'The previous/parent goal in a list or hierarchy.',
@@ -172,6 +173,7 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the campaign.',
+                        'disp': {'hint': 'text'},
                     }),
                 )),
                 ('ou:org', {}, (
@@ -186,6 +188,7 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('names', ('array', {'type': 'ou:name'}), {
                        'doc': 'A list of alternate names for the organization.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('alias', ('ou:alias', {}), {
                         'doc': 'The default alias for an organization.'
@@ -376,6 +379,7 @@ class OuModule(s_module.CoreModule):
                     ('desc', ('str', {'lower': True}), {
                         'doc': 'A description of the conference.',
                         'ex': 'annual cybersecurity conference',
+                        'disp': {'hint': 'text'},
                     }),
                     ('base', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The base name which is shared by all conference instances.',
@@ -434,6 +438,7 @@ class OuModule(s_module.CoreModule):
                     ('desc', ('str', {'lower': True}), {
                         'doc': 'A description of the conference event.',
                         'ex': 'foobar conference networking dinner at ridge hotel',
+                        'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', ()), {
                         'doc': 'The inet:url node for the conference event website.',

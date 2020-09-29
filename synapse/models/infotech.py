@@ -372,6 +372,7 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:cve', {}, (
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the CVE vulnerability.',
+                        'disp': {'hint': 'text'},
                     }),
                 )),
                 ('it:dev:int', {}, ()),
@@ -399,6 +400,7 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the software.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('desc:short', ('str', {'lower': True}), {
                         'doc': 'A short description of the software.',
@@ -548,6 +550,7 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the signature.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'A reference URL for information about the signature.',
@@ -607,6 +610,7 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('cmd', ('str', {}), {
                         'doc': 'The command string used to launch the process, including any command line parameters.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('pid', ('int', {}), {
                         'doc': 'The process ID.',
@@ -932,7 +936,9 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:snort:rule', {}, (
                     ('text', ('str', {}), {
-                        'doc': 'The snort rule text.'}),
+                        'doc': 'The snort rule text.',
+                        'disp': {'hint': 'text'},
+                    }),
                     ('name', ('str', {}), {
                         'doc': 'The name of the snort rule.'}),
                     ('version', ('it:semver', {}), {
@@ -970,7 +976,9 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:yara:rule', {}, (
                     ('text', ('str', {}), {
-                        'doc': 'The yara rule text.'}),
+                        'doc': 'The yara rule text.',
+                        'disp': {'hint': 'text'},
+                    }),
                     ('name', ('str', {}), {
                         'doc': 'The name of the yara rule.'}),
                     ('author', ('ps:contact', {}), {
