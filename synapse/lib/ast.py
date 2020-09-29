@@ -732,7 +732,6 @@ class SetVarOper(Oper):
     async def run(self, runt, genr):
 
         name = await self.kids[0].compute(runt, None)
-        runtvar = runt.getVar(name, defv=s_common.novalu) is not s_common.novalu
 
         vkid = self.kids[1]
 
@@ -2714,8 +2713,6 @@ class EditNodeAdd(Edit):
         form = runt.model.form(self.name)
         if form is None:
             raise s_exc.NoSuchForm(name=self.name)
-
-        oper = await self.kids[1].compute(None, None)
 
         runtsafe = self.isRuntSafe(runt)
 
