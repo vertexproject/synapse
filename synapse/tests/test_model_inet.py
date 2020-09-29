@@ -814,6 +814,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv6=0::10.2.1.4/128')
             self.len(1, nodes)
             self.len(1, await core.nodes('inet:ipv6 +inet:ipv6=0::10.2.1.4/128'))
+            self.len(1, await core.nodes('inet:ipv6 +inet:ipv6=0::10.2.1.4'))
 
             nodes = await core.nodes('inet:ipv6=0::10.2.1.4/127')
             self.len(2, nodes)
