@@ -32,7 +32,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A pre-defined set of contract types.',
                 }),
                 ('ou:industry', ('guid', {}), {
-                    'doc': 'An indistry classification type.',
+                    'doc': 'An industry classification type.',
                 }),
                 ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
                     'doc': 'An alias for the org GUID.',
@@ -214,6 +214,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The primary phone number for the organization.',
                     }),
                     ('sic', ('ou:sic', {}), {
+                        'deprecated': True,
                         'doc': 'The Standard Industrial Classification code for the organization.',
                     }),
                     ('naics', ('ou:naics', {}), {
@@ -291,9 +292,11 @@ class OuModule(s_module.CoreModule):
                 ('ou:industry', {}, (
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'A terse name for the industry.'}),
-                    ('subs', ('array', {'type': 'ou:industry', 'uniq': True}), {
+                    ('subs', ('array', {'type': 'ou:industry', 'uniq': True, 'split': ','}), {
                         'doc': 'An array of sub-industries.'}),
-                    ('naics', ('array', {'type': 'ou:naics', 'uniq': True}), {
+                    ('sic', ('array', {'type': 'ou:sic', 'uniq': True, 'split': ','}), {
+                        'doc': 'An array of SIC codes that map to the industry.'}),
+                    ('naics', ('array', {'type': 'ou:naics', 'uniq': True, 'split': ','}), {
                         'doc': 'An array of NAICS codes that map to the industry.'}),
                 )),
                 ('ou:hasalias', {}, (
