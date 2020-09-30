@@ -1026,3 +1026,14 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('test:str=refs <(refs)- *'))
             self.len(0, await core.nodes('test:str=seen <(seen)- *'))
+
+            await core.nodes('test:str=refs [ <(refs)+ { [test:int=7 test:int=8] } ]')
+            await core.nodes('[ test:str=* <(seen)+ { [test:int=7 test:int=8] } ]')
+
+            self.len(2, await core.nodes('test:str=refs <(refs)- *'))
+            self.len(2, await core.nodes('test:str=* <(seen)- *'))
+
+            await core.nodes('test:str=refs test:str=* $v=$node.value() | deledges $v --n2')
+
+            self.len(0, await core.nodes('test:str=refs <(refs)- *'))
+            self.len(0, await core.nodes('test:str=* <(seen)- *'))
