@@ -275,7 +275,7 @@ def processLongData(rst, long_data):
         # TODO link back to type.
 
         for (key, valu) in data:
-            lines = [f' * {key}:\n  ::\n']
+            lines = [f' * {key}:\n  ::\n\n']
             json_lines = json.dumps(valu, indent=1, sort_keys=True)
             json_lines = ['   ' + line for line in json_lines.split('\n')]
             lines.extend(json_lines)
