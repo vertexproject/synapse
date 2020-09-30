@@ -2946,8 +2946,8 @@ class DelEdgesCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('verb', type=str,
-                          help='The verb of light edges to delete.')
+        pars.add_argument('verb', type=str, help='The verb of light edges to delete.')
+
         pars.add_argument('--n2', action='store_true', default=False,
                           help='Delete light edges where input node is N2 instead of N1.')
         return pars
@@ -2972,7 +2972,6 @@ class DelEdgesCmd(Cmd):
                 verb = None
 
             async for node, path in genr:
-
                 await self.delEdges(node, verb, n2)
                 yield node, path
 
