@@ -1111,6 +1111,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.eq(nodes[0].get('fqdns'), ('vertex.link', 'woot.com'))
+            self.sorteq(('vertex.link', 'woot.com'), nodes[0].repr('fqdns').split(','))
 
             nodes = await core.nodes('test:witharray:fqdns=(vertex.link, WOOT.COM)')
             self.len(1, nodes)
