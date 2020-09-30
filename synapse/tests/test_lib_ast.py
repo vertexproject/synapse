@@ -1100,28 +1100,6 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('Hi :)', msgs)
             self.stormIsInPrint('NO OVERRIDES FOR YOU', msgs)
 
-            # don't override defined functions
-            q = '''
-            function nooverride(arg1) {
-                $lib.print($arg1)
-                return ("foobar")
-            }
-
-            function naughty() {
-                $lib = "neato"
-                $nooverride = $nooverride($lib)
-                return ($nooverride)
-            }
-
-            $lib.print($naughty())
-            $lib.print($nooverride("recovered"))
-            '''
-
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint('neato', msgs)
-            self.stormIsInPrint('foobar', msgs)
-            self.stormIsInPrint('recovered', msgs)
-
             # yields across an import boundary
             q = '''
             $test = $lib.import(yieldsforever)
@@ -1192,6 +1170,12 @@ class AstTest(s_test.SynTest):
             self.eq(erfo[1][1].get('name'), 'pprint')
             self.eq(erfo[1][1].get('valu'), 'newp')
 
+            # test isRuntSafe on ast function
+            self.len(0, await core.nodes('init { function x() { return((0)) } }'))
+
+            # force sleep in iter with ret
+            self.len(0, await core.nodes('function x() { [ inet:asn=2 ] if ($node.value() = (3)) { return((3)) } } $x()'))
+
     async def test_ast_function_scope(self):
 
         async with self.getTestCore() as core:
@@ -1230,32 +1214,17 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'visi'))
             self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
 
-            async with await core.snap() as snap:
-                with snap.getStormRuntime() as runt:
-                    q = '''
-                    function lolol() {
-                        $lib = "pure lulz"
-                        $lolol = "don't do this"
-                        return ($lolol)
-                    }
-                    $neato = 0
-                    $myvar = $lolol()
-                    $lib.print($myvar)
-                    '''
-                    query = core.getStormQuery(q)
-                    runt.loadRuntVars(query)
-                    async for item in query.run(runt, s_common.agen()):
-                        pass
-                    func = list(filter(lambda o: isinstance(o, s_ast.Function), query.kids))[0]
-                    oldfunc = runt.vars['lolol']
-                    funcrunt = await runt.getScopeRuntime(func.kids[2])
-                    async for item in func.run(funcrunt, s_common.agen()):
-                        pass
-                    funcrunt.globals.add('nope')
-                    funcrunt.globals.add('lolol')
-                    self.eq(oldfunc, runt.vars['lolol'])
-                    await runt.propBackGlobals(funcrunt)
-                    self.notin('nope', runt.runtvars)
+            msgs = await core.stormlist('''
+                function lolol() {
+                    $lib = "pure lulz"
+                    $lolol = "don't do this"
+                    return ($lolol)
+                }
+                $neato = 0
+                $myvar = $lolol()
+                $lib.print($myvar)
+            ''')
+            self.stormIsInPrint("don't do this", msgs)
 
     async def test_ast_setitem(self):
 
@@ -1521,3 +1490,71 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('media:news | graph --no-edges')
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(0, nodes[0][1]['path']['edges'])
+
+    async def test_ast_storm_readonly(self):
+
+        async with self.getTestCore() as core:
+
+            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 ]'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4', opts={'readonly': True}))
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ :asn=20 ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ -#foo ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo:bar=10 ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ -#foo:bar ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ .seen=2020 ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ -.seen ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ +(refs)> { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ -(refs)> { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ <(refs)+ { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4=1.2.3.4 [ <(refs)- { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('[ (inet:ipv4=1.2.3.4 :asn=20) ]', opts={'readonly': True})
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 | limit 10', opts={'readonly': True}))
+            with self.raises(s_exc.IsReadOnly):
+                self.len(1, await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts={'readonly': True}))
+
+            iden = await core.callStorm('return($lib.view.get().iden)')
+            await core.nodes('view.list', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes(f'view.fork {iden}', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes(f'$lib.view.get().fork()', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes(f'vertex.link', opts={'readonly': True, 'mode': 'autoadd'})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:ipv4 | limit 1 | tee { [+#foo] }', opts={'readonly': True})
