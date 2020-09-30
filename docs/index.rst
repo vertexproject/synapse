@@ -23,10 +23,7 @@ Welcome to the Synapse documentation!
    synapse/apidocs
    synapse/httpapi
 
-   synapse/autodocs/datamodel_types
-   synapse/autodocs/datamodel_forms
-   synapse/autodocs/datamodel_long_types
-
+   synapse/datamodel
    synapse/stormtypes
 
    synapse/200_changes
