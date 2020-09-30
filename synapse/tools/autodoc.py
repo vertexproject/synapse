@@ -224,7 +224,6 @@ def processTypes(rst, dochelp, types):
                         rst.addLines(f' * {key}: ``{valu}``')
                         continue
                     lines = [f' * {key}:\n']
-                    print(name, key, valu)
                     valu = sorted(valu, key=lambda x: x[0])
                     elines = []
 
