@@ -270,64 +270,6 @@ def processTypes(rst, dochelp, types):
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
 
-def processLongData(rst, long_data):
-
-    rst.addHead('Large data structures', lvl=1, link='.. _dm-types-long-data:')
-
-    rst.addLines('',
-                 'This contains large sections of type information which does not fit inline with the main type '
-                 'documentation.',
-                 '')
-
-    sorted_data = collections.defaultdict(list)
-    for (name, key), valu in long_data.items():
-        sorted_data[name].append((key, valu))
-
-    for name, data in sorted_data.items():
-        hname = name
-        if ':' in name:
-            hname = name.replace(':', raw_back_slash_colon)
-
-        link = f'.. _dm-type-long-data-{name.replace(":", "-")}:'
-        rst.addHead(hname, lvl=2, link=link)
-
-        # TODO link back to type.
-
-        for (key, valu) in data:
-            lines = [f' * {key}:\n']
-
-            if key == 'enums':
-                valu = sorted(valu, key=lambda x: x[0])
-                elines = []
-
-                maxa, maxb = len('int'), len('valu')
-                for (a, b) in valu:
-                    maxa = max(len(str(a)), maxa)
-                    maxb = max(len(b), maxb)
-
-                line = f'{"=" * maxa} {"=" * maxb}'
-                elines.append(line)
-                line = f'int{" " * (maxa-3)} valu{" " * (maxb-4)}'
-                elines.append(line)
-                line = f'{"=" * maxa} {"=" * maxb}'
-                elines.append(line)
-
-                for (a, b) in valu:
-                    line = f'{a}{" " * (maxa - len(str(a)))} {b}{" " * (maxb - len(b))}'
-                    elines.append(line)
-
-                line = f'{"=" * maxa} {"=" * maxb}'
-                elines.append(line)
-                elines = ['    ' + line for line in elines]
-                lines.extend(elines)
-
-            else:
-                lines.append('  ::\n\n')
-                json_lines = json.dumps(valu, indent=1, sort_keys=True)
-                json_lines = ['   ' + line for line in json_lines.split('\n')]
-                lines.extend(json_lines)
-            rst.addLines(*lines)
-
 def processFormsProps(rst, dochelp, forms, univ_names):
     rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
     rst.addLines('',
