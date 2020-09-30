@@ -12,5 +12,6 @@ The current sections are:
 
     autodocs/datamodel_types
     autodocs/datamodel_forms
+    autodocs/datamodel_long_types
 
     datamodel_deprecation
