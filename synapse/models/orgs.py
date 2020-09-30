@@ -1,5 +1,15 @@
 import synapse.lib.module as s_module
 
+contracttypes = (
+    'nda',
+    'other',
+    'grant',
+    'treaty',
+    'purchase',
+    'indemnity',
+    'partnership',
+)
+
 class OuModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
@@ -17,6 +27,9 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:contract', ('guid', {}), {
                     'doc': 'An contract between multiple entities.',
+                }),
+                ('ou:contract:type', ('str', {'enum': contracttypes}), {
+                    'doc': 'A pre-defined set of contract types.',
                 }),
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An indistry classification type.',
@@ -254,8 +267,8 @@ class OuModule(s_module.CoreModule):
                 ('ou:contract', {}, (
                     ('title', ('str', {}), {
                         'doc': 'A terse title for the contract.'}),
-                    ('type', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A user-specified type for the contract.'}),
+                    ('types', ('array', {'type': 'ou:contract:type', 'uniq': True, 'split': ','}), {
+                        'doc': 'A list of types that apply to the contract.'}),
                     ('sponsor', ('ps:contact', {}), {
                         'doc': 'The contract sponsor.'}),
                     ('parties', ('array', {'type': 'ps:contact', 'uniq': True}), {

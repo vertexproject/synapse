@@ -428,6 +428,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'''
             [ ou:contract=*
                 :title="Fullbright Scholarship"
+                :types="nda,grant"
                 :sponsor={iden0}
                 :award:price=20.00
                 :parties=({iden1}, {iden2})
@@ -444,6 +445,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(1577836800000, nodes[0].get('signed'))
             self.eq(1580515200000, nodes[0].get('begins'))
             self.eq(1583020800000, nodes[0].get('expires'))
+            self.sorteq(('grant', 'nda'), nodes[0].get('types'))
             self.sorteq((iden1, iden2), nodes[0].get('parties'))
             self.sorteq((goal0, goal1), nodes[0].get('requirements'))
 
