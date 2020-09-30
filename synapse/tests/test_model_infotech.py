@@ -761,10 +761,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]''', opts=funcopt)
             self.len(1, funcnode)
             self.eq(name, funcnode[0].get('name'))
-            self.eq(('bar', 'foo'), funcnode[0].get('strings'))
             self.eq(descrp, funcnode[0].get('description'))
             self.len(len(impcalls), funcnode[0].get('impcalls'))
             self.eq(impcalls[0], funcnode[0].get('impcalls')[0])
+            self.sorteq(('bar', 'foo'), funcnode[0].get('strings'))
 
             nodes = await core.nodes('it:reveng:function -> it:dev:str')
             self.len(2, nodes)

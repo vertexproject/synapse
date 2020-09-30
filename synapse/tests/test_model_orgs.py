@@ -441,11 +441,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('Fullbright Scholarship', nodes[0].get('title'))
             self.eq(iden0, nodes[0].get('sponsor'))
             self.eq('20.00', nodes[0].get('award:price'))
-            self.eq((iden1, iden2), nodes[0].get('parties'))
             self.eq(1577836800000, nodes[0].get('signed'))
             self.eq(1580515200000, nodes[0].get('begins'))
             self.eq(1583020800000, nodes[0].get('expires'))
-            self.eq((goal0, goal1), nodes[0].get('requirements'))
+            self.sorteq((iden1, iden2), nodes[0].get('parties'))
+            self.sorteq((goal0, goal1), nodes[0].get('requirements'))
 
     async def test_ou_industry(self):
 
@@ -453,7 +453,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ ou:industry=* :name=" Foo Bar " :subs=(*, *) :naics=(11111,22222) ]')
             self.len(1, nodes)
             self.eq('foo bar', nodes[0].get('name'))
-            self.eq(('11111', '22222'), nodes[0].get('naics'))
+            self.sorteq(('11111', '22222'), nodes[0].get('naics'))
             self.len(2, nodes[0].get('subs'))
 
             nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
