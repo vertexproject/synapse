@@ -2926,3 +2926,63 @@ class LiftByVerb(Cmd):
 
                     async for node in self.iterEdgeNodes(verb, idenset, n2):
                         yield node, _path.fork(node)
+
+class DelEdgesCmd(Cmd):
+    '''
+    Bulk delete light edges from input nodes.
+
+    Examples:
+
+        # Delete all "foo" light edges from an inet:ipv4
+        inet:ipv4=1.2.3.4 | deledges foo
+
+        # Delete light edges with any verb from a node
+        inet:ipv4=1.2.3.4 | deledges *
+
+        # Delete all "foo" light edges to an inet:ipv4
+        inet:ipv4=1.2.3.4 | deledges foo --n2
+    '''
+    name = 'deledges'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('verb', type=str,
+                          help='The verb of light edges to delete.')
+        pars.add_argument('--n2', action='store_true', default=False,
+                          help='Delete light edges where input node is N2 instead of N1.')
+        return pars
+
+    async def delEdges(self, node, verb, n2=False):
+        if n2:
+            n2iden = node.iden()
+            async for (v, n1iden) in node.iterEdgesN2(verb):
+                n1 = await self.runt.snap.getNodeByBuid(s_common.uhex(n1iden))
+                await n1.delEdge(v, n2iden)
+        else:
+            async for (v, n2iden) in node.iterEdgesN1(verb):
+                await node.delEdge(v, n2iden)
+
+    async def execStormCmd(self, runt, genr):
+
+        if self.runtsafe:
+            n2 = self.opts.n2
+            verb = await s_stormtypes.tostr(self.opts.verb)
+
+            if verb == '*':
+                verb = None
+
+            async for node, path in genr:
+
+                await self.delEdges(node, verb, n2)
+                yield node, path
+
+        else:
+            async for node, path in genr:
+                n2 = self.opts.n2
+                verb = await s_stormtypes.tostr(self.opts.verb)
+
+                if verb == '*':
+                    verb = None
+
+                await self.delEdges(node, verb, n2)
+                yield node, path
