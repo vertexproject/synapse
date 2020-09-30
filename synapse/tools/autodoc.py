@@ -27,12 +27,6 @@ poptsToWords = {
     'ro': 'Read Only',
 }
 
-pprint_keys = (
-    'enums',
-    'schema',
-    'fields',
-)
-
 info_ignores = (
     'stortype',
 )
@@ -185,7 +179,6 @@ def processTypes(rst, dochelp, types):
     Returns:
         None
     '''
-    long_data = {}
     rst.addHead('Types', lvl=1, link='.. _dm-types:')
 
     rst.addLines('',
@@ -903,7 +896,7 @@ async def main(argv, outp=None):
 
         if opts.cortex:
             async with await s_telepath.openurl(opts.cortex) as core:
-                rsttypes, rstforms, rstlongdata = await docModel(outp, core)
+                rsttypes, rstforms = await docModel(outp, core)
 
         else:
             async with s_cortex.getTempCortex() as core:
