@@ -224,32 +224,58 @@ def processTypes(rst, dochelp, types):
                          f'The type ``{name}`` has the following options set:',
                          ''
                          )
-            def toolong(obj):
-                olines = json.dumps(obj, indent=1, sort_keys=True)
-                if len(olines.split('\n')) > 40:
-                    print('TOO MANY LINES!')
-                    return True
-                if len(str(obj)) > 86:
-                    print('STR TOO LONG')
-                    return True
 
-            for k, v in sorted(topt.items(), key=lambda x: x[0]):
-                if toolong(v):
-                    print(F'{name} KEY {k} TOO LARGE!')
-                    long_data[(name, k)] = v
-                    ref = f':ref:`dm-type-long-data-{name.replace(":", "-")}`'
-                    _line = f'The complete information for the {k} can be found at {ref}'
-                    rst.addLines(f' * {k}: {_line}')
+            for key, valu in sorted(topt.items(), key=lambda x: x[0]):
+                if key == 'enums':
+                    if valu is None:
+                        rst.addLines(f' * {key}: ``{valu}``')
+                        continue
+                    lines = [f' * {key}:\n']
+                    print(name, key, valu)
+                    valu = sorted(valu, key=lambda x: x[0])
+                    elines = []
+
+                    maxa, maxb = len('int'), len('valu')
+                    for (a, b) in valu:
+                        maxa = max(len(str(a)), maxa)
+                        maxb = max(len(b), maxb)
+
+                    line = f'{"=" * maxa} {"=" * maxb}'
+                    elines.append(line)
+                    line = f'int{" " * (maxa - 3)} valu{" " * (maxb - 4)}'
+                    elines.append(line)
+                    line = f'{"=" * maxa} {"=" * maxb}'
+                    elines.append(line)
+
+                    for (a, b) in valu:
+                        line = f'{a}{" " * (maxa - len(str(a)))} {b}{" " * (maxb - len(b))}'
+                        elines.append(line)
+
+                    line = f'{"=" * maxa} {"=" * maxb}'
+                    elines.append(line)
+                    elines = ['    ' + line for line in elines]
+                    lines.extend(elines)
+                    lines.append('\n')
+                    rst.addLines(*lines)
+                elif key in ('fields',
+                             'schema',
+                             ):
+                    if len(str(valu)) < 80:
+                        rst.addLines(f' * {key}: ``{valu}``')
+                        continue
+                    lines = [f' * {key}:\n', '  ::\n\n']
+                    json_lines = json.dumps(valu, indent=1, sort_keys=True)
+                    json_lines = ['   ' + line for line in json_lines.split('\n')]
+                    lines.extend(json_lines)
+                    rst.addLines(*lines)
                 else:
-                    rst.addLines(f' * {k}: ``{v}``')
+                    rst.addLines(f' * {key}: ``{valu}``')
 
         for key in info_ignores:
             info.pop(key, None)
 
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
-
-    return long_data
 
 def processLongData(rst, long_data):
 
@@ -483,9 +509,7 @@ async def docModel(outp,
     rst.addHead('Synapse Data Model - Types', lvl=0)
 
     processCtors(rst, dochelp, ctors)
-    long_data = processTypes(rst, dochelp, types)
-    rst3 = RstHelp()
-    processLongData(rst3, long_data)
+    processTypes(rst, dochelp, types)
 
     rst2 = RstHelp()
     rst2.addHead('Synapse Data Model - Forms', lvl=0)
@@ -493,9 +517,7 @@ async def docModel(outp,
     processFormsProps(rst2, dochelp, forms, univ_names)
     processUnivs(rst2, dochelp, univs)
 
-    # outp.printf(rst.getRstText())
-    # outp.printf(rst2.getRstText())
-    return rst, rst2, rst3
+    return rst, rst2
 
 async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
     cls = s_dyndeps.tryDynLocal(ctor)
@@ -885,15 +907,13 @@ async def main(argv, outp=None):
 
         else:
             async with s_cortex.getTempCortex() as core:
-                rsttypes, rstforms, rstlongdata = await docModel(outp, core)
+                rsttypes, rstforms = await docModel(outp, core)
 
         if opts.savedir:
             with open(s_common.genpath(opts.savedir, 'datamodel_types.rst'), 'wb') as fd:
                 fd.write(rsttypes.getRstText().encode())
             with open(s_common.genpath(opts.savedir, 'datamodel_forms.rst'), 'wb') as fd:
                 fd.write(rstforms.getRstText().encode())
-            with open(s_common.genpath(opts.savedir, 'datamodel_long_types.rst'), 'wb') as fd:
-                fd.write(rstlongdata.getRstText().encode())
 
     if opts.doc_conf:
         confdocs, cname = await docConfdefs(opts.doc_conf,
