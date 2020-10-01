@@ -219,7 +219,6 @@ def run_confdocs(_):
     ctors = ('synapse.axon.Axon',
              'synapse.cortex.Cortex',
              'synapse.cryotank.CryoCell',
-             'synapse.tools.sync_200.SyncMigrator',
              )
     for ctor in ctors:
         args = baseargs.copy()
