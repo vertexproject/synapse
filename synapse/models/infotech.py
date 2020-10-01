@@ -351,6 +351,9 @@ class ItModule(s_module.CoreModule):
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.',
                     }),
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'The operator of the host.',
+                    }),
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that operates the given host.',
                     }),

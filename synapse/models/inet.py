@@ -1574,6 +1574,9 @@ class InetModule(s_module.CoreModule):
                         ('wifi:bssid', ('inet:mac', {}), {
                             'doc': 'The wifi BSSID of the interface.'
                         }),
+                        ('adid', ('it:adid', {}), {
+                            'doc': 'An advertising ID associated with the interface.',
+                        }),
                         ('mob:imei', ('tel:mob:imei', {}), {
                             'doc': 'The IMEI of the interface.'
                         }),

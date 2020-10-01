@@ -103,6 +103,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'phone:fax': '12345678910',
                     'phone:work': '12345678910',
                     'address': '1 Iron Suit Drive, San Francisco, CA, 22222, USA',
+                    'imid': (490154203237518, 310150123456789),
                 }
 
                 node = await snap.addNode('ps:contact', con0, cprops)
@@ -124,3 +125,6 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('phone:fax'), '12345678910')
                 self.eq(node.get('phone:work'), '12345678910')
                 self.eq(node.get('address'), '1 iron suit drive, san francisco, ca, 22222, usa')
+                self.eq(node.get('imid'), (490154203237518, 310150123456789))
+                self.eq(node.get('imid:imei'), 490154203237518)
+                self.eq(node.get('imid:imsi'), 310150123456789)
