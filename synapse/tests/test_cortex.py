@@ -599,12 +599,14 @@ class CortexTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
                 await snap.addNode('test:str', 'hezipha', props={'.favcolor': 'red'})
-                await snap.addNode('test:comp', (20, 'lulzlulz'))
+                comps = [(20, 'lulzlulz'), (40, 'lulz')]
+                await snap.addNode('test:compcomp', comps)
 
             self.len(0, await alist(core.eval('test:comp:haha~="^zerg"')))
-            self.len(1, await alist(core.eval('test:comp:haha~="^lulz"')))
+            self.len(1, await alist(core.eval('test:comp:haha~="^lulz$"')))
+            self.len(1, await alist(core.eval('test:compcomp~="^lulz"')))
+            self.len(0, await alist(core.eval('test:compcomp~="^newp"')))
 
-            self.len(1, await alist(core.eval('test:str~="zip"')))
             self.len(1, await alist(core.eval('test:str~="zip"')))
             self.len(1, await alist(core.eval('.favcolor~="^r"')))
 
