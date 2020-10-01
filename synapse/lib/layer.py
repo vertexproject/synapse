@@ -1178,27 +1178,26 @@ class Layer(s_nexus.Pusher):
                 sode['valu'] = (valu, stortype)
                 continue
 
-            elif flag == 1:
+            if flag == 1:
                 name = lkey[33:].decode()
                 sode['props'][name] = s_msgpack.un(lval)
                 continue
 
-            elif flag == 2:
+            if flag == 2:
                 name = lkey[33:].decode()
                 sode['tags'][name] = s_msgpack.un(lval)
                 continue
 
-            elif flag == 3:
+            if flag == 3:
                 tag, prop = lkey[33:].decode().split(':')
                 sode['tagprops'][(tag, prop)] = s_msgpack.un(lval)
                 continue
 
-            elif flag == 9:
+            if flag == 9:
                 sode['form'] = lval.decode()
                 continue
 
-            else:  # pragma: no cover
-                logger.warning('Invalid flag %d found for buid %s during migration', flag, buid)
+            logger.warning('Invalid flag %d found for buid %s during migration', flag, buid) # pragma: no cover
 
         count += 1
 
