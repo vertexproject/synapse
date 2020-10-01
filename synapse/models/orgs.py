@@ -282,6 +282,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The date that the contract goes into effect.'}),
                     ('expires', ('time', {}), {
                         'doc': 'The date that the contract expires.'}),
+                    ('completed', ('time', {}), {
+                        'doc': 'The date that the contract was completed.'}),
+                    ('terminated', ('time', {}), {
+                        'doc': 'The date that the contract was terminated.'}),
                     ('award:price', ('econ:currency', {}), {
                         'doc': 'The value of the contract at time of award.'}),
                     ('purchase', ('econ:purchase', {}), {

@@ -436,6 +436,8 @@ class OuModelTest(s_t_utils.SynTest):
                 :signed=202001
                 :begins=202002
                 :expires=202003
+                :completed=202004
+                :terminated=202005
                 :requirements=({goal0},{goal1})
             ]''')
             self.len(1, nodes)
@@ -445,6 +447,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(1577836800000, nodes[0].get('signed'))
             self.eq(1580515200000, nodes[0].get('begins'))
             self.eq(1583020800000, nodes[0].get('expires'))
+            self.eq(1585699200000, nodes[0].get('completed'))
+            self.eq(1588291200000, nodes[0].get('terminated'))
             self.sorteq(('grant', 'nda'), nodes[0].get('types'))
             self.sorteq((iden1, iden2), nodes[0].get('parties'))
             self.sorteq((goal0, goal1), nodes[0].get('requirements'))
