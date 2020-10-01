@@ -967,3 +967,73 @@ class StormTest(s_t_utils.SynTest):
             $x()
             return ($foo)
             '''))
+
+    async def test_edges_del(self):
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=test1 +(refs)> { [test:int=7 test:int=8] } ]')
+            await core.nodes('[ test:str=test1 +(seen)> { [test:int=7 test:int=8] } ]')
+
+            self.len(4, await core.nodes('test:str=test1 -(*)> *'))
+
+            await core.nodes('test:str=test1 | edges.del refs')
+            self.len(0, await core.nodes('test:str=test1 -(refs)> *'))
+            self.len(2, await core.nodes('test:str=test1 -(seen)> *'))
+
+            await core.nodes('test:str=test1 [ +(refs)> { [test:int=7 test:int=8] } ]')
+
+            self.len(4, await core.nodes('test:str=test1 -(*)> *'))
+
+            await core.nodes('test:str=test1 | edges.del *')
+            self.len(0, await core.nodes('test:str=test1 -(*)> *'))
+
+            # Test --n2
+            await core.nodes('test:str=test1 [ <(refs)+ { [test:int=7 test:int=8] } ]')
+            await core.nodes('test:str=test1 [ <(seen)+ { [test:int=7 test:int=8] } ]')
+
+            self.len(4, await core.nodes('test:str=test1 <(*)- *'))
+
+            await core.nodes('test:str=test1 | edges.del refs --n2')
+            self.len(0, await core.nodes('test:str=test1 <(refs)- *'))
+            self.len(2, await core.nodes('test:str=test1 <(seen)- *'))
+
+            await core.nodes('test:str=test1 [ <(refs)+ { [test:int=7 test:int=8] } ]')
+
+            self.len(4, await core.nodes('test:str=test1 <(*)- *'))
+
+            await core.nodes('test:str=test1 | edges.del * --n2')
+            self.len(0, await core.nodes('test:str=test1 <(*)- *'))
+
+            # Test non-runtsafe usage
+            await core.nodes('[ test:str=refs +(refs)> { [test:int=7 test:int=8] } ]')
+            await core.nodes('[ test:str=seen +(seen)> { [test:int=7 test:int=8] } ]')
+
+            self.len(2, await core.nodes('test:str=refs -(refs)> *'))
+            self.len(2, await core.nodes('test:str=seen -(seen)> *'))
+
+            await core.nodes('test:str=refs test:str=seen $v=$node.value() | edges.del $v')
+
+            self.len(0, await core.nodes('test:str=refs -(refs)> *'))
+            self.len(0, await core.nodes('test:str=seen -(seen)> *'))
+
+            await core.nodes('test:str=refs [ <(refs)+ { [test:int=7 test:int=8] } ]')
+            await core.nodes('test:str=seen [ <(seen)+ { [test:int=7 test:int=8] } ]')
+
+            self.len(2, await core.nodes('test:str=refs <(refs)- *'))
+            self.len(2, await core.nodes('test:str=seen <(seen)- *'))
+
+            await core.nodes('test:str=refs test:str=seen $v=$node.value() | edges.del $v --n2')
+
+            self.len(0, await core.nodes('test:str=refs <(refs)- *'))
+            self.len(0, await core.nodes('test:str=seen <(seen)- *'))
+
+            await core.nodes('test:str=refs [ <(refs)+ { [test:int=7 test:int=8] } ]')
+            await core.nodes('[ test:str=* <(seen)+ { [test:int=7 test:int=8] } ]')
+
+            self.len(2, await core.nodes('test:str=refs <(refs)- *'))
+            self.len(2, await core.nodes('test:str=* <(seen)- *'))
+
+            await core.nodes('test:str=refs test:str=* $v=$node.value() | edges.del $v --n2')
+
+            self.len(0, await core.nodes('test:str=refs <(refs)- *'))
+            self.len(0, await core.nodes('test:str=* <(seen)- *'))
