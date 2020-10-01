@@ -2927,22 +2927,22 @@ class LiftByVerb(Cmd):
                     async for node in self.iterEdgeNodes(verb, idenset, n2):
                         yield node, _path.fork(node)
 
-class EdgeDelCmd(Cmd):
+class EdgesDelCmd(Cmd):
     '''
     Bulk delete light edges from input nodes.
 
     Examples:
 
         # Delete all "foo" light edges from an inet:ipv4
-        inet:ipv4=1.2.3.4 | edge.del foo
+        inet:ipv4=1.2.3.4 | edges.del foo
 
         # Delete light edges with any verb from a node
-        inet:ipv4=1.2.3.4 | edge.del *
+        inet:ipv4=1.2.3.4 | edges.del *
 
         # Delete all "foo" light edges to an inet:ipv4
-        inet:ipv4=1.2.3.4 | edge.del foo --n2
+        inet:ipv4=1.2.3.4 | edges.del foo --n2
     '''
-    name = 'edge.del'
+    name = 'edges.del'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
