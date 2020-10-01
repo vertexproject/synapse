@@ -551,6 +551,7 @@ class StorTypeFqdn(StorTypeUtf8):
         StorType.__init__(self, layr, STOR_TYPE_UTF8)
         self.lifters.update({
             '=': self._liftFqdnEq,
+            '~=': self._liftRegx,
         })
 
     async def _liftFqdnEq(self, liftby, valu):
