@@ -1161,7 +1161,6 @@ class Layer(s_nexus.Pusher):
 
                     count += 1
                     tostor.append((lastbuid, s_msgpack.en(sode)))
-                    print(f'Storing {sode}')
 
                     sode.clear()
 
@@ -1176,7 +1175,6 @@ class Layer(s_nexus.Pusher):
                 form, valu, stortype = s_msgpack.un(lval)
                 sode['form'] = form
                 sode['valu'] = (valu, stortype)
-                print(f'sode is now {sode}')
                 continue
 
             elif flag == 1:
@@ -1203,7 +1201,10 @@ class Layer(s_nexus.Pusher):
 
         count += 1
 
-        # mop up the left overs
+        # Mop up the leftovers
+        if lastbuid is not None:
+            count += 1
+            tostor.append((lastbuid, s_msgpack.en(sode)))
         if tostor:
             self.layrslab.putmulti(tostor, db=self.bybuidv3)
 
