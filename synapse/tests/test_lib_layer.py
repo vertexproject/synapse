@@ -988,5 +988,8 @@ class LayerTest(s_t_utils.SynTest):
             self.true(nodes[0].getTag('foo.bar'), (None, None))
             self.true(nodes[0].getTagProp('foo.bar', 'confidence'), 22)
 
+            self.eq(1, await core.count('.created'))
+            self.len(2, await core.nodes('syn:tag~=foo'))
+
             for layr in core.layers.values():
                 self.eq(layr.layrvers, 3)

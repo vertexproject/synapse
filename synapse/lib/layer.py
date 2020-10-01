@@ -402,13 +402,40 @@ class StorType:
     def indx(self, valu):
         raise NotImplementedError
 
+    async def _liftRegx(self, liftby, valu):
+
+        regx = regex.compile(valu)
+        lastbuid = None
+
+        for buid in liftby.buidsByPref():
+            if buid == lastbuid:
+                continue
+
+            await asyncio.sleep(0)
+
+            lastbuid = buid
+            storvalu = liftby.getNodeValu(buid)
+
+            def regexin(regx, storvalu):
+                if isinstance(storvalu, str):
+                    if regx.search(storvalu) is not None:
+                        return True
+
+                elif isinstance(storvalu, (tuple, list)):
+                    return any(regexin(regx, sv) for sv in storvalu)
+
+                return False
+
+            if regexin(regx, storvalu):
+                yield buid
+
 class StorTypeUtf8(StorType):
 
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_UTF8)
         self.lifters.update({
             '=': self._liftUtf8Eq,
-            '~=': self._liftUtf8Regx,
+            '~=': self._liftRegx,
             '^=': self._liftUtf8Prefix,
             'range=': self._liftUtf8Range,
         })
@@ -423,30 +450,6 @@ class StorTypeUtf8(StorType):
         maxindx = self._getIndxByts(valu[1])
         for item in liftby.buidsByRange(minindx, maxindx):
             yield item
-
-    async def _liftUtf8Regx(self, liftby, valu):
-
-        regx = regex.compile(valu)
-        lastbuid = None
-
-        for buid in liftby.buidsByPref():
-            if buid == lastbuid:
-                continue
-
-            await asyncio.sleep(0)
-
-            lastbuid = buid
-            storvalu = liftby.getNodeValu(buid)
-
-            if isinstance(storvalu, (tuple, list)):
-                for sv in storvalu:
-                    if regx.search(sv) is not None:
-                        yield buid
-                        break
-            else:
-                if regx.search(storvalu) is None:
-                    continue
-                yield buid
 
     async def _liftUtf8Prefix(self, liftby, valu):
         indx = self._getIndxByts(valu)
@@ -547,11 +550,10 @@ class StorTypeFqdn(StorTypeUtf8):
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_UTF8)
         self.lifters.update({
-            '=': self._liftUtf8Eq,
-            '~=': self._liftUtf8Regx,
+            '=': self._liftFqdnEq,
         })
 
-    async def _liftUtf8Eq(self, liftby, valu):
+    async def _liftFqdnEq(self, liftby, valu):
 
         if valu[0] == '*':
             indx = self._getIndxByts(valu[1:][::-1])
@@ -898,6 +900,7 @@ class StorTypeMsgp(StorType):
         StorType.__init__(self, layr, STOR_TYPE_MSGP)
         self.lifters.update({
             '=': self._liftMsgpEq,
+            '~=': self._liftRegx,
         })
 
     async def _liftMsgpEq(self, liftby, valu):
@@ -1158,6 +1161,7 @@ class Layer(s_nexus.Pusher):
 
                     count += 1
                     tostor.append((lastbuid, s_msgpack.en(sode)))
+                    print(f'Storing {sode}')
 
                     sode.clear()
 
@@ -1172,26 +1176,30 @@ class Layer(s_nexus.Pusher):
                 form, valu, stortype = s_msgpack.un(lval)
                 sode['form'] = form
                 sode['valu'] = (valu, stortype)
+                print(f'sode is now {sode}')
                 continue
 
-            if flag == 1:
+            elif flag == 1:
                 name = lkey[33:].decode()
                 sode['props'][name] = s_msgpack.un(lval)
                 continue
 
-            if flag == 2:
+            elif flag == 2:
                 name = lkey[33:].decode()
                 sode['tags'][name] = s_msgpack.un(lval)
                 continue
 
-            if flag == 3:
+            elif flag == 3:
                 tag, prop = lkey[33:].decode().split(':')
                 sode['tagprops'][(tag, prop)] = s_msgpack.un(lval)
                 continue
 
-            if flag == 9:
+            elif flag == 9:
                 sode['form'] = lval.decode()
                 continue
+
+            else:  # pragma: no cover
+                logger.warning('Invalid flag %d found for buid %s during migration', flag, buid)
 
         count += 1
 
