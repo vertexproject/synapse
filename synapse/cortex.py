@@ -1353,7 +1353,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = f'Storm package {pkgname} missing minversion value.'
             raise s_exc.BadVersion(mesg=mesg)
 
-        if minversion < s_version.version:
+        if minversion > s_version.version:
             mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
                    f'Cortex is running {s_version.version}'
             raise s_exc.BadVersion(mesg=mesg)
