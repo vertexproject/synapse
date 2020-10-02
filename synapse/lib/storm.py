@@ -158,8 +158,9 @@ reqValidPkgdef = s_config.getJsValidator({
             'type': ['array', 'number'],
             'items': {'type': 'number'}
         },
-        'reqversion': {
-            'type': ['string', 'null'],
+        'minversion': {
+            'type': ['array', 'null'],
+            'items': {'type': 'number'}
         },
         'modules': {
             'type': ['array', 'null'],

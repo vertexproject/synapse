@@ -1347,13 +1347,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         pkgname = pkgdef.get('name')
 
-        # Check required synapse version
-        reqversion = pkgdef.get('reqversion')
-        if reqversion is None:
-            mesg = f'Storm package {pkgname} missing reqversion value.'
+        # Check minimum synapse version
+        minversion = pkgdef.get('minversion')
+        if minversion is None:
+            mesg = f'Storm package {pkgname} missing minversion value.'
             raise s_exc.BadVersion(mesg=mesg)
 
-        s_version.reqVersion(s_version.version, reqversion)
+        if minversion < s_version.version:
+            mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
+                   f'Cortex is running {s_version.version}'
+            raise s_exc.BadVersion(mesg=mesg)
 
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
