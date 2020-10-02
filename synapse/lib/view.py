@@ -198,7 +198,6 @@ class View(s_nexus.Pusher):  # type: ignore
             ((str,dict)): Storm messages.
         '''
         opts = self.core._initStormOpts(opts)
-
         user = self.core._userFromOpts(opts)
 
         MSG_QUEUE_SIZE = 1000
@@ -442,11 +441,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async with await self.parent.snap(user=user) as snap:
 
-            with snap.getStormRuntime(user=user):
-                meta = await snap.getSnapMeta()
-
-                async for nodeedits in fromlayr.iterLayerNodeEdits():
-                    await parentlayr.storNodeEditsNoLift([nodeedits], meta)
+            meta = await snap.getSnapMeta()
+            async for nodeedits in fromlayr.iterLayerNodeEdits():
+                await parentlayr.storNodeEditsNoLift([nodeedits], meta)
 
         await fromlayr.truncate()
 
@@ -515,7 +512,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     if splicecount % 1000 == 0:
                         await asyncio.sleep(0)
 
-    async def runTagAdd(self, node, tag, valu):
+    async def runTagAdd(self, node, tag, valu, view=None):
 
         # Run the non-glob callbacks, then the glob callbacks
         funcs = itertools.chain(self.core.ontagadds.get(tag, ()), (x[1] for x in self.core.ontagaddglobs.get(tag)))
@@ -527,10 +524,16 @@ class View(s_nexus.Pusher):  # type: ignore
             except Exception:
                 logger.exception('onTagAdd Error')
 
-        # Run any trigger handlers
-        await self.triggers.runTagAdd(node, tag)
+        if view is None:
+            view = self.iden
 
-    async def runTagDel(self, node, tag, valu):
+        # Run any trigger handlers
+        await self.triggers.runTagAdd(node, tag, view=view)
+
+        if self.parent is not None:
+            await self.parent.runTagAdd(node, tag, valu, view=view)
+
+    async def runTagDel(self, node, tag, valu, view=None):
 
         funcs = itertools.chain(self.core.ontagdels.get(tag, ()), (x[1] for x in self.core.ontagdelglobs.get(tag)))
         for func in funcs:
@@ -541,37 +544,52 @@ class View(s_nexus.Pusher):  # type: ignore
             except Exception:
                 logger.exception('onTagDel Error')
 
-        await self.triggers.runTagDel(node, tag)
+        if view is None:
+            view = self.iden
 
-    async def runNodeAdd(self, node):
+        await self.triggers.runTagDel(node, tag, view=view)
+
+        if self.parent is not None:
+            await self.parent.runTagDel(node, tag, valu, view=view)
+
+    async def runNodeAdd(self, node, view=None):
         if not node.snap.trigson:
             return
 
-        await self.triggers.runNodeAdd(node)
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runNodeAdd(node, view=view)
 
         if self.parent is not None:
-            await self.parent.runNodeAdd(node)
+            await self.parent.runNodeAdd(node, view=view)
 
-    async def runNodeDel(self, node):
+    async def runNodeDel(self, node, view=None):
         if not node.snap.trigson:
             return
 
-        await self.triggers.runNodeDel(node)
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runNodeDel(node, view=view)
 
         if self.parent is not None:
-            await self.parent.runNodeDel(node)
+            await self.parent.runNodeDel(node, view=view)
 
-    async def runPropSet(self, node, prop, oldv):
+    async def runPropSet(self, node, prop, oldv, view=None):
         '''
         Handle when a prop set trigger event fired
         '''
         if not node.snap.trigson:
             return
 
-        await self.triggers.runPropSet(node, prop, oldv)
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runPropSet(node, prop, oldv, view=view)
 
         if self.parent is not None:
-            await self.parent.runPropSet(node, prop, oldv)
+            await self.parent.runPropSet(node, prop, oldv, view=view)
 
     async def addTrigger(self, tdef):
         '''

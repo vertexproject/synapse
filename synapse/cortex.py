@@ -1964,6 +1964,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.LiftByVerb)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
+        self.addStormCmd(s_storm.EdgesDelCmd)
         self.addStormCmd(s_storm.SpliceListCmd)
         self.addStormCmd(s_storm.SpliceUndoCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
@@ -2987,6 +2988,18 @@ class Cortex(s_cell.Cell):  # type: ignore
         query = copy.deepcopy(s_parser.parseQuery(text, mode=mode))
         query.init(self)
         return query
+
+    @contextlib.asynccontextmanager
+    async def getStormRuntime(self, query, opts=None):
+
+        opts = self._initStormOpts(opts)
+
+        view = self._viewFromOpts(opts)
+        user = self._userFromOpts(opts)
+
+        async with await self.snap(user=user, view=view) as snap:
+            with snap.getStormRuntime(query, opts=opts, user=user) as runt:
+                yield runt
 
     async def reqValidStorm(self, text, opts=None):
         '''
