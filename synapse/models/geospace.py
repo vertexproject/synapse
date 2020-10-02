@@ -362,9 +362,7 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The street/mailing address for the place.'}),
 
                         ('geojson', ('geo:json', {}), {
-                            'doc': 'A GeoJSON representation of the place.',
-                            'disp': {'hint': 'text'},
-                        }),
+                            'doc': 'A GeoJSON representation of the place.'}),
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The lat/long position for the place.'}),

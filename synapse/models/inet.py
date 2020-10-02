@@ -1460,9 +1460,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The HTTP query string which optionally follows the path.'}),
 
                         ('headers', ('array', {'type': 'inet:http:request:header'}), {
-                            'doc': 'An array of HTTP headers from the request.',
-                            'disp': {'hint': 'text'},
-                        }),
+                            'doc': 'An array of HTTP headers from the request.'}),
+
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),
 
@@ -1470,9 +1469,7 @@ class InetModule(s_module.CoreModule):
                         ('response:code', ('int', {}), {}),
                         ('response:reason', ('str', {}), {}),
                         ('response:headers', ('array', {'type': 'inet:http:response:header'}), {
-                            'doc': 'An array of HTTP headers from the response.',
-                            'disp': {'hint': 'text'},
-                        }),
+                            'doc': 'An array of HTTP headers from the response.'}),
                         ('response:body', ('file:bytes', {}), {}),
 
                     )),

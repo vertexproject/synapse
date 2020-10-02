@@ -188,7 +188,6 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('names', ('array', {'type': 'ou:name'}), {
                        'doc': 'A list of alternate names for the organization.',
-                        'disp': {'hint': 'text'},
                     }),
                     ('alias', ('ou:alias', {}), {
                         'doc': 'The default alias for an organization.'
