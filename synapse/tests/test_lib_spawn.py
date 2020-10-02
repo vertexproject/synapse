@@ -515,11 +515,13 @@ class CoreSpawnTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': (0, 0, 1),
+            'reqversion': '>=2.8.0',
         }
 
         stormpkg = {
             'name': 'stormpkg',
             'version': (1, 2, 3)
+            'reqversion': '>=2.8.0',
         }
         conf = {
             'storm:log': True,
