@@ -520,7 +520,7 @@ class CoreSpawnTest(s_test.SynTest):
 
         stormpkg = {
             'name': 'stormpkg',
-            'version': (1, 2, 3)
+            'version': (1, 2, 3),
             'reqversion': '>=2.8.0',
         }
         conf = {
