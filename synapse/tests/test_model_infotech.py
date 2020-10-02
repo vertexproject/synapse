@@ -57,6 +57,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 org0 = s_common.guid()
                 host0 = s_common.guid()
                 sver0 = s_common.guid()
+                cont0 = s_common.guid()
                 hprops = {
                     'name': 'Bobs laptop',
                     'desc': 'Bobs paperweight',
@@ -68,6 +69,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'model': 'Lutitude 8249',
                     'serial': '111-222',
                     'loc': 'us.hehe.haha',
+                    'operator': cont0,
                     'org': org0,
                 }
                 node = await snap.addNode('it:host', host0, hprops)
@@ -80,6 +82,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('os'), sver0)
                 self.eq(node.get('loc'), 'us.hehe.haha')
                 self.eq(node.get('org'), org0)
+                self.eq(node.get('operator'), cont0)
 
                 node = await snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
                 self.eq(node.ndef[1], (host0, 'http://vertex.ninja/cool.php'))
@@ -752,12 +755,22 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(fnode[0].get('function'), snode[0].get('function'))
             self.eq(vstr, snode[0].get('string'))
 
-            funcnode = await core.nodes('it:reveng:function [ :name=$name :description=$descrp :impcalls=$impcalls ]', opts=funcopt)
+            funcnode = await core.nodes('''
+                it:reveng:function [
+                    :name=$name
+                    :description=$descrp
+                    :impcalls=$impcalls
+                    :strings=(bar,foo,foo)
+            ]''', opts=funcopt)
             self.len(1, funcnode)
             self.eq(name, funcnode[0].get('name'))
             self.eq(descrp, funcnode[0].get('description'))
             self.len(len(impcalls), funcnode[0].get('impcalls'))
             self.eq(impcalls[0], funcnode[0].get('impcalls')[0])
+            self.sorteq(('bar', 'foo'), funcnode[0].get('strings'))
+
+            nodes = await core.nodes('it:reveng:function -> it:dev:str')
+            self.len(2, nodes)
 
             nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function')
             self.len(1, nodes)

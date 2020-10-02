@@ -310,6 +310,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a function in an executable.',
                 }),
                 ('it:reveng:funcstr', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
+                    'deprecated': True,
                     'doc': 'A reference to a string inside a function.',
                 }),
                 ('it:reveng:impfunc', ('str', {'lower': 1}), {
@@ -349,6 +350,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.',
+                    }),
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'The operator of the host.',
                     }),
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that operates the given host.',
@@ -1005,6 +1009,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Notes concerning the function.'}),
                     ('impcalls', ('array', {'type': 'it:reveng:impfunc'}), {
                         'doc': 'Calls to imported library functions within the scope of the function.',
+                    }),
+                    ('strings', ('array', {'type': 'it:dev:str', 'uniq': True}), {
+                        'doc': 'An array of strings referenced within the function.',
                     }),
                 )),
 
