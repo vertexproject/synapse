@@ -11,6 +11,7 @@ foo_stormpkg = {
     'name': 'foo',
     'desc': 'The Foo Module',
     'version': (0, 0, 1),
+    'reqversion': '>=2.8.0',
     'modules': [
         {
             'name': 'hehe.haha',

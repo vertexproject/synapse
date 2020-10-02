@@ -1872,6 +1872,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': (0, 0, 1),
+                'reqversion': '>=2.8.0',
                 'commands': ({
                     'name': 'testcmd',
                     'descr': 'test command',
@@ -1902,6 +1903,24 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await alist(core.storm('inet:user | limit --woot'))
             self.printed(msgs, 'Usage: limit [options] <count>')
             self.len(0, [m for m in msgs if m[0] == 'node'])
+
+            oldverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
+                'reqversion': '<2.0.0',
+                'commands': ()
+            }
+
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(oldverpkg)
+
+            noverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
+                'commands': ()
+            }
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(noverpkg)
 
     async def test_onsetdel(self):
 
@@ -4610,6 +4629,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': (0, 0, 1),
+            'reqversion': '>=2.8.0',
             'modules': [
                 {
                     'name': 'boom.mod',

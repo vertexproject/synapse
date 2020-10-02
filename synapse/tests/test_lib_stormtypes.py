@@ -157,6 +157,7 @@ class StormTypesTest(s_test.SynTest):
             'name': 'foo',
             'desc': 'test',
             'version': (0, 0, 1),
+            'reqversion': '>=2.8.0',
             'modules': [
                 {
                     'name': 'test',

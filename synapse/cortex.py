@@ -1345,11 +1345,20 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Validate package def
         s_storm.reqValidPkgdef(pkgdef)
 
+        pkgname = pkgdef.get('name')
+
+        # Check required synapse version
+        reqversion = pkgdef.get('reqversion')
+        if reqversion is None:
+            mesg = f'Storm package {pkgname} missing reqversion value.'
+            raise s_exc.BadVersion(mesg=mesg)
+
+        s_version.reqVersion(s_version.version, reqversion)
+
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
         svciden = pkgdef.get('svciden')
-        pkgname = pkgdef.get('name')
 
         for mdef in mods:
             modtext = mdef.get('storm')

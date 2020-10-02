@@ -160,6 +160,7 @@ class CoreSpawnTest(s_test.SynTest):
             pkgdef = {
                 'name': 'spawn',
                 'version': (0, 0, 1),
+                'reqversion': '>=2.8.0',
                 'commands': (
                     {
                         'name': 'passthrough',
