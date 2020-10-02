@@ -1559,3 +1559,12 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes('inet:ipv4 | limit 1 | tee { [+#foo] }', opts={'readonly': True})
+
+    async def test_ast_yield(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('$nodes = $lib.list() [ inet:asn=10 inet:asn=20 ] $nodes.append($node) | spin | yield $nodes')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('$nodes = $lib.set() [ inet:asn=10 inet:asn=20 ] $nodes.add($node) | spin | yield $nodes')
+            self.len(2, nodes)

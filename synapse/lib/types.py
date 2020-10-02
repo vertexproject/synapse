@@ -391,6 +391,7 @@ class Array(Type):
 
         self.isuniq = self.opts.get('uniq', False)
         self.issorted = self.opts.get('sorted', False)
+        self.splitstr = self.opts.get('split', None)
 
         typename = self.opts.get('type')
         if typename is None:
@@ -410,10 +411,18 @@ class Array(Type):
                        f'which will be removed in 3.0.0'
                 logger.warning(mesg)
 
+        self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.stortype = s_layer.STOR_FLAG_ARRAY | self.arraytype.stortype
+
+    def _normPyStr(self, text):
+        if self.splitstr is None:
+            mesg = f'{self.name} type has no split-char defined.'
+            raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
+        parts = [p.strip() for p in text.split(self.splitstr)]
+        return self._normPyTuple(parts)
 
     def _normPyTuple(self, valu):
 
@@ -440,7 +449,10 @@ class Array(Type):
         return tuple(norms), {'adds': adds}
 
     def repr(self, valu):
-        return [self.arraytype.repr(v) for v in valu]
+        rval = [self.arraytype.repr(v) for v in valu]
+        if self.splitstr:
+            rval = self.splitstr.join(rval)
+        return rval
 
 class Comp(Type):
 
