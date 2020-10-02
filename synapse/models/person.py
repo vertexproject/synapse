@@ -196,6 +196,15 @@ class PsModule(s_module.CoreModule):
                     ('adid', ('it:adid', {}), {
                         'doc': 'A Advertising ID associated with this contact.',
                     }),
+                    ('imid', ('tel:mob:imid', {}), {
+                        'doc': 'An IMID associated with the contact.',
+                    }),
+                    ('imid:imei', ('tel:mob:imei', {}), {
+                        'doc': 'An IMEI associated with the contact.',
+                    }),
+                    ('imid:imsi', ('tel:mob:imsi', {}), {
+                        'doc': 'An IMSI associated with the contact.',
+                    }),
                 )),
             )
         }

@@ -412,3 +412,56 @@ class OuModelTest(s_t_utils.SynTest):
 
                 nodes = await snap.nodes('ou:org:naics^=22112')
                 self.len(2, nodes)
+
+    async def test_ou_contract(self):
+
+        async with self.getTestCore() as core:
+            iden0 = await core.callStorm('[ ps:contact=* ] return($node.value())')
+            iden1 = await core.callStorm('[ ps:contact=* ] return($node.value())')
+            iden2 = await core.callStorm('[ ps:contact=* ] return($node.value())')
+
+            goal0 = await core.callStorm('[ ou:goal=* :name="world peace"] return($node.value())')
+            goal1 = await core.callStorm('[ ou:goal=* :name="whirled peas"] return($node.value())')
+
+            file0 = await core.callStorm('[ file:bytes=* ] return($node.value())')
+
+            nodes = await core.nodes(f'''
+            [ ou:contract=*
+                :title="Fullbright Scholarship"
+                :types="nda,grant"
+                :sponsor={iden0}
+                :award:price=20.00
+                :parties=({iden1}, {iden2})
+                :document={file0}
+                :signed=202001
+                :begins=202002
+                :expires=202003
+                :completed=202004
+                :terminated=202005
+                :requirements=({goal0},{goal1})
+            ]''')
+            self.len(1, nodes)
+            self.eq('Fullbright Scholarship', nodes[0].get('title'))
+            self.eq(iden0, nodes[0].get('sponsor'))
+            self.eq('20.00', nodes[0].get('award:price'))
+            self.eq(1577836800000, nodes[0].get('signed'))
+            self.eq(1580515200000, nodes[0].get('begins'))
+            self.eq(1583020800000, nodes[0].get('expires'))
+            self.eq(1585699200000, nodes[0].get('completed'))
+            self.eq(1588291200000, nodes[0].get('terminated'))
+            self.sorteq(('grant', 'nda'), nodes[0].get('types'))
+            self.sorteq((iden1, iden2), nodes[0].get('parties'))
+            self.sorteq((goal0, goal1), nodes[0].get('requirements'))
+
+    async def test_ou_industry(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ ou:industry=* :name=" Foo Bar " :subs=(*, *) :naics=(11111,22222) :sic="1234,5678" ]')
+            self.len(1, nodes)
+            self.eq('foo bar', nodes[0].get('name'))
+            self.sorteq(('1234', '5678'), nodes[0].get('sic'))
+            self.sorteq(('11111', '22222'), nodes[0].get('naics'))
+            self.len(2, nodes[0].get('subs'))
+
+            nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
+            self.len(3, nodes)

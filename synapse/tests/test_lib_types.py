@@ -1068,7 +1068,7 @@ class TypesTest(s_t_utils.SynTest):
                     ('int', ('test:int', {}), {}),
                 )),
                 ('test:witharray', {}, (
-                    ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {}),
+                    ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True, 'split': ','}), {}),
                 )),
             ),
         }
@@ -1094,6 +1094,9 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:array*[=1.2.3.4]')
             self.len(0, nodes)
 
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:arraycomp=("1.2.3.4, 5.6.7.8", 10) ]')
+
             nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:arraycomp', ((0x01020304, 0x05060708), 10)))
@@ -1104,10 +1107,11 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
             self.len(2, nodes)
 
-            nodes = await core.nodes('[ test:witharray="*" :fqdns=(woot.com, VERTEX.LINK, vertex.link) ]')
+            nodes = await core.nodes('[ test:witharray="*" :fqdns="woot.com, VERTEX.LINK, vertex.link" ]')
             self.len(1, nodes)
 
             self.eq(nodes[0].get('fqdns'), ('vertex.link', 'woot.com'))
+            self.sorteq(('vertex.link', 'woot.com'), nodes[0].repr('fqdns').split(','))
 
             nodes = await core.nodes('test:witharray:fqdns=(vertex.link, WOOT.COM)')
             self.len(1, nodes)
