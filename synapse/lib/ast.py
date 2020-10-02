@@ -1003,6 +1003,11 @@ class YieldValu(Oper):
             async for node in valu.nodes():
                 yield node
 
+        if isinstance(valu, (s_stormtypes.List, s_stormtypes.Set)):
+            for item in valu.valu:
+                async for node in self.yieldFromValu(runt, item):
+                    yield node
+
 class LiftTag(LiftOper):
 
     async def lift(self, runt, path):

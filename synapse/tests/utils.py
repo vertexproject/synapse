@@ -173,6 +173,10 @@ testmodel = {
             ('hehe', 'test:int'),
             ('haha', 'test:lower'))
         }), {'doc': 'A fake comp type.'}),
+        ('test:compcomp', ('comp', {'fields': (
+            ('comp1', 'test:comp'),
+            ('comp2', 'test:comp'))
+        }), {}),
         ('test:complexcomp', ('comp', {'fields': (
             ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
@@ -224,6 +228,11 @@ testmodel = {
         ('test:comp', {}, (
             ('hehe', ('test:int', {}), {'ro': True}),
             ('haha', ('test:lower', {}), {'ro': True}),
+        )),
+
+        ('test:compcomp', {}, (
+            ('comp1', ('test:comp', {}), {}),
+            ('comp2', ('test:comp', {}), {}),
         )),
 
         ('test:complexcomp', {}, (
