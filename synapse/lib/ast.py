@@ -1386,8 +1386,6 @@ class PivotToTags(PivotOper):
             for name, _ in node.getTags(leaf=leaf):
 
                 if not await filter(name, path):
-                    # adding this for strawman discussion. We are at worst case in a
-                    # terrible compute method which sucks to evaluate each time through.
                     await asyncio.sleep(0)
                     continue
 
