@@ -2001,7 +2001,6 @@ class DelNodeCmd(Cmd):
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
-        i = 0
         async for node, path in genr:
 
             # make sure we can delete the tags...
@@ -2012,10 +2011,7 @@ class DelNodeCmd(Cmd):
 
             await node.delete(force=self.opts.force)
 
-            i += 1
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
+            await asyncio.sleep(0)
 
         # a bit odd, but we need to be detected as a generator
         if False:
@@ -2229,15 +2225,19 @@ class IdenCmd(Cmd):
             try:
                 buid = s_common.uhex(iden)
             except Exception:
+                await asyncio.sleep(0)
                 await runt.warn(f'Failed to decode iden: [{iden}]')
                 continue
             if len(buid) != 32:
+                await asyncio.sleep(0)
                 await runt.warn(f'iden must be 32 bytes [{iden}]')
                 continue
 
             node = await runt.snap.getNodeByBuid(buid)
-            if node is not None:
-                yield node, runt.initPath(node)
+            if node is None:
+                await asyncio.sleep(0)
+                continue
+            yield node, runt.initPath(node)
 
 class SleepCmd(Cmd):
     '''
