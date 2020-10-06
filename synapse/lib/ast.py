@@ -326,6 +326,7 @@ class SubGraph:
 
             async for pivo in node.storm(runt, pivq):
                 yield pivo
+            await asyncio.sleep(0)
 
         rules = self.rules['forms'].get(node.form.name)
         if rules is None:
@@ -337,6 +338,7 @@ class SubGraph:
         for pivq in rules.get('pivots', ()):
             async for pivo in node.storm(runt, pivq):
                 yield pivo
+            await asyncio.sleep(0)
 
     async def run(self, runt, genr):
 
@@ -366,7 +368,7 @@ class SubGraph:
             async for node, path, dist in todogenr():
 
                 if node.buid in done:
-                    # FIXME Possible greedy point
+                    await asyncio.sleep(0)
                     continue
 
                 await done.add(node.buid)
@@ -377,7 +379,7 @@ class SubGraph:
                     omitted = await self.omit(runt, node)
 
                 if omitted and not yieldfiltered:
-                    # FIXME Possible greedy point
+                    await asyncio.sleep(0)
                     continue
 
                 # we must traverse the pivots for the node *regardless* of degrees
@@ -390,17 +392,14 @@ class SubGraph:
 
                     # we dont pivot from omitted nodes
                     if omitted:
-                        # FIXME Possible greedy point
                         continue
 
                     # no need to pivot to nodes we already did
                     if pivn.buid in done:
-                        # FIXME Possible greedy point
                         continue
 
                     # no need to queue up todos that are already in todo
                     if pivn.buid in intodo:
-                        # FIXME Possible greedy point
                         continue
 
                     # do we have room to go another degree out?
@@ -582,7 +581,10 @@ class ForLoop(Oper):
                     if e.item is not None:
                         yield e.item
                     continue
-                    # FIXME Possible greedy point
+
+                finally:
+                    # for loops must yield per item they iterate over
+                    await asyncio.sleep(0)
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
@@ -620,7 +622,10 @@ class ForLoop(Oper):
                     if e.item is not None:
                         yield e.item
                     continue
-                    # FIXME Possible greedy point
+
+                finally:
+                    # for loops must yield per item they iterate over
+                    await asyncio.sleep(0)
 
 class WhileLoop(Oper):
 
@@ -647,7 +652,10 @@ class WhileLoop(Oper):
                     if e.item is not None:
                         yield e.item
                     continue
-                    # FIXME Possible greedy point
+
+                finally:
+                    # while loops must yield each time they loop
+                    await asyncio.sleep(0)
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[0].isRuntSafe(runt):
@@ -669,7 +677,9 @@ class WhileLoop(Oper):
                         yield e.item
                     continue
 
-                await asyncio.sleep(0)  # give other tasks some CPU
+                finally:
+                    # while loops must yield each time they loop
+                    await asyncio.sleep(0)
 
 async def pullone(genr):
     gotone = None
@@ -1098,10 +1108,6 @@ class LiftTagTag(LiftOper):
 
     async def lift(self, runt, path):
 
-        todo = collections.deque()
-        cmpr = '='
-        valu = None
-
         tagname = await tostr(await self.kids[0].compute(runt, path))
 
         node = await runt.snap.getNodeByNdef(('syn:tag', tagname))
@@ -1135,7 +1141,6 @@ class LiftTagTag(LiftOper):
                         todo.append(runt.snap.nodesByTag(tagname))
 
                     continue
-                    # FIXME Possible greedy point
 
                 yield node
 
@@ -1306,7 +1311,6 @@ class PivotOut(PivotOper):
             # avoid self references
             if pivo.buid == node.buid:
                 continue
-                # FIXME Possible greedy point
 
             yield pivo, path.fork(pivo)
 
@@ -1382,13 +1386,14 @@ class PivotToTags(PivotOper):
             for name, _ in node.getTags(leaf=leaf):
 
                 if not await filter(name, path):
+                    # adding this for strawman discussion. We are at worst case in a
+                    # terrible compute method which sucks to evaluate each time through.
+                    await asyncio.sleep(0)
                     continue
-                    # FIXME Possible greedy point
 
                 pivo = await runt.snap.getNodeByNdef(('syn:tag', name))
                 if pivo is None:
                     continue
-                    # FIXME Possible greedy point
 
                 yield pivo, path.fork(pivo)
 
@@ -1480,19 +1485,16 @@ class PivotInFrom(PivotOper):
 
             if not isinstance(node.form.type, s_types.Edge):
                 continue
-                # FIXME Possible greedy point
 
             # dont bother traversing edges to the wrong form
             if node.get('n1:form') != form.name:
                 continue
-                # FIXME Possible greedy point
 
             n1def = node.get('n1')
 
             pivo = await runt.snap.getNodeByNdef(n1def)
             if pivo is None:
                 continue
-                # FIXME Possible greedy point
 
             yield pivo, path.fork(pivo)
 
@@ -1579,7 +1581,6 @@ class FormPivot(PivotOper):
                     yield pivo, path.fork(pivo)
 
                 continue
-                # FIXME Possible greedy point
 
             # if the source node is a graph edge, use n2
             if isinstance(node.form.type, s_types.Edge):
@@ -1587,7 +1588,6 @@ class FormPivot(PivotOper):
                 n2def = node.get('n2')
                 if n2def[0] != destform.name:
                     continue
-                    # FIXME Possible greedy point
 
                 pivo = await runt.snap.getNodeByNdef(node.get('n2'))
                 if pivo:
@@ -1706,14 +1706,12 @@ class PropPivotOut(PivotOper):
                         await runt.snap.warn(mesg)
                         warned = True
                     continue
-                    # FIXME Possible greedy point
 
                 for item in valu:
                     async for pivo in runt.snap.nodesByPropValu(fname, '=', item):
                         yield pivo, path.fork(pivo)
 
                 continue
-                # FIXME Possible greedy point
 
             # ndef pivot out syntax...
             # :ndef -> *
@@ -1732,7 +1730,6 @@ class PropPivotOut(PivotOper):
                     await runt.snap.warn(f'The source property "{name}" type "{fname}" is not a form. Cannot pivot.')
                     warned = True
                 continue
-                # FIXME Possible greedy point
 
             ndef = (fname, valu)
             pivo = await runt.snap.getNodeByNdef(ndef)
@@ -1776,7 +1773,7 @@ class PropPivot(PivotOper):
                     for arrayval in valu:
                         async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval):
                             yield pivo, path.fork(pivo)
-                    # FIXME Possible greedy point
+
                     continue
 
                 async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
@@ -2084,7 +2081,7 @@ class ArrayCond(Cond):
             prop = node.form.props.get(name)
             if prop is None:
                 mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(name=name)
+                raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
             if not prop.type.isarray:
                 mesg = f'Array filter syntax is invalid for non-array prop {name}.'
