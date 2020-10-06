@@ -144,7 +144,10 @@ class SynModule(s_module.CoreModule):
                     ('isnow', ('syn:tag', {}), {
                         'doc': 'Set to an updated tag if the tag has been renamed.'}),
 
-                    ('doc', ('str', {}), {'doc': 'A short definition for the tag.'}),
+                    ('doc', ('str', {}), {
+                        'doc': 'A short definition for the tag.',
+                        'disp': {'hint': 'text'},
+                    }),
 
                     ('doc:url', ('inet:url', {}), {
                         'doc': 'A URL link to additional documentation about the tag.'}),
@@ -205,6 +208,7 @@ class SynModule(s_module.CoreModule):
                     }),
                     ('doc', ('str', {}), {
                         'doc': 'A documentation string describing the trigger.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('name', ('str', {}), {
                         'doc': 'A user friendly name/alias for the trigger.',
@@ -217,6 +221,7 @@ class SynModule(s_module.CoreModule):
                     }),
                     ('storm', ('str', {}), {
                         'doc': 'The Storm query for the trigger.', 'ro': True,
+                        'disp': {'hint': 'text'},
                     }),
                     ('enabled', ('bool', {}), {
                         'doc': 'Trigger enabled status.', 'ro': True,
@@ -234,19 +239,25 @@ class SynModule(s_module.CoreModule):
                 ('syn:cron', {'runt': True}, (
 
                     ('doc', ('str', {}), {
-                        'doc': 'A description of the cron job.'}),
+                        'doc': 'A description of the cron job.',
+                        'disp': {'hint': 'text'},
+                    }),
 
                     ('name', ('str', {}), {
                         'doc': 'A user friendly name/alias for the cron job.'}),
 
                     ('storm', ('str', {}), {
                         'ro': True,
-                        'doc': 'The storm query executed by the cron job.'}),
+                        'doc': 'The storm query executed by the cron job.',
+                        'disp': {'hint': 'text'},
+                    }),
 
                 )),
                 ('syn:cmd', {'runt': True}, (
                     ('doc', ('str', {'strip': True}), {
-                        'doc': 'Description of the command.'}),
+                        'doc': 'Description of the command.',
+                        'disp': {'hint': 'text'},
+                    }),
                     ('package', ('str', {'strip': True}), {
                         'doc': 'Storm package which provided the command.'}),
                     ('svciden', ('guid', {'strip': True}), {
