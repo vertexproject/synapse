@@ -13,16 +13,19 @@ class LangModule(s_module.CoreModule):
                     'doc': 'Authoritative URL for the idiom.'
                 }),
                 ('desc:en', ('str', {}), {
-                    'doc': 'English description.'
+                    'doc': 'English description.',
+                    'disp': {'hint': 'text'},
                 }),
             )),
 
             ('lang:trans', {}, (
                 ('text:en', ('str', {}), {
-                    'doc': 'English translation.'
+                    'doc': 'English translation.',
+                    'disp': {'hint': 'text'},
                 }),
                 ('desc:en', ('str', {}), {
-                    'doc': 'English description.'
+                    'doc': 'English description.',
+                    'disp': {'hint': 'text'},
                 }),
             )),
         )

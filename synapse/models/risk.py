@@ -27,6 +27,7 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the vulnerability.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.',
