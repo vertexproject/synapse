@@ -1198,8 +1198,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The file bytes which contain the email message.'
                         }),
                         ('headers', ('array', {'type': 'inet:email:header'}), {
-                            'doc': 'An array of email headers from the message.',
-                            'disp': {'hint': 'text'},
+                            'doc': 'An array of email headers from the message.'
                         }),
                     )),
 
