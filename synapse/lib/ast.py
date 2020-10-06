@@ -366,6 +366,7 @@ class SubGraph:
             async for node, path, dist in todogenr():
 
                 if node.buid in done:
+                    # FIXME Possible greedy point
                     continue
 
                 await done.add(node.buid)
@@ -376,6 +377,7 @@ class SubGraph:
                     omitted = await self.omit(runt, node)
 
                 if omitted and not yieldfiltered:
+                    # FIXME Possible greedy point
                     continue
 
                 # we must traverse the pivots for the node *regardless* of degrees
@@ -388,14 +390,17 @@ class SubGraph:
 
                     # we dont pivot from omitted nodes
                     if omitted:
+                        # FIXME Possible greedy point
                         continue
 
                     # no need to pivot to nodes we already did
                     if pivn.buid in done:
+                        # FIXME Possible greedy point
                         continue
 
                     # no need to queue up todos that are already in todo
                     if pivn.buid in intodo:
+                        # FIXME Possible greedy point
                         continue
 
                     # do we have room to go another degree out?
@@ -577,6 +582,7 @@ class ForLoop(Oper):
                     if e.item is not None:
                         yield e.item
                     continue
+                    # FIXME Possible greedy point
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
@@ -614,6 +620,7 @@ class ForLoop(Oper):
                     if e.item is not None:
                         yield e.item
                     continue
+                    # FIXME Possible greedy point
 
 class WhileLoop(Oper):
 
@@ -640,6 +647,7 @@ class WhileLoop(Oper):
                     if e.item is not None:
                         yield e.item
                     continue
+                    # FIXME Possible greedy point
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[0].isRuntSafe(runt):
@@ -1127,6 +1135,7 @@ class LiftTagTag(LiftOper):
                         todo.append(runt.snap.nodesByTag(tagname))
 
                     continue
+                    # FIXME Possible greedy point
 
                 yield node
 
@@ -1297,6 +1306,7 @@ class PivotOut(PivotOper):
             # avoid self references
             if pivo.buid == node.buid:
                 continue
+                # FIXME Possible greedy point
 
             yield pivo, path.fork(pivo)
 
@@ -1373,10 +1383,12 @@ class PivotToTags(PivotOper):
 
                 if not await filter(name, path):
                     continue
+                    # FIXME Possible greedy point
 
                 pivo = await runt.snap.getNodeByNdef(('syn:tag', name))
                 if pivo is None:
                     continue
+                    # FIXME Possible greedy point
 
                 yield pivo, path.fork(pivo)
 
@@ -1468,16 +1480,19 @@ class PivotInFrom(PivotOper):
 
             if not isinstance(node.form.type, s_types.Edge):
                 continue
+                # FIXME Possible greedy point
 
             # dont bother traversing edges to the wrong form
             if node.get('n1:form') != form.name:
                 continue
+                # FIXME Possible greedy point
 
             n1def = node.get('n1')
 
             pivo = await runt.snap.getNodeByNdef(n1def)
             if pivo is None:
                 continue
+                # FIXME Possible greedy point
 
             yield pivo, path.fork(pivo)
 
@@ -1564,6 +1579,7 @@ class FormPivot(PivotOper):
                     yield pivo, path.fork(pivo)
 
                 continue
+                # FIXME Possible greedy point
 
             # if the source node is a graph edge, use n2
             if isinstance(node.form.type, s_types.Edge):
@@ -1571,6 +1587,7 @@ class FormPivot(PivotOper):
                 n2def = node.get('n2')
                 if n2def[0] != destform.name:
                     continue
+                    # FIXME Possible greedy point
 
                 pivo = await runt.snap.getNodeByNdef(node.get('n2'))
                 if pivo:
@@ -1689,12 +1706,14 @@ class PropPivotOut(PivotOper):
                         await runt.snap.warn(mesg)
                         warned = True
                     continue
+                    # FIXME Possible greedy point
 
                 for item in valu:
                     async for pivo in runt.snap.nodesByPropValu(fname, '=', item):
                         yield pivo, path.fork(pivo)
 
                 continue
+                # FIXME Possible greedy point
 
             # ndef pivot out syntax...
             # :ndef -> *
@@ -1713,6 +1732,7 @@ class PropPivotOut(PivotOper):
                     await runt.snap.warn(f'The source property "{name}" type "{fname}" is not a form. Cannot pivot.')
                     warned = True
                 continue
+                # FIXME Possible greedy point
 
             ndef = (fname, valu)
             pivo = await runt.snap.getNodeByNdef(ndef)
@@ -1756,7 +1776,7 @@ class PropPivot(PivotOper):
                     for arrayval in valu:
                         async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval):
                             yield pivo, path.fork(pivo)
-
+                    # FIXME Possible greedy point
                     continue
 
                 async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
