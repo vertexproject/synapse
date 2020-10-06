@@ -3011,7 +3011,8 @@ class View(Prim):
                 $counts = $lib.view.get().getFormCounts()
 
         Returns:
-            Dictionary containing form names and the count of the nodes in the View's Layers.'''
+            Dictionary containing form names and the count of the nodes in the View's Layers.
+        '''
         todo = s_common.todo('getFormCounts')
         return await self.viewDynCall(todo, ('view', 'read'))
 
