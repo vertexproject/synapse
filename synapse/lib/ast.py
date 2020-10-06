@@ -326,6 +326,7 @@ class SubGraph:
 
             async for pivo in node.storm(runt, pivq):
                 yield pivo
+            await asyncio.sleep(0)
 
         rules = self.rules['forms'].get(node.form.name)
         if rules is None:
@@ -337,6 +338,7 @@ class SubGraph:
         for pivq in rules.get('pivots', ()):
             async for pivo in node.storm(runt, pivq):
                 yield pivo
+            await asyncio.sleep(0)
 
     async def run(self, runt, genr):
 
@@ -366,6 +368,7 @@ class SubGraph:
             async for node, path, dist in todogenr():
 
                 if node.buid in done:
+                    await asyncio.sleep(0)
                     continue
 
                 await done.add(node.buid)
@@ -376,6 +379,7 @@ class SubGraph:
                     omitted = await self.omit(runt, node)
 
                 if omitted and not yieldfiltered:
+                    await asyncio.sleep(0)
                     continue
 
                 # we must traverse the pivots for the node *regardless* of degrees
@@ -578,6 +582,10 @@ class ForLoop(Oper):
                         yield e.item
                     continue
 
+                finally:
+                    # for loops must yield per item they iterate over
+                    await asyncio.sleep(0)
+
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
 
@@ -615,6 +623,10 @@ class ForLoop(Oper):
                         yield e.item
                     continue
 
+                finally:
+                    # for loops must yield per item they iterate over
+                    await asyncio.sleep(0)
+
 class WhileLoop(Oper):
 
     async def run(self, runt, genr):
@@ -641,6 +653,10 @@ class WhileLoop(Oper):
                         yield e.item
                     continue
 
+                finally:
+                    # while loops must yield each time they loop
+                    await asyncio.sleep(0)
+
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[0].isRuntSafe(runt):
 
@@ -661,7 +677,9 @@ class WhileLoop(Oper):
                         yield e.item
                     continue
 
-                await asyncio.sleep(0)  # give other tasks some CPU
+                finally:
+                    # while loops must yield each time they loop
+                    await asyncio.sleep(0)
 
 async def pullone(genr):
     gotone = None
@@ -1090,10 +1108,6 @@ class LiftTagTag(LiftOper):
 
     async def lift(self, runt, path):
 
-        todo = collections.deque()
-        cmpr = '='
-        valu = None
-
         tagname = await tostr(await self.kids[0].compute(runt, path))
 
         node = await runt.snap.getNodeByNdef(('syn:tag', tagname))
@@ -1372,6 +1386,7 @@ class PivotToTags(PivotOper):
             for name, _ in node.getTags(leaf=leaf):
 
                 if not await filter(name, path):
+                    await asyncio.sleep(0)
                     continue
 
                 pivo = await runt.snap.getNodeByNdef(('syn:tag', name))
@@ -2064,7 +2079,7 @@ class ArrayCond(Cond):
             prop = node.form.props.get(name)
             if prop is None:
                 mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(name=name)
+                raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
             if not prop.type.isarray:
                 mesg = f'Array filter syntax is invalid for non-array prop {name}.'
