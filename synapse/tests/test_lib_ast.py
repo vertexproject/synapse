@@ -1567,3 +1567,15 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('$nodes = $lib.set() [ inet:asn=10 inet:asn=20 ] $nodes.add($node) | spin | yield $nodes')
             self.len(2, nodes)
+
+    async def test_regex_conditionals(self):
+        async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[test:str=quickbrownfox]'))
+
+            q = '''test:str $data=$node.valu
+            if ($data ~= "brown") { $lib.print(yes) }
+            else { $lib.print(no) }
+            '''
+            mesgs = await core.stormlist(q)
+            for m in mesgs:
+                print(m)
