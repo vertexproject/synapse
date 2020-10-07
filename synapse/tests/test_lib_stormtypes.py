@@ -1834,7 +1834,14 @@ class StormTypesTest(s_test.SynTest):
                 layr = core.getLayer(locklayr)
                 self.true(layr.lockmemory)
 
-            # FIXME Why was the remainder of this disabled?
+            # formcounts for layers are exposed on the View object
+            nodes = await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
+            counts = await core.callStorm('return( $lib.layer.get().getFormCounts() )')
+            self.eq(counts.get('test:int'), 2)
+            self.eq(counts.get('test:guid'), 1)
+
+    async def test_storm_lib_layer_upstream(self):
+        async with self.getTestCore() as core:
             async with self.getTestCore() as core2:
 
                 await core2.nodes('[ inet:ipv4=1.2.3.4 ]')
@@ -1854,14 +1861,8 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(uplayr)
 
-                #evnt = await layr.waitUpstreamOffs(layriden, offs)
-                #await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-            # formcounts for layers are exposed on the View object
-            nodes = await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
-            counts = await core.callStorm('return( $lib.layer.get().getFormCounts() )')
-            self.eq(counts.get('test:int'), 2)
-            self.eq(counts.get('test:guid'), 1)
+                evnt = await layr.waitUpstreamOffs(layriden, offs)
+                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
 
     async def test_storm_lib_view(self):
 
