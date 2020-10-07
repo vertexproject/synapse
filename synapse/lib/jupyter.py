@@ -194,11 +194,8 @@ class CmdrCore(s_base.Base):
 
     async def _runStorm(self, text, opts=None, cmdr=False, suppress_logging=False):
         mesgs = []
-
-        if cmdr:
-
-            with self.suppress_logging(suppress_logging):
-
+        with self.suppress_logging(suppress_logging):
+            if cmdr:
                 if self.prefix:
                     text = ' '.join((self.prefix, text))
 
@@ -209,8 +206,7 @@ class CmdrCore(s_base.Base):
                 with self.cmdr.onWith('storm:mesg', onEvent):
                     await self.runCmdLine(text)
 
-        else:
-            with self.suppress_logging(suppress_logging):
+            else:
                 async for mesg in self.core.storm(text, opts=opts):
                     mesgs.append(mesg)
 
