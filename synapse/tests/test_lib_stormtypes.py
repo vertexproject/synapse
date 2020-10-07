@@ -2484,7 +2484,7 @@ class StormTypesTest(s_test.SynTest):
 
                 async def getCronIden():
                     return await core.callStorm('''
-                        for $job in $lib.cron.list() { return ($job.iden) }
+                        $jobs=$lib.cron.list() $job=$jobs.index(0) return ($job.iden)
                     ''')
 
                 @contextlib.asynccontextmanager
@@ -2538,10 +2538,6 @@ class StormTypesTest(s_test.SynTest):
                 q = f"cron.del {guid}"
                 mesgs = await core.stormlist(q)
                 self.stormIsInPrint('Deleted cron job', mesgs)
-
-                q = f"cron.del xxx"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('does not match', mesgs)
 
                 q = f"cron.del xxx"
                 mesgs = await core.stormlist(q)
