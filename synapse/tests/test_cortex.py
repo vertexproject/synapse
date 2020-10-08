@@ -108,6 +108,9 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 self.len(0, await core.nodes('media:news -(*)> $(0)'))
 
+            with self.raises(s_exc.StormRuntimeError):
+                self.len(0, await core.nodes('media:news -(*)> test:newp'))
+
             nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
