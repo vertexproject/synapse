@@ -1,4 +1,5 @@
 import os
+import regex
 import argparse
 
 import yaml
@@ -94,6 +95,9 @@ class ConfTest(s_test.SynTest):
                 pars.add_argument(optname, **optinfo)
             self.true(stream.wait(3))
         hmsg = pars.format_help()
+
+        # Undo pretty-printing
+        hmsg = regex.sub(r'\s\s+', ' ', hmsg)
 
         # Multiple types are supported for argparse and descriptions
         # are used to generate the argparse help
