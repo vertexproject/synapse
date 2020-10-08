@@ -422,7 +422,7 @@ class LibService(Lib):
 
     async def _libSvcHas(self, name):
         '''
-        Check if a storm service
+        Check if a storm service is available in the Cortex.
 
         Args:
             name (str): The local name, local iden, or remote name, of the service to check for the existance of.
