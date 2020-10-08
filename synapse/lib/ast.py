@@ -7,6 +7,8 @@ import itertools
 import contextlib
 import collections
 
+import regex
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -2478,6 +2480,10 @@ async def expr_or(x, y):
     return await tobool(x) or await tobool(y)
 async def expr_and(x, y):
     return await tobool(x) and await tobool(y)
+async def expr_re(x, y):
+    if regex.search(await tostr(y), await tostr(x), flags=regex.IGNORECASE):
+        return True
+    return False
 
 _ExprFuncMap = {
     '+': expr_add,
@@ -2486,6 +2492,7 @@ _ExprFuncMap = {
     '/': expr_div,
     '=': expr_eq,
     '!=': expr_ne,
+    '~=': expr_re,
     '>': expr_gt,
     '<': expr_lt,
     '>=': expr_ge,

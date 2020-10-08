@@ -1572,10 +1572,15 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             self.len(1, await core.nodes('[test:str=quickbrownfox]'))
 
-            q = '''test:str $data=$node.valu
-            if ($data ~= "brown") { $lib.print(yes) }
+            q = '''test:str $data=$node.value()
+            if ($data ~= "BrOwN") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
-            mesgs = await core.stormlist(q)
-            for m in mesgs:
-                print(m)
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('yes', msgs)
+            q = '''test:str $data=$node.value()
+            if ($data ~= "newp") { $lib.print(yes) }
+            else { $lib.print(no) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('no', msgs)
