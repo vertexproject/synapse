@@ -465,7 +465,7 @@ class CoreApi(s_cell.CellApi):
                 if await proc.xact(info):
                     await link.fini()
 
-        except Exception as e:
+        except (asyncio.CancelledError, Exception) as e:
 
             if not isinstance(e, asyncio.CancelledError):
                 logger.exception('Error during spawned Storm execution.')
@@ -1113,7 +1113,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             try:
                 await self.runStormDmon(iden, ddef)
 
-            except asyncio.CancelledError:  # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception as e:
@@ -1126,7 +1126,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             try:
                 await self._setStormSvc(sdef)
 
-            except asyncio.CancelledError:  # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception as e:
@@ -1331,8 +1331,9 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _tryLoadStormPkg(self, pkgdef):
         try:
             await self.loadStormPkg(pkgdef)
-        except asyncio.CancelledError:
-            raise  # pragma: no cover
+
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            raise
 
         except Exception as e:
             name = pkgdef.get('name', '')
@@ -1473,7 +1474,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         try:
             if self.isactive:
                 await self.runStormSvcEvent(iden, 'del')
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once py 3.8 only
             raise
         except Exception as e:
             logger.exception(f'service.del hook for service {iden} failed with error: {e}')
@@ -1558,7 +1559,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         try:
             await self.runStormSvcEvent(iden, 'add')
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once py 3.8 only
             raise
         except Exception as e:
             logger.exception(f'runStormSvcEvent service.add failed with error {e}')
@@ -1629,7 +1630,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for form, prop, tdef, info in self.extprops.values():
             try:
                 prop = self.model.addFormProp(form, prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception as e:
                 logger.warning(f'ext prop ({form}:{prop}) error: {e}')
@@ -1642,7 +1643,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for prop, tdef, info in self.extunivs.values():
             try:
                 self.model.addUnivProp(prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception as e:
                 logger.warning(f'ext univ ({prop}) error: {e}')
@@ -1650,7 +1651,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for prop, tdef, info in self.exttagprops.values():
             try:
                 self.model.addTagProp(prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
@@ -1934,7 +1935,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     self.dynitems['axon'] = self.axon
                     self.axready.set()
                     return
-                except asyncio.CancelledError:
+                except asyncio.CancelledError:  # TODO:  remove once >= py 3.8 only
                     raise
                 except Exception as e:
                     logger.warning('remote axon error: %r' % (e,))
@@ -2000,7 +2001,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _trySetStormCmd(self, name, cdef):
         try:
             await self._setStormCmd(cdef)
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             logger.exception(f'Storm command load failed: {name}')
 
     def _initStormLibs(self):
@@ -2772,7 +2773,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             try:
                 await func(snap, item)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception as e:
                 logger.exception('splice error')
@@ -3134,7 +3135,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         try:
             await s_coro.ornot(modu.preCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
         except Exception:
             logger.exception(f'module preCoreModule failed: {ctor}')
@@ -3149,7 +3150,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         try:
             await s_coro.ornot(modu.initCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
         except Exception:
             logger.exception(f'module initCoreModule failed: {ctor}')
@@ -3188,7 +3189,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         try:
             await s_coro.ornot(modu.preCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
         except Exception:
             logger.exception(f'module preCoreModule failed: {ctor}')
@@ -3198,7 +3199,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         cmds.extend(modu.getStormCmds())
         model_defs = modu.getModelDefs()
         if custom:
-            for mdef, mnfo in model_defs:
+            for _mdef, mnfo in model_defs:
                 mnfo['custom'] = True
         mdefs.extend(model_defs)
 
@@ -3209,7 +3210,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
                 try:
                     await s_coro.ornot(modu.initCoreModule)
-                except asyncio.CancelledError:  # pragma: no cover
+                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
                 except Exception:
                     logger.exception(f'module initCoreModule failed: {ctor}')
