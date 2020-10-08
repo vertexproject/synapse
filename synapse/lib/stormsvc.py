@@ -82,6 +82,8 @@ class StormSvc:
     _storm_svc_pkgs = ()  # type: ignore
 
     async def getStormSvcInfo(self):
+        # Users must specify the service name
+        assert self._storm_svc_name != 'noname'
         return {
             'name': self._storm_svc_name,
             'vers': self._storm_svc_vers,
@@ -106,7 +108,8 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
         self.sdef = sdef
 
         self.iden = sdef.get('iden')
-        self.name = sdef.get('name')
+        self.name = sdef.get('name')  # Local name for the cortex
+        self.svcname = ''  # remote name from the service
 
         # service info from the server...
         self.info = None
@@ -121,7 +124,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
         self.onfini(self.proxy.fini)
 
     async def _runSvcInit(self):
-
+        self.svcname = self.info['name']
         try:
             await self.core._delStormSvcPkgs(self.iden)
 

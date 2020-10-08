@@ -1421,6 +1421,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if ssvc is not None:
             return ssvc
 
+        for ssvc in self.svcsbyiden.values():
+            if ssvc.svcname == name:
+                return ssvc
+
     async def waitStormSvc(self, name, timeout=None):
         ssvc = self.getStormSvc(name)
         return await s_coro.event_wait(ssvc.ready, timeout=timeout)

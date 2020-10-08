@@ -350,6 +350,7 @@ class LibService(Lib):
             'add': self._libSvcAdd,
             'del': self._libSvcDel,
             'get': self._libSvcGet,
+            'has': self._libSvcHas,
             'list': self._libSvcList,
             'wait': self._libSvcWait,
         }
@@ -407,7 +408,7 @@ class LibService(Lib):
         Get a Storm Service definition.
 
         Args:
-            name (str): The name, or iden, of the service to get the definition for.
+            name (str): The local name, local iden, or remote name, of the service to get the definition for.
 
         Returns:
             dict: A Storm Service definition.
@@ -418,6 +419,23 @@ class LibService(Lib):
             raise s_exc.NoSuchName(mesg=mesg)
         await self._checkSvcGetPerm(ssvc)
         return ssvc
+
+    async def _libSvcHas(self, name):
+        '''
+        Check if a storm service
+
+        Args:
+            name (str): The local name, local iden, or remote name, of the service to check for the existance of.
+
+        Returns:
+            bool: True if the service exists in the Cortex, False if it does not.
+        '''
+        ssvc = self.runt.snap.core.getStormSvc(name)
+        if ssvc is None:
+            return False
+        # FIXME - discussion - perm gate here?
+        # await self._checkSvcGetPerm(ssvc)
+        return True
 
     async def _libSvcList(self):
         '''
@@ -436,6 +454,7 @@ class LibService(Lib):
         for ssvc in self.runt.snap.core.getStormSvcs():
             sdef = dict(ssvc.sdef)
             sdef['ready'] = ssvc.ready.is_set()
+            sdef['svcname'] = ssvc.svcname
             retn.append(sdef)
 
         return retn

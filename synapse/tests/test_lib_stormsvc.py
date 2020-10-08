@@ -565,6 +565,20 @@ class StormSvcTest(s_test.SynTest):
                     self.stormIsInPrint('StormSvcClient', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
+                    msgs = await core.stormlist(f'$svc=$lib.service.get(real) $lib.print($svc)', {'user': user.iden})
+                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.len(0, [m for m in msgs if m[0] == 'warn'])
+
+                    q = '$hasfoo=$lib.service.has($svc) if $hasfoo {$lib.print(yes)} else {$lib.print(no)}'
+                    msgs = await core.stormlist(q, {'vars': {'svc': 'foo'}})
+                    self.stormIsInPrint('no', msgs)
+                    msgs = await core.stormlist(q, {'vars': {'svc': 'real'}})
+                    self.stormIsInPrint('yes', msgs)
+                    msgs = await core.stormlist(q, {'vars': {'svc': 'fake'}})
+                    self.stormIsInPrint('yes', msgs)
+                    msgs = await core.stormlist(q, {'vars': {'svc': iden}})
+                    self.stormIsInPrint('yes', msgs)
+
                     # Since there ws a chnage to how $lib.service.wait handles permissions, anyone that can
                     # get a service can also wait for it, so ensure that those permissions still work.
                     # lib.service.wait can still be called both ways (iden or name)
