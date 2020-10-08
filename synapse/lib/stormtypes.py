@@ -2791,7 +2791,26 @@ class Layer(Prim):
             'edits': self._methLayerEdits,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
+            'getFormCounts': self._methGetFormcount,
         }
+
+    @stormfunc(readonly=True)
+    async def _methGetFormcount(self):
+        '''
+        Get the formcounts for the Layer.
+
+        Example:
+            Get the formcounts for the current :ayer::
+
+                $counts = $lib.layer.get().getFormCounts()
+
+        Returns:
+            Dictionary containing form names and the count of the nodes in the Layer.
+        '''
+        layriden = self.valu.get('iden')
+        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
+        todo = s_common.todo('getFormCounts')
+        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
     async def _methGetTagCount(self, tagname, formname=None):
         '''
@@ -2978,7 +2997,24 @@ class View(Prim):
             'merge': self._methViewMerge,
             'getEdges': self._methGetEdges,
             'getEdgeVerbs': self._methGetEdgeVerbs,
+            'getFormCounts': self._methGetFormcount,
         }
+
+    @stormfunc(readonly=True)
+    async def _methGetFormcount(self):
+        '''
+        Get the formcounts for the View.
+
+        Example:
+            Get the formcounts for the current View::
+
+                $counts = $lib.view.get().getFormCounts()
+
+        Returns:
+            Dictionary containing form names and the count of the nodes in the View's Layers.
+        '''
+        todo = s_common.todo('getFormCounts')
+        return await self.viewDynCall(todo, ('view', 'read'))
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):

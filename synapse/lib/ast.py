@@ -2929,6 +2929,10 @@ class N1Walk(Oper):
                 if formname == destform:
                     return True
 
+                if destform not in runt.model.forms:
+                    mesg = f'walk operation exported a valid form or wildcard destination. got: {destform}'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+
             return False
 
         async for node, path in genr:
