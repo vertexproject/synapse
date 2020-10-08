@@ -1834,6 +1834,14 @@ class StormTypesTest(s_test.SynTest):
                 layr = core.getLayer(locklayr)
                 self.true(layr.lockmemory)
 
+            # formcounts for layers are exposed on the View object
+            nodes = await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
+            counts = await core.callStorm('return( $lib.layer.get().getFormCounts() )')
+            self.eq(counts.get('test:int'), 2)
+            self.eq(counts.get('test:guid'), 1)
+
+    async def test_storm_lib_layer_upstream(self):
+        async with self.getTestCore() as core:
             async with self.getTestCore() as core2:
 
                 await core2.nodes('[ inet:ipv4=1.2.3.4 ]')
@@ -1853,8 +1861,8 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(uplayr)
 
-                #evnt = await layr.waitUpstreamOffs(layriden, offs)
-                #await asyncio.wait_for(evnt.wait(), timeout=2.0)
+                evnt = await layr.waitUpstreamOffs(layriden, offs)
+                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
 
     async def test_storm_lib_view(self):
 
@@ -2141,6 +2149,12 @@ class StormTypesTest(s_test.SynTest):
                 triggers = await core.callStorm('return($lib.view.get().triggers)')
                 self.len(1, triggers)
                 self.eq(triggers[0]['iden'], tdef['iden'])
+
+            # Test formcounts
+            nodes = await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
+            counts = await core.callStorm('return( $lib.view.get().getFormCounts() )')
+            self.eq(counts.get('test:int'), 1003)
+            self.eq(counts.get('test:guid'), 1)
 
     async def test_storm_lib_trigger(self):
 
@@ -2471,7 +2485,7 @@ class StormTypesTest(s_test.SynTest):
 
                 async def getCronIden():
                     return await core.callStorm('''
-                        for $job in $lib.cron.list() { return ($job.iden) }
+                        $jobs=$lib.cron.list() $job=$jobs.index(0) return ($job.iden)
                     ''')
 
                 @contextlib.asynccontextmanager
@@ -2525,10 +2539,6 @@ class StormTypesTest(s_test.SynTest):
                 q = f"cron.del {guid}"
                 mesgs = await core.stormlist(q)
                 self.stormIsInPrint('Deleted cron job', mesgs)
-
-                q = f"cron.del xxx"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('does not match', mesgs)
 
                 q = f"cron.del xxx"
                 mesgs = await core.stormlist(q)
