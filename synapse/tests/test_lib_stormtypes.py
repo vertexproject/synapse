@@ -1731,6 +1731,9 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             self.stormIsInPrint(mainlayr, mesgs)
 
+            info = await core.callStorm('return ($lib.layer.get().pack())')
+            self.gt(info.get('totalsize'), 1)
+
             # Create a new layer
             newlayr = await core.callStorm('return($lib.layer.add().iden)')
             self.isin(newlayr, core.layers)

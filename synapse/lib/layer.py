@@ -1080,8 +1080,10 @@ class Layer(s_nexus.Pusher):
 
         self.onfini(self._onLayrFini)
 
-    def pack(self):
-        return self.layrinfo.pack()
+    async def pack(self):
+        ret = self.layrinfo.pack()
+        ret['totalsize'] = await self.getLayerSize()
+        return ret
 
     @s_nexus.Pusher.onPushAuto('layer:truncate')
     async def truncate(self):
@@ -1277,11 +1279,27 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 3:
             await self._layrV2toV3()
 
-    def getSpawnInfo(self):
-        info = self.pack()
+    async def getSpawnInfo(self):
+        info = await self.pack()
         info['dirn'] = self.dirn
         info['ctor'] = self.ctorname
         return info
+
+    async def getLayerSize(self):
+        '''
+        Get the total storage size for the layer.
+        '''
+        totalsize = 0
+        for fpath, _, fnames in os.walk(self.dirn):
+            for fname in fnames:
+                fp = s_common.genpath(fpath, fname)
+                try:
+                    stat = os.stat(fp)
+                except OSError:
+                    pass
+                else:
+                    totalsize += stat.st_size
+        return totalsize
 
     @s_nexus.Pusher.onPushAuto('layer:set')
     async def setLayerInfo(self, name, valu):
