@@ -1295,7 +1295,7 @@ class Layer(s_nexus.Pusher):
                 fp = s_common.genpath(fpath, fname)
                 try:
                     stat = os.stat(fp)
-                except OSError:
+                except OSError:  # pragma: no cover
                     pass
                 else:
                     totalsize += stat.st_size
