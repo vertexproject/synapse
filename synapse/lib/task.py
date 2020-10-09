@@ -61,7 +61,7 @@ class Task(s_base.Base):
 
         try:
             await self.task
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             pass
 
         if self.root is not None:

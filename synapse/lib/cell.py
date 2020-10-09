@@ -212,7 +212,7 @@ class CellApi(s_base.Base):
         '''
         try:
             await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
         except Exception:
             pass
@@ -677,7 +677,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
             await self.dmon.listen(sockurl)
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
         except OSError as e:
             logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
@@ -1420,7 +1420,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if outp is not None:
                     outp.printf(f'...{cell.getCellType()} API (telepath name): %s' % (opts.name,))
 
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             await cell.fini()
             raise
 

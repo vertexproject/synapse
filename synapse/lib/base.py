@@ -96,7 +96,7 @@ class Base:
 
             await self.__anit__(*args, **kwargs)
 
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             if self.anitted:
                 await self.fini()
 
@@ -104,7 +104,7 @@ class Base:
 
         try:
             await self.postAnit()
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             logger.exception('Error during postAnit callback.')
             await self.fini()
             raise
@@ -337,7 +337,7 @@ class Base:
 
             try:
                 ret.append(await s_coro.ornot(func, mesg))
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
@@ -345,7 +345,7 @@ class Base:
         for func in self._syn_links:
             try:
                 ret.append(await s_coro.ornot(func, mesg))
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
@@ -362,7 +362,7 @@ class Base:
             task.cancel()
             try:
                 await task
-            except Exception:
+            except (asyncio.CancelledError, Exception):
                 # The taskDone callback will emit the exception.  No need to repeat
                 pass
 
@@ -391,15 +391,12 @@ class Base:
         for base in list(self.tofini):
             await base.fini()
 
-        try:
-            await self._kill_active_tasks()
-        except Exception:
-            logger.exception(f'{self} - Exception during _kill_active_tasks')
+        await self._kill_active_tasks()
 
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception:
                 logger.exception(f'{self} - fini function failed: {fini}')
@@ -483,7 +480,7 @@ class Base:
             try:
                 if not task.done():
                     task.result()
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 pass
             except Exception:
                 logger.exception('Task %s scheduled through Base.schedCoro raised exception', task)
@@ -755,7 +752,7 @@ async def schedGenr(genr, maxsize=100):
 
             await q.put((False, None))
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
 
         except Exception:

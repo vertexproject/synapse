@@ -2674,6 +2674,7 @@ class StormTypesTest(s_test.SynTest):
                 async with getCronJob("cron.at --day +1,+7 {$lib.queue.get(foo).put(at2)}"):
 
                     unixtime += DAYSECS
+                    core.agenda._wake_event.set()
 
                     self.eq('at2', await getNextFoo())
 
@@ -2688,6 +2689,7 @@ class StormTypesTest(s_test.SynTest):
                     unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
 
+                    core.agenda._wake_event.set()
                     self.eq('at3', await getNextFoo())
 
                     mesgs = await core.stormlist(f'cron.stat {guid[:6]}')

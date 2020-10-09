@@ -1,4 +1,5 @@
 import sys
+import asyncio
 import logging
 import functools
 import traceback
@@ -209,7 +210,7 @@ async def handleModify(opts):
         outp.printf(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
         return 1
 
-    except Exception as e:  # pragma: no cover
+    except (Exception, asyncio.CancelledError) as e:  # pragma: no cover
 
         if opts.debug:
             traceback.print_exc()
@@ -249,7 +250,7 @@ async def handleList(opts):
         outp.printf(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
         return 1
 
-    except Exception as e:  # pragma: no cover
+    except (Exception, asyncio.CancelledError) as e:  # pragma: no cover
 
         if opts.debug:
             traceback.print_exc()
