@@ -146,12 +146,9 @@ class Snap(s_base.Base):
         mode = opts.get('mode', 'storm')
 
         query = self.core.getStormQuery(text, mode=mode)
-        try:
-            with self.getStormRuntime(query, opts=opts, user=user) as runt:
-                async for x in runt.execute():
-                    yield x
-        except s_exc.StormExit:
-            return
+        with self.getStormRuntime(query, opts=opts, user=user) as runt:
+            async for x in runt.execute():
+                yield x
 
     @s_coro.genrhelp
     async def eval(self, text, opts=None, user=None):

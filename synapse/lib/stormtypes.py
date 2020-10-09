@@ -471,7 +471,6 @@ class LibBase(Lib):
             'max': self._max,
             'set': self._set,
             'dict': self._dict,
-            'exit': self._exit,
             'guid': self._guid,
             'fire': self._fire,
             'list': self._list,
@@ -588,13 +587,6 @@ class LibBase(Lib):
 
         norm, info = typeitem.norm(valu)
         return fromprim(norm, basetypes=False)
-
-    @stormfunc(readonly=True)
-    async def _exit(self):
-        '''
-        Gracefully terminate the storm runtime immediately.
-        '''
-        raise s_exc.StormExit()
 
     @stormfunc(readonly=True)
     async def _sorted(self, valu):
