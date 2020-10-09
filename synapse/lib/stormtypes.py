@@ -1655,6 +1655,9 @@ class Prim(StormType):
         valu = s_coro.ornot(self.value)
         return tuple(valu)
 
+    async def bool(self):
+        return bool(await s_coro.ornot(self.value))
+
 @registry.registerType
 class Str(Prim):
 
@@ -4408,7 +4411,7 @@ async def tobool(valu, noneok=False):
         return None
 
     if isinstance(valu, Prim):
-        valu = await valu.value()
+        return await valu.bool()
 
     try:
         return bool(valu)
