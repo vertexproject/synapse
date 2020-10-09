@@ -245,6 +245,10 @@ class View(s_nexus.Pusher):  # type: ignore
                         async for item in snap.storm(text, opts=opts, user=user):
                             count += 1
 
+            except s_exc.StormExit:
+                cancelled = True
+                pass
+
             except asyncio.CancelledError:
                 logger.warning('Storm runtime cancelled.')
                 cancelled = True

@@ -70,7 +70,8 @@ class Type:
             'range=': self._storLiftRange,
         }
 
-        self.deprecated = bool(self.opts.get('deprecated', False))
+        self.locked = False
+        self.deprecated = bool(self.info.get('deprecated', False))
 
         self.postTypeInit()
 

@@ -146,9 +146,12 @@ class Snap(s_base.Base):
         mode = opts.get('mode', 'storm')
 
         query = self.core.getStormQuery(text, mode=mode)
-        with self.getStormRuntime(query, opts=opts, user=user) as runt:
-            async for x in runt.execute():
-                yield x
+        try:
+            with self.getStormRuntime(query, opts=opts, user=user) as runt:
+                async for x in runt.execute():
+                    yield x
+        except s_exc.StormExit:
+            return
 
     @s_coro.genrhelp
     async def eval(self, text, opts=None, user=None):
@@ -170,7 +173,7 @@ class Snap(s_base.Base):
                 yield node
 
     async def nodes(self, text, opts=None, user=None):
-        return [n async for n in self.eval(text, opts=opts, user=user)]
+        return [node async for (node, path) in self.storm(text, opts=opts, user=user)]
 
     async def clearCache(self):
         self.tagcache.clear()
@@ -511,6 +514,10 @@ class Snap(s_base.Base):
 
         async def _getadds(f, p, formnorm, forminfo, doaddnode=True):
 
+            if f.locked:
+                mesg = f'Form {f.full} is locked due to deprecation.'
+                raise s_exc.IsReadOnly(mesg=mesg)
+
             edits = []  # Non-primary prop edits
             topsubedits = []  # Primary prop sub edits
 
@@ -524,6 +531,10 @@ class Snap(s_base.Base):
                 prop = f.prop(propname)
                 if prop is None:
                     continue
+
+                if prop.locked:
+                    mesg = f'Prop {prop.full} is locked due to deprecation.'
+                    raise s_exc.IsReadOnly(mesg=mesg)
 
                 assert prop.type.stortype is not None
 
