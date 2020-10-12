@@ -97,11 +97,11 @@ class View(s_nexus.Pusher):  # type: ignore
     def isafork(self):
         return self.parent is not None
 
-    def pack(self):
+    async def pack(self):
         d = {'iden': self.iden}
         d.update(self.info.pack())
 
-        layrinfo = [lyr.pack() for lyr in self.layers]
+        layrinfo = [await lyr.pack() for lyr in self.layers]
         d['layers'] = layrinfo
 
         triginfo = [t.pack() for _, t in self.triggers.list()]
