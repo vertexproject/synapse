@@ -124,7 +124,11 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
         self.onfini(self.proxy.fini)
 
     async def _runSvcInit(self):
+        # Set the latest reference for this object to the remote svcname
+        self.core.svcsbysvcname.pop(self.svcname, None)
         self.svcname = self.info['name']
+        self.core.svcsbysvcname[self.svcname] = self
+
         try:
             await self.core._delStormSvcPkgs(self.iden)
 

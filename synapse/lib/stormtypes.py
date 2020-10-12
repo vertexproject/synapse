@@ -433,8 +433,6 @@ class LibService(Lib):
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             return False
-        # FIXME - discussion - perm gate here?
-        # await self._checkSvcGetPerm(ssvc)
         return True
 
     async def _libSvcList(self):

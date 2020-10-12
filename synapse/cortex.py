@@ -843,6 +843,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
+        self.svcsbysvcname = {}  # remote name, not local name
 
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
@@ -1422,9 +1423,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         if ssvc is not None:
             return ssvc
 
-        for ssvc in self.svcsbyiden.values():
-            if ssvc.svcname == name:
-                return ssvc
+        ssvc = self.svcsbysvcname.get(name)
+        if name is not None:
+            return ssvc
 
     async def waitStormSvc(self, name, timeout=None):
         ssvc = self.getStormSvc(name)
@@ -1493,6 +1494,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         ssvc = self.svcsbyiden.pop(iden, None)
         if ssvc is not None:
+            self.svcsbysvcname.pop(ssvc.svcname, None)
             await ssvc.fini()
 
         await self.bumpSpawnPool()
