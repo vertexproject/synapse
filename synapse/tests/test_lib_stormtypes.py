@@ -556,6 +556,9 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="quickbrownfox" return ( $foo.rstrip(quxk) )'
             self.eq('quickbrownfo', await core.callStorm(q))
 
+            q = '$foo="QuickBrownFox" return ( $foo.lower() )'
+            self.eq('quickbrownfox', await core.callStorm(q))
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
@@ -1730,6 +1733,9 @@ class StormTypesTest(s_test.SynTest):
             q = f'$lib.print($lib.layer.get({mainlayr}).iden)'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint(mainlayr, mesgs)
+
+            info = await core.callStorm('return ($lib.layer.get().pack())')
+            self.gt(info.get('totalsize'), 1)
 
             # Create a new layer
             newlayr = await core.callStorm('return($lib.layer.add().iden)')
