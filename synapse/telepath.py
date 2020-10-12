@@ -539,7 +539,7 @@ class Proxy(s_base.Base):
 
                     await func(mesg)
 
-                except asyncio.CancelledError:  # pragma: no cover
+                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
 
                 except Exception:
@@ -673,7 +673,7 @@ class Client(s_base.Base):
                 self._setNextUrl(e.errinfo.get('url'))
                 continue
 
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception as e:
@@ -833,7 +833,7 @@ async def disc_consul(info):
                             info['port'] = entry['ServicePort']
                         return
 
-    except asyncio.CancelledError:  # pragma: no cover
+    except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
         raise
     except Exception as e:
         raise s_exc.BadUrl(mesg=f'Unknown error while resolving service name [{service}] via consul [{str(e)}].',
@@ -999,7 +999,7 @@ async def openurl(url, **opts):
     try:
         await prox.handshake(auth=auth)
 
-    except Exception:
+    except (asyncio.CancelledError, Exception):
         await prox.fini()
         raise
 

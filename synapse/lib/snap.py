@@ -789,7 +789,7 @@ class Snap(s_base.Base):
 
             adds = await self.getNodeAdds(form, valu, props=props)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
 
         except Exception as e:
@@ -918,6 +918,9 @@ class Snap(s_base.Base):
                             for n2iden, edgeinfo in edges:
                                 await node.addEdge(edgeinfo.get('verb'), n2iden)
 
+                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                    raise
+
                 except Exception as e:
                     if not oldstrict:
                         await self.warn(f'addNodes failed on {formname}, {formvalu}, {forminfo}: {e}')
@@ -929,7 +932,7 @@ class Snap(s_base.Base):
 
                 yield node
 
-            except asyncio.CancelledError:  # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception:
