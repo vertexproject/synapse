@@ -556,6 +556,9 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="quickbrownfox" return ( $foo.rstrip(quxk) )'
             self.eq('quickbrownfo', await core.callStorm(q))
 
+            q = '$foo="QuickBrownFox" return ( $foo.lower() )'
+            self.eq('quickbrownfox', await core.callStorm(q))
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
