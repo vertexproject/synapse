@@ -1652,8 +1652,7 @@ class Prim(StormType):
         return self.valu
 
     async def iter(self):
-        valu = s_coro.ornot(self.value)
-        return tuple(valu)
+        return tuple(await s_coro.ornot(self.value))
 
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
