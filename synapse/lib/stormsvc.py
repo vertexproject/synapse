@@ -128,7 +128,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
         try:
             await self.core._delStormSvcPkgs(self.iden)
 
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
 
         except Exception:
@@ -142,7 +142,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
                 pdef['svciden'] = self.iden
                 await self.core._hndladdStormPkg(pdef)
 
-            except asyncio.CancelledError:  # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception:
@@ -155,7 +155,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
             if evts is not None:
                 self.sdef = await self.core.setStormSvcEvents(self.iden, evts)
 
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
 
         except Exception:
@@ -165,7 +165,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
             if self.core.isactive:
                 await self.core._runStormSvcAdd(self.iden)
 
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
 
         except Exception:
