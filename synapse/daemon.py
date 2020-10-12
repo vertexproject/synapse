@@ -174,7 +174,7 @@ async def t2call(link, meth, args, kwargs):
                 await link.fini()
             return
 
-        except Exception as e:
+        except (asyncio.CancelledError, Exception) as e:
 
             if isinstance(e, asyncio.CancelledError):
                 logger.info('t2call task %s cancelled', meth.__name__)
@@ -206,7 +206,7 @@ async def t2call(link, meth, args, kwargs):
             await link.fini()
         return
 
-    except Exception as e:
+    except (asyncio.CancelledError, Exception) as e:
         logger.exception('error during task: %s', meth.__name__)
         if not link.isfini:
             retn = s_common.retnexc(e)
@@ -379,7 +379,7 @@ class Daemon(s_base.Base):
 
             await func(link, mesg)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError: # pragma: no cover  # TODO: remove once >= py 3.8 only
             raise
 
         except ConnectionResetError:
@@ -521,7 +521,7 @@ class Daemon(s_base.Base):
             if sessitem is not None:
                 sess.onfini(sessitem)
 
-        except Exception as e:
+        except (asyncio.CancelledError, Exception) as e:
             logger.exception('on t2:init: %r' % (mesg,))
             if not link.isfini:
                 retn = s_common.retnexc(e)
@@ -576,7 +576,7 @@ class Daemon(s_base.Base):
 
                 self.schedCoro(spinshareloop())
 
-        except Exception as e:
+        except (asyncio.CancelledError, Exception) as e:
 
             logger.exception('on task:init: %r', mesg)
 

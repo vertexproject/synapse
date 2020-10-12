@@ -613,7 +613,7 @@ class Rfc2822Addr(s_types.Str):
 
         try:
             data = self.modl.type('inet:email').norm(addr)
-            if len(data) is 2:
+            if len(data) == 2:
                 mail = data[0]
 
             subs['email'] = mail
@@ -716,7 +716,7 @@ class Url(s_types.Str):
             # FQDN and IPv4 handle ports the same way
             fqdnipv4_parts = valu.split(':', 1)
             part = fqdnipv4_parts[0]
-            if len(fqdnipv4_parts) is 2:
+            if len(fqdnipv4_parts) == 2:
                 port = fqdnipv4_parts[1]
 
             # IPv4
