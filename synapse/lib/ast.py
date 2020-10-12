@@ -2482,10 +2482,8 @@ async def expr_and(x, y):
     return await tobool(x) and await tobool(y)
 async def expr_prefix(x, y):
     x, y = await tostr(x), await tostr(y)
-    # y = await tostr(y)
     return x.startswith(y)
 async def expr_re(x, y):
-    print(x, y)
     if regex.search(await tostr(y), await tostr(x)):
         return True
     return False
