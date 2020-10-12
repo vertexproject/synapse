@@ -40,7 +40,7 @@ class SlabSeqn:
             return indx
 
         indx = self.indx
-        self.slab.put(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
+        self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
 
         self.indx += 1
 
