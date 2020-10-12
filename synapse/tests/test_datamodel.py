@@ -9,16 +9,16 @@ import synapse.tests.utils as s_t_utils
 
 depmodel = {
     'ctors': (
-        ('test:dep:str', 'synapse.lib.types.Str', {'deprecated': True, 'strip': True}, {}),
+        ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
     ),
     'types': (
-        ('test:dep:easy', ('test:str', {'deprecated': True}), {}),
+        ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
         ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
         ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {})
     ),
     'forms': (
         ('test:dep:easy', {'deprecated': True}, (
-            ('guid', ('test:guid', {'deprecated': True}), {}),
+            ('guid', ('test:guid', {}), {'deprecated': True}),
             ('array', ('test:dep:array', {}), {}),
             ('comp', ('test:dep:comp', {}), {}),
         )),
