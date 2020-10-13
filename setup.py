@@ -72,8 +72,8 @@ setup(
             'sphinx-rtd-theme>=0.4.2,<1.0.0',
         ],
         'dev': [
-            'pytest>=5.0.0,<6.0.0',
-            'autopep8>=1.5.3,<2.0.0',
+            'pytest>=5.1.0,<6.0.0',
+            'autopep8>=1.5.4,<2.0.0',
             'pytest-cov>=2.9.0,<3.0.0',
             'pycodestyle>=2.6.0,<3.0.0',
             'bump2version>=1.0.0,<1.1.0',
