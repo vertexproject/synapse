@@ -85,15 +85,10 @@ Bugfixes
   destination form is not valid.
   (`#1905 <https://github.com/vertexproject/synapse/pull/1905>`_)
 
-
 Deprecations
 ------------
-#XXX Fix this
 - The ``0.1.x`` to ``2.x.x`` Migration tool and and associated Cortex sync
-  service will be removed from Synapse in the ``2.9.0`` release. In order to
-  move forward to ``2.9.0``, please make sure that any Cortexes which still
-  need to be migrated will first be migrated to ``2.8.x`` prior to attempting
-  to use ``2.9.x``.
+  service has been removed from Synapse in the ``2.9.0`` release.
 
 Improved Documentation
 ----------------------
