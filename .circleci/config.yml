@@ -567,13 +567,22 @@ workflows:
           filters:
             tags:
               only: /.*/
-            branches:
+            only:
+              - master
+
+      - python38_replay:
+          filters:
+            tags:
               only: /.*/
+            branches:
+              only:
+                - master
 
       - deploy_pypi:
           requires:
             - doctests
             - python37
+            - python38
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -584,6 +593,7 @@ workflows:
           requires:
             - doctests
             - python37
+            - python38
           filters:
             branches:
               only:
@@ -593,6 +603,7 @@ workflows:
           requires:
             - doctests
             - python37
+            - python38
           context: GithubMachine
           filters:
             tags:
@@ -604,6 +615,7 @@ workflows:
           requires:
             - doctests
             - python37
+            - python38
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -614,6 +626,7 @@ workflows:
           requires:
             - doctests
             - python37
+            - python38
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -630,4 +643,17 @@ workflows:
                 - master
     jobs:
       - doctests
+      - python38
+      - python38_replay
+
+  weekly:
+    triggers:
+      - schedule:
+          cron: "0 12 1 * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
       - python37
+      - python37_replay
