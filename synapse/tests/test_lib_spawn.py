@@ -539,6 +539,10 @@ class CoreSpawnTest(s_test.SynTest):
                 async with core.getLocalProxy() as prox:
                     opts = {'spawn': True}
 
+                    # Ensure the spawncore loaded the service
+                    coro = prox.storm('$lib.service.wait(real)', opts).list()
+                    msgs = await asyncio.wait_for(coro, 12)
+
                     msgs = await prox.storm('help', opts=opts).list()
                     self.stormIsInPrint('foobar', msgs)
 
