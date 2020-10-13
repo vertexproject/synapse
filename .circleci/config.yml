@@ -412,10 +412,10 @@ jobs:
   osx37:
     parallelism: 4
     macos:
-      xcode: "10.2.0"
+      xcode: "12.2.0"
 
     environment:
-      PYVERS: 3.7
+      PYVERS: 3.8
       CODECOV_FLAG: osx
       CODECOV_PREFIX: osx
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail
@@ -541,13 +541,13 @@ workflows:
             branches:
                only: /.*/
 
-#      - osx37:
-#          filters:
-#            tags:
-#              only: /.*/
-#            branches:
-#              only:
-#                - master
+      - osx38:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only:
+                - feature_circle
 
       - python37:
           filters:
