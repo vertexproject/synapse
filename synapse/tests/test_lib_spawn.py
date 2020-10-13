@@ -31,7 +31,7 @@ def make_core(dirn, conf, queries, queue, event):
             for q in queries:
                 await core.nodes(q)
 
-            await  core.view.layers[0].layrslab.sync()
+            await core.view.layers[0].layrslab.sync()
 
             spawninfo = await core.getSpawnInfo()
             queue.put(spawninfo)

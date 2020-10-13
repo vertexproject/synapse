@@ -3,11 +3,13 @@ import asyncio
 import pathlib
 import multiprocessing
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 
 from unittest.mock import patch
 
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
@@ -889,6 +891,40 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.dropdb('foo')
                 self.false(slab.dbexists('foo'))
                 self.gt(slab.mapsize, before_mapsize)
+
+    @staticmethod
+    def make_slab(path):
+        '''
+        Multiprocessing target for expanding an existing slab
+        '''
+        async def workloop():
+            s_glob.iAmLoop()
+            data = [i.to_bytes(4, 'little') for i in range(400)]
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
+                slab.initdb('foo')
+                kvpairs = [(x, x) for x in data]
+                slab.putmulti(kvpairs)
+                slab.forcecommit()
+
+        asyncio.run(workloop())
+
+    async def test_slab_mapfull_initdb(self):
+        '''
+        Test a mapfull in the middle of an initdb
+        '''
+        mpctx = multiprocessing.get_context('spawn')
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000) as slab:
+                pass
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, readonly=True) as slab:
+
+                proc = mpctx.Process(target=self.make_slab, args=(path,))
+                proc.start()
+                proc.join(3)
+                self.nn(proc.exitcode)
+                slab.initdb('foo')
+                self.true(True)
 
     async def test_lmdb_multiqueue(self):
 
