@@ -1922,8 +1922,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'version': (0, 0, 1),
                 'commands': ()
             }
-            with self.raises(s_exc.BadVersion):
-                await core.addStormPkg(noverpkg)
+
+            # Package with no minversion shouldn't raise
+            await core.addStormPkg(noverpkg)
 
     async def test_onsetdel(self):
 
