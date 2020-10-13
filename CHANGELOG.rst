@@ -8,15 +8,38 @@ Synapse Changelog
 v2.9.0 - Unreleased
 ===================
 
+Announcments
+------------
+
+The ``v2.9.0`` Synapse release contains an automatic Cortex Layer data
+migration. The updated layer storage format reduces disk and memory
+requirements for a layer. This can be tested on a backup of a Cortex before
+updating a production Cortex.
+
+In order to maximize the space savings from the new layer storage format,
+after the Cortex has been migrated to ``v2.9.0``, it is recommended to take
+a cold backup of the Cortex and restore the Cortex from that backup. This
+compacts the LMDB databases which back the Layers and reclaims disk space
+as a result.
+
+If there are any questions about this, please reach out in the Synapse Slack
+channel so we can assist with any data migration questions.
+
 Features and Enhancements
 -------------------------
-
-- Allow the Telepath Dmon to disconnect clients using a ready status.
-  (`#1881 <https://github.com/vertexproject/synapse/pull/1881>`_)
 - Optimize the layer storage format for memory size and performance.
   (`#1877 <https://github.com/vertexproject/synapse/pull/1877>`_)
   (`#1885 <https://github.com/vertexproject/synapse/pull/1885>`_)
   (`#1899 <https://github.com/vertexproject/synapse/pull/1899>`_)
+- Initial support Python 3.8 compatibility for the core Synapse library.
+  Additional 3.8 support (such as wheels and Docker images) will be available
+  in future releases.
+  (`#1907 <https://github.com/vertexproject/synapse/pull/1907>`_)
+- Add a runtime only Storm option. This option prevents executing commands
+  or Stormtypes functions which may modify data in the Cortex.
+  (`#1869 <https://github.com/vertexproject/synapse/pull/1869>`_)
+- Allow the Telepath Dmon to disconnect clients using a ready status.
+  (`#1881 <https://github.com/vertexproject/synapse/pull/1881>`_)
 - Ensure that there is only one online backup of a Cell occuring at a time.
   (`#1883 <https://github.com/vertexproject/synapse/pull/1883>`_)
 - Added ``.lower()``, ``.strip()``, ``.lstrip()`` and ``.rstrip()`` methods
@@ -29,9 +52,6 @@ Features and Enhancements
   (`#1887 <https://github.com/vertexproject/synapse/pull/1887>`_)
 - Add ``lift.byverb`` command to allow lifting nodes using a light edge verb.
   (`#1890 <https://github.com/vertexproject/synapse/pull/1890>`_)
-- Add a runtime only Storm option. This option prevents executing commands
-  or Stormtypes functions which may modify data in the Cortex.
-  (`#1869 <https://github.com/vertexproject/synapse/pull/1869>`_)
 - Add netblock and range lift helpers for ``inet:ipv6`` type, similar to the
   helpers for ``inet:ipv4``.
   (`#1869 <https://github.com/vertexproject/synapse/pull/1869>`_)
@@ -48,10 +68,6 @@ Features and Enhancements
   (`#1892 <https://github.com/vertexproject/synapse/pull/1892>`_)
 - Add ``getFormCounts()`` API to the Stormtypes View and Layer objects.
   (`#1903 <https://github.com/vertexproject/synapse/pull/1903>`_)
-- Initial support Python 3.8 compatibility for the core Synapse library.
-  Additional 3.8 support (such as wheels and Docker images) will be available
-  in future releases.
-  (`#1907 <https://github.com/vertexproject/synapse/pull/1907>`_)
 - Allow Cortex layers to report their total size on disk. This is exposed in
   the Stormtypes ``Layer.pack()`` method for a layer.
   (`#1910 <https://github.com/vertexproject/synapse/pull/1910>`_)
