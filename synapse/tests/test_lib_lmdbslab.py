@@ -921,7 +921,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 proc = mpctx.Process(target=self.make_slab, args=(path,))
                 proc.start()
-                proc.join(3)
+                proc.join(10)
                 self.nn(proc.exitcode)
                 slab.initdb('foo')
                 self.true(True)
