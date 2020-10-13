@@ -24,10 +24,12 @@ class MediaModule(s_module.CoreModule):
                 ('title', ('str', {'lower': True}), {
                     'doc': 'Title/Headline for the news.',
                     'ex': 'mars lander reaches mars',
+                    'disp': {'hint': 'text'},
                 }),
                 ('summary', ('str', {}), {
                     'doc': 'A brief summary of the news item.',
                     'ex': 'lorum ipsum',
+                    'disp': {'hint': 'text'},
                 }),
                 ('published', ('time', {}), {
                     'doc': 'The date the news item was published.',

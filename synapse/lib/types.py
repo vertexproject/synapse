@@ -77,7 +77,7 @@ class Type:
     def _storLiftSafe(self, cmpr, valu):
         try:
             return self.storlifts['=']('=', valu)
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
         except Exception:
             return ()

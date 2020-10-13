@@ -135,6 +135,28 @@ class JupyterTest(s_t_utils.SynTest):
                 self.true(outp.expect('cli> help'))
                 self.true(outp.expect('List commands and display help output.'))
 
+    async def test_log_supression(self):
+
+        async with self.getTestCoreAndProxy() as (realcore, core):
+
+            outp = self.getTestOutp()
+            async with await s_jupyter.CmdrCore.anit(core, outp=outp) as cmdrcore:
+                with self.getAsyncLoggerStream('synapse.lib.view') as stream:
+                    mesgs = await cmdrcore.storm('[test:int=beep]',
+                                                 num=0, cmdr=False,
+                                                 suppress_logging=True)
+                    self.stormIsInErr('invalid literal for int', mesgs)
+                stream.seek(0)
+                self.notin('Error during storm execution', stream.read())
+
+                with self.getAsyncLoggerStream('synapse.lib.view',
+                                                     'Error during storm execution') as stream:
+                    mesgs = await cmdrcore.storm('[test:int=beep]',
+                                                 num=0, cmdr=False,
+                                                 suppress_logging=False)
+                    self.true(await stream.wait(6))
+                    self.stormIsInErr('invalid literal for int', mesgs)
+
     def test_doc_data(self):
         with self.getTestDir() as dirn:
             s_common.gendir(dirn, 'docdata', 'stuff')

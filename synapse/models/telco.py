@@ -215,6 +215,7 @@ class TelcoModule(s_module.CoreModule):
                     }),
                     ('text', ('str', {}), {
                         'doc': 'The text transcription of the call.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'A file containing related media.',
@@ -238,6 +239,7 @@ class TelcoModule(s_module.CoreModule):
                     }),
                     ('text', ('str', {}), {
                         'doc': 'The text of the message.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'A file containing related media.',

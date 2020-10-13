@@ -613,7 +613,7 @@ class Rfc2822Addr(s_types.Str):
 
         try:
             data = self.modl.type('inet:email').norm(addr)
-            if len(data) is 2:
+            if len(data) == 2:
                 mail = data[0]
 
             subs['email'] = mail
@@ -716,7 +716,7 @@ class Url(s_types.Str):
             # FQDN and IPv4 handle ports the same way
             fqdnipv4_parts = valu.split(':', 1)
             part = fqdnipv4_parts[0]
-            if len(fqdnipv4_parts) is 2:
+            if len(fqdnipv4_parts) == 2:
                 port = fqdnipv4_parts[1]
 
             # IPv4
@@ -1176,28 +1176,30 @@ class InetModule(s_module.CoreModule):
                     ('inet:email:message', {}, (
 
                         ('to', ('inet:email', {}), {
-                            'doc': 'The email address of the recipient.'}),
-
+                            'doc': 'The email address of the recipient.'
+                        }),
                         ('from', ('inet:email', {}), {
-                            'doc': 'The email address of the sender.'}),
-
+                            'doc': 'The email address of the sender.'
+                        }),
                         ('replyto', ('inet:email', {}), {
-                            'doc': 'The email address from the reply-to header.'}),
-
+                            'doc': 'The email address from the reply-to header.'
+                        }),
                         ('subject', ('str', {}), {
-                            'doc': 'The email message subject line.'}),
-
+                            'doc': 'The email message subject line.'
+                        }),
                         ('body', ('str', {}), {
-                            'doc': 'The body of the email message.'}),
-
+                            'doc': 'The body of the email message.',
+                            'disp': {'hint': 'text'},
+                        }),
                         ('date', ('time', {}), {
-                            'doc': 'The time the email message was received.'}),
-
+                            'doc': 'The time the email message was received.'
+                        }),
                         ('bytes', ('file:bytes', {}), {
-                            'doc': 'The file bytes which contain the email message.'}),
-
+                            'doc': 'The file bytes which contain the email message.'
+                        }),
                         ('headers', ('array', {'type': 'inet:email:header'}), {
-                            'doc': 'An array of email headers from the message.'}),
+                            'doc': 'An array of email headers from the message.'
+                        }),
                     )),
 
                     ('inet:email:header', {}, (
@@ -1696,7 +1698,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The network port.'}),
 
                         ('text', ('it:dev:str', {}), {'ro': True,
-                            'doc': 'The banner text.'}),
+                            'doc': 'The banner text.',
+                            'disp': {'hint': 'text'},
+                        }),
                     )),
 
                     ('inet:servfile', {}, (
@@ -1842,7 +1846,9 @@ class InetModule(s_module.CoreModule):
                     ('inet:search:query', {}, (
 
                         ('text', ('str', {}), {
-                            'doc': 'The search query text.'}),
+                            'doc': 'The search query text.',
+                            'disp': {'hint': 'text'},
+                        }),
 
                         ('time', ('time', {}), {
                             'doc': 'The time the web search was issued.'}),
@@ -2394,7 +2400,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The "last updated" time from the record.'
                         }),
                         ('text', ('str', {'lower': True}), {
-                            'doc': 'The full text of the record.'
+                            'doc': 'The full text of the record.',
+                            'disp': {'hint': 'text'},
                         }),
                         ('asn', ('inet:asn', {}), {
                             'doc': 'The associated Autonomous System Number (ASN).'

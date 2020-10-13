@@ -63,7 +63,7 @@ class View(s_nexus.Pusher):  # type: ignore
             try:
                 self.triggers.load(tdef)
 
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception:
@@ -97,11 +97,11 @@ class View(s_nexus.Pusher):  # type: ignore
     def isafork(self):
         return self.parent is not None
 
-    def pack(self):
+    async def pack(self):
         d = {'iden': self.iden}
         d.update(self.info.pack())
 
-        layrinfo = [lyr.pack() for lyr in self.layers]
+        layrinfo = [await lyr.pack() for lyr in self.layers]
         d['layers'] = layrinfo
 
         triginfo = [t.pack() for _, t in self.triggers.list()]
@@ -519,7 +519,7 @@ class View(s_nexus.Pusher):  # type: ignore
         for func in funcs:
             try:
                 await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception:
                 logger.exception('onTagAdd Error')
@@ -539,7 +539,7 @@ class View(s_nexus.Pusher):  # type: ignore
         for func in funcs:
             try:
                 await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception:
                 logger.exception('onTagDel Error')

@@ -1570,3 +1570,49 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('$nodes = $lib.set() [ inet:asn=10 inet:asn=20 ] $nodes.add($node) | spin | yield $nodes')
             self.len(2, nodes)
+
+    async def test_ast_exprs(self):
+        async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[test:str=QuickBrownFox]'))
+
+            q = '''test:str $data=$node.value()
+            if ($data ~= "Brown") { $lib.print(yes) }
+            else { $lib.print(no) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('yes', msgs)
+
+            q = '''test:str $data=$node.value()
+            if ($data ~= "brown") { $lib.print(yes) }
+            else { $lib.print(no) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('no', msgs)
+
+            q = '''test:str $data=$node.value()
+            if ($data.lower() ~= "brown") { $lib.print(yes) }
+            else { $lib.print(no) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('yes', msgs)
+
+            q = '''test:str $data=$node.value()
+            if ($data ~= "newp") { $lib.print(yes) }
+            else { $lib.print(no) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('no', msgs)
+
+            q = '''test:str $data=$node.value()
+            if ($data ^= "Quick") { $lib.print(yes) }
+            else { $lib.print(no) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('yes', msgs)
+
+            q = '''test:str $data=$node.value()
+            if ($data ^= "quick") { $lib.print(yes) }
+            else { $lib.print(no) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('no', msgs)

@@ -350,6 +350,7 @@ class LibService(Lib):
             'add': self._libSvcAdd,
             'del': self._libSvcDel,
             'get': self._libSvcGet,
+            'has': self._libSvcHas,
             'list': self._libSvcList,
             'wait': self._libSvcWait,
         }
@@ -407,7 +408,7 @@ class LibService(Lib):
         Get a Storm Service definition.
 
         Args:
-            name (str): The name, or iden, of the service to get the definition for.
+            name (str): The local name, local iden, or remote name, of the service to get the definition for.
 
         Returns:
             dict: A Storm Service definition.
@@ -418,6 +419,21 @@ class LibService(Lib):
             raise s_exc.NoSuchName(mesg=mesg)
         await self._checkSvcGetPerm(ssvc)
         return ssvc
+
+    async def _libSvcHas(self, name):
+        '''
+        Check if a storm service is available in the Cortex.
+
+        Args:
+            name (str): The local name, local iden, or remote name, of the service to check for the existance of.
+
+        Returns:
+            bool: True if the service exists in the Cortex, False if it does not.
+        '''
+        ssvc = self.runt.snap.core.getStormSvc(name)
+        if ssvc is None:
+            return False
+        return True
 
     async def _libSvcList(self):
         '''
@@ -436,6 +452,7 @@ class LibService(Lib):
         for ssvc in self.runt.snap.core.getStormSvcs():
             sdef = dict(ssvc.sdef)
             sdef['ready'] = ssvc.ready.is_set()
+            sdef['svcname'] = ssvc.svcname
             retn.append(sdef)
 
         return retn
@@ -1672,6 +1689,7 @@ class Str(Prim):
             'strip': self._methStrStrip,
             'lstrip': self._methStrLstrip,
             'rstrip': self._methStrRstrip,
+            'lower': self._methStrLower,
         }
 
     def __int__(self):
@@ -1780,6 +1798,19 @@ class Str(Prim):
 
         '''
         return self.valu.rstrip(chars)
+
+    async def _methStrLower(self):
+        '''
+        Get a lowercased the of the string.
+
+        Examples:
+            Printing a lowercased string::
+
+                $foo="Duck"
+                $lib.print($foo.lower())
+
+        '''
+        return self.valu.lower()
 
 @registry.registerType
 class Bytes(Prim):
@@ -2791,7 +2822,26 @@ class Layer(Prim):
             'edits': self._methLayerEdits,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
+            'getFormCounts': self._methGetFormcount,
         }
+
+    @stormfunc(readonly=True)
+    async def _methGetFormcount(self):
+        '''
+        Get the formcounts for the Layer.
+
+        Example:
+            Get the formcounts for the current :ayer::
+
+                $counts = $lib.layer.get().getFormCounts()
+
+        Returns:
+            Dictionary containing form names and the count of the nodes in the Layer.
+        '''
+        layriden = self.valu.get('iden')
+        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
+        todo = s_common.todo('getFormCounts')
+        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
     async def _methGetTagCount(self, tagname, formname=None):
         '''
@@ -2978,7 +3028,24 @@ class View(Prim):
             'merge': self._methViewMerge,
             'getEdges': self._methGetEdges,
             'getEdgeVerbs': self._methGetEdgeVerbs,
+            'getFormCounts': self._methGetFormcount,
         }
+
+    @stormfunc(readonly=True)
+    async def _methGetFormcount(self):
+        '''
+        Get the formcounts for the View.
+
+        Example:
+            Get the formcounts for the current View::
+
+                $counts = $lib.view.get().getFormCounts()
+
+        Returns:
+            Dictionary containing form names and the count of the nodes in the View's Layers.
+        '''
+        todo = s_common.todo('getFormCounts')
+        return await self.viewDynCall(todo, ('view', 'read'))
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):

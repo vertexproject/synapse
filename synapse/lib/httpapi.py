@@ -405,7 +405,7 @@ class WatchSockV1(WebSocket):
             text = e.get('mesg', str(e))
             await self.xmit('errx', code=e.__class__.__name__, mesg=text)
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
 
         except Exception as e:

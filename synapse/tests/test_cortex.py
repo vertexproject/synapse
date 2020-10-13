@@ -108,6 +108,9 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 self.len(0, await core.nodes('media:news -(*)> $(0)'))
 
+            with self.raises(s_exc.StormRuntimeError):
+                self.len(0, await core.nodes('media:news -(*)> test:newp'))
+
             nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
@@ -1644,11 +1647,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             layers = list(core.listLayers())
             self.len(1, layers)
-            self.eq(layers[0].pack()['name'], 'default')
+            lyr = layers[0]
+            info = await lyr.pack()
+            self.eq(info['name'], 'default')
 
             views = list(core.listViews())
             self.len(1, views)
-            self.eq(views[0].pack()['name'], 'default')
+            view = views[0]
+            info = await view.pack()
+            self.eq(info['name'], 'default')
 
     async def test_cortex_model_dict(self):
 
