@@ -441,12 +441,45 @@ jobs:
     steps:
       - test_steps_python
 
+  python38:
+    parallelism: 8
+    docker:
+      - image: circleci/python:3.8
+        environment:
+          PYVERS: 3.8
+          RUN_SYNTAX: 1
+          CODECOV_FLAG: linux
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
   python37_replay:
     parallelism: 6
     docker:
       - image: circleci/python:3.7
         environment:
           PYVERS: 3.7
+          RUN_SYNTAX: 1
+          CODECOV_FLAG: linux_replay
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          SYNDEV_NEXUS_REPLAY: 1
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python_replay
+
+  python38_replay:
+    parallelism: 6
+    docker:
+      - image: circleci/python:3.8
+        environment:
+          PYVERS: 3.8
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
@@ -517,6 +550,13 @@ workflows:
 #                - master
 
       - python37:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+
+      - python38:
           filters:
             tags:
               only: /.*/

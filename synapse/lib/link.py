@@ -192,7 +192,7 @@ class Link(s_base.Base):
             async with self._drain_lock:
                 await self.writer.drain()
 
-        except Exception as e:
+        except (asyncio.CancelledError, Exception) as e:
 
             await self.fini()
 
