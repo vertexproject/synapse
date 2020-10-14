@@ -389,10 +389,12 @@ class StormTypesTest(s_test.SynTest):
             $lib.print("post exec {bar}", bar=$bar)
             [ test:str=$foo ]
             '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint("in exec", msgs)
-            prints = [m for m in msgs if m[0] == 'print']
-            self.len(1, prints)
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes(q)
+            #msgs = await core.stormlist(q)
+            #self.stormIsInPrint("in exec", msgs)
+            #prints = [m for m in msgs if m[0] == 'print']
+            #self.len(1, prints)
 
             # make sure returns work
             q = '''
@@ -917,7 +919,7 @@ class StormTypesTest(s_test.SynTest):
             self.isin('No var with name: testkey', err[1].get('mesg'))
 
             opts = {'vars': {'testkey': 'testvar'}}
-            text = "[ test:str='123' ] $path.vars.$testkey = test [ test:str=$testvar ]"
+            text = "[ test:str='123' ] $path.vars.$testkey = test [ test:str=$path.vars.testvar ]"
             nodes = await core.nodes(text, opts=opts)
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test'))

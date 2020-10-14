@@ -11,6 +11,12 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_basics(self):
+        # a catch-all bucket for simple tests to avoid cortex construction
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('inet:ipv4=$ipv4')
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:
