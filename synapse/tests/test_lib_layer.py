@@ -891,6 +891,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
 
     async def test_layer_waitForHot(self):
+        self.thisHostMust(hasmemlocking=True)
 
         async with self.getTestCore() as core:
             layr = core.getLayer()
