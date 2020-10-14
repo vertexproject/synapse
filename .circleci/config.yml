@@ -208,6 +208,7 @@ commands:
             ulimit -Sn 4096
             ulimit -a
             ls -ltha ~
+            echo "ulimit -Sn 4096" >> ~/.bashrc
 
       - do_test_execution
       - do_report_coverage
