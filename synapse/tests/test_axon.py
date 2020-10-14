@@ -195,9 +195,9 @@ class AxonTest(s_t_utils.SynTest):
         newb = await axon.auth.addUser('newb')
         await newb.setPasswd('secret')
 
-        url_ul = f'https://127.0.0.1:{port}/api/v1/axon/files/put'
-        url_hs = f'https://127.0.0.1:{port}/api/v1/axon/files/has/sha256'
-        url_dl = f'https://127.0.0.1:{port}/api/v1/axon/files/by/sha256'
+        url_ul = f'https://localhost:{port}/api/v1/axon/files/put'
+        url_hs = f'https://localhost:{port}/api/v1/axon/files/has/sha256'
+        url_dl = f'https://localhost:{port}/api/v1/axon/files/by/sha256'
 
         asdfhash_h = s_common.ehex(asdfhash)
         bbufhash_h = s_common.ehex(bbufhash)
@@ -222,8 +222,8 @@ class AxonTest(s_t_utils.SynTest):
 
             # Stream file
             byts = io.BytesIO(bbuf)
-
-            with self.raises(a_exc.ServerDisconnectedError):
+            with self.raises((a_exc.ServerDisconnectedError,
+                              a_exc.ClientOSError)):
                 async with sess.post(url_ul, data=byts) as resp:
                     pass
 
