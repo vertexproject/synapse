@@ -999,6 +999,10 @@ class Slab(s_base.Base):
                 return name
             except lmdb.MapFullError:
                 self._handle_mapfull()
+            except lmdb.MapResizedError:
+                # This can only happen if readonly and another process added data (e.g. cortex spawn)
+                # _initCoXact knows the magic to resolve this
+                self._initCoXact()
 
     def dropdb(self, name):
         '''
