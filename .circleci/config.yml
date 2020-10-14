@@ -201,6 +201,14 @@ commands:
             - ./venv
           key: v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
+      - run:
+          name: ulimit mods
+          command: |
+            ulimit -a
+            sysctl -w kern.maxfiles=8192
+            sysctl -w kern.maxfilesperproc=8192
+            ulimit -a
+
       - do_test_execution
       - do_report_coverage
 
