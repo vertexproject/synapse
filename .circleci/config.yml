@@ -207,6 +207,7 @@ commands:
             ulimit -a
             ulimit -Sn 4096
             ulimit -a
+            ls -ltha ~
 
       - do_test_execution
       - do_report_coverage
