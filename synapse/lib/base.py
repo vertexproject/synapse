@@ -600,7 +600,7 @@ class Waiter:
         self.base = base
         self.names = names
         self.count = count
-        self.event = asyncio.Event(loop=base.loop)
+        self.event = asyncio.Event()
 
         self.events = []
 
@@ -662,7 +662,7 @@ class BaseRef(Base):
         self.onfini(self._onBaseRefFini)
 
     async def _onBaseRefFini(self):
-        await asyncio.gather(*[base.fini() for base in self.vals()], loop=self.loop)
+        await asyncio.gather(*[base.fini() for base in self.vals()])
 
     def put(self, name, base):
         '''
