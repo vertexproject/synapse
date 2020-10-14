@@ -541,7 +541,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                     # Ensure the spawncore loaded the service
                     coro = prox.storm('$lib.service.wait(real)', opts).list()
-                    msgs = await asyncio.wait_for(coro, 12)
+                    msgs = await asyncio.wait_for(coro, 30)
 
                     msgs = await prox.storm('help', opts=opts).list()
                     self.stormIsInPrint('foobar', msgs)
