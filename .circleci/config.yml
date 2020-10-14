@@ -551,10 +551,9 @@ workflows:
       - osx38:
           filters:
             tags:
-              only: /.*/
+              ignore: /.*/
             branches:
-              only:
-                - feature_circle
+              ignore: /.*/
 
       - python37:
           filters:
@@ -663,5 +662,6 @@ workflows:
               only:
                 - master
     jobs:
+      - osx38
       - python37
       - python37_replay
