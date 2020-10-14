@@ -1,4 +1,6 @@
 import contextlib
+import unittest.mock as mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -379,6 +381,20 @@ class StormSvcTest(s_test.SynTest):
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
+
+            def fakeVersion(self):
+                return (2, 7, 0)
+
+            with self.getAsyncLoggerStream('synapse.daemon', 'newSynapseVersionRequired') as stream:
+                with mock.patch('synapse.telepath.Proxy._getSynVers', fakeVersion):
+                    async with self.getTestDmon() as dmon:
+                        dmon.share('real', RealService())
+                        host, port = dmon.addr
+                        lurl = f'tcp://127.0.0.1:{port}/real'
+
+                        await core.nodes(f'service.add fake {lurl}')
+
+                        self.true(await stream.wait(5))
 
     async def test_storm_cmd_scope(self):
         # TODO - Fix me / move me - what is this tests purpose in life?
