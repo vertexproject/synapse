@@ -45,9 +45,10 @@ commands:
       - run:
           name: run tests
           command: |
+            ulimit -a
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+            # circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
   do_replay_test_execution:
     description: "Execute unit tests via pytest"
