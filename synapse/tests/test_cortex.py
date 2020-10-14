@@ -1917,7 +1917,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'minversion': (3, 0, 0),
+                'minversion': (1337, 0, 0),
                 'commands': ()
             }
 
@@ -1925,7 +1925,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.addStormPkg(oldverpkg)
 
             noverpkg = {
-                'name': 'versionfail',
+                'name': 'nomin',
                 'version': (0, 0, 1),
                 'commands': ()
             }

@@ -182,6 +182,19 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
         names = [c.rsplit('.', 1)[-1] for c in clss]
 
         if 'StormSvc' in names:
+            rver = proxy._getSynVers()
+            if rver < (2, 8, 0):
+                mesg = f'Storm service {self.name} ({self.iden}) is running an older ' \
+                       f'version of synapse {rver}, please update to ensure proper function!'
+                logger.exception(mesg)
+
+                self.proxy._t_conf['retrysleep'] = 2.0
+
+                try:
+                    await proxy.newSynapseVersionRequiredPleaseUpdateServiceTo290()
+                except s_exc.NoSuchMeth:
+                    raise s_exc.BadVersion(mesg=mesg, name=self.name, iden=self.iden, rver=rver)
+
             self.info = await proxy.getStormSvcInfo()
             await self._runSvcInit()
 
