@@ -3216,3 +3216,55 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm('return($lib.layer.get().getPropCount(newp:newp))')
+
+    async def test_lib_stormtypes_cmdopts(self):
+        pdef = {
+            'name': 'foo',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'modules': [
+                {
+                    'name': 'test',
+                    'storm': 'function f(a) { return ($a) }',
+                }
+            ],
+            'commands': [
+                {
+                    'name': 'test.cmdopts',
+                    'cmdargs': (
+                        ('foo', {}),
+                        ('--bar', {'default': False, 'action': 'store_true'}),
+                    ),
+                    'storm': '''
+                        $lib.print($lib.len($cmdopts))
+                        if ($lib.len($cmdopts) = 3) { $lib.print(foo) }
+
+                        $set = $lib.set()
+                        for ($name, $valu) in $cmdopts { $set.add($valu) }
+
+                        if ($lib.len($set) = 3) { $lib.print(bar) }
+
+                        if $cmdopts.bar { $lib.print(baz) }
+                    '''
+                },
+                {
+                    'name': 'test.setboom',
+                    'cmdargs': [
+                        ('foo', {}),
+                        ('--bar', {'default': False, 'action': 'store_true'}),
+                    ],
+                    'storm': '''
+                        $cmdopts.foo = hehe
+                    '''
+                },
+            ],
+        }
+        async with self.getTestCore() as core:
+            await core.addStormPkg(pdef)
+            msgs = await core.stormlist('test.cmdopts hehe --bar')
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('bar', msgs)
+            self.stormIsInPrint('baz', msgs)
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test.setboom hehe --bar')

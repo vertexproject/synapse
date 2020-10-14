@@ -1245,6 +1245,9 @@ class Runtime:
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
             for name, isrunt in oper.getRuntVars(self):
+                # once runtsafe, always runtsafe
+                if self.runtvars.get(name):
+                    continue
                 self.runtvars[name] = isrunt
 
     async def execute(self, genr=None):
