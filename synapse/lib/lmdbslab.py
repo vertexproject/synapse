@@ -815,6 +815,7 @@ class Slab(s_base.Base):
                 continue
             break
 
+        self.dirty = False
         self.lenv.close()
         self.allslabs.pop(self.path, None)
         del self.lenv
