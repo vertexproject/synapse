@@ -205,8 +205,7 @@ commands:
           name: ulimit mods
           command: |
             ulimit -a
-            sudo sysctl -w kern.maxfiles=8192
-            sudo sysctl -w kern.maxfilesperproc=8192
+            ulimit -Sn 4096
             ulimit -a
 
       - do_test_execution
