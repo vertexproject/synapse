@@ -1946,7 +1946,7 @@ class CmdOpts(Dict):
         # due to self.valu.opts potentially being replaced
         # we disallow setitem() to prevent confusion
         mesg = 'CmdOpts may not be modified by the runtime'
-        raise s_exc.StormRuntimeError(mesg=mesg)
+        raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
     async def deref(self, name):
         return getattr(self.valu.opts, name, None)
