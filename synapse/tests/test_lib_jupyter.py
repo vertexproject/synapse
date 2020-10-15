@@ -101,13 +101,13 @@ class JupyterTest(s_t_utils.SynTest):
                 self.eq(podes[0][0], ('test:str', 'duck'))
 
                 # Opts does not work with cmdr=True - we have no way to plumb it through.
-                with self.getAsyncLoggerStream('synapse.cortex',
+                with self.getAsyncLoggerStream('synapse.lib.view',
                                                'Error during storm execution') as stream:
                     with self.raises(AssertionError):
-                        ret = await cmdrcore.eval('[test:str=$foo]',
-                                                  opts={'vars': {'foo': 'fowl'}},
-                                                  cmdr=True)
-                    await stream.wait(1)
+                        await cmdrcore.eval('[test:str=$foo]',
+                                              opts={'vars': {'foo': 'fowl'}},
+                                              cmdr=True)
+                    self.true(await stream.wait(6))
 
                 # Assertion based tests
                 podes = await cmdrcore.eval('test:int', num=0)
