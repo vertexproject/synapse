@@ -119,8 +119,7 @@ class AstNode:
 
     def getRuntVars(self, runt):
         for kid in self.kids:
-            for item in kid.getRuntVars(runt):
-                yield item
+            yield from kid.getRuntVars(runt)
 
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
@@ -534,8 +533,7 @@ class ForLoop(Oper):
         else:
             yield self.kids[0].value(), runtsafe
 
-        for item in self.kids[2].getRuntVars(runt):
-            yield item
+        yield from self.kids[2].getRuntVars(runt)
 
     async def run(self, runt, genr):
 
@@ -772,8 +770,7 @@ class SetVarOper(Oper):
     def getRuntVars(self, runt):
         yield self.kids[0].value(), self.kids[1].isRuntSafe(runt)
         for k in self.kids:
-            for item in k.getRuntVars(runt):
-                yield item
+            yield from k.getRuntVars(runt)
 
 class SetItemOper(Oper):
     '''
@@ -844,7 +841,6 @@ class VarListSetOper(Oper):
             return
 
     def getRuntVars(self, runt):
-
         runtsafe = self.kids[1].isRuntSafe(runt)
         for name in self.kids[0].value():
             yield name, runtsafe
