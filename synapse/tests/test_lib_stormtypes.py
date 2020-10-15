@@ -391,10 +391,6 @@ class StormTypesTest(s_test.SynTest):
             '''
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes(q)
-            #msgs = await core.stormlist(q)
-            #self.stormIsInPrint("in exec", msgs)
-            #prints = [m for m in msgs if m[0] == 'print']
-            #self.len(1, prints)
 
             # make sure returns work
             q = '''
