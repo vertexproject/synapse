@@ -811,7 +811,7 @@ class LayerTest(s_t_utils.SynTest):
                         await core1.nodes(f'sleep 1 | [ test:str=endofquery ]')
 
                     task = core1.schedCoro(doEdit())
-                    await asyncio.wait_for(waitForEdit(), timeout=2)
+                    await asyncio.wait_for(waitForEdit(), timeout=6)
 
     async def test_layer_form_by_buid(self):
 
