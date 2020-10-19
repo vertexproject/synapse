@@ -54,7 +54,7 @@ setup(
         'tornado>=6.0.3,<7.0.0',
         'regex>=2020.5.14',
         'PyYAML>=5.2,<6.0',
-        'aiohttp>=3.6.2,<4.0',
+        'aiohttp>=3.6.3,<4.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
         'lark-parser>=0.9.0,<0.10.0',
         'Pygments>=2.6.0,<2.7.0',
