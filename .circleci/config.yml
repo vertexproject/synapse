@@ -251,6 +251,7 @@ commands:
             . venv/bin/activate
             python setup.py sdist
             python setup.py bdist_wheel --python-tag=py37
+            python setup.py bdist_wheel --python-tag=py38
 
       - run:
           name: smoke packages
@@ -264,6 +265,7 @@ commands:
             cd /tmp/wheeltest
             . ./venv/bin/activate
             python3 -m pip install -U wheel pip
+            # How do we want to handle pytag packages? Two parallel pypi package steps?
             python3 -m pip install *.whl
             python3 -c "$PYPI_SMOKE_CODE"
             deactivate
@@ -505,7 +507,7 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.8
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
 
