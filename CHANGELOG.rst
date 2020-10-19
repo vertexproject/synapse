@@ -17,7 +17,7 @@ requirements for a layer. It is recommended to test this process with a
 backup of a Cortex before updating a production Cortex.
 
 In order to maximize the space savings from the new layer storage format,
-after the Cortex has been migrated to ``v2.9.0``, one can take a a cold
+after the Cortex has been migrated to ``v2.9.0``, one can take a cold
 backup of the Cortex and restore the Cortex from that backup. This
 compacts the LMDB databases which back the Layers and reclaims disk space
 as a result. This is an optional step; as LMDB will eventually re-use the
