@@ -31,6 +31,7 @@ Features and Enhancements
   (`#1877 <https://github.com/vertexproject/synapse/pull/1877>`_)
   (`#1885 <https://github.com/vertexproject/synapse/pull/1885>`_)
   (`#1899 <https://github.com/vertexproject/synapse/pull/1899>`_)
+  (`#1917 <https://github.com/vertexproject/synapse/pull/1917>`_)
 - Initial support Python 3.8 compatibility for the core Synapse library.
   Additional 3.8 support (such as wheels and Docker images) will be available
   in future releases.
@@ -38,6 +39,7 @@ Features and Enhancements
 - Add a runtime only Storm option. This option prevents executing commands
   or Stormtypes functions which may modify data in the Cortex.
   (`#1869 <https://github.com/vertexproject/synapse/pull/1869>`_)
+  (`#1916 <https://github.com/vertexproject/synapse/pull/1916>`_)
 - Allow the Telepath Dmon to disconnect clients using a ready status.
   (`#1881 <https://github.com/vertexproject/synapse/pull/1881>`_)
 - Ensure that there is only one online backup of a Cell occuring at a time.
@@ -63,7 +65,7 @@ Features and Enhancements
 - Add ``ou:contract``, `ou:industry`` and ``it:reveng:function:strings``
   forms to the data model.
   (`#1894 <https://github.com/vertexproject/synapse/pull/1894>`_)
-- Add some display type-hinting to the data model for soem string fields which
+- Add some display type-hinting to the data model for some string fields which
   may be multi-line fields.
   (`#1892 <https://github.com/vertexproject/synapse/pull/1892>`_)
 - Add ``getFormCounts()`` API to the Stormtypes View and Layer objects.
@@ -77,12 +79,20 @@ Features and Enhancements
   a ``$lib.service.has()`` API which allows checking to see if a service
   is available on a Cortex.
   (`#1908 <https://github.com/vertexproject/synapse/pull/1908>`_)
+  (`#1915 <https://github.com/vertexproject/synapse/pull/1915>`_)
 - Add regular expression(``~=``) and prefix matching (``^=``) expression
   comparators that can be used with logical expressions inside of Storm.
   (`#1906 <https://github.com/vertexproject/synapse/pull/1906>`_)
+- Promote ``CoreApi.addFeedData()`` calls to tracked tasks which can be
+  viewed and terminated.
+  (`#1918 <https://github.com/vertexproject/synapse/pull/1918>`_)
 
 Bugfixes
 --------
+- Fix a Storm bug where attempting to access a undeclared variable silently
+  fails. This will now raise a ``NoSuchVar`` exception. This is verified at
+  runtime, not at syntax evaluation.
+  (`#1916 <https://github.com/vertexproject/synapse/pull/1916>`_)
 - Ensure that Storm HTTP APIs tear down the runtime task if the remote
   disconnects before consuming all of the messages.
   (`#1889 <https://github.com/vertexproject/synapse/pull/1889>`_)
@@ -100,6 +110,11 @@ Bugfixes
   form, nothing happened. Now a StormRuntimeError is raised if the
   destination form is not valid.
   (`#1905 <https://github.com/vertexproject/synapse/pull/1905>`_)
+- Fix an issue with spawn processes accessing lmdb databases after a slab
+  resize event has occured by the main process.
+  (`#1914 <https://github.com/vertexproject/synapse/pull/1914>`_)
+- Fix a slab teardown race seen in testing Python 3.8 on MacOS.
+  (`#1914 <https://github.com/vertexproject/synapse/pull/1914>`_)
 
 Deprecations
 ------------
