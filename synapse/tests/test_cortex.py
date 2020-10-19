@@ -701,7 +701,15 @@ class CortexTest(s_t_utils.SynTest):
                 'hehe': 'haha',
             },
 
-            'storm': '$foo=$(10) if $cmdopts.domore { [ +#$cmdconf.hehe ] } [ +#$cmdopts.tagname ]',
+            'storm': '''
+                $foo=$(10)
+                if $cmdopts.domore {
+                    [ +#$cmdconf.hehe ]
+                }
+                $lib.print(TAGNAME)
+                $lib.print($cmdopts)
+                [ +#$cmdopts.tagname ]
+            ''',
         }
 
         cdef1 = {
@@ -4260,6 +4268,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # make the dmon blow up
             await core.nodes('''
                 $lib.queue.get(boom).put(hehe)
+                $q = $lib.queue.get(visi)
                 for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
             ''')
 

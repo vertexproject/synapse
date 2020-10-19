@@ -327,6 +327,7 @@ class SpawnCore(s_base.Base):
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
+        self.svcsbysvcname = {}
 
         self.stormcmds = {}
         self.storm_cmd_ctors = {}
