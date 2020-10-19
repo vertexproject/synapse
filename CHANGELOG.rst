@@ -13,14 +13,15 @@ Announcements
 
 The ``v2.9.0`` Synapse release contains an automatic Cortex Layer data
 migration. The updated layer storage format reduces disk and memory
-requirements for a layer. This can be tested on a backup of a Cortex before
-updating a production Cortex.
+requirements for a layer. It is recommended to test this process with a
+backup of a Cortex before updating a production Cortex.
 
 In order to maximize the space savings from the new layer storage format,
-after the Cortex has been migrated to ``v2.9.0``, it is recommended to take
-a cold backup of the Cortex and restore the Cortex from that backup. This
+after the Cortex has been migrated to ``v2.9.0``, one can take a a cold
+backup of the Cortex and restore the Cortex from that backup. This
 compacts the LMDB databases which back the Layers and reclaims disk space
-as a result.
+as a result. This is an optional step; as LMDB will eventually re-use the
+existing space on disk.
 
 If there are any questions about this, please reach out in the Synapse Slack
 channel so we can assist with any data migration questions.
