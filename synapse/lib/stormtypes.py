@@ -1923,6 +1923,39 @@ class Dict(Prim):
         return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
 
 @registry.registerType
+class CmdOpts(Dict):
+    '''
+    A dictionary like object that holds a reference to a command options namespace.
+    ( This allows late-evaluation of command arguments rather than forcing capture )
+    '''
+
+    def __iter__(self):
+        valu = vars(self.valu.opts)
+        return valu.items()
+
+    async def __aiter__(self):
+        valu = vars(self.valu.opts)
+        for item in valu.items():
+            yield item
+
+    def __len__(self):
+        valu = vars(self.valu.opts)
+        return len(valu)
+
+    async def setitem(self, name, valu):
+        # due to self.valu.opts potentially being replaced
+        # we disallow setitem() to prevent confusion
+        mesg = 'CmdOpts may not be modified by the runtime'
+        raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+    async def deref(self, name):
+        return getattr(self.valu.opts, name, None)
+
+    async def value(self):
+        valu = vars(self.valu.opts)
+        return {await toprim(k): await toprim(v) for (k, v) in valu.items()}
+
+@registry.registerType
 class Set(Prim):
 
     def __init__(self, valu, path=None):
