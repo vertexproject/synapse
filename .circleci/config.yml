@@ -209,8 +209,8 @@ commands:
       - store_artifacts:
           path: test-reports
 
-  deploy_to_pypi:
-    description: "Publish packages to pypi"
+  deploy_pypi_prolouge:
+    description: "Check docker smoke test results"
     steps:
       - checkout
 
@@ -245,30 +245,31 @@ commands:
             echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
             echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
 
+  deploy_pypi_upload:
+    description: "Upload packages to pypi"
+    steps:
+      - run:
+          name: upload to pypi
+          command: |
+            . venv/bin/activate
+            twine upload dist/*
+
+  deploy_sdist_to_pypi:
+    description: "Publish sdist packages to pypi"
+    steps:
+      - deploy_pypi_prolouge
       - run:
           name: create packages
           command: |
             . venv/bin/activate
             python setup.py sdist
-            python setup.py bdist_wheel --python-tag=py37
-            python setup.py bdist_wheel --python-tag=py38
 
       - run:
           name: smoke packages
           command: |
-            mkdir -p /tmp/wheeltest
             mkdir -p /tmp/sdisttest
-            python3 -m venv /tmp/wheeltest/venv
             python3 -m venv /tmp/sdisttest/venv
-            cp dist/*.whl /tmp/wheeltest
             cp dist/*.tar.gz /tmp/sdisttest
-            cd /tmp/wheeltest
-            . ./venv/bin/activate
-            python3 -m pip install -U wheel pip
-            # How do we want to handle pytag packages? Two parallel pypi package steps?
-            python3 -m pip install *.whl
-            python3 -c "$PYPI_SMOKE_CODE"
-            deactivate
             cd /tmp/sdisttest
             . ./venv/bin/activate
             python3 -m pip install -U wheel pip
@@ -276,11 +277,32 @@ commands:
             python3 -c "$PYPI_SMOKE_CODE"
             deactivate
 
+      - deploy_pypi_upload
+
+  deploy_wheel_to_pypi:
+    description: "Publish wheel packages to pypi"
+    steps:
+      - deploy_pypi_prolouge
       - run:
-          name: upload to pypi
+          name: create packages
           command: |
             . venv/bin/activate
-            twine upload dist/*
+            python setup.py bdist_wheel --python-tag=$PYTHON_TAG
+
+      - run:
+          name: smoke packages
+          command: |
+            mkdir -p /tmp/wheeltest
+            python3 -m venv /tmp/wheeltest/venv
+            cp dist/*.whl /tmp/wheeltest
+            cd /tmp/wheeltest
+            . ./venv/bin/activate
+            python3 -m pip install -U wheel pip
+            python3 -m pip install *.whl
+            python3 -c "$PYPI_SMOKE_CODE"
+            deactivate
+
+      - deploy_pypi_upload
 
   check_docker_smoketests:
     description: "Check docker smoke test results"
@@ -510,9 +532,21 @@ jobs:
       - image: circleci/python:3.8
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
+          PYTHON_TAG: py38
 
     steps:
-      - deploy_to_pypi
+      - deploy_wheel_to_pypi
+      - deploy_sdist_to_pypi
+
+  deploy_pypi_37:
+    docker:
+      - image: circleci/python:3.7
+        environment:
+          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
+          PYTHON_TAG: py37
+
+    steps:
+      - deploy_wheel_to_pypi
 
   docker_tags:
     docker:
@@ -573,6 +607,16 @@ workflows:
               only: /.*/
 
       - deploy_pypi:
+          requires:
+            - doctests
+            - python37
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
+
+      - deploy_pypi_37:
           requires:
             - doctests
             - python37
