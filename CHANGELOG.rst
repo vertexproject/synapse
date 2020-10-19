@@ -8,8 +8,8 @@ Synapse Changelog
 v2.9.0 - Unreleased
 ===================
 
-Announcments
-------------
+Announcements
+-------------
 
 The ``v2.9.0`` Synapse release contains an automatic Cortex Layer data
 migration. The updated layer storage format reduces disk and memory
@@ -36,19 +36,20 @@ Features and Enhancements
   Additional 3.8 support (such as wheels and Docker images) will be available
   in future releases.
   (`#1907 <https://github.com/vertexproject/synapse/pull/1907>`_)
-- Add a runtime only Storm option. This option prevents executing commands
-  or Stormtypes functions which may modify data in the Cortex.
+- Add a read only Storm option to the Storm runtime. This option prevents
+  executing commands or Stormtypes functions which may modify data in the
+  Cortex.
   (`#1869 <https://github.com/vertexproject/synapse/pull/1869>`_)
   (`#1916 <https://github.com/vertexproject/synapse/pull/1916>`_)
 - Allow the Telepath Dmon to disconnect clients using a ready status.
   (`#1881 <https://github.com/vertexproject/synapse/pull/1881>`_)
-- Ensure that there is only one online backup of a Cell occuring at a time.
+- Ensure that there is only one online backup of a Cell occurring at a time.
   (`#1883 <https://github.com/vertexproject/synapse/pull/1883>`_)
 - Added ``.lower()``, ``.strip()``, ``.lstrip()`` and ``.rstrip()`` methods
   to the Stormtypes Str object. These behave like the Python ``str`` methods.
   (`#1886 <https://github.com/vertexproject/synapse/pull/1886>`_)
   (`#1906 <https://github.com/vertexproject/synapse/pull/1906>`_)
-- When scraping text, enfanged indicators are now defanged by default.
+- When scraping text, defanged indicators are now refanged by default.
   (`#1888 <https://github.com/vertexproject/synapse/pull/1888>`_)
 - Normalize read-only property declarations to use booleans in the data model.
   (`#1887 <https://github.com/vertexproject/synapse/pull/1887>`_)
@@ -57,12 +58,12 @@ Features and Enhancements
 - Add netblock and range lift helpers for ``inet:ipv6`` type, similar to the
   helpers for ``inet:ipv4``.
   (`#1869 <https://github.com/vertexproject/synapse/pull/1869>`_)
-- Add a ``edges.del`` command to bulk remote light weight edges from nodes.
-  (`#1896 <https://github.com/vertexproject/synapse/pull/1896>`_)
+- Add a ``edges.del`` command to bulk remove light weight edges from nodes.
+  (`#1893 <https://github.com/vertexproject/synapse/pull/1893>`_)
 - The ``yield`` keyword in Storm now supports iterating over Stormtypes List
   and Set objects.
   (`#1898 <https://github.com/vertexproject/synapse/pull/1898>`_)
-- Add ``ou:contract``, `ou:industry`` and ``it:reveng:function:strings``
+- Add ``ou:contract``, ``ou:industry`` and ``it:reveng:function:strings``
   forms to the data model.
   (`#1894 <https://github.com/vertexproject/synapse/pull/1894>`_)
 - Add some display type-hinting to the data model for some string fields which
@@ -80,7 +81,7 @@ Features and Enhancements
   is available on a Cortex.
   (`#1908 <https://github.com/vertexproject/synapse/pull/1908>`_)
   (`#1915 <https://github.com/vertexproject/synapse/pull/1915>`_)
-- Add regular expression(``~=``) and prefix matching (``^=``) expression
+- Add regular expression (``~=``) and prefix matching (``^=``) expression
   comparators that can be used with logical expressions inside of Storm.
   (`#1906 <https://github.com/vertexproject/synapse/pull/1906>`_)
 - Promote ``CoreApi.addFeedData()`` calls to tracked tasks which can be
@@ -89,9 +90,9 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Fix a Storm bug where attempting to access a undeclared variable silently
-  fails. This will now raise a ``NoSuchVar`` exception. This is verified at
-  runtime, not at syntax evaluation.
+- Fixed a Storm bug where attempting to access an undeclared variable
+  silently fails. This will now raise a ``NoSuchVar`` exception. This
+  is verified at runtime, not at syntax evaluation.
   (`#1916 <https://github.com/vertexproject/synapse/pull/1916>`_)
 - Ensure that Storm HTTP APIs tear down the runtime task if the remote
   disconnects before consuming all of the messages.
@@ -99,8 +100,6 @@ Bugfixes
 - Fix an issue where the ``model.edge.list`` command could block the ioloop
   for large Cortex.
   (`#1890 <https://github.com/vertexproject/synapse/pull/1890>`_)
-- # XXX RUNTSAFETY BUGFIX
-  (`#1869 <https://github.com/vertexproject/synapse/pull/1869>`_)
 - Fix a regex based lifting bug.
   (`#1899 <https://github.com/vertexproject/synapse/pull/1899>`_)
 - Fix a few possibly greedy points in the AST code which could have resulted
@@ -111,14 +110,14 @@ Bugfixes
   destination form is not valid.
   (`#1905 <https://github.com/vertexproject/synapse/pull/1905>`_)
 - Fix an issue with spawn processes accessing lmdb databases after a slab
-  resize event has occured by the main process.
+  resize event has occurred by the main process.
   (`#1914 <https://github.com/vertexproject/synapse/pull/1914>`_)
 - Fix a slab teardown race seen in testing Python 3.8 on MacOS.
   (`#1914 <https://github.com/vertexproject/synapse/pull/1914>`_)
 
 Deprecations
 ------------
-- The ``0.1.x`` to ``2.x.x`` Migration tool and and associated Cortex sync
+- The ``0.1.x`` to ``2.x.x`` Migration tool and associated Cortex sync
   service has been removed from Synapse in the ``2.9.0`` release.
 
 Improved Documentation
