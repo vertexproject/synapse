@@ -90,7 +90,7 @@ the Axon.
 ------------------------
 
 .. warning::
-    The ``0.1.x`` to ``2.x.x`` migration tools has been removed in Synapse ``v2.9.0``.
+    The ``0.1.x`` to ``2.x.x`` migration tools have been removed in Synapse ``v2.9.0``.
 
-For information about migrating older Cortexes to v2.8.0, please refer to the ``v2.8.0`` documenation
+For information about migrating older Cortexes to v2.8.0, please refer to the ``v2.8.0`` documentation
 `here <https://synapse.docs.vertex.link/en/v2.8.0/synapse/devguides/devops_cortex.html#x-to-2-x-x-migration>`_.
