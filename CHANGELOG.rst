@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.9.0 - Unreleased
+v2.9.0 - 2020-10-19
 ===================
 
 Announcements
