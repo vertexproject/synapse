@@ -99,14 +99,15 @@ class JupyterTest(s_t_utils.SynTest):
                                             num=1, cmdr=False)
                 self.len(1, podes)
                 self.eq(podes[0][0], ('test:str', 'duck'))
+
                 # Opts does not work with cmdr=True - we have no way to plumb it through.
-                with self.getAsyncLoggerStream('synapse.cortex',
+                with self.getAsyncLoggerStream('synapse.lib.view',
                                                'Error during storm execution') as stream:
-                    ret = await cmdrcore.eval('[test:str=$foo]',
-                                              {'vars': {'foo': 'fowl'}},
+                    with self.raises(AssertionError):
+                        await cmdrcore.eval('[test:str=$foo]',
+                                              opts={'vars': {'foo': 'fowl'}},
                                               cmdr=True)
-                    await stream.wait(1)
-                    self.eq(ret, [])
+                    self.true(await stream.wait(6))
 
                 # Assertion based tests
                 podes = await cmdrcore.eval('test:int', num=0)
@@ -133,6 +134,28 @@ class JupyterTest(s_t_utils.SynTest):
                 await cmdrcore.runCmdLine('help')
                 self.true(outp.expect('cli> help'))
                 self.true(outp.expect('List commands and display help output.'))
+
+    async def test_log_supression(self):
+
+        async with self.getTestCoreAndProxy() as (realcore, core):
+
+            outp = self.getTestOutp()
+            async with await s_jupyter.CmdrCore.anit(core, outp=outp) as cmdrcore:
+                with self.getAsyncLoggerStream('synapse.lib.view') as stream:
+                    mesgs = await cmdrcore.storm('[test:int=beep]',
+                                                 num=0, cmdr=False,
+                                                 suppress_logging=True)
+                    self.stormIsInErr('invalid literal for int', mesgs)
+                stream.seek(0)
+                self.notin('Error during storm execution', stream.read())
+
+                with self.getAsyncLoggerStream('synapse.lib.view',
+                                                     'Error during storm execution') as stream:
+                    mesgs = await cmdrcore.storm('[test:int=beep]',
+                                                 num=0, cmdr=False,
+                                                 suppress_logging=False)
+                    self.true(await stream.wait(6))
+                    self.stormIsInErr('invalid literal for int', mesgs)
 
     def test_doc_data(self):
         with self.getTestDir() as dirn:

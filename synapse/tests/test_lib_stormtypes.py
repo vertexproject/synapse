@@ -389,10 +389,8 @@ class StormTypesTest(s_test.SynTest):
             $lib.print("post exec {bar}", bar=$bar)
             [ test:str=$foo ]
             '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint("in exec", msgs)
-            prints = [m for m in msgs if m[0] == 'print']
-            self.len(1, prints)
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes(q)
 
             # make sure returns work
             q = '''
@@ -917,7 +915,7 @@ class StormTypesTest(s_test.SynTest):
             self.isin('No var with name: testkey', err[1].get('mesg'))
 
             opts = {'vars': {'testkey': 'testvar'}}
-            text = "[ test:str='123' ] $path.vars.$testkey = test [ test:str=$testvar ]"
+            text = "[ test:str='123' ] $path.vars.$testkey = test [ test:str=$path.vars.testvar ]"
             nodes = await core.nodes(text, opts=opts)
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test'))
@@ -3214,3 +3212,55 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm('return($lib.layer.get().getPropCount(newp:newp))')
+
+    async def test_lib_stormtypes_cmdopts(self):
+        pdef = {
+            'name': 'foo',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'modules': [
+                {
+                    'name': 'test',
+                    'storm': 'function f(a) { return ($a) }',
+                }
+            ],
+            'commands': [
+                {
+                    'name': 'test.cmdopts',
+                    'cmdargs': (
+                        ('foo', {}),
+                        ('--bar', {'default': False, 'action': 'store_true'}),
+                    ),
+                    'storm': '''
+                        $lib.print($lib.len($cmdopts))
+                        if ($lib.len($cmdopts) = 3) { $lib.print(foo) }
+
+                        $set = $lib.set()
+                        for ($name, $valu) in $cmdopts { $set.add($valu) }
+
+                        if ($lib.len($set) = 3) { $lib.print(bar) }
+
+                        if $cmdopts.bar { $lib.print(baz) }
+                    '''
+                },
+                {
+                    'name': 'test.setboom',
+                    'cmdargs': [
+                        ('foo', {}),
+                        ('--bar', {'default': False, 'action': 'store_true'}),
+                    ],
+                    'storm': '''
+                        $cmdopts.foo = hehe
+                    '''
+                },
+            ],
+        }
+        async with self.getTestCore() as core:
+            await core.addStormPkg(pdef)
+            msgs = await core.stormlist('test.cmdopts hehe --bar')
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('bar', msgs)
+            self.stormIsInPrint('baz', msgs)
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test.setboom hehe --bar')
