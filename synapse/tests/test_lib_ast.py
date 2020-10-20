@@ -983,13 +983,11 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint("biz is now 20", msgs)
 
             # test that the functions in a module don't pollute our own runts
-            q = '''
-            $test=$lib.import(test)
-            $lib.print($outer("1337"))
-            '''
-            msgs = await core.stormlist(q)
-            for msg in msgs:
-                self.ne('print', msg[0])
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('''
+                    $test=$lib.import(test)
+                    $lib.print($outer("1337"))
+                ''')
 
             # make sure can set variables to the results of other functions in the same query
             q = '''
@@ -1019,11 +1017,11 @@ class AstTest(s_test.SynTest):
             $lib.print($hehe)
             $retn = $lib.import(importnest).outer($lib.true, $(90))
             $lib.print($retn)
-            $lib.print("counter is {c}", c=$counter)
+            $lib.print("counter is {c}", c=$test.counter)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
-            self.len(9, prints)
+            self.len(10, prints)
             self.stormIsInPrint('counter is 0', msgs)
             self.stormIsInPrint('foobar is 33', msgs)
             self.stormIsInPrint('(Run: 0) we got back bar', msgs)
@@ -1073,7 +1071,6 @@ class AstTest(s_test.SynTest):
                 return ($retn)
             }
             $lib.print("retn is {ans}", ans=$( $foo($global)) )
-            $lib.print("this should not print, but {wat}", wat=$wat)
             '''
             msgs = await core.stormlist(q)
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -1108,13 +1105,9 @@ class AstTest(s_test.SynTest):
             $test = $lib.import(yieldsforever)
             yield $test.yieldme("yieldsforimports")
             $lib.print($node.value())
-            $lib.print("splat shouldn't exist, but we got {s}", s=$splat)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yieldsforimports', msgs)
-            erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'NoSuchVar')
-            self.eq(erfo[1][1].get('name'), 'splat')
 
             # Too few args are problematic
             q = '''
