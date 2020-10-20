@@ -7,6 +7,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
@@ -1425,11 +1426,18 @@ class Parser:
 
         return retn
 
+    def _timearg(self, valu):
+        norm = s_datamodel.Model().type('time').norm(valu)
+        return norm[0]
+
     def _get_store(self, name, argdef, todo, opts):
 
         dest = argdef.get('dest')
         nargs = argdef.get('nargs')
         argtype = argdef.get('type')
+
+        if argtype == 'time':
+            argtype = self._timearg
 
         vals = []
         if nargs is None:

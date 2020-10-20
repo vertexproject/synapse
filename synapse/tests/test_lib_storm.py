@@ -940,6 +940,22 @@ class StormTest(s_t_utils.SynTest):
         helptext = '\n'.join(pars.mesgs)
         self.isin("Invalid value for type (<class 'int'>): lolz", helptext)
 
+        # test time argtype
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', type='time')
+        self.nn(pars.parse_args(['--yada', 'now-1day']))
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', type='time')
+        self.nn(pars.parse_args(['--yada', 1603229675444]))
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', type='time')
+        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.true(pars.exited)
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (<bound method Parser._timearg", helptext)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 
