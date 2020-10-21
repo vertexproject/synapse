@@ -1237,7 +1237,7 @@ class RawPivot(PivotOper):
         query = self.kids[0]
         async for node, path in genr:
             opts = {'vars': path.vars.copy()}
-            with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getSubRuntime(query, opts=opts) as subr:
                 async for node, path in subr.execute():
                     yield node, path
 
@@ -3012,7 +3012,7 @@ class EditEdgeAdd(Edit):
             allowed(verb)
 
             opts = {'vars': path.vars.copy()}
-            with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getSubRuntime(query, opts=opts) as subr:
                 async for subn, subp in subr.execute():
                     if self.n2:
                         await subn.addEdge(verb, iden)
@@ -3052,7 +3052,7 @@ class EditEdgeDel(Edit):
             allowed(verb)
 
             opts = {'vars': path.vars.copy()}
-            with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getSubRuntime(query, opts=opts) as subr:
                 async for subn, subp in subr.execute():
                     if self.n2:
                         await subn.delEdge(verb, iden)
@@ -3376,7 +3376,7 @@ class Function(AstNode):
                                           )
 
         opts = {'vars': real_args}
-        with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
+        async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
             # inform the sub runtime to use function scope rules
             subr.funcscope = True

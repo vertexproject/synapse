@@ -1013,7 +1013,7 @@ class StormDmon(s_base.Base):
         def dmonWarn(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.info(f'Dmon - {self.iden} - WARNING: {mesg}')
+            logger.warning(f'Dmon - {self.iden} - WARNING: {mesg}')
 
         while not self.isfini:
 
@@ -1035,6 +1035,10 @@ class StormDmon(s_base.Base):
 
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
+
+            except s_exc.StormExit:
+                self.status = 'exited'
+                await self.waitfini(timeout=1)
 
             except asyncio.CancelledError:
                 logger.warning(f'Dmon loop cancelled: ({self.iden})')
@@ -1249,12 +1253,26 @@ class Runtime:
                 self.tick()
                 yield item
 
-    @contextlib.contextmanager
-    def getSubRuntime(self, query, opts=None):
+    @contextlib.asynccontextmanager
+    async def getSubRuntime(self, query, opts=None):
         '''
         Yield a runtime with shared scope that will populate changes upward.
         '''
-        runt = Runtime(query, self.snap, user=self.user, opts=opts, root=self)
+        snap = self.snap
+
+        if opts is not None:
+
+            viewiden = opts.get('view')
+            if viewiden is not None:
+
+                view = snap.core.views.get(viewiden)
+                if view is None:
+                    raise s_exc.NoSuchView(iden=viewiden)
+
+                self.user.confirm(('view', 'read'), gateiden=viewiden)
+                snap = await view.snap(self.user)
+
+        runt = Runtime(query, snap, user=self.user, opts=opts, root=self)
         runt.readonly = self.readonly
 
         yield runt
@@ -2359,6 +2377,125 @@ class GraphCmd(Cmd):
         async for node, path in subg.run(runt, genr):
             yield node, path
 
+class ViewExecCmd(Cmd):
+    '''
+    Execute a storm query in a different view.
+
+    NOTE: Variables are passed through but nodes are not
+
+    Examples:
+
+        // Move some tagged nodes to another view
+        inet:fqdn#foo.bar $fqdn=$node.value() | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
+    '''
+
+    name = 'view.exec'
+    readonly = True
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('view', help='The GUID of the view in which the query will execute.')
+        pars.add_argument('storm', help='The storm query to execute on the view.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        query = await runt.getStormQuery(self.opts.storm)
+
+        # nodes may not pass across views, but their path vars may
+        for node, path in genr:
+
+            opts = {
+                'vars': path.vars,
+                'view': self.opts.view,
+            }
+
+            async with runt.getSubRuntime(query, opts=opts):
+                async for item in runt.execute():
+                    asyncio.sleep(0)
+
+            yield node, path
+
+class ParallelCmd(Cmd):
+    '''
+    Execute part of a query pipeline in parallel.
+    This can be useful to minimize round-trip delay during enrichments.
+
+    Examples:
+        inet:ipv4#foo | parallel { $place = $lib.import(foobar).lookup(:latlong) [ :place=$place ] }
+
+    NOTE: Storm variables set within the parallel query pipelines do not interact.
+    '''
+    name = 'parallel'
+    readonly = True
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--size', default=8, type=int,
+            help='The number of parallal Storm pipelines to execute.')
+
+        pars.add_argument('query',
+            help='The query to execute in parallel.')
+
+        return pars
+
+    async def nextitem(self, inq):
+        while True:
+            item = await inq.get()
+            if item is None:
+                return
+
+            yield item
+
+    async def pipeline(self, runt, query, inq, outq):
+        try:
+            async with runt.getSubRuntime(query) as subr:
+                async for item in subr.execute(genr=self.nextitem(inq)):
+                    await outq.put(item)
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            await outq.put(e)
+
+        finally:
+            await outq.put(None)
+
+    async def execStormCmd(self, runt, genr):
+
+        size = await s_stormtypes.toint(self.opts.size)
+        query = await runt.getStormQuery(self.opts.query)
+
+        async with await s_base.Base.anit() as base:
+
+            inq = asyncio.Queue(maxsize=size)
+            outq = asyncio.Queue(maxsize=size)
+
+            async def pump():
+                async for item in genr:
+                    await inq.put(item)
+                [await inq.put(None) for i in range(size)]
+
+            base.schedCoro(pump())
+            for i in range(size):
+                base.schedCoro(self.pipeline(runt, query, inq, outq))
+
+            exited = 0
+            while True:
+
+                item = await outq.get()
+                if isinstance(item, Exception):
+                    raise item
+
+                if item is None:
+                    exited += 1
+                    if exited == size:
+                        return
+                    continue
+
+                yield item
+
 class TeeCmd(Cmd):
     '''
     Execute multiple Storm queries on each node in the input stream, joining output streams together.
@@ -2399,7 +2536,7 @@ class TeeCmd(Cmd):
             runts = []
             for text in self.opts.query:
                 query = await runt.getStormQuery(text)
-                subr = stack.enter_context(runt.getSubRuntime(query))
+                subr = stack.async_enter_context(runt.getSubRuntime(query))
                 runts.append(subr)
 
             item = None

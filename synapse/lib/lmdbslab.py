@@ -439,6 +439,28 @@ class MultiQueue(s_base.Base):
             self.sizes.set(name, self.sizes.get(name) - 1)
             await asyncio.sleep(0)
 
+    async def pops(self, name, offs, size=10):
+
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        if offs < 0:
+            return
+
+        indx = s_common.int64en(offs)
+
+        abrv = self.abrv.nameToAbrv(name)
+
+        for lkey, lval in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
+
+            offs = s_common.int64un(lkey[8:])
+            yield offs, s_msgpack.un(lval)
+
+            self.slab.delete(lkey, db=self.qdata)
+            self.sizes.set(name, self.sizes.get(name) - 1)
+            await asyncio.sleep(0)
+
     async def dele(self, name, minoffs, maxoffs):
         '''
         Remove queue entries from minoffs, up-to (and including) the queue entry at maxoffs.
