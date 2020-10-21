@@ -1051,8 +1051,12 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_parallel(self):
         async with self.getTestCore() as core:
-            #TODO suggestions on testing?
+
             nodes = await core.nodes('parallel --size 4 { [ ou:org=* ] }')
             self.len(4, nodes)
+
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('parallel --size 4 { [ ou:org=$foo ] }')
+
+            nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
+            self.true(all([n.get('name') == 'foo' for n in nodes]))

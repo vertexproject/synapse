@@ -306,18 +306,6 @@ class JsonStorApi(s_cell.CellApi):
         async for item in self.cell.getsQueue(name, offs, size=size, cull=cull, wait=wait):
             yield item
 
-    #async def getOffs(self, iden):
-        #await self._reqUserAllowed(('offs', 'get', iden))
-        #return await self.cell.getOffs(iden)
-
-    #async def setOffs(self, iden, valu):
-        #await self._reqUserAllowed(('offs', 'set', iden))
-        #return await self.cell.setOffs(iden, valu)
-
-    #async def incOffs(self, iden, valu):
-        #await self._reqUserAllowed(('offs', 'set', iden))
-        #return await self.cell.incOffs(iden, valu)
-
 class JsonStorCell(s_cell.Cell):
 
     cellapi = JsonStorApi
@@ -325,7 +313,6 @@ class JsonStorCell(s_cell.Cell):
     async def initServiceStorage(self):
         self.jsonstor = await JsonStor.anit(self.slab, 'jsonstor')
         self.multique = await s_lmdbslab.MultiQueue.anit(self.slab, 'multique')
-        #self.hotcount = await self.slab.getHotCount()
 
     async def getPathObj(self, path, prop=None):
         return await self.jsonstor.getPathObj(path, prop=prop)
@@ -362,17 +349,6 @@ class JsonStorCell(s_cell.Cell):
 
     async def getsQueue(self, name, offs, size=None, cull=True, wait=True):
         if cull and offs > 0:
-            await self.cell.cullQueue(name, offs - 1)
+            await self.cullQueue(name, offs - 1)
         async for item in self.multique.gets(name, offs, size=size, wait=wait):
             yield item
-
-    #async def getOffs(self, iden):
-        #return self.hotcount.get(iden, defv=0)
-
-    #@s_nexus.Pusher.onPushAuto('offs:set')
-    #async def setOffs(self, iden, valu):
-        #return self.hotcount.set(iden, int(valu))
-
-    #@s_nexus.Pusher.onPushAuto('offs:inc')
-    #async def incOffs(self, iden, valu=1):
-        #return self.hotcount.inc(iden, valu=int(valu))

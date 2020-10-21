@@ -2455,6 +2455,7 @@ class ParallelCmd(Cmd):
             async with runt.getSubRuntime(query) as subr:
                 async for item in subr.execute(genr=self.nextitem(inq)):
                     await outq.put(item)
+
         except asyncio.CancelledError:
             raise
 
@@ -2468,6 +2469,8 @@ class ParallelCmd(Cmd):
 
         size = await s_stormtypes.toint(self.opts.size)
         query = await runt.getStormQuery(self.opts.query)
+
+        query.validate(runt)
 
         async with await s_base.Base.anit() as base:
 
