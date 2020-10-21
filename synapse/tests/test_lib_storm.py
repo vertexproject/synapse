@@ -946,9 +946,9 @@ class StormTest(s_t_utils.SynTest):
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='time')
-        args = pars.parse_args(['--yada', 'now-1day'])
+        args = pars.parse_args(['--yada', '20201021-1day'])
         self.nn(args)
-        self.eq(ttyp.norm('now-1day')[0], args.yada)
+        self.eq(ttyp.norm('20201021-1day')[0], args.yada)
 
         args = pars.parse_args(['--yada', 1603229675444])
         self.nn(args)
@@ -964,21 +964,21 @@ class StormTest(s_t_utils.SynTest):
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='ival')
-        args = pars.parse_args(['--yada', 'now-1day'])
+        args = pars.parse_args(['--yada', '20201021-1day'])
         self.nn(args)
-        self.eq(ityp.norm('now-1day')[0], args.yada)
+        self.eq(ityp.norm('20201021-1day')[0], args.yada)
 
         args = pars.parse_args(['--yada', 1603229675444])
         self.nn(args)
         self.eq(ityp.norm(1603229675444)[0], args.yada)
 
-        args = pars.parse_args(['--yada', ('now', '+2days')])
+        args = pars.parse_args(['--yada', ('20201021', '20201023')])
         self.nn(args)
-        self.eq(ityp.norm(('now', '+2days'))[0], args.yada)
+        self.eq(ityp.norm(('20201021', '20201023'))[0], args.yada)
 
-        args = pars.parse_args(['--yada', (1603229675444, 'now')])
+        args = pars.parse_args(['--yada', (1603229675444, '20201021')])
         self.nn(args)
-        self.eq(ityp.norm((1603229675444, 'now'))[0], args.yada)
+        self.eq(ityp.norm((1603229675444, '20201021'))[0], args.yada)
 
         self.none(pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
