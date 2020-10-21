@@ -5,6 +5,135 @@ Synapse Changelog
 *****************
 
 
+v2.9.0 - 2020-10-19
+===================
+
+Announcements
+-------------
+
+The ``v2.9.0`` Synapse release contains an automatic Cortex Layer data
+migration. The updated layer storage format reduces disk and memory
+requirements for a layer. It is recommended to test this process with a
+backup of a Cortex before updating a production Cortex.
+
+In order to maximize the space savings from the new layer storage format,
+after the Cortex has been migrated to ``v2.9.0``, one can take a cold
+backup of the Cortex and restore the Cortex from that backup. This
+compacts the LMDB databases which back the Layers and reclaims disk space
+as a result. This is an optional step; as LMDB will eventually re-use the
+existing space on disk.
+
+If there are any questions about this, please reach out in the Synapse Slack
+channel so we can assist with any data migration questions.
+
+Features and Enhancements
+-------------------------
+- Optimize the layer storage format for memory size and performance.
+  (`#1877 <https://github.com/vertexproject/synapse/pull/1877>`_)
+  (`#1885 <https://github.com/vertexproject/synapse/pull/1885>`_)
+  (`#1899 <https://github.com/vertexproject/synapse/pull/1899>`_)
+  (`#1917 <https://github.com/vertexproject/synapse/pull/1917>`_)
+- Initial support Python 3.8 compatibility for the core Synapse library.
+  Additional 3.8 support (such as wheels and Docker images) will be available
+  in future releases.
+  (`#1907 <https://github.com/vertexproject/synapse/pull/1907>`_)
+- Add a read only Storm option to the Storm runtime. This option prevents
+  executing commands or Stormtypes functions which may modify data in the
+  Cortex.
+  (`#1869 <https://github.com/vertexproject/synapse/pull/1869>`_)
+  (`#1916 <https://github.com/vertexproject/synapse/pull/1916>`_)
+- Allow the Telepath Dmon to disconnect clients using a ready status.
+  (`#1881 <https://github.com/vertexproject/synapse/pull/1881>`_)
+- Ensure that there is only one online backup of a Cell occurring at a time.
+  (`#1883 <https://github.com/vertexproject/synapse/pull/1883>`_)
+- Added ``.lower()``, ``.strip()``, ``.lstrip()`` and ``.rstrip()`` methods
+  to the Stormtypes Str object. These behave like the Python ``str`` methods.
+  (`#1886 <https://github.com/vertexproject/synapse/pull/1886>`_)
+  (`#1906 <https://github.com/vertexproject/synapse/pull/1906>`_)
+- When scraping text, defanged indicators are now refanged by default.
+  (`#1888 <https://github.com/vertexproject/synapse/pull/1888>`_)
+- Normalize read-only property declarations to use booleans in the data model.
+  (`#1887 <https://github.com/vertexproject/synapse/pull/1887>`_)
+- Add ``lift.byverb`` command to allow lifting nodes using a light edge verb.
+  (`#1890 <https://github.com/vertexproject/synapse/pull/1890>`_)
+- Add netblock and range lift helpers for ``inet:ipv6`` type, similar to the
+  helpers for ``inet:ipv4``.
+  (`#1869 <https://github.com/vertexproject/synapse/pull/1869>`_)
+- Add a ``edges.del`` command to bulk remove light weight edges from nodes.
+  (`#1893 <https://github.com/vertexproject/synapse/pull/1893>`_)
+- The ``yield`` keyword in Storm now supports iterating over Stormtypes List
+  and Set objects.
+  (`#1898 <https://github.com/vertexproject/synapse/pull/1898>`_)
+- Add ``ou:contract``, ``ou:industry`` and ``it:reveng:function:strings``
+  forms to the data model.
+  (`#1894 <https://github.com/vertexproject/synapse/pull/1894>`_)
+- Add some display type-hinting to the data model for some string fields which
+  may be multi-line fields.
+  (`#1892 <https://github.com/vertexproject/synapse/pull/1892>`_)
+- Add ``getFormCounts()`` API to the Stormtypes View and Layer objects.
+  (`#1903 <https://github.com/vertexproject/synapse/pull/1903>`_)
+- Allow Cortex layers to report their total size on disk. This is exposed in
+  the Stormtypes ``Layer.pack()`` method for a layer.
+  (`#1910 <https://github.com/vertexproject/synapse/pull/1910>`_)
+- Expose the remote Storm Service name in the ``$lib.service.get()``
+  Stormtypes API. This allows getting a service object without knowing
+  the name of the service as it was locally added to a Cortex. Also add
+  a ``$lib.service.has()`` API which allows checking to see if a service
+  is available on a Cortex.
+  (`#1908 <https://github.com/vertexproject/synapse/pull/1908>`_)
+  (`#1915 <https://github.com/vertexproject/synapse/pull/1915>`_)
+- Add regular expression (``~=``) and prefix matching (``^=``) expression
+  comparators that can be used with logical expressions inside of Storm.
+  (`#1906 <https://github.com/vertexproject/synapse/pull/1906>`_)
+- Promote ``CoreApi.addFeedData()`` calls to tracked tasks which can be
+  viewed and terminated.
+  (`#1918 <https://github.com/vertexproject/synapse/pull/1918>`_)
+
+Bugfixes
+--------
+- Fixed a Storm bug where attempting to access an undeclared variable
+  silently fails. This will now raise a ``NoSuchVar`` exception. This
+  is verified at runtime, not at syntax evaluation.
+  (`#1916 <https://github.com/vertexproject/synapse/pull/1916>`_)
+- Ensure that Storm HTTP APIs tear down the runtime task if the remote
+  disconnects before consuming all of the messages.
+  (`#1889 <https://github.com/vertexproject/synapse/pull/1889>`_)
+- Fix an issue where the ``model.edge.list`` command could block the ioloop
+  for large Cortex.
+  (`#1890 <https://github.com/vertexproject/synapse/pull/1890>`_)
+- Fix a regex based lifting bug.
+  (`#1899 <https://github.com/vertexproject/synapse/pull/1899>`_)
+- Fix a few possibly greedy points in the AST code which could have resulted
+  in greedy CPU use.
+  (`#1902 <https://github.com/vertexproject/synapse/pull/1902>`_)
+- When pivoting across light edges, if the destination form was not a valid
+  form, nothing happened. Now a StormRuntimeError is raised if the
+  destination form is not valid.
+  (`#1905 <https://github.com/vertexproject/synapse/pull/1905>`_)
+- Fix an issue with spawn processes accessing lmdb databases after a slab
+  resize event has occurred by the main process.
+  (`#1914 <https://github.com/vertexproject/synapse/pull/1914>`_)
+- Fix a slab teardown race seen in testing Python 3.8 on MacOS.
+  (`#1914 <https://github.com/vertexproject/synapse/pull/1914>`_)
+
+Deprecations
+------------
+- The ``0.1.x`` to ``2.x.x`` Migration tool and associated Cortex sync
+  service has been removed from Synapse in the ``2.9.0`` release.
+
+Improved Documentation
+----------------------
+- Clarify user documentation for pivot out and pivot in operations.
+  (`#1891 <https://github.com/vertexproject/synapse/pull/1891>`_)
+- Add a deprecation policy for Synapse Data model elements.
+  (`#1895 <https://github.com/vertexproject/synapse/pull/1895>`_)
+- Pretty print large data structures that may occur in the data model
+  documentation.
+  (`#1897 <https://github.com/vertexproject/synapse/pull/1897>`_)
+- Update Storm Lift documentation to add the ``?=`` operator.
+  (`#1904 <https://github.com/vertexproject/synapse/pull/1904>`_)
+
+
 v2.8.0 - 2020-09-22
 ===================
 
@@ -41,7 +170,6 @@ v2.7.3 - 2020-09-16
 
 Deprecations
 ------------
-
 - The ``0.1.x`` to ``2.x.x`` Migration tool and and associated Cortex sync service will be removed from Synapse in
   the ``2.9.0`` release. In order to move forward to ``2.9.0``, please make sure that any Cortexes which still need to
   be migrated will first be migrated to ``2.8.x`` prior to attempting to use ``2.9.x``.

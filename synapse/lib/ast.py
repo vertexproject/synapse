@@ -92,6 +92,9 @@ class AstNode:
         [k.init(core) for k in self.kids]
         self.prepare()
 
+    def validate(self, runt):
+        [k.validate(runt) for k in self.kids]
+
     def prepare(self):
         pass
 
@@ -116,8 +119,7 @@ class AstNode:
 
     def getRuntVars(self, runt):
         for kid in self.kids:
-            for name in kid.getRuntVars(runt):
-                yield name
+            yield from kid.getRuntVars(runt)
 
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
@@ -158,6 +160,7 @@ class Query(AstNode):
             subgraph = SubGraph(rules)
 
         self.optimize()
+        self.validate(runt)
 
         # turtles all the way down...
         if genr is None:
@@ -521,18 +524,16 @@ class ForLoop(Oper):
 
     def getRuntVars(self, runt):
 
-        if not self.kids[1].isRuntSafe(runt):
-            return
+        runtsafe = self.kids[1].isRuntSafe(runt)
 
         if isinstance(self.kids[0], VarList):
             for name in self.kids[0].value():
-                yield name
+                yield name, runtsafe
 
         else:
-            yield self.kids[0].value()
+            yield self.kids[0].value(), runtsafe
 
-        for name in self.kids[2].getRuntVars(runt):
-            yield name
+        yield from self.kids[2].getRuntVars(runt)
 
     async def run(self, runt, genr):
 
@@ -720,31 +721,25 @@ class CmdOper(Oper):
 
         with s_provenance.claim('stormcmd', name=name):
 
-            if runtsafe:
-
-                genr = await pullone(genr)
-
-                argv = await self.kids[1].compute(runt, None)
-                if not await scmd.setArgv(argv):
-                    return
-
-                async for item in scmd.execStormCmd(runt, genr):
-                    yield item
-
-                return
-
-            async def optsgenr():
+            async def genx():
 
                 async for node, path in genr:
-
                     argv = await self.kids[1].compute(runt, path)
                     if not await scmd.setArgv(argv):
                         return
 
                     yield node, path
 
-            scmd = ctor(runt, runtsafe)
-            async for item in scmd.execStormCmd(runt, optsgenr()):
+            # must pull through the genr to get opts set
+            # ( many commands expect self.opts is set at run() )
+            genr = await pullone(genx())
+
+            if runtsafe:
+                argv = await self.kids[1].compute(runt, None)
+                if not await scmd.setArgv(argv):
+                    return
+
+            async for item in scmd.execStormCmd(runt, genr):
                 yield item
 
 class SetVarOper(Oper):
@@ -773,9 +768,9 @@ class SetVarOper(Oper):
             runt.setVar(name, valu)
 
     def getRuntVars(self, runt):
-        if not self.kids[1].isRuntSafe(runt):
-            return
-        yield self.kids[0].value()
+        yield self.kids[0].value(), self.kids[1].isRuntSafe(runt)
+        for k in self.kids:
+            yield from k.getRuntVars(runt)
 
 class SetItemOper(Oper):
     '''
@@ -846,12 +841,9 @@ class VarListSetOper(Oper):
             return
 
     def getRuntVars(self, runt):
-
-        if not self.kids[1].isRuntSafe(runt):
-            return
-
+        runtsafe = self.kids[1].isRuntSafe(runt)
         for name in self.kids[0].value():
-            yield name
+            yield name, runtsafe
 
 class VarEvalOper(Oper):
     '''
@@ -1007,7 +999,7 @@ class YieldValu(Oper):
                     yield node
             return
 
-        if isinstance(valu, (list, tuple)):
+        if isinstance(valu, (list, tuple, set)):
             for item in valu:
                 async for node in self.yieldFromValu(runt, item):
                     yield node
@@ -1022,11 +1014,13 @@ class YieldValu(Oper):
         if isinstance(valu, s_stormtypes.Query):
             async for node in valu.nodes():
                 yield node
+            return
 
         if isinstance(valu, (s_stormtypes.List, s_stormtypes.Set)):
             for item in valu.valu:
                 async for node in self.yieldFromValu(runt, item):
                     yield node
+            return
 
 class LiftTag(LiftOper):
 
@@ -2288,6 +2282,10 @@ class ArgvQuery(Value):
         # an argv query is really just a string, so it's runtsafe.
         return True
 
+    def validate(self, runt):
+        # validation is done by the sub-runtime
+        pass
+
     async def compute(self, runt, path):
         return self.kids[0].text
 
@@ -2391,6 +2389,10 @@ class CallKwargs(CallArgs):
     pass
 
 class VarValue(Value, Cond):
+
+    def validate(self, runt):
+        if runt.runtvars.get(self.name) is None:
+            raise s_exc.NoSuchVar(name=self.name)
 
     async def getCondEval(self, runt):
 
@@ -2594,6 +2596,13 @@ class Bool(Const):
     pass
 
 class EmbedQuery(Const):
+
+    def validate(self, runt):
+        # var scope validation occurs in the sub-runtime
+        pass
+
+    def getRuntVars(self, runt):
+        if 0: yield
 
     async def compute(self, runt, path):
 
@@ -3336,7 +3345,11 @@ class Function(AstNode):
             yield node, path
 
     def getRuntVars(self, runt):
-        yield self.kids[0].value()
+        yield (self.kids[0].value(), True)
+
+    def validate(self, runt):
+        # var scope validation occurs in the sub-runtime
+        pass
 
     async def callfunc(self, runt, args, kwargs):
         '''

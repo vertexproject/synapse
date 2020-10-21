@@ -385,6 +385,13 @@ class CoreApi(s_cell.CellApi):
 
         self.user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
 
+        task = await self.cell.boss.promote('feeddata',
+                                            user=self.user,
+                                            info={'name': name,
+                                                  'view': view.iden,
+                                                  'nitems': len(items),
+                                                  })
+
         async with await self.cell.snap(user=self.user, view=view) as snap:
             with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
                 snap.strict = False
