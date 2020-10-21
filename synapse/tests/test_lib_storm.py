@@ -3,6 +3,7 @@ import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.storm as s_storm
 
@@ -941,20 +942,48 @@ class StormTest(s_t_utils.SynTest):
         self.isin("Invalid value for type (<class 'int'>): lolz", helptext)
 
         # test time argtype
-        pars = s_storm.Parser()
-        pars.add_argument('--yada', type='time')
-        self.nn(pars.parse_args(['--yada', 'now-1day']))
+        ttyp = s_datamodel.Model().type('time')
 
         pars = s_storm.Parser()
         pars.add_argument('--yada', type='time')
-        self.nn(pars.parse_args(['--yada', 1603229675444]))
+        args = pars.parse_args(['--yada', 'now-1day'])
+        self.nn(args)
+        self.eq(ttyp.norm('now-1day')[0], args.yada)
 
-        pars = s_storm.Parser()
-        pars.add_argument('--yada', type='time')
+        args = pars.parse_args(['--yada', 1603229675444])
+        self.nn(args)
+        self.eq(ttyp.norm(1603229675444)[0], args.yada)
+
         self.none(pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
         helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (<bound method Parser._timearg", helptext)
+        self.isin("Invalid value for type (time): hehe", helptext)
+
+        # test ival argtype
+        ityp = s_datamodel.Model().type('ival')
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', type='ival')
+        args = pars.parse_args(['--yada', 'now-1day'])
+        self.nn(args)
+        self.eq(ityp.norm('now-1day')[0], args.yada)
+
+        args = pars.parse_args(['--yada', 1603229675444])
+        self.nn(args)
+        self.eq(ityp.norm(1603229675444)[0], args.yada)
+
+        args = pars.parse_args(['--yada', ('now', '+2days')])
+        self.nn(args)
+        self.eq(ityp.norm(('now', '+2days'))[0], args.yada)
+
+        args = pars.parse_args(['--yada', (1603229675444, 'now')])
+        self.nn(args)
+        self.eq(ityp.norm((1603229675444, 'now'))[0], args.yada)
+
+        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.true(pars.exited)
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (ival): hehe", helptext)
 
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:

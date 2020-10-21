@@ -1426,9 +1426,11 @@ class Parser:
 
         return retn
 
-    def _timearg(self, valu):
-        norm = s_datamodel.Model().type('time').norm(valu)
-        return norm[0]
+    def _norm_stormtype(self, argtype):
+        def normarg(valu):
+            norm = s_datamodel.Model().type(argtype).norm(valu)
+            return norm[0]
+        return normarg
 
     def _get_store(self, name, argdef, todo, opts):
 
@@ -1436,8 +1438,10 @@ class Parser:
         nargs = argdef.get('nargs')
         argtype = argdef.get('type')
 
-        if argtype == 'time':
-            argtype = self._timearg
+        if argtype in ('time', 'ival'):
+            argfunc = self._norm_stormtype(argtype)
+        else:
+            argfunc = argtype
 
         vals = []
         if nargs is None:
@@ -1450,9 +1454,9 @@ class Parser:
                 return self.help(mesg)
 
             valu = todo.popleft()
-            if argtype is not None:
+            if argfunc is not None:
                 try:
-                    valu = argtype(valu)
+                    valu = argfunc(valu)
                 except Exception:
                     mesg = f'Invalid value for type ({str(argtype)}): {valu}'
                     return self.help(mesg=mesg)
@@ -1468,9 +1472,9 @@ class Parser:
             if todo and not self._is_opt(todo[0]):
 
                 valu = todo.popleft()
-                if argtype is not None:
+                if argfunc is not None:
                     try:
-                        valu = argtype(valu)
+                        valu = argfunc(valu)
                     except Exception:
                         mesg = f'Invalid value for type ({str(argtype)}): {valu}'
                         return self.help(mesg=mesg)
@@ -1485,9 +1489,9 @@ class Parser:
 
                 valu = todo.popleft()
 
-                if argtype is not None:
+                if argfunc is not None:
                     try:
-                        valu = argtype(valu)
+                        valu = argfunc(valu)
                     except Exception:
                         mesg = f'Invalid value for type ({str(argtype)}): {valu}'
                         return self.help(mesg=mesg)
@@ -1508,9 +1512,9 @@ class Parser:
                 return self.help(mesg)
 
             valu = todo.popleft()
-            if argtype is not None:
+            if argfunc is not None:
                 try:
-                    valu = argtype(valu)
+                    valu = argfunc(valu)
                 except Exception:
                     mesg = f'Invalid value for type ({str(argtype)}): {valu}'
                     return self.help(mesg=mesg)
