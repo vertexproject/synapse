@@ -1082,22 +1082,21 @@ class TeleTest(s_t_utils.SynTest):
 
     async def test_telepath_client_onlink_exc(self):
 
-        linkloops = 0
-        initlinks = 0
+        cnts = {
+            'loops': 0,
+            'inits': 0
+        }
         evnt = asyncio.Event()
         origfire = s_telepath.Client._fireLinkLoop
         originit = s_telepath.Client._initTeleLink
 
         async def countLinkLoops(self):
-            nonlocal linkloops
-            linkloops += 1
+            cnts['loops'] += 1
             await origfire(self)
 
         async def countInitLinks(self, url):
-            nonlocal initlinks
-
-            initlinks += 1
-            if initlinks > 3:
+            cnts['inits'] += 1
+            if cnts['inits'] > 3:
                 evnt.set()
 
             await originit(self, url)
@@ -1116,5 +1115,5 @@ class TeleTest(s_t_utils.SynTest):
                     async with await s_telepath.Client.anit(url, onlink=onlinkFail) as targ:
 
                         self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
-                        self.eq(1, linkloops)
-                        self.eq(4, initlinks)
+                        self.eq(1, cnts['loops'])
+                        self.eq(4, cnts['inits'])
