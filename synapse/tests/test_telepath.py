@@ -6,6 +6,8 @@ import asyncio
 import logging
 import threading
 
+from unittest import mock
+
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
@@ -1077,3 +1079,33 @@ class TeleTest(s_t_utils.SynTest):
                     url = burl + '&consul_tag=burritos'
                     await s_telepath.disc_consul(s_urlhelp.chopurl(url))
                 self.eq('burritos', cm.exception.get('tag'))
+
+    async def test_telepath_client_onlink_exc(self):
+
+        linkloops = 0
+        evnt = asyncio.Event()
+        orig = s_telepath.Client._fireLinkLoop
+
+        async def countLinkLoops(self):
+            nonlocal linkloops
+
+            linkloops += 1
+            if linkloops > 1:
+                evnt.set()
+
+            await orig(self)
+
+        def onlinkFail(self):
+            raise ValueError('derp')
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            dmon.share('foo', foo)
+            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+
+            with mock.patch('synapse.telepath.Client._fireLinkLoop', countLinkLoops):
+                async with await s_telepath.Client.anit(url, onlink=onlinkFail) as targ:
+
+                    await self.asyncraises(asyncio.exceptions.TimeoutError, asyncio.wait_for(evnt.wait(), timeout=2))
+                    self.eq(1, linkloops)
