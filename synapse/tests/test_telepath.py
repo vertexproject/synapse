@@ -1083,17 +1083,24 @@ class TeleTest(s_t_utils.SynTest):
     async def test_telepath_client_onlink_exc(self):
 
         linkloops = 0
+        initlinks = 0
         evnt = asyncio.Event()
-        orig = s_telepath.Client._fireLinkLoop
+        origfire = s_telepath.Client._fireLinkLoop
+        originit = s_telepath.Client._initTeleLink
 
         async def countLinkLoops(self):
             nonlocal linkloops
-
             linkloops += 1
-            if linkloops > 1:
+            await origfire(self)
+
+        async def countInitLinks(self, url):
+            nonlocal initlinks
+
+            initlinks += 1
+            if initlinks > 3:
                 evnt.set()
 
-            await orig(self)
+            await originit(self, url)
 
         def onlinkFail(self):
             raise ValueError('derp')
@@ -1105,7 +1112,9 @@ class TeleTest(s_t_utils.SynTest):
             url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
 
             with mock.patch('synapse.telepath.Client._fireLinkLoop', countLinkLoops):
-                async with await s_telepath.Client.anit(url, onlink=onlinkFail) as targ:
+                with mock.patch('synapse.telepath.Client._initTeleLink', countInitLinks):
+                    async with await s_telepath.Client.anit(url, onlink=onlinkFail) as targ:
 
-                    await self.asyncraises(asyncio.exceptions.TimeoutError, asyncio.wait_for(evnt.wait(), timeout=2))
-                    self.eq(1, linkloops)
+                        self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                        self.eq(1, linkloops)
+                        self.eq(4, initlinks)
