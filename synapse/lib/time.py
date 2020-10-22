@@ -102,7 +102,7 @@ def repr(tick, pack=False):
     if tick == 0x7fffffffffffffff:
         return '?'
 
-    dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=tick)
+    dt = EPOCH + datetime.timedelta(milliseconds=tick)
     millis = dt.microsecond / 1000
     if pack:
         return '%d%.2d%.2d%.2d%.2d%.2d%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
