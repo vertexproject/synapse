@@ -160,6 +160,7 @@ class CoreSpawnTest(s_test.SynTest):
             pkgdef = {
                 'name': 'spawn',
                 'version': (0, 0, 1),
+                'synapse_minversion': (2, 8, 0),
                 'commands': (
                     {
                         'name': 'passthrough',
@@ -514,11 +515,13 @@ class CoreSpawnTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
         }
 
         stormpkg = {
             'name': 'stormpkg',
-            'version': (1, 2, 3)
+            'version': (1, 2, 3),
+            'synapse_minversion': (2, 8, 0),
         }
         conf = {
             'storm:log': True,

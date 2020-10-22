@@ -201,7 +201,7 @@ class View(s_nexus.Pusher):  # type: ignore
         user = self.core._userFromOpts(opts)
 
         MSG_QUEUE_SIZE = 1000
-        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+        chan = asyncio.Queue(MSG_QUEUE_SIZE)
 
         info = {'query': text, 'opts': opts}
         synt = await self.core.boss.promote('storm', user=user, info=info)

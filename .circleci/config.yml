@@ -200,7 +200,14 @@ commands:
             - ./venv
           key: v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-      - do_test_execution
+      - run:
+          name: run tests
+          command: |
+            ulimit -Sn 4096
+            . venv/bin/activate
+            mkdir test-reports
+            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+
       - do_report_coverage
 
       - store_test_results:
@@ -409,13 +416,13 @@ commands:
 
 jobs:
 
-  osx37:
+  osx38:
     parallelism: 4
     macos:
-      xcode: "10.2.0"
+      xcode: "12.2.0"
 
     environment:
-      PYVERS: 3.7
+      PYVERS: 3.8
       CODECOV_FLAG: osx
       CODECOV_PREFIX: osx
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail
@@ -541,13 +548,12 @@ workflows:
             branches:
                only: /.*/
 
-#      - osx37:
-#          filters:
-#            tags:
-#              only: /.*/
-#            branches:
-#              only:
-#                - master
+      - osx38:
+          filters:
+            tags:
+              ignore: /.*/
+            branches:
+              ignore: /.*/
 
       - python37:
           filters:
@@ -568,12 +574,22 @@ workflows:
             tags:
               only: /.*/
             branches:
+              only:
+                - master
+
+      - python38_replay:
+          filters:
+            tags:
               only: /.*/
+            branches:
+              only:
+                - master
 
       - deploy_pypi:
           requires:
             - doctests
             - python37
+            - python38
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -584,6 +600,7 @@ workflows:
           requires:
             - doctests
             - python37
+            - python38
           filters:
             branches:
               only:
@@ -593,6 +610,7 @@ workflows:
           requires:
             - doctests
             - python37
+            - python38
           context: GithubMachine
           filters:
             tags:
@@ -604,6 +622,7 @@ workflows:
           requires:
             - doctests
             - python37
+            - python38
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -614,6 +633,7 @@ workflows:
           requires:
             - doctests
             - python37
+            - python38
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -630,4 +650,18 @@ workflows:
                 - master
     jobs:
       - doctests
+      - python38
+      - python38_replay
+
+  weekly:
+    triggers:
+      - schedule:
+          cron: "0 12 1 * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - osx38
       - python37
+      - python37_replay
