@@ -3230,17 +3230,20 @@ class StormTypesTest(s_test.SynTest):
                     'cmdargs': (
                         ('foo', {}),
                         ('--bar', {'default': False, 'action': 'store_true'}),
+                        ('--footime', {'default': False, 'type': 'time'}),
                     ),
                     'storm': '''
                         $lib.print($lib.len($cmdopts))
-                        if ($lib.len($cmdopts) = 3) { $lib.print(foo) }
+                        if ($lib.len($cmdopts) = 4) { $lib.print(foo) }
 
                         $set = $lib.set()
                         for ($name, $valu) in $cmdopts { $set.add($valu) }
 
-                        if ($lib.len($set) = 3) { $lib.print(bar) }
+                        if ($lib.len($set) = 4) { $lib.print(bar) }
 
                         if $cmdopts.bar { $lib.print(baz) }
+
+                        if $cmdopts.footime { $lib.print($cmdopts.footime) }
                     '''
                 },
                 {
@@ -3255,12 +3258,32 @@ class StormTypesTest(s_test.SynTest):
                 },
             ],
         }
+        sadt = {
+            'name': 'bar',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'commands': [
+                {
+                    'name': 'test.badtype',
+                    'cmdargs': [
+                        ('--bar', {'type': 'notatype'}),
+                    ],
+                    'storm': '''
+                        $cmdopts.foo = hehe
+                    '''
+                },
+            ],
+        }
         async with self.getTestCore() as core:
             await core.addStormPkg(pdef)
-            msgs = await core.stormlist('test.cmdopts hehe --bar')
+            msgs = await core.stormlist('test.cmdopts hehe --bar --footime 20200101')
             self.stormIsInPrint('foo', msgs)
             self.stormIsInPrint('bar', msgs)
             self.stormIsInPrint('baz', msgs)
+            self.stormIsInPrint('1577836800000', msgs)
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('test.setboom hehe --bar')
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(sadt)

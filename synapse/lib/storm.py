@@ -190,10 +190,32 @@ reqValidPkgdef = s_config.getJsValidator({
                     'type': 'string',
                     'pattern': s_grammar.re_scmd
                 },
+                'cmdargs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/cmdarg'},
+                },
                 'storm': {'type': 'string'}
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'cmdarg': {
+            'type': 'array',
+            'items': [
+                {
+                    'type': 'string'
+                },
+                {
+                    'type': 'object',
+                    'properties': {
+                        'help': {'type': 'string'},
+                        'type': {
+                            'type': 'string',
+                            'enum': list(s_datamodel.Model().types)
+                        },
+                    },
+                }
+            ]
         }
     }
 })
@@ -296,7 +318,7 @@ stormcmds = (
                               'action': 'store_true'}),
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
-            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': int}),
+            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),
@@ -1426,22 +1448,11 @@ class Parser:
 
         return retn
 
-    def _norm_stormtype(self, argtype):
-        def normarg(valu):
-            norm = s_datamodel.Model().type(argtype).norm(valu)
-            return norm[0]
-        return normarg
-
     def _get_store(self, name, argdef, todo, opts):
 
         dest = argdef.get('dest')
         nargs = argdef.get('nargs')
         argtype = argdef.get('type')
-
-        if argtype in ('time', 'ival'):
-            argfunc = self._norm_stormtype(argtype)
-        else:
-            argfunc = argtype
 
         vals = []
         if nargs is None:
@@ -1454,11 +1465,11 @@ class Parser:
                 return self.help(mesg)
 
             valu = todo.popleft()
-            if argfunc is not None:
+            if argtype is not None:
                 try:
-                    valu = argfunc(valu)
+                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                 except Exception:
-                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
 
             opts[dest] = valu
@@ -1472,11 +1483,11 @@ class Parser:
             if todo and not self._is_opt(todo[0]):
 
                 valu = todo.popleft()
-                if argfunc is not None:
+                if argtype is not None:
                     try:
-                        valu = argfunc(valu)
+                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                     except Exception:
-                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
                 opts[dest] = valu
@@ -1489,11 +1500,11 @@ class Parser:
 
                 valu = todo.popleft()
 
-                if argfunc is not None:
+                if argtype is not None:
                     try:
-                        valu = argfunc(valu)
+                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                     except Exception:
-                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
                 vals.append(valu)
@@ -1512,11 +1523,11 @@ class Parser:
                 return self.help(mesg)
 
             valu = todo.popleft()
-            if argfunc is not None:
+            if argtype is not None:
                 try:
-                    valu = argfunc(valu)
+                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                 except Exception:
-                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
 
             vals.append(valu)
@@ -1846,7 +1857,7 @@ class LimitCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('count', type=int, help='The maximum number of nodes to yield.')
+        pars.add_argument('count', type='int', help='The maximum number of nodes to yield.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -2226,7 +2237,7 @@ class IdenCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('iden', nargs='*', type=str, default=[],
+        pars.add_argument('iden', nargs='*', type='str', default=[],
                           help='Iden to lift nodes by. May be specified multiple times.')
         return pars
 
@@ -2274,7 +2285,7 @@ class SleepCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('delay', type=float, default=1, help='Delay in floating point seconds.')
+        pars.add_argument('delay', type='float', default=1, help='Delay in floating point seconds.')
         return pars
 
 class GraphCmd(Cmd):
@@ -2301,7 +2312,7 @@ class GraphCmd(Cmd):
     def getArgParser(self):
 
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--degrees', type=int, default=1, help='How many degrees to graph out.')
+        pars.add_argument('--degrees', type='int', default=1, help='How many degrees to graph out.')
 
         pars.add_argument('--pivot', default=[], action='append',
                           help='Specify a storm pivot for all nodes. (must quote)')
@@ -2590,13 +2601,13 @@ class SpliceListCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
 
-        pars.add_argument('--maxtimestamp', type=int, default=None,
+        pars.add_argument('--maxtimestamp', type='int', default=None,
                           help='Only yield splices which occurred on or before this timestamp.')
-        pars.add_argument('--mintimestamp', type=int, default=None,
+        pars.add_argument('--mintimestamp', type='int', default=None,
                           help='Only yield splices which occurred on or after this timestamp.')
-        pars.add_argument('--maxtime', type=str, default=None,
+        pars.add_argument('--maxtime', type='str', default=None,
                           help='Only yield splices which occurred on or before this time.')
-        pars.add_argument('--mintime', type=str, default=None,
+        pars.add_argument('--mintime', type='str', default=None,
                           help='Only yield splices which occurred on or after this time.')
 
         return pars
@@ -2893,7 +2904,7 @@ class LiftByVerb(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('verb', type=str, required=True,
+        pars.add_argument('verb', type='str', required=True,
                           help='The edge verb to lift nodes by.')
         pars.add_argument('--n2', action='store_true', default=False,
                           help='Lift by the N2 value instead of N1 value.')
@@ -2960,7 +2971,7 @@ class EdgesDelCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('verb', type=str, help='The verb of light edges to delete.')
+        pars.add_argument('verb', type='str', help='The verb of light edges to delete.')
 
         pars.add_argument('--n2', action='store_true', default=False,
                           help='Delete light edges where input node is N2 instead of N1.')
