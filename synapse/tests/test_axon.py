@@ -222,8 +222,8 @@ class AxonTest(s_t_utils.SynTest):
 
             # Stream file
             byts = io.BytesIO(bbuf)
-
-            with self.raises(a_exc.ServerDisconnectedError):
+            with self.raises((a_exc.ServerDisconnectedError,
+                              a_exc.ClientOSError)):
                 async with sess.post(url_ul, data=byts) as resp:
                     pass
 
