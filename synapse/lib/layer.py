@@ -1572,7 +1572,6 @@ class Layer(s_nexus.Pusher):
 
         # use/abuse python's dict ordering behavior
         results = {}
-        nexsindx = nexsitem[0]
 
         nodeedits = collections.deque(nodeedits)
         while nodeedits:
@@ -1602,6 +1601,7 @@ class Layer(s_nexus.Pusher):
         flatedits = list(results.values())
 
         if self.logedits and edited:
+            nexsindx = nexsitem[0]
             offs = self.nodeeditlog.add((flatedits, meta), indx=nexsindx)
             [(await wind.put((offs, flatedits))) for wind in tuple(self.windows)]
 
