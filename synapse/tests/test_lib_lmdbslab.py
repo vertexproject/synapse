@@ -124,7 +124,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             slab.put(b'\x00\x01', b'hehe', db=baz)
             slab.put(b'\xff', b'haha', db=baz)
-            slab.put(b'\xff\xff', b'hoho', db=baz)
+
+            slab.put(b'\xff\xff', b'hoho', append=True, db=baz)  # Should succeed
+            slab.put(b'\xaa\xff', b'hoho', append=True, db=baz)  # Should fail (not the last key)
 
             self.true(slab.dirty)
 
@@ -151,6 +153,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.false(slab.prefexists(b'\x02', db=baz))
             self.true(slab.prefexists(b'\xff\xff', db=baz))
             self.false(slab.prefexists(b'\xff\xff', db=foo))
+            self.false(slab.prefexists(b'\xaa\xff', db=baz))
 
             self.true(slab.rangeexists(b'\x00', b'\x01', db=baz))
             self.true(slab.rangeexists(b'\x00\x00', b'\x00\x04', db=baz))

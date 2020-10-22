@@ -367,7 +367,8 @@ class MultiQueue(s_base.Base):
 
         for item in items:
 
-            self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
+            putv = self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
+            assert putv, 'Put failed'
 
             self.sizes.inc(name, 1)
             offs = self.offsets.inc(name, 1)
@@ -1424,9 +1425,9 @@ class Slab(s_base.Base):
     def delete(self, lkey, val=None, db=None):
         return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
 
-    def put(self, lkey, lval, dupdata=False, overwrite=True, db=None):
+    def put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
         return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
-                                 db=db)
+                                 append=append, db=db)
 
     def replace(self, lkey, lval, db=None):
         '''
