@@ -202,9 +202,7 @@ reqValidPkgdef = s_config.getJsValidator({
         'cmdarg': {
             'type': 'array',
             'items': [
-                {
-                    'type': 'string'
-                },
+                {'type': 'string'},
                 {
                     'type': 'object',
                     'properties': {
