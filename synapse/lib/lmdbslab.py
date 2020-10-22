@@ -367,7 +367,8 @@ class MultiQueue(s_base.Base):
 
         for item in items:
 
-            self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata, append=True)
+            retn = self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
+            assert retn, 'Put failed'
 
             self.sizes.inc(name, 1)
             offs = self.offsets.inc(name, 1)
