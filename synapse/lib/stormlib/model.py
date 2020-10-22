@@ -79,7 +79,7 @@ stormcmds = [
         'name': 'model.deprecated.lock',
         'descr': 'Edit lock status of deprecated model elements.',
         'cmdargs': (
-            ('name', {'help': 'The deprecated form or property name to lock.'}),
+            ('name', {'help': 'The deprecated form or property name to lock or * to lock all.'}),
             ('--unlock', {'help': 'Unlock rather than lock the deprecated property.', 'default': False, 'action': 'store_true'}),
         ),
         'storm': '''
@@ -153,7 +153,6 @@ stormcmds = [
 
                 if (not $ok) {
                     $lib.print("Whups! Your Cortex needs some tweaks to be fully future-model compliant.")
-                    $lib.print("See the docs at: https://foo")
                 } else {
                     $lib.print("Congrats! Your Cortex is fully future-model compliant!")
                 }
