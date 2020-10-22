@@ -40,7 +40,8 @@ class SlabSeqn:
             return indx
 
         indx = self.indx
-        self.slab.put(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
+        retn = self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
+        assert retn, "Not adding the largest index"
 
         self.indx += 1
 
@@ -89,8 +90,10 @@ class SlabSeqn:
 
             rows.append((lkey, byts))
 
-        self.slab.putmulti(rows, append=True, db=self.db)
+        retn = self.slab.putmulti(rows, append=True, db=self.db)
         took = s_common.now() - tick
+
+        assert retn, "Not adding the largest indices"
 
         origindx = self.indx
         self.indx = indx
