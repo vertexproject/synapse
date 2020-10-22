@@ -1847,7 +1847,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': (0, 0, 1),
-                'minversion': (2, 8, 0),
+                'synapse_minversion': (2, 8, 0),
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -1890,7 +1890,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': (0, 0, 1),
-                'minversion': (2, 8, 0),
+                'synapse_minversion': (2, 8, 0),
                 'commands': ({
                     'name': 'testcmd',
                     'descr': 'test command',
@@ -1925,7 +1925,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'minversion': (1337, 0, 0),
+                'synapse_minversion': (1337, 0, 0),
                 'commands': ()
             }
 
@@ -1938,7 +1938,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'commands': ()
             }
 
-            # Package with no minversion shouldn't raise
+            # Package with no synapse_minversion shouldn't raise
             await core.addStormPkg(noverpkg)
 
     async def test_onsetdel(self):
@@ -4649,7 +4649,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': (0, 0, 1),
-            'minversion': (2, 8, 0),
+            'synapse_minversion': (2, 8, 0),
             'modules': [
                 {
                     'name': 'boom.mod',

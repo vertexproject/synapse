@@ -158,7 +158,7 @@ reqValidPkgdef = s_config.getJsValidator({
             'type': ['array', 'number'],
             'items': {'type': 'number'}
         },
-        'minversion': {
+        'synapse_minversion': {
             'type': ['array', 'null'],
             'items': {'type': 'number'}
         },
