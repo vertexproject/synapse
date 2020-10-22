@@ -5,6 +5,38 @@ Synapse Changelog
 *****************
 
 
+v2.9.1 - 2020-10-22
+===================
+
+Features and Enhancements
+-------------------------
+- Reuse existing an existing ``DateTime`` object when making time strings.
+  This gives a slight performance boost for the ``synapse.lib.time.repr()``
+  function.
+  (`#1919 <https://github.com/vertexproject/synapse/pull/1919>`_)
+- Remove deprecated use of ``loop`` arguments when calling ``asyncio``
+  primitives.
+  (`#1920 <https://github.com/vertexproject/synapse/pull/1920>`_)
+- Allow Storm Services to define a minimum required Synapse version by the
+  Cortex. If the Cortex is not running the minimum version, the Cortex will
+  not load
+  (`#1900 <https://github.com/vertexproject/synapse/pull/1900>`_)
+- Only get the nxsindx in the ``Layer.storeNodeEdits()`` function if logging
+  eddits.
+  (`#1926 <https://github.com/vertexproject/synapse/pull/1926>`_)
+- Include the Node iden value in the ``CantDelNode`` exception when
+  attempting to delete a Node failes due to existing references to the node.
+  (`#1926 <https://github.com/vertexproject/synapse/pull/1926>`_)
+- Take advantage of the LMDB append operation when possible.
+  (`#1912 <https://github.com/vertexproject/synapse/pull/1912>`_)
+
+Bugfixes
+--------
+- Fix an issues in the Telepath Client where an exception thrown by a onlink
+  function could cause additional linkloop tasks to be spawned.
+  (`#1924 <https://github.com/vertexproject/synapse/pull/1924>`_)
+
+
 v2.9.0 - 2020-10-19
 ===================
 
