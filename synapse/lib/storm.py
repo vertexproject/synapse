@@ -158,6 +158,10 @@ reqValidPkgdef = s_config.getJsValidator({
             'type': ['array', 'number'],
             'items': {'type': 'number'}
         },
+        'synapse_minversion': {
+            'type': ['array', 'null'],
+            'items': {'type': 'number'}
+        },
         'modules': {
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/module'}
@@ -1088,15 +1092,21 @@ class Runtime:
         if varz is not None:
             self.vars.update(varz)
 
-        self.runtvars = set()
-        self.runtvars.update(self.vars.keys())
-        self.runtvars.update(self.ctors.keys())
-
-        self.proxies = {}
+        # declare path builtins as non-runtsafe
+        self.runtvars = {
+            'node': False,
+            'path': False,
+        }
 
         # inherit runtsafe vars from our root
         if self.root is not None:
             self.runtvars.update(root.runtvars)
+
+        # all vars/ctors are de-facto runtsafe
+        self.runtvars.update({k: True for k in self.vars.keys()})
+        self.runtvars.update({k: True for k in self.ctors.keys()})
+
+        self.proxies = {}
 
         self._loadRuntVars(query)
 
@@ -1131,9 +1141,7 @@ class Runtime:
         return prox
 
     def isRuntVar(self, name):
-        if name in self.runtvars:
-            return True
-        return False
+        return bool(self.runtvars.get(name))
 
     async def printf(self, mesg):
         return await self.snap.printf(mesg)
@@ -1240,8 +1248,11 @@ class Runtime:
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
-            for name in oper.getRuntVars(self):
-                self.runtvars.add(name)
+            for name, isrunt in oper.getRuntVars(self):
+                # once runtsafe, always runtsafe
+                if self.runtvars.get(name):
+                    continue
+                self.runtvars[name] = isrunt
 
     async def execute(self, genr=None):
         with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
@@ -1730,27 +1741,22 @@ class PureCmd(Cmd):
         text = self.cdef.get('storm')
         query = runt.snap.core.getStormQuery(text)
 
+        cmdopts = s_stormtypes.CmdOpts(self)
+
         opts = {
             'vars': {
+                'cmdopts': cmdopts,
                 'cmdconf': self.cdef.get('cmdconf', {}),
             }
         }
 
-        if self.opts is not None:
-            opts['vars']['cmdopts'] = vars(self.opts)
+        async def genx():
+            async for xnode, xpath in genr:
+                xpath.initframe(initvars={'cmdopts': cmdopts})
+                yield xnode, xpath
 
         with runt.getCmdRuntime(query, opts=opts) as subr:
-
-            async def wrapgenr():
-
-                async for node, path in genr:
-                    # In the event of a non-runtsafe command invocation our
-                    # setArgv() method will be called with an argv computed
-                    # for each node, so we need to remap cmdopts into our path & subr
-                    path.initframe(initvars={'cmdopts': vars(self.opts)})
-                    yield node, path
-
-            async for node, path in subr.execute(genr=wrapgenr()):
+            async for node, path in subr.execute(genr=genx()):
                 path.finiframe()
                 yield node, path
 

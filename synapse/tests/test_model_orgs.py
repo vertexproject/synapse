@@ -164,8 +164,8 @@ class OuModelTest(s_t_utils.SynTest):
                 nodes = await snap.nodes('ou:org:names*[=otheraltarrow]')
                 self.len(1, nodes)
 
-                opts = {'var': {'name': name}}
-                nodes = await snap.nodes('ou:org:names*contains=$name', opts=opts)
+                opts = {'vars': {'name': name}}
+                nodes = await snap.nodes('ou:org:names*[=$name]', opts=opts)
                 self.len(0, nodes)  # primary ou:org:name is not in ou:org:names
 
                 person0 = s_common.guid()

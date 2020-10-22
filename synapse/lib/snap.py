@@ -820,7 +820,7 @@ class Snap(s_base.Base):
         if func is None:
             raise s_exc.NoSuchName(name=name)
 
-        logger.info(f'adding feed nodes ({name}): {len(items)}')
+        logger.info(f'User ({self.user.name}) adding feed data ({name}): {len(items)}')
 
         genr = func(self, items)
         if not isinstance(genr, types.AsyncGeneratorType):
@@ -838,7 +838,7 @@ class Snap(s_base.Base):
         if func is None:
             raise s_exc.NoSuchName(name=name)
 
-        logger.info(f'adding feed data ({name}): {len(items)}')
+        logger.info(f'User ({self.user.name}) adding feed data ({name}): {len(items)}')
 
         retn = func(self, items)
 

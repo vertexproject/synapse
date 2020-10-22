@@ -800,6 +800,19 @@ class LayerTest(s_t_utils.SynTest):
                     for nodeedit in layr.nodeeditlog.sliceBack(lastoffs, 2):
                         self.eq(meta, nodeedit[1][1])
 
+                    async def waitForEdit():
+                        edit = (0, ('endofquery', 1), ())
+                        async for item in layr.syncNodeEdits(lastoffs):
+                            if item[1][0][1] == 'test:str' and edit in item[1][0][2]:
+                                return
+                            await asyncio.sleep(0)
+
+                    async def doEdit():
+                        await core1.nodes(f'sleep 1 | [ test:str=endofquery ]')
+
+                    task = core1.schedCoro(doEdit())
+                    await asyncio.wait_for(waitForEdit(), timeout=6)
+
     async def test_layer_form_by_buid(self):
 
         async with self.getTestCore() as core:
@@ -891,6 +904,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
 
     async def test_layer_waitForHot(self):
+        self.thisHostMust(hasmemlocking=True)
 
         async with self.getTestCore() as core:
             layr = core.getLayer()

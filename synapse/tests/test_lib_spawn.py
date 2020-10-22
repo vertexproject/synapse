@@ -31,7 +31,7 @@ def make_core(dirn, conf, queries, queue, event):
             for q in queries:
                 await core.nodes(q)
 
-            await  core.view.layers[0].layrslab.sync()
+            await core.view.layers[0].layrslab.sync()
 
             spawninfo = await core.getSpawnInfo()
             queue.put(spawninfo)
@@ -160,6 +160,7 @@ class CoreSpawnTest(s_test.SynTest):
             pkgdef = {
                 'name': 'spawn',
                 'version': (0, 0, 1),
+                'synapse_minversion': (2, 8, 0),
                 'commands': (
                     {
                         'name': 'passthrough',
@@ -514,11 +515,13 @@ class CoreSpawnTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
         }
 
         stormpkg = {
             'name': 'stormpkg',
-            'version': (1, 2, 3)
+            'version': (1, 2, 3),
+            'synapse_minversion': (2, 8, 0),
         }
         conf = {
             'storm:log': True,
@@ -538,6 +541,10 @@ class CoreSpawnTest(s_test.SynTest):
 
                 async with core.getLocalProxy() as prox:
                     opts = {'spawn': True}
+
+                    # Ensure the spawncore loaded the service
+                    coro = prox.storm('$lib.service.wait(real)', opts).list()
+                    msgs = await asyncio.wait_for(coro, 30)
 
                     msgs = await prox.storm('help', opts=opts).list()
                     self.stormIsInPrint('foobar', msgs)
