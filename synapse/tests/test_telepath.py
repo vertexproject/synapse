@@ -6,6 +6,8 @@ import asyncio
 import logging
 import threading
 
+from unittest import mock
+
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
@@ -1077,3 +1079,41 @@ class TeleTest(s_t_utils.SynTest):
                     url = burl + '&consul_tag=burritos'
                     await s_telepath.disc_consul(s_urlhelp.chopurl(url))
                 self.eq('burritos', cm.exception.get('tag'))
+
+    async def test_telepath_client_onlink_exc(self):
+
+        cnts = {
+            'loops': 0,
+            'inits': 0
+        }
+        evnt = asyncio.Event()
+        origfire = s_telepath.Client._fireLinkLoop
+        originit = s_telepath.Client._initTeleLink
+
+        async def countLinkLoops(self):
+            cnts['loops'] += 1
+            await origfire(self)
+
+        async def countInitLinks(self, url):
+            cnts['inits'] += 1
+            if cnts['inits'] > 3:
+                evnt.set()
+
+            await originit(self, url)
+
+        def onlinkFail(self):
+            raise ValueError('derp')
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            dmon.share('foo', foo)
+            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+
+            with mock.patch('synapse.telepath.Client._fireLinkLoop', countLinkLoops):
+                with mock.patch('synapse.telepath.Client._initTeleLink', countInitLinks):
+                    async with await s_telepath.Client.anit(url, onlink=onlinkFail) as targ:
+
+                        self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                        self.eq(1, cnts['loops'])
+                        self.eq(4, cnts['inits'])
