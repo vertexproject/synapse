@@ -576,7 +576,7 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
     '''
     def __init__(self, *args, **kwargs):
         io.StringIO.__init__(self, *args, **kwargs)
-        asyncio.Event.__init__(self, loop=asyncio.get_running_loop())
+        asyncio.Event.__init__(self)
         self.mesg = ''
 
     def setMesg(self, mesg):

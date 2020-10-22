@@ -690,15 +690,15 @@ class Client(s_base.Base):
 
         self._t_proxy = await openurl(url, **self._t_opts)
         self._t_methinfo = self._t_proxy.methinfo
+        self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
+
+        if self._t_onlink is not None:
+            await self._t_onlink(self._t_proxy)
 
         async def fini():
             await self._fireLinkLoop()
 
         self._t_proxy.onfini(fini)
-        self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
-
-        if self._t_onlink is not None:
-            await self._t_onlink(self._t_proxy)
 
     async def task(self, todo, name=None):
         # implement the main workhorse method for a proxy to allow Method
