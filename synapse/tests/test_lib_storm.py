@@ -985,6 +985,11 @@ class StormTest(s_t_utils.SynTest):
         helptext = '\n'.join(pars.mesgs)
         self.isin("Invalid value for type (ival): hehe", helptext)
 
+        # check adding argument with invalid type
+        with self.raises(s_exc.BadArg):
+            pars = s_storm.Parser()
+            pars.add_argument('--yada', type=int)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 
