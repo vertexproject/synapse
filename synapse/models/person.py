@@ -4,6 +4,18 @@ class PsModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
             'types': (
+                ('edu:course', ('guid', {}), {
+                    'doc': 'A course of study taught by an org.',
+                }),
+                ('edu:class', ('guid', {}), {
+                    'doc': 'An instance of an edu:course taught at a given time.',
+                }),
+                ('ps:education', ('guid', {}), {
+                    'doc': 'A period of education for an individual.',
+                }),
+                ('ps:achievement', ('guid', {}), {
+                    'doc': 'An instance of an individual receiving an award.',
+                }),
                 ('ps:tokn', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'A single name element (potentially given or sur).',
                     'ex': 'robert'
@@ -31,6 +43,63 @@ class PsModule(s_module.CoreModule):
                 }),
             ),
             'forms': (
+                ('edu:course', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                        'ex': 'Forensics 101',
+                        'doc': 'The name of the course.',
+                    }),
+                    ('insititution', ('ps:contact', {}), {
+                        'doc': 'The org or department which teaches the course.',
+                    }),
+                )),
+                ('edu:class', {}, (
+                    ('course', ('edu:course', {}), {
+                        'doc': 'The course being taught in the class.',
+                    }),
+                    ('instructor', ('ps:contact', {}), {
+                        'doc': 'The primary instructor for the class.',
+                    }),
+                    ('assistants', ('array', {'type': 'ps:contact'}), {
+                        'doc': 'An array of assistant/co-instructor contacts.',
+                    }),
+                    ('first', ('time', {}), {
+                        'doc': 'The date of the first day of class.'
+                    }),
+                    ('last', ('time', {}), {
+                        'doc': 'The date of the first day of class.'
+                    }),
+                )),
+                ('ps:education', {}, (
+                    ('student', ('ps:contact', {}), {
+                        'doc': 'The contact of the person being educated.',
+                    }),
+                    ('institution', ('ps:contact', {}), {
+                        'doc': 'The contact info for the org providing educational services.',
+                    }),
+                    ('attended:first', ('time', {}), {
+                        'doc': 'The first date the student attended a class.',
+                    }),
+                    ('attended:last', ('time', {}), {
+                        'doc': 'The last date the student attended a class.',
+                    }),
+                    ('classes', ('array', {'type': 'edu:class'}), {
+                        'doc': 'The classes attended by the student',
+                    }),
+                    ('achievement', ('ps:achievement', {}), {
+                        'doc': 'The achievement awarded to the individual.',
+                    }),
+                )),
+                ('ps:achievement', {}, (
+                    ('awardee', ('ps:contact', {}), {
+                        'doc': 'The recipeient of the award.',
+                    }),
+                    ('award', ('ou:award', {}), {
+                        'doc': 'The award bestowed on the awardee.',
+                    }),
+                    ('date', ('time', {}), {
+                        'doc': 'The date the award was granted to the awardee.',
+                    }),
+                )),
                 ('ps:tokn', {}, ()),
                 ('ps:name', {}, (
                     ('sur', ('ps:tokn', {}), {
