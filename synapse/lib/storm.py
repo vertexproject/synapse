@@ -2418,6 +2418,53 @@ class ViewExecCmd(Cmd):
 
             yield node, path
 
+class BackgroundCmd(Cmd):
+    '''
+    Execute a query pipeline as a background task.
+    NOTE: Variables are passed through but nodes are not
+    '''
+    name = 'background'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('query', help='The query to execute in the background.')
+        return pars
+
+    async def execStormTask(self, query, opts):
+
+        core = self.runt.snap.core
+        user = core._userFromOpts(opts)
+        info = {'query': str(query), 'opts': opts}
+
+        await core.boss.promote('storm', user=user, info=info)
+
+        async with core.getStormRuntime(query, opts=opts) as runt:
+            async for item in runt.execute():
+                await asyncio.sleep(0)
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'The background query must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        async for item in genr:
+            yield item
+
+        opts = {
+            'user': runt.user.iden,
+            'view': runt.snap.view.iden,
+            'vars': dict(runt.vars),
+        }
+
+        query = await runt.getStormQuery(self.opts.query)
+
+        # make sure the subquery *could* have run with existing vars
+        query.validate(runt)
+
+        coro = self.execStormTask(query, opts)
+        runt.snap.core.schedCoro(coro)
+
 class ParallelCmd(Cmd):
     '''
     Execute part of a query pipeline in parallel.

@@ -22,6 +22,16 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('$foo=bar $lib.print($foo) if $node { $foo=$node.value() }')
             self.stormIsInPrint('bar', msgs)
 
+            # test storm background command
+            await core.nodes('$lib.queue.add(foo) background { $lib.queue.get(foo).put(hehe) }')
+            self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.get(foo).get())'))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('[ ou:org=*] $text = $node.repr() | background $text')
+
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('background { $lib.print($foo) }')
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:
