@@ -20,8 +20,8 @@ class PsModelTest(s_t_utils.SynTest):
                     'dob': '1971',
                     'dod': '20501217',
                     'img': file0,
+                    'photo': file0,
                     'nick': 'pennywise',
-                    # 'guidname': '', # fixme guid aliases
                     'name': 'robert clown grey',
                     'name:sur': 'grey',
                     'name:middle': 'clown',
@@ -41,8 +41,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('name:given'), 'robert')
                 self.eq(node.get('nicks'), ['pwise71', 'soulchild'])
                 self.eq(node.get('names'), ['billy bob'])
-                # self.eq(node.get('img'), '')  # fixme file:bytes
-                # self.eq(node.get('guidname'), '')  # fixme guid aliases
+                self.eq(node.get('photo'), file0)
 
                 persona_props = {
                     'dob': '2000',
