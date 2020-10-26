@@ -2588,7 +2588,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         if layroffs:
             maxindx = max(layroffs)
             if maxindx > await self.getNexsIndx():
-               await self.setNexsIndx(maxindx)
+                await self.setNexsIndx(maxindx)
 
     async def cloneLayer(self, iden, ldef=None):
         '''
