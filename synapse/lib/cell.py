@@ -711,7 +711,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPushAuto('nexslog:setindex')
     async def setNexsIndx(self, indx):
-        await self.nexsroot.setindex(indx)
+        return await self.nexsroot.setindex(indx)
 
     async def promote(self):
         '''

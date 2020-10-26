@@ -210,13 +210,15 @@ class NexsRoot(s_base.Base):
 
         nexsindx = await self.index()
         if indx < nexsindx:
-            mesg = f'setindex ({indx}) is less than current index ({nexsindx})'
-            raise s_exc.BadArg(mesg=mesg, indx=indx)
+            logger.error(f'setindex ({indx}) is less than current index ({nexsindx})')
+            return False
 
         if self.donexslog:
             self.nexslog.indx = indx
         else:
             self.nexshot.set('nexs:indx', indx)
+
+        return True
 
     async def _eat(self, item, indx=None):
 

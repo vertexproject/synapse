@@ -143,7 +143,7 @@ class NexusTest(s_t_utils.SynTest):
                 self.eq(nexsindx, layrindx)
 
             # Can only move index forward
-            await self.asyncraises(s_exc.BadArg, core00.setNexsIndx(0))
+            self.false(await core00.setNexsIndx(0))
 
         # Test with nexuslog disabled
         nologconf = {'nexslog:en': False}
