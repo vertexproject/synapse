@@ -132,7 +132,6 @@ class DupUserName(SynErr): pass
 class DupStormSvc(SynErr): pass
 
 class FileExists(SynErr): pass
-class PathExists(SynErr): pass
 
 class InconsistentStorage(SynErr):
     '''

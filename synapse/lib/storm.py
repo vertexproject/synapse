@@ -2511,7 +2511,7 @@ class ParallelCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
 
-        pars.add_argument('--size', default=8, type=int,
+        pars.add_argument('--size', default=8, type='int',
             help='The number of parallal Storm pipelines to execute.')
 
         pars.add_argument('query',
@@ -2613,12 +2613,12 @@ class TeeCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
                                           name=self.name)
 
-        with contextlib.ExitStack() as stack:
+        async with contextlib.AsyncExitStack() as stack:
 
             runts = []
             for text in self.opts.query:
                 query = await runt.getStormQuery(text)
-                subr = stack.async_enter_context(runt.getSubRuntime(query))
+                subr = await stack.enter_async_context(runt.getSubRuntime(query))
                 runts.append(subr)
 
             item = None

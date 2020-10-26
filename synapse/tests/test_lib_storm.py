@@ -33,6 +33,16 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('background { $lib.print($foo) }')
 
+            # test the parallel command
+            nodes = await core.nodes('parallel --size 4 { [ ou:org=* ] }')
+            self.len(4, nodes)
+
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('parallel --size 4 { [ ou:org=$foo ] }')
+
+            nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
+            self.true(all([n.get('name') == 'foo' for n in nodes]))
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:
@@ -1108,15 +1118,3 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('test:str=refs <(refs)- *'))
             self.len(0, await core.nodes('test:str=* <(seen)- *'))
-
-    async def test_storm_parallel(self):
-        async with self.getTestCore() as core:
-
-            nodes = await core.nodes('parallel --size 4 { [ ou:org=* ] }')
-            self.len(4, nodes)
-
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('parallel --size 4 { [ ou:org=$foo ] }')
-
-            nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
-            self.true(all([n.get('name') == 'foo' for n in nodes]))
