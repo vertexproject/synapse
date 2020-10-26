@@ -664,6 +664,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceStorage()
         # phase 3 - nexus subsystem
         await self.initNexusSubsystem()
+
+        anonuser = self.conf.get('auth:anon')
+        if anonuser is not None and self.auth.user(anonuser) is None:
+            await self.auth.addUser(anonuser)
+
         # phase 4 - service logic
         await self.initServiceRuntime()
         # phase 5 - service networking
@@ -1467,11 +1472,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if anonuser is None:
                 raise s_exc.AuthDeny(mesg='Unable to find cell user')
 
-            user = await self.auth.getUserByName(anonuser)
-            if user is None:
-                raise s_exc.NoSuchUser(name=name, mesg=f'Anon user not found: {anonuser}')
-
-            return user
+            return await self.auth.getUserByName(anonuser)
 
         name, info = auth
 
