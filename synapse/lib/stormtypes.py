@@ -488,6 +488,7 @@ class LibBase(Lib):
             'max': self._max,
             'set': self._set,
             'dict': self._dict,
+            'exit': self._exit,
             'guid': self._guid,
             'fire': self._fire,
             'list': self._list,
@@ -604,6 +605,10 @@ class LibBase(Lib):
 
         norm, info = typeitem.norm(valu)
         return fromprim(norm, basetypes=False)
+
+    @stormfunc(readonly=True)
+    async def _exit(self):
+        raise s_exc.StormExit()
 
     @stormfunc(readonly=True)
     async def _sorted(self, valu):
@@ -2348,7 +2353,7 @@ class Query(Prim):
     async def _getRuntGenr(self):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
-        with self.runt.getSubRuntime(query, opts=opts) as runt:
+        async with self.runt.getSubRuntime(query, opts=opts) as runt:
             async for item in runt.execute():
                 yield item
 
@@ -2913,7 +2918,7 @@ class Layer(Prim):
         gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
         return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
-    async def _methLayerEdits(self, offs=0, wait=True):
+    async def _methLayerEdits(self, offs=0, wait=True, size=None):
         '''
         Yield (offs, nodeedits) tuples from the given offset.
         If wait=True, also consume them in real-time once caught up.
@@ -2923,8 +2928,15 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         gatekeys = ((self.runt.user.iden, ('layer', 'edits', 'read'), layriden),)
         todo = s_common.todo('syncNodeEdits', offs, wait=wait)
+
+        count = 0
         async for item in self.runt.dyniter(layriden, todo, gatekeys=gatekeys):
+
             yield item
+
+            count += 1
+            if size is not None and size == count:
+                break
 
     async def _methLayerGet(self, name, defv=None):
         return self.valu.get(name, defv)
@@ -3060,9 +3072,23 @@ class View(Prim):
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
             'getEdges': self._methGetEdges,
+            'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
         }
+
+    async def _methAddNodeEdits(self, edits):
+
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        layriden = self.valu.get('layers')[0].get('iden')
+
+        meta = {'user': useriden}
+        todo = s_common.todo('addNodeEdits', edits, meta)
+
+        # ensure the user may make *any* node edits
+        gatekeys = ((useriden, ('node',), layriden),)
+        return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):

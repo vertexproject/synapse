@@ -93,7 +93,7 @@ class Node:
         if path is not None:
             opts['vars'].update(path.vars)
 
-        with runt.getSubRuntime(query, opts=opts) as subr:
+        async with runt.getSubRuntime(query, opts=opts) as subr:
 
             subr.addInput(self)
 
