@@ -1472,7 +1472,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if anonuser is None:
                 raise s_exc.AuthDeny(mesg='Unable to find cell user')
 
-            return await self.auth.getUserByName(anonuser)
+            user = await self.auth.getUserByName(anonuser)
+            if user is None:
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.')
+
+            if user.isLocked():
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.')
+
+            return user
 
         name, info = auth
 

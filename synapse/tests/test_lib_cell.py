@@ -428,6 +428,14 @@ class CellTest(s_t_utils.SynTest):
                     info = await prox.getCellUser()
                     self.eq(anon.iden, info.get('iden'))
 
+                await anon.setLocked(True)
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl('tcp://127.0.0.1/', port=port)
+
+                await cell.auth.delUser(anon.iden)
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl('tcp://127.0.0.1/', port=port)
+
     async def test_cell_nexuschanges(self):
 
         with self.getTestDir() as dirn:
