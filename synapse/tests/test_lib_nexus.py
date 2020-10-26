@@ -144,3 +144,11 @@ class NexusTest(s_t_utils.SynTest):
 
             # Can only move index forward
             await self.asyncraises(s_exc.BadArg, core00.setNexsIndx(0))
+
+        # Test with nexuslog disabled
+        nologconf = {'nexslog:en': False}
+        async with self.getRegrCore('migrated-nexuslog', conf=nologconf) as core:
+
+            nexsindx = await core.getNexsIndx()
+            layrindx = max([await layr.getNodeEditOffset() for layr in core.layers.values()])
+            self.eq(nexsindx, layrindx)
