@@ -303,7 +303,7 @@ class View(s_hive.AuthGater):
 
         viewiden = s_common.guid()
         owner = layrinfo.get('owner', 'root')
-        layeridens = [writlayr.iden] + [l.iden for l in self.layers]
+        layeridens = [writlayr.iden] + [lyr.iden for lyr in self.layers]
 
         view = await self.core.addView(viewiden, owner, layeridens)
         view.worldreadable = False
