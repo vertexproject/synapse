@@ -1061,7 +1061,7 @@ class Cortex(s_cell.Cell):
             'loglevel': logger.getEffectiveLevel(),
             # TODO make getModelDefs include extended model
             'views': [v.getSpawnInfo() for v in self.views.values()],
-            'layers': [l.getSpawnInfo() for l in self.layers.values()],
+            'layers': [lyr.getSpawnInfo() for lyr in self.layers.values()],
             'storm': {
                 'cmds': {
                     'cdefs': list(self.storm_cmd_cdefs.items()),

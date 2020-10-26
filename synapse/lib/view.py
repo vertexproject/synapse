@@ -258,7 +258,7 @@ class View(s_hive.AuthGater):
         else:
             self.layers.insert(indx, layr)
 
-        await self.info.set('layers', [l.iden for l in self.layers])
+        await self.info.set('layers', [lyr.iden for lyr in self.layers])
 
     async def setLayers(self, layers):
         '''
