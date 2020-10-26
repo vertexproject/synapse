@@ -101,7 +101,10 @@ class NexsRoot(s_base.Base):
         # just in case were previously configured differently
         logindx = self.nexslog.index()
         hotindx = self.nexshot.get('nexs:indx')
-        self.nexshot.set('nexs:indx', max(logindx, hotindx))
+        maxindx = max(logindx, hotindx)
+
+        self.nexshot.set('nexs:indx', maxindx)
+        self.nexslog.indx = maxindx
 
         async def fini():
 
@@ -202,6 +205,18 @@ class NexsRoot(s_base.Base):
             return self.nexslog.index()
         else:
             return self.nexshot.get('nexs:indx')
+
+    async def setindex(self, indx):
+
+        nexsindx = await self.index()
+        if indx < nexsindx:
+            mesg = f'setindex ({indx}) is less than current index ({nexsindx})'
+            raise s_exc.BadArg(mesg=mesg, indx=indx)
+
+        if self.donexslog:
+            self.nexslog.indx = indx
+        else:
+            self.nexshot.set('nexs:indx', indx)
 
     async def _eat(self, item, indx=None):
 
