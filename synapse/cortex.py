@@ -923,7 +923,7 @@ class Cortex(s_cell.Cell):
                              exc=s_exc.BadCoreStore,
                              mesg='cortex:version is invalid for 0.1.x')
 
-        if corevers < s_version.version:
+        if self.cellinfo.get('cortex:version') < s_version.version:
             await self.cellinfo.set('cortex:version', s_version.version)
 
         # share ourself via the cell dmon as "cortex"
