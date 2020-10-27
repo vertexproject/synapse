@@ -122,3 +122,33 @@ class NexusTest(s_t_utils.SynTest):
                         self.eq('foo', await nexus2.doathing2(eventdict))
                         self.eq(2, eventdict.get('happened'))
                         self.eq(3, eventdict.get('gotindex'))
+
+    async def test_nexus_setindex(self):
+
+        async with self.getRegrCore('migrated-nexuslog') as core00:
+
+            nexsindx = await core00.getNexsIndx()
+            layrindx = max([await layr.getNodeEditOffset() for layr in core00.layers.values()])
+            self.eq(nexsindx, layrindx)
+
+            # Make sure a mirror gets updated to the correct index
+            url = core00.getLocalUrl()
+            core01conf = {'mirror': url}
+
+            async with self.getRegrCore('migrated-nexuslog', conf=core01conf) as core01:
+
+                await core01.sync()
+
+                layrindx = max([await layr.getNodeEditOffset() for layr in core01.layers.values()])
+                self.eq(nexsindx, layrindx)
+
+            # Can only move index forward
+            self.false(await core00.setNexsIndx(0))
+
+        # Test with nexuslog disabled
+        nologconf = {'nexslog:en': False}
+        async with self.getRegrCore('migrated-nexuslog', conf=nologconf) as core:
+
+            nexsindx = await core.getNexsIndx()
+            layrindx = max([await layr.getNodeEditOffset() for layr in core.layers.values()])
+            self.eq(nexsindx, layrindx)

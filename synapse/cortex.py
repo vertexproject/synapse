@@ -939,6 +939,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
+        if self.isactive:
+            await self._checkNexsIndx()
         await self._initCoreMods()
         await self._initStormSvcs()
 
@@ -2580,6 +2582,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         for _, node in node:
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)
+
+    async def _checkNexsIndx(self):
+        layroffs = [await layr.getNodeEditOffset() for layr in self.layers.values()]
+        if layroffs:
+            maxindx = max(layroffs)
+            if maxindx > await self.getNexsIndx():
+                await self.setNexsIndx(maxindx)
 
     async def cloneLayer(self, iden, ldef=None):
         '''
