@@ -2525,7 +2525,7 @@ class ParallelCmd(Cmd):
         pars = Cmd.getArgParser(self)
 
         pars.add_argument('--size', default=8,
-            help='The number of parallal Storm pipelines to execute.')
+            help='The number of parallel Storm pipelines to execute.')
 
         pars.add_argument('query',
             help='The query to execute in parallel.')
