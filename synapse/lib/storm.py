@@ -2432,21 +2432,34 @@ class ViewExecCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        query = await runt.getStormQuery(self.opts.storm)
-
         # nodes may not pass across views, but their path vars may
-        for node, path in genr:
+        node = None
+        async for node, path in genr:
+
+            view = await s_stormtypes.tostr(self.opts.view)
+            text = await s_stormtypes.tostr(self.opts.storm)
 
             opts = {
                 'vars': path.vars,
-                'view': self.opts.view,
+                'view': view,
             }
 
-            async with runt.getSubRuntime(query, opts=opts):
-                async for item in runt.execute():
-                    asyncio.sleep(0)
+            query = await runt.getStormQuery(text)
+            async with runt.getSubRuntime(query, opts=opts) as subr:
+                async for item in subr.execute():
+                    await asyncio.sleep(0)
 
             yield node, path
+
+        if node is None and self.runtsafe:
+            view = await s_stormtypes.tostr(self.opts.view)
+            text = await s_stormtypes.tostr(self.opts.storm)
+            query = await runt.getStormQuery(text)
+
+            opts = {'view': self.opts.view}
+            async with runt.getSubRuntime(query, opts=opts) as subr:
+                async for item in subr.execute():
+                    await asyncio.sleep(0)
 
 class BackgroundCmd(Cmd):
     '''

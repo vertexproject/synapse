@@ -56,6 +56,31 @@ class StormTest(s_t_utils.SynTest):
             msgs = [m async for m in core.view.storm('$lib.exit()')]
             self.eq(msgs[-1][0], 'fini')
 
+            # test that the view command functions correctly
+            iden = s_common.guid()
+            view0 = await core.callStorm('return($lib.view.get().fork().iden)')
+            with self.raises(s_exc.NoSuchVar):
+                opts = {'vars': {'view': view0}}
+                await core.nodes('view.exec $view { [ ou:org=$iden] }', opts=opts)
+
+            opts = {'vars': {'view': view0, 'iden': iden}}
+            self.len(0, await core.nodes('view.exec $view { [ ou:org=$iden] }', opts=opts))
+
+            opts = {'view': view0, 'vars': {'iden': iden}}
+            self.len(1, await core.nodes('ou:org=$iden', opts=opts))
+
+            # check safe per-node execution of view.exec
+            view1 = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'vars': {'view': view1}}
+            # lol...
+            self.len(1, await core.nodes('''
+                [ ou:org=$view :name="[ inet:ipv4=1.2.3.4 ]" ]
+                $foo=$node.repr() $bar=:name
+                | view.exec $foo $bar
+            ''', opts=opts))
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4', opts={'view': view1}))
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:
