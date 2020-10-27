@@ -142,9 +142,16 @@ class PsModule(s_module.CoreModule):
                 )),
                 ('ps:person', {}, (
                     ('dob', ('time', {}), {
-                        'doc': 'The Date of Birth (DOB) if known.',
+                        'doc': 'The date on which the person was born.',
+                    }),
+                    ('dod', ('time', {}), {
+                        'doc': 'The date on which the person died.',
                     }),
                     ('img', ('file:bytes', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated: use ps:person:photo.'
+                    }),
+                    ('photo', ('file:bytes', {}), {
                         'doc': 'The primary image of a person.'
                     }),
                     ('nick', ('inet:user', {}), {
@@ -258,7 +265,10 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The social media account for this contact.',
                     }),
                     ('dob', ('time', {}), {
-                        'doc': 'The Date of Birth (DOB) for this contact.',
+                        'doc': 'The date of birth for this contact.',
+                    }),
+                    ('dod', ('time', {}), {
+                        'doc': 'The date of death for this contact.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The home or main site for this contact.',
