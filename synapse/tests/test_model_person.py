@@ -18,9 +18,10 @@ class PsModelTest(s_t_utils.SynTest):
                 file0 = 'sha256:' + 64 * '0'
                 person_props = {
                     'dob': '1971',
+                    'dod': '20501217',
                     'img': file0,
+                    'photo': file0,
                     'nick': 'pennywise',
-                    # 'guidname': '', # fixme guid aliases
                     'name': 'robert clown grey',
                     'name:sur': 'grey',
                     'name:middle': 'clown',
@@ -32,6 +33,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], person0)
                 self.eq(node.get('img'), file0)
                 self.eq(node.get('dob'), 31536000000)
+                self.eq(node.get('dod'), 2554848000000)
                 self.eq(node.get('nick'), 'pennywise')
                 self.eq(node.get('name'), 'robert clown grey')
                 self.eq(node.get('name:sur'), 'grey')
@@ -39,8 +41,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('name:given'), 'robert')
                 self.eq(node.get('nicks'), ['pwise71', 'soulchild'])
                 self.eq(node.get('names'), ['billy bob'])
-                # self.eq(node.get('img'), '')  # fixme file:bytes
-                # self.eq(node.get('guidname'), '')  # fixme guid aliases
+                self.eq(node.get('photo'), file0)
 
                 persona_props = {
                     'dob': '2000',
@@ -96,6 +97,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'user': 'ironman',
                     'web:acct': ('twitter.com', 'ironman'),
                     'dob': '1976-12-17',
+                    'dod': '20501217',
                     'url': 'https://starkindustries.com/',
                     'email': 'tony.stark@gmail.com',
                     'email:work': 'tstark@starkindustries.com',
@@ -118,6 +120,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('user'), 'ironman')
                 self.eq(node.get('web:acct'), ('twitter.com', 'ironman'))
                 self.eq(node.get('dob'), 219628800000)
+                self.eq(node.get('dod'), 2554848000000)
                 self.eq(node.get('url'), 'https://starkindustries.com/')
                 self.eq(node.get('email'), 'tony.stark@gmail.com')
                 self.eq(node.get('email:work'), 'tstark@starkindustries.com')
