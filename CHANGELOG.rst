@@ -5,6 +5,18 @@ Synapse Changelog
 *****************
 
 
+v2.9.2 - 2020-10-27
+===================
+
+Bugfixes
+--------
+- Fix an issue where a Cortex migrated from a `01x` release could
+  overwrite entries in a Layer's historical nodeedit log.
+  (`#1934 <https://github.com/vertexproject/synapse/pull/1934>`_)
+- Fix an issue with the layer definition schema.
+  (`#1927 <https://github.com/vertexproject/synapse/pull/1927>`_)
+
+
 v2.9.1 - 2020-10-22
 ===================
 
@@ -22,7 +34,7 @@ Features and Enhancements
   not load
   (`#1900 <https://github.com/vertexproject/synapse/pull/1900>`_)
 - Only get the nxsindx in the ``Layer.storeNodeEdits()`` function if logging
-  eddits.
+  edits.
   (`#1926 <https://github.com/vertexproject/synapse/pull/1926>`_)
 - Include the Node iden value in the ``CantDelNode`` exception when
   attempting to delete a Node failes due to existing references to the node.

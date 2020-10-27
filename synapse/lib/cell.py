@@ -717,6 +717,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getNexsIndx(self):
         return await self.nexsroot.index()
 
+    @s_nexus.Pusher.onPushAuto('nexslog:setindex')
+    async def setNexsIndx(self, indx):
+        return await self.nexsroot.setindex(indx)
+
     async def promote(self):
         '''
         Transform this cell from a passive follower to
