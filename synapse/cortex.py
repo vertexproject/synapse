@@ -923,6 +923,9 @@ class Cortex(s_cell.Cell):
                              exc=s_exc.BadCoreStore,
                              mesg='cortex:version is invalid for 0.1.x')
 
+        if self.cellinfo.get('cortex:version') < s_version.version:
+            await self.cellinfo.set('cortex:version', s_version.version)
+
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
         self.dmon.share('cortex', self)
@@ -1058,7 +1061,7 @@ class Cortex(s_cell.Cell):
             'loglevel': logger.getEffectiveLevel(),
             # TODO make getModelDefs include extended model
             'views': [v.getSpawnInfo() for v in self.views.values()],
-            'layers': [l.getSpawnInfo() for l in self.layers.values()],
+            'layers': [lyr.getSpawnInfo() for lyr in self.layers.values()],
             'storm': {
                 'cmds': {
                     'cdefs': list(self.storm_cmd_cdefs.items()),
