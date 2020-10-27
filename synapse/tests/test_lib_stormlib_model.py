@@ -171,11 +171,10 @@ class StormlibModelTest(s_test.SynTest):
                 await core.nodes('model.deprecated.lock ou:org:sic')
                 await core.nodes('model.deprecated.lock ou:hasalias')
 
-                # TODO should these really be ReadOnly or something depr specific?
-                with self.raises(s_exc.IsReadOnly):
+                with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('ou:org [ :sic=5678 ]')
 
-                with self.raises(s_exc.IsReadOnly):
+                with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('[ou:hasalias=(*, hehe)]')
 
                 mesgs = await core.stormlist('model.deprecated.locks')

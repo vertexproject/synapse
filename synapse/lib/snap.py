@@ -513,7 +513,7 @@ class Snap(s_base.Base):
 
             if f.locked:
                 mesg = f'Form {f.full} is locked due to deprecation.'
-                raise s_exc.IsReadOnly(mesg=mesg)
+                raise s_exc.IsDeprLocked(mesg=mesg)
 
             edits = []  # Non-primary prop edits
             topsubedits = []  # Primary prop sub edits
@@ -531,7 +531,7 @@ class Snap(s_base.Base):
 
                 if prop.locked:
                     mesg = f'Prop {prop.full} is locked due to deprecation.'
-                    raise s_exc.IsReadOnly(mesg=mesg)
+                    raise s_exc.IsDeprLocked(mesg=mesg)
 
                 assert prop.type.stortype is not None
 

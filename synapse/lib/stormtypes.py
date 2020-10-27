@@ -1836,9 +1836,6 @@ class Bytes(Prim):
     def __len__(self):
         return len(self.valu)
 
-    def __bool__(self):
-        return bool(self.valu)
-
     def __str__(self):
         return self.valu.decode()
 
@@ -2087,9 +2084,6 @@ class List(Prim):
 
 @registry.registerType
 class Bool(Prim):
-
-    def __bool__(self):
-        return self.value()
 
     def __str__(self):
         return str(self.value()).lower()
