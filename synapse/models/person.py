@@ -45,11 +45,21 @@ class PsModule(s_module.CoreModule):
             'forms': (
                 ('edu:course', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
-                        'ex': 'Forensics 101',
+                        'ex': 'organic chemistry for beginners',
                         'doc': 'The name of the course.',
                     }),
-                    ('insititution', ('ps:contact', {}), {
+                    ('desc', ('str', {}), {
+                        'doc': 'A brief course description.',
+                    }),
+                    ('code', ('str', {'lower': True, 'strip': True}), {
+                        'ex': 'chem101',
+                        'doc': 'The course catalog number or designator.',
+                    }),
+                    ('institution', ('ps:contact', {}), {
                         'doc': 'The org or department which teaches the course.',
+                    }),
+                    ('prereqs', ('array', {'type': 'edu:course'}), {
+                        'doc': 'The pre-requisite courses for taking this course.',
                     }),
                 )),
                 ('edu:class', {}, (
@@ -62,11 +72,23 @@ class PsModule(s_module.CoreModule):
                     ('assistants', ('array', {'type': 'ps:contact'}), {
                         'doc': 'An array of assistant/co-instructor contacts.',
                     }),
-                    ('first', ('time', {}), {
+                    ('date:first', ('time', {}), {
                         'doc': 'The date of the first day of class.'
                     }),
-                    ('last', ('time', {}), {
+                    ('date:last', ('time', {}), {
                         'doc': 'The date of the first day of class.'
+                    }),
+                    ('isvirtual', ('bool', {}), {
+                        'doc': 'Set if the class is known to be virtual.',
+                    }),
+                    ('virtual:url', ('inet:url', {}), {
+                        'doc': 'The URL a student would use to attend the virtual class.',
+                    }),
+                    ('virtual:provider', ('ps:contact', {}), {
+                        'doc': 'Contact info for the virtual infrastructure provider.',
+                    }),
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place that the class is held.',
                     }),
                 )),
                 ('ps:education', {}, (
@@ -96,8 +118,14 @@ class PsModule(s_module.CoreModule):
                     ('award', ('ou:award', {}), {
                         'doc': 'The award bestowed on the awardee.',
                     }),
-                    ('date', ('time', {}), {
+                    ('awarded', ('time', {}), {
                         'doc': 'The date the award was granted to the awardee.',
+                    }),
+                    ('expires', ('time', {}), {
+                        'doc': 'The date the award or certification expires.',
+                    }),
+                    ('revoked', ('time', {}), {
+                        'doc': 'The date the award was revoked by the org.',
                     }),
                 )),
                 ('ps:tokn', {}, ()),
