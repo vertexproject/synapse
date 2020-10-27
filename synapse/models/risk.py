@@ -89,6 +89,9 @@ class RiskModule(s_module.CoreModule):
                     ('target:person', ('ps:person', {}), {
                         'doc': 'The person was the target of the attack.',
                     }),
+                    ('target:place', ('geo:place', {}), {
+                        'doc': 'The place that was the target of the attack.',
+                    }),
                     ('via:ipv4', ('inet:ipv4', {}), {
                         'doc': 'The target host was contacted via the IPv4 address.',
                     }),
