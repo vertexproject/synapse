@@ -2511,7 +2511,7 @@ class ParallelCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
 
-        pars.add_argument('--size', default=8, type='int',
+        pars.add_argument('--size', default=8,
             help='The number of parallal Storm pipelines to execute.')
 
         pars.add_argument('query',
@@ -2533,14 +2533,13 @@ class ParallelCmd(Cmd):
                 async for item in subr.execute(genr=self.nextitem(inq)):
                     await outq.put(item)
 
-        except asyncio.CancelledError:
+            await outq.put(None)
+
+        except asyncio.CancelledError: # pragma: no cover
             raise
 
         except Exception as e:
             await outq.put(e)
-
-        finally:
-            await outq.put(None)
 
     async def execStormCmd(self, runt, genr):
 
@@ -2555,9 +2554,14 @@ class ParallelCmd(Cmd):
             outq = asyncio.Queue(maxsize=size)
 
             async def pump():
-                async for item in genr:
-                    await inq.put(item)
-                [await inq.put(None) for i in range(size)]
+                try:
+                    async for pumpitem in genr:
+                        await inq.put(pumpitem)
+                    [await inq.put(None) for i in range(size)]
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    outq.put(e)
 
             base.schedCoro(pump())
             for i in range(size):

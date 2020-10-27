@@ -421,7 +421,7 @@ class CellTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             conf = {'auth:anon': 'anon'}
             async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
-                anon = await cell.auth.getUserByName('anon')
+                anon = await cell.auth.addUser('anon')
                 await cell.auth.rootuser.setPasswd('secret')
                 host, port = await cell.dmon.listen('tcp://127.0.0.1:0')
                 async with await s_telepath.openurl('tcp://127.0.0.1/', port=port) as prox:

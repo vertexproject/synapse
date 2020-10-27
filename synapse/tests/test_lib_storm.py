@@ -37,11 +37,24 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('parallel --size 4 { [ ou:org=* ] }')
             self.len(4, nodes)
 
+            # check that subquery validation happens
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('parallel --size 4 { [ ou:org=$foo ] }')
 
+            # check that an exception on inbound percolates correctly
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=foo ] | parallel { [:name=bar] }')
+
+            # check that an exception in the parallel pipeline percolates correctly
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('parallel { [ou:org=foo] }')
+
             nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
             self.true(all([n.get('name') == 'foo' for n in nodes]))
+
+            # test $lib.exit() and the StormExit handlers
+            msgs = [m async for m in core.view.storm('$lib.exit()')]
+            self.eq(msgs[-1][0], 'fini')
 
     async def test_storm_tree(self):
 
