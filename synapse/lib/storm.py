@@ -2571,10 +2571,10 @@ class ParallelCmd(Cmd):
                     async for pumpitem in genr:
                         await inq.put(pumpitem)
                     [await inq.put(None) for i in range(size)]
-                except asyncio.CancelledError:
+                except asyncio.CancelledError: # pragma: no cover
                     raise
                 except Exception as e:
-                    outq.put(e)
+                    await outq.put(e)
 
             base.schedCoro(pump())
             for i in range(size):

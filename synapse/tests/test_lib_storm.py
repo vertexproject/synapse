@@ -24,7 +24,15 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('bar', msgs)
 
             # test storm background command
-            await core.nodes('$lib.queue.add(foo) background { $lib.queue.get(foo).put(hehe) }')
+            await core.nodes('''
+                $lib.queue.add(foo)
+                [inet:ipv4=1.2.3.4]
+                background {
+                    [it:dev:str=haha]
+                    fini{
+                        $lib.queue.get(foo).put(hehe)
+                    }
+                }''')
             self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.get(foo).get())'))
 
             with self.raises(s_exc.StormRuntimeError):
@@ -43,7 +51,7 @@ class StormTest(s_t_utils.SynTest):
 
             # check that an exception on inbound percolates correctly
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ ou:org=foo ] | parallel { [:name=bar] }')
+                await core.nodes('[ ou:org=* ou:org=foo ] | parallel { [:name=bar] }')
 
             # check that an exception in the parallel pipeline percolates correctly
             with self.raises(s_exc.BadTypeValu):
