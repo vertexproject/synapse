@@ -1300,6 +1300,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'tagline': 'Taglines are not tags',
                 'url': 'https://blogs.vertex.link/',
                 'webpage': 'https://blogs.vertex.link/brutus',
+                'recovery:email': 'recovery@vertex.link',
             }
 
             expected_ndef = (formname, ('blogs.vertex.link', 'brutus'))
@@ -1313,6 +1314,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'realname': 'брут',
                 'signup:client': 'tcp://0.0.0.4',
                 'signup:client:ipv4': 4,
+                'recovery:email': 'recovery@vertex.link',
             })
 
             async with await core.snap() as snap:
