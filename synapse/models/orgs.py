@@ -123,7 +123,7 @@ class OuModule(s_module.CoreModule):
                         'ex': 'certification',
                     }),
                     ('org', ('ou:org', {}), {
-                        'doc': 'The orgnazation which issues the award.',
+                        'doc': 'The organization which issues the award.',
                     }),
                 )),
                 ('ou:id:type', {}, (

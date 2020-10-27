@@ -76,7 +76,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The date of the first day of class.'
                     }),
                     ('date:last', ('time', {}), {
-                        'doc': 'The date of the first day of class.'
+                        'doc': 'The date of the last day of class.'
                     }),
                     ('isvirtual', ('bool', {}), {
                         'doc': 'Set if the class is known to be virtual.',
@@ -113,7 +113,7 @@ class PsModule(s_module.CoreModule):
                 )),
                 ('ps:achievement', {}, (
                     ('awardee', ('ps:contact', {}), {
-                        'doc': 'The recipeient of the award.',
+                        'doc': 'The recipient of the award.',
                     }),
                     ('award', ('ou:award', {}), {
                         'doc': 'The award bestowed on the awardee.',
