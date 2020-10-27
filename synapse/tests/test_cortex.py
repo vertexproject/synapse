@@ -4346,3 +4346,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                                            'Error loading pkg') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     self.true(await stream.wait(6))
+
+    async def test_cortex_vers_update(self):
+
+        async with self.getRegrCore('0.1.53-migr') as core:
+
+            corever = core.cellinfo.get('cortex:version')
+            self.eq(corever, s_version.version)
