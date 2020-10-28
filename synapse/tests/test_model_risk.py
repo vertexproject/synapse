@@ -39,6 +39,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :actor:person={pers}
                     :target:org={org0}
                     :target:host={host}
+                    :target:place={plac}
                     :target:person={pers}
                     :via:ipv4=1.2.3.4
                     :via:ipv6=ff::01
@@ -62,6 +63,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('actor:person'), pers)
             self.eq(node.get('target:org'), org0)
             self.eq(node.get('target:host'), host)
+            self.eq(node.get('target:place'), plac)
             self.eq(node.get('target:person'), pers)
             self.eq(node.get('via:ipv4'), 0x01020304)
             self.eq(node.get('via:ipv6'), 'ff::1')

@@ -4,6 +4,18 @@ class PsModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
             'types': (
+                ('edu:course', ('guid', {}), {
+                    'doc': 'A course of study taught by an org.',
+                }),
+                ('edu:class', ('guid', {}), {
+                    'doc': 'An instance of an edu:course taught at a given time.',
+                }),
+                ('ps:education', ('guid', {}), {
+                    'doc': 'A period of education for an individual.',
+                }),
+                ('ps:achievement', ('guid', {}), {
+                    'doc': 'An instance of an individual receiving an award.',
+                }),
                 ('ps:tokn', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'A single name element (potentially given or sur).',
                     'ex': 'robert'
@@ -29,8 +41,96 @@ class PsModule(s_module.CoreModule):
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record.',
                 }),
+                ('ps:contactlist', ('guid', {}), {
+                    'doc': 'A GUID for a list of associated contacts.',
+                }),
             ),
             'forms': (
+                ('edu:course', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                        'ex': 'organic chemistry for beginners',
+                        'doc': 'The name of the course.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A brief course description.',
+                    }),
+                    ('code', ('str', {'lower': True, 'strip': True}), {
+                        'ex': 'chem101',
+                        'doc': 'The course catalog number or designator.',
+                    }),
+                    ('institution', ('ps:contact', {}), {
+                        'doc': 'The org or department which teaches the course.',
+                    }),
+                    ('prereqs', ('array', {'type': 'edu:course'}), {
+                        'doc': 'The pre-requisite courses for taking this course.',
+                    }),
+                )),
+                ('edu:class', {}, (
+                    ('course', ('edu:course', {}), {
+                        'doc': 'The course being taught in the class.',
+                    }),
+                    ('instructor', ('ps:contact', {}), {
+                        'doc': 'The primary instructor for the class.',
+                    }),
+                    ('assistants', ('array', {'type': 'ps:contact'}), {
+                        'doc': 'An array of assistant/co-instructor contacts.',
+                    }),
+                    ('date:first', ('time', {}), {
+                        'doc': 'The date of the first day of class.'
+                    }),
+                    ('date:last', ('time', {}), {
+                        'doc': 'The date of the last day of class.'
+                    }),
+                    ('isvirtual', ('bool', {}), {
+                        'doc': 'Set if the class is known to be virtual.',
+                    }),
+                    ('virtual:url', ('inet:url', {}), {
+                        'doc': 'The URL a student would use to attend the virtual class.',
+                    }),
+                    ('virtual:provider', ('ps:contact', {}), {
+                        'doc': 'Contact info for the virtual infrastructure provider.',
+                    }),
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place that the class is held.',
+                    }),
+                )),
+                ('ps:education', {}, (
+                    ('student', ('ps:contact', {}), {
+                        'doc': 'The contact of the person being educated.',
+                    }),
+                    ('institution', ('ps:contact', {}), {
+                        'doc': 'The contact info for the org providing educational services.',
+                    }),
+                    ('attended:first', ('time', {}), {
+                        'doc': 'The first date the student attended a class.',
+                    }),
+                    ('attended:last', ('time', {}), {
+                        'doc': 'The last date the student attended a class.',
+                    }),
+                    ('classes', ('array', {'type': 'edu:class'}), {
+                        'doc': 'The classes attended by the student',
+                    }),
+                    ('achievement', ('ps:achievement', {}), {
+                        'doc': 'The achievement awarded to the individual.',
+                    }),
+                )),
+                ('ps:achievement', {}, (
+                    ('awardee', ('ps:contact', {}), {
+                        'doc': 'The recipient of the award.',
+                    }),
+                    ('award', ('ou:award', {}), {
+                        'doc': 'The award bestowed on the awardee.',
+                    }),
+                    ('awarded', ('time', {}), {
+                        'doc': 'The date the award was granted to the awardee.',
+                    }),
+                    ('expires', ('time', {}), {
+                        'doc': 'The date the award or certification expires.',
+                    }),
+                    ('revoked', ('time', {}), {
+                        'doc': 'The date the award was revoked by the org.',
+                    }),
+                )),
                 ('ps:tokn', {}, ()),
                 ('ps:name', {}, (
                     ('sur', ('ps:tokn', {}), {
@@ -214,6 +314,20 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('imid:imsi', ('tel:mob:imsi', {}), {
                         'doc': 'An IMSI associated with the contact.',
+                    }),
+                )),
+                ('ps:contactlist', {}, (
+                    ('contacts', ('array', {'type': 'ps:contact', 'uniq': True, 'split': ','}), {
+                        'doc': 'The array of contacts contained in the list.'
+                    }),
+                    ('source:host', ('it:host', {}), {
+                        'doc': 'The host from which the contact list was extracted.',
+                    }),
+                    ('source:file', ('file:bytes', {}), {
+                        'doc': 'The file from which the contact list was extracted.',
+                    }),
+                    ('source:acct', ('inet:web:acct', {}), {
+                        'doc': 'The web account from which the contact list was extracted.',
                     }),
                 )),
             )
