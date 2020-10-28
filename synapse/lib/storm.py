@@ -1337,7 +1337,7 @@ class Parser:
         argtype = opts.get('type')
         if argtype is not None and argtype not in s_datamodel.Model().types:
             mesg = f'Argument type "{argtype}" is not a valid model type name'
-            raise s_exc.BadArg(mesg=mesg, argtype=argtype)
+            raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
         dest = self._get_dest(names)
         opts.setdefault('dest', dest)
