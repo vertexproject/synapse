@@ -1125,7 +1125,7 @@ class Slab(s_base.Base):
 
             yield from scan.iternext()
 
-    async def countByPref(self, byts, db=None):
+    async def countByPref(self, byts, db=None, maxsize=None):
         '''
         Return the number of rows in the given db with the matching prefix bytes.
         '''
@@ -1142,6 +1142,9 @@ class Slab(s_base.Base):
                     return count
 
                 count += 1
+                if maxsize is not None and maxsize == count:
+                    return count
+
                 await asyncio.sleep(0)
 
             return count

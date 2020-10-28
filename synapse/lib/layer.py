@@ -1422,7 +1422,7 @@ class Layer(s_nexus.Pusher):
 
         return await self.layrslab.countByPref(abrv, db=self.bytag)
 
-    async def getPropCount(self, formname, propname=None):
+    async def getPropCount(self, formname, propname=None, maxsize=None):
         '''
         Return the number of property rows in the layer for the given form/prop.
         '''
@@ -1431,7 +1431,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return 0
 
-        return await self.layrslab.countByPref(abrv, db=self.byprop)
+        return await self.layrslab.countByPref(abrv, db=self.byprop, maxsize=maxsize)
 
     async def liftByTag(self, tag, form=None):
 
