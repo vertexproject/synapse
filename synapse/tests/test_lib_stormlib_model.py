@@ -195,7 +195,7 @@ class StormlibModelTest(s_test.SynTest):
                 # warn due to existing
                 self.stormIsInWarn('ou:org:sic', mesgs)
                 self.stormIsInWarn('ou:hasalias', mesgs)
-                self.stormIsInPrint('Whups!', mesgs)
+                self.stormIsInPrint('Your cortex contains deprecated model elements', mesgs)
 
                 await core.nodes('model.deprecated.lock *')
 

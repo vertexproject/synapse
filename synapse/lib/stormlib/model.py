@@ -152,7 +152,7 @@ stormcmds = [
                 }
 
                 if (not $ok) {
-                    $lib.print("Whups! Your Cortex needs some tweaks to be fully future-model compliant.")
+                    $lib.print("Your cortex contains deprecated model elements.")
                 } else {
                     $lib.print("Congrats! Your Cortex is fully future-model compliant!")
                 }
@@ -456,6 +456,7 @@ class LibModelDeprecated(s_stormtypes.Lib):
             'locks': self._locks,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _locks(self):
         todo = s_common.todo('getDeprLocks')
         locks = await self.runt.dyncall('cortex', todo)
