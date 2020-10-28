@@ -1038,7 +1038,7 @@ class StormDmon(s_base.Base):
         def dmonWarn(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.warning(f'Dmon - {self.iden} - WARNING: {mesg}')
+            logger.warning(f'Dmon - {self.iden} - {mesg}')
 
         while not self.isfini:
 
