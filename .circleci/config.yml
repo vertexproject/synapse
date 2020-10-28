@@ -216,8 +216,8 @@ commands:
       - store_artifacts:
           path: test-reports
 
-  deploy_pypi_prolouge:
-    description: "Common Pypi prolouge"
+  deploy_pypi_prologue:
+    description: "Common Pypi prologue"
     steps:
       - checkout
 
@@ -264,7 +264,7 @@ commands:
   deploy_sdist_to_pypi:
     description: "Publish sdist packages to pypi"
     steps:
-      - deploy_pypi_prolouge
+      - deploy_pypi_prologue
       - run:
           name: create packages
           command: |
@@ -289,7 +289,7 @@ commands:
   deploy_wheel_to_pypi:
     description: "Publish wheel packages to pypi"
     steps:
-      - deploy_pypi_prolouge
+      - deploy_pypi_prologue
       - run:
           name: create packages
           command: |
