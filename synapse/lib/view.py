@@ -695,7 +695,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         NOTE: This does cause trigger execution.
         '''
-        # TODO: perms
         user = await self.core.auth.reqUser(meta.get('user'))
         async with await self.snap(user=user) as snap:
             # go with the anti-pattern for now...
