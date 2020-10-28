@@ -41,6 +41,9 @@ class PsModule(s_module.CoreModule):
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record.',
                 }),
+                ('ps:contactlist', ('guid', {}), {
+                    'doc': 'A GUID for a list of associated contacts.',
+                }),
             ),
             'forms': (
                 ('edu:course', {}, (
@@ -311,6 +314,20 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('imid:imsi', ('tel:mob:imsi', {}), {
                         'doc': 'An IMSI associated with the contact.',
+                    }),
+                )),
+                ('ps:contactlist', {}, (
+                    ('contacts', ('array', {'type': 'ps:contact', 'uniq': True, 'split': ','}), {
+                        'doc': 'The array of contacts contained in the list.'
+                    }),
+                    ('source:host', ('it:host', {}), {
+                        'doc': 'The host from which the contact list was extracted.',
+                    }),
+                    ('source:file', ('file:bytes', {}), {
+                        'doc': 'The file from which the contact list was extracted.',
+                    }),
+                    ('source:acct', ('inet:web:acct', {}), {
+                        'doc': 'The web account from which the contact list was extracted.',
                     }),
                 )),
             )

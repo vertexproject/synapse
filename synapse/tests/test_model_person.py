@@ -192,3 +192,16 @@ class PsModelTest(s_t_utils.SynTest):
 
                 course = nodes[0].ndef[1]
                 self.len(1, await core.nodes(f'edu:course={course} :prereqs -> edu:course'))
+
+                nodes = await core.nodes(f'''[
+                    ps:contactlist=*
+                        :contacts=(*,*)
+                        :source:host=*
+                        :source:file=*
+                        :source:acct=(twitter.com, invisig0th)
+                ]''')
+                self.len(1, nodes)
+                self.len(1, await core.nodes('ps:contactlist -> it:host'))
+                self.len(1, await core.nodes('ps:contactlist -> file:bytes'))
+                self.len(2, await core.nodes('ps:contactlist -> ps:contact'))
+                self.len(1, await core.nodes('ps:contactlist -> inet:web:acct'))
