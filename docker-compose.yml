@@ -4,4 +4,4 @@ services:
     core:
         build: .
         ports:
-            - "47322:47322"
+            - "27492:27492"
