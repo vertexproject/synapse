@@ -217,7 +217,7 @@ commands:
           path: test-reports
 
   deploy_pypi_prolouge:
-    description: "Check docker smoke test results"
+    description: "Common Pypi prolouge"
     steps:
       - checkout
 
@@ -636,6 +636,7 @@ workflows:
           requires:
             - doctests
             - python37
+            - python38
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/

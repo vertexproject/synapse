@@ -56,7 +56,7 @@ setup(
         'PyYAML>=5.2,<6.0',
         'aiohttp>=3.6.3,<4.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
-        'lark-parser>=0.9.0,<0.10.0',
+        'lark-parser>=0.9.0,<0.11.0',
         'Pygments>=2.6.0,<2.7.0',
         'packaging>=20.0,<21.0',
         'fastjsonschema>=2.14.3,<2.15',
@@ -82,7 +82,7 @@ setup(
     },
 
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
 
         'License :: OSI Approved :: Apache Software License',
 
@@ -91,6 +91,7 @@ setup(
         'Topic :: System :: Software Distribution',
 
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
     cmdclass={
         'verify': VerifyVersionCommand,
