@@ -1950,6 +1950,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'A related URL specified by the account (e.g., a personal or company web '
                                    'page, blog, etc.).'
                         }),
+                        ('recovery:email', ('inet:email', {}), {
+                            'doc': 'An email address registered as a recovery email address for the account.',
+                        }),
                     )),
 
                     ('inet:web:action', {}, (

@@ -7,6 +7,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
@@ -193,10 +194,30 @@ reqValidPkgdef = s_config.getJsValidator({
                     'type': 'string',
                     'pattern': s_grammar.re_scmd
                 },
+                'cmdargs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/cmdarg'},
+                },
                 'storm': {'type': 'string'}
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'cmdarg': {
+            'type': 'array',
+            'items': [
+                {'type': 'string'},
+                {
+                    'type': 'object',
+                    'properties': {
+                        'help': {'type': 'string'},
+                        'type': {
+                            'type': 'string',
+                            'enum': list(s_datamodel.Model().types)
+                        },
+                    },
+                }
+            ]
         }
     }
 })
@@ -299,7 +320,7 @@ stormcmds = (
                               'action': 'store_true'}),
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
-            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': int}),
+            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),
@@ -1313,6 +1334,11 @@ class Parser:
 
         assert len(names)
 
+        argtype = opts.get('type')
+        if argtype is not None and argtype not in s_datamodel.Model().types:
+            mesg = f'Argument type "{argtype}" is not a valid model type name'
+            raise s_exc.BadArg(mesg=mesg, argtype=argtype)
+
         dest = self._get_dest(names)
         opts.setdefault('dest', dest)
         self.allargs.append((names, opts))
@@ -1448,9 +1474,9 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = argtype(valu)
+                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                 except Exception:
-                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
 
             opts[dest] = valu
@@ -1466,9 +1492,9 @@ class Parser:
                 valu = todo.popleft()
                 if argtype is not None:
                     try:
-                        valu = argtype(valu)
+                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                     except Exception:
-                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
                 opts[dest] = valu
@@ -1483,9 +1509,9 @@ class Parser:
 
                 if argtype is not None:
                     try:
-                        valu = argtype(valu)
+                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                     except Exception:
-                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
                 vals.append(valu)
@@ -1506,9 +1532,9 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = argtype(valu)
+                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                 except Exception:
-                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
 
             vals.append(valu)
@@ -1838,7 +1864,7 @@ class LimitCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('count', type=int, help='The maximum number of nodes to yield.')
+        pars.add_argument('count', type='int', help='The maximum number of nodes to yield.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -2218,7 +2244,7 @@ class IdenCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('iden', nargs='*', type=str, default=[],
+        pars.add_argument('iden', nargs='*', type='str', default=[],
                           help='Iden to lift nodes by. May be specified multiple times.')
         return pars
 
@@ -2266,7 +2292,7 @@ class SleepCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('delay', type=float, default=1, help='Delay in floating point seconds.')
+        pars.add_argument('delay', type='float', default=1, help='Delay in floating point seconds.')
         return pars
 
 class GraphCmd(Cmd):
@@ -2293,7 +2319,7 @@ class GraphCmd(Cmd):
     def getArgParser(self):
 
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--degrees', type=int, default=1, help='How many degrees to graph out.')
+        pars.add_argument('--degrees', type='int', default=1, help='How many degrees to graph out.')
 
         pars.add_argument('--pivot', default=[], action='append',
                           help='Specify a storm pivot for all nodes. (must quote)')
@@ -2582,13 +2608,13 @@ class SpliceListCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
 
-        pars.add_argument('--maxtimestamp', type=int, default=None,
+        pars.add_argument('--maxtimestamp', type='int', default=None,
                           help='Only yield splices which occurred on or before this timestamp.')
-        pars.add_argument('--mintimestamp', type=int, default=None,
+        pars.add_argument('--mintimestamp', type='int', default=None,
                           help='Only yield splices which occurred on or after this timestamp.')
-        pars.add_argument('--maxtime', type=str, default=None,
+        pars.add_argument('--maxtime', type='str', default=None,
                           help='Only yield splices which occurred on or before this time.')
-        pars.add_argument('--mintime', type=str, default=None,
+        pars.add_argument('--mintime', type='str', default=None,
                           help='Only yield splices which occurred on or after this time.')
 
         return pars
@@ -2885,7 +2911,7 @@ class LiftByVerb(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('verb', type=str, required=True,
+        pars.add_argument('verb', type='str', required=True,
                           help='The edge verb to lift nodes by.')
         pars.add_argument('--n2', action='store_true', default=False,
                           help='Lift by the N2 value instead of N1 value.')
@@ -2952,7 +2978,7 @@ class EdgesDelCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('verb', type=str, help='The verb of light edges to delete.')
+        pars.add_argument('verb', type='str', help='The verb of light edges to delete.')
 
         pars.add_argument('--n2', action='store_true', default=False,
                           help='Delete light edges where input node is N2 instead of N1.')
