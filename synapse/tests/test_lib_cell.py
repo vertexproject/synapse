@@ -416,6 +416,26 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadConfValu):
                         await proxy.promote()
 
+    async def test_cell_anon(self):
+
+        with self.getTestDir() as dirn:
+            conf = {'auth:anon': 'anon'}
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+                anon = await cell.auth.addUser('anon')
+                await cell.auth.rootuser.setPasswd('secret')
+                host, port = await cell.dmon.listen('tcp://127.0.0.1:0')
+                async with await s_telepath.openurl('tcp://127.0.0.1/', port=port) as prox:
+                    info = await prox.getCellUser()
+                    self.eq(anon.iden, info.get('iden'))
+
+                await anon.setLocked(True)
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl('tcp://127.0.0.1/', port=port)
+
+                await cell.auth.delUser(anon.iden)
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl('tcp://127.0.0.1/', port=port)
+
     async def test_cell_nexuschanges(self):
 
         with self.getTestDir() as dirn:

@@ -250,3 +250,6 @@ class StormContinue(StormCtrlFlow):
 
 class StormReturn(StormCtrlFlow):
     pass
+
+class StormExit(StormCtrlFlow):
+    pass
