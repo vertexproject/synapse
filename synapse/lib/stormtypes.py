@@ -616,6 +616,7 @@ class LibBase(Lib):
         Returns:
             Yields the sorted output.
         '''
+        valu = await toiter(valu)
         for item in sorted(valu):
             yield item
 
@@ -1660,15 +1661,18 @@ class Prim(StormType):
         mesg = 'Storm type {__class__.__name__.lower()} cannot be cast to an int'
         raise s_exc.BadCast(mesg)
 
-    def __bool__(self):
-        return bool(self.value())
-
     def __len__(self):
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
 
     def value(self):
         return self.valu
+
+    async def iter(self):
+        return tuple(await s_coro.ornot(self.value))
+
+    async def bool(self):
+        return bool(await s_coro.ornot(self.value))
 
 @registry.registerType
 class Str(Prim):
@@ -1832,9 +1836,6 @@ class Bytes(Prim):
     def __len__(self):
         return len(self.valu)
 
-    def __bool__(self):
-        return bool(self.valu)
-
     def __str__(self):
         return self.valu.decode()
 
@@ -1912,6 +1913,9 @@ class Dict(Prim):
 
     def __len__(self):
         return len(self.valu)
+
+    async def iter(self):
+        return tuple(item for item in self.valu.items())
 
     async def setitem(self, name, valu):
         self.valu[name] = valu
@@ -2080,9 +2084,6 @@ class List(Prim):
 
 @registry.registerType
 class Bool(Prim):
-
-    def __bool__(self):
-        return self.value()
 
     def __str__(self):
         return str(self.value()).lower()
@@ -2890,7 +2891,7 @@ class Layer(Prim):
         todo = s_common.todo('getTagCount', tagname, formname=formname)
         return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
-    async def _methGetPropCount(self, propname):
+    async def _methGetPropCount(self, propname, maxsize=None):
         '''
         Return the number of property rows in the layer for the given full form/property name.
 
@@ -2898,6 +2899,7 @@ class Layer(Prim):
             $count = $lib.layer.get().getPropCount(inet:ipv4:asn)
         '''
         propname = await tostr(propname)
+        maxsize = await toint(maxsize, noneok=True)
 
         prop = self.runt.snap.core.model.prop(propname)
         if prop is None:
@@ -2905,9 +2907,9 @@ class Layer(Prim):
             raise s_exc.NoSuchProp(mesg)
 
         if prop.isform:
-            todo = s_common.todo('getPropCount', prop.name, None)
+            todo = s_common.todo('getPropCount', prop.name, None, maxsize=maxsize)
         else:
-            todo = s_common.todo('getPropCount', prop.form.name, prop.name)
+            todo = s_common.todo('getPropCount', prop.form.name, prop.name, maxsize=maxsize)
 
         layriden = self.valu.get('iden')
         gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
@@ -4447,10 +4449,26 @@ async def tostr(valu, noneok=False):
         mesg = f'Failed to make a string from {valu!r}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
+async def toiter(valu, noneok=False):
+    '''
+    Make a python primative or storm type into an iterable.
+    '''
+
+    if noneok and valu is None:
+        return ()
+
+    if isinstance(valu, Prim):
+        return await valu.iter()
+
+    return tuple(valu)
+
 async def tobool(valu, noneok=False):
 
     if noneok and valu is None:
         return None
+
+    if isinstance(valu, Prim):
+        return await valu.bool()
 
     try:
         return bool(valu)
