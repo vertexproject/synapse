@@ -13,6 +13,10 @@ class SpooledTest(s_test.SynTest):
             await sset.add(10)
             self.true(10 in sset)
             self.len(1, sset)
+
+            await sset.add(10)
+            self.len(1, sset)
+
             sset.discard(10)
             self.false(10 in sset)
 
@@ -26,6 +30,9 @@ class SpooledTest(s_test.SynTest):
             await sset.add(30)
             await sset.add(None)
 
+            self.len(4, sset)
+
+            await sset.add(20)
             self.len(4, sset)
 
             self.nn(sset.slab)

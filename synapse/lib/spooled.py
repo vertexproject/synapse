@@ -80,8 +80,8 @@ class Set(Spooled):
     async def add(self, valu):
 
         if self.fallback:
-            self.slab.put(s_msgpack.en(valu), b'\x01')
-            self.len += 1
+            if self.slab.put(s_msgpack.en(valu), b'\x01', overwrite=False):
+                self.len += 1
             return
 
         self.realset.add(valu)
