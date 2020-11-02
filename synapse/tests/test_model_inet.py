@@ -709,9 +709,10 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:ipv4>2'))
             self.len(3, await core.nodes('inet:ipv4>=2'))
             self.len(0, await core.nodes('inet:ipv4>=255.0.0.1'))
-            # self.len(0, await core.nodes('inet:ivp4=$foo', {'vars': {'foo': 0xFFFFFFFF + 1}}))
+            # This value wraps around and lifts starting from zero.
+            self.len(5, await core.nodes('inet:ipv4>=$foo', {'vars': {'foo': 0xFFFFFFFF + 1}}))
             # Filters
-            # self.len(0, await core.nodes('.created +inet:ipv4<0'))
+            self.len(0, await core.nodes('.created +inet:ipv4<0'))
             self.len(1, await core.nodes('.created +inet:ipv4<1'))
             self.len(3, await core.nodes('.created +inet:ipv4<=2'))
             self.len(2, await core.nodes('.created +inet:ipv4>2'))
