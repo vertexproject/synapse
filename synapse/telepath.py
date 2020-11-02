@@ -627,6 +627,7 @@ class Client(s_base.Base):
         self._t_ready = asyncio.Event()
         self._t_onlink = onlink
         self._t_methinfo = None
+        self._t_named_meths = set()
 
         async def fini():
             if self._t_proxy is not None:
@@ -687,6 +688,10 @@ class Client(s_base.Base):
     async def _initTeleLink(self, url):
         if self._t_proxy is not None:
             await self._t_proxy.fini()
+        if self._t_named_meths:
+            for name in self._t_named_meths:
+                delattr(self, name)
+            self._t_named_meths.clear()
 
         self._t_proxy = await openurl(url, **self._t_opts)
         self._t_methinfo = self._t_proxy.methinfo
@@ -732,9 +737,11 @@ class Client(s_base.Base):
         if info is not None and info.get('genr'):
             meth = GenrMethod(self, name)
             setattr(self, name, meth)
+            self._t_named_meths.add(name)
             return meth
 
         meth = Method(self, name)
+        self._t_named_meths.add(name)
         setattr(self, name, meth)
         return meth
 
