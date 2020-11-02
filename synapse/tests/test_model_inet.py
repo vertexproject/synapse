@@ -700,6 +700,24 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu_str, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+            # > / < lifts and filters
+            self.len(4, await core.nodes('[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 inet:ipv4=3]'))
+            # Lifts
+            # self.len(0, await core.nodes('inet:ipv4<0'))
+            self.len(1, await core.nodes('inet:ipv4<1'))
+            self.len(3, await core.nodes('inet:ipv4<=2'))
+            self.len(2, await core.nodes('inet:ipv4>2'))
+            self.len(3, await core.nodes('inet:ipv4>=2'))
+            self.len(0, await core.nodes('inet:ipv4>=255.0.0.1'))
+            # self.len(0, await core.nodes('inet:ivp4=$foo', {'vars': {'foo': 0xFFFFFFFF + 1}}))
+            # Filters
+            # self.len(0, await core.nodes('.created +inet:ipv4<0'))
+            self.len(1, await core.nodes('.created +inet:ipv4<1'))
+            self.len(3, await core.nodes('.created +inet:ipv4<=2'))
+            self.len(2, await core.nodes('.created +inet:ipv4>2'))
+            self.len(3, await core.nodes('.created +inet:ipv4>=2'))
+            self.len(0, await core.nodes('.created +inet:ipv4>=255.0.0.1'))
+
     async def test_ipv6(self):
         formname = 'inet:ipv6'
         async with self.getTestCore() as core:
