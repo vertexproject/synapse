@@ -511,23 +511,22 @@ class GuidStor:
         bidn = s_common.uhex(iden)
         return SlabDict(self.slab, db=self.db, pref=bidn)
 
-def _ispo2(i):
-    return not (i & (i - 1)) and i
-
 def _florpo2(i):
     '''
     Return largest power of 2 equal to or less than i
     '''
-    if _ispo2(i):
+    if not (i & (i - 1)):
         return i
+
     return 1 << (i.bit_length() - 1)
 
 def _ceilpo2(i):
     '''
     Return smallest power of 2 equal to or greater than i
     '''
-    if _ispo2(i):
+    if not (i & (i - 1)):
         return i
+
     return 1 << i.bit_length()
 
 def _roundup(i, multiple):
@@ -983,15 +982,21 @@ class Slab(s_base.Base):
         self.locking_memory = False
         logger.debug('memory locking thread ended')
 
-    def initdb(self, name, dupsort=False, integerkey=False):
+    def initdb(self, name, dupsort=False, integerkey=False, dupfixed=False):
+
+        if name in self.dbnames:
+            return name
+
         while True:
             try:
                 if self.readonly:
                     # In a readonly environment, we can't make our own write transaction, but we
                     # can have the lmdb module create one for us by not specifying the transaction
-                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey)
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey,
+                                           dupfixed=dupfixed)
                 else:
-                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey)
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey,
+                                           dupfixed=dupfixed)
                     self.dirty = True
                     self.forcecommit()
 
@@ -1065,6 +1070,20 @@ class Slab(s_base.Base):
         try:
             with self.xact.cursor(db=realdb) as curs:
                 if not curs.last():
+                    return None
+                return curs.key()
+        finally:
+            self._relXactForReading()
+
+    def firstkey(self, db=None):
+        '''
+        Return the first key or None from the given db.
+        '''
+        self._acqXactForReading()
+        realdb, _ = self.dbnames[db]
+        try:
+            with self.xact.cursor(db=realdb) as curs:
+                if not curs.first():
                     return None
                 return curs.key()
         finally:
