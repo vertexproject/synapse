@@ -688,10 +688,6 @@ class Client(s_base.Base):
     async def _initTeleLink(self, url):
         if self._t_proxy is not None:
             await self._t_proxy.fini()
-        if self._t_named_meths:
-            for name in self._t_named_meths:
-                delattr(self, name)
-            self._t_named_meths.clear()
 
         self._t_proxy = await openurl(url, **self._t_opts)
         self._t_methinfo = self._t_proxy.methinfo
@@ -701,6 +697,10 @@ class Client(s_base.Base):
             await self._t_onlink(self._t_proxy)
 
         async def fini():
+            if self._t_named_meths:
+                for name in self._t_named_meths:
+                    delattr(self, name)
+                self._t_named_meths.clear()
             await self._fireLinkLoop()
 
         self._t_proxy.onfini(fini)

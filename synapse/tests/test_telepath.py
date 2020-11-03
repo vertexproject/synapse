@@ -1155,7 +1155,7 @@ class TeleTest(s_t_utils.SynTest):
                     self.eq(prox._t_named_meths, {'foo', 'bar'})
 
                     # Disable the dmon and wait for the proxy to have been fini'd
-                    await dmon.setReady(False)
+                    dmon.schedCoro(dmon.setReady(False))
                     self.true(await prox._t_proxy.waitfini(10))
 
                     # Swap out the object and reconnect
