@@ -36,7 +36,6 @@ class SpooledTest(s_test.SynTest):
             self.len(4, sset)
 
             self.nn(sset.slab)
-            self.nn(sset.slabpath)
             self.true(sset.fallback)
 
             self.true(10 in sset)
@@ -49,9 +48,10 @@ class SpooledTest(s_test.SynTest):
 
             self.true(None in sset)
 
-            self.true(os.path.isdir(sset.slabpath))
+            self.true(os.path.isdir(sset.slab.path))
 
-        self.false(os.path.isdir(sset.slabpath))
+        self.false(os.path.isdir(sset.slab.path))
+        self.false(os.path.isfile(sset.slab.optspath))
 
     async def test_spooled_set_dir(self):
         with self.getTestDir() as dirn:
@@ -59,5 +59,5 @@ class SpooledTest(s_test.SynTest):
                 await sset.add(10)
                 await sset.add(20)
                 await sset.add(30)
-                self.true(os.path.isdir(sset.slabpath))
-                self.true(os.path.abspath(sset.slabpath).startswith(dirn))
+                self.true(os.path.isdir(sset.slab.path))
+                self.true(os.path.abspath(sset.slab.path).startswith(dirn))
