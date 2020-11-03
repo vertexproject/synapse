@@ -1,4 +1,3 @@
-import shutil
 import tempfile
 
 import synapse.common as s_common
@@ -27,16 +26,12 @@ class Spooled(s_base.Base):
         self.size = size
         self.dirn = dirn
         self.slab = None
-        self.slabpath = None
         self.fallback = False
 
         async def fini():
 
             if self.slab is not None:
-                await self.slab.fini()
-
-            if self.slabpath is not None:
-                shutil.rmtree(self.slabpath, ignore_errors=True)
+                await self.slab.trash()
 
         self.onfini(fini)
 
@@ -48,10 +43,9 @@ class Spooled(s_base.Base):
             # Consolidate the spooled slabs underneath 'tmp' to make it easy for backup tool to avoid copying
             dirn = s_common.gendir(self.dirn, 'tmp')
 
-        self.slabpath = tempfile.mkdtemp(dir=dirn, prefix='spooled_', suffix='.lmdb')
+        slabpath = tempfile.mkdtemp(dir=dirn, prefix='spooled_', suffix='.lmdb')
 
-        self.slab = await s_lmdbslab.Slab.anit(self.slabpath,
-                                               map_size=s_const.mebibyte * 32)
+        self.slab = await s_lmdbslab.Slab.anit(slabpath, map_size=s_const.mebibyte * 32)
 
 class Set(Spooled):
     '''
