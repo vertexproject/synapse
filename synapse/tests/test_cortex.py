@@ -4820,20 +4820,27 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Merge a child back into the parent
             await view2.merge()
 
-            editcount = 0
-            layredits = {}
-            async for item in core.mergedLayerNodeEdits(layroffs):
-                layr, offs, mesg, meta = item
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as asvisi:
 
-                if layr not in layredits:
-                    layredits[layr] = []
-                layredits[layr].append(offs)
+                await self.agenraises(s_exc.AuthDeny, asvisi.mergedLayerNodeEdits(layroffs))
 
-                editcount += 1
-                if editcount == 3:
-                    break
+                await visi.addRule((True, ('sync',)))
 
-            # Check that layr1 got the edits merged from layr2
-            self.len(2, layredits[layr1_iden])
-            self.none(layredits.get(layr2_iden))
-            self.len(1, layredits.get(layr3_iden))
+                editcount = 0
+                layredits = {}
+                async for item in asvisi.mergedLayerNodeEdits(layroffs):
+                    layr, offs, mesg, meta = item
+
+                    if layr not in layredits:
+                        layredits[layr] = []
+                    layredits[layr].append(offs)
+
+                    editcount += 1
+                    if editcount == 3:
+                        break
+
+                # Check that layr1 got the edits merged from layr2
+                self.len(2, layredits[layr1_iden])
+                self.none(layredits.get(layr2_iden))
+                self.len(1, layredits.get(layr3_iden))
