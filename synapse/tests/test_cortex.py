@@ -4333,6 +4333,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with await s_cortex.Cortex.anit(dirn) as core:
 
+                with self.raises(s_exc.BadFormDef):
+                    await core.addForm('inet:ipv4', 'int', {}, {})
+
+                with self.raises(s_exc.NoSuchType):
+                    await core.addForm('_inet:ipv4', 'foo', {}, {})
+
                 # blowup for bad names
                 with self.raises(s_exc.BadPropDef):
                     await core.addFormProp('inet:ipv4', 'visi', ('int', {}), {})
@@ -4353,7 +4359,16 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('syn:prop=inet:ipv4._woot'))
                 self.len(1, await core.nodes('._woot=hehe'))
 
+                await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})
+                self.len(1, await core.nodes('[ _hehe:haha=10 ]'))
+
+                await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
+                self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
+
             async with await s_cortex.Cortex.anit(dirn) as core:
+
+                self.len(1, await core.nodes('_hehe:haha=10'))
+                self.len(1, await core.nodes('_hehe:haha:visi=lolz'))
 
                 nodes = await core.nodes('[inet:ipv4=5.5.5.5 :_visi=100]')
                 self.len(1, nodes)
@@ -4391,6 +4406,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchProp):
                     await core.delFormProp('inet:ipv4', '_visi')
 
+                with self.raises(s_exc.CantDelProp):
+                    await core.delFormProp('_hehe:haha', 'visi')
+
+                with self.raises(s_exc.CantDelForm):
+                    await core.delForm('_hehe:haha')
+
+                await core.nodes('_hehe:haha [ -:visi ]')
+                await core.delFormProp('_hehe:haha', 'visi')
+
+                await core.nodes('_hehe:haha | delnode')
+                await core.delForm('_hehe:haha')
+
+                self.none(core.model.form('_hehe:haha'))
+                self.none(core.model.type('_hehe:haha'))
+                self.none(core.model.prop('_hehe:haha:visi'))
                 self.none(core.model.prop('inet:ipv4._visi'))
                 self.none(core.model.form('inet:ipv4').prop('._visi'))
 

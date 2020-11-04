@@ -684,6 +684,32 @@ class Model:
             propname, typedef, propinfo = propdef
             self._addFormProp(form, propname, typedef, propinfo)
 
+        return form
+
+    def delForm(self, formname):
+
+        form = self.forms.get(formname)
+        if form is None:
+            raise s_exc.NoSuchForm(name=formname)
+
+        if isinstance(form.type, s_types.Array):
+            self.arraysbytype[form.type.arraytype.name].remove(form)
+
+        self.forms.pop(formname, None)
+        self.props.pop(formname, None)
+
+    def delType(self, typename):
+
+        _type = self.types.get(typename)
+        if _type is None:
+            raise s_exc.NoSuchType(name=typename)
+
+        if self.propsbytype.get(typename):
+            raise s_exc.CantDelType(name=typename)
+
+        self.types.pop(typename, None)
+        self.propsbytype.pop(typename, None)
+
     def _addFormUniv(self, form, name, tdef, info):
 
         prop = Prop(self, form, name, tdef, info)
