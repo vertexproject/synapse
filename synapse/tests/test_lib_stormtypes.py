@@ -2339,7 +2339,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint('Deleted trigger', mesgs)
 
     async def test_storm_lib_cron_notime(self):
-        # test cron APIs that dont require time stepping
+        # test cron APIs that don't require time stepping
         async with self.getTestCore() as core:
 
             cdef = await core.callStorm('return($lib.cron.add(query="{[graph:node=*]}", hourly=30).pack())')
@@ -2496,7 +2496,7 @@ class StormTypesTest(s_test.SynTest):
                 @contextlib.asynccontextmanager
                 async def getCronJob(text):
                     msgs = await core.stormlist(text)
-                    self.stormIsInPrint(f'Created cron job', msgs)
+                    self.stormIsInPrint('Created cron job', msgs)
                     guid = await getCronIden()
                     yield guid
                     msgs = await core.stormlist(f'cron.del {guid}')
@@ -2670,11 +2670,22 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                async with getCronJob("cron.at --minute +5 {$lib.queue.get(foo).put(at1)}"):
+                q = "cron.at --minute +5 {$lib.queue.get(foo).put(at1)}"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('Created cron job', msgs)
 
-                    unixtime += 5 * MINSECS
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('0 cron/at jobs deleted.', msgs)
 
-                    self.eq('at1', await getNextFoo())
+                unixtime += 5 * MINSECS
+                core.agenda._wake_event.set()
+
+                self.eq('at1', await getNextFoo())
+
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
                 async with getCronJob("cron.at --day +1,+7 {$lib.queue.get(foo).put(at2)}"):
 
