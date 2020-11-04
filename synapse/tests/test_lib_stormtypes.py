@@ -2670,7 +2670,6 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                print('here')
                 q = "cron.at --minute +5 {$lib.queue.get(foo).put(at1)}"
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('Created cron job', msgs)
