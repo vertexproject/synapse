@@ -4458,6 +4458,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.nodes('#foo.bar [ -#foo ]')
                     await prox.delTagProp('added')
 
+                    await prox.addForm('_hehe:hoho', 'str', {}, {})
+                    self.nn(core.model.form('_hehe:hoho'))
+                    self.len(1, await core.nodes('[ _hehe:hoho=lololol ]'))
+
+                    await core.nodes('_hehe:hoho | delnode')
+                    await prox.delForm('_hehe:hoho')
+                    self.none(core.model.form('_hehe:hoho'))
+
     async def test_cortex_axon(self):
         async with self.getTestCore() as core:
             # By default, a cortex has a local Axon instance available

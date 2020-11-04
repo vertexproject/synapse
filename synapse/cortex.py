@@ -635,20 +635,20 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getTypeNorm(name, valu)
 
-    async def addForm(self, formname, tdef, props):
+    async def addForm(self, formname, basetype, typeopts, typeinfo):
         '''
         Add an extended form to the data model.
 
         Extended forms *must* begin with _
         '''
-        self.user.confirm(('model', 'form', 'add', form))
-        return await self.cell.addForm(formname, tdef, props)
+        self.user.confirm(('model', 'form', 'add', formname))
+        return await self.cell.addForm(formname, basetype, typeopts, typeinfo)
 
     async def delForm(self, formname):
         '''
         Remove an extended form from the data model.
         '''
-        self.user.confirm(('model', 'form', 'del', form))
+        self.user.confirm(('model', 'form', 'del', formname))
         return await self.cell.delForm(formname)
 
     async def addFormProp(self, form, prop, tdef, info):
