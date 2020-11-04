@@ -1729,7 +1729,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 logger.warning(f'Extended form ({formname}) error: {e}')
             else:
                 if form.type.deprecated:
-                    mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
+                    mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
                            f' be removed in 3.0.0'
                     logger.warning(mesg)
 
