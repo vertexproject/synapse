@@ -642,7 +642,7 @@ class CoreApi(s_cell.CellApi):
         Extended forms *must* begin with _
         '''
         self.user.confirm(('model', 'form', 'add', form))
-        return await self.cell.delForm(formname, tdef, props)
+        return await self.cell.addForm(formname, tdef, props)
 
     async def delForm(self, formname):
         '''
