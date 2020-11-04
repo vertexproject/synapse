@@ -14,6 +14,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
@@ -537,6 +538,20 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
 
+    async def mergedLayerNodeEdits(self, offs=None):
+        '''
+        Yield (layr, indx, mesg) nodeedit sets for all layers beginning at the
+        offsets specified in offs.
+
+        Once caught up, this API will begin yielding nodeedits in real-time.
+        The generator will only terminate on network disconnect or if the
+        consumer falls behind the max window size of 10,000 nodeedit messages.
+        '''
+        self.user.confirm(('sync',))
+
+        async for item in self.cell.mergedLayerNodeEdits(offs=offs):
+            yield item
+
     @s_cell.adminapi()
     async def splices(self, offs=None, size=None, layriden=None):
         '''
@@ -840,6 +855,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.stormcmds = {}
 
         self.spawnpool = None
+        self.mergelisteners = []
 
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
@@ -1966,8 +1982,48 @@ class Cortex(s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
 
-        async for item in layr.syncNodeEdits(offs, wait=wait):
-            yield item
+        async for offs, nodeedits, _ in layr.syncNodeEdits(offs, wait=wait):
+            yield (offs, nodeedits)
+
+    async def mergedLayerNodeEdits(self, offs=None):
+        '''
+        Yield (layr, offs, mesg) tuples for nodeedits in all layers.
+        '''
+        if offs is None:
+            offs = {}
+
+        async with await s_base.Base.anit() as base:
+
+            outq = asyncio.Queue(maxsize=1000)
+
+            async def layredits(_iden, _offs):
+                layr = self.getLayer(_iden)
+                if layr is None:
+                    raise s_exc.NoSuchLayer(iden=_iden)
+
+                async for loff, mesg, meta in layr.syncNodeEdits(_offs):
+                    await outq.put((_iden, loff, mesg, meta))
+
+            for iden in self.layers:
+                layroffs = offs.get(iden, 0)
+                base.schedCoro(layredits(iden, layroffs))
+
+            async def newlayr(evnt):
+                iden = evnt[1].get('iden')
+                base.schedCoro(layredits(iden, 0))
+
+            base.on('layer:add', newlayr)
+
+            def fini():
+                self.mergelisteners.remove(base)
+
+            base.onfini(fini)
+
+            self.mergelisteners.append(base)
+
+            while not base.isfini:
+                item = await outq.get()
+                yield item
 
     async def spliceHistory(self, user):
         '''
@@ -2617,6 +2673,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.auth.addAuthGate(layr.iden, 'layer')
 
         await self.bumpSpawnPool()
+
+        for merg in self.mergelisteners:
+            await merg.fire('layer:add', iden=layr.iden)
 
         return layr
 

@@ -4737,3 +4737,104 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('hoho', await proxy.getStormVar('lolz', default='hoho'))
                 self.eq('haha', await proxy.popStormVar('hehe'))
                 self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
+
+    async def test_merged_edits(self):
+
+        async with self.getTestCore() as core:
+
+            evnt = asyncio.Event()
+
+            layredits = {}
+
+            async def streamedits():
+                async for item in core.mergedLayerNodeEdits():
+                    layr, offs, mesg, meta = item
+
+                    if layr not in layredits:
+                        layredits[layr] = []
+                    layredits[layr].append(offs)
+
+                    if mesg[0][1] == 'test:str':
+                        evnt.set()
+                        return
+
+            # Listen while we do some edits
+            core.schedCoro(streamedits())
+
+            # Do some edits in the main layer
+            layr1_iden = core.getLayer().iden
+            await core.nodes('[ test:int=8 +#faz ]')
+            await core.nodes('[ test:int=9 test:int=10 ]')
+
+            # Fork the main view
+            vdef2 = await core.view.fork()
+            layr2_iden = [lyr.get('iden') for lyr in vdef2.get('layers') if 'name' not in lyr][0]
+            view2_iden = vdef2.get('iden')
+            view2 = core.getView(view2_iden)
+
+            # Do some edits in a second layer
+            await view2.nodes('[ test:int=11 ]')
+            await view2.nodes('test:int=10 [:loc=us]')
+
+            # Fork another view
+            vdef3 = await core.view.fork()
+            layr3_iden = [lyr.get('iden') for lyr in vdef3.get('layers') if 'name' not in lyr][0]
+            view3_iden = vdef3.get('iden')
+            view3 = core.getView(view3_iden)
+
+            # Do some edits in a third layer
+            await view3.nodes('[ test:int=21 test:int=22]')
+            await view3.nodes('test:int=10 [:loc=ca]')
+
+            await core.nodes('[test:str=done]')
+
+            await asyncio.wait_for(evnt.wait(), 5)
+
+            # Check we got nodeedits for each layer
+            self.len(7, layredits[layr1_iden])
+            self.len(2, layredits[layr2_iden])
+            self.len(3, layredits[layr3_iden])
+
+            layroffs = {
+                layr1_iden: layredits[layr1_iden][-1] + 1,
+                layr2_iden: layredits[layr2_iden][0],
+                layr3_iden: layredits[layr3_iden][-1],
+            }
+
+            editcount = 0
+            layredits = {}
+            async for item in core.mergedLayerNodeEdits(layroffs):
+                layr, offs, mesg, meta = item
+
+                if layr not in layredits:
+                    layredits[layr] = []
+                layredits[layr].append(offs)
+
+                editcount += 1
+                if editcount == 3:
+                    break
+
+            self.none(layredits.get(layr1_iden))
+            self.len(2, layredits[layr2_iden])
+            self.len(1, layredits[layr3_iden])
+
+            # Merge a child back into the parent
+            await view2.merge()
+
+            editcount = 0
+            layredits = {}
+            async for item in core.mergedLayerNodeEdits(layroffs):
+                layr, offs, mesg, meta = item
+
+                if layr not in layredits:
+                    layredits[layr] = []
+                layredits[layr].append(offs)
+
+                editcount += 1
+                if editcount == 3:
+                    break
+
+            # Check that layr1 got the edits merged from layr2
+            self.len(2, layredits[layr1_iden])
+            self.none(layredits.get(layr2_iden))
+            self.len(1, layredits.get(layr3_iden))

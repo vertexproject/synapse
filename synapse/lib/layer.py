@@ -1603,7 +1603,7 @@ class Layer(s_nexus.Pusher):
         if self.logedits and edited:
             nexsindx = nexsitem[0]
             offs = self.nodeeditlog.add((flatedits, meta), indx=nexsindx)
-            [(await wind.put((offs, flatedits))) for wind in tuple(self.windows)]
+            [(await wind.put((offs, flatedits, meta))) for wind in tuple(self.windows)]
 
         await asyncio.sleep(0)
 
@@ -2286,7 +2286,7 @@ class Layer(s_nexus.Pusher):
 
                                 items.append(nexi)
 
-                            for nodeeditoffs, item in items:
+                            for (nodeeditoffs, item, _) in items:
                                 await self.storNodeEditsNoLift(item, {'time': s_common.now(),
                                                                       'user': creator,
                                                                       })
@@ -2406,13 +2406,13 @@ class Layer(s_nexus.Pusher):
         if not self.logedits:
             return
 
-        for offs, (nodeedits, _) in self.nodeeditlog.iter(offs):
-            yield (offs, nodeedits)
+        for offs, (nodeedits, meta) in self.nodeeditlog.iter(offs):
+            yield (offs, nodeedits, meta)
 
         if wait:
             async with self.getNodeEditWindow() as wind:
-                async for offs, nodeedits in wind:
-                    yield (offs, nodeedits)
+                async for offs, nodeedits, meta in wind:
+                    yield (offs, nodeedits, meta)
 
     async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''

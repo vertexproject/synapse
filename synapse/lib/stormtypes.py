@@ -2932,9 +2932,9 @@ class Layer(Prim):
         todo = s_common.todo('syncNodeEdits', offs, wait=wait)
 
         count = 0
-        async for item in self.runt.dyniter(layriden, todo, gatekeys=gatekeys):
+        async for offs, nodeedits, _ in self.runt.dyniter(layriden, todo, gatekeys=gatekeys):
 
-            yield item
+            yield (offs, nodeedits)
 
             count += 1
             if size is not None and size == count:
