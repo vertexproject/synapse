@@ -1987,7 +1987,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def mergedLayerNodeEdits(self, offs=None):
         '''
-        Yield (layr, offs, mesg) tuples for nodeedits in all layers.
+        Yield (layr, offs, mesg, meta) tuples for nodeedits in all layers.
         '''
         if offs is None:
             offs = {}
