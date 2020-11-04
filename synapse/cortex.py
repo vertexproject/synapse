@@ -2018,7 +2018,6 @@ class Cortex(s_cell.Cell):  # type: ignore
                 self.mergelisteners.remove(base)
 
             base.onfini(fini)
-
             self.mergelisteners.append(base)
 
             while not base.isfini:

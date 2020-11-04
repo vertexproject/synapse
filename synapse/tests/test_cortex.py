@@ -4743,7 +4743,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             evnt = asyncio.Event()
-
             layredits = {}
 
             async def streamedits():
