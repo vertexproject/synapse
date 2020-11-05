@@ -4336,6 +4336,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadFormDef):
                     await core.addForm('inet:ipv4', 'int', {}, {})
 
+                with self.raises(s_exc.NoSuchForm):
+                    await core.delForm('_newp')
+
                 with self.raises(s_exc.NoSuchType):
                     await core.addForm('_inet:ipv4', 'foo', {}, {})
 
