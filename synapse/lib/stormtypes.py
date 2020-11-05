@@ -1009,7 +1009,25 @@ class LibBytes(Lib):
         return {
             'put': self._libBytesPut,
             'has': self._libBytesHas,
+            'upload': self._libBytesUpload,
         }
+
+    async def _libBytesUpload(self, genr):
+        '''
+        Upload a stream of bytes to the Axon as a file.
+
+        Examples:
+            ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
+
+        Returns:
+            (int, str): Returns a tuple of the file size and sha256.
+        '''
+        await self.runt.snap.core.getAxon()
+        async with await self.runt.snap.core.axon.upload() as upload:
+            async for byts in s_coro.agen(genr):
+                await upload.write(byts)
+            size, sha256 = await upload.save()
+            return size, s_common.ehex(sha256)
 
     async def _libBytesHas(self, sha256):
         '''
