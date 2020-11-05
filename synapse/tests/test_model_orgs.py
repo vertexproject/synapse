@@ -135,6 +135,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'loc': 'US.CA',
                     'name': name,
                     'names': altnames,
+                    'logo': '*',
                     'alias': 'arrow',
                     'phone': '+15555555555',
                     'sic': '0119',
@@ -157,6 +158,8 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('us:cage'), '7qe71')
                 self.eq(node.get('founded'), 1420070400000)
                 self.eq(node.get('dissolved'), 1546300800000)
+
+                self.nn(node.get('logo'))
 
                 nodes = await snap.nodes('ou:name')
                 self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)

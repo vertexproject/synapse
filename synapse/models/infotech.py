@@ -579,6 +579,7 @@ class ItModule(s_module.CoreModule):
                     }),
 
                 )),
+                # TODO: passwdhashv2 comp (salt, hash)
                 ('it:auth:passwdhash', {}, (
                     ('salt', ('hex', {}), {
                         'doc': 'The (optional) hex encoded salt value used to calculate the password hash.',

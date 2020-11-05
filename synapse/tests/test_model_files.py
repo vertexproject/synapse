@@ -33,6 +33,17 @@ class FileTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('file:bytes:sha256^=$pref +file:bytes:sha256^=$pref', opts={'vars': {'pref': pref}}))
 
+            # test that file construction works with locked hash deprecations
+            await core.setDeprLock('file:bytes:md5', True)
+            await core.setDeprLock('file:bytes:sha1', True)
+            await core.setDeprLock('file:bytes:sha256', True)
+
+            nodes = await core.nodes('[ file:bytes=$byts ]', opts={'vars': {'byts': b'zipzop'}})
+            self.len(1, nodes)
+            self.none(nodes[0].get('md5'))
+            self.none(nodes[0].get('sha1'))
+            self.none(nodes[0].get('sha256'))
+
     async def test_model_filebytes_pe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:

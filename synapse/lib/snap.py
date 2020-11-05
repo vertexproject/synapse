@@ -520,6 +520,10 @@ class Snap(s_base.Base):
 
             formsubs = forminfo.get('subs', {})
             for subname, subvalu in formsubs.items():
+                prop = f.prop(subname)
+                if prop is None or prop.locked or prop.type.locked:
+                    continue
+
                 p[subname] = subvalu
 
             for propname, propvalu in p.items():
@@ -534,6 +538,8 @@ class Snap(s_base.Base):
                     raise s_exc.IsDeprLocked(mesg=mesg)
 
                 assert prop.type.stortype is not None
+
+                propnorm, typeinfo = prop.type.norm(propvalu)
 
                 if isinstance(prop.type, s_types.Ndef):
                     ndefname, ndefvalu = propvalu
@@ -553,7 +559,7 @@ class Snap(s_base.Base):
                 elif isinstance(prop.type, s_types.Array):
                     arrayform = self.core.model.form(prop.type.arraytype.name)
                     if arrayform is not None:
-                        for arrayvalu in propvalu:
+                        for arrayvalu in propnorm:
                             arraynorm, arrayinfo = arrayform.type.norm(arrayvalu)
 
                             if self.buidprefetch:
@@ -562,8 +568,6 @@ class Snap(s_base.Base):
                                     continue
 
                             subedits.extend([x async for x in _getadds(arrayform, {}, arraynorm, arrayinfo)])
-
-                propnorm, typeinfo = prop.type.norm(propvalu)
 
                 propsubs = typeinfo.get('subs')
                 if propsubs is not None:

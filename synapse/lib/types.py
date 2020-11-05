@@ -13,6 +13,7 @@ import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.config as s_config
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.grammar as s_grammar
 
@@ -466,6 +467,12 @@ class Comp(Type):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
+        self.extnorm = None
+
+        extnorm = self.opts.get('extnorm')
+        if extnorm is not None:
+            self.extnorm = s_dyndeps.tryDynLocal(extnorm)
+
         self.sepr = self.opts.get('sepr')
         if self.sepr is not None:
             self.setNormFunc(str, self._normPyStr)
@@ -502,7 +509,12 @@ class Comp(Type):
             adds.extend(info.get('adds', ()))
 
         norm = tuple(norms)
-        return norm, {'subs': subs, 'adds': adds}
+        info = {'subs': subs, 'adds': adds}
+
+        if self.extnorm is not None:
+            norm, info = self.extnorm(norm, info)
+
+        return norm, info
 
     def _normPyStr(self, text):
         return self._normPyTuple(text.split(self.sepr))

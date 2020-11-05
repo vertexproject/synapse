@@ -222,6 +222,9 @@ class OuModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'doc': 'A description of the org.',
                     }),
+                    ('logo', ('file:bytes', {}), {
+                        'doc': 'An image file representing the logo for the organization.',
+                    }),
                     ('names', ('array', {'type': 'ou:name'}), {
                        'doc': 'A list of alternate names for the organization.',
                     }),

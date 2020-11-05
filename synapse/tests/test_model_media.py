@@ -1,5 +1,7 @@
 import logging
 
+import synapse.common as s_common
+
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
@@ -13,6 +15,7 @@ class MediaModelTest(s_t_utils.SynTest):
 
                 valu = 32 * 'a'
                 expected_ndef = (formname, valu)
+                cont = s_common.guid()
                 input_props = {
                     'url': 'https://vertex.link/synapse',
                     'file': 64 * 'f',
@@ -20,6 +23,7 @@ class MediaModelTest(s_t_utils.SynTest):
                     'summary': 'I forget ',
                     'published': 0,
                     'org': 'verteX',
+                    'authors': cont,
                     'rss:feed': 'http://vertex.link/rss',
                 }
                 expected_props = {
@@ -31,6 +35,7 @@ class MediaModelTest(s_t_utils.SynTest):
                     'published': 0,
                     'org': 'vertex',
                     'rss:feed': 'http://vertex.link/rss',
+                    'authors': (cont,),
                 }
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))

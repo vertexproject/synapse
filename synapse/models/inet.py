@@ -827,9 +827,29 @@ class InetModule(s_module.CoreModule):
     async def _onAddPasswd(self, node):
 
         byts = node.ndef[1].encode('utf8')
-        await node.set('md5', hashlib.md5(byts).hexdigest())
-        await node.set('sha1', hashlib.sha1(byts).hexdigest())
-        await node.set('sha256', hashlib.sha256(byts).hexdigest())
+
+        md5 = hashlib.md5(byts).hexdigest()
+        sha1 = hashlib.sha1(byts).hexdigest()
+        sha256 = hashlib.sha256(byts).hexdigest()
+
+        try:
+            await node.set('md5', md5)
+        except s_exc.IsDeprLocked:
+            pass
+        try:
+            await node.set('sha1', sha1)
+        except s_exc.IsDeprLocked:
+            pass
+        try:
+            await node.set('sha256', sha256)
+        except s_exc.IsDeprLocked:
+            pass
+
+        await node.set('hashes', (
+            ('md5', md5),
+            ('sha1', sha1),
+            ('sha256', sha256),
+        ))
 
     async def _onAddFqdn(self, node):
 
@@ -1673,16 +1693,22 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:passwd', {}, (
+                        ('hashes', ('array', {'type': 'crypto:hash', 'split': ','}), {
+                            'doc': 'Any known hashes of the password.',
+                        }),
                         ('md5', ('hash:md5', {}), {
                             'ro': True,
+                            'deprecated': True,
                             'doc': 'The MD5 hash of the password.'
                         }),
                         ('sha1', ('hash:sha1', {}), {
                             'ro': True,
+                            'deprecated': True,
                             'doc': 'The SHA1 hash of the password.'
                         }),
                         ('sha256', ('hash:sha256', {}), {
                             'ro': True,
+                            'deprecated': True,
                             'doc': 'The SHA256 hash of the password.'
                         }),
                     )),

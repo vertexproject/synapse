@@ -944,6 +944,11 @@ class InetModelTest(s_t_utils.SynTest):
 
                 node = await snap.addNode('inet:passwd', '2Cool4u')
                 self.eq(node.ndef[1], '2Cool4u')
+                self.eq(node.get('hashes'), (
+                    ('md5', '91112d75297841c12ca655baafc05104'),
+                    ('sha1', '2984ab44774294be9f7a369bbd73b52021bf0bb4'),
+                    ('sha256', '62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f'),
+                ))
                 self.eq('91112d75297841c12ca655baafc05104', node.get('md5'))
                 self.eq('2984ab44774294be9f7a369bbd73b52021bf0bb4', node.get('sha1'))
                 self.eq('62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f', node.get('sha256'))
