@@ -673,6 +673,9 @@ class Model:
         self.forms[formname] = form
         self.props[formname] = form
 
+        if isinstance(form.type, s_types.Array):
+            self.arraysbytype[form.type.arraytype.name].append(form)
+
         for univname, typedef, univinfo in (u.getPropDef() for u in self.univs.values()):
             self._addFormUniv(form, univname, typedef, univinfo)
 
