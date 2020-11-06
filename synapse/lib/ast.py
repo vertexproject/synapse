@@ -19,6 +19,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
+import synapse.lib.stormexc as s_stormexc
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -575,12 +576,12 @@ class ForLoop(Oper):
                     async for item in subq.inline(runt, newg):
                         yield item
 
-                except s_exc.StormBreak as e:
+                except s_stormexc.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except s_exc.StormContinue as e:
+                except s_stormexc.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -616,12 +617,12 @@ class ForLoop(Oper):
                     async for jtem in subq.inline(runt, s_common.agen()):
                         yield jtem
 
-                except s_exc.StormBreak as e:
+                except s_stormexc.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except s_exc.StormContinue as e:
+                except s_stormexc.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -646,12 +647,12 @@ class WhileLoop(Oper):
                         yield item
                         await asyncio.sleep(0)
 
-                except s_exc.StormBreak as e:
+                except s_stormexc.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except s_exc.StormContinue as e:
+                except s_stormexc.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -670,12 +671,12 @@ class WhileLoop(Oper):
                         yield jtem
                         await asyncio.sleep(0)
 
-                except s_exc.StormBreak as e:
+                except s_stormexc.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except s_exc.StormContinue as e:
+                except s_stormexc.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -3199,9 +3200,9 @@ class BreakOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise s_exc.StormBreak(item=(node, path))
+            raise s_stormexc.StormBreak(item=(node, path))
 
-        raise s_exc.StormBreak()
+        raise s_stormexc.StormBreak()
 
 class ContinueOper(AstNode):
 
@@ -3212,9 +3213,9 @@ class ContinueOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise s_exc.StormContinue(item=(node, path))
+            raise s_stormexc.StormContinue(item=(node, path))
 
-        raise s_exc.StormContinue()
+        raise s_stormexc.StormContinue()
 
 class IfClause(AstNode):
     pass
@@ -3295,13 +3296,13 @@ class Return(Oper):
             if self.kids:
                 valu = await self.kids[0].compute(runt, path)
 
-            raise s_exc.StormReturn(valu)
+            raise s_stormexc.StormReturn(valu)
 
         # no items in pipeline... execute
         if self.kids:
             valu = await self.kids[0].compute(runt, None)
 
-        raise s_exc.StormReturn(valu)
+        raise s_stormexc.StormReturn(valu)
 
 class FuncArgs(AstNode):
 
@@ -3401,7 +3402,7 @@ class Function(AstNode):
 
                     return None
 
-                except s_exc.StormReturn as e:
+                except s_stormexc.StormReturn as e:
                     return e.item
 
             async def genr():
