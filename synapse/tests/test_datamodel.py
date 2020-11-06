@@ -67,6 +67,12 @@ class DataModelTest(s_t_utils.SynTest):
         with self.raises(s_exc.NoSuchType):
             modl.addForm('he:he', {}, [])
 
+        with self.raises(s_exc.NoSuchForm):
+            modl.delForm('newp')
+
+        with self.raises(s_exc.NoSuchType):
+            modl.delType('newp')
+
         with self.raises(s_exc.BadPropDef):
             modl.addType('he:he', 'int', {}, {})
             modl.addForm('he:he', {}, [
@@ -81,6 +87,15 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.NoSuchUniv):
             modl.delUnivProp('newp')
+
+        modl.addType('bar', 'int', {}, {})
+        modl.addType('foo:foo', 'int', {}, {})
+
+        modl.addForm('foo:foo', {}, ())
+        modl.addFormProp('foo:foo', 'bar', ('bar', {}), {})
+
+        with self.raises(s_exc.CantDelType):
+            modl.delType('bar')
 
     async def test_datamodel_del_prop(self):
 

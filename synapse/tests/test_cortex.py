@@ -4333,6 +4333,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with await s_cortex.Cortex.anit(dirn) as core:
 
+                with self.raises(s_exc.BadFormDef):
+                    await core.addForm('inet:ipv4', 'int', {}, {})
+
+                with self.raises(s_exc.NoSuchForm):
+                    await core.delForm('_newp')
+
+                with self.raises(s_exc.NoSuchType):
+                    await core.addForm('_inet:ipv4', 'foo', {}, {})
+
                 # blowup for bad names
                 with self.raises(s_exc.BadPropDef):
                     await core.addFormProp('inet:ipv4', 'visi', ('int', {}), {})
@@ -4353,7 +4362,26 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('syn:prop=inet:ipv4._woot'))
                 self.len(1, await core.nodes('._woot=hehe'))
 
+                await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.', 'deprecated': True})
+                self.len(1, await core.nodes('[ _hehe:haha=10 ]'))
+
+                with self.raises(s_exc.DupFormName):
+                    await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.', 'deprecated': True})
+
+                await core.addForm('_hehe:array', 'array', {'type': 'int'}, {})
+
+                await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
+                self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
+
+                # manually edit in a borked form entry
+                await core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
+
             async with await s_cortex.Cortex.anit(dirn) as core:
+
+                self.none(core.model.form('_hehe:bork'))
+
+                self.len(1, await core.nodes('_hehe:haha=10'))
+                self.len(1, await core.nodes('_hehe:haha:visi=lolz'))
 
                 nodes = await core.nodes('[inet:ipv4=5.5.5.5 :_visi=100]')
                 self.len(1, nodes)
@@ -4391,6 +4419,30 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchProp):
                     await core.delFormProp('inet:ipv4', '_visi')
 
+                with self.raises(s_exc.CantDelProp):
+                    await core.delFormProp('_hehe:haha', 'visi')
+
+                with self.raises(s_exc.NoSuchForm):
+                    await core.delForm('_hehe:newpnewp')
+
+                with self.raises(s_exc.CantDelForm):
+                    await core.delForm('_hehe:haha')
+
+                with self.raises(s_exc.BadFormDef):
+                    await core.delForm('hehe:haha')
+
+                await core.nodes('_hehe:haha [ -:visi ]')
+                await core.delFormProp('_hehe:haha', 'visi')
+
+                await core.nodes('_hehe:haha | delnode')
+                await core.delForm('_hehe:haha')
+                await core.delForm('_hehe:array')
+
+                self.none(core.model.form('_hehe:haha'))
+                self.none(core.model.type('_hehe:haha'))
+                self.none(core.model.form('_hehe:array'))
+                self.none(core.model.type('_hehe:array'))
+                self.none(core.model.prop('_hehe:haha:visi'))
                 self.none(core.model.prop('inet:ipv4._visi'))
                 self.none(core.model.form('inet:ipv4').prop('._visi'))
 
@@ -4427,6 +4479,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     await core.nodes('#foo.bar [ -#foo ]')
                     await prox.delTagProp('added')
+
+                    await prox.addForm('_hehe:hoho', 'str', {}, {})
+                    self.nn(core.model.form('_hehe:hoho'))
+                    self.len(1, await core.nodes('[ _hehe:hoho=lololol ]'))
+
+                    await core.nodes('_hehe:hoho | delnode')
+                    await prox.delForm('_hehe:hoho')
+                    self.none(core.model.form('_hehe:hoho'))
 
     async def test_cortex_axon(self):
         async with self.getTestCore() as core:
