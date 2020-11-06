@@ -4365,6 +4365,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.', 'deprecated': True})
                 self.len(1, await core.nodes('[ _hehe:haha=10 ]'))
 
+                with self.raises(s_exc.DupFormName):
+                    await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.', 'deprecated': True})
+
                 await core.addForm('_hehe:array', 'array', {'type': 'int'}, {})
 
                 await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})

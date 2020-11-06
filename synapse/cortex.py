@@ -1822,6 +1822,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = 'Extended form must begin with "_"'
             raise s_exc.BadFormDef(form=formname, mesg=mesg)
 
+        if self.model.form(formname) is not None:
+            mesg = f'Form name already exists: {formname}'
+            raise s_exc.DupFormName(mesg=mesg)
+
         self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, {}, ())
 

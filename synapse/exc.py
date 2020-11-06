@@ -127,6 +127,7 @@ class DbOutOfSpace(SynErr): pass
 class DupName(SynErr): pass
 class DupIden(SynErr): pass
 class DupFileName(SynErr): pass
+class DupFormName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass
 class DupTagPropName(SynErr): pass
