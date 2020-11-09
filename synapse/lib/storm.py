@@ -18,6 +18,7 @@ import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
 import synapse.lib.spooled as s_spooled
+import synapse.lib.stormexc as s_stormexc
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
