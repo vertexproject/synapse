@@ -4798,9 +4798,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('haha', await proxy.popStormVar('hehe'))
                 self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
 
-    async def test_watchers(self):
+    async def test_editsubscribers(self):
         async with self.getTestCore() as core:
-            await core.addWatcher('foo', form='test:str')
+            await core.addEditSubscriber('foo', form='test:str')
             layr = await core.addLayer()
             layriden = layr['iden']
             await core.delLayer(layriden)
@@ -4820,7 +4820,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     (layriden, nodes1[0].buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8)))
 
             # Watch for a secondary prop
-            await core.addWatcher('prop', form='test:str', prop='hehe')
+            await core.addEditSubscriber('prop', form='test:str', prop='hehe')
             await core.nodes('test:str=foo [:hehe=foo]')
             items = await alist(core.coreQueueGets('foo'))
             self.len(0, items)
@@ -4832,8 +4832,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                             ('hehe', 'foo', None, s_layer.STOR_TYPE_UTF8)))
 
             # Watch for a universal prop
-            await self.asyncraises(TypeError, core.addWatcher('foo', prop='notuniversal'))
-            await core.addWatcher('foo', prop='.created')
+            await self.asyncraises(TypeError, core.addEditSubscriber('foo', prop='notuniversal'))
+            await core.addEditSubscriber('foo', prop='.created')
             nodes = await core.nodes('[test:str=foo3]')
             items = await alist(core.coreQueueGets('foo'))
 
@@ -4850,7 +4850,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                          ('.created', created2, None, s_layer.STOR_TYPE_MINTIME))))
 
             # Watch for a tag
-            await core.addWatcher('tag', tag='mytag')
+            await core.addEditSubscriber('tag', tag='mytag')
             nodes = await core.nodes('test:str=foo [+#mytag]')
             node = nodes[0]
             tagval = node.tags['mytag']
@@ -4869,7 +4869,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     (layriden, node.buid, 'test:str', s_layer.EDIT_TAG_SET, ('mytag', tagval, None)))
 
             # Watch for a form tag
-            await core.addWatcher('formtag', form='test:str', tag='mytag2')
+            await core.addEditSubscriber('formtag', form='test:str', tag='mytag2')
             nodes = await core.nodes('test:str=foo3 [test:int=42] [+#mytag2]')
             node = nodes[0]
 
@@ -4887,8 +4887,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Watch for a tag prop
             await core.addTagProp('score', ('int', {}), {})
-            await core.addWatcher('formtagprop', form='test:str', tag='mytag2', prop='score')
-            await core.addWatcher('tagprop', tag='mytag2', prop='score')
+            await core.addEditSubscriber('formtagprop', form='test:str', tag='mytag2', prop='score')
+            await core.addEditSubscriber('tagprop', tag='mytag2', prop='score')
             nodes = await core.nodes('test:str=foo test:int=42 [+#mytag2:score=99]')
             self.len(2, nodes)
 

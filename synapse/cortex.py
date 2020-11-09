@@ -912,7 +912,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._initCoreAxon()
 
         await self._initCoreQueues()
-        await self._initWatchers()
+        await self._initSubscribers()
 
         await self._initCoreLayers()
         await self._initCoreViews()
@@ -1227,10 +1227,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
 
-    async def _initWatchers(self):
-        watchhive = await self.hive.open(('cortex', 'storm', 'services'))
-        self.watchdict = await watchhive.dict()
-        self.allwatchers = set(self.watchdict.get('*allqueues', default=[]))
+    async def _initSubscribers(self):
+        subhive = await self.hive.open(('cortex', 'storm', 'subscribers'))
+        self.subdict = await subhive.dict()
+        self.allsubscribers = set(self.subdict.get('*allqueues', default=[]))
 
     async def _onLayerWrite(self, mesg):
         '''
@@ -1261,29 +1261,29 @@ class Cortex(s_cell.Cell):  # type: ignore
 
                 qmsg = (layriden, buid, form, etyp, vals)
                 for key in keys:
-                    queue = self.watchdict.get('$'.join(key))
+                    queue = self.subdict.get('$'.join(key))
                     if queue is not None:
                         await self.multiqueue.put(queue, qmsg)
 
-    async def _watchLayerAdd(self, layr):
+    async def _notifyLayerAdd(self, layr):
         '''
-        Inform watchers about new layer
+        Inform subscribers about new layer
         '''
-        queues = self.watchdict.get('*allqueues', default=[])
+        queues = self.subdict.get('*allqueues', default=[])
         for queue in queues:
             msg = ('layer:add', layr.iden)
             await self.multiqueue.put(queue, msg)
 
-    async def _watchLayerDel(self, layr):
+    async def _notifyLayerDel(self, layr):
         '''
-        Inform watchers about layer deletion
+        Inform subscribers about layer deletion
         '''
-        queues = self.watchdict.get('*allqueues', default=[])
+        queues = self.subdict.get('*allqueues', default=[])
         for queue in queues:
             msg = ('layer:del', layr.iden)
             await self.multiqueue.put(queue, msg)
 
-    async def addWatcher(self, qname, *, form=None, tag=None, prop=None):
+    async def addEditSubscriber(self, qname, *, form=None, tag=None, prop=None):
         '''
         Cause mutations that match a particular set of conditions be written to a queue.
 
@@ -1320,10 +1320,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if not self.multiqueue.exists(qname):
             await self.multiqueue.add(qname, {})
-            self.allwatchers.add(qname)
-            await self.watchdict.set('*allqueues', list(self.allwatchers))
+            self.allsubscribers.add(qname)
+            await self.subdict.set('*allqueues', list(self.allsubscribers))
 
-        await self.watchdict.set(key, qname)
+        await self.subdict.set(key, qname)
 
     @s_nexus.Pusher.onPushAuto('cmd:set')
     async def setStormCmd(self, cdef):
@@ -2639,7 +2639,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.hive.pop(('cortex', 'layers', iden))
 
         await layr.delete()
-        await self._watchLayerDel(layr)
+        await self._notifyLayerDel(layr)
         await self.bumpSpawnPool()
 
     async def setViewLayers(self, layers, iden=None):
@@ -2792,7 +2792,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.dynitems[layr.iden] = layr
 
         await self.auth.addAuthGate(layr.iden, 'layer')
-        await self._watchLayerAdd(layr)
+        await self._notifyLayerAdd(layr)
 
         await self.bumpSpawnPool()
 
