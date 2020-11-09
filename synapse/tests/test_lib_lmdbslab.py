@@ -9,7 +9,6 @@ import synapse.common as s_common
 from unittest.mock import patch
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
@@ -132,6 +131,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             self.true(slab.forcecommit())
             self.false(slab.dirty)
+
+            self.eq(b'\x00\x01', slab.firstkey(db=foo))
+            self.eq(b'\x01\x03', slab.lastkey(db=foo))
 
             self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
 

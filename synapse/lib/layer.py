@@ -209,7 +209,7 @@ STOR_TYPE_HUGENUM = 23
 STOR_FLAG_ARRAY = 0x8000
 
 EDIT_NODE_ADD = 0     # (<type>, (<valu>, <type>), ())
-EDIT_NODE_DEL = 1     # (<type>, (<valu>, <type>), ())
+EDIT_NODE_DEL = 1     # (<type>, (<oldv>, <type>), ())
 EDIT_PROP_SET = 2     # (<type>, (<prop>, <valu>, <oldv>, <type>), ())
 EDIT_PROP_DEL = 3     # (<type>, (<prop>, <oldv>, <type>), ())
 EDIT_TAG_SET = 4      # (<type>, (<tag>, <valu>, <oldv>), ())
@@ -217,7 +217,7 @@ EDIT_TAG_DEL = 5      # (<type>, (<tag>, <oldv>), ())
 EDIT_TAGPROP_SET = 6  # (<type>, (<tag>, <prop>, <valu>, <oldv>, <type>), ())
 EDIT_TAGPROP_DEL = 7  # (<type>, (<tag>, <prop>, <oldv>, <type>), ())
 EDIT_NODEDATA_SET = 8 # (<type>, (<name>, <valu>, <oldv>), ())
-EDIT_NODEDATA_DEL = 9 # (<type>, (<name>, <valu>), ())
+EDIT_NODEDATA_DEL = 9 # (<type>, (<name>, <oldv>), ())
 EDIT_EDGE_ADD = 10    # (<type>, (<verb>, <destnodeiden>), ())
 EDIT_EDGE_DEL = 11    # (<type>, (<verb>, <destnodeiden>), ())
 
@@ -1600,10 +1600,13 @@ class Layer(s_nexus.Pusher):
 
         flatedits = list(results.values())
 
-        if self.logedits and edited:
+        if edited:
             nexsindx = nexsitem[0]
-            offs = self.nodeeditlog.add((flatedits, meta), indx=nexsindx)
-            [(await wind.put((offs, flatedits, meta))) for wind in tuple(self.windows)]
+            await self.fire('layer:write', layer=self.iden, edits=flatedits, meta=meta, nexsindx=nexsindx)
+
+            if self.logedits:
+                offs = self.nodeeditlog.add((flatedits, meta), indx=nexsindx)
+                [(await wind.put((offs, flatedits, meta))) for wind in tuple(self.windows)]
 
         await asyncio.sleep(0)
 

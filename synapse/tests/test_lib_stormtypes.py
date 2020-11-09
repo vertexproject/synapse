@@ -1539,6 +1539,10 @@ class StormTypesTest(s_test.SynTest):
             bobj = s_stormtypes.Bytes(b'beepbeep')
             self.len(8, bobj)
 
+            opts = {'vars': {'chunks': (b'visi', b'kewl')}}
+            retn = await core.callStorm('return($lib.bytes.upload($chunks))', opts=opts)
+            self.eq((8, '9ed8ffd0a11e337e6e461358195ebf8ea2e12a82db44561ae5d9e638f6f922c4'), retn)
+
     async def test_storm_lib_base64(self):
 
         async with self.getTestCore() as core:
