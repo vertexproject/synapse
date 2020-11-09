@@ -636,6 +636,22 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getTypeNorm(name, valu)
 
+    async def addForm(self, formname, basetype, typeopts, typeinfo):
+        '''
+        Add an extended form to the data model.
+
+        Extended forms *must* begin with _
+        '''
+        self.user.confirm(('model', 'form', 'add', formname))
+        return await self.cell.addForm(formname, basetype, typeopts, typeinfo)
+
+    async def delForm(self, formname):
+        '''
+        Remove an extended form from the data model.
+        '''
+        self.user.confirm(('model', 'form', 'del', formname))
+        return await self.cell.delForm(formname)
+
     async def addFormProp(self, form, prop, tdef, info):
         '''
         Add an extended property to the given form.
@@ -923,6 +939,22 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.pkghive = await pkghive.dict()
         self.svchive = await svchive.dict()
 
+        self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})
+        # TODO: 3.0.0 conversion will truncate this hive key
+        for name, locked in self.deprlocks.items():
+
+            form = self.model.form(name)
+            if form is not None:
+                form.locked = locked
+
+            prop = self.model.prop(name)
+            if prop is not None:
+                prop.locked = locked
+
+            _type = self.model.type(name)
+            if _type is not None:
+                _type.locked = locked
+
         # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
 
@@ -942,6 +974,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
+        if self.isactive:
+            await self._checkNexsIndx()
         await self._initCoreMods()
         await self._initStormSvcs()
 
@@ -964,6 +998,42 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def bumpSpawnPool(self):
         if self.spawnpool is not None:
             await self.spawnpool.bump()
+
+    @s_nexus.Pusher.onPushAuto('model:depr:lock')
+    async def setDeprLock(self, name, locked):
+
+        todo = []
+        prop = self.model.prop(name)
+        if prop is not None and prop.deprecated:
+            todo.append(prop)
+
+        _type = self.model.type(name)
+        if _type is not None and _type.deprecated:
+            todo.append(_type)
+
+        if not todo:
+            mesg = f'setDeprLock() called on non-existant or non-deprecated form, property, or type.'
+            raise s_exc.NoSuchProp(name=name, mesg=mesg)
+
+        self.deprlocks[name] = locked
+        await self.hive.set(('cortex', 'model', 'deprlocks'), self.deprlocks)
+
+        for elem in todo:
+            elem.locked = locked
+
+    async def getDeprLocks(self):
+        '''
+        Return a dictionary of deprecated properties and their lock status.
+        '''
+        retn = {}
+
+        for prop in self.model.props.values():
+            if not prop.deprecated:
+                continue
+
+            retn[prop.full] = prop.locked
+
+        return retn
 
     async def addCoreQueue(self, name, info):
 
@@ -1461,11 +1531,19 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Validate package def
         s_storm.reqValidPkgdef(pkgdef)
 
+        pkgname = pkgdef.get('name')
+
+        # Check minimum synapse version
+        minversion = pkgdef.get('synapse_minversion')
+        if minversion is not None and minversion > s_version.version:
+            mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
+                   f'Cortex is running {s_version.version}'
+            raise s_exc.BadVersion(mesg=mesg)
+
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
         svciden = pkgdef.get('svciden')
-        pkgname = pkgdef.get('name')
 
         for mdef in mods:
             modtext = mdef.get('storm')
@@ -1743,9 +1821,24 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _loadExtModel(self):
 
+        self.extforms = await (await self.hive.open(('cortex', 'model', 'forms'))).dict()
         self.extprops = await (await self.hive.open(('cortex', 'model', 'props'))).dict()
         self.extunivs = await (await self.hive.open(('cortex', 'model', 'univs'))).dict()
         self.exttagprops = await (await self.hive.open(('cortex', 'model', 'tagprops'))).dict()
+
+        for formname, basetype, typeopts, typeinfo in self.extforms.values():
+            try:
+                self.model.addType(formname, basetype, typeopts, typeinfo)
+                form = self.model.addForm(formname, {}, ())
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                raise
+            except Exception as e:
+                logger.warning(f'Extended form ({formname}) error: {e}')
+            else:
+                if form.type.deprecated:
+                    mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
+                           f' be removed in 3.0.0'
+                    logger.warning(mesg)
 
         for form, prop, tdef, info in self.extprops.values():
             try:
@@ -1829,10 +1922,47 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.extunivs.set(name, (name, tdef, info))
         await self.fire('core:extmodel:change', prop=name, act='add', type='univ')
 
+    @s_nexus.Pusher.onPushAuto('model:form:add')
+    async def addForm(self, formname, basetype, typeopts, typeinfo):
+
+        if not formname.startswith('_'):
+            mesg = 'Extended form must begin with "_"'
+            raise s_exc.BadFormDef(form=formname, mesg=mesg)
+
+        if self.model.form(formname) is not None:
+            mesg = f'Form name already exists: {formname}'
+            raise s_exc.DupFormName(mesg=mesg)
+
+        self.model.addType(formname, basetype, typeopts, typeinfo)
+        self.model.addForm(formname, {}, ())
+
+        await self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
+        await self.fire('core:extmodel:change', form=formname, act='add', type='form')
+        await self.bumpSpawnPool()
+
+    @s_nexus.Pusher.onPushAuto('model:form:del')
+    async def delForm(self, formname):
+
+        if not formname.startswith('_'):
+            mesg = 'Extended form must begin with "_"'
+            raise s_exc.BadFormDef(form=formname, mesg=mesg)
+
+        for layr in self.layers.values():
+            async for item in layr.iterFormRows(formname):
+                mesg = f'Nodes still exist with form: {formname}'
+                raise s_exc.CantDelForm(mesg=mesg)
+
+        self.model.delForm(formname)
+        self.model.delType(formname)
+
+        await self.extforms.pop(formname, None)
+        await self.fire('core:extmodel:change', form=formname, act='del', type='form')
+        await self.bumpSpawnPool()
+
     @s_nexus.Pusher.onPushAuto('model:prop:add')
     async def addFormProp(self, form, prop, tdef, info):
-        if not prop.startswith('_'):
-            mesg = 'ext prop must begin with "_"'
+        if not prop.startswith('_') and not form.startswith('_'):
+            mesg = 'Extended prop must begin with "_" or be added to an extended form.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
         _prop = self.model.addFormProp(form, prop, tdef, info)
@@ -1840,9 +1970,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
                    f' be removed in 3.0.0'
             logger.warning(mesg)
+
         await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
-        await self.fire('core:extmodel:change',
-                        form=form, prop=prop, act='add', type='formprop')
+        await self.fire('core:extmodel:change', form=form, prop=prop, act='add', type='formprop')
         await self.bumpSpawnPool()
 
     async def delFormProp(self, form, prop):
@@ -2086,6 +2216,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.EdgesDelCmd)
+        self.addStormCmd(s_storm.ParallelCmd)
+        self.addStormCmd(s_storm.ViewExecCmd)
+        self.addStormCmd(s_storm.BackgroundCmd)
         self.addStormCmd(s_storm.SpliceListCmd)
         self.addStormCmd(s_storm.SpliceUndoCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
@@ -2682,6 +2815,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         for _, node in node:
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)
+
+    async def _checkNexsIndx(self):
+        layroffs = [await layr.getNodeEditOffset() for layr in self.layers.values()]
+        if layroffs:
+            maxindx = max(layroffs)
+            if maxindx > await self.getNexsIndx():
+                await self.setNexsIndx(maxindx)
 
     async def cloneLayer(self, iden, ldef=None):
         '''

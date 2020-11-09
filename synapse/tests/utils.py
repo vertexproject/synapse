@@ -727,9 +727,9 @@ class SynTest(unittest.TestCase):
             yield regrdir
 
     @contextlib.asynccontextmanager
-    async def getRegrCore(self, vers):
+    async def getRegrCore(self, vers, conf=None):
         with self.getRegrDir('cortexes', vers) as dirn:
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
                 yield core
 
     def skipIfNoInternet(self):  # pragma: no cover

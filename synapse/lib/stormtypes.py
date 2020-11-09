@@ -488,6 +488,7 @@ class LibBase(Lib):
             'max': self._max,
             'set': self._set,
             'dict': self._dict,
+            'exit': self._exit,
             'guid': self._guid,
             'fire': self._fire,
             'list': self._list,
@@ -606,6 +607,10 @@ class LibBase(Lib):
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
+    async def _exit(self):
+        raise s_exc.StormExit()
+
+    @stormfunc(readonly=True)
     async def _sorted(self, valu):
         '''
         Yield sorted values.
@@ -616,6 +621,7 @@ class LibBase(Lib):
         Returns:
             Yields the sorted output.
         '''
+        valu = await toiter(valu)
         for item in sorted(valu):
             yield item
 
@@ -1003,7 +1009,25 @@ class LibBytes(Lib):
         return {
             'put': self._libBytesPut,
             'has': self._libBytesHas,
+            'upload': self._libBytesUpload,
         }
+
+    async def _libBytesUpload(self, genr):
+        '''
+        Upload a stream of bytes to the Axon as a file.
+
+        Examples:
+            ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
+
+        Returns:
+            (int, str): Returns a tuple of the file size and sha256.
+        '''
+        await self.runt.snap.core.getAxon()
+        async with await self.runt.snap.core.axon.upload() as upload:
+            async for byts in s_coro.agen(genr):
+                await upload.write(byts)
+            size, sha256 = await upload.save()
+            return size, s_common.ehex(sha256)
 
     async def _libBytesHas(self, sha256):
         '''
@@ -1660,15 +1684,18 @@ class Prim(StormType):
         mesg = 'Storm type {__class__.__name__.lower()} cannot be cast to an int'
         raise s_exc.BadCast(mesg)
 
-    def __bool__(self):
-        return bool(self.value())
-
     def __len__(self):
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
 
     def value(self):
         return self.valu
+
+    async def iter(self):
+        return tuple(await s_coro.ornot(self.value))
+
+    async def bool(self):
+        return bool(await s_coro.ornot(self.value))
 
 @registry.registerType
 class Str(Prim):
@@ -1832,9 +1859,6 @@ class Bytes(Prim):
     def __len__(self):
         return len(self.valu)
 
-    def __bool__(self):
-        return bool(self.valu)
-
     def __str__(self):
         return self.valu.decode()
 
@@ -1912,6 +1936,9 @@ class Dict(Prim):
 
     def __len__(self):
         return len(self.valu)
+
+    async def iter(self):
+        return tuple(item for item in self.valu.items())
 
     async def setitem(self, name, valu):
         self.valu[name] = valu
@@ -2080,9 +2107,6 @@ class List(Prim):
 
 @registry.registerType
 class Bool(Prim):
-
-    def __bool__(self):
-        return self.value()
 
     def __str__(self):
         return str(self.value()).lower()
@@ -2348,7 +2372,7 @@ class Query(Prim):
     async def _getRuntGenr(self):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
-        with self.runt.getSubRuntime(query, opts=opts) as runt:
+        async with self.runt.getSubRuntime(query, opts=opts) as runt:
             async for item in runt.execute():
                 yield item
 
@@ -2890,7 +2914,7 @@ class Layer(Prim):
         todo = s_common.todo('getTagCount', tagname, formname=formname)
         return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
-    async def _methGetPropCount(self, propname):
+    async def _methGetPropCount(self, propname, maxsize=None):
         '''
         Return the number of property rows in the layer for the given full form/property name.
 
@@ -2898,6 +2922,7 @@ class Layer(Prim):
             $count = $lib.layer.get().getPropCount(inet:ipv4:asn)
         '''
         propname = await tostr(propname)
+        maxsize = await toint(maxsize, noneok=True)
 
         prop = self.runt.snap.core.model.prop(propname)
         if prop is None:
@@ -2905,15 +2930,15 @@ class Layer(Prim):
             raise s_exc.NoSuchProp(mesg)
 
         if prop.isform:
-            todo = s_common.todo('getPropCount', prop.name, None)
+            todo = s_common.todo('getPropCount', prop.name, None, maxsize=maxsize)
         else:
-            todo = s_common.todo('getPropCount', prop.form.name, prop.name)
+            todo = s_common.todo('getPropCount', prop.form.name, prop.name, maxsize=maxsize)
 
         layriden = self.valu.get('iden')
         gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
         return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
-    async def _methLayerEdits(self, offs=0, wait=True):
+    async def _methLayerEdits(self, offs=0, wait=True, size=None):
         '''
         Yield (offs, nodeedits) tuples from the given offset.
         If wait=True, also consume them in real-time once caught up.
@@ -2923,8 +2948,15 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         gatekeys = ((self.runt.user.iden, ('layer', 'edits', 'read'), layriden),)
         todo = s_common.todo('syncNodeEdits', offs, wait=wait)
+
+        count = 0
         async for item in self.runt.dyniter(layriden, todo, gatekeys=gatekeys):
+
             yield item
+
+            count += 1
+            if size is not None and size == count:
+                break
 
     async def _methLayerGet(self, name, defv=None):
         return self.valu.get(name, defv)
@@ -3060,9 +3092,23 @@ class View(Prim):
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
             'getEdges': self._methGetEdges,
+            'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
         }
+
+    async def _methAddNodeEdits(self, edits):
+
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        layriden = self.valu.get('layers')[0].get('iden')
+
+        meta = {'user': useriden}
+        todo = s_common.todo('addNodeEdits', edits, meta)
+
+        # ensure the user may make *any* node edits
+        gatekeys = ((useriden, ('node',), layriden),)
+        return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
@@ -4447,10 +4493,26 @@ async def tostr(valu, noneok=False):
         mesg = f'Failed to make a string from {valu!r}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
+async def toiter(valu, noneok=False):
+    '''
+    Make a python primative or storm type into an iterable.
+    '''
+
+    if noneok and valu is None:
+        return ()
+
+    if isinstance(valu, Prim):
+        return await valu.iter()
+
+    return tuple(valu)
+
 async def tobool(valu, noneok=False):
 
     if noneok and valu is None:
         return None
+
+    if isinstance(valu, Prim):
+        return await valu.bool()
 
     try:
         return bool(valu)

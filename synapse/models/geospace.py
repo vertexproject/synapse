@@ -372,6 +372,9 @@ class GeoModule(s_module.CoreModule):
 
                         ('radius', ('geo:dist', {}), {
                             'doc': 'An approximate radius to use for bounding box calculation.'}),
+
+                        ('photo', ('file:bytes', {}), {
+                            'doc': 'The image file to use as the primary image of the place.'}),
                     )),
                 )
             }),

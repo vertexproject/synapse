@@ -110,13 +110,16 @@ class Prop:
         self.type = None
         self.typedef = typedef
 
+        self.locked = False
+        self.deprecated = self.info.get('deprecated', False)
+
         self.type = self.modl.getTypeClone(typedef)
 
         if form is not None:
             form.setProp(name, self)
             self.modl.propsbytype[self.type.name].append(self)
 
-        if self.info.get('deprecated') or self.type.deprecated:
+        if self.deprecated or self.type.deprecated:
             async def depfunc(node, oldv):
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
                 await node.snap.warnonce(mesg)
@@ -253,7 +256,10 @@ class Form:
         self.props = {}     # name: Prop()
         self.refsout = None
 
-        if self.info.get('deprecated') or self.type.deprecated:
+        self.locked = False
+        self.deprecated = self.type.deprecated
+
+        if self.deprecated:
             async def depfunc(node):
                 mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
                 await node.snap.warnonce(mesg)
@@ -667,6 +673,9 @@ class Model:
         self.forms[formname] = form
         self.props[formname] = form
 
+        if isinstance(form.type, s_types.Array):
+            self.arraysbytype[form.type.arraytype.name].append(form)
+
         for univname, typedef, univinfo in (u.getPropDef() for u in self.univs.values()):
             self._addFormUniv(form, univname, typedef, univinfo)
 
@@ -677,6 +686,32 @@ class Model:
 
             propname, typedef, propinfo = propdef
             self._addFormProp(form, propname, typedef, propinfo)
+
+        return form
+
+    def delForm(self, formname):
+
+        form = self.forms.get(formname)
+        if form is None:
+            raise s_exc.NoSuchForm(name=formname)
+
+        if isinstance(form.type, s_types.Array):
+            self.arraysbytype[form.type.arraytype.name].remove(form)
+
+        self.forms.pop(formname, None)
+        self.props.pop(formname, None)
+
+    def delType(self, typename):
+
+        _type = self.types.get(typename)
+        if _type is None:
+            raise s_exc.NoSuchType(name=typename)
+
+        if self.propsbytype.get(typename):
+            raise s_exc.CantDelType(name=typename)
+
+        self.types.pop(typename, None)
+        self.propsbytype.pop(typename, None)
 
     def _addFormUniv(self, form, name, tdef, info):
 

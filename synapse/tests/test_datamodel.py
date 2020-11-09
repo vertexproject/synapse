@@ -9,16 +9,16 @@ import synapse.tests.utils as s_t_utils
 
 depmodel = {
     'ctors': (
-        ('test:dep:str', 'synapse.lib.types.Str', {'deprecated': True, 'strip': True}, {}),
+        ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
     ),
     'types': (
-        ('test:dep:easy', ('test:str', {'deprecated': True}), {}),
+        ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
         ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
         ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {})
     ),
     'forms': (
         ('test:dep:easy', {'deprecated': True}, (
-            ('guid', ('test:guid', {'deprecated': True}), {}),
+            ('guid', ('test:guid', {}), {'deprecated': True}),
             ('array', ('test:dep:array', {}), {}),
             ('comp', ('test:dep:comp', {}), {}),
         )),
@@ -67,6 +67,12 @@ class DataModelTest(s_t_utils.SynTest):
         with self.raises(s_exc.NoSuchType):
             modl.addForm('he:he', {}, [])
 
+        with self.raises(s_exc.NoSuchForm):
+            modl.delForm('newp')
+
+        with self.raises(s_exc.NoSuchType):
+            modl.delType('newp')
+
         with self.raises(s_exc.BadPropDef):
             modl.addType('he:he', 'int', {}, {})
             modl.addForm('he:he', {}, [
@@ -81,6 +87,15 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.NoSuchUniv):
             modl.delUnivProp('newp')
+
+        modl.addType('bar', 'int', {}, {})
+        modl.addType('foo:foo', 'int', {}, {})
+
+        modl.addForm('foo:foo', {}, ())
+        modl.addFormProp('foo:foo', 'bar', ('bar', {}), {})
+
+        with self.raises(s_exc.CantDelType):
+            modl.delType('bar')
 
     async def test_datamodel_del_prop(self):
 

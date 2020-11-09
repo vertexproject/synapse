@@ -94,7 +94,7 @@ reqValidLdef = s_config.getJsValidator({
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'lockmemory': {'type': 'boolean'},
-        'logedits': {'type': 'boolean'}, 'default': True,
+        'logedits': {'type': 'boolean', 'default': True},
         'name': {'type': 'string'},
     },
     'additionalProperties': True,
@@ -1422,7 +1422,7 @@ class Layer(s_nexus.Pusher):
 
         return await self.layrslab.countByPref(abrv, db=self.bytag)
 
-    async def getPropCount(self, formname, propname=None):
+    async def getPropCount(self, formname, propname=None, maxsize=None):
         '''
         Return the number of property rows in the layer for the given form/prop.
         '''
@@ -1431,7 +1431,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return 0
 
-        return await self.layrslab.countByPref(abrv, db=self.byprop)
+        return await self.layrslab.countByPref(abrv, db=self.byprop, maxsize=maxsize)
 
     async def liftByTag(self, tag, form=None):
 
@@ -1572,7 +1572,6 @@ class Layer(s_nexus.Pusher):
 
         # use/abuse python's dict ordering behavior
         results = {}
-        nexsindx = nexsitem[0]
 
         nodeedits = collections.deque(nodeedits)
         while nodeedits:
@@ -1602,6 +1601,7 @@ class Layer(s_nexus.Pusher):
         flatedits = list(results.values())
 
         if edited:
+            nexsindx = nexsitem[0]
             await self.fire('layer:write', layer=self.iden, edits=flatedits, meta=meta, nexsindx=nexsindx)
 
             if self.logedits:

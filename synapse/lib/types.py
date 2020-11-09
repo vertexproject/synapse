@@ -70,7 +70,8 @@ class Type:
             'range=': self._storLiftRange,
         }
 
-        self.deprecated = bool(self.opts.get('deprecated', False))
+        self.locked = False
+        self.deprecated = bool(self.info.get('deprecated', False))
 
         self.postTypeInit()
 
@@ -728,7 +729,6 @@ class IntBase(Type):
 
         self.setCmprCtor('>=', self._ctorCmprGe)
         self.setCmprCtor('<=', self._ctorCmprLe)
-
         self.setCmprCtor('>', self._ctorCmprGt)
         self.setCmprCtor('<', self._ctorCmprLt)
 

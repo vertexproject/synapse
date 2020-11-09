@@ -93,7 +93,7 @@ class Node:
         if path is not None:
             opts['vars'].update(path.vars)
 
-        with runt.getSubRuntime(query, opts=opts) as subr:
+        async with runt.getSubRuntime(query, opts=opts) as subr:
 
             subr.addInput(self)
 
@@ -608,7 +608,8 @@ class Node:
 
                 async for _ in self.snap.nodesByTag(self.ndef[1]):  # NOQA
                     mesg = 'Nodes still have this tag.'
-                    return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
+                    return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
+                                                          iden=self.iden())
 
             async for refr in self.snap.nodesByPropTypeValu(formname, formvalu):
 
@@ -616,7 +617,8 @@ class Node:
                     continue
 
                 mesg = 'Other nodes still refer to this node.'
-                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
+                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
+                                                      iden=self.iden())
 
         # TODO put these into one edit...
 

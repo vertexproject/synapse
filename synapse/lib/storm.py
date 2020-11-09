@@ -7,6 +7,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
@@ -158,6 +159,10 @@ reqValidPkgdef = s_config.getJsValidator({
             'type': ['array', 'number'],
             'items': {'type': 'number'}
         },
+        'synapse_minversion': {
+            'type': ['array', 'null'],
+            'items': {'type': 'number'}
+        },
         'modules': {
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/module'}
@@ -189,10 +194,30 @@ reqValidPkgdef = s_config.getJsValidator({
                     'type': 'string',
                     'pattern': s_grammar.re_scmd
                 },
+                'cmdargs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/cmdarg'},
+                },
                 'storm': {'type': 'string'}
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'cmdarg': {
+            'type': 'array',
+            'items': [
+                {'type': 'string'},
+                {
+                    'type': 'object',
+                    'properties': {
+                        'help': {'type': 'string'},
+                        'type': {
+                            'type': 'string',
+                            'enum': list(s_datamodel.Model().types)
+                        },
+                    },
+                }
+            ]
         }
     }
 })
@@ -295,7 +320,7 @@ stormcmds = (
                               'action': 'store_true'}),
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
-            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': int}),
+            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),
@@ -696,6 +721,27 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'cron.cleanup',
+        'descr': "Delete all completed at jobs",
+        'cmdargs': (),
+        'storm': '''
+            $crons = $lib.cron.list()
+            $count = 0
+
+            if $crons {
+                for $cron in $crons {
+                    $job = $cron.pack()
+                    if (not $job.recur and $job.lastfinishtime) {
+                        $lib.cron.del($job.iden)
+                        $count = ($count + 1)
+                    }
+                }
+            }
+            $lib.print("{count} cron/at jobs deleted.", count=$count)
+        ''',
+    },
+
+    {
         'name': 'cron.list',
         'descr': "List existing cron jobs in the cortex.",
         'cmdargs': (),
@@ -1013,7 +1059,7 @@ class StormDmon(s_base.Base):
         def dmonWarn(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.info(f'Dmon - {self.iden} - WARNING: {mesg}')
+            logger.warning(f'Dmon - {self.iden} - {mesg}')
 
         while not self.isfini:
 
@@ -1035,6 +1081,10 @@ class StormDmon(s_base.Base):
 
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
+
+            except s_exc.StormExit:
+                self.status = 'exited'
+                await self.waitfini(timeout=1)
 
             except asyncio.CancelledError:
                 logger.warning(f'Dmon loop cancelled: ({self.iden})')
@@ -1256,12 +1306,26 @@ class Runtime:
                 self.tick()
                 yield item
 
-    @contextlib.contextmanager
-    def getSubRuntime(self, query, opts=None):
+    @contextlib.asynccontextmanager
+    async def getSubRuntime(self, query, opts=None):
         '''
         Yield a runtime with shared scope that will populate changes upward.
         '''
-        runt = Runtime(query, self.snap, user=self.user, opts=opts, root=self)
+        snap = self.snap
+
+        if opts is not None:
+
+            viewiden = opts.get('view')
+            if viewiden is not None:
+
+                view = snap.core.views.get(viewiden)
+                if view is None:
+                    raise s_exc.NoSuchView(iden=viewiden)
+
+                self.user.confirm(('view', 'read'), gateiden=viewiden)
+                snap = await view.snap(self.user)
+
+        runt = Runtime(query, snap, user=self.user, opts=opts, root=self)
         runt.readonly = self.readonly
 
         yield runt
@@ -1308,6 +1372,11 @@ class Parser:
     def add_argument(self, *names, **opts):
 
         assert len(names)
+
+        argtype = opts.get('type')
+        if argtype is not None and argtype not in s_datamodel.Model().types:
+            mesg = f'Argument type "{argtype}" is not a valid model type name'
+            raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
         dest = self._get_dest(names)
         opts.setdefault('dest', dest)
@@ -1444,9 +1513,9 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = argtype(valu)
+                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                 except Exception:
-                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
 
             opts[dest] = valu
@@ -1462,9 +1531,9 @@ class Parser:
                 valu = todo.popleft()
                 if argtype is not None:
                     try:
-                        valu = argtype(valu)
+                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                     except Exception:
-                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
                 opts[dest] = valu
@@ -1479,9 +1548,9 @@ class Parser:
 
                 if argtype is not None:
                     try:
-                        valu = argtype(valu)
+                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                     except Exception:
-                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
                 vals.append(valu)
@@ -1502,9 +1571,9 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = argtype(valu)
+                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                 except Exception:
-                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
 
             vals.append(valu)
@@ -1834,7 +1903,7 @@ class LimitCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('count', type=int, help='The maximum number of nodes to yield.')
+        pars.add_argument('count', type='int', help='The maximum number of nodes to yield.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -2214,7 +2283,7 @@ class IdenCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('iden', nargs='*', type=str, default=[],
+        pars.add_argument('iden', nargs='*', type='str', default=[],
                           help='Iden to lift nodes by. May be specified multiple times.')
         return pars
 
@@ -2262,7 +2331,7 @@ class SleepCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('delay', type=float, default=1, help='Delay in floating point seconds.')
+        pars.add_argument('delay', type='float', default=1, help='Delay in floating point seconds.')
         return pars
 
 class GraphCmd(Cmd):
@@ -2289,7 +2358,7 @@ class GraphCmd(Cmd):
     def getArgParser(self):
 
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--degrees', type=int, default=1, help='How many degrees to graph out.')
+        pars.add_argument('--degrees', type='int', default=1, help='How many degrees to graph out.')
 
         pars.add_argument('--pivot', default=[], action='append',
                           help='Specify a storm pivot for all nodes. (must quote)')
@@ -2361,6 +2430,193 @@ class GraphCmd(Cmd):
         async for node, path in subg.run(runt, genr):
             yield node, path
 
+class ViewExecCmd(Cmd):
+    '''
+    Execute a storm query in a different view.
+
+    NOTE: Variables are passed through but nodes are not
+
+    Examples:
+
+        // Move some tagged nodes to another view
+        inet:fqdn#foo.bar $fqdn=$node.value() | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
+    '''
+
+    name = 'view.exec'
+    readonly = True
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('view', help='The GUID of the view in which the query will execute.')
+        pars.add_argument('storm', help='The storm query to execute on the view.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        # nodes may not pass across views, but their path vars may
+        node = None
+        async for node, path in genr:
+
+            view = await s_stormtypes.tostr(self.opts.view)
+            text = await s_stormtypes.tostr(self.opts.storm)
+
+            opts = {
+                'vars': path.vars,
+                'view': view,
+            }
+
+            query = await runt.getStormQuery(text)
+            async with runt.getSubRuntime(query, opts=opts) as subr:
+                async for item in subr.execute():
+                    await asyncio.sleep(0)
+
+            yield node, path
+
+        if node is None and self.runtsafe:
+            view = await s_stormtypes.tostr(self.opts.view)
+            text = await s_stormtypes.tostr(self.opts.storm)
+            query = await runt.getStormQuery(text)
+
+            opts = {'view': self.opts.view}
+            async with runt.getSubRuntime(query, opts=opts) as subr:
+                async for item in subr.execute():
+                    await asyncio.sleep(0)
+
+class BackgroundCmd(Cmd):
+    '''
+    Execute a query pipeline as a background task.
+    NOTE: Variables are passed through but nodes are not
+    '''
+    name = 'background'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('query', help='The query to execute in the background.')
+        return pars
+
+    async def execStormTask(self, query, opts):
+
+        core = self.runt.snap.core
+        user = core._userFromOpts(opts)
+        info = {'query': str(query), 'opts': opts,
+                'background': True}
+
+        await core.boss.promote('storm', user=user, info=info)
+
+        async with core.getStormRuntime(query, opts=opts) as runt:
+            async for item in runt.execute():
+                await asyncio.sleep(0)
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'The background query must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        async for item in genr:
+            yield item
+
+        opts = {
+            'user': runt.user.iden,
+            'view': runt.snap.view.iden,
+            'vars': dict(runt.vars),
+        }
+
+        query = await runt.getStormQuery(self.opts.query)
+
+        # make sure the subquery *could* have run with existing vars
+        query.validate(runt)
+
+        coro = self.execStormTask(query, opts)
+        runt.snap.core.schedCoro(coro)
+
+class ParallelCmd(Cmd):
+    '''
+    Execute part of a query pipeline in parallel.
+    This can be useful to minimize round-trip delay during enrichments.
+
+    Examples:
+        inet:ipv4#foo | parallel { $place = $lib.import(foobar).lookup(:latlong) [ :place=$place ] }
+
+    NOTE: Storm variables set within the parallel query pipelines do not interact.
+    '''
+    name = 'parallel'
+    readonly = True
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--size', default=8,
+            help='The number of parallel Storm pipelines to execute.')
+
+        pars.add_argument('query',
+            help='The query to execute in parallel.')
+
+        return pars
+
+    async def nextitem(self, inq):
+        while True:
+            item = await inq.get()
+            if item is None:
+                return
+
+            yield item
+
+    async def pipeline(self, runt, query, inq, outq):
+        try:
+            async with runt.getSubRuntime(query) as subr:
+                async for item in subr.execute(genr=self.nextitem(inq)):
+                    await outq.put(item)
+
+            await outq.put(None)
+
+        except asyncio.CancelledError: # pragma: no cover
+            raise
+
+        except Exception as e:
+            await outq.put(e)
+
+    async def execStormCmd(self, runt, genr):
+
+        size = await s_stormtypes.toint(self.opts.size)
+        query = await runt.getStormQuery(self.opts.query)
+
+        query.validate(runt)
+
+        async with await s_base.Base.anit() as base:
+
+            inq = asyncio.Queue(maxsize=size)
+            outq = asyncio.Queue(maxsize=size)
+
+            async def pump():
+                try:
+                    async for pumpitem in genr:
+                        await inq.put(pumpitem)
+                    [await inq.put(None) for i in range(size)]
+                except asyncio.CancelledError: # pragma: no cover
+                    raise
+                except Exception as e:
+                    await outq.put(e)
+
+            base.schedCoro(pump())
+            for i in range(size):
+                base.schedCoro(self.pipeline(runt, query, inq, outq))
+
+            exited = 0
+            while True:
+
+                item = await outq.get()
+                if isinstance(item, Exception):
+                    raise item
+
+                if item is None:
+                    exited += 1
+                    if exited == size:
+                        return
+                    continue
+
+                yield item
+
 class TeeCmd(Cmd):
     '''
     Execute multiple Storm queries on each node in the input stream, joining output streams together.
@@ -2396,12 +2652,12 @@ class TeeCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
                                           name=self.name)
 
-        with contextlib.ExitStack() as stack:
+        async with contextlib.AsyncExitStack() as stack:
 
             runts = []
             for text in self.opts.query:
                 query = await runt.getStormQuery(text)
-                subr = stack.enter_context(runt.getSubRuntime(query))
+                subr = await stack.enter_async_context(runt.getSubRuntime(query))
                 runts.append(subr)
 
             item = None
@@ -2578,13 +2834,13 @@ class SpliceListCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
 
-        pars.add_argument('--maxtimestamp', type=int, default=None,
+        pars.add_argument('--maxtimestamp', type='int', default=None,
                           help='Only yield splices which occurred on or before this timestamp.')
-        pars.add_argument('--mintimestamp', type=int, default=None,
+        pars.add_argument('--mintimestamp', type='int', default=None,
                           help='Only yield splices which occurred on or after this timestamp.')
-        pars.add_argument('--maxtime', type=str, default=None,
+        pars.add_argument('--maxtime', type='str', default=None,
                           help='Only yield splices which occurred on or before this time.')
-        pars.add_argument('--mintime', type=str, default=None,
+        pars.add_argument('--mintime', type='str', default=None,
                           help='Only yield splices which occurred on or after this time.')
 
         return pars
@@ -2881,7 +3137,7 @@ class LiftByVerb(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('verb', type=str, required=True,
+        pars.add_argument('verb', type='str', required=True,
                           help='The edge verb to lift nodes by.')
         pars.add_argument('--n2', action='store_true', default=False,
                           help='Lift by the N2 value instead of N1 value.')
@@ -2948,7 +3204,7 @@ class EdgesDelCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('verb', type=str, help='The verb of light edges to delete.')
+        pars.add_argument('verb', type='str', help='The verb of light edges to delete.')
 
         pars.add_argument('--n2', action='store_true', default=False,
                           help='Delete light edges where input node is N2 instead of N1.')

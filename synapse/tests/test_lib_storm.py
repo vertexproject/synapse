@@ -3,6 +3,7 @@ import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.storm as s_storm
 
@@ -21,6 +22,72 @@ class StormTest(s_t_utils.SynTest):
             # test that runtsafe vars stay runtsafe
             msgs = await core.stormlist('$foo=bar $lib.print($foo) if $node { $foo=$node.value() }')
             self.stormIsInPrint('bar', msgs)
+
+            # test storm background command
+            await core.nodes('''
+                $lib.queue.add(foo)
+                [inet:ipv4=1.2.3.4]
+                background {
+                    [it:dev:str=haha]
+                    fini{
+                        $lib.queue.get(foo).put(hehe)
+                    }
+                }''')
+            self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.get(foo).get())'))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('[ ou:org=*] $text = $node.repr() | background $text')
+
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('background { $lib.print($foo) }')
+
+            # test the parallel command
+            nodes = await core.nodes('parallel --size 4 { [ ou:org=* ] }')
+            self.len(4, nodes)
+
+            # check that subquery validation happens
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('parallel --size 4 { [ ou:org=$foo ] }')
+
+            # check that an exception on inbound percolates correctly
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=* ou:org=foo ] | parallel { [:name=bar] }')
+
+            # check that an exception in the parallel pipeline percolates correctly
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('parallel { [ou:org=foo] }')
+
+            nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
+            self.true(all([n.get('name') == 'foo' for n in nodes]))
+
+            # test $lib.exit() and the StormExit handlers
+            msgs = [m async for m in core.view.storm('$lib.exit()')]
+            self.eq(msgs[-1][0], 'fini')
+
+            # test that the view command functions correctly
+            iden = s_common.guid()
+            view0 = await core.callStorm('return($lib.view.get().fork().iden)')
+            with self.raises(s_exc.NoSuchVar):
+                opts = {'vars': {'view': view0}}
+                await core.nodes('view.exec $view { [ ou:org=$iden] }', opts=opts)
+
+            opts = {'vars': {'view': view0, 'iden': iden}}
+            self.len(0, await core.nodes('view.exec $view { [ ou:org=$iden] }', opts=opts))
+
+            opts = {'view': view0, 'vars': {'iden': iden}}
+            self.len(1, await core.nodes('ou:org=$iden', opts=opts))
+
+            # check safe per-node execution of view.exec
+            view1 = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'vars': {'view': view1}}
+            # lol...
+            self.len(1, await core.nodes('''
+                [ ou:org=$view :name="[ inet:ipv4=1.2.3.4 ]" ]
+                $foo=$node.repr() $bar=:name
+                | view.exec $foo $bar
+            ''', opts=opts))
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4', opts={'view': view1}))
 
     async def test_storm_tree(self):
 
@@ -862,7 +929,7 @@ class StormTest(s_t_utils.SynTest):
         self.true(pars.exited)
 
         pars = s_storm.Parser()
-        pars.add_argument('--yada', type=int)
+        pars.add_argument('--yada', type='int')
         self.none(pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
 
@@ -887,7 +954,7 @@ class StormTest(s_t_utils.SynTest):
 
         # Check formatting for store_true / store_false optargs
         pars = s_storm.Parser()
-        pars.add_argument('--ques', nargs=2, type=int)
+        pars.add_argument('--ques', nargs=2, type='int')
         pars.add_argument('--beep', action='store_true', help='beep beep')
         pars.add_argument('--boop', action='store_false', help='boop boop')
         pars.help()
@@ -898,28 +965,28 @@ class StormTest(s_t_utils.SynTest):
 
         # test some nargs type intersections
         pars = s_storm.Parser()
-        pars.add_argument('--ques', nargs='?', type=int)
+        pars.add_argument('--ques', nargs='?', type='int')
         self.none(pars.parse_args(['--ques', 'asdf']))
         helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+        self.isin("Invalid value for type (int): asdf", helptext)
 
         pars = s_storm.Parser()
-        pars.add_argument('--ques', nargs='*', type=int)
+        pars.add_argument('--ques', nargs='*', type='int')
         self.none(pars.parse_args(['--ques', 'asdf']))
         helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+        self.isin("Invalid value for type (int): asdf", helptext)
 
         pars = s_storm.Parser()
-        pars.add_argument('--ques', nargs='+', type=int)
+        pars.add_argument('--ques', nargs='+', type='int')
         self.none(pars.parse_args(['--ques', 'asdf']))
         helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+        self.isin("Invalid value for type (int): asdf", helptext)
 
         pars = s_storm.Parser()
-        pars.add_argument('foo', type=int)
+        pars.add_argument('foo', type='int')
         self.none(pars.parse_args(['asdf']))
         helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (<class 'int'>): asdf", helptext)
+        self.isin("Invalid value for type (int): asdf", helptext)
 
         # argument count mismatch
         pars = s_storm.Parser()
@@ -935,10 +1002,59 @@ class StormTest(s_t_utils.SynTest):
         self.isin("2 arguments are required for --ques", helptext)
 
         pars = s_storm.Parser()
-        pars.add_argument('--ques', nargs=2, type=int)
+        pars.add_argument('--ques', nargs=2, type='int')
         self.none(pars.parse_args(['--ques', 'lolz', 'hehe']))
         helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (<class 'int'>): lolz", helptext)
+        self.isin("Invalid value for type (int): lolz", helptext)
+
+        # test time argtype
+        ttyp = s_datamodel.Model().type('time')
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', type='time')
+        args = pars.parse_args(['--yada', '20201021-1day'])
+        self.nn(args)
+        self.eq(ttyp.norm('20201021-1day')[0], args.yada)
+
+        args = pars.parse_args(['--yada', 1603229675444])
+        self.nn(args)
+        self.eq(ttyp.norm(1603229675444)[0], args.yada)
+
+        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.true(pars.exited)
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (time): hehe", helptext)
+
+        # test ival argtype
+        ityp = s_datamodel.Model().type('ival')
+
+        pars = s_storm.Parser()
+        pars.add_argument('--yada', type='ival')
+        args = pars.parse_args(['--yada', '20201021-1day'])
+        self.nn(args)
+        self.eq(ityp.norm('20201021-1day')[0], args.yada)
+
+        args = pars.parse_args(['--yada', 1603229675444])
+        self.nn(args)
+        self.eq(ityp.norm(1603229675444)[0], args.yada)
+
+        args = pars.parse_args(['--yada', ('20201021', '20201023')])
+        self.nn(args)
+        self.eq(ityp.norm(('20201021', '20201023'))[0], args.yada)
+
+        args = pars.parse_args(['--yada', (1603229675444, '20201021')])
+        self.nn(args)
+        self.eq(ityp.norm((1603229675444, '20201021'))[0], args.yada)
+
+        self.none(pars.parse_args(['--yada', 'hehe']))
+        self.true(pars.exited)
+        helptext = '\n'.join(pars.mesgs)
+        self.isin("Invalid value for type (ival): hehe", helptext)
+
+        # check adding argument with invalid type
+        with self.raises(s_exc.BadArg):
+            pars = s_storm.Parser()
+            pars.add_argument('--yada', type=int)
 
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:

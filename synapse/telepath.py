@@ -627,6 +627,7 @@ class Client(s_base.Base):
         self._t_ready = asyncio.Event()
         self._t_onlink = onlink
         self._t_methinfo = None
+        self._t_named_meths = set()
 
         async def fini():
             if self._t_proxy is not None:
@@ -696,6 +697,10 @@ class Client(s_base.Base):
             await self._t_onlink(self._t_proxy)
 
         async def fini():
+            if self._t_named_meths:
+                for name in self._t_named_meths:
+                    delattr(self, name)
+                self._t_named_meths.clear()
             await self._fireLinkLoop()
 
         self._t_proxy.onfini(fini)
@@ -732,9 +737,11 @@ class Client(s_base.Base):
         if info is not None and info.get('genr'):
             meth = GenrMethod(self, name)
             setattr(self, name, meth)
+            self._t_named_meths.add(name)
             return meth
 
         meth = Method(self, name)
+        self._t_named_meths.add(name)
         setattr(self, name, meth)
         return meth
 

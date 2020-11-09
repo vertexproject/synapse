@@ -18,9 +18,10 @@ class PsModelTest(s_t_utils.SynTest):
                 file0 = 'sha256:' + 64 * '0'
                 person_props = {
                     'dob': '1971',
+                    'dod': '20501217',
                     'img': file0,
+                    'photo': file0,
                     'nick': 'pennywise',
-                    # 'guidname': '', # fixme guid aliases
                     'name': 'robert clown grey',
                     'name:sur': 'grey',
                     'name:middle': 'clown',
@@ -32,6 +33,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], person0)
                 self.eq(node.get('img'), file0)
                 self.eq(node.get('dob'), 31536000000)
+                self.eq(node.get('dod'), 2554848000000)
                 self.eq(node.get('nick'), 'pennywise')
                 self.eq(node.get('name'), 'robert clown grey')
                 self.eq(node.get('name:sur'), 'grey')
@@ -39,8 +41,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('name:given'), 'robert')
                 self.eq(node.get('nicks'), ['pwise71', 'soulchild'])
                 self.eq(node.get('names'), ['billy bob'])
-                # self.eq(node.get('img'), '')  # fixme file:bytes
-                # self.eq(node.get('guidname'), '')  # fixme guid aliases
+                self.eq(node.get('photo'), file0)
 
                 persona_props = {
                     'dob': '2000',
@@ -96,6 +97,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'user': 'ironman',
                     'web:acct': ('twitter.com', 'ironman'),
                     'dob': '1976-12-17',
+                    'dod': '20501217',
                     'url': 'https://starkindustries.com/',
                     'email': 'tony.stark@gmail.com',
                     'email:work': 'tstark@starkindustries.com',
@@ -118,6 +120,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('user'), 'ironman')
                 self.eq(node.get('web:acct'), ('twitter.com', 'ironman'))
                 self.eq(node.get('dob'), 219628800000)
+                self.eq(node.get('dod'), 2554848000000)
                 self.eq(node.get('url'), 'https://starkindustries.com/')
                 self.eq(node.get('email'), 'tony.stark@gmail.com')
                 self.eq(node.get('email:work'), 'tstark@starkindustries.com')
@@ -128,3 +131,77 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('imid'), (490154203237518, 310150123456789))
                 self.eq(node.get('imid:imei'), 490154203237518)
                 self.eq(node.get('imid:imsi'), 310150123456789)
+
+                nodes = await core.nodes('''[
+                    ps:achievement=*
+                        :award=*
+                        :awardee=*
+                        :awarded=20200202
+                        :expires=20210202
+                        :revoked=20201130
+                ]''')
+                self.len(1, nodes)
+                achv = nodes[0].ndef[1]
+
+                nodes = await core.nodes('''
+                    ou:award [ :name="Bachelors of Science" :type=degree :org=* ]
+                ''')
+                self.nn(nodes[0].get('org'))
+                self.eq('bachelors of science', nodes[0].get('name'))
+                self.eq('degree', nodes[0].get('type'))
+
+                opts = {'vars': {'achv': achv}}
+                nodes = await core.nodes('''[
+                    ps:education=*
+                        :student = *
+                        :institution = *
+                        :attended:first = 20200202
+                        :attended:last = 20210202
+                        :classes = (*,)
+                        :achievement = $achv
+                ]''', opts=opts)
+
+                nodes = await core.nodes('''
+                    edu:class
+                    [
+                        :course=*
+                        :instructor=*
+                        :assistants=(*,)
+                        :date:first = 20200202
+                        :date:last = 20210202
+                        :isvirtual = 1
+                        :virtual:url = https://vertex.edu/chem101
+                        :virtual:provider = *
+                        :place = *
+                    ]
+                ''')
+                self.len(1, nodes)
+                course = nodes[0].get('course')
+
+                nodes = await core.nodes(f'''
+                    edu:course={course}
+                    [
+                        :name="Data Structure Analysis"
+                        :desc="A brief description here"
+                        :institution=*
+                        :prereqs = (*,)
+                        :code=chem101
+                    ]
+                ''')
+                self.len(1, nodes)
+
+                course = nodes[0].ndef[1]
+                self.len(1, await core.nodes(f'edu:course={course} :prereqs -> edu:course'))
+
+                nodes = await core.nodes(f'''[
+                    ps:contactlist=*
+                        :contacts=(*,*)
+                        :source:host=*
+                        :source:file=*
+                        :source:acct=(twitter.com, invisig0th)
+                ]''')
+                self.len(1, nodes)
+                self.len(1, await core.nodes('ps:contactlist -> it:host'))
+                self.len(1, await core.nodes('ps:contactlist -> file:bytes'))
+                self.len(2, await core.nodes('ps:contactlist -> ps:contact'))
+                self.len(1, await core.nodes('ps:contactlist -> inet:web:acct'))

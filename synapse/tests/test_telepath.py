@@ -1117,3 +1117,58 @@ class TeleTest(s_t_utils.SynTest):
                         self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
                         self.eq(1, cnts['loops'])
                         self.eq(4, cnts['inits'])
+
+    async def test_client_method_reset(self):
+        class Foo:
+            def __init__(self):
+                self.a = 1
+
+            async def foo(self):
+                return self.a
+
+            async def bar(self):
+                for i in range(self.a):
+                    yield i
+
+        class Bar:
+            def bar(self):
+                return 'bar'
+
+        foo = Foo()
+        bar = Bar()
+
+        with self.getTestDir() as dirn:
+            url = f'cell://{dirn}'
+            url = url + ':obj'
+            surl = os.path.join(f'unix://{dirn}', 'sock')
+
+            async with await s_telepath.Client.anit(url) as prox:
+                async with self.getTestDmon() as dmon:
+                    dmon.share('obj', foo)
+                    await dmon.listen(surl)
+
+                    self.none(await prox.waitready())
+                    self.eq(await prox.foo(), 1)
+
+                    # The .bar function is a genrmeth
+                    self.eq(await prox.bar().list(), [0],)
+                    self.eq(prox._t_named_meths, {'foo', 'bar'})
+
+                    # Disable the dmon and wait for the proxy to have been fini'd
+                    dmon.schedCoro(dmon.setReady(False))
+                    self.true(await prox._t_proxy.waitfini(10))
+
+                    # Swap out the object and reconnect
+                    dmon.share('obj', bar)
+                    await dmon.setReady(True)
+                    self.none(await prox.waitready())
+                    self.eq(prox._t_named_meths, set())
+
+                    # .foo is gone
+                    with self.raises(s_exc.NoSuchMeth):
+                        self.eq(await prox.foo(), 1)
+                    # The type of the .bar function changed so it is
+                    # no longer a genrmeth and can be called directly
+                    self.eq(await prox.bar(), 'bar')
+                    # We still have foo and bar as named meths
+                    self.eq(prox._t_named_meths, {'foo', 'bar'})

@@ -1007,3 +1007,16 @@ class LayerTest(s_t_utils.SynTest):
 
             for layr in core.layers.values():
                 self.eq(layr.layrvers, 3)
+
+    async def test_layer_logedits_default(self):
+
+        with self.getTestDir() as dirn:
+
+            layrinfo = {
+                'iden': s_common.guid(),
+                'creator': s_common.guid(),
+                'lockmemory': False,
+            }
+            s_layer.reqValidLdef(layrinfo)
+            layr = await s_layer.Layer.anit(layrinfo, dirn)
+            self.true(layr.logedits)

@@ -294,3 +294,27 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadConfValu):
                 await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'jsonl'})
+
+    async def test_lib_view_addNodeEdits(self):
+
+        async with self.getTestCore() as core:
+
+            view = await core.callStorm('''
+                $layr = $lib.layer.add().iden
+                $view = $lib.view.add(($layr,))
+                return($view.iden)
+            ''')
+
+            await core.nodes('trigger.add node:add --form ou:org --query {[+#foo]}', opts={'view': view})
+
+            nodes = await core.nodes('[ ou:org=* ]')
+            self.len(0, await core.nodes('ou:org', opts={'view': view}))
+
+            await core.stormlist('''
+                $view = $lib.view.get($viewiden)
+                for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
+                    $view.addNodeEdits($edits)
+                }
+            ''', opts={'vars': {'viewiden': view}})
+
+            self.len(1, await core.nodes('ou:org +#foo', opts={'view': view}))

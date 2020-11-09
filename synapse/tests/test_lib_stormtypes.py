@@ -157,6 +157,7 @@ class StormTypesTest(s_test.SynTest):
             'name': 'foo',
             'desc': 'test',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
             'modules': [
                 {
                     'name': 'test',
@@ -1538,6 +1539,10 @@ class StormTypesTest(s_test.SynTest):
             bobj = s_stormtypes.Bytes(b'beepbeep')
             self.len(8, bobj)
 
+            opts = {'vars': {'chunks': (b'visi', b'kewl')}}
+            retn = await core.callStorm('return($lib.bytes.upload($chunks))', opts=opts)
+            self.eq((8, '9ed8ffd0a11e337e6e461358195ebf8ea2e12a82db44561ae5d9e638f6f922c4'), retn)
+
     async def test_storm_lib_base64(self):
 
         async with self.getTestCore() as core:
@@ -2338,7 +2343,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint('Deleted trigger', mesgs)
 
     async def test_storm_lib_cron_notime(self):
-        # test cron APIs that dont require time stepping
+        # test cron APIs that don't require time stepping
         async with self.getTestCore() as core:
 
             cdef = await core.callStorm('return($lib.cron.add(query="{[graph:node=*]}", hourly=30).pack())')
@@ -2495,7 +2500,7 @@ class StormTypesTest(s_test.SynTest):
                 @contextlib.asynccontextmanager
                 async def getCronJob(text):
                     msgs = await core.stormlist(text)
-                    self.stormIsInPrint(f'Created cron job', msgs)
+                    self.stormIsInPrint('Created cron job', msgs)
                     guid = await getCronIden()
                     yield guid
                     msgs = await core.stormlist(f'cron.del {guid}')
@@ -2669,11 +2674,22 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                async with getCronJob("cron.at --minute +5 {$lib.queue.get(foo).put(at1)}"):
+                q = "cron.at --minute +5 {$lib.queue.get(foo).put(at1)}"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('Created cron job', msgs)
 
-                    unixtime += 5 * MINSECS
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('0 cron/at jobs deleted.', msgs)
 
-                    self.eq('at1', await getNextFoo())
+                unixtime += 5 * MINSECS
+                core.agenda._wake_event.set()
+
+                self.eq('at1', await getNextFoo())
+
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
                 async with getCronJob("cron.at --day +1,+7 {$lib.queue.get(foo).put(at2)}"):
 
@@ -3230,17 +3246,20 @@ class StormTypesTest(s_test.SynTest):
                     'cmdargs': (
                         ('foo', {}),
                         ('--bar', {'default': False, 'action': 'store_true'}),
+                        ('--footime', {'default': False, 'type': 'time'}),
                     ),
                     'storm': '''
                         $lib.print($lib.len($cmdopts))
-                        if ($lib.len($cmdopts) = 3) { $lib.print(foo) }
+                        if ($lib.len($cmdopts) = 4) { $lib.print(foo) }
 
                         $set = $lib.set()
                         for ($name, $valu) in $cmdopts { $set.add($valu) }
 
-                        if ($lib.len($set) = 3) { $lib.print(bar) }
+                        if ($lib.len($set) = 4) { $lib.print(bar) }
 
                         if $cmdopts.bar { $lib.print(baz) }
+
+                        if $cmdopts.footime { $lib.print($cmdopts.footime) }
                     '''
                 },
                 {
@@ -3255,12 +3274,32 @@ class StormTypesTest(s_test.SynTest):
                 },
             ],
         }
+        sadt = {
+            'name': 'bar',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'commands': [
+                {
+                    'name': 'test.badtype',
+                    'cmdargs': [
+                        ('--bar', {'type': 'notatype'}),
+                    ],
+                    'storm': '''
+                        $cmdopts.foo = hehe
+                    '''
+                },
+            ],
+        }
         async with self.getTestCore() as core:
             await core.addStormPkg(pdef)
-            msgs = await core.stormlist('test.cmdopts hehe --bar')
+            msgs = await core.stormlist('test.cmdopts hehe --bar --footime 20200101')
             self.stormIsInPrint('foo', msgs)
             self.stormIsInPrint('bar', msgs)
             self.stormIsInPrint('baz', msgs)
+            self.stormIsInPrint('1577836800000', msgs)
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('test.setboom hehe --bar')
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(sadt)

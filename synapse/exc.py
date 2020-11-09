@@ -95,7 +95,9 @@ class BadUrl(SynErr): pass
 
 class CantDelCmd(SynErr): pass
 class CantDelNode(SynErr): pass
+class CantDelForm(SynErr): pass
 class CantDelProp(SynErr): pass
+class CantDelType(SynErr): pass
 class CantDelUniv(SynErr): pass
 class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
@@ -125,6 +127,7 @@ class DbOutOfSpace(SynErr): pass
 class DupName(SynErr): pass
 class DupIden(SynErr): pass
 class DupFileName(SynErr): pass
+class DupFormName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass
 class DupTagPropName(SynErr): pass
@@ -141,6 +144,7 @@ class InconsistentStorage(SynErr):
 
 class IsFini(SynErr): pass
 class IsReadOnly(SynErr): pass
+class IsDeprLocked(SynErr): pass
 class IsRuntForm(SynErr): pass
 
 class LayerInUse(SynErr): pass
@@ -248,4 +252,7 @@ class StormContinue(StormCtrlFlow):
     pass
 
 class StormReturn(StormCtrlFlow):
+    pass
+
+class StormExit(StormCtrlFlow):
     pass

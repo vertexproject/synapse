@@ -82,6 +82,10 @@ class CellApi(s_base.Base):
         self.user = user
         sess = self.link.get('sess')  # type: s_daemon.Sess
         sess.user = user
+        await self.initCellApi()
+
+    async def initCellApi(self):
+        pass
 
     async def allowed(self, perm, default=None):
         '''
@@ -515,12 +519,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'auth:passwd': {
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
-            'type': 'string'
+            'type': 'string',
+        },
+        'auth:anon': {
+            'description': 'Allow anonymous telepath access by mapping to the given user name.',
+            'type': 'string',
         },
         'nexslog:en': {
             'default': False,
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
-            'type': 'boolean'
+            'type': 'boolean',
         },
         'nexslog:async': {
             'default': False,
@@ -708,6 +716,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getNexsIndx(self):
         return await self.nexsroot.index()
+
+    @s_nexus.Pusher.onPushAuto('nexslog:setindex')
+    async def setNexsIndx(self, indx):
+        return await self.nexsroot.setindex(indx)
 
     async def promote(self):
         '''
@@ -1452,8 +1464,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _getCellUser(self, mesg):
 
         auth = mesg[1].get('auth')
+
         if auth is None:
-            raise s_exc.AuthDeny(mesg='Unable to find cell user')
+
+            anonuser = self.conf.get('auth:anon')
+            if anonuser is None:
+                raise s_exc.AuthDeny(mesg='Unable to find cell user')
+
+            user = await self.auth.getUserByName(anonuser)
+            if user is None:
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.')
+
+            if user.isLocked():
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.')
+
+            return user
 
         name, info = auth
 

@@ -108,8 +108,24 @@ class OuModule(s_module.CoreModule):
                 ('ou:id:update', ('guid', {}), {
                     'doc': 'A status update to an org:id:number.',
                 }),
+                ('ou:award', ('guid', {}), {
+                    'doc': 'An award issued by an organization.',
+                }),
             ),
             'forms': (
+                ('ou:award', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The name of the award.',
+                        'ex': 'Bachelors of Science',
+                    }),
+                    ('type', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The type of award.',
+                        'ex': 'certification',
+                    }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization which issues the award.',
+                    }),
+                )),
                 ('ou:id:type', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which issues id numbers of this type.',
