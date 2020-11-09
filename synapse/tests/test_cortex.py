@@ -4808,7 +4808,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             async def streamedits():
                 async for item in core.mergedLayerNodeEdits():
                     layr, offs, mesg, meta = item
-
                     if layr not in layredits:
                         layredits[layr] = []
                     layredits[layr].append(offs)
@@ -4854,15 +4853,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, layredits[layr2_iden])
             self.len(3, layredits[layr3_iden])
 
-            layroffs = {
-                layr1_iden: layredits[layr1_iden][-1] + 1,
-                layr2_iden: layredits[layr2_iden][0],
-                layr3_iden: layredits[layr3_iden][-1],
-            }
-
             editcount = 0
             layredits = {}
-            async for item in core.mergedLayerNodeEdits(layroffs):
+            async for item in core.mergedLayerNodeEdits(5):
                 layr, offs, mesg, meta = item
 
                 if layr not in layredits:
@@ -4870,12 +4863,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                 layredits[layr].append(offs)
 
                 editcount += 1
-                if editcount == 3:
+                if editcount == 7:
                     break
 
-            self.none(layredits.get(layr1_iden))
+            self.len(2, layredits[layr1_iden])
             self.len(2, layredits[layr2_iden])
-            self.len(1, layredits[layr3_iden])
+            self.len(3, layredits[layr3_iden])
 
             # Merge a child back into the parent
             await view2.merge()
@@ -4883,13 +4876,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             async with core.getLocalProxy(user='visi') as asvisi:
 
-                await self.agenraises(s_exc.AuthDeny, asvisi.mergedLayerNodeEdits(layroffs))
+                await self.agenraises(s_exc.AuthDeny, asvisi.mergedLayerNodeEdits(5))
 
                 await visi.addRule((True, ('sync',)))
 
                 editcount = 0
                 layredits = {}
-                async for item in asvisi.mergedLayerNodeEdits(layroffs):
+                async for item in asvisi.mergedLayerNodeEdits(5):
                     layr, offs, mesg, meta = item
 
                     if layr not in layredits:
@@ -4897,13 +4890,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                     layredits[layr].append(offs)
 
                     editcount += 1
-                    if editcount == 3:
+                    if editcount == 7:
                         break
 
                 # Check that layr1 got the edits merged from layr2
-                self.len(2, layredits[layr1_iden])
+                self.len(4, layredits[layr1_iden])
                 self.none(layredits.get(layr2_iden))
-                self.len(1, layredits.get(layr3_iden))
+                self.len(3, layredits.get(layr3_iden))
 
     async def test_editsubscribers(self):
         async with self.getTestCore() as core:

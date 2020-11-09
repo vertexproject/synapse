@@ -539,10 +539,10 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
 
-    async def mergedLayerNodeEdits(self, offs=None):
+    async def mergedLayerNodeEdits(self, offs=0):
         '''
-        Yield (layr, indx, mesg) nodeedit sets for all layers beginning at the
-        offsets specified in offs.
+        Yield (layr, indx, mesg, meta) nodeedit sets for all layers beginning at the
+        offset specified in offs.
 
         Once caught up, this API will begin yielding nodeedits in real-time.
         The generator will only terminate on network disconnect or if the
@@ -872,7 +872,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.stormcmds = {}
 
         self.spawnpool = None
-        self.mergelisteners = []
+        self.mergedwindows = []
 
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
@@ -1255,6 +1255,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         mesg = mesg[1]
         layriden = mesg['layer']
         nodeedits = mesg['edits']
+
+        [(await wind.put(mesg)) for wind in self.mergedwindows]
 
         for buid, form, edits in nodeedits:
             for etyp, vals, _ in edits:
@@ -2160,44 +2162,61 @@ class Cortex(s_cell.Cell):  # type: ignore
         async for offs, nodeedits, _ in layr.syncNodeEdits(offs, wait=wait):
             yield (offs, nodeedits)
 
-    async def mergedLayerNodeEdits(self, offs=None):
+    @contextlib.asynccontextmanager
+    async def getMergedEditWindow(self):
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
+
+            async def fini():
+                self.mergedwindows.remove(wind)
+
+            wind.onfini(fini)
+
+            self.mergedwindows.append(wind)
+
+            yield wind
+
+    async def mergedLayerNodeEdits(self, offs=0):
         '''
         Yield (layr, offs, mesg, meta) tuples for nodeedits in all layers.
         '''
-        if offs is None:
-            offs = {}
+        async def layredits(_layr, _iden, _offs):
+            async for loff, mesg, meta in _layr.syncNodeEdits(_offs, wait=False):
+                yield (_iden, loff, mesg, meta)
 
-        async with await s_base.Base.anit() as base:
+        genrs = []
+        for iden, layr in self.layers.items():
+            genrs.append(layredits(layr, iden, offs))
 
-            outq = asyncio.Queue(maxsize=1000)
+        def cmprkey_loff(x, y):
+            '''Compare by layroffs value.'''
+            return x[1] < y[1]
 
-            async def layredits(_iden, _offs):
-                layr = self.getLayer(_iden)
-                if layr is None:
-                    raise s_exc.NoSuchLayer(iden=_iden)
+        # Yield the existing edits in order first
+        nexsoffs = await self.getNexsIndx()
+        async for item in s_common.merggenr(genrs, cmprkey_loff):
+            if item[1] >= nexsoffs:
+                break
+            yield item
 
-                async for loff, mesg, meta in layr.syncNodeEdits(_offs):
-                    await outq.put((_iden, loff, mesg, meta))
+        # Get a window to start listening for new edits
+        async with self.getMergedEditWindow() as wind:
 
-            for iden in self.layers:
-                layroffs = offs.get(iden, 0)
-                base.schedCoro(layredits(iden, layroffs))
+            # Grab any additional edits that occurred during initial iteration
+            genrs = []
+            for iden, layr in self.layers.items():
+                genrs.append(layredits(layr, iden, nexsoffs))
 
-            async def newlayr(evnt):
-                iden = evnt[1].get('iden')
-                base.schedCoro(layredits(iden, 0))
-
-            base.on('layer:add', newlayr)
-
-            def fini():
-                self.mergelisteners.remove(base)
-
-            base.onfini(fini)
-            self.mergelisteners.append(base)
-
-            while not base.isfini:
-                item = await outq.get()
+            lastoffs = 0
+            async for item in s_common.merggenr(genrs, cmprkey_loff):
+                lastoffs = item[1]
                 yield item
+
+            async for item in wind:
+
+                # Skip any edits we already sent
+                nexsindx = item['nexsindx']
+                if nexsindx > lastoffs:
+                    yield (item['layer'], item['nexsindx'], item['edits'], item['meta'])
 
     async def spliceHistory(self, user):
         '''
@@ -2850,9 +2869,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._notifyLayerAdd(layr)
 
         await self.bumpSpawnPool()
-
-        for merg in self.mergelisteners:
-            await merg.fire('layer:add', iden=layr.iden)
 
         return layr
 

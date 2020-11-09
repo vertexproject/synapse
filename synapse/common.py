@@ -788,3 +788,53 @@ def unjsonsafe_nodeedits(nodeedits):
         retn.append(newedit)
 
     return retn
+
+async def merggenr(genrs, cmprkey):
+    '''
+    Iterate multiple async generators and yield their results in order.
+    ( each generator must *itself* be in order )
+    '''
+
+    size = len(genrs)
+    genrs = list(genrs)
+
+    indxs = tuple(range(size))
+
+    async def genrnext(g):
+        try:
+            ret = await g.__anext__()
+            return ret
+        except StopAsyncIteration:
+            return novalu
+
+    curvs = [await genrnext(g) for g in genrs]
+
+    while True:
+
+        nextindx = None
+        nextvalu = novalu
+
+        for i in indxs:
+
+            curv = curvs[i]
+            if curv is novalu:
+                continue
+
+            # in the case where we're the first, initialize...
+            if nextvalu is novalu:
+                nextindx = i
+                nextvalu = curv
+                continue
+
+            if cmprkey(curv, nextvalu):
+                nextindx = i
+                nextvalu = curv
+
+        # check if we're done
+        if nextvalu is novalu:
+            return
+
+        # logger.info(f'Yielding: {nextvalu}')
+        yield nextvalu
+
+        curvs[nextindx] = await genrnext(genrs[nextindx])
