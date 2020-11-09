@@ -722,6 +722,27 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'cron.cleanup',
+        'descr': "Delete all completed at jobs",
+        'cmdargs': (),
+        'storm': '''
+            $crons = $lib.cron.list()
+            $count = 0
+
+            if $crons {
+                for $cron in $crons {
+                    $job = $cron.pack()
+                    if (not $job.recur and $job.lastfinishtime) {
+                        $lib.cron.del($job.iden)
+                        $count = ($count + 1)
+                    }
+                }
+            }
+            $lib.print("{count} cron/at jobs deleted.", count=$count)
+        ''',
+    },
+
+    {
         'name': 'cron.list',
         'descr': "List existing cron jobs in the cortex.",
         'cmdargs': (),
