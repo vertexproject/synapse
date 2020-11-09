@@ -62,7 +62,7 @@ class Hist:
 
 class SlabDict:
     '''
-    A dictionary-like object which stores it's props in a slab via a prefix.
+    A dictionary-like object which stores its props in a slab via a prefix.
 
     It is assumed that only one SlabDict with a given prefix exists at any given
     time, but it is up to the caller to cache them.

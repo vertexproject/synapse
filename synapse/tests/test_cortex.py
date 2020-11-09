@@ -4700,7 +4700,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
+            await core.auth.addUser('visi')
             async with core.getLocalProxy(user='visi') as proxy:
                 with self.raises(s_exc.AuthDeny):
                     await proxy.setStormVar('hehe', 'haha')
@@ -4715,3 +4715,153 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('hoho', await proxy.getStormVar('lolz', default='hoho'))
                 self.eq('haha', await proxy.popStormVar('hehe'))
                 self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
+
+    async def test_watchers(self):
+        async with self.getTestCore() as core:
+            await core.addWatcher('foo', form='test:str')
+            layr = await core.addLayer()
+            layriden = layr['iden']
+            await core.delLayer(layriden)
+            items = await alist(core.coreQueueGets('foo'))
+            self.eq(items[0], (0, ('layer:add', layriden)), (1, ('layer:del', layriden)))
+            await core.coreQueueCull('foo', 1)
+
+            # Watch for a new node
+            nodes1 = await core.nodes('[test:str=foo]')
+            created = nodes1[0].props['.created']
+            items = await alist(core.coreQueueGets('foo'))
+            self.len(1, items)
+            offs, event = items[0]
+            await core.coreQueueCull('foo', offs)
+            layriden = core.getLayer().iden
+            self.eq(event,
+                    (layriden, nodes1[0].buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8)))
+
+            # Watch for a secondary prop
+            await core.addWatcher('prop', form='test:str', prop='hehe')
+            await core.nodes('test:str=foo [:hehe=foo]')
+            items = await alist(core.coreQueueGets('foo'))
+            self.len(0, items)
+            items = await alist(core.coreQueueGets('prop'))
+            self.len(1, items)
+            offs, event = items[0]
+            await core.coreQueueCull('prop', offs)
+            self.eq(event, (layriden, nodes1[0].buid, 'test:str', s_layer.EDIT_PROP_SET,
+                            ('hehe', 'foo', None, s_layer.STOR_TYPE_UTF8)))
+
+            # Watch for a universal prop
+            await self.asyncraises(TypeError, core.addWatcher('foo', prop='notuniversal'))
+            await core.addWatcher('foo', prop='.created')
+            nodes = await core.nodes('[test:str=foo3]')
+            items = await alist(core.coreQueueGets('foo'))
+
+            self.len(2, items)
+            await core.coreQueueCull('foo', items[-1][0])
+            newnodeevent, newpropevent = items
+            layriden = core.getLayer().iden
+            self.eq(newnodeevent,
+                    (3, (layriden, nodes[0].buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo3', s_layer.STOR_TYPE_UTF8))))
+
+            created2 = nodes[0].props['.created']
+            self.eq(newpropevent,
+                    (4, (layriden, nodes[0].buid, 'test:str', s_layer.EDIT_PROP_SET,
+                         ('.created', created2, None, s_layer.STOR_TYPE_MINTIME))))
+
+            # Watch for a tag
+            await core.addWatcher('tag', tag='mytag')
+            nodes = await core.nodes('test:str=foo [+#mytag]')
+            node = nodes[0]
+            tagval = node.tags['mytag']
+            items = await alist(core.coreQueueGets('foo'))
+            self.len(1, items)  # creation of syn:tag node
+            offs, _ = items[0]
+            await core.coreQueueCull('foo', offs)
+            items = await alist(core.coreQueueGets('prop'))
+            self.len(0, items)
+            items = await alist(core.coreQueueGets('tag'))
+            self.len(1, items)
+
+            offs, event = items[0]
+            await core.coreQueueCull('tag', offs)
+            self.eq(event,
+                    (layriden, node.buid, 'test:str', s_layer.EDIT_TAG_SET, ('mytag', tagval, None)))
+
+            # Watch for a form tag
+            await core.addWatcher('formtag', form='test:str', tag='mytag2')
+            nodes = await core.nodes('test:str=foo3 [test:int=42] [+#mytag2]')
+            node = nodes[0]
+
+            items = await alist(core.coreQueueGets('foo'))
+            self.len(2, items)
+            offs, _ = items[-1]
+            await core.coreQueueCull('foo', offs)
+
+            tagval = node.tags['mytag2']
+            items = await alist(core.coreQueueGets('formtag'))
+            self.len(1, items)
+            offs, event = items[0]
+            self.eq(event,
+                    (layriden, node.buid, 'test:str', s_layer.EDIT_TAG_SET, ('mytag2', tagval, None)))
+
+            # Watch for a tag prop
+            await core.addTagProp('score', ('int', {}), {})
+            await core.addWatcher('formtagprop', form='test:str', tag='mytag2', prop='score')
+            await core.addWatcher('tagprop', tag='mytag2', prop='score')
+            nodes = await core.nodes('test:str=foo test:int=42 [+#mytag2:score=99]')
+            self.len(2, nodes)
+
+            items = await alist(core.coreQueueGets('formtagprop'))
+            self.len(1, items)
+            target = (layriden, nodes[0].buid, 'test:str', s_layer.EDIT_TAGPROP_SET,
+                      ('mytag2', 'score', 99, None, s_layer.STOR_TYPE_I64))
+            offs, event = items[0]
+            await core.coreQueueCull('formtagprop', offs)
+            self.eq(event, target)
+
+            items = await alist(core.coreQueueGets('tagprop'))
+            self.len(2, items)
+            self.eq(event, target)
+            offs, event = items[1]
+            await core.coreQueueCull('tagprop', offs)
+            self.eq(event, (layriden, nodes[1].buid, 'test:int', s_layer.EDIT_TAGPROP_SET,
+                            ('mytag2', 'score', 99, None, s_layer.STOR_TYPE_I64)))
+
+            # Node deleted
+            await core.nodes('test:str=foo | delnode')
+            items = await alist(core.coreQueueGets('foo'))
+            self.len(2, items)
+            _, delpropevent = items[0]
+            offs, delnodeevent = items[1]
+            await core.coreQueueCull('foo', offs)
+            self.eq(delpropevent,
+                    (layriden, nodes1[0].buid, 'test:str', s_layer.EDIT_PROP_DEL,
+                     ('.created', created, s_layer.STOR_TYPE_MINTIME)))
+            self.eq(delnodeevent,
+                    (layriden, nodes1[0].buid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8)))
+
+            items = await alist(core.coreQueueGets('prop'))
+            self.len(1, items)
+            offs, event = items[0]
+
+            self.eq(event,
+                    (layriden, nodes1[0].buid, 'test:str', s_layer.EDIT_PROP_DEL,
+                        ('hehe', 'foo', s_layer.STOR_TYPE_UTF8)))
+
+            items = await alist(core.coreQueueGets('tag'))
+            self.len(1, items)
+            offs, event = items[0]
+            self.eq(event,
+                    (layriden, nodes1[0].buid, 'test:str', s_layer.EDIT_TAG_DEL,
+                        ('mytag', tagval)))
+
+            items = await alist(core.coreQueueGets('formtagprop'))
+            self.len(1, items)
+            offs, event = items[0]
+            target = (layriden, nodes[0].buid, 'test:str', s_layer.EDIT_TAGPROP_DEL,
+                      ('mytag2', 'score', 99, s_layer.STOR_TYPE_I64))
+            self.eq(event, target)
+
+            items = await alist(core.coreQueueGets('tagprop'))
+            self.len(1, items)
+            offs, event = items[0]
+            self.eq(event, target)

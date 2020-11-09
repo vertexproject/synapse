@@ -44,7 +44,7 @@ import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
-import synapse.lib.stormlib.backup as s_stormlib_backup
+import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 
 logger = logging.getLogger(__name__)
 
@@ -514,6 +514,7 @@ class CoreApi(s_cell.CellApi):
             async for mesg in core.watch(wdef):
                 dostuff(mesg)
         '''
+        s_common.deprecated('watch')
         iden = wdef.get('view', self.cell.view.iden)
         self.user.confirm(('watch',), gateiden=iden)
 
@@ -894,11 +895,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Initialize our storage and views
         await self._initCoreAxon()
 
+        await self._initCoreQueues()
+        await self._initWatchers()
+
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
         await self._checkLayerModels()
-        await self._initCoreQueues()
 
         self.addHealthFunc(self._cortexHealth)
 
@@ -1006,13 +1009,19 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.multiqueue.rem(name)
 
-    async def coreQueueGet(self, name, offs=0, cull=True, wait=None):
-        async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait):
+    async def coreQueueGet(self, name, offs=0, cull=True, wait=False):
+        if offs and cull:
+            await self.coreQueueCull(name, offs)
+
+        async for item in self.multiqueue.gets(name, offs, cull=False, wait=wait):
             return item
 
-    async def coreQueueGets(self, name, offs=0, cull=True, wait=None, size=None):
+    async def coreQueueGets(self, name, offs=0, cull=True, wait=False, size=None):
+        if offs and cull:
+            await self.coreQueueCull(name, offs)
+
         count = 0
-        async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait):
+        async for item in self.multiqueue.gets(name, offs, cull=False, wait=wait):
 
             yield item
 
@@ -1147,6 +1156,104 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
+
+    async def _initWatchers(self):
+        watchhive = await self.hive.open(('cortex', 'storm', 'services'))
+        self.watchdict = await watchhive.dict()
+        self.allwatchers = set(self.watchdict.get('*allqueues', default=[]))
+
+    async def _onLayerWrite(self, mesg):
+        '''
+        Called when a layer is written
+        '''
+        mesg = mesg[1]
+        layriden = mesg['layer']
+        nodeedits = mesg['edits']
+
+        for buid, form, edits in nodeedits:
+            for etyp, vals, _ in edits:
+                if etyp in (s_layer.EDIT_NODE_ADD, s_layer.EDIT_NODE_DEL):
+                    keys = [(form, )]
+                elif etyp in (s_layer.EDIT_PROP_SET, s_layer.EDIT_PROP_DEL):
+                    prop = vals[0]
+                    keys = [(form, prop)]
+                    if prop[0] == '.':
+                        keys.append((prop, ))
+                elif etyp in (s_layer.EDIT_TAG_SET, s_layer.EDIT_TAG_DEL):
+                    tag = '#' + vals[0]
+                    keys = [(form, tag), (tag, )]
+                elif etyp in (s_layer.EDIT_TAGPROP_SET, s_layer.EDIT_TAGPROP_DEL):
+                    tag = '#' + vals[0]
+                    prop = vals[1]
+                    keys = [(form, tag, prop), (tag, prop)]
+                else:  # TODO: nodedata and light edges
+                    continue
+
+                qmsg = (layriden, buid, form, etyp, vals)
+                for key in keys:
+                    queue = self.watchdict.get('$'.join(key))
+                    if queue is not None:
+                        await self.multiqueue.put(queue, qmsg)
+
+    async def _watchLayerAdd(self, layr):
+        '''
+        Inform watchers about new layer
+        '''
+        queues = self.watchdict.get('*allqueues', default=[])
+        for queue in queues:
+            msg = ('layer:add', layr.iden)
+            await self.multiqueue.put(queue, msg)
+
+    async def _watchLayerDel(self, layr):
+        '''
+        Inform watchers about layer deletion
+        '''
+        queues = self.watchdict.get('*allqueues', default=[])
+        for queue in queues:
+            msg = ('layer:del', layr.iden)
+            await self.multiqueue.put(queue, msg)
+
+    async def addWatcher(self, qname, *, form=None, tag=None, prop=None):
+        '''
+        Cause mutations that match a particular set of conditions be written to a queue.
+
+        At least one of form, prop, tag must be set.  If form is set and tag and prop are None, all node add and del
+        events for that form are captured.  If form is set and one of tag or prop is set, then modifications to that
+        tag or secondary prop is captured.  If form is set and tag and prop are set, then a tagprop for that form
+        is captured.
+
+        If only tag is set, then all tag add and delete events for that tag are captured.  If only prop is set, that
+        prop must be a universal property, and all prop set and del for that universal property is captured.
+        If form is None and tag and prop are set, then all tagprop sets and dels for that tag prop are captured.
+
+        The event that is written is (layriden, buid, form, etyp, vals) where etyp is an integer from s_layer.EDIT*
+        and vals are etyp-specific and specified in the same place.
+        '''
+        if form is None and tag is None and prop is None:
+            raise TypeError('At least one of form, tag, prop must be set')
+        if tag is not None:
+            tag = '#' + tag
+
+        if form is None and tag is None and prop is not None:
+            if prop[0] != '.':
+                raise TypeError('If form is None, prop must be universal (start with a .)')
+
+        keylist = []
+        if form is not None:
+            keylist = [form]
+        if tag is not None:
+            keylist.append(tag)
+        if prop is not None:
+            keylist.append(prop)
+
+        key = '$'.join(keylist)
+
+        if not self.multiqueue.exists(qname):
+            await self.multiqueue.add(qname, {})
+            self.allwatchers.add(qname)
+            await self.watchdict.set('*allqueues', list(self.allwatchers))
+
+        await self.watchdict.set(key, qname)
 
     @s_nexus.Pusher.onPushAuto('cmd:set')
     async def setStormCmd(self, cdef):
@@ -2399,6 +2506,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.hive.pop(('cortex', 'layers', iden))
 
         await layr.delete()
+        await self._watchLayerDel(layr)
         await self.bumpSpawnPool()
 
     async def setViewLayers(self, layers, iden=None):
@@ -2545,11 +2653,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         Instantiate a Layer() instance via the provided layer info HiveDict.
         '''
         layr = await self._ctorLayr(layrinfo)
+        layr.on('layer:write', self._onLayerWrite)
 
         self.layers[layr.iden] = layr
         self.dynitems[layr.iden] = layr
 
         await self.auth.addAuthGate(layr.iden, 'layer')
+        await self._watchLayerAdd(layr)
 
         await self.bumpSpawnPool()
 
