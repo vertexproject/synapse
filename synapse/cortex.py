@@ -635,6 +635,22 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getTypeNorm(name, valu)
 
+    async def addForm(self, formname, basetype, typeopts, typeinfo):
+        '''
+        Add an extended form to the data model.
+
+        Extended forms *must* begin with _
+        '''
+        self.user.confirm(('model', 'form', 'add', formname))
+        return await self.cell.addForm(formname, basetype, typeopts, typeinfo)
+
+    async def delForm(self, formname):
+        '''
+        Remove an extended form from the data model.
+        '''
+        self.user.confirm(('model', 'form', 'del', formname))
+        return await self.cell.delForm(formname)
+
     async def addFormProp(self, form, prop, tdef, info):
         '''
         Add an extended property to the given form.
@@ -1698,9 +1714,24 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _loadExtModel(self):
 
+        self.extforms = await (await self.hive.open(('cortex', 'model', 'forms'))).dict()
         self.extprops = await (await self.hive.open(('cortex', 'model', 'props'))).dict()
         self.extunivs = await (await self.hive.open(('cortex', 'model', 'univs'))).dict()
         self.exttagprops = await (await self.hive.open(('cortex', 'model', 'tagprops'))).dict()
+
+        for formname, basetype, typeopts, typeinfo in self.extforms.values():
+            try:
+                self.model.addType(formname, basetype, typeopts, typeinfo)
+                form = self.model.addForm(formname, {}, ())
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                raise
+            except Exception as e:
+                logger.warning(f'Extended form ({formname}) error: {e}')
+            else:
+                if form.type.deprecated:
+                    mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
+                           f' be removed in 3.0.0'
+                    logger.warning(mesg)
 
         for form, prop, tdef, info in self.extprops.values():
             try:
@@ -1784,10 +1815,47 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.extunivs.set(name, (name, tdef, info))
         await self.fire('core:extmodel:change', prop=name, act='add', type='univ')
 
+    @s_nexus.Pusher.onPushAuto('model:form:add')
+    async def addForm(self, formname, basetype, typeopts, typeinfo):
+
+        if not formname.startswith('_'):
+            mesg = 'Extended form must begin with "_"'
+            raise s_exc.BadFormDef(form=formname, mesg=mesg)
+
+        if self.model.form(formname) is not None:
+            mesg = f'Form name already exists: {formname}'
+            raise s_exc.DupFormName(mesg=mesg)
+
+        self.model.addType(formname, basetype, typeopts, typeinfo)
+        self.model.addForm(formname, {}, ())
+
+        await self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
+        await self.fire('core:extmodel:change', form=formname, act='add', type='form')
+        await self.bumpSpawnPool()
+
+    @s_nexus.Pusher.onPushAuto('model:form:del')
+    async def delForm(self, formname):
+
+        if not formname.startswith('_'):
+            mesg = 'Extended form must begin with "_"'
+            raise s_exc.BadFormDef(form=formname, mesg=mesg)
+
+        for layr in self.layers.values():
+            async for item in layr.iterFormRows(formname):
+                mesg = f'Nodes still exist with form: {formname}'
+                raise s_exc.CantDelForm(mesg=mesg)
+
+        self.model.delForm(formname)
+        self.model.delType(formname)
+
+        await self.extforms.pop(formname, None)
+        await self.fire('core:extmodel:change', form=formname, act='del', type='form')
+        await self.bumpSpawnPool()
+
     @s_nexus.Pusher.onPushAuto('model:prop:add')
     async def addFormProp(self, form, prop, tdef, info):
-        if not prop.startswith('_'):
-            mesg = 'ext prop must begin with "_"'
+        if not prop.startswith('_') and not form.startswith('_'):
+            mesg = 'Extended prop must begin with "_" or be added to an extended form.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
         _prop = self.model.addFormProp(form, prop, tdef, info)
@@ -1795,9 +1863,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
                    f' be removed in 3.0.0'
             logger.warning(mesg)
+
         await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
-        await self.fire('core:extmodel:change',
-                        form=form, prop=prop, act='add', type='formprop')
+        await self.fire('core:extmodel:change', form=form, prop=prop, act='add', type='formprop')
         await self.bumpSpawnPool()
 
     async def delFormProp(self, form, prop):
