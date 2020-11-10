@@ -1,3 +1,4 @@
+import os
 import asyncio
 import hashlib
 import logging
@@ -71,7 +72,6 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
         await self._save()
         return
 
-
 class AxonHttpHasV1(s_httpapi.Handler):
 
     async def get(self, sha256):
@@ -79,7 +79,6 @@ class AxonHttpHasV1(s_httpapi.Handler):
             return
         resp = await self.cell.has(s_common.uhex(sha256))
         return self.sendRestRetn(resp)
-
 
 class AxonHttpDownloadV1(s_httpapi.Handler):
 
@@ -242,12 +241,38 @@ class Axon(s_cell.Cell):
         self.axonmetrics.setdefault('size:bytes', 0)
         self.axonmetrics.setdefault('file:count', 0)
 
+        self._initAxonLimits()
         self.addHealthFunc(self._axonHealth)
 
         # modularize blob storage
         await self._initBlobStor()
 
         self._initAxonHttpApi()
+
+    def _reqBelowLimit(self):
+
+        if (self.maxbytes is not None and
+            self.maxbytes <= self.axonmetrics.get('size:bytes')):
+            mesg = f'Axon is at size:bytes limit: {self.maxbytes}'
+            raise s_exc.HitLimit(mesg=mesg)
+
+        if (self.maxcount is not None and
+            self.maxcount <= self.axonmetrics.get('file:count')):
+            mesg = f'Axon is at file:count limit: {self.maxcount}'
+            raise s_exc.HitLimit(mesg=mesg)
+
+    def _initAxonLimits(self):
+
+        self.maxbytes = None
+        self.maxcount = None
+
+        maxcount = os.getenv('AXON_MAX_COUNT')
+        if maxcount is not None:
+            self.maxcount = int(maxcount, 0)
+
+        maxbytes = os.getenv('AXON_MAX_BYTES')
+        if maxbytes is not None:
+            self.maxbytes = int(maxbytes, 0)
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
@@ -310,6 +335,7 @@ class Axon(s_cell.Cell):
 
     async def save(self, sha256, genr):
 
+        self._reqBelowLimit()
         byts = self.axonslab.get(sha256, db=self.sizes)
         if byts is not None:
             return int.from_bytes(byts, 'big')
