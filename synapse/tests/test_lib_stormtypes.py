@@ -3303,15 +3303,3 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(sadt)
-
-    async def test_callstorm(self):
-        import synapse.lib.stormexc as s_stormexc
-        async with self.getTestCoreAndProxy() as (core, prox):
-
-            with self.raises(s_exc.StormRuntimeError):
-                q = '$foo=$lib.list() $bar=$foo.index(10) return ( $bar )'
-                ret = await prox.callStorm(q)
-
-            with self.raises(s_exc.SynErr):
-                q = 'return ( $lib.exit() )'
-                ret = await prox.callStorm(q)

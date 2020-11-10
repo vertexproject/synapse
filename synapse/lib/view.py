@@ -6,13 +6,13 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
-import synapse.lib.stormexc as s_stormexc
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -182,7 +182,7 @@ class View(s_nexus.Pusher):  # type: ignore
             async for item in self.eval(text, opts=opts):
                 await asyncio.sleep(0)  # pragma: no cover
 
-        except s_stormexc.StormReturn as e:
+        except s_ast.StormReturn as e:
             # Catch return( ... ) values and return the
             # primitive version of that item.
             return await s_stormtypes.toprim(e.item)
@@ -250,7 +250,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         async for item in snap.storm(text, opts=opts, user=user):
                             count += 1
 
-            except s_stormexc.StormExit:
+            except s_ast.StormExit:
                 pass
 
             except asyncio.CancelledError:
