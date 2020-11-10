@@ -12,6 +12,7 @@ class OuModelTest(s_t_utils.SynTest):
             goal = s_common.guid()
             org0 = s_common.guid()
             camp = s_common.guid()
+            acto = s_common.guid()
 
             async with await core.snap() as snap:
 
@@ -41,6 +42,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'org': org0,
                     'goal': goal,
                     'goals': (goal,),
+                    'actors': (acto,),
                     'name': 'MyName',
                     'type': 'MyType',
                     'desc': 'MyDesc',
@@ -49,6 +51,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('goal'), goal)
                 self.eq(node.get('goals'), (goal,))
+                self.eq(node.get('actors'), (acto,))
                 self.eq(node.get('name'), 'MyName')
                 self.eq(node.get('type'), 'MyType')
                 self.eq(node.get('desc'), 'MyDesc')
@@ -377,6 +380,28 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:org=$iden :hq -> ps:contact', opts=opts))
             self.len(2, await core.nodes('ou:org=$iden :locations -> ps:contact', opts=opts))
             self.len(2, await core.nodes('ou:org=$iden :dns:mx -> inet:fqdn', opts=opts))
+
+            nodes = await core.nodes('''[
+                ou:attendee=*
+                    :person=*
+                    :arrived=201202
+                    :departed=201203
+                    :meet=*
+                    :conference=*
+                    :conference:event=*
+                    :roles+=staff
+                    :roles+=STAFF
+            ]''')
+            self.len(1, nodes)
+            self.eq(('staff',), nodes[0].get('roles'))
+            self.eq(1328054400000, nodes[0].get('arrived'))
+            self.eq(1330560000000, nodes[0].get('departed'))
+
+            self.len(1, await core.nodes('ou:attendee -> ps:contact'))
+
+            self.len(1, await core.nodes('ou:attendee -> ou:meet'))
+            self.len(1, await core.nodes('ou:attendee -> ou:conference'))
+            self.len(1, await core.nodes('ou:attendee -> ou:conference:event'))
 
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()

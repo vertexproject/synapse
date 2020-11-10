@@ -270,6 +270,9 @@ class PsModule(s_module.CoreModule):
                     ('web:acct', ('inet:web:acct', {}), {
                         'doc': 'The social media account for this contact.',
                     }),
+                    ('web:group', ('inet:web:acct', {}), {
+                        'doc': 'A web group representing this contact.',
+                    }),
                     ('dob', ('time', {}), {
                         'doc': 'The date of birth for this contact.',
                     }),

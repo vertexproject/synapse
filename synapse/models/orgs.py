@@ -69,23 +69,33 @@ class OuModule(s_module.CoreModule):
                 ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
                     'doc': 'A user name within an organization.',
                 }),
+                ('ou:role', ('str', {'lower': True, 'regex': r'[\w]{1,32}'}), {
+                    'ex': 'staff',
+                    'doc': 'A named role when participating in an event.',
+                }),
+                ('ou:attendee', ('guid', {}), {
+                    'doc': 'A node representing a person attending a meeting, conference, or event.',
+                }),
                 ('ou:meet', ('guid', {}), {
                     'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.',
                 }),
                 ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
-                    'doc': 'Represents a person attending a meeting represented by an ou:meet node.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:attendee.',
                 }),
                 ('ou:conference', ('guid', {}), {
                     'doc': 'A conference with a name and sponsoring org.',
                 }),
                 ('ou:conference:attendee', ('comp', {'fields': (('conference', 'ou:conference'), ('person', 'ps:person'))}), {
-                    'doc': 'Represents a person attending a conference represented by an ou:conference node.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:attendee.',
                 }),
                 ('ou:conference:event', ('guid', {}), {
                     'doc': 'A conference event with a name and associated conference.',
                 }),
                 ('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
-                    'doc': 'Represents a person attending a conference event represented by an ou:conference:event node.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:attendee.',
                 }),
                 ('ou:goal', ('guid', {}), {
                     'doc': 'An assessed or stated goal which may be abstract or org specific.',
@@ -198,7 +208,10 @@ class OuModule(s_module.CoreModule):
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the campaign.',
                     }),
-                    ('goals', ('array', {'type': 'ou:goal'}), {
+                    ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True}), {
+                        'doc': 'Actors who participated in the campiagn.',
+                    }),
+                    ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True}), {
                         'doc': 'Additional assessed goals of the campaign.',
                     }),
                     ('name', ('str', {}), {
@@ -225,7 +238,7 @@ class OuModule(s_module.CoreModule):
                     ('logo', ('file:bytes', {}), {
                         'doc': 'An image file representing the logo for the organization.',
                     }),
-                    ('names', ('array', {'type': 'ou:name'}), {
+                    ('names', ('array', {'type': 'ou:name', 'uniq': True}), {
                        'doc': 'A list of alternate names for the organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
@@ -391,6 +404,12 @@ class OuModule(s_module.CoreModule):
                     ('perc', ('int', {'min': 0, 'max': 100}), {
                         'doc': 'The optional percentage of sub which is owned by org.',
                     }),
+                    ('founded', ('time', {}), {
+                        'doc': 'The date on which the suborg relationship was founded.',
+                    }),
+                    ('dissolved', ('time', {}), {
+                        'doc': 'The date on which the suborg relationship was dissolved.',
+                    }),
                     ('current', ('bool', {}), {
                         'doc': 'Bool indicating if the suborg relationship still current.',
                     }),
@@ -417,6 +436,29 @@ class OuModule(s_module.CoreModule):
                     ('user', ('inet:user', {}), {
                         'ro': True,
                         'doc': 'The username associated with the organization.',
+                    }),
+                )),
+                ('ou:attendee', {}, (
+                    ('person', ('ps:contact', {}), {
+                        'doc': 'The contact information for the person who attended the event.',
+                    }),
+                    ('arrived', ('time', {}), {
+                        'doc': 'The time when a person arrived.',
+                    }),
+                    ('departed', ('time', {}), {
+                        'doc': 'The time when a person departed.',
+                    }),
+                    ('roles', ('array', {'type': 'ou:role', 'split': ',', 'uniq': True}), {
+                        'doc': 'List of the roles the person had at the event.',
+                    }),
+                    ('meet', ('ou:meet', {}), {
+                        'doc': 'The meeting that the person attended.',
+                    }),
+                    ('conference', ('ou:conference', {}), {
+                        'doc': 'The conference that the person attended.',
+                    }),
+                    ('conference:event', ('ou:conference:event', {}), {
+                        'doc': 'The conference event that the person attended.',
                     }),
                 )),
                 ('ou:meet', {}, (
