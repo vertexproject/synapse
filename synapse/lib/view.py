@@ -6,6 +6,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
@@ -181,9 +182,13 @@ class View(s_nexus.Pusher):  # type: ignore
             async for item in self.eval(text, opts=opts):
                 await asyncio.sleep(0)  # pragma: no cover
 
-        except s_exc.StormReturn as e:
-
+        except s_ast.StormReturn as e:
+            # Catch return( ... ) values and return the
+            # primitive version of that item.
             return await s_stormtypes.toprim(e.item)
+
+        # Any other exceptions will be raised to
+        # callers as expected.
 
     async def nodes(self, text, opts=None):
         '''
@@ -245,7 +250,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         async for item in snap.storm(text, opts=opts, user=user):
                             count += 1
 
-            except s_exc.StormExit:
+            except s_ast.StormExit:
                 pass
 
             except asyncio.CancelledError:

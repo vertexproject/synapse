@@ -1082,7 +1082,7 @@ class StormDmon(s_base.Base):
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
 
-            except s_exc.StormExit:
+            except s_ast.StormExit:
                 self.status = 'exited'
                 await self.waitfini(timeout=1)
 
