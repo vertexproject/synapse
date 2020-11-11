@@ -2479,10 +2479,6 @@ async def expr_ge(x, y):
     return await toint(x) >= await toint(y)
 async def expr_le(x, y):
     return await toint(x) <= await toint(y)
-async def expr_or(x, y):
-    return await tobool(x) or await tobool(y)
-async def expr_and(x, y):
-    return await tobool(x) and await tobool(y)
 async def expr_prefix(x, y):
     x, y = await tostr(x), await tostr(y)
     return x.startswith(y)
@@ -2503,8 +2499,6 @@ _ExprFuncMap = {
     '<': expr_lt,
     '>=': expr_ge,
     '<=': expr_le,
-    'or': expr_or,
-    'and': expr_and,
     '^=': expr_prefix,
 }
 
@@ -2545,6 +2539,22 @@ class ExprNode(Value):
         parm1 = await self.kids[0].compute(runt, path)
         parm2 = await self.kids[2].compute(runt, path)
         return await self._operfunc(parm1, parm2)
+
+class ExprOrNode(Value):
+    async def compute(self, runt, path):
+        parm1 = await self.kids[0].compute(runt, path)
+        if await tobool(parm1):
+            return True
+        parm2 = await self.kids[2].compute(runt, path)
+        return await tobool(parm2)
+
+class ExprAndNode(Value):
+    async def compute(self, runt, path):
+        parm1 = await self.kids[0].compute(runt, path)
+        if not await tobool(parm1):
+            return False
+        parm2 = await self.kids[2].compute(runt, path)
+        return await tobool(parm2)
 
 class TagName(Value):
 
