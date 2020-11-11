@@ -17,12 +17,12 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
@@ -609,7 +609,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _exit(self):
-        raise s_ast.StormExit()
+        raise s_stormctrl.StormExit()
 
     @stormfunc(readonly=True)
     async def _sorted(self, valu):
@@ -2390,7 +2390,7 @@ class Query(Prim):
         try:
             async for item in self._getRuntGenr():
                 await asyncio.sleep(0)
-        except s_ast.StormReturn as e:
+        except s_stormctrl.StormReturn as e:
             return e.item
         except asyncio.CancelledError:  # pragma: no cover
             raise
