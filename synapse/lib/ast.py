@@ -26,23 +26,6 @@ from synapse.lib.stormtypes import tobool, toint, toprim, tostr
 
 logger = logging.getLogger(__name__)
 
-class StormCtrlFlow(Exception):
-    def __init__(self, item=None):
-        self.item = item
-
-class StormBreak(StormCtrlFlow):
-    pass
-
-class StormContinue(StormCtrlFlow):
-    pass
-
-class StormReturn(StormCtrlFlow):
-    pass
-
-class StormExit(StormCtrlFlow):
-    pass
-
-
 def parseNumber(x):
     return float(x) if '.' in x else s_stormtypes.intify(x)
 
@@ -592,12 +575,12 @@ class ForLoop(Oper):
                     async for item in subq.inline(runt, newg):
                         yield item
 
-                except StormBreak as e:
+                except s_stormctrl.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except StormContinue as e:
+                except s_stormctrl.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -633,12 +616,12 @@ class ForLoop(Oper):
                     async for jtem in subq.inline(runt, s_common.agen()):
                         yield jtem
 
-                except StormBreak as e:
+                except s_stormctrl.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except StormContinue as e:
+                except s_stormctrl.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -663,12 +646,12 @@ class WhileLoop(Oper):
                         yield item
                         await asyncio.sleep(0)
 
-                except StormBreak as e:
+                except s_stormctrl.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except StormContinue as e:
+                except s_stormctrl.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -687,12 +670,12 @@ class WhileLoop(Oper):
                         yield jtem
                         await asyncio.sleep(0)
 
-                except StormBreak as e:
+                except s_stormctrl.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except StormContinue as e:
+                except s_stormctrl.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -3216,9 +3199,9 @@ class BreakOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise StormBreak(item=(node, path))
+            raise s_stormctrl.StormBreak(item=(node, path))
 
-        raise StormBreak()
+        raise s_stormctrl.StormBreak()
 
 class ContinueOper(AstNode):
 
@@ -3229,9 +3212,9 @@ class ContinueOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise StormContinue(item=(node, path))
+            raise s_stormctrl.StormContinue(item=(node, path))
 
-        raise StormContinue()
+        raise s_stormctrl.StormContinue()
 
 class IfClause(AstNode):
     pass
@@ -3312,13 +3295,13 @@ class Return(Oper):
             if self.kids:
                 valu = await self.kids[0].compute(runt, path)
 
-            raise StormReturn(valu)
+            raise s_stormctrl.StormReturn(valu)
 
         # no items in pipeline... execute
         if self.kids:
             valu = await self.kids[0].compute(runt, None)
 
-        raise StormReturn(valu)
+        raise s_stormctrl.StormReturn(valu)
 
 class FuncArgs(AstNode):
 
@@ -3418,7 +3401,7 @@ class Function(AstNode):
 
                     return None
 
-                except StormReturn as e:
+                except s_stormctrl.StormReturn as e:
                     return e.item
 
             async def genr():
