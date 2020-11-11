@@ -18,6 +18,7 @@ import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
 import synapse.lib.spooled as s_spooled
+import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -1082,7 +1083,7 @@ class StormDmon(s_base.Base):
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
 
-            except s_exc.StormExit:
+            except s_stormctrl.StormExit:
                 self.status = 'exited'
                 await self.waitfini(timeout=1)
 
