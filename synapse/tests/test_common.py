@@ -295,3 +295,24 @@ class CommonTest(s_t_utils.SynTest):
         with self.setTstEnvars(SYN_FOO='false', SYN_BAR='0'):
             self.false(s_common.envbool('SYN_FOO'))
             self.false(s_common.envbool('SYN_BAR'))
+
+    async def test_merggenr(self):
+        async def asyncl(data):
+            for item in data:
+                yield item
+
+        async def alist(coro):
+            return [x async for x in coro]
+
+        l1 = (1, 2, 3)
+        l2 = (4, 5, 6)
+        l3 = (7, 8, 9)
+
+        retn = s_common.merggenr([asyncl(lt) for lt in (l1, l2, l3)], lambda x, y: x < y)
+        self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
+
+        retn = s_common.merggenr([asyncl(lt) for lt in (l1, l1, l1)], lambda x, y: x < y)
+        self.eq((1, 1, 1, 2, 2, 2, 3, 3, 3), await alist(retn))
+
+        retn = s_common.merggenr([asyncl(lt) for lt in (l3, l2, l1)], lambda x, y: x < y)
+        self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
