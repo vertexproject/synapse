@@ -1298,7 +1298,7 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests
             t = core.model.type(formname)
 
-            self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link/person1')
+            self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link,person1')
             enorm = ('vertex.link', 'person1')
             edata = {'subs': {'user': 'person1',
                               'site': 'vertex.link',
@@ -1577,9 +1577,9 @@ class InetModelTest(s_t_utils.SynTest):
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
 
-            'hashtags': ('#foo', '#bar', '#bar'),
-            'mentions:users': (('vertex.link', 'visi'),),
-            'mentions:groups': (('vertex.link', 'ninjas'),),
+            'hashtags': '#foo,#bar,#foo',
+            'mentions:users': 'vertex.link/visi,vertex.link/whippit',
+            'mentions:groups': 'vertex.link/ninjas',
 
             'loc': 'ru',
             'place': plac,
@@ -1599,7 +1599,7 @@ class InetModelTest(s_t_utils.SynTest):
             'repost': 32 * 'c',
 
             'hashtags': ('#bar', '#foo'),
-            'mentions:users': (('vertex.link', 'visi'),),
+            'mentions:users': (('vertex.link', 'visi'), ('vertex.link', 'whippit')),
             'mentions:groups': (('vertex.link', 'ninjas'),),
 
             'loc': 'ru',

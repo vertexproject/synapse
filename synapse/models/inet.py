@@ -1093,9 +1093,9 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A single result from a web search.',
                     }),
 
-                    ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user'))}), {
+                    ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user')), 'sepr': '/'}), {
                         'doc': 'An account with a given Internet-based site or service.',
-                        'ex': '(twitter.com, invisig0th)'
+                        'ex': 'twitter.com/invisig0th'
                     }),
 
                     ('inet:web:action', ('guid', {}), {
@@ -1115,9 +1115,9 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A web account follows or is connected to another web account.'
                     }),
 
-                    ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group'))}), {
+                    ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group')), 'sepr': '/'}), {
                         'doc': 'A group hosted within or registered with a given Internet-based site or service.',
-                        'ex': '(somesite.com, mycoolgroup)'
+                        'ex': 'somesite.com/mycoolgroup'
                     }),
 
                     ('inet:web:logon', ('guid', {}), {
@@ -2281,13 +2281,13 @@ class InetModule(s_module.CoreModule):
                         ('repost', ('inet:web:post', {}), {
                             'doc': 'The original post that this is a repost of.'
                         }),
-                        ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True}), {
+                        ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
                             'doc': 'Hash tags mentioned within the post.',
                         }),
-                        ('mentions:users', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True}), {
+                        ('mentions:users', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True, 'split': ','}), {
                             'doc': 'Accounts mentioned within the post.',
                         }),
-                        ('mentions:groups', ('array', {'type': 'inet:web:group', 'uniq': True, 'sorted': True}), {
+                        ('mentions:groups', ('array', {'type': 'inet:web:group', 'uniq': True, 'sorted': True, 'split': ','}), {
                             'doc': 'Groups mentioned within the post.',
                         }),
                         # location protocol...
