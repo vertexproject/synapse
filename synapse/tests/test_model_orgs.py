@@ -403,8 +403,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:attendee -> ou:conference'))
             self.len(1, await core.nodes('ou:attendee -> ou:conference:event'))
 
-            nodes = await core.nodes('''[
-                ou:contest=*
+            cont = s_common.guid()
+            nodes = await core.nodes(f'''[
+                ou:contest={cont}
                     :name="defcon ctf 2020"
                     :type="cyber ctf"
                     :family="defcon ctf"
@@ -416,6 +417,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :latlong=(20, 30)
 
                     :conference=*
+                    :contests=(*,*)
                     :sponsors=(*,)
                     :organizers=(*,)
                     :participants=(*,)
@@ -432,10 +434,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq((20, 30), nodes[0].get('latlong'))
             self.eq('us.nv.lasvegas', nodes[0].get('loc'))
 
-            self.len(1, await core.nodes('ou:contest -> ou:conference'))
-            self.len(1, await core.nodes('ou:contest :sponsors -> ps:contact'))
-            self.len(1, await core.nodes('ou:contest :organizers -> ps:contact'))
-            self.len(1, await core.nodes('ou:contest :participants -> ps:contact'))
+            self.len(2, await core.nodes(f'ou:contest={cont} -> ou:contest'))
+            self.len(1, await core.nodes(f'ou:contest={cont} -> ou:conference'))
+            self.len(1, await core.nodes(f'ou:contest={cont} :sponsors -> ps:contact'))
+            self.len(1, await core.nodes(f'ou:contest={cont} :organizers -> ps:contact'))
+            self.len(1, await core.nodes(f'ou:contest={cont} :participants -> ps:contact'))
 
             nodes = await core.nodes('''[
                 ou:contest:result=(*, *)

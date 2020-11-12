@@ -638,7 +638,7 @@ class OuModule(s_module.CoreModule):
                     ('conference', ('ou:conference', {}), {
                         'doc': 'The conference that the contest is associated with.',
                     }),
-                    ('contests', ('ou:contest', {}), {
+                    ('contests', ('array', {'type': 'ou:contest', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of sub-contests that contributed to the rankings.',
                     }),
                     ('sponsors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
