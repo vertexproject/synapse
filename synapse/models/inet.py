@@ -1156,6 +1156,9 @@ class InetModule(s_module.CoreModule):
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
                     }),
+                    ('inet:web:hashtag', ('str', {'lower': True, 'regex': r'^#[\w]+$'}), {
+                        'doc': 'A hashtag being used in web posts.',
+                    }),
 
                     ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
                         'doc': 'An individual contact from a domain whois record.'
@@ -1961,6 +1964,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The English version of the name associated with the (may be different from '
                                    'the account identifier, e.g., a display name).',
                         }),
+                        ('aliases', ('array', {'type': 'inet:user'}), {
+                            'doc': 'An array of alternate names for the user.',
+                        }),
                         ('occupation', ('str', {'lower': True}), {
                             'doc': 'A self-declared occupation for the account.'
                         }),
@@ -2129,6 +2135,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The localized name associated with the group (may be different from '
                                    'the account identifier, e.g., a display name).'
                         }),
+                        ('aliases', ('array', {'type': 'inet:group'}), {
+                            'doc': 'An array of alternate names for the group.',
+                        }),
                         ('name:en', ('inet:group', {}), {
                             'doc': 'The English version of the name associated with the group (may be different '
                                    'from the localized name).'
@@ -2289,7 +2298,29 @@ class InetModule(s_module.CoreModule):
                         ('repost', ('inet:web:post', {}), {
                             'doc': 'The original post that this is a repost of.'
                         }),
+                        ('hashtags', ('array', {'type': 'inet:web:hashtag'}), {
+                            'doc': 'Hash tags mentioned within the post.',
+                        }),
+                        ('mentions:users', ('array', {'type': 'inet:web:acct'}), {
+                            'doc': 'Accounts mentioned within the post.',
+                        }),
+                        ('mentions:groups', ('array', {'type': 'inet:web:group'}), {
+                            'doc': 'Groups mentioned within the post.',
+                        }),
+                        # location protocol...
+                        ('loc', ('loc', {}), {
+                            'doc': 'The location that the post was reportedly sent from.',
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place that the post was reportedly sent from.',
+                        }),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The place that the post was reportedly sent from.',
+                        }),
+
                     )),
+
+                    ('inet:web:hashtag', {}, ()),
 
                     ('inet:whois:contact', {}, (
                         ('rec', ('inet:whois:rec', {}), {

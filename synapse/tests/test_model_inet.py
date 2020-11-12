@@ -10,6 +10,14 @@ logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_utils.SynTest):
 
+    async def test_model_inet_basics(self):
+        async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[ inet:web:hashtag="#hehe" ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:web:hashtag="foo" ]')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:web:hashtag="#foo bar" ]')
+
     async def test_ipv4_lift_range(self):
 
         async with self.getTestCore() as core:
@@ -1310,6 +1318,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'place': place,
                 'loc': 'sol',
                 'name': 'ካሳር',
+                'names': ('foo', 'bar'),
                 'name:en': 'brutus',
                 'occupation': 'jurist',
                 'passwd': 'hunter2',
@@ -1550,6 +1559,7 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_web_post(self):
         formname = 'inet:web:post'
         valu = 32 * 'a'
+        plac = s_common.guid()
         input_props = {
             'acct': ('vertex.link', 'vertexmc'),
             'text': 'my cooL POST',
@@ -1559,6 +1569,14 @@ class InetModelTest(s_t_utils.SynTest):
             'file': 64 * 'f',
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
+
+            'hashtags': ('#foo', '#bar'),
+            'mentions:users': (('vertex.link', 'visi'),),
+            'mentions:groups': (('vertex.link', 'ninjas'),),
+
+            'loc': 'ru',
+            'place': plac,
+            'latlong': (20, 30),
         }
         expected_props = {
             'acct': ('vertex.link', 'vertexmc'),
@@ -1572,6 +1590,14 @@ class InetModelTest(s_t_utils.SynTest):
             'file': 'sha256:' + 64 * 'f',
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
+
+            'hashtags': ('#foo', '#bar'),
+            'mentions:users': (('vertex.link', 'visi'),),
+            'mentions:groups': (('vertex.link', 'ninjas'),),
+
+            'loc': 'ru',
+            'place': plac,
+            'latlong': (20, 30),
         }
 
         node2 = s_common.guid()

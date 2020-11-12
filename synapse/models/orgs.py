@@ -69,7 +69,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
                     'doc': 'A user name within an organization.',
                 }),
-                ('ou:role', ('str', {'lower': True, 'regex': r'[\w]{1,32}'}), {
+                ('ou:role', ('str', {'lower': True, 'regex': r'^\w+$'}), {
                     'ex': 'staff',
                     'doc': 'A named role when participating in an event.',
                 }),
@@ -96,6 +96,9 @@ class OuModule(s_module.CoreModule):
                 ('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
                     'deprecated': True,
                     'doc': 'Deprecated. Please use ou:attendee.',
+                }),
+                ('ou:contest', ('guid', {}), {
+                    'doc': 'A competitive event resulting in a ranked set of participants.',
                 }),
                 ('ou:goal', ('guid', {}), {
                     'doc': 'An assessed or stated goal which may be abstract or org specific.',
@@ -238,7 +241,7 @@ class OuModule(s_module.CoreModule):
                     ('logo', ('file:bytes', {}), {
                         'doc': 'An image file representing the logo for the organization.',
                     }),
-                    ('names', ('array', {'type': 'ou:name', 'uniq': True}), {
+                    ('names', ('array', {'type': 'ou:name'}), {
                        'doc': 'A list of alternate names for the organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
@@ -594,6 +597,61 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('roles', ('array', {'type': 'str', 'lower': True}), {
                         'doc': 'List of the roles the person had at the conference event.',
+                    }),
+                )),
+                ('ou:contest', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The name of the contest.',
+                        'ex': 'defcon ctf 2020',
+                    }),
+                    ('type', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The type of contest.',
+                        'ex': 'cyber ctf',
+                    }),
+                    ('family', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'A name for a series of recurring contests.',
+                        'ex': 'defcon ctf',
+                    }),
+                    ('desc', ('str', {'lower': True}), {
+                        'doc': 'A description of the contest.',
+                        'ex': 'the capture-the-flag event hosted at defcon 2020',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('start', ('time', {}), {
+                        'doc': 'The contest start date / time.',
+                    }),
+                    ('end', ('time', {}), {
+                        'doc': 'The contest end date / time.',
+                    }),
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geopolitical affiliation of the contest.',
+                    }),
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The geo:place where the contest was held.',
+                    }),
+                    ('latlong', ('geo:latlong', {}), {
+                        'doc': 'The latlong where the contest was held.',
+                    }),
+                    ('conference', ('ou:conference', {}), {
+                        'doc': 'The conference that the contest is associated with.',
+                    }),
+                    ('contests', ('ou:contest', {}), {
+                        'doc': 'An array of sub-contests that contributed to the rankings.',
+                    }),
+                    ('sponsors', ('array', {'type': 'ps:contact', 'split': ','}), {
+                        'doc': 'Contact information for contest sponsors.',
+                    }),
+                    ('organizers', ('array', {'type': 'ps:contact', 'split': ','}), {
+                        'doc': 'Contact information for contest organizers.',
+                    }),
+                    ('participants', ('array', {'type': 'ps:contact', 'split': ','}), {
+                        'doc': 'Contact information for contest participants.',
+                    }),
+                    ('scores', ('array', {'type': 'int', 'split': ','}), {
+                        'doc': 'A rank ordered list of contest scores.',
+                    }),
+                    ('rankings', ('array', {'type': 'ps:contact', 'split': ','}), {
+                        'doc': 'A rank ordered list of contest results.',
                     }),
                 )),
             )

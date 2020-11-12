@@ -403,6 +403,44 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:attendee -> ou:conference'))
             self.len(1, await core.nodes('ou:attendee -> ou:conference:event'))
 
+            nodes = await core.nodes('''[
+                ou:contest=*
+                    :name="defcon ctf 2020"
+                    :type="cyber ctf"
+                    :family="defcon ctf"
+                    :start=20200808
+                    :end=20200811
+
+                    :loc=us.nv.lasvegas
+                    :place=*
+                    :latlong=(20, 30)
+
+                    :sponsors=(*,)
+                    :organizers=(*,)
+                    :participants=(*,)
+
+                    :scores=(20, 10)
+                    :rankings=(*,*)
+
+            ]''')
+            self.len(1, nodes)
+            self.eq('defcon ctf 2020', nodes[0].get('name'))
+            self.eq('cyber ctf', nodes[0].get('type'))
+            self.eq('defcon ctf', nodes[0].get('family'))
+
+            self.eq(1596844800000, nodes[0].get('start'))
+            self.eq(1597104000000, nodes[0].get('end'))
+
+            self.eq((20, 30), nodes[0].get('latlong'))
+            self.eq('us.nv.lasvegas', nodes[0].get('loc'))
+
+            self.len(1, await core.nodes('ou:contest :sponsors -> ps:contact'))
+            self.len(1, await core.nodes('ou:contest :organizers -> ps:contact'))
+            self.len(1, await core.nodes('ou:contest :participants -> ps:contact'))
+
+            self.eq((20, 10), nodes[0].get('scores'))
+            self.len(2, await core.nodes('ou:contest :rankings -> ps:contact'))
+
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
         guid1 = s_common.guid()
