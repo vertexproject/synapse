@@ -415,6 +415,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :place=*
                     :latlong=(20, 30)
 
+                    :conference=*
                     :sponsors=(*,)
                     :organizers=(*,)
                     :participants=(*,)
@@ -431,6 +432,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq((20, 30), nodes[0].get('latlong'))
             self.eq('us.nv.lasvegas', nodes[0].get('loc'))
 
+            self.len(1, await core.nodes('ou:contest -> ou:conference'))
             self.len(1, await core.nodes('ou:contest :sponsors -> ps:contact'))
             self.len(1, await core.nodes('ou:contest :organizers -> ps:contact'))
             self.len(1, await core.nodes('ou:contest :participants -> ps:contact'))
