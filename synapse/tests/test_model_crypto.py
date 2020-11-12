@@ -212,23 +212,3 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('crypto:x509:revoked', (crl, cert)))
             self.eq(nodes[0].get('crl'), crl)
             self.nn(nodes[0].get('cert'), cert)
-
-    async def test_crypto_hash(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[ crypto:hash=(md5, d41d8cd98f00b204e9800998ecf8427e) ]')
-            self.len(1, nodes)
-            self.eq(('crypto:hash', ('md5', 'd41d8cd98f00b204e9800998ecf8427e')), nodes[0].ndef)
-            self.eq('md5', nodes[0].get('type'))
-            self.eq('d41d8cd98f00b204e9800998ecf8427e', nodes[0].get('value'))
-            self.eq('md5:d41d8cd98f00b204e9800998ecf8427e', await core.callStorm('crypto:hash return($node.repr())'))
-
-            self.len(1, await core.nodes(f'[ crypto:hash=sha1:{TEST_SHA1} ]'))
-            self.len(1, await core.nodes(f'[ crypto:hash=sha256:{TEST_SHA256} ]'))
-            self.len(1, await core.nodes(f'[ crypto:hash=sha384:{TEST_SHA384} ]'))
-            self.len(1, await core.nodes(f'[ crypto:hash=sha512:{TEST_SHA512} ]'))
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ crypto:hash=(hehe, aaaa) ]')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ crypto:hash=(md5, d41d8cd98f00b20) ]')

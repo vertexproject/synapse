@@ -1693,22 +1693,16 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:passwd', {}, (
-                        ('hashes', ('array', {'type': 'crypto:hash', 'split': ','}), {
-                            'doc': 'Any known hashes of the password.',
-                        }),
                         ('md5', ('hash:md5', {}), {
                             'ro': True,
-                            'deprecated': True,
                             'doc': 'The MD5 hash of the password.'
                         }),
                         ('sha1', ('hash:sha1', {}), {
                             'ro': True,
-                            'deprecated': True,
                             'doc': 'The SHA1 hash of the password.'
                         }),
                         ('sha256', ('hash:sha256', {}), {
                             'ro': True,
-                            'deprecated': True,
                             'doc': 'The SHA256 hash of the password.'
                         }),
                     )),

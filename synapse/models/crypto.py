@@ -16,31 +16,6 @@ x509vers = (
     (2, 'v3'),
 )
 
-hashsizes = {
-    'md5': 32,
-    'sha1': 40,
-    'sha256': 64,
-    'sha384': 96,
-    'sha512': 128,
-
-    'lm': 32,
-    'ntlm': 32,
-}
-
-def normCryptoHash(norm, info):
-
-    size = hashsizes.get(norm[0])
-
-    if size is None:
-        mesg = f'Unknown hash type: {norm[0]}'
-        raise s_exc.BadTypeValu(mesg=mesg)
-
-    if len(norm[1]) != size:
-        mesg = f'Incorrect size for hash type {norm[0]}: {len(norm[1])}'
-        raise s_exc.BadTypeValu(mesg=mesg)
-
-    return norm, info
-
 class CryptoModule(s_module.CoreModule):
 
     def getModelDefs(self):
@@ -65,55 +40,32 @@ class CryptoModule(s_module.CoreModule):
                     'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
                 }),
 
-                ('crypto:hashtype', ('str', {'lower': True, 'regex': '[a-z0-9_]{1,32}'}), {
-                    'doc': 'A type of cryptographic hash.',
-                    'ex': 'sha256',
-                }),
-
-                ('crypto:hash', ('comp', {'fields': (
-                                            ('type', 'crypto:hashtype'),
-                                            ('value', 'hex'),
-                                          ),
-                                          'sepr': ':',
-                                          'extnorm': 'synapse.models.crypto.normCryptoHash'}), {
-
-                    'doc': 'A comp type representing an unsalted hash.',
-                    'ex': 'md5:d41d8cd98f00b204e9800998ecf8427e',
-                }),
-
                 ('hash:md5', ('hex', {'size': 32}), {
                     'doc': 'A hex encoded MD5 hash.',
-                    'deprecated': True,
                     'ex': ex_md5
                 }),
                 ('hash:sha1', ('hex', {'size': 40}), {
                     'doc': 'A hex encoded SHA1 hash.',
-                    'deprecated': True,
                     'ex': ex_sha1
                 }),
                 ('hash:sha256', ('hex', {'size': 64}), {
                     'doc': 'A hex encoded SHA256 hash.',
-                    'deprecated': True,
                     'ex': ex_sha256
                 }),
                 ('hash:sha384', ('hex', {'size': 96}), {
                     'doc': 'A hex encoded SHA384 hash.',
-                    'deprecated': True,
                     'ex': ex_sha384
                 }),
                 ('hash:sha512', ('hex', {'size': 128}), {
                     'doc': 'A hex encoded SHA512 hash.',
-                    'deprecated': True,
                     'ex': ex_sha512
                 }),
                 ('hash:lm', ('hex', {'size': 32}), {
                     'doc': 'A hex encoded Microsoft Windows LM password hash.',
-                    'deprecated': True,
                     'ex': ex_md5
                 }),
                 ('hash:ntlm', ('hex', {'size': 32}), {
                     'doc': 'A hex encoded Microsoft Windows NTLM password hash.',
-                    'deprecated': True,
                     'ex': ex_md5
                 }),
 
@@ -143,15 +95,6 @@ class CryptoModule(s_module.CoreModule):
             ),
 
             'forms': (
-
-                ('crypto:hash', {}, (
-                    ('type', ('crypto:hashtype', {}), {
-                        'ro': True,
-                        'doc': 'The type of hash.'}),
-                    ('value', ('hex', {}), {
-                        'ro': True,
-                        'doc': 'The hex of the hash value.'}),
-                )),
 
                 ('crypto:currency:coin', {}, (
                     ('name', ('str', {}), {

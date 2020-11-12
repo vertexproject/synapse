@@ -143,27 +143,17 @@ class FileBytes(s_types.Str):
 
     def _normPyBytes(self, valu):
 
-        md5 = hashlib.md5(valu).hexdigest()
-        sha1 = hashlib.sha1(valu).hexdigest()
         sha256 = hashlib.sha256(valu).hexdigest()
-        sha512 = hashlib.sha512(valu).hexdigest()
 
         norm = f'sha256:{sha256}'
 
         subs = {
-            # TODO remove once type specific hashes are removed
-            'md5': md5,
-            'sha1': sha1,
+            'md5': hashlib.md5(valu).hexdigest(),
+            'sha1': hashlib.sha1(valu).hexdigest(),
             'sha256': sha256,
             'sha512': hashlib.sha512(valu).hexdigest(),
 
             'size': len(valu),
-            'hashes': (
-                ('md5', md5),
-                ('sha1', sha1),
-                ('sha256', sha256),
-                ('sha512', sha512),
-            ),
         }
         return norm, {'subs': subs}
 
@@ -265,23 +255,16 @@ class FileModule(s_module.CoreModule):
                     ('size', ('int', {}), {
                         'doc': 'The file size in bytes.'}),
 
-                    ('hashes', ('array', {'type': 'crypto:hash', 'split': ','}), {
-                        'doc': 'The available cryptographic hashes of the file.'}),
-
                     ('md5', ('hash:md5', {}), {'ro': True,
-                                               'deprecated': True,
                                                'doc': 'The md5 hash of the file.'}),
 
                     ('sha1', ('hash:sha1', {}), {'ro': True,
-                                                 'deprecated': True,
                                                  'doc': 'The sha1 hash of the file.'}),
 
                     ('sha256', ('hash:sha256', {}), {'ro': True,
-                                                     'deprecated': True,
                                                      'doc': 'The sha256 hash of the file.'}),
 
                     ('sha512', ('hash:sha512', {}), {'ro': True,
-                                                     'deprecated': True,
                                                      'doc': 'The sha512 hash of the file.'}),
 
                     ('name', ('file:base', {}), {
