@@ -1577,7 +1577,7 @@ class InetModelTest(s_t_utils.SynTest):
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
 
-            'hashtags': ('#foo', '#bar'),
+            'hashtags': ('#foo', '#bar', '#bar'),
             'mentions:users': (('vertex.link', 'visi'),),
             'mentions:groups': (('vertex.link', 'ninjas'),),
 
@@ -1598,7 +1598,7 @@ class InetModelTest(s_t_utils.SynTest):
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
 
-            'hashtags': ('#foo', '#bar'),
+            'hashtags': ('#bar', '#foo'),
             'mentions:users': (('vertex.link', 'visi'),),
             'mentions:groups': (('vertex.link', 'ninjas'),),
 

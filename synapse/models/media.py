@@ -44,7 +44,7 @@ class MediaModule(s_module.CoreModule):
                     'deprecated': True,
                     'ex': 'stark,anthony'
                 }),
-                ('authors', ('array', {'type': 'ps:contact', 'split': ','}), {
+                ('authors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of authors of the news item.',
                 }),
                 ('rss:feed', ('inet:url', {}), {

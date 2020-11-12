@@ -2281,13 +2281,13 @@ class InetModule(s_module.CoreModule):
                         ('repost', ('inet:web:post', {}), {
                             'doc': 'The original post that this is a repost of.'
                         }),
-                        ('hashtags', ('array', {'type': 'inet:web:hashtag'}), {
+                        ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True}), {
                             'doc': 'Hash tags mentioned within the post.',
                         }),
-                        ('mentions:users', ('array', {'type': 'inet:web:acct'}), {
+                        ('mentions:users', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True}), {
                             'doc': 'Accounts mentioned within the post.',
                         }),
-                        ('mentions:groups', ('array', {'type': 'inet:web:group'}), {
+                        ('mentions:groups', ('array', {'type': 'inet:web:group', 'uniq': True, 'sorted': True}), {
                             'doc': 'Groups mentioned within the post.',
                         }),
                         # location protocol...

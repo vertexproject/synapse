@@ -214,10 +214,10 @@ class OuModule(s_module.CoreModule):
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the campaign.',
                     }),
-                    ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True}), {
+                    ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Actors who participated in the campiagn.',
                     }),
-                    ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True}), {
+                    ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Additional assessed goals of the campaign.',
                     }),
                     ('name', ('str', {}), {
@@ -454,7 +454,7 @@ class OuModule(s_module.CoreModule):
                     ('departed', ('time', {}), {
                         'doc': 'The time when a person departed.',
                     }),
-                    ('roles', ('array', {'type': 'ou:role', 'split': ',', 'uniq': True}), {
+                    ('roles', ('array', {'type': 'ou:role', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'List of the roles the person had at the event.',
                     }),
                     ('meet', ('ou:meet', {}), {
@@ -641,13 +641,13 @@ class OuModule(s_module.CoreModule):
                     ('contests', ('ou:contest', {}), {
                         'doc': 'An array of sub-contests that contributed to the rankings.',
                     }),
-                    ('sponsors', ('array', {'type': 'ps:contact', 'split': ','}), {
+                    ('sponsors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Contact information for contest sponsors.',
                     }),
-                    ('organizers', ('array', {'type': 'ps:contact', 'split': ','}), {
+                    ('organizers', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Contact information for contest organizers.',
                     }),
-                    ('participants', ('array', {'type': 'ps:contact', 'split': ','}), {
+                    ('participants', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Contact information for contest participants.',
                     }),
                 )),
