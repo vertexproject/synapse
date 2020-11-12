@@ -1314,11 +1314,12 @@ class InetModelTest(s_t_utils.SynTest):
                 'avatar': 'sha256:' + 64 * 'a',
                 'dob': -64836547200000,
                 'email': 'brutus@vertex.link',
+                'linked:accts': (('twitter.com', 'brutus'), ('linkedin.com', 'brutester'), ('linkedin.com', 'brutester')),
                 'latlong': '0,0',
                 'place': place,
                 'loc': 'sol',
                 'name': 'ካሳር',
-                'aliases': ('foo', 'bar'),
+                'aliases': ('foo', 'bar', 'bar'),
                 'name:en': 'brutus',
                 'occupation': 'jurist',
                 'passwd': 'hunter2',
@@ -1339,6 +1340,8 @@ class InetModelTest(s_t_utils.SynTest):
                 'site': valu[0].lower(),
                 'user': valu[1].lower(),
                 'latlong': (0.0, 0.0),
+                'aliases': ('bar', 'foo'),
+                'linked:accts': (('linkedin.com', 'brutester'), ('twitter.com', 'brutus')),
                 'place': place,
                 'phone': '5555555555',
                 'realname': 'брут',
@@ -1351,6 +1354,8 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.eq(node.ndef, expected_ndef)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+            self.len(2, await core.nodes('inet:web:acct=(blogs.vertex.link, brutus) :linked:accts -> inet:web:acct'))
 
     async def test_web_action(self):
         formname = 'inet:web:action'
@@ -1445,7 +1450,7 @@ class InetModelTest(s_t_utils.SynTest):
         place = s_common.guid()
         input_props = {
             'name': 'The coolest group',
-            'aliases': ('foo', 'bar'),
+            'aliases': ('foo', 'bar', 'bar'),
             'name:en': 'The coolest group (in english)',
             'url': 'https://vertex.link/CoolGroup',
             'avatar': 64 * 'f',
@@ -1461,7 +1466,7 @@ class InetModelTest(s_t_utils.SynTest):
             'site': valu[0],
             'id': valu[1],
             'name': 'The coolest group',
-            'aliases': ('foo', 'bar'),
+            'aliases': ('bar', 'foo'),
             'name:en': 'The coolest group (in english)',
             'url': 'https://vertex.link/CoolGroup',
             'avatar': 'sha256:' + 64 * 'f',

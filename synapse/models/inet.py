@@ -1927,6 +1927,9 @@ class InetModule(s_module.CoreModule):
                         ('email', ('inet:email', {}), {
                             'doc': 'The email address associated with the account.'
                         }),
+                        ('linked:accts', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True}), {
+                            'doc': 'Linked accounts specified in the account profile.',
+                        }),
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node.'
                         }),
@@ -1944,7 +1947,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The English version of the name associated with the (may be different from '
                                    'the account identifier, e.g., a display name).',
                         }),
-                        ('aliases', ('array', {'type': 'inet:user'}), {
+                        ('aliases', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of alternate names for the user.',
                         }),
                         ('occupation', ('str', {'lower': True}), {
@@ -2115,7 +2118,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The localized name associated with the group (may be different from '
                                    'the account identifier, e.g., a display name).'
                         }),
-                        ('aliases', ('array', {'type': 'inet:group'}), {
+                        ('aliases', ('array', {'type': 'inet:group', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of alternate names for the group.',
                         }),
                         ('name:en', ('inet:group', {}), {
