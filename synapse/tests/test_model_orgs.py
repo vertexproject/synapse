@@ -419,9 +419,6 @@ class OuModelTest(s_t_utils.SynTest):
                     :organizers=(*,)
                     :participants=(*,)
 
-                    :scores=(20, 10)
-                    :rankings=(*,*)
-
             ]''')
             self.len(1, nodes)
             self.eq('defcon ctf 2020', nodes[0].get('name'))
@@ -438,8 +435,18 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:contest :organizers -> ps:contact'))
             self.len(1, await core.nodes('ou:contest :participants -> ps:contact'))
 
-            self.eq((20, 10), nodes[0].get('scores'))
-            self.len(2, await core.nodes('ou:contest :rankings -> ps:contact'))
+            nodes = await core.nodes('''[
+                ou:contest:result=(*, *)
+                    :rank=1
+                    :score=20
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('contest'))
+            self.nn(nodes[0].get('participant'))
+            self.eq(1, nodes[0].get('rank'))
+            self.eq(20, nodes[0].get('score'))
+            self.len(1, await core.nodes('ou:contest:result -> ps:contact'))
+            self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
 
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()

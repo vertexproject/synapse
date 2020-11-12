@@ -100,6 +100,9 @@ class OuModule(s_module.CoreModule):
                 ('ou:contest', ('guid', {}), {
                     'doc': 'A competitive event resulting in a ranked set of participants.',
                 }),
+                ('ou:contest:result', ('comp', {'fields': (('contest', 'ou:contest'), ('participant', 'ps:contact'))}), {
+                    'doc': 'The results from a single contest participant.',
+                }),
                 ('ou:goal', ('guid', {}), {
                     'doc': 'An assessed or stated goal which may be abstract or org specific.',
                 }),
@@ -647,12 +650,23 @@ class OuModule(s_module.CoreModule):
                     ('participants', ('array', {'type': 'ps:contact', 'split': ','}), {
                         'doc': 'Contact information for contest participants.',
                     }),
-                    ('scores', ('array', {'type': 'int', 'split': ','}), {
-                        'doc': 'A rank ordered list of contest scores.',
+                )),
+                ('ou:contest:result', {}, (
+                    ('contest', ('ou:contest', {}), {
+                        'ro': True,
+                        'doc': 'The contest.',
                     }),
-                    ('rankings', ('array', {'type': 'ps:contact', 'split': ','}), {
-                        'doc': 'A rank ordered list of contest results.',
+                    ('participant', ('ps:contact', {}), {
+                        'ro': True,
+                        'doc': 'The participant',
                     }),
+                    ('rank', ('int', {}), {
+                        'doc': 'The rank order of the participant.',
+                    }),
+                    ('score', ('int', {}), {
+                        'doc': 'The score of the participant.',
+                    }),
+                    #TODO duration ('duration'
                 )),
             )
         }
