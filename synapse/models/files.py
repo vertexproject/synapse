@@ -152,7 +152,6 @@ class FileBytes(s_types.Str):
             'sha1': hashlib.sha1(valu).hexdigest(),
             'sha256': sha256,
             'sha512': hashlib.sha512(valu).hexdigest(),
-
             'size': len(valu),
         }
         return norm, {'subs': subs}

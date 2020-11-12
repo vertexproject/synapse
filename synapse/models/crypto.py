@@ -1,6 +1,5 @@
 import logging
 
-import synapse.exc as s_exc
 import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)

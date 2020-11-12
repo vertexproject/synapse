@@ -1318,7 +1318,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'place': place,
                 'loc': 'sol',
                 'name': 'ካሳር',
-                'names': ('foo', 'bar'),
+                'aliases': ('foo', 'bar'),
                 'name:en': 'brutus',
                 'occupation': 'jurist',
                 'passwd': 'hunter2',
@@ -1445,6 +1445,7 @@ class InetModelTest(s_t_utils.SynTest):
         place = s_common.guid()
         input_props = {
             'name': 'The coolest group',
+            'aliases': ('foo', 'bar'),
             'name:en': 'The coolest group (in english)',
             'url': 'https://vertex.link/CoolGroup',
             'avatar': 64 * 'f',
@@ -1460,6 +1461,7 @@ class InetModelTest(s_t_utils.SynTest):
             'site': valu[0],
             'id': valu[1],
             'name': 'The coolest group',
+            'aliases': ('foo', 'bar'),
             'name:en': 'The coolest group (in english)',
             'url': 'https://vertex.link/CoolGroup',
             'avatar': 'sha256:' + 64 * 'f',
@@ -1615,6 +1617,7 @@ class InetModelTest(s_t_utils.SynTest):
 
                 node = await snap.addNode('inet:web:post', node2, props=inputs2)
                 self.checkNode(node, (('inet:web:post', node2), expected2))
+                self.len(2, await core.nodes('inet:web:post -> inet:web:hashtag'))
 
     async def test_whois_contact(self):
         formname = 'inet:whois:contact'
