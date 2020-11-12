@@ -502,9 +502,7 @@ class Comp(Type):
             adds.extend(info.get('adds', ()))
 
         norm = tuple(norms)
-        info = {'subs': subs, 'adds': adds}
-
-        return norm, info
+        return norm, {'subs': subs, 'adds': adds}
 
     def _normPyStr(self, text):
         return self._normPyTuple(text.split(self.sepr))
