@@ -221,6 +221,15 @@ class CortexTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
 
+                with self.raises(s_exc.StormRuntimeError):
+                    q = '$foo=$lib.list() $bar=$foo.index(10) return ( $bar )'
+                    await proxy.callStorm(q)
+
+                with self.raises(s_exc.SynErr) as cm:
+                    q = 'return ( $lib.exit() )'
+                    await proxy.callStorm(q)
+                self.eq(cm.exception.get('errx'), 'StormExit')
+
     async def test_cortex_storm_dmon_log(self):
 
         async with self.getTestCore() as core:
@@ -4905,7 +4914,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             layriden = layr['iden']
             await core.delLayer(layriden)
             items = await alist(core.coreQueueGets('foo'))
-            self.eq(items[0], (0, ('layer:add', layriden)), (1, ('layer:del', layriden)))
+            self.eq(items, ((0, (s_layer.EDIT_LAYR_ADD, (layriden,), ())),
+                            (1, (s_layer.EDIT_LAYR_DEL, (layriden,), ()))))
             await core.coreQueueCull('foo', 1)
 
             # Watch for a new node

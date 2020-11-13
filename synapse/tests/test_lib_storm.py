@@ -89,6 +89,9 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4', opts={'view': view1}))
 
+            self.len(0, await core.nodes('$x = $lib.null if ($x and $x > 20) { [ ps:contact=* ] }'))
+            self.len(1, await core.nodes('$x = $lib.null if ($lib.true or $x > 20) { [ ps:contact=* ] }'))
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:

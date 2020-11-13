@@ -69,23 +69,39 @@ class OuModule(s_module.CoreModule):
                 ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
                     'doc': 'A user name within an organization.',
                 }),
+                ('ou:role', ('str', {'lower': True, 'regex': r'^\w+$'}), {
+                    'ex': 'staff',
+                    'doc': 'A named role when participating in an event.',
+                }),
+                ('ou:attendee', ('guid', {}), {
+                    'doc': 'A node representing a person attending a meeting, conference, or event.',
+                }),
                 ('ou:meet', ('guid', {}), {
                     'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.',
                 }),
                 ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
-                    'doc': 'Represents a person attending a meeting represented by an ou:meet node.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:attendee.',
                 }),
                 ('ou:conference', ('guid', {}), {
                     'doc': 'A conference with a name and sponsoring org.',
                 }),
                 ('ou:conference:attendee', ('comp', {'fields': (('conference', 'ou:conference'), ('person', 'ps:person'))}), {
-                    'doc': 'Represents a person attending a conference represented by an ou:conference node.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:attendee.',
                 }),
                 ('ou:conference:event', ('guid', {}), {
                     'doc': 'A conference event with a name and associated conference.',
                 }),
                 ('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
-                    'doc': 'Represents a person attending a conference event represented by an ou:conference:event node.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:attendee.',
+                }),
+                ('ou:contest', ('guid', {}), {
+                    'doc': 'A competitive event resulting in a ranked set of participants.',
+                }),
+                ('ou:contest:result', ('comp', {'fields': (('contest', 'ou:contest'), ('participant', 'ps:contact'))}), {
+                    'doc': 'The results from a single contest participant.',
                 }),
                 ('ou:goal', ('guid', {}), {
                     'doc': 'An assessed or stated goal which may be abstract or org specific.',
@@ -198,7 +214,10 @@ class OuModule(s_module.CoreModule):
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the campaign.',
                     }),
-                    ('goals', ('array', {'type': 'ou:goal'}), {
+                    ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Actors who participated in the campaign.',
+                    }),
+                    ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Additional assessed goals of the campaign.',
                     }),
                     ('name', ('str', {}), {
@@ -221,6 +240,9 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the org.',
+                    }),
+                    ('logo', ('file:bytes', {}), {
+                        'doc': 'An image file representing the logo for the organization.',
                     }),
                     ('names', ('array', {'type': 'ou:name'}), {
                        'doc': 'A list of alternate names for the organization.',
@@ -388,6 +410,12 @@ class OuModule(s_module.CoreModule):
                     ('perc', ('int', {'min': 0, 'max': 100}), {
                         'doc': 'The optional percentage of sub which is owned by org.',
                     }),
+                    ('founded', ('time', {}), {
+                        'doc': 'The date on which the suborg relationship was founded.',
+                    }),
+                    ('dissolved', ('time', {}), {
+                        'doc': 'The date on which the suborg relationship was dissolved.',
+                    }),
                     ('current', ('bool', {}), {
                         'doc': 'Bool indicating if the suborg relationship still current.',
                     }),
@@ -414,6 +442,29 @@ class OuModule(s_module.CoreModule):
                     ('user', ('inet:user', {}), {
                         'ro': True,
                         'doc': 'The username associated with the organization.',
+                    }),
+                )),
+                ('ou:attendee', {}, (
+                    ('person', ('ps:contact', {}), {
+                        'doc': 'The contact information for the person who attended the event.',
+                    }),
+                    ('arrived', ('time', {}), {
+                        'doc': 'The time when a person arrived.',
+                    }),
+                    ('departed', ('time', {}), {
+                        'doc': 'The time when a person departed.',
+                    }),
+                    ('roles', ('array', {'type': 'ou:role', 'split': ',', 'uniq': True, 'sorted': True}), {
+                        'doc': 'List of the roles the person had at the event.',
+                    }),
+                    ('meet', ('ou:meet', {}), {
+                        'doc': 'The meeting that the person attended.',
+                    }),
+                    ('conference', ('ou:conference', {}), {
+                        'doc': 'The conference that the person attended.',
+                    }),
+                    ('conference:event', ('ou:conference:event', {}), {
+                        'doc': 'The conference event that the person attended.',
                     }),
                 )),
                 ('ou:meet', {}, (
@@ -550,6 +601,72 @@ class OuModule(s_module.CoreModule):
                     ('roles', ('array', {'type': 'str', 'lower': True}), {
                         'doc': 'List of the roles the person had at the conference event.',
                     }),
+                )),
+                ('ou:contest', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The name of the contest.',
+                        'ex': 'defcon ctf 2020',
+                    }),
+                    ('type', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The type of contest.',
+                        'ex': 'cyber ctf',
+                    }),
+                    ('family', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'A name for a series of recurring contests.',
+                        'ex': 'defcon ctf',
+                    }),
+                    ('desc', ('str', {'lower': True}), {
+                        'doc': 'A description of the contest.',
+                        'ex': 'the capture-the-flag event hosted at defcon 2020',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('start', ('time', {}), {
+                        'doc': 'The contest start date / time.',
+                    }),
+                    ('end', ('time', {}), {
+                        'doc': 'The contest end date / time.',
+                    }),
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geopolitical affiliation of the contest.',
+                    }),
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The geo:place where the contest was held.',
+                    }),
+                    ('latlong', ('geo:latlong', {}), {
+                        'doc': 'The latlong where the contest was held.',
+                    }),
+                    ('conference', ('ou:conference', {}), {
+                        'doc': 'The conference that the contest is associated with.',
+                    }),
+                    ('contests', ('array', {'type': 'ou:contest', 'split': ',', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of sub-contests that contributed to the rankings.',
+                    }),
+                    ('sponsors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Contact information for contest sponsors.',
+                    }),
+                    ('organizers', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Contact information for contest organizers.',
+                    }),
+                    ('participants', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Contact information for contest participants.',
+                    }),
+                )),
+                ('ou:contest:result', {}, (
+                    ('contest', ('ou:contest', {}), {
+                        'ro': True,
+                        'doc': 'The contest.',
+                    }),
+                    ('participant', ('ps:contact', {}), {
+                        'ro': True,
+                        'doc': 'The participant',
+                    }),
+                    ('rank', ('int', {}), {
+                        'doc': 'The rank order of the participant.',
+                    }),
+                    ('score', ('int', {}), {
+                        'doc': 'The score of the participant.',
+                    }),
+                    #TODO duration ('duration'
                 )),
             )
         }

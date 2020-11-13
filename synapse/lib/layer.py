@@ -220,6 +220,8 @@ EDIT_NODEDATA_SET = 8 # (<type>, (<name>, <valu>, <oldv>), ())
 EDIT_NODEDATA_DEL = 9 # (<type>, (<name>, <oldv>), ())
 EDIT_EDGE_ADD = 10    # (<type>, (<verb>, <destnodeiden>), ())
 EDIT_EDGE_DEL = 11    # (<type>, (<verb>, <destnodeiden>), ())
+EDIT_LAYR_ADD = 12   # (<type>, (<iden>,), ())  (used by cortex)
+EDIT_LAYR_DEL = 13   # (<type>, (<iden>,), ())  (used by cortex)
 
 class IndxBy:
     '''

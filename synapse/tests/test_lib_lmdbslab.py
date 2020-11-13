@@ -110,16 +110,18 @@ class LmdbSlabTest(s_t_utils.SynTest):
             foo = slab.initdb('foo')
             baz = slab.initdb('baz')
             bar = slab.initdb('bar', dupsort=True)
+            barfixed = slab.initdb('barfixed', dupsort=True, dupfixed=True)
 
             slab.put(b'\x00\x01', b'hehe', db=foo)
             slab.put(b'\x00\x02', b'haha', db=foo)
             slab.put(b'\x01\x03', b'hoho', db=foo)
 
-            slab.put(b'\x00\x01', b'hehe', dupdata=True, db=bar)
-            slab.put(b'\x00\x02', b'haha', dupdata=True, db=bar)
-            slab.put(b'\x00\x02', b'visi', dupdata=True, db=bar)
-            slab.put(b'\x00\x02', b'zomg', dupdata=True, db=bar)
-            slab.put(b'\x00\x03', b'hoho', dupdata=True, db=bar)
+            for db in (bar, barfixed):
+                slab.put(b'\x00\x01', b'hehe', dupdata=True, db=db)
+                slab.put(b'\x00\x02', b'haha', dupdata=True, db=db)
+                slab.put(b'\x00\x02', b'visi', dupdata=True, db=db)
+                slab.put(b'\x00\x02', b'zomg', dupdata=True, db=db)
+                slab.put(b'\x00\x03', b'hoho', dupdata=True, db=db)
 
             slab.put(b'\x00\x01', b'hehe', db=baz)
             slab.put(b'\xff', b'haha', db=baz)
@@ -143,11 +145,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(slab.scanByRange(b'\x00\x02', b'\x01\x03', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x01\x03', b'hoho')))
 
-            items = list(slab.scanByDups(b'\x00\x02', db=bar))
-            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
+            for db in (bar, barfixed):
+                items = list(slab.scanByDups(b'\x00\x02', db=db))
+                self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
 
-            items = list(slab.scanByDups(b'\x00\x04', db=bar))
-            self.eq(items, ())
+                items = list(slab.scanByDups(b'\x00\x04', db=db))
+                self.eq(items, ())
 
             self.true(slab.prefexists(b'\x00', db=baz))
             self.true(slab.prefexists(b'\x00\x01', db=baz))
@@ -190,18 +193,19 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(slab.scanByRangeBack(b'\x01\x05', b'\x00\x02', db=foo))
             self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha')))
 
-            items = list(slab.scanByDupsBack(b'\x00\x02', db=bar))
-            self.eq(items, ((b'\x00\x02', b'zomg'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'haha')))
+            for db in (bar, barfixed):
+                items = list(slab.scanByDupsBack(b'\x00\x02', db=db))
+                self.eq(items, ((b'\x00\x02', b'zomg'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'haha')))
 
-            items = list(slab.scanByDupsBack(b'\x00\x04', db=bar))
-            self.eq(items, ())
+                items = list(slab.scanByDupsBack(b'\x00\x04', db=db))
+                self.eq(items, ())
+
+                with s_lmdbslab.ScanBack(slab, db=db) as scan:
+                    scan.first()
+                    self.eq(scan.atitem, (b'\x00\x03', b'hoho'))
 
             items = list(slab.scanByFullBack(db=foo))
             self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
-
-            with s_lmdbslab.ScanBack(slab, db=bar) as scan:
-                scan.first()
-                self.eq(scan.atitem, (b'\x00\x03', b'hoho'))
 
             with s_lmdbslab.ScanBack(slab, db=foo) as scan:
                 scan.set_key(b'\x00\x02')
@@ -232,9 +236,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(scan)
             self.eq(items, ((b'\x00\x02', b'haha'),))
 
-            # to test iternext_dup, lets do the same with a dup scan
-            scan = slab.scanByDups(b'\x00\x02', db=bar)
-            self.eq((b'\x00\x02', b'haha'), next(scan))
+            for db in (bar, barfixed):
+                # to test iternext_dup, lets do the same with a dup scan
+                scan = slab.scanByDups(b'\x00\x02', db=db)
+                self.eq((b'\x00\x02', b'haha'), next(scan))
 
             slab.forcecommit()
 
