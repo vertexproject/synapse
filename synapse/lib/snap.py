@@ -520,10 +520,6 @@ class Snap(s_base.Base):
 
             formsubs = forminfo.get('subs', {})
             for subname, subvalu in formsubs.items():
-                prop = f.prop(subname)
-                if prop is None or prop.locked or prop.type.locked:
-                    continue
-
                 p[subname] = subvalu
 
             for propname, propvalu in p.items():
