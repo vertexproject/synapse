@@ -19,6 +19,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
+import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -575,12 +576,12 @@ class ForLoop(Oper):
                     async for item in subq.inline(runt, newg):
                         yield item
 
-                except s_exc.StormBreak as e:
+                except s_stormctrl.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except s_exc.StormContinue as e:
+                except s_stormctrl.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -616,12 +617,12 @@ class ForLoop(Oper):
                     async for jtem in subq.inline(runt, s_common.agen()):
                         yield jtem
 
-                except s_exc.StormBreak as e:
+                except s_stormctrl.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except s_exc.StormContinue as e:
+                except s_stormctrl.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -646,12 +647,12 @@ class WhileLoop(Oper):
                         yield item
                         await asyncio.sleep(0)
 
-                except s_exc.StormBreak as e:
+                except s_stormctrl.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except s_exc.StormContinue as e:
+                except s_stormctrl.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -670,12 +671,12 @@ class WhileLoop(Oper):
                         yield jtem
                         await asyncio.sleep(0)
 
-                except s_exc.StormBreak as e:
+                except s_stormctrl.StormBreak as e:
                     if e.item is not None:
                         yield e.item
                     break
 
-                except s_exc.StormContinue as e:
+                except s_stormctrl.StormContinue as e:
                     if e.item is not None:
                         yield e.item
                     continue
@@ -2478,10 +2479,6 @@ async def expr_ge(x, y):
     return await toint(x) >= await toint(y)
 async def expr_le(x, y):
     return await toint(x) <= await toint(y)
-async def expr_or(x, y):
-    return await tobool(x) or await tobool(y)
-async def expr_and(x, y):
-    return await tobool(x) and await tobool(y)
 async def expr_prefix(x, y):
     x, y = await tostr(x), await tostr(y)
     return x.startswith(y)
@@ -2502,8 +2499,6 @@ _ExprFuncMap = {
     '<': expr_lt,
     '>=': expr_ge,
     '<=': expr_le,
-    'or': expr_or,
-    'and': expr_and,
     '^=': expr_prefix,
 }
 
@@ -2544,6 +2539,22 @@ class ExprNode(Value):
         parm1 = await self.kids[0].compute(runt, path)
         parm2 = await self.kids[2].compute(runt, path)
         return await self._operfunc(parm1, parm2)
+
+class ExprOrNode(Value):
+    async def compute(self, runt, path):
+        parm1 = await self.kids[0].compute(runt, path)
+        if await tobool(parm1):
+            return True
+        parm2 = await self.kids[2].compute(runt, path)
+        return await tobool(parm2)
+
+class ExprAndNode(Value):
+    async def compute(self, runt, path):
+        parm1 = await self.kids[0].compute(runt, path)
+        if not await tobool(parm1):
+            return False
+        parm2 = await self.kids[2].compute(runt, path)
+        return await tobool(parm2)
 
 class TagName(Value):
 
@@ -3199,9 +3210,9 @@ class BreakOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise s_exc.StormBreak(item=(node, path))
+            raise s_stormctrl.StormBreak(item=(node, path))
 
-        raise s_exc.StormBreak()
+        raise s_stormctrl.StormBreak()
 
 class ContinueOper(AstNode):
 
@@ -3212,9 +3223,9 @@ class ContinueOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise s_exc.StormContinue(item=(node, path))
+            raise s_stormctrl.StormContinue(item=(node, path))
 
-        raise s_exc.StormContinue()
+        raise s_stormctrl.StormContinue()
 
 class IfClause(AstNode):
     pass
@@ -3295,13 +3306,13 @@ class Return(Oper):
             if self.kids:
                 valu = await self.kids[0].compute(runt, path)
 
-            raise s_exc.StormReturn(valu)
+            raise s_stormctrl.StormReturn(valu)
 
         # no items in pipeline... execute
         if self.kids:
             valu = await self.kids[0].compute(runt, None)
 
-        raise s_exc.StormReturn(valu)
+        raise s_stormctrl.StormReturn(valu)
 
 class FuncArgs(AstNode):
 
@@ -3401,7 +3412,7 @@ class Function(AstNode):
 
                     return None
 
-                except s_exc.StormReturn as e:
+                except s_stormctrl.StormReturn as e:
                     return e.item
 
             async def genr():
