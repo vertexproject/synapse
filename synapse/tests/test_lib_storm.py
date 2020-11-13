@@ -171,6 +171,8 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('$lib.import(foo.bar).dyniter()', opts=opts)
 
             self.eq(s_version.version, await core.callStorm('return($lib.version.synapse())'))
+            self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">=2.9.0"))'))
+            self.false(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">0.0.1,<2.0"))'))
 
     async def test_storm_tree(self):
 
