@@ -2,6 +2,10 @@
 version: '3'
 services:
     core:
-        build: .
+        build:
+            context: .
+            dockerfile: ./docker/images/cortex/Dockerfile
         ports:
             - "27492:27492"
+        environment:
+          SYN_CORTEX_AUTH_PASSWD: root
