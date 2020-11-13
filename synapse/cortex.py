@@ -1230,7 +1230,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _initSubscribers(self):
         subhive = await self.hive.open(('cortex', 'storm', 'subscribers'))
         self.subdict = await subhive.dict()
-        self.allsubscribers = set(self.subdict.get('*allqueues', default=[]))
+        self.allsubscribers = set(self.subdict.values())
 
     async def _onLayerWrite(self, mesg):
         '''
@@ -1269,8 +1269,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Inform subscribers about new layer
         '''
-        queues = self.subdict.get('*allqueues', default=[])
-        for queue in queues:
+        for queue in self.allsubscribers:
             msg = ('layer:add', layr.iden)
             await self.multiqueue.put(queue, msg)
 
@@ -1278,8 +1277,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Inform subscribers about layer deletion
         '''
-        queues = self.subdict.get('*allqueues', default=[])
-        for queue in queues:
+        for queue in self.allsubscribers:
             msg = ('layer:del', layr.iden)
             await self.multiqueue.put(queue, msg)
 
@@ -1321,7 +1319,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         if not self.multiqueue.exists(qname):
             await self.multiqueue.add(qname, {})
             self.allsubscribers.add(qname)
-            await self.subdict.set('*allqueues', list(self.allsubscribers))
 
         await self.subdict.set(key, qname)
 
