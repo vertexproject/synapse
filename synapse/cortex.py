@@ -1279,7 +1279,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         ctor.getCmdBrief = getCmdBrief
         ctor.pkgname = cdef.get('pkgname')
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
-        ctor.asroot = cdef.get('asroot', False)
         ctor.forms = cdef.get('forms', {})
 
         def getStorNode(form):
