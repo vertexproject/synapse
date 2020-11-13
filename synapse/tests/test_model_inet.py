@@ -1876,9 +1876,11 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_search_query(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
+                cont = s_common.guid()
                 props = {
                     'time': 200,
                     'text': 'hi there',
+                    'contact': cont,
                     'engine': 'roofroof',
                 }
                 iden = s_common.guid()
@@ -1886,6 +1888,7 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('time'), 200)
                 self.eq(node.get('text'), 'hi there')
                 self.eq(node.get('engine'), 'roofroof')
+                self.eq(node.get('contact'), cont)
                 props = {
                     'query': iden,
                     'url': 'http://hehehaha.com/',

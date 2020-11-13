@@ -1886,13 +1886,16 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The search query text.',
                             'disp': {'hint': 'text'},
                         }),
-
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'The contact that issued the query.',
+                        }),
                         ('time', ('time', {}), {
-                            'doc': 'The time the web search was issued.'}),
-
+                            'doc': 'The time the web search was issued.',
+                        }),
                         ('engine', ('str', {'lower': True}), {
                             'ex': 'google',
-                            'doc': 'A simple name for the search engine used.'}),
+                            'doc': 'A simple name for the search engine used.',
+                        }),
                     )),
 
                     ('inet:search:result', {}, (
