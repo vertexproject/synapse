@@ -858,6 +858,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.spawnpool = None
 
+        self.maxnodes = None
+        self.nodecount = 0
+        maxnodes = os.getenv('CORTEX_MAX_NODES')
+        if maxnodes:
+            self.maxnodes = int(maxnodes, 0)
+
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
 
@@ -2682,6 +2688,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.layers[layr.iden] = layr
         self.dynitems[layr.iden] = layr
+
+        if self.maxnodes:
+            counts = await layr.getFormCounts()
+            self.nodecount += sum(counts.values())
+            def onadd():
+                self.nodecount += 1
+            def ondel():
+                self.nodecount -= 1
+            layr.nodeAddHook = onadd
+            layr.nodeDelHook = ondel
 
         await self.auth.addAuthGate(layr.iden, 'layer')
 
