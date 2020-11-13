@@ -255,10 +255,9 @@ class Axon(s_cell.Cell):
         self.axonmetrics.setdefault('size:bytes', 0)
         self.axonmetrics.setdefault('file:count', 0)
 
-        self.maxbytes = None
-        self.maxcount = None
+        self.maxbytes = self.conf.get('max:bytes')
+        self.maxcount = self.conf.get('max:count')
 
-        self._initAxonLimits()
         self.addHealthFunc(self._axonHealth)
 
         # modularize blob storage
@@ -277,16 +276,6 @@ class Axon(s_cell.Cell):
             self.maxcount <= self.axonmetrics.get('file:count')):
             mesg = f'Axon is at file:count limit: {self.maxcount}'
             raise s_exc.HitLimit(mesg=mesg)
-
-    def _initAxonLimits(self):
-
-        maxcount = self.conf.get('max:count')
-        if maxcount is not None:
-            self.maxcount = maxcount
-
-        maxbytes = self.conf.get('max:bytes')
-        if maxbytes is not None:
-            self.maxbytes = maxbytes
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
