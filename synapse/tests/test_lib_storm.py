@@ -139,11 +139,13 @@ class StormTest(s_t_utils.SynTest):
 
             await core.loadStormPkg(pkg0)
 
-            with self.raises(s_exc.AuthDeny):
-                await core.nodes('yield $lib.import(foo.bar).lol()', opts=opts)
+            await core.nodes('$lib.import(foo.baz)', opts=opts)
 
             with self.raises(s_exc.AuthDeny):
-                await core.nodes('yield $lib.import(foo.baz).lol()', opts=opts)
+                await core.nodes('$lib.import(foo.bar)', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.import(foo.baz).lol()', opts=opts)
 
             await visi.addRule((True, ('storm', 'asroot', 'mod', 'foo', 'bar')))
             self.len(1, await core.nodes('yield $lib.import(foo.bar).lol()', opts=opts))
