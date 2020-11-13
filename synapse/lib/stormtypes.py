@@ -570,7 +570,16 @@ class LibBase(Lib):
         modconf = mdef.get('modconf')
 
         query = await self.runt.getStormQuery(text)
+
+        perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
+
+        asroot = self.runt.allowed(perm)
+        if mdef.get('asroot', False) and not asroot:
+            mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
+            raise s_exc.AuthDeny(mesg=mesg)
+
         modr = self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
+        modr.asroot = asroot
 
         async for item in modr.execute():
             await asyncio.sleep(0) # pragma: no cover

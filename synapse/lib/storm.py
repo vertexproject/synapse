@@ -1830,6 +1830,7 @@ class PureCmd(Cmd):
 
         name = self.getName()
         perm = ('storm', 'asroot', 'cmd') + tuple(name.split('.'))
+
         asroot = runt.allowed(perm)
         if self.asroot and not asroot:
             mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'

@@ -121,6 +121,36 @@ class StormTest(s_t_utils.SynTest):
             await visi.addRule((True, ('storm', 'asroot', 'cmd', 'asroot')))
             self.len(1, await core.nodes('asroot.not', opts=opts))
 
+            pkg0 = {
+                'name': 'foopkg',
+                'version': (0, 0, 1),
+                'modules': (
+                    {
+                        'name': 'foo.bar',
+                        'storm': 'function lol() { [ ou:org=* ] return($node.iden()) }',
+                        'asroot': True,
+                    },
+                    {
+                        'name': 'foo.baz',
+                        'storm': 'function lol() { [ ou:org=* ] return($node.iden()) }',
+                    },
+                )
+            }
+
+            await core.loadStormPkg(pkg0)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('yield $lib.import(foo.bar).lol()', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('yield $lib.import(foo.baz).lol()', opts=opts)
+
+            await visi.addRule((True, ('storm', 'asroot', 'mod', 'foo', 'bar')))
+            self.len(1, await core.nodes('yield $lib.import(foo.bar).lol()', opts=opts))
+
+            await visi.addRule((True, ('storm', 'asroot', 'mod', 'foo')))
+            self.len(1, await core.nodes('yield $lib.import(foo.baz).lol()', opts=opts))
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:
