@@ -1229,7 +1229,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _initSubscribers(self):
         subhive = await self.hive.open(('cortex', 'storm', 'subscribers'))
-        self.subdict = await subhive.dict()
+        self.subdict = await subhive.dict()  # form$[#tag][$prop] | #tag[$prop] | .univprop -> queue name
         self.allsubscribers = set(self.subdict.values())
 
     async def _onLayerWrite(self, mesg):
@@ -1282,7 +1282,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def addEditSubscriber(self, qname, *, form=None, tag=None, prop=None):
         '''
-        Cause mutations that match a particular set of conditions be written to a queue.
+        Cause data mutations for all layers that match a particular set of conditions be written to a queue.
 
         At least one of form, prop, tag must be set.  If form is set and tag and prop are None, all node add and del
         events for that form are captured.  If form is set and one of tag or prop is set, then modifications to that
@@ -1294,7 +1294,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         If form is None and tag and prop are set, then all tagprop sets and dels for that tag prop are captured.
 
         The event that is written is (layriden, buid, form, etyp, vals) where etyp is an integer from s_layer.EDIT*
-        and vals are etyp-specific and specified in the same place.
+        and vals are etyp-specific and documented in synapse/lib/layer.py.
+
+        Args:
+           qname (str): the name of the persistent multiqueue where events will be placed.  If it doesn't exist, it
+                        will be created.
+           form (Optional[str]): the name of a form.
+           tag (Optional[str]): the name of a tag.  It should not start with a #.
+           prop (Optional[str]): the name of a secondary or universal property.
+
+        Limitations:
+           Currently does not provide events for light edges and node data.
         '''
         if form is None and tag is None and prop is None:
             raise TypeError('At least one of form, tag, prop must be set')
