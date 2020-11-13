@@ -10,6 +10,14 @@ logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_utils.SynTest):
 
+    async def test_model_inet_basics(self):
+        async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[ inet:web:hashtag="#hehe" ]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:web:hashtag="foo" ]')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:web:hashtag="#foo bar" ]')
+
     async def test_ipv4_lift_range(self):
 
         async with self.getTestCore() as core:
@@ -1300,7 +1308,7 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests
             t = core.model.type(formname)
 
-            self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link/person1')
+            self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link,person1')
             enorm = ('vertex.link', 'person1')
             edata = {'subs': {'user': 'person1',
                               'site': 'vertex.link',
@@ -1316,10 +1324,12 @@ class InetModelTest(s_t_utils.SynTest):
                 'avatar': 'sha256:' + 64 * 'a',
                 'dob': -64836547200000,
                 'email': 'brutus@vertex.link',
+                'linked:accts': (('twitter.com', 'brutus'), ('linkedin.com', 'brutester'), ('linkedin.com', 'brutester')),
                 'latlong': '0,0',
                 'place': place,
                 'loc': 'sol',
                 'name': 'ካሳር',
+                'aliases': ('foo', 'bar', 'bar'),
                 'name:en': 'brutus',
                 'occupation': 'jurist',
                 'passwd': 'hunter2',
@@ -1340,6 +1350,8 @@ class InetModelTest(s_t_utils.SynTest):
                 'site': valu[0].lower(),
                 'user': valu[1].lower(),
                 'latlong': (0.0, 0.0),
+                'aliases': ('bar', 'foo'),
+                'linked:accts': (('linkedin.com', 'brutester'), ('twitter.com', 'brutus')),
                 'place': place,
                 'phone': '5555555555',
                 'realname': 'брут',
@@ -1352,6 +1364,8 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.eq(node.ndef, expected_ndef)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+            self.len(2, await core.nodes('inet:web:acct=(blogs.vertex.link, brutus) :linked:accts -> inet:web:acct'))
 
     async def test_web_action(self):
         formname = 'inet:web:action'
@@ -1446,6 +1460,7 @@ class InetModelTest(s_t_utils.SynTest):
         place = s_common.guid()
         input_props = {
             'name': 'The coolest group',
+            'aliases': ('foo', 'bar', 'bar'),
             'name:en': 'The coolest group (in english)',
             'url': 'https://vertex.link/CoolGroup',
             'avatar': 64 * 'f',
@@ -1461,6 +1476,7 @@ class InetModelTest(s_t_utils.SynTest):
             'site': valu[0],
             'id': valu[1],
             'name': 'The coolest group',
+            'aliases': ('bar', 'foo'),
             'name:en': 'The coolest group (in english)',
             'url': 'https://vertex.link/CoolGroup',
             'avatar': 'sha256:' + 64 * 'f',
@@ -1560,6 +1576,7 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_web_post(self):
         formname = 'inet:web:post'
         valu = 32 * 'a'
+        plac = s_common.guid()
         input_props = {
             'acct': ('vertex.link', 'vertexmc'),
             'text': 'my cooL POST',
@@ -1569,6 +1586,14 @@ class InetModelTest(s_t_utils.SynTest):
             'file': 64 * 'f',
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
+
+            'hashtags': '#foo,#bar,#foo',
+            'mentions:users': 'vertex.link/visi,vertex.link/whippit',
+            'mentions:groups': 'vertex.link/ninjas',
+
+            'loc': 'ru',
+            'place': plac,
+            'latlong': (20, 30),
         }
         expected_props = {
             'acct': ('vertex.link', 'vertexmc'),
@@ -1582,6 +1607,14 @@ class InetModelTest(s_t_utils.SynTest):
             'file': 'sha256:' + 64 * 'f',
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
+
+            'hashtags': ('#bar', '#foo'),
+            'mentions:users': (('vertex.link', 'visi'), ('vertex.link', 'whippit')),
+            'mentions:groups': (('vertex.link', 'ninjas'),),
+
+            'loc': 'ru',
+            'place': plac,
+            'latlong': (20, 30),
         }
 
         node2 = s_common.guid()
@@ -1599,6 +1632,7 @@ class InetModelTest(s_t_utils.SynTest):
 
                 node = await snap.addNode('inet:web:post', node2, props=inputs2)
                 self.checkNode(node, (('inet:web:post', node2), expected2))
+                self.len(2, await core.nodes('inet:web:post -> inet:web:hashtag'))
 
     async def test_whois_contact(self):
         formname = 'inet:whois:contact'

@@ -28,13 +28,16 @@ class PsModule(s_module.CoreModule):
                     'doc': 'A GUID for a person.',
                 }),
                 ('ps:persona', ('guid', {}), {
+                    'deprecated': True,
                     'doc': 'A GUID for a suspected person.',
                 }),
                 ('ps:person:has', ('comp', {'fields': (('person', 'ps:person'), ('node', 'ndef'))}), {
+                    'deprecated': True,
                     'doc': 'A person owns, controls, or has exclusive use of an object or'
                            ' resource, potentially during a specific period of time.'
                 }),
                 ('ps:persona:has', ('comp', {'fields': (('persona', 'ps:persona'), ('node', 'ndef'))}), {
+                    'deprecated': True,
                     'doc': 'A persona owns, controls, or has exclusive use of an object or'
                            ' resource, potentially during a specific period of time.'
                 }),
@@ -266,6 +269,9 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('web:acct', ('inet:web:acct', {}), {
                         'doc': 'The social media account for this contact.',
+                    }),
+                    ('web:group', ('inet:web:group', {}), {
+                        'doc': 'A web group representing this contact.',
                     }),
                     ('dob', ('time', {}), {
                         'doc': 'The date of birth for this contact.',
