@@ -2222,9 +2222,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             async for item in wind:
 
                 # Skip any edits we already sent
-                nexsindx = item['nexsindx']
+                _, mesg = item
+                nexsindx = mesg['nexsindx']
                 if nexsindx > lastoffs:
-                    yield (item['layer'], item['nexsindx'], item['edits'], item['meta'])
+                    yield (mesg['layer'], mesg['nexsindx'], mesg['edits'], mesg['meta'])
 
     async def spliceHistory(self, user):
         '''
