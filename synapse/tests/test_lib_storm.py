@@ -6,6 +6,7 @@ import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.storm as s_storm
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -91,6 +92,87 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('$x = $lib.null if ($x and $x > 20) { [ ps:contact=* ] }'))
             self.len(1, await core.nodes('$x = $lib.null if ($lib.true or $x > 20) { [ ps:contact=* ] }'))
+
+            visi = await core.auth.addUser('visi')
+            cmd0 = {
+                'name': 'asroot.not',
+                'storm': '[ ou:org=* ]',
+            }
+            cmd1 = {
+                'name': 'asroot.yep',
+                'storm': '[ it:dev:str=$lib.user.allowed(node.add.it:dev:str) ]',
+                'asroot': True,
+            }
+            await core.setStormCmd(cmd0)
+            await core.setStormCmd(cmd1)
+
+            opts = {'user': visi.iden}
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('asroot.not', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('asroot.yep', opts=opts)
+
+            await visi.addRule((True, ('storm', 'asroot', 'cmd', 'asroot', 'yep')))
+
+            nodes = await core.nodes('asroot.yep', opts=opts)
+            self.len(1, nodes)
+            self.eq('false', nodes[0].ndef[1])
+
+            await visi.addRule((True, ('storm', 'asroot', 'cmd', 'asroot')))
+            self.len(1, await core.nodes('asroot.not', opts=opts))
+
+            pkg0 = {
+                'name': 'foopkg',
+                'version': (0, 0, 1),
+                'modules': (
+                    {
+                        'name': 'foo.bar',
+                        'storm': '''
+                            function lol() {
+                                [ ou:org=* ]
+                                return($node.iden())
+                            }
+                            function dyncall() {
+                                return($lib.feed.list())
+                            }
+                            function dyniter() {
+                                for $item in $lib.queue.add(dyniter).gets(wait=$lib.false) {}
+                                return(woot)
+                            }
+                        ''',
+                        'asroot': True,
+                    },
+                    {
+                        'name': 'foo.baz',
+                        'storm': 'function lol() { [ ou:org=* ] return($node.iden()) }',
+                    },
+                )
+            }
+
+            await core.loadStormPkg(pkg0)
+
+            await core.nodes('$lib.import(foo.baz)', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.import(foo.bar)', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.import(foo.baz).lol()', opts=opts)
+
+            await visi.addRule((True, ('storm', 'asroot', 'mod', 'foo', 'bar')))
+            self.len(1, await core.nodes('yield $lib.import(foo.bar).lol()', opts=opts))
+
+            await visi.addRule((True, ('storm', 'asroot', 'mod', 'foo')))
+            self.len(1, await core.nodes('yield $lib.import(foo.baz).lol()', opts=opts))
+
+            # coverage for dyncall/dyniter with asroot...
+            await core.nodes('$lib.import(foo.bar).dyncall()', opts=opts)
+            await core.nodes('$lib.import(foo.bar).dyniter()', opts=opts)
+
+            self.eq(s_version.version, await core.callStorm('return($lib.version.synapse())'))
+            self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">=2.9.0"))'))
+            self.false(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">0.0.1,<2.0"))'))
 
     async def test_storm_tree(self):
 

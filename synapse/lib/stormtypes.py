@@ -22,6 +22,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 
@@ -189,10 +190,10 @@ class Lib(StormType):
         return ctor(self.runt, name=path)
 
     async def dyncall(self, iden, todo, gatekeys=()):
-        return await self.runt.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
+        return await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
-        async for item in self.runt.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
+        async for item in self.runt.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
 @registry.registerLib
@@ -570,7 +571,16 @@ class LibBase(Lib):
         modconf = mdef.get('modconf')
 
         query = await self.runt.getStormQuery(text)
+
+        perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
+
+        asroot = self.runt.allowed(perm)
+        if mdef.get('asroot', False) and not asroot:
+            mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
+            raise s_exc.AuthDeny(mesg=mesg)
+
         modr = self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
+        modr.asroot = asroot
 
         async for item in modr.execute():
             await asyncio.sleep(0) # pragma: no cover
@@ -2125,6 +2135,7 @@ class LibUser(Lib):
     def getObjLocals(self):
         return {
             'name': self._libUserName,
+            'allowed': self._libUserAllowed,
         }
 
     # Todo: Plumb vars and profile access via a @property, implement our own __init__
@@ -2144,6 +2155,17 @@ class LibUser(Lib):
             str: The name of the current user.
         '''
         return self.runt.user.name
+
+    async def _libUserAllowed(self, permname, gateiden=None):
+        '''
+        Return True/False if the current user has the given permission.
+        '''
+        permname = await toprim(permname)
+        gateiden = await tostr(gateiden, noneok=True)
+
+        perm = tuple(permname.split('.'))
+        todo = s_common.todo('isUserAllowed', self.runt.user.iden, perm, gateiden=gateiden)
+        return bool(await self.runt.dyncall('cortex', todo))
 
 @registry.registerLib
 class LibGlobals(Lib):
@@ -3044,11 +3066,13 @@ class LibView(Lib):
         Get a View from the Cortex.
 
         Args:
-            iden (str): The iden of the View to get. If not specified, returns the default View for the Cortex.
+            iden (str): The iden of the View to get. If not specified, returns the current View.
 
         Returns:
             View: A Storm View object.
         '''
+        if iden is None:
+            iden = self.runt.snap.view.iden
         todo = s_common.todo('getViewDef', iden)
         vdef = await self.runt.dyncall('cortex', todo)
         if vdef is None:

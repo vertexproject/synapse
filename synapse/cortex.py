@@ -43,10 +43,11 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.lib.stormlib.json as s_stormlib_json
+import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
+import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
 
 logger = logging.getLogger(__name__)
 
@@ -1029,7 +1030,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             todo.append(_type)
 
         if not todo:
-            mesg = f'setDeprLock() called on non-existant or non-deprecated form, property, or type.'
+            mesg = 'setDeprLock() called on non-existant or non-deprecated form, property, or type.'
             raise s_exc.NoSuchProp(name=name, mesg=mesg)
 
         self.deprlocks[name] = locked
@@ -3769,7 +3770,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Modify a cron job definition.
         '''
         appt = await self.agenda.get(iden)
-        #TODO make this generic and check cdef
+        # TODO make this generic and check cdef
 
         if name == 'name':
             await appt.setName(str(valu))
