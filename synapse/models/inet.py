@@ -1639,7 +1639,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The geo-political location string for the IPv4.'}),
 
                         ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place assocated with the latlong property.'}),
+                            'doc': 'The geo:place associated with the latlong property.'}),
 
                         ('type', ('str', {}), {
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
@@ -1660,7 +1660,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The last known latitude/longitude for the node.'}),
 
                         ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place assocated with the latlong property.'}),
+                            'doc': 'The geo:place associated with the latlong property.'}),
 
                         ('dns:rev', ('inet:fqdn', {}), {
                             'doc': 'The most current DNS reverse lookup for the IPv6.'}),
@@ -1934,7 +1934,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The last known latitude/longitude for the node.'
                         }),
                         ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place assocated with the latlong property.'
+                            'doc': 'The geo:place associated with the latlong property.'
                         }),
                         ('loc', ('loc', {}), {
                             'doc': 'A self-declared location for the account.'
@@ -2144,7 +2144,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The last known latitude/longitude for the node.'
                         }),
                         ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place assocated with the latlong property.'
+                            'doc': 'The geo:place associated with the latlong property.'
                         }),
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the group was created on the site.'
@@ -2568,7 +2568,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The type of encryption used by the WIFI AP such as "wpa2".',
                         }),
                         ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place assocated with the latlong property.'}),
+                            'doc': 'The geo:place associated with the latlong property.'}),
 
                         ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the wireless access point.'}),

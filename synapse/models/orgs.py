@@ -215,7 +215,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The assessed primary goal of the campaign.',
                     }),
                     ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Actors who participated in the campiagn.',
+                        'doc': 'Actors who participated in the campaign.',
                     }),
                     ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Additional assessed goals of the campaign.',
