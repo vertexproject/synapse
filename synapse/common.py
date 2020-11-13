@@ -826,7 +826,7 @@ async def merggenr(genrs, cmprkey):
 
             curv = curvs[i]
             if curv is novalu:
-                toremove.add(i)
+                toremove.append(i)
                 continue
 
             # in the case where we're the first, initialize...
