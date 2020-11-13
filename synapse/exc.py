@@ -118,6 +118,7 @@ class BadEccExchange(CryptoErr):
     ''' Raised when there is an issue doing a ECC Key Exchange '''
     pass
 
+class PathExists(SynErr): pass
 class DataAlreadyExists(SynErr):
     '''
     Cannot copy data to a location that already contains data
