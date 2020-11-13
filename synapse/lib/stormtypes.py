@@ -3065,11 +3065,13 @@ class LibView(Lib):
         Get a View from the Cortex.
 
         Args:
-            iden (str): The iden of the View to get. If not specified, returns the default View for the Cortex.
+            iden (str): The iden of the View to get. If not specified, returns the current View.
 
         Returns:
             View: A Storm View object.
         '''
+        if iden is None:
+            iden = self.runt.snap.view.iden
         todo = s_common.todo('getViewDef', iden)
         vdef = await self.runt.dyncall('cortex', todo)
         if vdef is None:
