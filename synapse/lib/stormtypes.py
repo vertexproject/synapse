@@ -22,6 +22,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 
@@ -189,10 +190,10 @@ class Lib(StormType):
         return ctor(self.runt, name=path)
 
     async def dyncall(self, iden, todo, gatekeys=()):
-        return await self.runt.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
+        return await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
-        async for item in self.runt.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
+        async for item in self.runt.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
 @registry.registerLib

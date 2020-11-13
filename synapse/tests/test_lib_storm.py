@@ -6,6 +6,7 @@ import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.storm as s_storm
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -127,7 +128,19 @@ class StormTest(s_t_utils.SynTest):
                 'modules': (
                     {
                         'name': 'foo.bar',
-                        'storm': 'function lol() { [ ou:org=* ] return($node.iden()) }',
+                        'storm': '''
+                            function lol() {
+                                [ ou:org=* ]
+                                return($node.iden())
+                            }
+                            function dyncall() {
+                                return($lib.feed.list())
+                            }
+                            function dyniter() {
+                                for $item in $lib.queue.add(dyniter).gets(wait=$lib.false) {}
+                                return(woot)
+                            }
+                        ''',
                         'asroot': True,
                     },
                     {
@@ -152,6 +165,12 @@ class StormTest(s_t_utils.SynTest):
 
             await visi.addRule((True, ('storm', 'asroot', 'mod', 'foo')))
             self.len(1, await core.nodes('yield $lib.import(foo.baz).lol()', opts=opts))
+
+            # coverage for dyncall/dyniter with asroot...
+            await core.nodes('$lib.import(foo.bar).dyncall()', opts=opts)
+            await core.nodes('$lib.import(foo.bar).dyniter()', opts=opts)
+
+            self.eq(s_version.version, await core.callStorm('return($lib.version.synapse())'))
 
     async def test_storm_tree(self):
 
