@@ -41,7 +41,11 @@ class MediaModule(s_module.CoreModule):
                 }),
                 ('author', ('ps:name', {}), {
                     'doc': 'The free-form author of the news.',
+                    'deprecated': True,
                     'ex': 'stark,anthony'
+                }),
+                ('authors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of authors of the news item.',
                 }),
                 ('rss:feed', ('inet:url', {}), {
                     'doc': 'The RSS feed that published the news.',

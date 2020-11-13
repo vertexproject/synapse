@@ -42,6 +42,7 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.stormlib.json as s_stormlib_json
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
