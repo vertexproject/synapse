@@ -96,6 +96,7 @@ class PsModelTest(s_t_utils.SynTest):
                     # 'img': '',  # fixme file:bytes
                     'user': 'ironman',
                     'web:acct': ('twitter.com', 'ironman'),
+                    'web:group': ('twitter.com', 'avengers'),
                     'dob': '1976-12-17',
                     'dod': '20501217',
                     'url': 'https://starkindustries.com/',
@@ -119,6 +120,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('orgname'), 'stark industries, inc')
                 self.eq(node.get('user'), 'ironman')
                 self.eq(node.get('web:acct'), ('twitter.com', 'ironman'))
+                self.eq(node.get('web:group'), ('twitter.com', 'avengers'))
                 self.eq(node.get('dob'), 219628800000)
                 self.eq(node.get('dod'), 2554848000000)
                 self.eq(node.get('url'), 'https://starkindustries.com/')

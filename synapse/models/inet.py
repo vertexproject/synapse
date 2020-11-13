@@ -1093,9 +1093,9 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A single result from a web search.',
                     }),
 
-                    ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user'))}), {
+                    ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user')), 'sepr': '/'}), {
                         'doc': 'An account with a given Internet-based site or service.',
-                        'ex': '(twitter.com, invisig0th)'
+                        'ex': 'twitter.com/invisig0th'
                     }),
 
                     ('inet:web:action', ('guid', {}), {
@@ -1115,9 +1115,9 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A web account follows or is connected to another web account.'
                     }),
 
-                    ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group'))}), {
+                    ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group')), 'sepr': '/'}), {
                         'doc': 'A group hosted within or registered with a given Internet-based site or service.',
-                        'ex': '(somesite.com, mycoolgroup)'
+                        'ex': 'somesite.com/mycoolgroup'
                     }),
 
                     ('inet:web:logon', ('guid', {}), {
@@ -1135,6 +1135,9 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
+                    }),
+                    ('inet:web:hashtag', ('str', {'lower': True, 'regex': r'^#[\w]+$'}), {
+                        'doc': 'A hashtag used in a web post.',
                     }),
 
                     ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
@@ -1636,7 +1639,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The geo-political location string for the IPv4.'}),
 
                         ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place assocated with the latlong property.'}),
+                            'doc': 'The geo:place associated with the latlong property.'}),
 
                         ('type', ('str', {}), {
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
@@ -1657,7 +1660,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The last known latitude/longitude for the node.'}),
 
                         ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place assocated with the latlong property.'}),
+                            'doc': 'The geo:place associated with the latlong property.'}),
 
                         ('dns:rev', ('inet:fqdn', {}), {
                             'doc': 'The most current DNS reverse lookup for the IPv6.'}),
@@ -1924,11 +1927,14 @@ class InetModule(s_module.CoreModule):
                         ('email', ('inet:email', {}), {
                             'doc': 'The email address associated with the account.'
                         }),
+                        ('linked:accts', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True}), {
+                            'doc': 'Linked accounts specified in the account profile.',
+                        }),
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node.'
                         }),
                         ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place assocated with the latlong property.'
+                            'doc': 'The geo:place associated with the latlong property.'
                         }),
                         ('loc', ('loc', {}), {
                             'doc': 'A self-declared location for the account.'
@@ -1940,6 +1946,9 @@ class InetModule(s_module.CoreModule):
                         ('name:en', ('inet:user', {}), {
                             'doc': 'The English version of the name associated with the (may be different from '
                                    'the account identifier, e.g., a display name).',
+                        }),
+                        ('aliases', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of alternate names for the user.',
                         }),
                         ('occupation', ('str', {'lower': True}), {
                             'doc': 'A self-declared occupation for the account.'
@@ -2109,6 +2118,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The localized name associated with the group (may be different from '
                                    'the account identifier, e.g., a display name).'
                         }),
+                        ('aliases', ('array', {'type': 'inet:group', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of alternate names for the group.',
+                        }),
                         ('name:en', ('inet:group', {}), {
                             'doc': 'The English version of the name associated with the group (may be different '
                                    'from the localized name).'
@@ -2132,7 +2144,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The last known latitude/longitude for the node.'
                         }),
                         ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place assocated with the latlong property.'
+                            'doc': 'The geo:place associated with the latlong property.'
                         }),
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the group was created on the site.'
@@ -2269,7 +2281,29 @@ class InetModule(s_module.CoreModule):
                         ('repost', ('inet:web:post', {}), {
                             'doc': 'The original post that this is a repost of.'
                         }),
+                        ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
+                            'doc': 'Hashtags mentioned within the post.',
+                        }),
+                        ('mentions:users', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True, 'split': ','}), {
+                            'doc': 'Accounts mentioned within the post.',
+                        }),
+                        ('mentions:groups', ('array', {'type': 'inet:web:group', 'uniq': True, 'sorted': True, 'split': ','}), {
+                            'doc': 'Groups mentioned within the post.',
+                        }),
+                        # location protocol...
+                        ('loc', ('loc', {}), {
+                            'doc': 'The location that the post was reportedly sent from.',
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place that the post was reportedly sent from.',
+                        }),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The place that the post was reportedly sent from.',
+                        }),
+
                     )),
+
+                    ('inet:web:hashtag', {}, ()),
 
                     ('inet:whois:contact', {}, (
                         ('rec', ('inet:whois:rec', {}), {
@@ -2534,7 +2568,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The type of encryption used by the WIFI AP such as "wpa2".',
                         }),
                         ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place assocated with the latlong property.'}),
+                            'doc': 'The geo:place associated with the latlong property.'}),
 
                         ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the wireless access point.'}),
