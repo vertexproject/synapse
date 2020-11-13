@@ -568,6 +568,10 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_http_request(self):
         formname = 'inet:http:request'
+
+        client = s_common.guid()
+        server = s_common.guid()
+
         input_props = {
             'time': '2015',
             'flow': 32 * 'f',
@@ -581,7 +585,9 @@ class InetModelTest(s_t_utils.SynTest):
             'response:code': 200,
             'response:reason': 'OK',
             'response:headers': (('baz', 'faz'),),
-            'response:body': 64 * 'b'
+            'response:body': 64 * 'b',
+            'client:host': client,
+            'server:host': server,
         }
         expected_props = {
             'time': 1420070400000,
@@ -595,6 +601,10 @@ class InetModelTest(s_t_utils.SynTest):
 
             'server:port': 443,
             'server:ipv4': 0x05050505,
+
+            'client:host': client,
+            'server:host': server,
+
             'headers': (('foo', 'bar'),),
 
             'response:code': 200,
@@ -1876,19 +1886,21 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_search_query(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                cont = s_common.guid()
+                host = s_common.guid()
                 props = {
                     'time': 200,
                     'text': 'hi there',
-                    'contact': cont,
                     'engine': 'roofroof',
+                    'host': host,
+                    'acct': 'vertex.link/visi',
                 }
                 iden = s_common.guid()
                 node = await snap.addNode('inet:search:query', iden, props=props)
                 self.eq(node.get('time'), 200)
                 self.eq(node.get('text'), 'hi there')
                 self.eq(node.get('engine'), 'roofroof')
-                self.eq(node.get('contact'), cont)
+                self.eq(node.get('host'), host)
+                self.eq(node.get('acct'), ('vertex.link', 'visi'))
                 props = {
                     'query': iden,
                     'url': 'http://hehehaha.com/',
