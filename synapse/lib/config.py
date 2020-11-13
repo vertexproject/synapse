@@ -161,6 +161,9 @@ class Config(c_abc.MutableMapping):
             if conf.get('hideconf'):
                 continue
 
+            if conf.get('hidecmdl'):
+                continue
+
             typename = conf.get('type')
             # only allow single-typed values to have command line arguments
             if not isinstance(typename, str):

@@ -220,6 +220,21 @@ class Axon(s_cell.Cell):
 
     cellapi = AxonApi
 
+    confdefs = {
+        'max:bytes': {
+            'description': 'The maximum number of bytes that can be stored in the Axon.',
+            'type': 'integer',
+            'minimum': 1,
+            'hidecmdl': True,
+        },
+        'max:count': {
+            'description': 'The maximum number of files that can be stored in the Axon.',
+            'type': 'integer',
+            'minimum': 1,
+            'hidecmdl': True,
+        }
+    }
+
     async def __anit__(self, dirn, conf=None):  # type: ignore
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
@@ -240,6 +255,9 @@ class Axon(s_cell.Cell):
         self.axonmetrics = await node.dict()
         self.axonmetrics.setdefault('size:bytes', 0)
         self.axonmetrics.setdefault('file:count', 0)
+
+        self.maxbytes = None
+        self.maxcount = None
 
         self._initAxonLimits()
         self.addHealthFunc(self._axonHealth)
@@ -263,16 +281,13 @@ class Axon(s_cell.Cell):
 
     def _initAxonLimits(self):
 
-        self.maxbytes = None
-        self.maxcount = None
-
-        maxcount = os.getenv('AXON_MAX_COUNT')
+        maxcount = self.conf.get('max:count')
         if maxcount is not None:
-            self.maxcount = int(maxcount, 0)
+            self.maxcount = maxcount
 
-        maxbytes = os.getenv('AXON_MAX_BYTES')
+        maxbytes = self.conf.get('max:bytes')
         if maxbytes is not None:
-            self.maxbytes = int(maxbytes, 0)
+            self.maxbytes = maxbytes
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())

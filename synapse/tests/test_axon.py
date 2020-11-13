@@ -347,18 +347,16 @@ class AxonTest(s_t_utils.SynTest):
 
     async def test_axon_limits(self):
 
-        with self.setTstEnvars(AXON_MAX_COUNT=10):
-            async with self.getTestAxon() as axon:
-                for i in range(10):
-                    await axon.put(s_common.buid())
+        async with self.getTestAxon(conf={'max:count': 10}) as axon:
+            for i in range(10):
+                await axon.put(s_common.buid())
 
-                with self.raises(s_exc.HitLimit):
-                    await axon.put(s_common.buid())
+            with self.raises(s_exc.HitLimit):
+                await axon.put(s_common.buid())
 
-        with self.setTstEnvars(AXON_MAX_BYTES=320):
-            async with self.getTestAxon() as axon:
-                for i in range(10):
-                    await axon.put(s_common.buid())
+        async with self.getTestAxon(conf={'max:bytes': 320}) as axon:
+            for i in range(10):
+                await axon.put(s_common.buid())
 
-                with self.raises(s_exc.HitLimit):
-                    await axon.put(s_common.buid())
+            with self.raises(s_exc.HitLimit):
+                await axon.put(s_common.buid())
