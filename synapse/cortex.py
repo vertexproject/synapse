@@ -1236,9 +1236,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Called when a layer is written
         '''
-        mesg = mesg[1]
-        layriden = mesg['layer']
-        nodeedits = mesg['edits']
+        layriden = mesg[1]['layer']
+        nodeedits = mesg[1]['edits']
 
         for buid, form, edits in nodeedits:
             for etyp, vals, _ in edits:
@@ -1270,7 +1269,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Inform subscribers about new layer
         '''
         for queue in self.allsubscribers:
-            msg = ('layer:add', layr.iden)
+            msg = (s_layer.EDIT_LAYR_ADD, (layr.iden,), ())
             await self.multiqueue.put(queue, msg)
 
     async def _notifyLayerDel(self, layr):
@@ -1278,7 +1277,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Inform subscribers about layer deletion
         '''
         for queue in self.allsubscribers:
-            msg = ('layer:del', layr.iden)
+            msg = (s_layer.EDIT_LAYR_DEL, (layr.iden,), ())
             await self.multiqueue.put(queue, msg)
 
     async def addEditSubscriber(self, qname, *, form=None, tag=None, prop=None):

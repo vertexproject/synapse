@@ -4805,7 +4805,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             layriden = layr['iden']
             await core.delLayer(layriden)
             items = await alist(core.coreQueueGets('foo'))
-            self.eq(items[0], (0, ('layer:add', layriden)), (1, ('layer:del', layriden)))
+            self.eq(items, ((0, (s_layer.EDIT_LAYR_ADD, (layriden,), ())),
+                            (1, (s_layer.EDIT_LAYR_DEL, (layriden,), ()))))
             await core.coreQueueCull('foo', 1)
 
             # Watch for a new node
