@@ -807,6 +807,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable provenance tracking for all writes.',
             'type': 'boolean'
         },
+        'max:nodes': {
+            'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
+            'type': 'integer',
+            'minimum': 1,
+            'hidecmdl': True,
+        },
         'modules': {
             'default': [],
             'description': 'A list of module classes to load.',
@@ -858,11 +864,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.spawnpool = None
 
-        self.maxnodes = None
+        self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
-        maxnodes = os.getenv('CORTEX_MAX_NODES')
-        if maxnodes:
-            self.maxnodes = int(maxnodes, 0)
 
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
