@@ -2125,6 +2125,7 @@ class LibUser(Lib):
     def getObjLocals(self):
         return {
             'name': self._libUserName,
+            'allowed': self._libUserAllowed,
         }
 
     # Todo: Plumb vars and profile access via a @property, implement our own __init__
@@ -2144,6 +2145,17 @@ class LibUser(Lib):
             str: The name of the current user.
         '''
         return self.runt.user.name
+
+    async def _libUserAllowed(self, permname, gateiden=None):
+        '''
+        Return True/False if the current user has the given permission.
+        '''
+        permname = await toprim(permname)
+        gateiden = await tostr(gateiden, noneok=True)
+
+        perm = tuple(permname.split('.'))
+        todo = s_common.todo('isUserAllowed', self.runt.user.iden, perm, gateiden=gateiden)
+        return bool(await self.runt.dyncall('cortex', todo))
 
 @registry.registerLib
 class LibGlobals(Lib):

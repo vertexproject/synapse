@@ -92,6 +92,35 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('$x = $lib.null if ($x and $x > 20) { [ ps:contact=* ] }'))
             self.len(1, await core.nodes('$x = $lib.null if ($lib.true or $x > 20) { [ ps:contact=* ] }'))
 
+            visi = await core.auth.addUser('visi')
+            cmd0 = {
+                'name': 'asroot.not',
+                'storm': '[ ou:org=* ]',
+            }
+            cmd1 = {
+                'name': 'asroot.yep',
+                'storm': '[ it:dev:str=$lib.user.allowed(node.add.it:dev:str) ]',
+                'asroot': True,
+            }
+            await core.setStormCmd(cmd0)
+            await core.setStormCmd(cmd1)
+
+            opts = {'user': visi.iden}
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('asroot.not', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('asroot.yep', opts=opts)
+
+            await visi.addRule((True, ('storm', 'asroot', 'cmd', 'asroot', 'yep')))
+
+            nodes = await core.nodes('asroot.yep', opts=opts)
+            self.len(1, nodes)
+            self.eq('false', nodes[0].ndef[1])
+
+            await visi.addRule((True, ('storm', 'asroot', 'cmd', 'asroot')))
+            self.len(1, await core.nodes('asroot.not', opts=opts))
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:

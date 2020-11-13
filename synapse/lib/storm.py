@@ -1120,6 +1120,7 @@ class Runtime:
         self.opts = opts
         self.snap = snap
         self.user = user
+        self.asroot = False
 
         self.root = root
         self.funcscope = False
@@ -1158,9 +1159,15 @@ class Runtime:
         self._loadRuntVars(query)
 
     async def dyncall(self, iden, todo, gatekeys=()):
+        #bypass all perms checks if we are running asroot
+        if self.asroot:
+            gatekeys = ()
         return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
+        #bypass all perms checks if we are running asroot
+        if self.asroot:
+            gatekeys = ()
         async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
@@ -1171,6 +1178,9 @@ class Runtime:
         gatekeys = ()
         if perm is not None:
             gatekeys = ((self.user.iden, perm, None),)
+        #bypass all perms checks if we are running asroot
+        if self.asroot:
+            gatekeys = ()
         return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def getTeleProxy(self, url, **opts):
@@ -1282,6 +1292,8 @@ class Runtime:
                 yield node, self.initPath(node)
 
     def layerConfirm(self, perms):
+        if self.asroot:
+            return
         iden = self.snap.wlyr.iden
         return self.user.confirm(perms, gateiden=iden)
 
@@ -1290,7 +1302,14 @@ class Runtime:
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
 
         '''
+        if self.asroot:
+            return
         return self.user.confirm(perms, gateiden=gateiden)
+
+    def allowed(self, perms, gateiden=None):
+        if self.asroot:
+            return True
+        return self.user.allowed(perms, gateiden=gateiden)
 
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -1327,6 +1346,7 @@ class Runtime:
                 snap = await view.snap(self.user)
 
         runt = Runtime(query, snap, user=self.user, opts=opts, root=self)
+        runt.asroot = self.asroot
         runt.readonly = self.readonly
 
         yield runt
@@ -1337,6 +1357,7 @@ class Runtime:
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
         runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt.asroot = self.asroot
         runt.readonly = self.readonly
         yield runt
 
@@ -1345,6 +1366,7 @@ class Runtime:
         Construct a non-context managed runtime for use in module imports.
         '''
         runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt.asroot = self.asroot
         runt.readonly = self.readonly
         return runt
 
@@ -1690,6 +1712,7 @@ class Cmd:
     name = 'cmd'
     pkgname = ''
     svciden = ''
+    asroot = False
     readonly = False
     forms = {}  # type: ignore
 
@@ -1789,6 +1812,7 @@ class PureCmd(Cmd):
     def __init__(self, cdef, runt, runtsafe):
         self.cdef = cdef
         Cmd.__init__(self, runt, runtsafe)
+        self.asroot = cdef.get('asroot', False)
 
     def getDescr(self):
         return self.cdef.get('descr', 'no documentation provided')
@@ -1803,6 +1827,13 @@ class PureCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
+        name = self.getName()
+        perm = ('storm', 'asroot', 'cmd') + tuple(name.split('.'))
+        asroot = runt.allowed(perm)
+        if self.asroot and not asroot:
+            mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
+            raise s_exc.AuthDeny(mesg=mesg)
 
         text = self.cdef.get('storm')
         query = runt.snap.core.getStormQuery(text)
@@ -1822,6 +1853,7 @@ class PureCmd(Cmd):
                 yield xnode, xpath
 
         with runt.getCmdRuntime(query, opts=opts) as subr:
+            subr.asroot = asroot
             async for node, path in subr.execute(genr=genx()):
                 path.finiframe()
                 yield node, path
