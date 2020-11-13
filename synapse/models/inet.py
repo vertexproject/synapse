@@ -1137,7 +1137,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A post made by a web account.'
                     }),
                     ('inet:web:hashtag', ('str', {'lower': True, 'regex': r'^#[\w]+$'}), {
-                        'doc': 'A hashtag being used in web posts.',
+                        'doc': 'A hashtag used in a web post.',
                     }),
 
                     ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
@@ -2282,7 +2282,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The original post that this is a repost of.'
                         }),
                         ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
-                            'doc': 'Hash tags mentioned within the post.',
+                            'doc': 'Hashtags mentioned within the post.',
                         }),
                         ('mentions:users', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True, 'split': ','}), {
                             'doc': 'Accounts mentioned within the post.',
