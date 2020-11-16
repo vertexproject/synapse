@@ -610,6 +610,10 @@ class Snap(s_base.Base):
             else:
                 yield (buid, f.name, edits)
 
+        if self.core.maxnodes is not None and self.core.maxnodes <= self.core.nodecount:
+            mesg = f'Cortex is at node:count limit: {self.core.maxnodes}'
+            raise s_exc.HitLimit(mesg=mesg)
+
         if props is None:
             props = {}
 

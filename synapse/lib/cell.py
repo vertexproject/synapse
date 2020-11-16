@@ -1319,7 +1319,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Notes:
             Boot time configuration data is placed in the argument group called ``config``.
             This adds default ``dirn``, ``--telepath``, ``--https`` and ``--name`` arguements to the argparser instance.
-            Configuration values which have the ``hideconf`` value set to True are not added to the argparser instance.
+            Configuration values which have the ``hideconf`` or ``hidecmdl`` value set to True are not added to the
+            argparser instance.
 
         Returns:
             argparse.ArgumentParser: A ArgumentParser for the Cell.
