@@ -7,6 +7,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.storm as s_storm
 import synapse.lib.version as s_version
+import synapse.lib.httpapi as s_httpapi
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -173,6 +174,40 @@ class StormTest(s_t_utils.SynTest):
             self.eq(s_version.version, await core.callStorm('return($lib.version.synapse())'))
             self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">=2.9.0"))'))
             self.false(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">0.0.1,<2.0"))'))
+
+    async def test_storm_pkg_load(self):
+        pkg = {
+            'name': 'testload',
+            'version': (0, 3, 0),
+            'modules': (
+                {
+                    'name': 'testload',
+                    'storm': 'function x() { return((0)) }',
+                },
+            ),
+        }
+        class PkgHandler(s_httpapi.Handler):
+
+            async def get(self, name):
+
+                if name == 'notok':
+                    self.sendRestErr('FooBar', 'baz faz')
+                    return
+
+                self.sendRestRetn(pkg)
+
+        async with self.getTestCore() as core:
+            core.addHttpApi('/api/v1/pkgtest/(.*)', PkgHandler, {'cell': core})
+            port = (await core.addHttpsPort(0, host='127.0.0.1'))[1]
+
+            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/newp/newp')
+            self.stormIsInWarn('pkg.load got HTTP code: 404', msgs)
+
+            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
+            self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
+
+            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
+            self.stormIsInPrint('testload @0.3.0', msgs)
 
     async def test_storm_tree(self):
 

@@ -434,6 +434,47 @@ stormcmds = (
         '''
     },
     {
+        'name': 'pkg.load',
+        'descr': 'Load a storm package from an HTTP URL.',
+        'cmdargs': (
+            ('url', {'help': 'The HTTP URL to load the package from.'}),
+            ('--ssl-noverify', {'default': False, 'action': 'store_true',
+                'help': 'Specify to disable SSL verification of the server.'}),
+        ),
+        'storm': '''
+            init {
+                $ssl = $lib.true
+                if $cmdopts.ssl_noverify { $ssl = $lib.false }
+
+                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl)
+
+                if ($resp.code != 200) {
+                    $lib.warn("pkg.load got HTTP code: {code} for URL: {url}", code=$resp.code, url=$cmdopts.url)
+                    $lib.exit()
+                }
+
+                $reply = $resp.json()
+                if ($reply.status != "ok") {
+                    $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
+                    $lib.exit()
+                }
+
+                $pkg = $reply.result
+
+                $pkg.url = $cmdopts.url
+                $pkg.loaded = $lib.cast(time, now)
+
+                $lib.pkg.add($pkg)
+
+                $maj = $pkg.version.index(0)
+                $min = $pkg.version.index(1)
+                $rev = $pkg.version.index(2)
+
+                $lib.print("Loaded Package: {name} @{maj}.{min}.{rev}", name=$pkg.name, maj=$maj, min=$min, rev=$rev)
+            }
+        ''',
+    },
+    {
         'name': 'view.add',
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
