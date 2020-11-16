@@ -2532,7 +2532,8 @@ class BackgroundCmd(Cmd):
 
         core = self.runt.snap.core
         user = core._userFromOpts(opts)
-        info = {'query': str(query), 'opts': opts,
+        info = {'query': query.text,
+                'opts': opts,
                 'background': True}
 
         await core.boss.promote('storm', user=user, info=info)
