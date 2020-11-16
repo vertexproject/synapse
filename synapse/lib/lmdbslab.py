@@ -1195,11 +1195,13 @@ class Slab(s_base.Base):
 
                 yield item
 
-    def scanByPref(self, byts, db=None):
+    def scanByPref(self, byts, startvalu=None, db=None):
+        if startvalu is None:
+            startvalu = b''
 
         with Scan(self, db) as scan:
 
-            if not scan.set_range(byts):
+            if not scan.set_range(byts + startvalu):
                 return
 
             size = len(byts)

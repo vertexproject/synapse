@@ -573,36 +573,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.true('inet:dns:a' in [n[0][0] for n in nodes])
 
-    async def test_cortex_iter_props(self):
-
-        async with self.getTestCore() as core:
-
-            async with await core.snap() as snap:
-
-                props = {'asn': 10, '.seen': '2016'}
-                node = await snap.addNode('inet:ipv4', 0x01020304, props=props)
-                self.eq(node.get('asn'), 10)
-
-                props = {'asn': 20, '.seen': '2015'}
-                node = await snap.addNode('inet:ipv4', 0x05050505, props=props)
-                self.eq(node.get('asn'), 20)
-
-            # rows are (buid, valu) tuples
-            layr = core.view.layers[0]
-            rows = await alist(layr.iterPropRows('inet:ipv4', 'asn'))
-
-            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
-
-            # rows are (buid, valu) tuples
-            rows = await alist(layr.iterUnivRows('.seen'))
-
-            ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
-            self.eq(ivals, tuple(sorted([row[1] for row in rows])))
-
-            # test iterFormRows as well
-            rows = await alist(layr.iterFormRows('inet:ipv4'))
-            self.eq((0x01020304, 0x05050505), tuple(sorted([row[1] for row in rows])))
-
     async def test_cortex_lift_regex(self):
 
         async with self.getTestCore() as core:
@@ -4774,7 +4744,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
                 view = core.view
-                NKIDS = 20
+                NKIDS = 21
                 for _ in range(NKIDS):
                     await view.fork()
 

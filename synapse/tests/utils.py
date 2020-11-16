@@ -21,6 +21,7 @@ import io
 import os
 import sys
 import copy
+import math
 import types
 import shutil
 import asyncio
@@ -1478,6 +1479,16 @@ class SynTest(unittest.TestCase):
             y = tuple(y)
 
         self.assertEqual(x, y, msg=msg)
+
+    def eqOrNan(self, x, y, msg=None):
+        '''
+        Assert X is equal to Y or they are both NaN (needed since NaN != NaN)
+        '''
+        if math.isnan(x):
+            self.assertTrue(math.isnan(y), msg=msg)
+            return
+
+        self.eq(x, y, msg=msg)
 
     def eqish(self, x, y, places=6, msg=None):
         '''

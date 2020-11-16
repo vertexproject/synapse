@@ -1,7 +1,6 @@
 import os
 import math
 import asyncio
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -22,18 +21,6 @@ async def iterPropForm(self, form=None, prop=None):
     bad_valu += [(b'boz', 'boz')] * 10
     for buid, valu in bad_valu:
         yield buid, valu
-
-@contextlib.contextmanager
-def patch_snap(snap):
-    old_layr = []
-    for layr in snap.layers:
-        old_layr.append((layr.iterPropRows, layr.iterUnivRows))
-        layr.iterPropRows, layr.iterUnivRows = (iterPropForm,) * 2
-
-    yield
-
-    for layr_idx, layr in enumerate(snap.layers):
-        layr.iterPropRows, layr.iterUnivRows = old_layr[layr_idx]
 
 class LayerTest(s_t_utils.SynTest):
 
@@ -517,6 +504,54 @@ class LayerTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(url) as layrprox:
                 await self.agenlen(26, layrprox.splices())
 
+    async def test_layer_stortype_hier(self):
+        stor = s_layer.StorTypeHier(None, None)
+
+        vals = ['', 'foo', 'foo.bar']
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
+    async def test_layer_stortype_ipv6(self):
+        stor = s_layer.StorTypeIpv6(None)
+
+        vals = ('::1', 'fe80::431c:39b2:888:974')
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
+    async def test_layer_stortype_int(self):
+        stor = s_layer.StorTypeInt(self, 0, 8, True)
+
+        vals = (-9999, 0, 99999999)
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
+    async def test_layer_stortype_hugenum(self):
+        stor = s_layer.StorTypeHugeNum(self, None)
+
+        vals = [-99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, 2**63 + 1.1]
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eqish(valu, stor.decodeIndx(indx[0]), places=3)
+
+    async def test_layer_stortype_ival(self):
+        stor = s_layer.StorTypeIval(self)
+
+        vals = [(2000, 2020), (1960, 1970)]
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
+    async def test_layer_stortype_latlon(self):
+        stor = s_layer.StorTypeLatLon(self)
+
+        vals = [(0.0, 0.0), (89.2, -140.2)]
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
     async def test_layer_stortype_float(self):
         async with self.getTestCore() as core:
 
@@ -531,6 +566,7 @@ class LayerTest(s_t_utils.SynTest):
 
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
                 layr.layrslab.put(key[0], val, db=tmpdb)
+                self.eqOrNan(s_msgpack.un(val), stor.decodeIndx(key[0]))
 
             # = -99999.9
             retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', -99999.9)]
@@ -596,6 +632,14 @@ class LayerTest(s_t_utils.SynTest):
 
             # 1.0 to NaN
             await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, 'range=', (1.0, math.nan)))
+
+    async def test_layer_stortype_guid(self):
+        stor = s_layer.StorTypeGuid(self, None)
+
+        vals = (s_common.guid(valu=42), '0' * 32, 'f' * 32)
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
 
     async def test_layer_stortype_merge(self):
 
@@ -808,9 +852,9 @@ class LayerTest(s_t_utils.SynTest):
                             await asyncio.sleep(0)
 
                     async def doEdit():
-                        await core1.nodes(f'sleep 1 | [ test:str=endofquery ]')
+                        await core1.nodes('sleep 1 | [ test:str=endofquery ]')
 
-                    task = core1.schedCoro(doEdit())
+                    core1.schedCoro(doEdit())
                     await asyncio.wait_for(waitForEdit(), timeout=6)
 
     async def test_layer_form_by_buid(self):
@@ -1020,3 +1064,40 @@ class LayerTest(s_t_utils.SynTest):
             s_layer.reqValidLdef(layrinfo)
             layr = await s_layer.Layer.anit(layrinfo, dirn)
             self.true(layr.logedits)
+
+    async def test_layer_iter_props(self):
+
+        async with self.getTestCore() as core:
+
+            async with await core.snap() as snap:
+
+                props = {'asn': 10, '.seen': '2016'}
+                node = await snap.addNode('inet:ipv4', 0x01020304, props=props)
+                self.eq(node.get('asn'), 10)
+
+                props = {'asn': 20, '.seen': '2015'}
+                node = await snap.addNode('inet:ipv4', 0x05050505, props=props)
+                self.eq(node.get('asn'), 20)
+
+            # rows are (buid, valu) tuples
+            layr = core.view.layers[0]
+            rows = await alist(layr.iterPropRows('inet:ipv4', 'asn'))
+
+            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
+
+            styp = core.model.form('inet:ipv4').prop('asn').type.stortype
+            rows = await alist(layr.iterPropRows('inet:ipv4', 'asn', styp))
+            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
+
+            rows = await alist(layr.iterPropRows('inet:ipv4', 'asn', styp))
+            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
+
+            # rows are (buid, valu) tuples
+            rows = await alist(layr.iterUnivRows('.seen'))
+
+            ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
+            self.eq(ivals, tuple(sorted([row[1] for row in rows])))
+
+            # iterFormRows
+            rows = await alist(layr.iterFormRows('inet:ipv4'))
+            self.eq((0x01020304, 0x05050505), tuple(sorted([row[1] for row in rows])))

@@ -760,6 +760,10 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('globals', 'set', name))
         return await self.cell.setStormVar(name, valu)
 
+    async def addEditSubscriber(self, qname, *, form=None, tag=None, prop=None):
+        self.user.confirm(('editsubscriber', 'add'))
+        return await self.cell.addEditSubscriber(qname, form=form, tag=tag, prop=prop)
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
