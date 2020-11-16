@@ -436,7 +436,7 @@ commands:
           command: |
             docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH} -m synapse.servers.cortex --help
             dstatus00=$?
-            if [ $dstatus00 != "0" ]; then exit 1; f
+            if [ $dstatus00 != "0" ]; then exit 1; fi
             docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH}-py37 -m synapse.servers.cortex --help
             dstatus01=$?
             if [ $dstatus01 != "0" ]; then exit 1; fi
