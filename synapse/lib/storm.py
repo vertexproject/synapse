@@ -17,6 +17,7 @@ import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -2532,7 +2533,8 @@ class BackgroundCmd(Cmd):
 
         core = self.runt.snap.core
         user = core._userFromOpts(opts)
-        info = {'query': str(query), 'opts': opts,
+        info = {'query': query.text,
+                'opts': opts,
                 'background': True}
 
         await core.boss.promote('storm', user=user, info=info)
@@ -2550,10 +2552,13 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
+        runtprims = await s_stormtypes.toprim(self.runt.vars)
+        runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
+
         opts = {
             'user': runt.user.iden,
             'view': runt.snap.view.iden,
-            'vars': dict(runt.vars),
+            'vars': runtvars,
         }
 
         query = await runt.getStormQuery(self.opts.query)
