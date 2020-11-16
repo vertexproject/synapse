@@ -222,6 +222,7 @@ class SlabAlreadyOpen(SynErr): pass
 class SpawnExit(SynErr): pass
 class FeatureNotSupported(SynErr): pass
 
+class HitLimit(SynErr): pass
 class ReadOnlyLayer(SynErr): pass
 class ReadOnlyProp(SynErr): pass
 class RecursionLimitHit(SynErr): pass

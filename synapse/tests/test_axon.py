@@ -344,3 +344,19 @@ class AxonTest(s_t_utils.SynTest):
                 await user.addRule((True, ('axon', 'has',)))
                 await user.addRule((True, ('axon', 'upload',)))
                 await self.runAxonTestBase(prox)
+
+    async def test_axon_limits(self):
+
+        async with self.getTestAxon(conf={'max:count': 10}) as axon:
+            for i in range(10):
+                await axon.put(s_common.buid())
+
+            with self.raises(s_exc.HitLimit):
+                await axon.put(s_common.buid())
+
+        async with self.getTestAxon(conf={'max:bytes': 320}) as axon:
+            for i in range(10):
+                await axon.put(s_common.buid())
+
+            with self.raises(s_exc.HitLimit):
+                await axon.put(s_common.buid())

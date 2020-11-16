@@ -808,6 +808,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable provenance tracking for all writes.',
             'type': 'boolean'
         },
+        'max:nodes': {
+            'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
+            'type': 'integer',
+            'minimum': 1,
+            'hidecmdl': True,
+        },
         'modules': {
             'default': [],
             'description': 'A list of module classes to load.',
@@ -858,6 +864,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.stormcmds = {}
 
         self.spawnpool = None
+
+        self.maxnodes = self.conf.get('max:nodes')
+        self.nodecount = 0
 
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
@@ -2683,6 +2692,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.layers[layr.iden] = layr
         self.dynitems[layr.iden] = layr
+
+        if self.maxnodes:
+            counts = await layr.getFormCounts()
+            self.nodecount += sum(counts.values())
+            def onadd():
+                self.nodecount += 1
+            def ondel():
+                self.nodecount -= 1
+            layr.nodeAddHook = onadd
+            layr.nodeDelHook = ondel
 
         await self.auth.addAuthGate(layr.iden, 'layer')
 
