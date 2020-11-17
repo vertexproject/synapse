@@ -62,6 +62,8 @@ class AhaCell(s_cell.Cell):
         # mostly for testing...
         await self.fire('aha:svcadd', svcinfo=svcinfo)
 
+        # TODO detect socket close and mark service down
+
     async def getAhaSvc(self, name, network='global'):
         path = ('aha', 'services', network, name)
         return await self.jsonstor.getPathObj(path)
