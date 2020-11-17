@@ -671,6 +671,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # initialize network daemons (but do not listen yet)
         # to allow registration of callbacks and shared objects
         # within phase 2/4.
+        await self._initAhaRegistry()
         await self._initCellHttp()
         await self._initCellDmon()
 
@@ -682,6 +683,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def _initAhaRegistry(self):
+
+        self.ahaclient = None
+        ahaurl = self.conf.get('aha:registry')
+        if ahaurl is not None:
+
+            self.ahaclient = await s_telepath.addAhaUrl(ahaurl)
+
+            async def finiaha():
+                await s_telepath.delAhaUrl(ahaurl)
+
+            self.onfini(finiaha)
 
     async def initServiceStorage(self):
         pass
@@ -708,53 +722,56 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logging.exception(f'Unknown dmon listen error.')
             raise
 
-        sockaddr = None
+        self.sockaddr = None
 
         turl = self.conf.get('dmon:listen')
         if turl is not None:
-            sockaddr = await self.dmon.listen(turl)
+            self.sockaddr = await self.dmon.listen(turl)
             logger.info(f'dmon listening: {turl}')
 
-        ahaurl = self.conf.get('aha:registry')
-        if ahaurl is not None:
-
-            client = await s_telepath.addAhaUrl(ahaurl)
-
-            async def finiaha():
-                await s_telepath.delAhaUrl(ahaurl)
-
-            self.onfini(finiaha)
-
-            ahaname = self.conf.get('aha:name')
-            ahanetw = self.conf.get('aha:network', 'global')
-
-            ahainfo = self.conf.get('aha:svcinfo')
-            if ahainfo is None and turl is not None:
-                ahainfo = s_urlhelp.chopurl(turl)
-                ahainfo.pop('host', None)
-                ahainfo['port'] = sockaddr[1]
-
-            if ahainfo is not None:
-
-                async def onlink(mesg):
-                    proxy = mesg[1].get('proxy')
-                    try:
-                        await proxy.addAhaSvc(ahaname, ahainfo, network=ahanetw)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as e:
-                        logger.warning(f'aha:registry onlink failed: {e}')
-
-                async def fini():
-                    client.off('tele:link', onlink)
-
-                client.on('tele:link', onlink)
-                self.onfini(fini)
+        await self._initAhaService()
 
         port = self.conf.get('https:port')
         if port is not None:
             await self.addHttpsPort(port)
             logger.info(f'https listening: {port}')
+
+    async def _initAhaService(self):
+
+        turl = self.conf.get('dmon:listen')
+        ahaurl = self.conf.get('aha:registry')
+        if ahaurl is None:
+            return
+
+        ahaname = self.conf.get('aha:name')
+        if ahaname is None:
+            return
+
+        ahanetw = self.conf.get('aha:network', 'global')
+
+        ahainfo = self.conf.get('aha:svcinfo')
+        if ahainfo is None and turl is not None:
+            ahainfo = s_urlhelp.chopurl(turl)
+            ahainfo.pop('host', None)
+            ahainfo['port'] = self.sockaddr[1]
+
+        if ahainfo is None:
+            return
+
+        async def onlink(mesg):
+            proxy = mesg[1].get('proxy')
+            try:
+                await proxy.addAhaSvc(ahaname, ahainfo, network=ahanetw)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(f'aha:registry onlink failed: {e}')
+
+        async def fini():
+            self.ahaclient.off('tele:link', onlink)
+
+        self.ahaclient.on('tele:link', onlink)
+        self.onfini(fini)
 
     async def initServiceRuntime(self):
         pass

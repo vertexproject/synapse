@@ -36,7 +36,7 @@ class AhaTest(s_test.SynTest):
 
                 await wait00.wait(timeout=2)
 
-                self.raises(s_exc.NoSuchName):
+                with self.raises(s_exc.NoSuchName):
                     await s_telepath.getAhaProxy({'host': 'hehe'})
 
                 async with await s_telepath.openurl('aha://root:secret@mynet/cryo') as proxy:
