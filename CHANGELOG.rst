@@ -32,9 +32,10 @@ Features and Enhancements
   clauses in those statements may not be executed.
   (`#1952 <https://github.com/vertexproject/synapse/pull/1952>`_)
 - Add a mechanism for Storm Services to specify commands which may require
-  privilege escalation to execute (in order, for instance, to create nodes).
-  Services using this mechanism may use the ``storm.asroot.cmd.<<cmd name>>``
-  hierarchy to grant this permission.
+  privilege elevation to execute. An example of this may be to allow a command
+  to create nodes; without managning individual permissions on what nodes a
+  user may normally be allowed to create. Services using this mechanism wiill
+  use the ``storm.asroot.cmd.<<cmd name>>`` hierarchy to grant this permission.
   (`#1953 <https://github.com/vertexproject/synapse/pull/1953>`_)
   (`#1958 <https://github.com/vertexproject/synapse/pull/1958>`_)
 - Add ``$lib.json`` Stormtypes Library to convert between string data and
