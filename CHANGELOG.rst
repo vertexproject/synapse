@@ -36,6 +36,7 @@ Features and Enhancements
   Services using this mechanism may use the ``storm.asroot.cmd.<<cmd name>>``
   hierarchy to grant this permission.
   (`#1953 <https://github.com/vertexproject/synapse/pull/1953>`_)
+  (`#1958 <https://github.com/vertexproject/synapse/pull/1958>`_)
 - Add ``$lib.json`` StormTypes Library to convert between string data and
   primitives.
   (`#1949 <https://github.com/vertexproject/synapse/pull/1949>`_)
