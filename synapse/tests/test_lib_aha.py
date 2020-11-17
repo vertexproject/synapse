@@ -18,6 +18,19 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha(self):
 
+        client = await s_telepath.addAhaUrl('newp://newp@newp')
+        client = await s_telepath.addAhaUrl('newp://newp@newp')
+
+        with self.raises(s_exc.NoSuchName):
+            await s_telepath.getAhaProxy({'host': 'hehe'})
+
+        await s_telepath.delAhaUrl('newp://newp@newp')
+        self.len(1, s_telepath.aha_clients)
+        await s_telepath.delAhaUrl('newp://newp@newp')
+        self.len(0, s_telepath.aha_clients)
+
+        self.eq(0, await s_telepath.delAhaUrl('newp'))
+
         async with self.getTestAha() as aha:
 
             host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
@@ -61,5 +74,3 @@ class AhaTest(s_test.SynTest):
                 svcs = [x async for x in ahaproxy.getAhaSvcs()]
                 self.len(1, svcs)
                 self.eq('cryo', svcs[0]['name'])
-
-            self.eq(0, await s_telepath.delAhaUrl('newp'))

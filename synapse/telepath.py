@@ -82,7 +82,7 @@ async def getAhaProxy(urlinfo):
 
             return await openinfo(info)
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError: # pragma: no cover
             raise
 
         except Exception as e:
