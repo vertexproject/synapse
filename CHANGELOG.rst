@@ -5,6 +5,16 @@ Synapse Changelog
 *****************
 
 
+v2.10.1 - 2020-11-17
+====================
+
+Bugfixes
+--------
+- Fix a CI issue which prevented the Python ``sdist`` package from being
+  uploaded to PyPi.
+  (`#1960 <https://github.com/vertexproject/synapse/pull/1960>`_)
+
+
 v2.10.0 - 2020-11-17
 ====================
 
