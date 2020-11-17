@@ -30,6 +30,7 @@ import synapse.lib.health as s_health
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -547,6 +548,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'A directory outside the service directory where backups will be saved.',
             'type': 'string',
         },
+        'aha:name': {
+            'description': 'The name of the cell service in the aha service registry.',
+            'type': 'string',
+        },
+        'aha:network': {
+            'default': 'global',
+            'description': 'The network/namespace of the service in the aha service registry.',
+            'type': 'string',
+        },
+        'aha:registry': {
+            'description': 'The telepath URL of the aha service registry.',
+            'type': 'string',
+        },
     }
 
     BACKUP_SPAWN_TIMEOUT = 4.0
@@ -694,10 +708,48 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logging.exception(f'Unknown dmon listen error.')
             raise
 
+        sockaddr = None
+
         turl = self.conf.get('dmon:listen')
         if turl is not None:
-            await self.dmon.listen(turl)
+            sockaddr = await self.dmon.listen(turl)
             logger.info(f'dmon listening: {turl}')
+
+        ahaurl = self.conf.get('aha:registry')
+        if ahaurl is not None:
+
+            client = await s_telepath.addAhaUrl(ahaurl)
+
+            async def finiaha():
+                await s_telepath.delAhaUrl(ahaurl)
+
+            self.onfini(finiaha)
+
+            ahaname = self.conf.get('aha:name')
+            ahanetw = self.conf.get('aha:network', 'global')
+
+            ahainfo = self.conf.get('aha:svcinfo')
+            if ahainfo is None and turl is not None:
+                ahainfo = s_urlhelp.chopurl(turl)
+                ahainfo.pop('host', None)
+                ahainfo['port'] = sockaddr[1]
+
+            if ahainfo is not None:
+
+                async def onlink(mesg):
+                    proxy = mesg[1].get('proxy')
+                    try:
+                        await proxy.addAhaSvc(ahaname, ahainfo, network=ahanetw)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:
+                        logger.warning(f'aha:registry onlink failed: {e}')
+
+                async def fini():
+                    client.off('tele:link', onlink)
+
+                client.on('tele:link', onlink)
+                self.onfini(fini)
 
         port = self.conf.get('https:port')
         if port is not None:

@@ -189,6 +189,15 @@ class JsonStor(s_base.Base):
         for lkey, buid in self.slab.scanByPref(pkey, db=self.pathdb):
             yield self._tuplToPath(self._pkeyToPath(lkey)[plen:])
 
+    async def getPathObjs(self, path):
+        path = self._pathToTupl(path)
+
+        plen = len(path)
+        pkey = self._pathToPkey(path)
+
+        for lkey, buid in self.slab.scanByPref(pkey, db=self.pathdb):
+            yield self._pkeyToPath(lkey)[plen:], self._getBuidItem(buid)
+
     async def setPathObjProp(self, path, prop, valu):
 
         buid = self._pathToBuid(path)
@@ -243,6 +252,12 @@ class JsonStorApi(s_cell.CellApi):
         await self._reqUserAllowed(('json', 'get', *path))
         return await self.cell.getPathObj(path)
 
+    async def getPathObjs(self, path):
+        path = self.cell.jsonstor._pathToTupl(path)
+        await self._reqUserAllowed(('json', 'get', *path))
+        async for item in self.cell.getPathObjs(path):
+            yield item
+
     async def setPathObj(self, path, item):
         path = self.cell.jsonstor._pathToTupl(path)
         await self._reqUserAllowed(('json', 'set', *path))
@@ -295,6 +310,9 @@ class JsonStorCell(s_cell.Cell):
     async def getPathList(self, path):
         async for item in self.jsonstor.getPathList(path):
             yield item
+
+    async def getPathObj(self, path):
+        return await self.jsonstor.getPathObj(path)
 
     async def getPathObj(self, path):
         return await self.jsonstor.getPathObj(path)

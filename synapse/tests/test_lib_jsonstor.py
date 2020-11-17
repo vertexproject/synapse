@@ -1,9 +1,12 @@
+import contextlib
+
 import synapse.exc as s_exc
+import synapse.telepath as s_telepath
 import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tests.utils as s_test
 
-class SynTest(s_test.SynTest):
+class JsonStorTest(s_test.SynTest):
 
     async def test_lib_jsonstor_basics(self):
         with self.getTestDir() as dirn:
@@ -54,3 +57,9 @@ class SynTest(s_test.SynTest):
                     self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/baz'))
 
                 self.eq(('bar', 'baz'), [x async for x in prox.getPathList('foo')])
+
+    #@contextlib.asynccontextmanager
+    #async def getTestJsonStor(self, conf=None):
+    #    with self.getTestDir() as dirn:
+    #        async with await s_jsonstor.JsonStorCell.anit(dirn, conf=conf) as jsonstor:
+    #            yield jsonstor

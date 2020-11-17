@@ -24,6 +24,69 @@ logger = logging.getLogger(__name__)
 
 televers = (3, 0)
 
+aha_clients = {}
+
+async def addAhaUrl(url):
+    '''
+    Add (incref) an aha registry URL.
+    '''
+    info = aha_clients.get(url)
+    if info is None:
+        client = await Client.anit(url)
+        info = aha_clients[url] = {'refs': 0, 'client': client}
+
+    info['refs'] += 1
+    return info.get('client')
+
+async def delAhaUrl(url):
+    '''
+    Remove (decref) an aha registry URL.
+    '''
+    info = aha_clients.get(url)
+    if info is None:
+        return
+
+    info['refs'] -= 1
+
+    if info['refs'] == 0:
+        await info.get('client').fini()
+        aha_clients.pop(url, None)
+
+async def getAhaProxy(urlinfo):
+    '''
+    Return a telepath proxy by looking up a host from an aha registry.
+    '''
+    netw = 'global'
+
+    host = urlinfo.pop('host')
+    path = urlinfo.pop('path', None)
+    if path and path != '/':
+        netw = host
+        host = path.strip('/')
+
+    for cnfo in list(aha_clients.values()):
+        client = cnfo.get('client')
+        try:
+            proxy = await client.proxy(timeout=1)
+
+            ahasvc = await proxy.getAhaSvc(host, network=netw)
+            if ahasvc is None:
+                continue
+
+            info = urlinfo.copy()
+            info.update(ahasvc.get('urlinfo'))
+
+            return await openinfo(info)
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            logger.warning(f'aha client: {e}')
+
+    mesg = f'aha service connection failed: {host}'
+    raise s_exc.NoSuchName(mesg=mesg)
+
 class Aware:
     '''
     The telepath.Aware mixin allows shared objects to
@@ -696,6 +759,8 @@ class Client(s_base.Base):
         if self._t_onlink is not None:
             await self._t_onlink(self._t_proxy)
 
+        await self.fire('tele:link', proxy=self._t_proxy)
+
         async def fini():
             if self._t_named_meths:
                 for name in self._t_named_meths:
@@ -926,7 +991,14 @@ async def openurl(url, **opts):
     info = s_urlhelp.chopurl(url)
     info.update(opts)
 
+    return await openinfo(info)
+
+async def openinfo(info):
+
     scheme = info.get('scheme')
+
+    if scheme == 'aha':
+        return await getAhaProxy(info)
 
     if '+' in scheme:
         scheme, disc = scheme.split('+', 1)
@@ -986,7 +1058,7 @@ async def openurl(url, **opts):
             certname = None
             certpath = None
 
-            certdir = opts.get('certdir')
+            certdir = info.get('certdir')
 
             query = info.get('query')
             if query is not None:

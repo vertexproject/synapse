@@ -1012,7 +1012,7 @@ class SynTest(unittest.TestCase):
                 yield core, prox
 
     @contextlib.asynccontextmanager
-    async def getTestCryo(self, dirn=None):
+    async def getTestCryo(self, dirn=None, conf=None):
         '''
         Get a simple test Cryocell as an async context manager.
 
@@ -1026,7 +1026,7 @@ class SynTest(unittest.TestCase):
             return
 
         with self.getTestDir() as dirn:
-            async with await s_cryotank.CryoCell.anit(dirn) as cryo:
+            async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
                 yield cryo
 
     @contextlib.asynccontextmanager
