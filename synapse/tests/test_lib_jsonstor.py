@@ -6,6 +6,8 @@ import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tests.utils as s_test
 
+import synapse.servers.jsonstor
+
 class JsonStorTest(s_test.SynTest):
 
     async def test_lib_jsonstor_basics(self):
@@ -51,12 +53,23 @@ class JsonStorTest(s_test.SynTest):
                         retn.append(item)
                     self.eq(retn, ())
 
+                    self.none(await prox.getPathObjProp('newp/newp', 'newp'))
+                    self.false(await prox.setPathObjProp('newp/newp', 'newp', 'newp'))
+
             async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
                 async with jsonstor.getLocalProxy() as prox:
                     self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/bar'))
                     self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/baz'))
 
-                self.eq(('bar', 'baz'), [x async for x in prox.getPathList('foo')])
+                    self.eq(('bar', 'baz'), [x async for x in prox.getPathList('foo')])
+
+                    self.true(await prox.delPathObjProp('foo/bar', 'zip'))
+                    self.eq({'hehe': 'haha'}, await prox.getPathObj('foo/bar'))
+
+                    self.false(await prox.delPathObjProp('newp/newp', 'newp'))
+
+                    await prox.delPathObj('foo/bar')
+                    self.none(await prox.getPathObj('foo/bar'))
 
     #@contextlib.asynccontextmanager
     #async def getTestJsonStor(self, conf=None):

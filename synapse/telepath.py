@@ -44,13 +44,17 @@ async def delAhaUrl(url):
     '''
     info = aha_clients.get(url)
     if info is None:
-        return
+        return 0
 
     info['refs'] -= 1
 
-    if info['refs'] == 0:
+    refs = info['refs']
+
+    if refs == 0:
         await info.get('client').fini()
         aha_clients.pop(url, None)
+
+    return refs
 
 async def getAhaProxy(urlinfo):
     '''

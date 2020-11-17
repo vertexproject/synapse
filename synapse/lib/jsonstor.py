@@ -122,7 +122,7 @@ class JsonStor(s_base.Base):
         pkey = self._pathToPkey(path)
         return self.slab.get(pkey, db=self.pathdb)
 
-    def delPath(self, path):
+    async def delPathObj(self, path):
         '''
         Remove a path and decref the object it references.
         '''
@@ -238,6 +238,7 @@ class JsonStor(s_base.Base):
         del item[names[-1]]
 
         self.dirty[buid] = item
+        return True
 
 class JsonStorApi(s_cell.CellApi):
 
@@ -262,6 +263,16 @@ class JsonStorApi(s_cell.CellApi):
         path = self.cell.jsonstor._pathToTupl(path)
         await self._reqUserAllowed(('json', 'set', *path))
         return await self.cell.setPathObj(path, item)
+
+    async def delPathObj(self, path):
+        path = self.cell.jsonstor._pathToTupl(path)
+        await self._reqUserAllowed(('json', 'del', *path))
+        return await self.cell.delPathObj(path)
+
+    async def delPathObjProp(self, path, name):
+        path = self.cell.jsonstor._pathToTupl(path)
+        await self._reqUserAllowed(('json', 'set', *path))
+        return await self.cell.delPathObjProp(path, name)
 
     async def getPathObjProp(self, path, prop):
         path = self.cell.jsonstor._pathToTupl(path)
@@ -314,15 +325,20 @@ class JsonStorCell(s_cell.Cell):
     async def getPathObj(self, path):
         return await self.jsonstor.getPathObj(path)
 
-    async def getPathObj(self, path):
-        return await self.jsonstor.getPathObj(path)
-
     async def getPathObjProp(self, path, prop):
         return await self.jsonstor.getPathObjProp(path, prop)
 
     @s_nexus.Pusher.onPushAuto('json:set')
     async def setPathObj(self, path, item):
         return await self.jsonstor.setPathObj(path, item)
+
+    @s_nexus.Pusher.onPushAuto('json:del')
+    async def delPathObj(self, path):
+        return await self.jsonstor.delPathObj(path)
+
+    @s_nexus.Pusher.onPushAuto('json:del:prop')
+    async def delPathObjProp(self, path, name):
+        return await self.jsonstor.delPathObjProp(path, name)
 
     @s_nexus.Pusher.onPushAuto('json:set:prop')
     async def setPathObjProp(self, path, prop, valu):

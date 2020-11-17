@@ -31,21 +31,17 @@ class AhaCell(s_cell.Cell):
 
     async def initServiceStorage(self):
 
-        jsurl = self.conf.get('jsonstor')
-        if jsurl is not None:
-            self.jsonstor = await s_telepath.Client.anit(jsurl)
+        # TODO plumb using a remote jsonstor?
+        dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
-        else:
-            dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
+        slab = await s_lmdbslab.Slab.anit(dirn)
+        self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')
 
-            slab = await s_lmdbslab.Slab.anit(dirn)
-            self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')
+        async def fini():
+            await self.jsonstor.fini()
+            await slab.fini()
 
-            async def fini():
-                await self.jsonstor.fini()
-                await slab.fini()
-
-            self.onfini(fini)
+        self.onfini(fini)
 
     async def getAhaSvcs(self, network='global'):
         path = ('aha', 'services', network)

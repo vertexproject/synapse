@@ -1,10 +1,12 @@
 import contextlib
 
+import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
 
 import synapse.tests.utils as s_test
+import synapse.servers.aha as s_servers_aha
 
 class AhaTest(s_test.SynTest):
 
@@ -34,6 +36,9 @@ class AhaTest(s_test.SynTest):
 
                 await wait00.wait(timeout=2)
 
+                self.raises(s_exc.NoSuchName):
+                    await s_telepath.getAhaProxy({'host': 'hehe'})
+
                 async with await s_telepath.openurl('aha://root:secret@mynet/cryo') as proxy:
                     self.nn(await proxy.getCellIden())
 
@@ -52,6 +57,9 @@ class AhaTest(s_test.SynTest):
                 async with await s_telepath.openurl('aha://root:secret@cryo') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                svcs = [x async for x in aha.getAhaSvcs()]
+            async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
+                svcs = [x async for x in ahaproxy.getAhaSvcs()]
                 self.len(1, svcs)
                 self.eq('cryo', svcs[0]['name'])
+
+            self.eq(0, await s_telepath.delAhaUrl('newp'))
