@@ -37,12 +37,12 @@ Features and Enhancements
   hierarchy to grant this permission.
   (`#1953 <https://github.com/vertexproject/synapse/pull/1953>`_)
   (`#1958 <https://github.com/vertexproject/synapse/pull/1958>`_)
-- Add ``$lib.json`` StormTypes Library to convert between string data and
+- Add ``$lib.json`` Stormtypes Library to convert between string data and
   primitives.
   (`#1949 <https://github.com/vertexproject/synapse/pull/1949>`_)
 - Add a ``parallel`` command to allow for executing a portion of a Storm
   query in parallel. Add a ``background`` command to execute a Storm query
-  as a detached task from the current query, capturing variables in the.
+  as a detached task from the current query, capturing variables in the
   process.
   (`#1931 <https://github.com/vertexproject/synapse/pull/1931>`_)
   (`#1957 <https://github.com/vertexproject/synapse/pull/1957>`_)
@@ -61,7 +61,7 @@ Features and Enhancements
 - Add date of death properties and consistently named photo secondary
   properties.
   (`#1929 <https://github.com/vertexproject/synapse/pull/1929>`_)
-- Add model additions for repsentings education and awards.
+- Add model additions for representing education and awards.
   (`#1930 <https://github.com/vertexproject/synapse/pull/1930>`_)
 - Add additional account linkages to the ``inet`` model for users and groups.
   (`#1946 <https://github.com/vertexproject/synapse/pull/1946>`_)
@@ -89,7 +89,7 @@ Features and Enhancements
 - Add ``>``, ``<``, ``>=`` and ``<=`` comparators for ``inet:ipv4`` type.
   (`#1938 <https://github.com/vertexproject/synapse/pull/1938>`_)
 - Add configuration options to the Axon to limit the amount of data which
-  can be stored in it. Add a configuration option the the Cortex to limit
+  can be stored in it. Add a configuration option the Cortex to limit
   the number of nodes which may be stored in a given Cortex.
   (`#1950 <https://github.com/vertexproject/synapse/pull/1950>`_)
 
@@ -102,17 +102,12 @@ Bugfixes
   ``Proxy`` objects.
   (`#1939 <https://github.com/vertexproject/synapse/pull/1939>`_)
   (`#1941 <https://github.com/vertexproject/synapse/pull/1941>`_)
-- Fix a but where a temporary spool slab cleanup failed to remove all
+- Fix a bug where a temporary spool slab cleanup failed to remove all
   files from the filesystem that were created when the slab was made.
   (`#1940 <https://github.com/vertexproject/synapse/pull/1940>`_)
-- Move exceptions which do not sublcass ``SynErr`` out of ``synapse/exc.py``.
+- Move exceptions which do not subclass ``SynErr`` out of ``synapse/exc.py``.
   (`#1947 <https://github.com/vertexproject/synapse/pull/1947>`_)
   (`#1951 <https://github.com/vertexproject/synapse/pull/1951>`_)
-
-Improved Documentation
-----------------------
-- Clarify user documentation for pivot out and pivot in operations.
-  (`#1891 <https://github.com/vertexproject/synapse/pull/1891>`_)
 
 
 v2.9.2 - 2020-10-27
