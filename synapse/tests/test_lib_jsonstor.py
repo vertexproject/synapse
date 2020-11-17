@@ -9,10 +9,16 @@ class SynTest(s_test.SynTest):
         with self.getTestDir() as dirn:
             async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
                 async with jsonstor.getLocalProxy() as prox:
+
                     await prox.setPathObj('foo/bar', {'hehe': 'haha'})
                     self.eq({'hehe': 'haha'}, await prox.getPathObj('foo/bar'))
+
+                    self.true(await prox.setPathObjProp('foo/bar', 'zip', {'zop': True}))
+                    self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/bar'))
+                    self.true(await prox.getPathObjProp('foo/bar', 'zip/zop'))
+
                     await prox.setPathLink('foo/baz', 'foo/bar')
-                    self.eq({'hehe': 'haha'}, await prox.getPathObj('foo/baz'))
+                    self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/baz'))
 
                     with self.raises(s_exc.PathExists):
                         await prox.setPathLink('foo/baz', 'foo/bar')
@@ -41,3 +47,10 @@ class SynTest(s_test.SynTest):
                     async for item in prox.getsQueue('hehe', 2, cull=True, wait=False):
                         retn.append(item)
                     self.eq(retn, ())
+
+            async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
+                async with jsonstor.getLocalProxy() as prox:
+                    self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/bar'))
+                    self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/baz'))
+
+                self.eq(('bar', 'baz'), [x async for x in prox.getPathList('foo')])

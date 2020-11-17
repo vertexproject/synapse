@@ -1,4 +1,5 @@
 import os
+import asyncio
 import collections
 
 import synapse.exc as s_exc
@@ -9,9 +10,6 @@ import synapse.lib.base as s_base
 import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
-
-def dictdict():
-    return collections.defaultdict(dictdict)
 
 class JsonStor(s_base.Base):
     '''
@@ -46,7 +44,7 @@ class JsonStor(s_base.Base):
     async def _syncDirtyItems(self, mesg):
         todo = list(self.dirty.items())
         for buid, item in todo:
-            self.slab.put(buid, item, db=self.itemdb)
+            self.slab.put(buid, s_msgpack.en(item), db=self.itemdb)
             self.dirty.pop(buid, None)
             await asyncio.sleep(0)
 
@@ -90,6 +88,8 @@ class JsonStor(s_base.Base):
     async def setPathObj(self, path, item):
         '''
         Set (and/or reinitialize) the object at the given path.
+
+        NOTE: This will break any links by creating a new object.
         '''
         buid = os.urandom(16)
 
@@ -105,6 +105,8 @@ class JsonStor(s_base.Base):
 
     async def getPathObj(self, path):
         buid = self._pathToBuid(path)
+        if buid is None:
+            return None
         return self._getBuidItem(buid)
 
     def _getBuidItem(self, buid):
@@ -149,7 +151,7 @@ class JsonStor(s_base.Base):
 
     async def getPathObjProp(self, path, prop):
 
-        item = self.getPathObj(path)
+        item = await self.getPathObj(path)
         if item is None:
             return None
 
@@ -172,17 +174,20 @@ class JsonStor(s_base.Base):
 
         return path
 
+    def _tuplToPath(self, path):
+        return '/'.join(path)
+
     def _pkeyToPath(self, pkey):
         return pkey.decode().split('\x00')
 
-    def listPaths(self, path):
+    async def getPathList(self, path):
         path = self._pathToTupl(path)
 
         plen = len(path)
         pkey = self._pathToPkey(path)
 
         for lkey, buid in self.slab.scanByPref(pkey, db=self.pathdb):
-            yield tuple(self._pkeyToPath(lkey)[plen:]), buid
+            yield self._tuplToPath(self._pkeyToPath(lkey)[plen:])
 
     async def setPathObjProp(self, path, prop, valu):
 
@@ -194,12 +199,18 @@ class JsonStor(s_base.Base):
         if item is None:
             return False
 
+        step = item
         names = self._pathToTupl(prop)
         for name in names[:-1]:
-            item = item[name]
+            step = step[name]
 
-        item[names[-1]] = valu
+        name = names[-1]
+        if step.get(name, s_common.novalu) == valu:
+            return True
+
+        step[name] = valu
         self.dirty[buid] = item
+        return True
 
     async def delPathObjProp(self, path, prop):
 
@@ -220,6 +231,12 @@ class JsonStor(s_base.Base):
         self.dirty[buid] = item
 
 class JsonStorApi(s_cell.CellApi):
+
+    async def getPathList(self, path):
+        path = self.cell.jsonstor._pathToTupl(path)
+        await self._reqUserAllowed(('json', 'list', *path))
+        async for item in self.cell.getPathList(path):
+            yield item
 
     async def getPathObj(self, path):
         path = self.cell.jsonstor._pathToTupl(path)
@@ -274,6 +291,10 @@ class JsonStorCell(s_cell.Cell):
     async def initServiceStorage(self):
         self.jsonstor = await JsonStor.anit(self.slab, 'jsonstor')
         self.multique = await s_lmdbslab.MultiQueue.anit(self.slab, 'multique')
+
+    async def getPathList(self, path):
+        async for item in self.jsonstor.getPathList(path):
+            yield item
 
     async def getPathObj(self, path):
         return await self.jsonstor.getPathObj(path)
