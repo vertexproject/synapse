@@ -20,18 +20,14 @@ class JsonStor(s_base.Base):
     #TODO GUID ACCESS with index generation by type
     #TODO registered types jsonschema with optional write-back validation
     '''
-    async def __anit__(self, slab, pref, path=None):
+    async def __anit__(self, slab, pref):
 
         await s_base.Base.__anit__(self)
 
         self.slab = slab
         self.pref = pref
-        self.path = None
 
         self.dirty = {}
-
-        if path is not None:
-            self.path = self._pathToTupl(path)
 
         self.pathdb = self.slab.initdb(f'{pref}:paths')
         self.itemdb = self.slab.initdb(f'{pref}:items')
@@ -68,22 +64,6 @@ class JsonStor(s_base.Base):
         # remove the item data
         self.slab.pop(buid, db=self.itemdb)
         self.dirty.pop(buid, None)
-
-    async def getPathMeta(self, path, name):
-        '''
-        Get metadata about the path.
-        '''
-        byts = self.slab.get(f'{path}|{name}'.encode(), db=self.fsinfo)
-        if byts is not None:
-            return s_msgpack.un(byts)
-
-    async def setPathMeta(self, path, name, valu):
-        '''
-        Set metadata about the path.
-        '''
-        # TODO path validation
-        byts = s_msgpack.en(valu)
-        self.slab.put(f'{path}|{name}'.encode(), byts, db=self.fsinfo)
 
     async def setPathObj(self, path, item):
         '''
@@ -129,7 +109,7 @@ class JsonStor(s_base.Base):
         pkey = self._pathToPkey(path)
         buid = self.slab.pop(pkey, db=self.pathdb)
         if buid is not None:
-            self._incRefObj(buid, -1)
+            self._incRefObj(buid, valu=-1)
 
     async def setPathLink(self, srcpath, dstpath):
         '''
@@ -146,7 +126,7 @@ class JsonStor(s_base.Base):
         if buid is None:
             raise s_exc.NoSuchPath(path=dstpath)
 
-        self._incRefObj(buid, 1)
+        self._incRefObj(buid, valu=1)
         self.slab.put(srcpkey, buid, db=self.pathdb)
 
     async def getPathObjProp(self, path, prop):
@@ -168,9 +148,6 @@ class JsonStor(s_base.Base):
 
         if isinstance(path, str):
             path = path.split('/')
-
-        if self.path is not None:
-            path = self.path + path
 
         return path
 
@@ -231,11 +208,12 @@ class JsonStor(s_base.Base):
         if item is None:
             return False
 
+        step = item
         names = self._pathToTupl(prop)
         for name in names[:-1]:
-            item = item[name]
+            step = step[name]
 
-        del item[names[-1]]
+        del step[names[-1]]
 
         self.dirty[buid] = item
         return True

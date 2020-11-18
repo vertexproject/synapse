@@ -61,18 +61,17 @@ class JsonStorTest(s_test.SynTest):
                     self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/bar'))
                     self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/baz'))
 
+                    await prox.setPathObjProp('foo/baz', 'zip/zop', False)
+                    self.eq({'hehe': 'haha', 'zip': {'zop': False}}, await prox.getPathObj('foo/baz'))
+
                     self.eq(('bar', 'baz'), [x async for x in prox.getPathList('foo')])
 
-                    self.true(await prox.delPathObjProp('foo/bar', 'zip'))
-                    self.eq({'hehe': 'haha'}, await prox.getPathObj('foo/bar'))
+                    self.true(await prox.delPathObjProp('foo/bar', 'zip/zop'))
+                    self.eq({'hehe': 'haha', 'zip': {}}, await prox.getPathObj('foo/bar'))
 
                     self.false(await prox.delPathObjProp('newp/newp', 'newp'))
 
                     await prox.delPathObj('foo/bar')
                     self.none(await prox.getPathObj('foo/bar'))
-
-    #@contextlib.asynccontextmanager
-    #async def getTestJsonStor(self, conf=None):
-    #    with self.getTestDir() as dirn:
-    #        async with await s_jsonstor.JsonStorCell.anit(dirn, conf=conf) as jsonstor:
-    #            yield jsonstor
+                    await prox.delPathObj('foo/baz')
+                    self.none(await prox.getPathObj('foo/bar'))
