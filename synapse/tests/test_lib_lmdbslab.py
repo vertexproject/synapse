@@ -91,7 +91,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
     async def test_lmdbslab_base(self):
 
-        with self.getTestDir() as dirn:
+        with self.getTestDir() as dirn0, self.getTestDir(startdir=dirn0) as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
 
