@@ -5,6 +5,27 @@ Synapse Changelog
 *****************
 
 
+v2.10.2 - 2020-11-20
+====================
+
+Features and Enhancements
+-------------------------
+- The Storm ``cron.at`` command now supports a ``--now`` flag to create a
+  cron job which immediately executes.
+  (`#1963 <https://github.com/vertexproject/synapse/pull/1963>`_)
+
+Bugfixes
+--------
+- Fix a cleanup race that caused occasional ``test_lmdbslab_base`` failures.
+  (`#1962 <https://github.com/vertexproject/synapse/pull/1962>`_)
+- Fix an issue with ``EDIT_NODEDATA_SET`` nodeedits missing the ``oldv``
+  value.
+  (`#1961 <https://github.com/vertexproject/synapse/pull/1961>`_)
+- Fix an issue where ``cron.cleanup`` could have prematurely deleted some cron
+  jobs.
+  (`#1963 <https://github.com/vertexproject/synapse/pull/1963>`_)
+
+
 v2.10.1 - 2020-11-17
 ====================
 
@@ -29,7 +50,6 @@ images available as ``vertexproject/synapse:master-py37`` and
 
 Features and Enhancements
 -------------------------
-
 - Python 3.8 release support for Docker and PyPi.
   (`#1921 <https://github.com/vertexproject/synapse/pull/1921>`_)
   (`#1956 <https://github.com/vertexproject/synapse/pull/1956>`_)

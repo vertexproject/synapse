@@ -201,6 +201,30 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(ValueError, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
 
+                # Cannot schedule a recurring job with 'now'
+                cdef = {'useriden': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                        'reqs': {s_agenda.TimeUnit.NOW: True},
+                        'incunit': s_agenda.TimeUnit.MONTH,
+                        'incvals': 1}
+                await self.asyncraises(ValueError, agenda.add(cdef))
+                await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
+
+                # Schedule a one-shot to run immediately
+                cdef = {'useriden': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                        'reqs': {s_agenda.TimeUnit.NOW: True}}
+                await agenda.add(cdef)
+                await sync.wait()  # wait for the query to run
+                sync.clear()
+                self.eq(lastquery, '[test:str=doit]')
+                core.reset_mock()
+                lastquery = None
+
+                appts = agenda.list()
+                self.len(1, appts)
+                self.eq(appts[0][1].startcount, 1)
+                self.eq(appts[0][1].nexttime, None)
+                await agenda.delete('DOIT')
+
                 # Schedule a one-shot 1 minute from now
                 cdef = {'useriden': rootiden, 'iden': 'IDEN1', 'storm': '[test:str=foo]',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
@@ -493,6 +517,11 @@ class AgendaTest(s_t_utils.SynTest):
                 cron1_iden = cron1.get('iden')
 
                 await proxy.delCronJob(cron0_iden)
+
+                cdef = {'storm': '[test:str=foo]', 'reqs': {'now': True},
+                        'incunit': 'month',
+                        'incvals': 1}
+                await self.asyncraises(s_exc.BadConfValu, proxy.addCronJob(cdef))
 
             async with core.getLocalProxy(user='newb') as proxy:
 
