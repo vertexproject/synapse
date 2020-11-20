@@ -488,6 +488,16 @@ class LayerTest(s_t_utils.SynTest):
             splices = await alist(layr.splices(spliceoffs, 10))
             self.len(0, splices)
 
+            # Make sure nodedata edits have oldv set
+            nedit = await layr.iterNodeEditLog(spliceoffs[0]).__anext__()
+            self.eq(nedit[1][0][2][0][1], ('baz', 'nodedataiscool', None))
+
+            spliceoffs = (spliceoffs[0] + 1, 0, 0)
+
+            await nodes[0].setData('baz', 'stillcool')
+            nedit = await layr.iterNodeEditLog(spliceoffs[0]).__anext__()
+            self.eq(nedit[1][0][2][0][1], ('baz', 'stillcool', 'nodedataiscool'))
+
             # Convert a node:del splice
             await core.nodes('test:str=foo | delnode')
 
