@@ -20,7 +20,6 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
 import synapse.lib.httpapi as s_httpapi
-import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
@@ -1010,7 +1009,7 @@ class TeleTest(s_t_utils.SynTest):
                 consul = f'https://127.0.0.1:{hport}'
 
                 burl = f'tcp+consul://root:root@foobar/*?consul_nosslverify=1&consul={consul}'
-                info = s_urlhelp.chopurl(burl)
+                info = s_telepath.chopurl(burl)
                 self.eq(info.get('host'), 'foobar')
                 self.none(info.get('port'))
 
@@ -1022,14 +1021,14 @@ class TeleTest(s_t_utils.SynTest):
 
                 # Support tag_address and service_tag_address
                 url = burl + '&consul_tag_address=wan'
-                info = s_urlhelp.chopurl(url)
+                info = s_telepath.chopurl(url)
                 await s_telepath.disc_consul(info)
                 self.eq(info.get('host'), '10.0.10.10')
                 self.eq(info.get('port'), 5000)
                 self.eq(info.get('original_host'), 'foobar')
 
                 url = burl + '&consul_service_tag_address=wan'
-                info = s_urlhelp.chopurl(url)
+                info = s_telepath.chopurl(url)
                 await s_telepath.disc_consul(info)
                 self.eq(info.get('host'), '198.18.0.1')
                 self.eq(info.get('port'), 512)
@@ -1037,7 +1036,7 @@ class TeleTest(s_t_utils.SynTest):
 
                 # Support servicetag based port finding
                 url = burl + '&consul_tag=tacos'
-                info = s_urlhelp.chopurl(url)
+                info = s_telepath.chopurl(url)
                 await s_telepath.disc_consul(info)
                 self.eq(info.get('host'), '192.168.10.10')
                 self.eq(info.get('port'), 5000)
@@ -1052,21 +1051,21 @@ class TeleTest(s_t_utils.SynTest):
                 # Sad path - non-existing service name.
                 with self.raises(s_exc.BadUrl) as cm:
                     url = f'tcp+consul://root:root@newp/*?consul_nosslverify=1&consul={consul}'
-                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                    await s_telepath.disc_consul(s_telepath.chopurl(url))
                 self.eq(cm.exception.get('name'), 'newp')
 
                 # Sad path - multiple tag resolution.
                 with self.raises(s_exc.BadUrl) as cm:
                     url = burl + '&consul_tag_address=wan'
                     url = url + '&consul_service_tag_address=lan'
-                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                    await s_telepath.disc_consul(s_telepath.chopurl(url))
                 self.eq(cm.exception.get('consul_tag_address'), 'wan')
                 self.eq(cm.exception.get('consul_service_tag_address'), 'lan')
 
                 # Sad path - ssl verification failure
                 with self.raises(s_exc.BadUrl) as cm:
                     url = f'tcp+consul://root:root@foobar/*?consul={consul}'
-                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                    await s_telepath.disc_consul(s_telepath.chopurl(url))
                 self.isin('certificate verify failed', cm.exception.get('mesg'))
                 self.isinstance(cm.exception.__context__, ssl.SSLCertVerificationError)
 
@@ -1077,7 +1076,7 @@ class TeleTest(s_t_utils.SynTest):
                 cell.consul_data.insert(0, new_data)
                 with self.raises(s_exc.BadUrl) as cm:
                     url = burl + '&consul_tag=burritos'
-                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                    await s_telepath.disc_consul(s_telepath.chopurl(url))
                 self.eq('burritos', cm.exception.get('tag'))
 
     async def test_telepath_client_onlink_exc(self):
@@ -1101,8 +1100,9 @@ class TeleTest(s_t_utils.SynTest):
 
             await originit(self, url)
 
-        def onlinkFail(self):
-            raise ValueError('derp')
+        async def onlinkFail(p):
+            print('onLinkFail')
+            await p.fini()
 
         foo = Foo()
 
@@ -1115,7 +1115,7 @@ class TeleTest(s_t_utils.SynTest):
                     async with await s_telepath.Client.anit(url, onlink=onlinkFail) as targ:
 
                         self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
-                        self.eq(1, cnts['loops'])
+                        self.eq(4, cnts['loops'])
                         self.eq(4, cnts['inits'])
 
     async def test_client_method_reset(self):

@@ -772,14 +772,6 @@ class Client(s_base.Base):
         self._t_methinfo = self._t_proxy.methinfo
         self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
-        for onlink in self._t_onlinks:
-            try:
-                await onlink(self._t_proxy)
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                logger.exception(f'onlink: {onlink}')
-
         async def fini():
             if self._t_named_meths:
                 for name in self._t_named_meths:
@@ -788,6 +780,17 @@ class Client(s_base.Base):
             await self._fireLinkLoop()
 
         self._t_proxy.onfini(fini)
+
+        for onlink in self._t_onlinks:
+            try:
+                await onlink(self._t_proxy)
+                # in case the callback fini()s the proxy
+                if self._t_proxy is None:
+                    break
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.exception(f'onlink: {onlink}')
 
     async def task(self, todo, name=None):
         # implement the main workhorse method for a proxy to allow Method
@@ -881,13 +884,13 @@ async def disc_consul(info):
     '''
     info.setdefault('original_host', info.get('host'))
     service = info.get('original_host')
-    query = info.get('query')
-    host = query.get('consul')
-    tag = query.get('consul_tag')  # iterate through entries until a match for tag is present.
-    ctag_addr = query.get('consul_tag_address')  # Prefer a taggedAddress if set
-    csvc_tag_addr = query.get('consul_service_tag_address')  # Prefer a serviceTaggedAddress if set
+    print(repr(info))
+    host = info.get('consul')
+    tag = info.get('consul_tag')  # iterate through entries until a match for tag is present.
+    ctag_addr = info.get('consul_tag_address')  # Prefer a taggedAddress if set
+    csvc_tag_addr = info.get('consul_service_tag_address')  # Prefer a serviceTaggedAddress if set
     gkwargs = {'raise_for_status': True}
-    if query.get('consul_nosslverify'):
+    if info.get('consul_nosslverify'):
         gkwargs['ssl'] = False
 
     if ctag_addr and csvc_tag_addr:

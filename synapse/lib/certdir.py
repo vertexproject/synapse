@@ -42,17 +42,24 @@ class CertDir:
         * CertDir does not currently support signing CA CSRs.
     '''
 
-    def __init__(self, paths=(defdir,)):
+    def __init__(self, path=None):
         self.crypto_numbits = 4096
         self.signing_digest = 'sha256'
 
         self.certdirs = []
         self.pathrefs = collections.defaultdict(int)
 
-        for path in paths:
-            self.addCertPath(path)
+        if path is None:
+            path = (defdir,)
+
+        if not isinstance(path, (list, tuple)):
+            path = (path,)
+
+        for p in path:
+            self.addCertPath(p)
 
     def addCertPath(self, *path):
+
         fullpath = s_common.gendir(*path)
         self.pathrefs[fullpath] += 1
 
@@ -898,8 +905,11 @@ class CertDir:
 
             userpair = self.findUserCert(certname)
             if userpair is None:
-                mesg = f'User certificate not found: {certname}'
-                raise s_exc.NoSuchCert(mesg=mesg)
+                if self.getUserCertPath(certname) is None:
+                    mesg = f'User certificate not found: {certname}'
+                    raise s_exc.NoSuchCert(mesg=mesg)
+                mesg = f'User private key not found: {certname}'
+                raise s_exc.NoCertKey(mesg=mesg)
 
             sslctx.load_cert_chain(*userpair)
 
