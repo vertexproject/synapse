@@ -2,6 +2,7 @@ import os
 import ssl
 import shutil
 import socket
+import collections
 
 from OpenSSL import crypto  # type: ignore
 
@@ -41,28 +42,34 @@ class CertDir:
         * CertDir does not currently support signing CA CSRs.
     '''
 
-    def __init__(self, path=None):
+    def __init__(self, paths=(defdir,)):
         self.crypto_numbits = 4096
         self.signing_digest = 'sha256'
 
-        if path is None:
-            path = defdir
-
         self.certdirs = []
+        self.pathrefs = collections.defaultdict(int)
 
-        # for backward compatibility, do some type inspection
-        if isinstance(path, str):
-            self.certdirs.append(s_common.gendir(path))
-        elif isinstance(path, (tuple, list)):
-            [self.certdirs.append(s_common.gendir(p)) for p in path]
-        else:
-            mesg = 'Certdir path must be a path string or a list/tuple of path strings.'
-            raise s_exc.SynErr(mesg=mesg)
+        for path in paths:
+            self.addCertPath(path)
 
-        for cdir in self.certdirs:
-            s_common.gendir(cdir, 'cas')
-            s_common.gendir(cdir, 'hosts')
-            s_common.gendir(cdir, 'users')
+    def addCertPath(self, *path):
+        fullpath = s_common.gendir(*path)
+        self.pathrefs[fullpath] += 1
+
+        if self.pathrefs[fullpath] == 1:
+
+            self.certdirs.append(fullpath)
+
+            s_common.gendir(fullpath, 'cas')
+            s_common.gendir(fullpath, 'hosts')
+            s_common.gendir(fullpath, 'users')
+
+    def delCertPath(self, *path):
+        fullpath = s_common.gendir(*path)
+        self.pathrefs[fullpath] -= 1
+        if self.pathrefs[fullpath] <= 0:
+            self.certdirs.remove(fullpath)
+            self.pathrefs.pop(fullpath, None)
 
     def genCaCert(self, name, signas=None, outp=None, save=True):
         '''
@@ -212,6 +219,37 @@ class CertDir:
                 outp.printf('key saved: %s' % (keypath,))
 
         return pkey, cert
+
+    def findUserCert(self, username):
+        '''
+        Resolve a user certificate by recursing upward through FQDN levels.
+        '''
+        if username.find('@') == -1:
+
+            certfile = self.getUserCertPath(username)
+            if certfile is None:
+                return None
+
+            keyfile = self.getUserKeyPath(username)
+            if keyfile is None:
+                return None
+
+            return certfile, keyfile
+
+        user, host = username.split('@')
+        for fqdn in iterFqdnUp(host):
+
+            certname = f'{user}@{fqdn}'
+
+            certfile = self.getUserCertPath(certname)
+            if certfile is None:
+                continue
+
+            keyfile = self.getUserKeyPath(certname)
+            if keyfile is None:
+                continue
+
+            return certfile, keyfile
 
     def genClientCert(self, name, outp=None):
         '''
@@ -857,17 +895,13 @@ class CertDir:
         self._loadCasIntoSSLContext(sslctx)
 
         if certname is not None:
-            certfile = self.getUserCertPath(certname)
-            if certfile is None:
-                mesg = f'Missing TLS certificate file for user: {certname}'
+
+            userpair = self.findUserCert(certname)
+            if userpair is None:
+                mesg = f'User certificate not found: {certname}'
                 raise s_exc.NoSuchCert(mesg=mesg)
 
-            keyfile = self.getUserKeyPath(certname)
-            if keyfile is None:
-                mesg = f'Missing TLS key file for user: {certname}'
-                raise s_exc.NoCertKey(mesg=mesg)
-
-            sslctx.load_cert_chain(certfile, keyfile)
+            sslctx.load_cert_chain(*userpair)
 
         return sslctx
 
@@ -962,12 +996,16 @@ class CertDir:
         csrpath = self._getPathJoin(mode, '%s.csr' % name)
         self._checkDupFile(csrpath)
 
+        byts = crypto.dump_certificate_request(crypto.FILETYPE_PEM, xcsr)
+
         with s_common.genfile(csrpath) as fd:
             fd.truncate(0)
-            fd.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, xcsr))
+            fd.write(byts)
 
         if outp is not None:
             outp.printf('csr saved: %s' % (csrpath,))
+
+        return byts
 
     def _getCaPath(self, cert):
         subj = cert.get_issuer()
@@ -989,7 +1027,10 @@ class CertDir:
     def _loadCsrPath(self, path):
         byts = self._getPathBytes(path)
         if byts:
-            return crypto.load_certificate_request(crypto.FILETYPE_PEM, byts)
+            return self._loadCsrByts(byts)
+
+    def _loadCsrByts(self, byts):
+        return crypto.load_certificate_request(crypto.FILETYPE_PEM, byts)
 
     def _loadKeyPath(self, path):
         byts = self._getPathBytes(path)
@@ -1007,9 +1048,15 @@ class CertDir:
 
         with s_common.genfile(path) as fd:
             fd.truncate(0)
-            fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+            fd.write(self._certToByts(cert))
 
         return path
+
+    def _certToByts(self, cert):
+        return crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+
+    def _pkeyToByts(self, pkey):
+        return crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey)
 
     def _savePkeyTo(self, pkey, *paths):
         path = self._getPathJoin(*paths)
@@ -1017,7 +1064,7 @@ class CertDir:
 
         with s_common.genfile(path) as fd:
             fd.truncate(0)
-            fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
+            fd.write(self._pkeyToByts(pkey))
 
         return path
 
@@ -1030,3 +1077,13 @@ class CertDir:
             fd.write(cert.export())
 
         return path
+
+certdir = CertDir()
+def getCertDir():
+    return certdir
+
+def addCertPath(path):
+    return certdir.addCertPath(path)
+
+def delCertPath(path):
+    return certdir.delCertPath(path)

@@ -15,12 +15,12 @@ import synapse.lib.msgpack as s_msgpack
 
 readsize = 10 * s_const.megabyte
 
-async def connect(host, port, ssl=None):
+async def connect(host, port, ssl=None, hostname=None):
     '''
     Async connect and return a Link().
     '''
-    info = {'host': host, 'port': port, 'ssl': ssl}
-    reader, writer = await asyncio.open_connection(host, port, ssl=ssl)
+    info = {'host': host, 'port': port, 'ssl': ssl, 'hostname': hostname}
+    reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
     return await Link.anit(reader, writer, info=info)
 
 async def listen(host, port, onlink, ssl=None):
@@ -102,6 +102,7 @@ class Link(s_base.Base):
         self.rxqu = collections.deque()
 
         self.sock = self.writer.get_extra_info('socket')
+        self.peercert = self.writer.get_extra_info('peercert')
 
         self._drain_lock = asyncio.Lock()
 
@@ -124,6 +125,7 @@ class Link(s_base.Base):
                 self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
         self.info = info
+        self.hostname = self.info.get('hostname')
 
         self.unpk = s_msgpack.Unpk()
 
@@ -135,6 +137,16 @@ class Link(s_base.Base):
                 logger.debug('Link error waiting on close: %s', str(e))
 
         self.onfini(fini)
+
+    def getTlsPeerCn(self):
+
+        if self.peercert is None:
+            return None
+
+        for items in self.peercert.get('subject', ()):
+            for name, valu in items:
+                if name == 'commonName':
+                    return valu
 
     def getSpawnInfo(self):
         info = {}

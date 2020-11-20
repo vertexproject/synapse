@@ -1,6 +1,7 @@
 import contextlib
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
@@ -38,8 +39,7 @@ class AhaTest(s_test.SynTest):
 
             wait00 = aha.waiter(1, 'aha:svcadd')
             conf = {
-                'aha:name': 'cryo',
-                'aha:network': 'mynet',
+                'aha:name': 'cryo.mynet',
                 'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
@@ -52,7 +52,14 @@ class AhaTest(s_test.SynTest):
                 with self.raises(s_exc.NoSuchName):
                     await s_telepath.getAhaProxy({'host': 'hehe'})
 
-                async with await s_telepath.openurl('aha://root:secret@mynet/cryo') as proxy:
+                async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
+                    self.nn(await proxy.getCellIden())
+
+                # force a reconnect...
+                proxy = await cryo.ahaclient.proxy(timeout=2)
+                await proxy.fini()
+
+                async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
 
             wait01 = aha.waiter(1, 'aha:svcadd')
@@ -70,7 +77,30 @@ class AhaTest(s_test.SynTest):
                 async with await s_telepath.openurl('aha://root:secret@cryo') as proxy:
                     self.nn(await proxy.getCellIden())
 
-            async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
-                svcs = [x async for x in ahaproxy.getAhaSvcs()]
-                self.len(1, svcs)
-                self.eq('cryo', svcs[0]['name'])
+                async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
+                    svcs = [x async for x in ahaproxy.getAhaSvcs()]
+                    self.len(1, svcs)
+                    self.eq('cryo.global', svcs[0]['name'])
+
+                    self.none(await ahaproxy.getCaCert('vertex.link'))
+                    cacert = await ahaproxy.genCaCert('vertex.link')
+                    self.nn(cacert)
+                    self.eq(cacert, await ahaproxy.getCaCert('vertex.link'))
+
+                    csrpem = cryo.certdir.genHostCsr('cryo.vertex.link').decode()
+
+                    hostcert00 = await ahaproxy.signHostCsr(csrpem)
+                    hostcert01 = await ahaproxy.signHostCsr(csrpem)
+
+                    self.nn(hostcert00)
+                    self.nn(hostcert01)
+                    self.ne(hostcert00, hostcert01)
+
+                    csrpem = cryo.certdir.genUserCsr('visi@vertex.link').decode()
+
+                    usercert00 = await ahaproxy.signUserCsr(csrpem)
+                    usercert01 = await ahaproxy.signUserCsr(csrpem)
+
+                    self.nn(usercert00)
+                    self.nn(usercert01)
+                    self.ne(usercert00, usercert01)

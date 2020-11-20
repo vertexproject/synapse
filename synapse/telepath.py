@@ -60,25 +60,26 @@ async def getAhaProxy(urlinfo):
     '''
     Return a telepath proxy by looking up a host from an aha registry.
     '''
-    netw = 'global'
+    host = urlinfo.get('host')
+    if host is None:
+        mesg = f'getAhaProxy urlinfo has no host: {urlinfo}'
+        raise s_exc.NoSuchName(mesg=mesg)
 
-    host = urlinfo.pop('host')
-    path = urlinfo.pop('path', None)
-    if path and path != '/':
-        netw = host
-        host = path.strip('/')
-
-    for cnfo in list(aha_clients.values()):
+    for ahaurl, cnfo in list(aha_clients.items()):
         client = cnfo.get('client')
         try:
             proxy = await client.proxy(timeout=1)
 
-            ahasvc = await proxy.getAhaSvc(host, network=netw)
+            ahasvc = await proxy.getAhaSvc(host)
             if ahasvc is None:
                 continue
 
+            svcinfo = ahasvc.get('svcinfo', {})
+            svcurlinfo = svcinfo.get('urlinfo', {})
+
             info = urlinfo.copy()
-            info.update(ahasvc.get('urlinfo'))
+            info.pop('host', None)
+            info.update(svcurlinfo)
 
             return await openinfo(info)
 
@@ -86,9 +87,9 @@ async def getAhaProxy(urlinfo):
             raise
 
         except Exception as e:
-            logger.warning(f'aha client: {e}')
+            logger.exception(f'aha resolver ({ahaurl})')
 
-    mesg = f'aha service connection failed: {host}'
+    mesg = f'aha lookup failed: {host}'
     raise s_exc.NoSuchName(mesg=mesg)
 
 class Aware:
@@ -692,9 +693,12 @@ class Client(s_base.Base):
 
         self._t_proxy = None
         self._t_ready = asyncio.Event()
-        self._t_onlink = onlink
+        self._t_onlinks = []
         self._t_methinfo = None
         self._t_named_meths = set()
+
+        if onlink is not None:
+            self._t_onlinks.append(onlink)
 
         async def fini():
             if self._t_proxy is not None:
@@ -720,6 +724,14 @@ class Client(s_base.Base):
 
     def _setNextUrl(self, url):
         self._t_urls.appendleft(url)
+
+    async def onlink(self, func):
+        self._t_onlinks.append(func)
+        if self._t_proxy:
+            await func(self._t_proxy)
+
+    async def offlink(self, func):
+        self._t_onlinks.remove(func)
 
     async def _fireLinkLoop(self):
         self._t_proxy = None
@@ -760,10 +772,13 @@ class Client(s_base.Base):
         self._t_methinfo = self._t_proxy.methinfo
         self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
-        if self._t_onlink is not None:
-            await self._t_onlink(self._t_proxy)
-
-        await self.fire('tele:link', proxy=self._t_proxy)
+        for onlink in self._t_onlinks:
+            try:
+                await onlink(self._t_proxy)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.exception(f'onlink: {onlink}')
 
         async def fini():
             if self._t_named_meths:
@@ -992,10 +1007,20 @@ async def openurl(url, **opts):
                                url=url)
         url = newurl
 
+    info = chopurl(url, **opts)
+    return await openinfo(info)
+
+def chopurl(url, **opts):
+
     info = s_urlhelp.chopurl(url)
     info.update(opts)
 
-    return await openinfo(info)
+    #flatten query params into info
+    query = info.pop('query', None)
+    if query is not None:
+        info.update(query)
+
+    return info
 
 async def openinfo(info):
 
@@ -1056,25 +1081,31 @@ async def openinfo(info):
         path = info.get('path')
         name = info.get('name', path[1:])
 
+        hostname = None
+
         sslctx = None
         if scheme == 'ssl':
 
-            certname = None
-            certpath = None
-
             certdir = info.get('certdir')
-
-            query = info.get('query')
-            if query is not None:
-                certpath = query.get('certdir')
-                certname = query.get('certname')
+            certname = info.get('certname')
+            hostname = info.get('hostname', host)
 
             if certdir is None:
-                certdir = s_certdir.CertDir(certpath)
+                certdir = s_certdir.getCertDir()
+
+            # if a TLS connection specifies a user with no password
+            # attempt to auto-resolve a user certificate for the given
+            # host/network.
+            if certname is None and user is not None and passwd is None:
+                certname = f'{user}@{hostname}'
 
             sslctx = certdir.getClientSSLContext(certname=certname)
 
-        link = await s_link.connect(host, port, ssl=sslctx)
+            # do hostname checking manually to avoid DNS lookups
+            # ( to support dynamic IP addresses on services )
+            sslctx.check_hostname = False
+
+        link = await s_link.connect(host, port, ssl=sslctx, hostname=hostname)
 
     prox = await Proxy.anit(link, name)
     prox.onfini(link)
