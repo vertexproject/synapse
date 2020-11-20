@@ -624,6 +624,9 @@ class Agenda(s_base.Base):
         recs = []  # type: ignore
         for req in reqs:
             if TimeUnit.NOW in req:
+                if incunit is not None:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise ValueError(mesg)
                 nexttime = time.time()
                 continue
 
