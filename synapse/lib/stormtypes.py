@@ -4231,11 +4231,16 @@ class LibCron(Lib):
                 'year': dt.year
             }
 
-        if not tslist:
+        atnow = kwargs.get('now')
+
+        if not tslist and not atnow:
             mesg = 'At least one requirement must be provided'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
+
+        if atnow:
+            reqdicts.append({'now': True})
 
         cdef = {'storm': query,
                 'reqs': reqdicts,

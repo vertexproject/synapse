@@ -2674,10 +2674,20 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                q = "cron.at --minute +5 {$lib.queue.get(foo).put(at1)}"
+                q = "cron.at --minute +5,+10 {$lib.queue.get(foo).put(at1)}"
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('Created cron job', msgs)
 
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('0 cron/at jobs deleted.', msgs)
+
+                unixtime += 5 * MINSECS
+                core.agenda._wake_event.set()
+
+                self.eq('at1', await getNextFoo())
+
+                # Shouldn't delete yet, still one more run scheduled
                 q = "cron.cleanup"
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('0 cron/at jobs deleted.', msgs)
@@ -2739,6 +2749,39 @@ class StormTypesTest(s_test.SynTest):
 
                     mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
                     self.stormIsInPrint('enabled:         Y', mesgs)
+
+                ##################
+
+                # Test --now
+                q = "cron.at --now {$lib.queue.get(foo).put(atnow)}"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('Created cron job', msgs)
+
+                self.eq('atnow', await getNextFoo())
+
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
+
+                q = "cron.at --now --minute +5 {$lib.queue.get(foo).put(atnow)}"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('Created cron job', msgs)
+
+                self.eq('atnow', await getNextFoo())
+
+                # Shouldn't delete yet, still one more run scheduled
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('0 cron/at jobs deleted.', msgs)
+
+                unixtime += 5 * MINSECS
+                core.agenda._wake_event.set()
+
+                self.eq('atnow', await getNextFoo())
+
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
                 ##################
 
