@@ -3486,6 +3486,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Notes:
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
+            Non-recurring jobs may also have a req of 'now' which will cause the job to also execute immediately.
         '''
         s_agenda.reqValidCdef(cdef)
 
@@ -3504,6 +3505,10 @@ class Cortex(s_cell.Cell):  # type: ignore
                 reqs = self._convert_reqdict(reqs)
             else:
                 reqs = [self._convert_reqdict(req) for req in reqs]
+
+            if incunit is not None and s_agenda.TimeUnit.NOW in reqs:
+                mesg = "Recurring jobs may not be scheduled to run 'now'"
+                raise s_exc.BadConfValu(mesg)
 
             cdef['reqs'] = reqs
         except KeyError:

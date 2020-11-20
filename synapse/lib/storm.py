@@ -688,13 +688,15 @@ stormcmds = (
             ('--hour', {'help': 'Hour(s) to execute at.'}),
             ('--day', {'help': 'Day(s) to execute at.'}),
             ('--dt', {'help': 'Datetime(s) to execute at.'}),
+            ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
         ),
         'storm': '''
             $cron = $lib.cron.at(query=$cmdopts.query,
                                  minute=$cmdopts.minute,
                                  hour=$cmdopts.hour,
                                  day=$cmdopts.day,
-                                 dt=$cmdopts.dt)
+                                 dt=$cmdopts.dt,
+                                 now=$cmdopts.now)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -733,7 +735,7 @@ stormcmds = (
             if $crons {
                 for $cron in $crons {
                     $job = $cron.pack()
-                    if (not $job.recur and $job.lastfinishtime) {
+                    if (not $job.recs) {
                         $lib.cron.del($job.iden)
                         $count = ($count + 1)
                     }
