@@ -1969,6 +1969,9 @@ class Layer(s_nexus.Pusher):
         if sode.get('form') is None:
             self.setSodeDirty(buid, sode, form)
 
+        if oldb is not None:
+            oldv = s_msgpack.un(oldb)
+
         self.dataslab.put(abrv, buid, db=self.dataname)
 
         return (
