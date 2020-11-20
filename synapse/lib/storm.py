@@ -735,7 +735,7 @@ stormcmds = (
             if $crons {
                 for $cron in $crons {
                     $job = $cron.pack()
-                    if (not $job.recs and $job.lastfinishtime) {
+                    if (not $job.recs) {
                         $lib.cron.del($job.iden)
                         $count = ($count + 1)
                     }
