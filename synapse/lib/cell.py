@@ -552,6 +552,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'The name of the cell service in the aha service registry.',
             'type': 'string',
         },
+        'aha:leader': {
+            'description': 'The AHA service name to claim as the active instance of a storm service.',
+            'type': 'string',
+        },
         'aha:registry': {
             'description': 'The telepath URL of the aha service registry.',
             'type': 'string',
@@ -573,6 +577,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.auth = None
         self.sessions = {}
         self.isactive = False
+        self.ahaactive = None   # task to register as active service
         self.inaugural = False
 
         self.conf = self._initCellConf(conf)
@@ -745,6 +750,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if ahaname is None:
             return
 
+        ahalead = self.conf.get('aha:leader')
+
         ahainfo = self.conf.get('aha:svcinfo')
         if ahainfo is None and turl is not None:
 
@@ -760,8 +767,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if ahainfo is None:
             return
 
+        self.ahainfo = ahainfo
+
         async def onlink(proxy):
-            await proxy.addAhaSvc(ahaname, ahainfo)
+            await proxy.addAhaSvc(ahaname, self.ahainfo)
+            if self.isactive and ahalead is not None:
+                await proxy.addAhaSvc(ahalead, self.ahainfo)
 
         async def fini():
             await self.ahaclient.offlink(onlink)
@@ -798,12 +809,43 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.nexsroot.promote()
         await self.setCellActive(True)
 
+    async def _setAhaActive(self):
+
+        if self.ahaclient is None:
+            return
+
+        ahalead = self.conf.get('aha:leader')
+        if ahalead is None:
+            return
+
+        try:
+
+            proxy = await self.ahaclient.proxy(timeout=2)
+
+        except TimeoutError:
+            return None
+
+        # if we went inactive, bump the aha proxy
+        if not self.isactive:
+            await proxy.fini()
+            return
+
+        try:
+            await proxy.addAhaSvc(ahalead, self.ahainfo)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.warning(f'_setAhaActive failed: {e}')
+
     async def setCellActive(self, active):
         self.isactive = active
+
         if self.isactive:
             await self.initServiceActive()
         else:
             await self.initServicePassive()
+
+        await self._setAhaActive()
 
     async def initServiceActive(self): # pragma: no cover
         pass

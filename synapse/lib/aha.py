@@ -59,7 +59,7 @@ class AhaApi(s_cell.CellApi):
 
         return await self.cell.genCaCert(network)
 
-    async def signHostCsr(self, csrtext):
+    async def signHostCsr(self, csrtext, signas=None):
 
         xcsr = self.cell.certdir._loadCsrByts(csrtext.encode())
 
@@ -69,23 +69,27 @@ class AhaApi(s_cell.CellApi):
         if os.path.isfile(hostpath):
             os.unlink(hostpath)
 
-        network = hostname.split('.', 1)[1]
-        pkey, cert = self.cell.certdir.signHostCsr(xcsr, signas=network)
+        if signas is None:
+            signas = hostname.split('.', 1)[1]
+
+        pkey, cert = self.cell.certdir.signHostCsr(xcsr, signas=signas)
 
         return self.cell.certdir._certToByts(cert).decode()
 
-    async def signUserCsr(self, csrtext):
+    async def signUserCsr(self, csrtext, signas=None):
 
         xcsr = self.cell.certdir._loadCsrByts(csrtext.encode())
 
         username = xcsr.get_subject().CN
-        network = username.split('@', 1)[1]
 
         userpath = s_common.genpath(self.cell.dirn, 'certs', 'users', f'{username}.crt')
         if os.path.isfile(userpath):
             os.unlink(userpath)
 
-        pkey, cert = self.cell.certdir.signUserCsr(xcsr, signas=network)
+        if signas is None:
+            signas = username.split('@', 1)[1]
+
+        pkey, cert = self.cell.certdir.signUserCsr(xcsr, signas=signas)
 
         return self.cell.certdir._certToByts(cert).decode()
 
@@ -114,6 +118,8 @@ class AhaCell(s_cell.Cell):
 
     @s_nexus.Pusher.onPushAuto('aha:svc:add')
     async def addAhaSvc(self, name, info):
+
+        print('addAhaSvc %r %r' % (name, info))
 
         if name.find('.') == -1:
             name = f'{name}.global'

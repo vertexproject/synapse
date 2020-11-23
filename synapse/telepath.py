@@ -65,6 +65,7 @@ async def getAhaProxy(urlinfo):
         mesg = f'getAhaProxy urlinfo has no host: {urlinfo}'
         raise s_exc.NoSuchName(mesg=mesg)
 
+    laste = None
     for ahaurl, cnfo in list(aha_clients.items()):
         client = cnfo.get('client')
         try:
@@ -88,9 +89,47 @@ async def getAhaProxy(urlinfo):
 
         except Exception as e:
             logger.exception(f'aha resolver ({ahaurl})')
+            laste = e
+
+    if laste is not None:
+        raise laste
 
     mesg = f'aha lookup failed: {host}'
     raise s_exc.NoSuchName(mesg=mesg)
+
+_tele_loaded = False
+async def _loadTeleEnv():
+
+    global _tele_loaded
+
+    if _tele_loaded:
+        return
+
+    _tele_loaded = True
+
+    path = s_common.getSynPath('telepath.yaml')
+    if not os.path.isfile(path):
+        return
+
+    conf = s_common.yamlload(path)
+
+    vers = conf.get('version')
+    if vers != 1:
+        logger.warning(f'telepath.yaml unknown version: {vers}')
+        return
+
+    ahas = conf.get('aha:servers')
+    if ahas is not None:
+
+        if isinstance(ahas, str):
+            ahas = (ahas,)
+
+        for ahaurl in ahas:
+            await addAhaUrl(ahaurl)
+
+    for path in conf.get('certdirs', ()):
+        if os.path.isdir(path):
+            s_certdir.addCertPath(path)
 
 class Aware:
     '''
@@ -1026,6 +1065,8 @@ def chopurl(url, **opts):
     return info
 
 async def openinfo(info):
+
+    await _loadTeleEnv()
 
     scheme = info.get('scheme')
 
