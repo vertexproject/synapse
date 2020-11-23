@@ -656,9 +656,9 @@ class CellTest(s_t_utils.SynTest):
 
                 addr, port = await cryo.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
 
-                async with await s_telepath.openurl(f'ssl://root@localhost:{port}') as proxy:
+                async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 with self.raises(s_exc.BadCertHost):
-                    async with await s_telepath.openurl(f'ssl://root@borked.localhost:{port}') as proxy:
+                    async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=borked.localhost') as proxy:
                         pass
