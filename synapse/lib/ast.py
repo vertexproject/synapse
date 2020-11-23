@@ -1186,6 +1186,34 @@ class LiftProp(LiftOper):
                         yield node
                     return
 
+                if hint[0] == 'relprop':
+                    relpropname = hint[1].get('name')
+                    fullname = ':'.join([name, relpropname])
+
+                    prop = runt.model.prop(fullname)
+                    if prop is None:
+                        continue
+
+                    cmpr = hint[1].get('cmpr')
+                    valu = hint[1].get('valu')
+
+                    # try optimized lift but no guarantee a cmpr is available
+                    try:
+                        if cmpr is not None and valu is not None:
+                            print('byvalu')
+                            async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu):
+                                yield node
+                            return
+                    except asyncio.CancelledError: # pragma: no cover
+                        raise
+                    except:
+                        pass
+
+                    print('byhas')
+                    async for node in runt.snap.nodesByProp(fullname):
+                        yield node
+                    return
+
         async for node in runt.snap.nodesByProp(name):
             yield node
 
@@ -2028,6 +2056,21 @@ class HasRelPropCond(Cond):
 
         return cond
 
+    async def getLiftHints(self):
+
+        relprop = self.kids[0]
+        if not relprop.isconst:
+            return []
+
+        name = await self.kids[0].compute(None, None)
+        ispiv = name.find('::') != -1
+        if ispiv:
+            return []
+
+        return (
+            ('relprop', {'name': name}),
+        )
+
 class HasTagPropCond(Cond):
 
     async def getCondEval(self, runt):
@@ -2200,6 +2243,28 @@ class RelPropCond(Cond):
             return func(valu)
 
         return cond
+
+    async def getLiftHints(self):
+
+        relprop = self.kids[0].kids[0]
+
+        if not relprop.isconst:
+            return []
+
+        name = await relprop.compute(None, None)
+        ispiv = name.find('::') != -1
+        if ispiv:
+            return []
+
+        hint = {
+            'name': name,
+            'cmpr': await self.kids[1].compute(None, None),
+            'valu': await self.kids[2].compute(None, None),
+        }
+
+        return (
+            ('relprop', hint),
+        )
 
 class TagPropCond(Cond):
 

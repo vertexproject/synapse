@@ -1609,3 +1609,18 @@ class AstTest(s_test.SynTest):
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('no', msgs)
+
+    async def test_ast_optimization(self):
+        async with self.getTestCore() as core:
+
+            self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
+            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=200 ]'))
+            self.len(1, await core.nodes('[ inet:ipv4=5.6.7.8 :asn=8080 ]'))
+            self.len(1, await core.nodes('[ inet:ipv4=5.6.7.9 :asn=8080 :loc=us]'))
+            self.len(1, await core.nodes('[ inet:ipv4=5.6.7.10 :asn=8080 :loc=uk]'))
+
+            nodes = await core.nodes('inet:ipv4 +:loc=us')
+            self.len(1,nodes)
+
+            nodes = await core.nodes('inet:ipv4 +:loc')
+            self.len(2,nodes)
