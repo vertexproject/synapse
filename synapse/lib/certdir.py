@@ -1089,8 +1089,6 @@ class CertDir:
         return path
 
 certdir = CertDir()
-certdir._fini_atexit = True
-
 def getCertDir():
     return certdir
 

@@ -19,11 +19,11 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha(self):
 
-        client = await s_telepath.addAhaUrl('newp://newp@newp')
-        client = await s_telepath.addAhaUrl('newp://newp@newp')
-
         with self.raises(s_exc.NoSuchName):
             await s_telepath.getAhaProxy({'host': 'hehe'})
+
+        client = await s_telepath.addAhaUrl('newp://newp@newp')
+        client = await s_telepath.addAhaUrl('newp://newp@newp')
 
         await s_telepath.delAhaUrl('newp://newp@newp')
         self.len(1, s_telepath.aha_clients)

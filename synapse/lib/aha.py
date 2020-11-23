@@ -1,4 +1,5 @@
 import os
+import logging
 
 import synapse.common as s_common
 
@@ -6,6 +7,8 @@ import synapse.lib.cell as s_cell
 import synapse.lib.nexus as s_nexus
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
+
+logger = logging.getLogger(__file__)
 
 class AhaApi(s_cell.CellApi):
 
@@ -119,7 +122,7 @@ class AhaCell(s_cell.Cell):
     @s_nexus.Pusher.onPushAuto('aha:svc:add')
     async def addAhaSvc(self, name, info):
 
-        print('addAhaSvc %r %r' % (name, info))
+        logger.info('addAhaSvc %r %r' % (name, info))
 
         if name.find('.') == -1:
             name = f'{name}.global'
