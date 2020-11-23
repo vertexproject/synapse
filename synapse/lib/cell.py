@@ -825,7 +825,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             proxy = await self.ahaclient.proxy(timeout=2)
 
-        except TimeoutError:
+        except TimeoutError: # pragma: no cover
             return None
 
         # if we went inactive, bump the aha proxy
@@ -835,9 +835,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
             await proxy.addAhaSvc(ahalead, self.ahainfo)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError: # pragma: no cover
             raise
-        except Exception as e:
+        except Exception as e: # pragma: no cover
             logger.warning(f'_setAhaActive failed: {e}')
 
     async def setCellActive(self, active):

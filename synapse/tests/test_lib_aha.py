@@ -79,9 +79,19 @@ class AhaTest(s_test.SynTest):
                 async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
 
+                await cryo.setCellActive(True)
+
+                async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
+                    self.nn(await proxy.getCellIden())
+
+                # some coverage edge cases...
+                cryo.conf.pop('aha:leader', None)
+                await cryo.setCellActive(False)
+
             wait01 = aha.waiter(1, 'aha:svcadd')
             conf = {
-                'aha:name': 'cryo.foo',
+                'aha:name': '0.cryo.foo',
+                'aha:leader': 'cryo.foo',
                 'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
@@ -92,6 +102,9 @@ class AhaTest(s_test.SynTest):
                 await wait01.wait(timeout=2)
 
                 async with await s_telepath.openurl('aha://root:secret@cryo.foo') as proxy:
+                    self.nn(await proxy.getCellIden())
+
+                async with await s_telepath.openurl('aha://root:secret@0.cryo.foo') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
