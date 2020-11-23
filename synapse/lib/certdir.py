@@ -884,8 +884,13 @@ class CertDir:
         return self.genUserCert(name, csr=pkey, signas=signas, outp=outp)
 
     def _loadCasIntoSSLContext(self, ctx):
+
         for cdir in self.certdirs:
+
             path = s_common.genpath(cdir, 'cas')
+            if not os.path.isdir(path):
+                continue
+
             for name in os.listdir(path):
                 if name.endswith('.crt'):
                     ctx.load_verify_locations(os.path.join(path, name))

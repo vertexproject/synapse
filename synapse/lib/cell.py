@@ -577,7 +577,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.auth = None
         self.sessions = {}
         self.isactive = False
-        self.ahaactive = None   # task to register as active service
         self.inaugural = False
 
         self.conf = self._initCellConf(conf)
