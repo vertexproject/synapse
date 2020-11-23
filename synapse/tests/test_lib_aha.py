@@ -20,7 +20,10 @@ class AhaTest(s_test.SynTest):
     async def test_lib_aha(self):
 
         with self.raises(s_exc.NoSuchName):
-            await s_telepath.getAhaProxy({'host': 'hehe'})
+            await s_telepath.getAhaProxy({})
+
+        with self.raises(s_exc.NoSuchName):
+            await s_telepath.getAhaProxy({'host': 'hehe.haha'})
 
         client = await s_telepath.addAhaUrl('newp://newp@newp')
         client = await s_telepath.addAhaUrl('newp://newp@newp')
@@ -39,7 +42,8 @@ class AhaTest(s_test.SynTest):
 
             wait00 = aha.waiter(1, 'aha:svcadd')
             conf = {
-                'aha:name': 'cryo.mynet',
+                'aha:name': '0.cryo.mynet',
+                'aha:leader': 'cryo.mynet',
                 'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
@@ -50,9 +54,12 @@ class AhaTest(s_test.SynTest):
                 await wait00.wait(timeout=2)
 
                 with self.raises(s_exc.NoSuchName):
-                    await s_telepath.getAhaProxy({'host': 'hehe'})
+                    await s_telepath.getAhaProxy({'host': 'hehe.haha'})
 
                 async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
+                    self.nn(await proxy.getCellIden())
+
+                async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 # force a reconnect...
@@ -62,9 +69,19 @@ class AhaTest(s_test.SynTest):
                 async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
 
+                # force the service into passive mode...
+                await cryo.setCellActive(False)
+
+                with self.raises(s_exc.NoSuchName):
+                    async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
+                        pass
+
+                async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
+                    self.nn(await proxy.getCellIden())
+
             wait01 = aha.waiter(1, 'aha:svcadd')
             conf = {
-                'aha:name': 'cryo',
+                'aha:name': 'cryo.foo',
                 'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
@@ -74,18 +91,20 @@ class AhaTest(s_test.SynTest):
 
                 await wait01.wait(timeout=2)
 
-                async with await s_telepath.openurl('aha://root:secret@cryo') as proxy:
+                async with await s_telepath.openurl('aha://root:secret@cryo.foo') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
-                    svcs = [x async for x in ahaproxy.getAhaSvcs()]
+                    svcs = [x async for x in ahaproxy.getAhaSvcs('foo')]
                     self.len(1, svcs)
-                    self.eq('cryo.global', svcs[0]['name'])
+                    self.eq('cryo.foo', svcs[0]['name'])
 
                     self.none(await ahaproxy.getCaCert('vertex.link'))
-                    cacert = await ahaproxy.genCaCert('vertex.link')
-                    self.nn(cacert)
-                    self.eq(cacert, await ahaproxy.getCaCert('vertex.link'))
+                    cacert0 = await ahaproxy.genCaCert('vertex.link')
+                    cacert1 = await ahaproxy.genCaCert('vertex.link')
+                    self.nn(cacert0)
+                    self.eq(cacert0, cacert1)
+                    self.eq(cacert0, await ahaproxy.getCaCert('vertex.link'))
 
                     csrpem = cryo.certdir.genHostCsr('cryo.vertex.link').decode()
 

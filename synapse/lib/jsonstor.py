@@ -218,6 +218,29 @@ class JsonStor(s_base.Base):
         self.dirty[buid] = item
         return True
 
+    async def cmpDelPathObjProp(self, path, prop, valu):
+
+        buid = self._pathToBuid(path)
+        if buid is None:
+            return False
+
+        item = self._getBuidItem(buid)
+        if item is None:
+            return False
+
+        step = item
+        names = self._pathToTupl(prop)
+        for name in names[:-1]:
+            step = step[name]
+
+        name = names[-1]
+        if step.get(name) != valu:
+            return False
+
+        step.pop(name, None)
+        self.dirty[buid] = item
+        return True
+
 class JsonStorApi(s_cell.CellApi):
 
     async def getPathList(self, path):
@@ -251,6 +274,11 @@ class JsonStorApi(s_cell.CellApi):
         path = self.cell.jsonstor._pathToTupl(path)
         await self._reqUserAllowed(('json', 'set', *path))
         return await self.cell.delPathObjProp(path, name)
+
+    async def cmpDelPathObjProp(self, path, name, valu):
+        path = self.cell.jsonstor._pathToTupl(path)
+        await self._reqUserAllowed(('json', 'set', *path))
+        return await self.cell.cmpDelPathObjProp(path, name, valu)
 
     async def getPathObjProp(self, path, prop):
         path = self.cell.jsonstor._pathToTupl(path)
@@ -317,6 +345,10 @@ class JsonStorCell(s_cell.Cell):
     @s_nexus.Pusher.onPushAuto('json:del:prop')
     async def delPathObjProp(self, path, name):
         return await self.jsonstor.delPathObjProp(path, name)
+
+    @s_nexus.Pusher.onPushAuto('json:cmp:del:prop')
+    async def cmpDelPathObjProp(self, path, name, valu):
+        return await self.jsonstor.cmpDelPathObjProp(path, name, valu)
 
     @s_nexus.Pusher.onPushAuto('json:set:prop')
     async def setPathObjProp(self, path, prop, valu):

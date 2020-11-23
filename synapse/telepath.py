@@ -77,6 +77,9 @@ async def getAhaProxy(urlinfo):
                 continue
 
             svcinfo = ahasvc.get('svcinfo', {})
+            if not svcinfo.get('online'):
+                continue
+
             svcurlinfo = svcinfo.get('urlinfo', {})
 
             info = urlinfo.copy()
@@ -127,7 +130,7 @@ async def loadTeleEnv(path):
         for a in ahas:
             await delAhaUrl(a)
         for p in cdirs:
-            s_certdir.delCertPath(path)
+            s_certdir.delCertPath(p)
 
     return fini
 
@@ -826,7 +829,7 @@ class Client(s_base.Base):
                 # in case the callback fini()s the proxy
                 if self._t_proxy is None:
                     break
-            except asyncio.CancelledError:
+            except asyncio.CancelledError: # pragma: no cover
                 raise
             except Exception as e:
                 logger.exception(f'onlink: {onlink}')
@@ -1094,6 +1097,7 @@ async def openinfo(info):
         # cell:///path/to/celldir:share
         # cell://rel/path/to/celldir:share
         path = info.get('path')
+
         name = info.get('name', '*')
 
         # support cell://<relpath>/<to>/<cell>

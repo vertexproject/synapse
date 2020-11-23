@@ -227,37 +227,6 @@ class CertDir:
 
         return pkey, cert
 
-    def findUserCert(self, username):
-        '''
-        Resolve a user certificate by recursing upward through FQDN levels.
-        '''
-        if username.find('@') == -1:
-
-            certfile = self.getUserCertPath(username)
-            if certfile is None:
-                return None
-
-            keyfile = self.getUserKeyPath(username)
-            if keyfile is None:
-                return None
-
-            return certfile, keyfile
-
-        user, host = username.split('@')
-        for fqdn in iterFqdnUp(host):
-
-            certname = f'{user}@{fqdn}'
-
-            certfile = self.getUserCertPath(certname)
-            if certfile is None:
-                continue
-
-            keyfile = self.getUserKeyPath(certname)
-            if keyfile is None:
-                continue
-
-            return certfile, keyfile
-
     def genClientCert(self, name, outp=None):
         '''
         Generates a user PKCS #12 archive.
@@ -908,15 +877,26 @@ class CertDir:
 
         if certname is not None:
 
-            userpair = self.findUserCert(certname)
-            if userpair is None:
-                if self.getUserCertPath(certname) is None:
-                    mesg = f'User certificate not found: {certname}'
-                    raise s_exc.NoSuchCert(mesg=mesg)
+            username = certname
+            if username.find('@') != -1:
+                user, host = username.split('@', 1)
+                username = self.getUserForHost(user, host)
+
+            if username is None:
+                mesg = f'User certificate not found: {certname}'
+                raise s_exc.NoSuchCert(mesg=mesg)
+
+            certpath = self.getUserCertPath(username)
+            if certpath is None:
+                mesg = f'User certificate not found: {certname}'
+                raise s_exc.NoSuchCert(mesg=mesg)
+
+            keypath = self.getUserKeyPath(username)
+            if keypath is None:
                 mesg = f'User private key not found: {certname}'
                 raise s_exc.NoCertKey(mesg=mesg)
 
-            sslctx.load_cert_chain(*userpair)
+            sslctx.load_cert_chain(certpath, keypath)
 
         return sslctx
 

@@ -13,31 +13,33 @@ logger = logging.getLogger(__file__)
 class AhaApi(s_cell.CellApi):
 
     async def getAhaSvc(self, name):
-
-        if name.find('.') == -1:
-            name = f'{name}.global'
-
         svcname, network = name.split('.', 1)
         await self._reqUserAllowed(('aha', 'service', 'get', network))
         return await self.cell.getAhaSvc(name)
 
-    async def getAhaSvcs(self, network='global'):
+    async def getAhaSvcs(self, network):
         await self._reqUserAllowed(('aha', 'service', 'get', network))
         async for info in self.cell.getAhaSvcs(network=network):
             yield info
 
     async def addAhaSvc(self, name, info):
 
-        if name.find('.') == -1:
-            name = f'{name}.global'
-
         svcname, network = name.split('.', 1)
         await self._reqUserAllowed(('aha', 'service', 'add', network, svcname))
+
+        # dont disclose the real session...
+        sess = s_common.guid(self.sess.iden)
+        info['online'] = sess
 
         if self.link.sock is not None:
             host, port = self.link.sock.getpeername()
             urlinfo = info.get('urlinfo', {})
             urlinfo.setdefault('host', host)
+
+        async def fini():
+            await self.cell.setAhaSvcDown(name, sess)
+
+        self.onfini(fini)
 
         return await self.cell.addAhaSvc(name, info)
 
@@ -114,7 +116,7 @@ class AhaCell(s_cell.Cell):
 
         self.onfini(fini)
 
-    async def getAhaSvcs(self, network='global'):
+    async def getAhaSvcs(self, network):
         path = ('aha', 'services', network)
         async for path, item in self.jsonstor.getPathObjs(path):
             yield item
@@ -123,9 +125,6 @@ class AhaCell(s_cell.Cell):
     async def addAhaSvc(self, name, info):
 
         logger.info('addAhaSvc %r %r' % (name, info))
-
-        if name.find('.') == -1:
-            name = f'{name}.global'
 
         svcname, network = name.split('.', 1)
         path = ('aha', 'services', network, svcname)
@@ -140,9 +139,13 @@ class AhaCell(s_cell.Cell):
         # mostly for testing...
         await self.fire('aha:svcadd', svcinfo=svcinfo)
 
+    @s_nexus.Pusher.onPushAuto('aha:svc:down')
+    async def setAhaSvcDown(self, name, linkiden):
+        svcname, network = name.split('.', 1)
+        path = ('aha', 'services', network, svcname)
+        await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
+
     async def getAhaSvc(self, name):
-        if name.find('.') == -1:
-            name = f'{name}.global'
         svcname, network = name.split('.', 1)
         path = ('aha', 'services', network, svcname)
         return await self.jsonstor.getPathObj(path)

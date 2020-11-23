@@ -15,7 +15,12 @@ class JsonStorTest(s_test.SynTest):
             async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
                 async with jsonstor.getLocalProxy() as prox:
 
-                    await prox.setPathObj('foo/bar', {'hehe': 'haha'})
+                    await prox.setPathObj('foo/bar', {'hehe': 'haha', 'mooz': 'zoom'})
+                    self.eq({'hehe': 'haha', 'mooz': 'zoom'}, await prox.getPathObj('foo/bar'))
+
+                    self.false(await prox.cmpDelPathObjProp('foo/bar', 'mooz', 'hehe'))
+                    self.true(await prox.cmpDelPathObjProp('foo/bar', 'mooz', 'zoom'))
+
                     self.eq({'hehe': 'haha'}, await prox.getPathObj('foo/bar'))
 
                     self.true(await prox.setPathObjProp('foo/bar', 'zip', {'zop': True}))

@@ -81,8 +81,8 @@ class CellApi(s_base.Base):
         self.link = link
         assert user
         self.user = user
-        sess = self.link.get('sess')  # type: s_daemon.Sess
-        sess.user = user
+        self.sess = self.link.get('sess')  # type: s_daemon.Sess
+        self.sess.user = user
         await self.initCellApi()
 
     async def initCellApi(self):
@@ -688,6 +688,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initAhaRegistry(self):
 
+        self.ahainfo = None
         self.ahaclient = None
 
         ahaurl = self.conf.get('aha:registry')
@@ -811,6 +812,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _setAhaActive(self):
 
         if self.ahaclient is None:
+            return
+
+        if self.ahainfo is None:
             return
 
         ahalead = self.conf.get('aha:leader')

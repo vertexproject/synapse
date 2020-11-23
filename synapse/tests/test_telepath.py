@@ -368,6 +368,7 @@ class TeleTest(s_t_utils.SynTest):
 
             dmon.certdir.genCaCert('userca')
             dmon.certdir.genUserCert('visi', signas='userca')
+            dmon.certdir.genUserCert('visi@localhost', signas='userca')
 
             addr, port = await dmon.listen('ssl://127.0.0.1:0/?ca=userca&hostname=localhost')
             dmon.share('foo', foo)
@@ -375,8 +376,11 @@ class TeleTest(s_t_utils.SynTest):
             with self.raises(s_exc.LinkShutDown):
                 await s_telepath.openurl(f'ssl://localhost/foo', port=port, certdir=dmon.certdir)
 
-            proxy = await s_telepath.openurl(f'ssl://localhost/foo?certname=visi', port=port, certdir=dmon.certdir)
-            self.eq(20, await proxy.bar(15, 5))
+            async with await s_telepath.openurl(f'ssl://localhost/foo?certname=visi', port=port, certdir=dmon.certdir) as proxy:
+                self.eq(20, await proxy.bar(15, 5))
+
+            async with await s_telepath.openurl(f'ssl://visi@localhost/foo', port=port, certdir=dmon.certdir) as proxy:
+                self.eq(20, await proxy.bar(15, 5))
 
     async def test_telepath_tls(self):
         self.thisHostMustNot(platform='darwin')
@@ -1101,8 +1105,10 @@ class TeleTest(s_t_utils.SynTest):
             await originit(self, url)
 
         async def onlinkFail(p):
-            print('onLinkFail')
             await p.fini()
+
+        async def onlinkExc(p):
+            raise s_exc.SynErr(mesg='ohhai')
 
         foo = Foo()
 
@@ -1117,6 +1123,13 @@ class TeleTest(s_t_utils.SynTest):
                         self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
                         self.eq(4, cnts['loops'])
                         self.eq(4, cnts['inits'])
+
+                    evnt.clear()
+                    async with await s_telepath.Client.anit(url, onlink=onlinkExc) as targ:
+
+                        self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                        self.eq(5, cnts['loops'])
+                        self.eq(5, cnts['inits'])
 
     async def test_client_method_reset(self):
         class Foo:
@@ -1172,3 +1185,26 @@ class TeleTest(s_t_utils.SynTest):
                     self.eq(await prox.bar(), 'bar')
                     # We still have foo and bar as named meths
                     self.eq(prox._t_named_meths, {'foo', 'bar'})
+
+    async def test_telepath_loadenv(self):
+        with self.getTestDir() as dirn:
+
+            certpath = s_common.gendir(dirn, 'certs')
+            newppath = s_common.gendir(dirn, 'newps')
+
+            conf = {
+                'version': 1,
+                'aha:servers': [
+                    'tcp://localhost:9999/',
+                ],
+                'certdirs': [
+                    certpath,
+                    newppath,
+                ],
+            }
+
+            path = s_common.genpath(dirn, 'telepath.yaml')
+
+            s_common.yamlsave(conf, path)
+            fini = await s_telepath.loadTeleEnv(path)
+            await fini()
