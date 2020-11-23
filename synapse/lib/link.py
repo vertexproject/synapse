@@ -138,6 +138,12 @@ class Link(s_base.Base):
 
         self.onfini(fini)
 
+        if self.hostname is not None:
+            if self.hostname != self.getTlsPeerCn():
+                mesg = f'Expected: {self.hostname} Got: {self.getTlsPeerCn()}'
+                await self.fini()
+                raise s_exc.BadCertHost(mesg=mesg)
+
     def getTlsPeerCn(self):
 
         if self.peercert is None:

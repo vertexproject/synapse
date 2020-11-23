@@ -1086,6 +1086,8 @@ class TeleTest(s_t_utils.SynTest):
     async def test_telepath_client_onlink_exc(self):
 
         cnts = {
+            'ok': 0,
+            'exc': 0,
             'loops': 0,
             'inits': 0
         }
@@ -1104,10 +1106,14 @@ class TeleTest(s_t_utils.SynTest):
 
             await originit(self, url)
 
+        async def onLinkOk(p):
+            cnts['ok'] += 1
+
         async def onlinkFail(p):
             await p.fini()
 
         async def onlinkExc(p):
+            cnts['exc'] += 1
             raise s_exc.SynErr(mesg='ohhai')
 
         foo = Foo()
@@ -1115,6 +1121,14 @@ class TeleTest(s_t_utils.SynTest):
         async with self.getTestDmon() as dmon:
             dmon.share('foo', foo)
             url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+
+            async with await s_telepath.Client.anit(url) as targ:
+                proxy = await targ.proxy(timeout=2)
+                await targ.onlink(onLinkOk)
+                self.eq(1, cnts['ok'])
+                with self.raises(s_exc.SynErr):
+                    await targ.onlink(onlinkExc)
+                self.eq(1, cnts['exc'])
 
             with mock.patch('synapse.telepath.Client._fireLinkLoop', countLinkLoops):
                 with mock.patch('synapse.telepath.Client._initTeleLink', countInitLinks):
@@ -1190,7 +1204,7 @@ class TeleTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             certpath = s_common.gendir(dirn, 'certs')
-            newppath = s_common.gendir(dirn, 'newps')
+            newppath = s_common.genpath(dirn, 'newps')
 
             conf = {
                 'version': 1,
@@ -1204,7 +1218,13 @@ class TeleTest(s_t_utils.SynTest):
             }
 
             path = s_common.genpath(dirn, 'telepath.yaml')
-
             s_common.yamlsave(conf, path)
+
             fini = await s_telepath.loadTeleEnv(path)
             await fini()
+
+            self.none(await s_telepath.loadTeleEnv(newppath))
+
+            conf['version'] = 99
+            s_common.yamlsave(conf, path)
+            self.none(await s_telepath.loadTeleEnv(path))

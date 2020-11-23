@@ -158,7 +158,7 @@ class NoCertKey(SynErr):
     ''' Raised when a Cert object requires a RSA Private Key to perform an operation and the key is not present.  '''
     pass
 class NoSuchCert(SynErr): pass
-class TlsBadHost(SynErr): pass
+class BadCertHost(SynErr): pass
 
 class ModAlreadyLoaded(SynErr): pass
 class MustBeJsonSafe(SynErr): pass

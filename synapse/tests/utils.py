@@ -1021,7 +1021,7 @@ class SynTest(unittest.TestCase):
             s_cryotank.CryoCell: Test cryocell.
         '''
         if dirn is not None:
-            async with await s_cryotank.CryoCell.anit(dirn) as cryo:
+            async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
                 yield cryo
 
             return

@@ -101,11 +101,7 @@ async def getAhaProxy(urlinfo):
     mesg = f'aha lookup failed: {host}'
     raise s_exc.NoSuchName(mesg=mesg)
 
-_tele_loaded = {}
 async def loadTeleEnv(path):
-
-    if _tele_loaded.get(path):
-        return None
 
     if not os.path.isfile(path):
         return
