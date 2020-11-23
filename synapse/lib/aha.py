@@ -164,25 +164,3 @@ class AhaCell(s_cell.Cell):
             fd.write(cakey.encode())
         with s_common.genfile(self.dirn, 'certs', 'cas', f'{name}.crt') as fd:
             fd.write(cacert.encode())
-
-    #@s_nexus.Pusher.onPushAuto('aha:ca:host:save')
-    #async def saveHostCert(self, name, certbytes, keybytes):
-
-    #@s_nexus.Pusher.onPushAuto('aha:ca:user:save')
-    #async def saveUserCert(self, name, certbytes, keybytes):
-
-    #async def genAhaHostCert(self, csr):
-
-        #xcsr = self.certdir._loadCsrByts(csr)
-
-        #host = xcsr.get_subject().CN
-        #pkey, cert = self.certdir.signHostCsr(xcsr, signas=host.split('.', 1)[1])
-
-        #return self.certdir._certToByts(cert)
-
-        #path = self.certdir.getHostCertPath(network)
-        #with open(path, 'rb') as fd:
-            #return fd.read()
-
-    #async def genAhaUserCert(self, user, csr):
-        #userbase, userhost = user.split('@', 1)

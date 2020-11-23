@@ -33,6 +33,7 @@ async def addAhaUrl(url):
     info = aha_clients.get(url)
     if info is None:
         client = await Client.anit(url)
+        client._fini_atexit = True
         info = aha_clients[url] = {'refs': 0, 'client': client}
 
     info['refs'] += 1
@@ -923,7 +924,6 @@ async def disc_consul(info):
     '''
     info.setdefault('original_host', info.get('host'))
     service = info.get('original_host')
-    print(repr(info))
     host = info.get('consul')
     tag = info.get('consul_tag')  # iterate through entries until a match for tag is present.
     ctag_addr = info.get('consul_tag_address')  # Prefer a taggedAddress if set
