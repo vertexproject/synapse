@@ -462,7 +462,7 @@ stormcmds = (
                 $pkg = $reply.result
 
                 $pkg.url = $cmdopts.url
-                $pkg.loaded = $lib.cast(time, now)
+                $pkg.loaded = $lib.time.now()
 
                 $lib.pkg.add($pkg)
 

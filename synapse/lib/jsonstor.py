@@ -147,15 +147,15 @@ class JsonStor(s_base.Base):
     def _pathToTupl(self, path):
 
         if isinstance(path, str):
-            path = path.split('/')
+            path = tuple(path.split('/'))
 
         return path
 
     def _tuplToPath(self, path):
         return '/'.join(path)
 
-    def _pkeyToPath(self, pkey):
-        return pkey.decode().split('\x00')
+    def _pkeyToTupl(self, pkey):
+        return tuple(pkey.decode().split('\x00'))
 
     async def getPathList(self, path):
         path = self._pathToTupl(path)
@@ -164,7 +164,7 @@ class JsonStor(s_base.Base):
         pkey = self._pathToPkey(path)
 
         for lkey, buid in self.slab.scanByPref(pkey, db=self.pathdb):
-            yield self._tuplToPath(self._pkeyToPath(lkey)[plen:])
+            yield self._tuplToPath(self._pkeyToTupl(lkey)[plen:])
 
     async def getPathObjs(self, path):
         path = self._pathToTupl(path)
@@ -173,7 +173,7 @@ class JsonStor(s_base.Base):
         pkey = self._pathToPkey(path)
 
         for lkey, buid in self.slab.scanByPref(pkey, db=self.pathdb):
-            yield self._pkeyToPath(lkey)[plen:], self._getBuidItem(buid)
+            yield self._pkeyToTupl(lkey)[plen:], self._getBuidItem(buid)
 
     async def setPathObjProp(self, path, prop, valu):
 
@@ -213,7 +213,7 @@ class JsonStor(s_base.Base):
         for name in names[:-1]:
             step = step[name]
 
-        del step[names[-1]]
+        step.pop(names[-1], None)
 
         self.dirty[buid] = item
         return True
