@@ -1634,13 +1634,16 @@ class AstTest(s_test.SynTest):
             with mock.patch('synapse.lib.snap.Snap.nodesByPropValu', checkValu):
                 async with self.getTestCore() as core:
 
-                    self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
-                    self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=200 ]'))
-                    self.len(1, await core.nodes('[ inet:ipv4=5.6.7.8 ]'))
-                    self.len(1, await core.nodes('[ inet:ipv4=5.6.7.9 :loc=us]'))
-                    self.len(1, await core.nodes('[ inet:ipv4=5.6.7.10 :loc=uk]'))
-                    self.len(1, await core.nodes('[ test:str=a :bar=(test:str, a) :tick=19990101]'))
-                    self.len(1, await core.nodes('[ test:str=m :bar=(test:str, m) :tick=20200101]'))
+                    self.len(1, await core.nodes('[inet:asn=200 :name=visi]'))
+                    self.len(1, await core.nodes('[inet:ipv4=1.2.3.4 :asn=200]'))
+                    self.len(1, await core.nodes('[inet:ipv4=5.6.7.8]'))
+                    self.len(1, await core.nodes('[inet:ipv4=5.6.7.9 :loc=us]'))
+                    self.len(1, await core.nodes('[inet:ipv4=5.6.7.10 :loc=uk]'))
+                    self.len(1, await core.nodes('[test:str=a :bar=(test:str, a) :tick=19990101]'))
+                    self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
+
+                    await core.nodes('.created [.seen=20200101]')
+                    calls = []
 
                     nodes = await core.nodes('inet:ipv4 +:loc=us')
                     self.len(1,nodes)
@@ -1652,31 +1655,12 @@ class AstTest(s_test.SynTest):
                     self.eq(calls, [('prop', 'inet:ipv4:loc')])
                     calls = []
 
-                    nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
+                    nodes = await core.nodes('$loc=us inet:ipv4 +:loc=$loc')
                     self.len(1,nodes)
-                    self.eq(calls, [('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])])
+                    self.eq(calls, [('valu', 'inet:ipv4:loc', '=', 'us')])
                     calls = []
 
-                    nodes = await core.nodes('test:str +:bar*range=((test:str, c), (test:str, q))')
-                    self.len(1,nodes)
-
-                    exp = [
-                        # Lift by value will fail since stortype is MSGP
-                        ('valu', 'test:str:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
-                        # Can still optimize to full prop lift though
-                        ('prop', 'test:str:bar'),
-                    ]
-
-                    self.eq(calls, exp)
-                    calls=[]
-
-                    # Optimize pivprop filter a bit
-                    nodes = await core.nodes('inet:ipv4 +:asn::name=visi')
-                    self.len(1,nodes)
-                    self.eq(calls, [('prop', 'inet:ipv4:asn')])
-                    calls=[]
-
-                    nodes = await core.nodes('$loc=us inet:ipv4 +:loc=$loc')
+                    nodes = await core.nodes('$prop=loc inet:ipv4 +:$prop=us')
                     self.len(1,nodes)
                     self.eq(calls, [('valu', 'inet:ipv4:loc', '=', 'us')])
                     calls = []
@@ -1688,5 +1672,39 @@ class AstTest(s_test.SynTest):
                         ('valu', 'inet:ipv4:loc', '=', 'uk'),
                         ('valu', 'inet:ipv4:loc', '=', 'us'),
                     ]
+                    self.eq(calls, exp)
+                    calls = []
+
+                    # Should optimize both lifts
+                    nodes = await core.nodes('inet:ipv4 test:str +.seen@=2020')
+                    self.len(6,nodes)
+                    exp = [
+                        ('valu', 'inet:ipv4.seen', '@=', '2020'),
+                        ('valu', 'test:str.seen', '@=', '2020'),
+                    ]
+                    self.eq(calls, exp)
+                    calls = []
+
+                    # Optimize pivprop filter a bit
+                    nodes = await core.nodes('inet:ipv4 +:asn::name=visi')
+                    self.len(1,nodes)
+                    self.eq(calls, [('prop', 'inet:ipv4:asn')])
+                    calls = []
+
+                    nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
+                    self.len(1,nodes)
+                    self.eq(calls, [('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])])
+                    calls = []
+
+                    # Lift by value will fail since stortype is MSGP
+                    # can still optimize a bit though
+                    nodes = await core.nodes('test:str +:bar*range=((test:str, c), (test:str, q))')
+                    self.len(1,nodes)
+
+                    exp = [
+                        ('valu', 'test:str:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
+                        ('prop', 'test:str:bar'),
+                    ]
+
                     self.eq(calls, exp)
                     calls = []

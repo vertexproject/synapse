@@ -1188,7 +1188,12 @@ class LiftProp(LiftOper):
 
                 if hint[0] == 'relprop':
                     relpropname = hint[1].get('name')
-                    fullname = ':'.join([name, relpropname])
+                    isuniv = hint[1].get('univ')
+
+                    if isuniv:
+                        fullname = ''.join([name, relpropname])
+                    else:
+                        fullname = ':'.join([name, relpropname])
 
                     prop = runt.model.prop(fullname)
                     if prop is None:
@@ -2258,6 +2263,7 @@ class RelPropCond(Cond):
 
         hint = {
             'name': name,
+            'univ': isinstance(relprop, UnivProp),
             'cmpr': await self.kids[1].compute(runt, path),
             'valu': await self.kids[2].compute(runt, path),
         }
