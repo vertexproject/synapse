@@ -1023,7 +1023,7 @@ class LibAxon(Lib):
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True):
         '''
-        A method to download an HTTP(S) resource int the Cortex's Axon.
+        A method to download an HTTP(S) resource into the Cortex's Axon.
 
         Args:
             url (str): The URL to download
