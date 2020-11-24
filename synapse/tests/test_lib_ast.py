@@ -1663,7 +1663,7 @@ class AstTest(s_test.SynTest):
                     exp = [
                         # Lift by value will fail since stortype is MSGP
                         ('valu', 'test:str:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
-                        # Can lift by the full prop though
+                        # Can still optimize to full prop lift though
                         ('prop', 'test:str:bar'),
                     ]
 
@@ -1676,8 +1676,17 @@ class AstTest(s_test.SynTest):
                     self.eq(calls, [('prop', 'inet:ipv4:asn')])
                     calls=[]
 
-                    # Could optimize this more
                     nodes = await core.nodes('$loc=us inet:ipv4 +:loc=$loc')
                     self.len(1,nodes)
-                    self.eq(calls, [('prop', 'inet:ipv4:loc')])
+                    self.eq(calls, [('valu', 'inet:ipv4:loc', '=', 'us')])
+                    calls = []
+
+                    nodes = await core.nodes('inet:ipv4:loc {$loc=:loc inet:ipv4 +:loc=$loc}')
+                    self.len(2,nodes)
+                    exp = [
+                        ('prop', 'inet:ipv4:loc'),
+                        ('valu', 'inet:ipv4:loc', '=', 'uk'),
+                        ('valu', 'inet:ipv4:loc', '=', 'us'),
+                    ]
+                    self.eq(calls, exp)
                     calls = []

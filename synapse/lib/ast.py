@@ -1177,9 +1177,9 @@ class LiftProp(LiftOper):
 
         assert len(self.kids) == 1
 
-        # check if we can optimize a form lift with a tag filter...
+        # check if we can optimize a form lift
         if prop.isform:
-            async for hint in self.getRightHints():
+            async for hint in self.getRightHints(runt, path):
                 if hint[0] == 'tag':
                     tagname = hint[1].get('name')
                     async for node in runt.snap.nodesByTag(tagname, form=name):
@@ -1197,7 +1197,7 @@ class LiftProp(LiftOper):
                     cmpr = hint[1].get('cmpr')
                     valu = hint[1].get('valu')
 
-                    # try optimized lift but no guarantee a cmpr is available
+                    # try lifting by valu but no guarantee a cmpr is available
                     try:
                         if cmpr is not None and valu is not None:
                             async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu):
@@ -1215,7 +1215,7 @@ class LiftProp(LiftOper):
         async for node in runt.snap.nodesByProp(name):
             yield node
 
-    async def getRightHints(self):
+    async def getRightHints(self, runt, path):
 
         for oper in self.iterright():
 
@@ -1224,8 +1224,11 @@ class LiftProp(LiftOper):
                 continue
 
             if isinstance(oper, FiltOper):
-                for hint in await oper.getLiftHints():
+                for hint in await oper.getLiftHints(runt, path):
                     yield hint
+                continue
+
+            return
 
 class LiftPropBy(LiftOper):
 
@@ -1811,7 +1814,7 @@ class PropPivot(PivotOper):
 
 class Cond(AstNode):
 
-    async def getLiftHints(self):
+    async def getLiftHints(self, runt, path):
         return []
 
     async def getCondEval(self, runt): # pragma: no cover
@@ -1961,9 +1964,9 @@ class AndCond(Cond):
     '''
     <cond> and <cond>
     '''
-    async def getLiftHints(self):
-        h0 = await self.kids[0].getLiftHints()
-        h1 = await self.kids[0].getLiftHints()
+    async def getLiftHints(self, runt, path):
+        h0 = await self.kids[0].getLiftHints(runt, path)
+        h1 = await self.kids[0].getLiftHints(runt, path)
         return h0 + h1
 
     async def getCondEval(self, runt):
@@ -1998,7 +2001,7 @@ class TagCond(Cond):
     '''
     #foo.bar
     '''
-    async def getLiftHints(self):
+    async def getLiftHints(self, runt, path):
 
         kid = self.kids[0]
 
@@ -2054,13 +2057,11 @@ class HasRelPropCond(Cond):
 
         return cond
 
-    async def getLiftHints(self):
+    async def getLiftHints(self, runt, path):
 
         relprop = self.kids[0]
-        if not relprop.isconst:
-            return []
 
-        name = await self.kids[0].compute(None, None)
+        name = await relprop.compute(runt, path)
         ispiv = name.find('::') != -1
         if ispiv:
             return (
@@ -2244,29 +2245,21 @@ class RelPropCond(Cond):
 
         return cond
 
-    async def getLiftHints(self):
+    async def getLiftHints(self, runt, path):
 
         relprop = self.kids[0].kids[0]
-        if not relprop.isconst:
-            return []
 
-        name = await relprop.compute(None, None)
+        name = await relprop.compute(runt, path)
         ispiv = name.find('::') != -1
         if ispiv:
             return (
                 ('relprop', {'name': name.split('::')[0]}),
             )
 
-        valu = self.kids[2]
-        if not (isinstance(valu, Const) or valu.isconst):
-            return (
-                ('relprop', {'name': name}),
-            )
-
         hint = {
             'name': name,
-            'cmpr': await self.kids[1].compute(None, None),
-            'valu': await valu.compute(None, None),
+            'cmpr': await self.kids[1].compute(runt, path),
+            'valu': await self.kids[2].compute(runt, path),
         }
 
         return (
@@ -2304,12 +2297,12 @@ class TagPropCond(Cond):
 
 class FiltOper(Oper):
 
-    async def getLiftHints(self):
+    async def getLiftHints(self, runt, path):
 
         if await self.kids[0].compute(None, None) != '+':
             return []
 
-        return await self.kids[1].getLiftHints()
+        return await self.kids[1].getLiftHints(runt, path)
 
     async def run(self, runt, genr):
 
@@ -2336,7 +2329,6 @@ class Value(AstNode):
     '''
     def __init__(self, kids=()):
         AstNode.__init__(self, kids=kids)
-        self.isconst = False
 
     #def repr(self):
         #return f'{self.__class__.__name__}: ds={self.kids}'
@@ -2697,9 +2689,6 @@ class EmbedQuery(Const):
         return s_stormtypes.Query(self.valu, varz, runt, path=path)
 
 class List(Value):
-
-    def prepare(self):
-        self.isconst = all(isinstance(kid, Const) or kid.isconst for kid in self.kids)
 
     def repr(self):
         return 'List: %s' % self.kids
