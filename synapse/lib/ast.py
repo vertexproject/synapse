@@ -2073,8 +2073,13 @@ class HasRelPropCond(Cond):
                 ('relprop', {'name': name.split('::')[0]}),
             )
 
+        hint = {
+            'name': name,
+            'univ': isinstance(relprop, UnivProp),
+        }
+
         return (
-            ('relprop', {'name': name}),
+            ('relprop', hint),
         )
 
 class HasTagPropCond(Cond):
