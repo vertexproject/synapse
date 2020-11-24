@@ -220,8 +220,10 @@ class Daemon(s_base.Base):
 
         self._shareLoopTasks = set()
 
-        self.certdir = s_certdir.CertDir(path=certdir)
+        if certdir is None:
+            certdir = s_certdir.getCertDir()
 
+        self.certdir = certdir
         self.televers = s_telepath.televers
 
         self.addr = None    # our main listen address
@@ -260,7 +262,7 @@ class Daemon(s_base.Base):
             host (str): A hostname or IP address.
             port (int): The TCP port to bind.
         '''
-        info = s_urlhelp.chopurl(url, **opts)
+        info = s_telepath.chopurl(url, **opts)
         info.update(opts)
 
         scheme = info.get('scheme')
@@ -282,13 +284,8 @@ class Daemon(s_base.Base):
             sslctx = None
             if scheme == 'ssl':
 
-                caname = None
-                hostname = None
-
-                query = info.get('query')
-                if query is not None:
-                    hostname = query.get('hostname', host)
-                    caname = query.get('ca')
+                caname = info.get('ca')
+                hostname = info.get('hostname', host)
 
                 sslctx = self.certdir.getServerSSLContext(hostname=hostname, caname=caname)
 

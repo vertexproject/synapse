@@ -408,10 +408,6 @@ class CertDirTest(s_t_utils.SynTest):
             key = cdir.getUserKey(username)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
 
-    def test_certdir_invalidpath(self):
-        with self.raises(s_exc.SynErr):
-            s_certdir.CertDir(path=1)
-
     def test_certdir_importfile(self):
         with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             with self.getTestDir() as testpath:

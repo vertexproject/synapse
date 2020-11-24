@@ -106,7 +106,7 @@ class ChangingService(s_cell.Cell):
 
     async def getTeleApi(self, link, mesg, path):
 
-        user = await self._getCellUser(mesg)
+        user = await self._getCellUser(link, mesg)
 
         if self.conf.get('updated'):
             return await NewServiceAPI.anit(self, link, user)

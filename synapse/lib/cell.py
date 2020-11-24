@@ -30,6 +30,7 @@ import synapse.lib.health as s_health
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -80,8 +81,8 @@ class CellApi(s_base.Base):
         self.link = link
         assert user
         self.user = user
-        sess = self.link.get('sess')  # type: s_daemon.Sess
-        sess.user = user
+        self.sess = self.link.get('sess')  # type: s_daemon.Sess
+        self.sess.user = user
         await self.initCellApi()
 
     async def initCellApi(self):
@@ -547,6 +548,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'A directory outside the service directory where backups will be saved.',
             'type': 'string',
         },
+        'aha:name': {
+            'description': 'The name of the cell service in the aha service registry.',
+            'type': 'string',
+        },
+        'aha:leader': {
+            'description': 'The AHA service name to claim as the active instance of a storm service.',
+            'type': 'string',
+        },
+        'aha:registry': {
+            'description': 'The telepath URL of the aha service registry.',
+            'type': 'string',
+        },
     }
 
     BACKUP_SPAWN_TIMEOUT = 4.0
@@ -654,6 +667,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
 
+        # initialize network backend infrastructure
+        await self._initCertDir()
+        await self._initAhaRegistry()
+
         # initialize network daemons (but do not listen yet)
         # to allow registration of callbacks and shared objects
         # within phase 2/4.
@@ -668,6 +685,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def _initAhaRegistry(self):
+
+        self.ahainfo = None
+        self.ahaclient = None
+
+        ahaurl = self.conf.get('aha:registry')
+        if ahaurl is not None:
+
+            self.ahaclient = await s_telepath.addAhaUrl(ahaurl)
+
+            async def finiaha():
+                await s_telepath.delAhaUrl(ahaurl)
+
+            self.onfini(finiaha)
 
     async def initServiceStorage(self):
         pass
@@ -694,15 +726,59 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logging.exception(f'Unknown dmon listen error.')
             raise
 
+        self.sockaddr = None
+
         turl = self.conf.get('dmon:listen')
         if turl is not None:
-            await self.dmon.listen(turl)
+            self.sockaddr = await self.dmon.listen(turl)
             logger.info(f'dmon listening: {turl}')
+
+        await self._initAhaService()
 
         port = self.conf.get('https:port')
         if port is not None:
             await self.addHttpsPort(port)
             logger.info(f'https listening: {port}')
+
+    async def _initAhaService(self):
+
+        if self.ahaclient is None:
+            return
+
+        turl = self.conf.get('dmon:listen')
+        ahaname = self.conf.get('aha:name')
+        if ahaname is None:
+            return
+
+        ahalead = self.conf.get('aha:leader')
+
+        ahainfo = self.conf.get('aha:svcinfo')
+        if ahainfo is None and turl is not None:
+
+            urlinfo = s_telepath.chopurl(turl)
+
+            urlinfo.pop('host', None)
+            urlinfo['port'] = self.sockaddr[1]
+
+            ahainfo = {
+                'urlinfo': urlinfo,
+            }
+
+        if ahainfo is None:
+            return
+
+        self.ahainfo = ahainfo
+
+        async def onlink(proxy):
+            await proxy.addAhaSvc(ahaname, self.ahainfo)
+            if self.isactive and ahalead is not None:
+                await proxy.addAhaSvc(ahalead, self.ahainfo)
+
+        async def fini():
+            await self.ahaclient.offlink(onlink)
+
+        await self.ahaclient.onlink(onlink)
+        self.onfini(fini)
 
     async def initServiceRuntime(self):
         pass
@@ -733,12 +809,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.nexsroot.promote()
         await self.setCellActive(True)
 
+    async def _setAhaActive(self):
+
+        if self.ahaclient is None:
+            return
+
+        if self.ahainfo is None:
+            return
+
+        ahalead = self.conf.get('aha:leader')
+        if ahalead is None:
+            return
+
+        try:
+
+            proxy = await self.ahaclient.proxy(timeout=2)
+
+        except TimeoutError: # pragma: no cover
+            return None
+
+        # if we went inactive, bump the aha proxy
+        if not self.isactive:
+            await proxy.fini()
+            return
+
+        try:
+            await proxy.addAhaSvc(ahalead, self.ahainfo)
+        except asyncio.CancelledError: # pragma: no cover
+            raise
+        except Exception as e: # pragma: no cover
+            logger.warning(f'_setAhaActive failed: {e}')
+
     async def setCellActive(self, active):
         self.isactive = active
+
         if self.isactive:
             await self.initServiceActive()
         else:
             await self.initServicePassive()
+
+        await self._setAhaActive()
 
     async def initServiceActive(self): # pragma: no cover
         pass
@@ -1111,7 +1221,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not os.path.isfile(certpath):
                 logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
                 with s_common.getTempDir() as dirn:
-                    cdir = s_certdir.CertDir(dirn)
+                    cdir = s_certdir.CertDir(path=(dirn,))
                     pkey, cert = cdir.genHostCert(self.getCellType())
                     cdir.savePkeyPem(pkey, pkeypath)
                     cdir.saveCertPem(cert, certpath)
@@ -1185,10 +1295,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             (path, ctor, info),
         ))
 
-    async def _initCellDmon(self):
-        cdir = s_common.gendir(self.dirn, 'certs')
+    async def _initCertDir(self):
 
-        self.dmon = await s_daemon.Daemon.anit(certdir=(cdir, s_certdir.defdir))
+        certpath = s_common.gendir(self.dirn, 'certs')
+
+        # add our cert path to the global resolver
+        s_certdir.addCertPath(certpath)
+        async def fini():
+            s_certdir.delCertPath(certpath)
+        self.onfini(fini)
+
+        # our certdir is *only* the cell certs dir
+        self.certdir = s_certdir.CertDir(path=(certpath,))
+
+    async def _initCellDmon(self):
+
+        self.dmon = await s_daemon.Daemon.anit()
         self.dmon.share('*', self)
 
         self.onfini(self.dmon.fini)
@@ -1275,7 +1397,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 raise s_exc.NoSuchUser(name=name)
 
         else:
-            user = await self._getCellUser(mesg)
+            user = await self._getCellUser(link, mesg)
 
         return await self.getCellApi(link, user, path)
 
@@ -1462,10 +1584,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await cell.main()
 
-    async def _getCellUser(self, mesg):
+    async def _getCellUser(self, link, mesg):
+
+        # check for a TLS client cert
+        username = link.getTlsPeerCn()
+        if username is not None:
+            user = await self.auth.getUserByName(username)
+            if user is not None:
+                return user
+
+            logger.warning(f'TLS Client Cert User NOT FOUND: {username}')
 
         auth = mesg[1].get('auth')
-
         if auth is None:
 
             anonuser = self.conf.get('auth:anon')
