@@ -1202,16 +1202,16 @@ class LiftProp(LiftOper):
                     cmpr = hint[1].get('cmpr')
                     valu = hint[1].get('valu')
 
-                    # try lifting by valu but no guarantee a cmpr is available
-                    try:
-                        if cmpr is not None and valu is not None:
+                    if cmpr is not None and valu is not None:
+                        try:
+                            # try lifting by valu but no guarantee a cmpr is available
                             async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu):
                                 yield node
                             return
-                    except asyncio.CancelledError: # pragma: no cover
-                        raise
-                    except:
-                        pass
+                        except asyncio.CancelledError: # pragma: no cover
+                            raise
+                        except:
+                            pass
 
                     async for node in runt.snap.nodesByProp(fullname):
                         yield node
