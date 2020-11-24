@@ -1630,8 +1630,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
             self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=200 ]'))
             self.len(1, await core.nodes('[ inet:ipv4=5.6.7.8 :asn=8080 ]'))
-            self.len(1, await core.nodes('[ inet:ipv4=5.6.7.9 :asn=8080 :loc=us]'))
-            self.len(1, await core.nodes('[ inet:ipv4=5.6.7.10 :asn=8080 :loc=uk]'))
 
             async with await core.snap() as snap:
                 self.nn(await snap.getNodeByNdef(('inet:asn', 200)))
