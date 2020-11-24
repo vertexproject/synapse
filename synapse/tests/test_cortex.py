@@ -222,7 +222,7 @@ class CortexTest(s_t_utils.SynTest):
                     'walk operation expected a string or list.  got: 0.')
 
     async def test_cortex_callstorm(self):
-        async with self.getTestCore() as core:
+        async with self.getTestCore(conf={'auth:passwd': 'root'}) as core:
             self.eq('asdf', await core.callStorm('return (asdf)'))
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
@@ -235,6 +235,33 @@ class CortexTest(s_t_utils.SynTest):
                     q = 'return ( $lib.exit() )'
                     await proxy.callStorm(q)
                 self.eq(cm.exception.get('errx'), 'StormExit')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            async with self.getHttpSess() as sess:
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': 'root', 'passwd': 'root'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('root', retn['result']['name'])
+
+                body = {'query': 'return (asdf)'}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('asdf', retn['result'])
+
+                body = {'query': '$foo=$lib.list() $bar=$foo.index(10) return ( $bar )'}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    retn = await resp.json()
+                    print(retn)
+                    self.eq('err', retn.get('status'))
+                    self.eq('StormRuntimeError', retn.get('code'))
+
+                # This raises a error in the handler...
+                body = {'query': 'return ( $lib.exit() )'}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(500, resp.status)
 
     async def test_cortex_storm_dmon_log(self):
 

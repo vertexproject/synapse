@@ -353,6 +353,32 @@ class StormV1(Handler):
             self.write(json.dumps(mesg))
             await self.flush()
 
+class StormCallV1(Handler):
+
+    async def post(self):
+        return await self.get()
+
+    async def get(self):
+
+        user, body = await self.getUserBody()
+        if body is s_common.novalu:
+            return
+
+        # dont allow a user to be specified
+        opts = body.get('opts')
+        query = body.get('query')
+
+        # Maintain backwards compatibility with 0.1.x output
+        opts = await self._reqValidOpts(opts)
+
+        try:
+            ret = await self.cell.callStorm(query, opts=opts)
+        except s_exc.SynErr as e:
+            mesg = e.get('mesg', str(e))
+            return self.sendRestErr(e.__class__.__name__, mesg)
+        else:
+            return self.sendRestRetn(ret)
+
 class ReqValidStormV1(Handler):
 
     async def post(self):
