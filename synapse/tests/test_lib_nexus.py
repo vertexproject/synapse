@@ -46,7 +46,13 @@ class SampleNexus(s_nexus.Pusher):
     async def doathingauto3(self, eventdict):
         raise s_exc.SynErr(mesg='Test error')
 
-class SampleNexus2(SampleNexus):
+class SampleMixin(metaclass=s_nexus.RegMethType):
+    @s_nexus.Pusher.onPushAuto('mixinthing')
+    async def mixinthing(self, eventdict):
+        eventdict['autohappened3'] = self.iden
+        return 42
+
+class SampleNexus2(SampleNexus, SampleMixin):
     async def doathing(self, eventdict):
         return await self._push('thing:doathing', eventdict, 'bar')
 
@@ -95,6 +101,17 @@ class NexusTest(s_t_utils.SynTest):
 
                         stream.seek(0)
                         self.isin('while replaying log', stream.read())
+
+    async def test_nexus_mixin(self):
+        with self.getTestDir() as dirn:
+
+            async with await s_nexus.NexsRoot.anit(dirn) as nexsroot:
+                await nexsroot.startup(None)
+
+                eventdict = {'specialpush': 0}
+                async with await SampleNexus2.anit(2, nexsroot=nexsroot) as testkid:
+                    self.eq('bar', await testkid.doathing(eventdict))
+                    self.eq(42, await testkid.mixinthing(eventdict))
 
     async def test_nexus_no_logging(self):
         '''
