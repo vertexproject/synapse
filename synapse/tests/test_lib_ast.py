@@ -1,9 +1,12 @@
 import json
 
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
+import synapse.lib.snap as s_snap
 
 import synapse.tests.utils as s_test
 
@@ -1611,16 +1614,70 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('no', msgs)
 
     async def test_ast_optimization(self):
-        async with self.getTestCore() as core:
 
-            self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
-            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=200 ]'))
-            self.len(1, await core.nodes('[ inet:ipv4=5.6.7.8 :asn=8080 ]'))
-            self.len(1, await core.nodes('[ inet:ipv4=5.6.7.9 :asn=8080 :loc=us]'))
-            self.len(1, await core.nodes('[ inet:ipv4=5.6.7.10 :asn=8080 :loc=uk]'))
+        calls = []
 
-            nodes = await core.nodes('inet:ipv4 +:loc=us')
-            self.len(1,nodes)
+        origprop = s_snap.Snap.nodesByProp
+        origvalu = s_snap.Snap.nodesByPropValu
 
-            nodes = await core.nodes('inet:ipv4 +:loc')
-            self.len(2,nodes)
+        async def checkProp(self, name):
+            calls.append(('prop', name))
+            async for node in origprop(self, name):
+                yield node
+
+        async def checkValu(self, name, cmpr, valu):
+            calls.append(('valu', name, cmpr, valu))
+            async for node in origvalu(self, name, cmpr, valu):
+                yield node
+
+        with mock.patch('synapse.lib.snap.Snap.nodesByProp', checkProp):
+            with mock.patch('synapse.lib.snap.Snap.nodesByPropValu', checkValu):
+                async with self.getTestCore() as core:
+
+                    self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
+                    self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=200 ]'))
+                    self.len(1, await core.nodes('[ inet:ipv4=5.6.7.8 ]'))
+                    self.len(1, await core.nodes('[ inet:ipv4=5.6.7.9 :loc=us]'))
+                    self.len(1, await core.nodes('[ inet:ipv4=5.6.7.10 :loc=uk]'))
+                    self.len(1, await core.nodes('[ test:str=a :bar=(test:str, a) :tick=19990101]'))
+                    self.len(1, await core.nodes('[ test:str=m :bar=(test:str, m) :tick=20200101]'))
+
+                    nodes = await core.nodes('inet:ipv4 +:loc=us')
+                    self.len(1,nodes)
+                    self.eq(calls, [('valu', 'inet:ipv4:loc', '=', 'us')])
+                    calls = []
+
+                    nodes = await core.nodes('inet:ipv4 +:loc')
+                    self.len(2,nodes)
+                    self.eq(calls, [('prop', 'inet:ipv4:loc')])
+                    calls = []
+
+                    nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
+                    self.len(1,nodes)
+                    self.eq(calls, [('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])])
+                    calls = []
+
+                    nodes = await core.nodes('test:str +:bar*range=((test:str, c), (test:str, q))')
+                    self.len(1,nodes)
+
+                    exp = [
+                        # Lift by value will fail since stortype is MSGP
+                        ('valu', 'test:str:bar', 'range=', [['test:str', 'c'], ['test:str', 'q']]),
+                        # Can lift by the full prop though
+                        ('prop', 'test:str:bar'),
+                    ]
+
+                    self.eq(calls, exp)
+                    calls=[]
+
+                    # Optimize pivprop filter a bit
+                    nodes = await core.nodes('inet:ipv4 +:asn::name=visi')
+                    self.len(1,nodes)
+                    self.eq(calls, [('prop', 'inet:ipv4:asn')])
+                    calls=[]
+
+                    # Could optimize this more
+                    nodes = await core.nodes('$loc=us inet:ipv4 +:loc=$loc')
+                    self.len(1,nodes)
+                    self.eq(calls, [('prop', 'inet:ipv4:loc')])
+                    calls = []

@@ -1200,7 +1200,6 @@ class LiftProp(LiftOper):
                     # try optimized lift but no guarantee a cmpr is available
                     try:
                         if cmpr is not None and valu is not None:
-                            print('byvalu')
                             async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu):
                                 yield node
                             return
@@ -1209,7 +1208,6 @@ class LiftProp(LiftOper):
                     except:
                         pass
 
-                    print('byhas')
                     async for node in runt.snap.nodesByProp(fullname):
                         yield node
                     return
@@ -2065,7 +2063,9 @@ class HasRelPropCond(Cond):
         name = await self.kids[0].compute(None, None)
         ispiv = name.find('::') != -1
         if ispiv:
-            return []
+            return (
+                ('relprop', {'name': name.split('::')[0]}),
+            )
 
         return (
             ('relprop', {'name': name}),
@@ -2247,19 +2247,26 @@ class RelPropCond(Cond):
     async def getLiftHints(self):
 
         relprop = self.kids[0].kids[0]
-
         if not relprop.isconst:
             return []
 
         name = await relprop.compute(None, None)
         ispiv = name.find('::') != -1
         if ispiv:
-            return []
+            return (
+                ('relprop', {'name': name.split('::')[0]}),
+            )
+
+        valu = self.kids[2]
+        if not (isinstance(valu, Const) or valu.isconst):
+            return (
+                ('relprop', {'name': name}),
+            )
 
         hint = {
             'name': name,
             'cmpr': await self.kids[1].compute(None, None),
-            'valu': await self.kids[2].compute(None, None),
+            'valu': await valu.compute(None, None),
         }
 
         return (
@@ -2329,6 +2336,7 @@ class Value(AstNode):
     '''
     def __init__(self, kids=()):
         AstNode.__init__(self, kids=kids)
+        self.isconst = False
 
     #def repr(self):
         #return f'{self.__class__.__name__}: ds={self.kids}'
@@ -2689,6 +2697,9 @@ class EmbedQuery(Const):
         return s_stormtypes.Query(self.valu, varz, runt, path=path)
 
 class List(Value):
+
+    def prepare(self):
+        self.isconst = all(isinstance(kid, Const) or kid.isconst for kid in self.kids)
 
     def repr(self):
         return 'List: %s' % self.kids
