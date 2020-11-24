@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import hashlib
 import logging
@@ -211,6 +212,10 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'upload'))
         return await UpLoadShare.anit(self.cell, self.link)
 
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True):
+        await self._reqUserAllowed(('axon', 'wget'))
+        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl)
+
     async def metrics(self):
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.metrics()
@@ -368,3 +373,49 @@ class Axon(s_cell.Cell):
         Given a list of sha256 bytes, returns a list of the hashes we want bytes for.
         '''
         return [s for s in sha256s if not await self.has(s)]
+
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True):
+        '''
+        Stream a file download directly into the axon.
+        '''
+        async with aiohttp.ClientSession() as sess:
+
+            try:
+
+                async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl) as resp:
+
+                    info = {
+                        'ok': True,
+                        'code': resp.status,
+                        'headers': dict(resp.headers),
+                    }
+
+                    md5 = hashlib.md5()
+                    sha1 = hashlib.sha1()
+                    sha256 = hashlib.sha256()
+
+                    hashset = s_hashset.HashSet()
+
+                    async with await self.upload() as upload:
+
+                        byts = await resp.content.read(CHUNK_SIZE)
+                        while byts:
+                            await upload.write(byts)
+                            hashset.update(byts)
+                            byts = await resp.content.read(CHUNK_SIZE)
+
+                        size, _ = await upload.save()
+
+                    info['size'] = size
+                    info['hashes'] = dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
+
+                    return info
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception as e:
+                return {
+                    'ok': False,
+                    'mesg': str(e),
+                }

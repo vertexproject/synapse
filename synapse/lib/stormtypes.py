@@ -1010,6 +1010,60 @@ class LibStr(Lib):
         return sepr.join(strs)
 
 @registry.registerLib
+class LibAxon(Lib):
+    '''
+    A Storm library for interacting with the Cortex's Axon.
+    '''
+    _storm_lib_path = ('axon',)
+
+    def getObjLocals(self):
+        return {
+            'wget': self.wget,
+        }
+
+    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True):
+        '''
+        A method to download an HTTP(S) resource int the Cortex's Axon.
+
+        Args:
+            url (str): The URL to download
+            headers (dict): An optional dictionary of HTTP headers to send.
+            params (dict): An optional dictionary of URL parameters to add.
+            method (str): The HTTP method to use ( default: GET ).
+            json (dict): A JSON object to send as the body.
+            body (bytes): A bytes to send as the body.
+            ssl (bool): Set to False to disable SSL/TLS certificate verification.
+
+        Returns:
+            dict: A status dictionary of metadata
+
+        Example:
+
+            $headers = $lib.dict()
+            $headers."User-Agent" = Foo/Bar
+
+            $resp = $lib.axon.wget(http://vertex.link, method=GET, headers=$headers)
+            if $resp.ok { $lib.print("Downloaded: {size} bytes", size=$resp.size) }
+
+        '''
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+
+        url = await tostr(url)
+        method = await tostr(method)
+
+        ssl = await tobool(ssl)
+        body = await toprim(body)
+        json = await toprim(json)
+        params = await toprim(params)
+        headers = await toprim(headers)
+
+        await self.runt.snap.core.getAxon()
+
+        axon = self.runt.snap.core.axon
+        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json)
+
+@registry.registerLib
 class LibBytes(Lib):
     '''
     A Storm Library for interacting with bytes storage.
