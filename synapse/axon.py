@@ -390,10 +390,6 @@ class Axon(s_cell.Cell):
                         'headers': dict(resp.headers),
                     }
 
-                    md5 = hashlib.md5()
-                    sha1 = hashlib.sha1()
-                    sha256 = hashlib.sha256()
-
                     hashset = s_hashset.HashSet()
 
                     async with await self.upload() as upload:
