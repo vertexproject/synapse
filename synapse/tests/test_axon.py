@@ -360,3 +360,29 @@ class AxonTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.HitLimit):
                 await axon.put(s_common.buid())
+
+    async def test_axon_wget(self):
+
+        async with self.getTestAxon() as axon:
+
+            visi = await axon.auth.addUser('visi')
+            await visi.setAdmin(True)
+            await visi.setPasswd('secret')
+
+            async with await axon.upload() as fd:
+                await fd.write(b'asdfasdf')
+                size, sha256 = await fd.save()
+
+            host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+
+            sha2 = s_common.ehex(sha256)
+            async with axon.getLocalProxy() as proxy:
+
+                resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{sha2}', ssl=False)
+                self.eq(True, resp['ok'])
+                self.eq(200, resp['code'])
+                self.eq(8, resp['size'])
+                self.eq('application/octet-stream', resp['headers']['Content-Type'])
+
+                resp = await proxy.wget(f'http://visi:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{sha2}')
+                self.false(resp['ok'])
