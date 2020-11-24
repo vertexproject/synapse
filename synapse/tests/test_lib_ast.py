@@ -1696,6 +1696,11 @@ class AstTest(s_test.SynTest):
                     self.eq(calls, [('prop', 'inet:ipv4:asn')])
                     calls = []
 
+                    nodes = await core.nodes('inet:ipv4 +:asn::name')
+                    self.len(0, nodes)
+                    self.eq(calls, [('prop', 'inet:ipv4:asn')])
+                    calls = []
+
                     nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
                     self.len(1, nodes)
                     self.eq(calls, [('valu', 'test:str:tick', 'range=', ['19701125', '20151212'])])
