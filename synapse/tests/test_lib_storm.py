@@ -95,6 +95,8 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('$x = $lib.null if ($lib.true or $x > 20) { [ ps:contact=* ] }'))
 
             visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
             cmd0 = {
                 'name': 'asroot.not',
                 'storm': '[ ou:org=* ]',
@@ -174,6 +176,21 @@ class StormTest(s_t_utils.SynTest):
             self.eq(s_version.version, await core.callStorm('return($lib.version.synapse())'))
             self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">=2.9.0"))'))
             self.false(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">0.0.1,<2.0"))'))
+
+            # test out the stormlib axon API
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            opts = {'user': visi.iden, 'vars': {'port': port}}
+            wget = '''
+                $url = $lib.str.format("https://visi:secret@127.0.0.1:{port}/api/v1/healthcheck", port=$port)
+                return($lib.axon.wget($url, ssl=$lib.false))
+            '''
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(wget, opts=opts)
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            resp = await core.callStorm(wget, opts=opts)
+            self.true(resp['ok'])
 
     async def test_storm_pkg_load(self):
         pkg = {
