@@ -17,6 +17,7 @@ import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -433,6 +434,47 @@ stormcmds = (
         '''
     },
     {
+        'name': 'pkg.load',
+        'descr': 'Load a storm package from an HTTP URL.',
+        'cmdargs': (
+            ('url', {'help': 'The HTTP URL to load the package from.'}),
+            ('--ssl-noverify', {'default': False, 'action': 'store_true',
+                'help': 'Specify to disable SSL verification of the server.'}),
+        ),
+        'storm': '''
+            init {
+                $ssl = $lib.true
+                if $cmdopts.ssl_noverify { $ssl = $lib.false }
+
+                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl)
+
+                if ($resp.code != 200) {
+                    $lib.warn("pkg.load got HTTP code: {code} for URL: {url}", code=$resp.code, url=$cmdopts.url)
+                    $lib.exit()
+                }
+
+                $reply = $resp.json()
+                if ($reply.status != "ok") {
+                    $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
+                    $lib.exit()
+                }
+
+                $pkg = $reply.result
+
+                $pkg.url = $cmdopts.url
+                $pkg.loaded = $lib.time.now()
+
+                $lib.pkg.add($pkg)
+
+                $maj = $pkg.version.index(0)
+                $min = $pkg.version.index(1)
+                $rev = $pkg.version.index(2)
+
+                $lib.print("Loaded Package: {name} @{maj}.{min}.{rev}", name=$pkg.name, maj=$maj, min=$min, rev=$rev)
+            }
+        ''',
+    },
+    {
         'name': 'view.add',
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
@@ -687,13 +729,15 @@ stormcmds = (
             ('--hour', {'help': 'Hour(s) to execute at.'}),
             ('--day', {'help': 'Day(s) to execute at.'}),
             ('--dt', {'help': 'Datetime(s) to execute at.'}),
+            ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
         ),
         'storm': '''
             $cron = $lib.cron.at(query=$cmdopts.query,
                                  minute=$cmdopts.minute,
                                  hour=$cmdopts.hour,
                                  day=$cmdopts.day,
-                                 dt=$cmdopts.dt)
+                                 dt=$cmdopts.dt,
+                                 now=$cmdopts.now)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -732,7 +776,7 @@ stormcmds = (
             if $crons {
                 for $cron in $crons {
                     $job = $cron.pack()
-                    if (not $job.recur and $job.lastfinishtime) {
+                    if (not $job.recs) {
                         $lib.cron.del($job.iden)
                         $count = ($count + 1)
                     }
@@ -2532,7 +2576,8 @@ class BackgroundCmd(Cmd):
 
         core = self.runt.snap.core
         user = core._userFromOpts(opts)
-        info = {'query': str(query), 'opts': opts,
+        info = {'query': query.text,
+                'opts': opts,
                 'background': True}
 
         await core.boss.promote('storm', user=user, info=info)
@@ -2550,10 +2595,13 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
+        runtprims = await s_stormtypes.toprim(self.runt.vars)
+        runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
+
         opts = {
             'user': runt.user.iden,
             'view': runt.snap.view.iden,
-            'vars': dict(runt.vars),
+            'vars': runtvars,
         }
 
         query = await runt.getStormQuery(self.opts.query)

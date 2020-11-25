@@ -814,6 +814,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable provenance tracking for all writes.',
             'type': 'boolean'
         },
+        'max:nodes': {
+            'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
+            'type': 'integer',
+            'minimum': 1,
+            'hidecmdl': True,
+        },
         'modules': {
             'default': [],
             'description': 'A list of module classes to load.',
@@ -864,6 +870,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.stormcmds = {}
 
         self.spawnpool = None
+
+        self.maxnodes = self.conf.get('max:nodes')
+        self.nodecount = 0
 
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
@@ -2320,6 +2329,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
         self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
+        self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
 
@@ -2814,6 +2824,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.layers[layr.iden] = layr
         self.dynitems[layr.iden] = layr
+
+        if self.maxnodes:
+            counts = await layr.getFormCounts()
+            self.nodecount += sum(counts.values())
+            def onadd():
+                self.nodecount += 1
+            def ondel():
+                self.nodecount -= 1
+            layr.nodeAddHook = onadd
+            layr.nodeDelHook = ondel
 
         await self.auth.addAuthGate(layr.iden, 'layer')
 
@@ -3600,6 +3620,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Notes:
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
+            Non-recurring jobs may also have a req of 'now' which will cause the job to also execute immediately.
         '''
         s_agenda.reqValidCdef(cdef)
 
@@ -3618,6 +3639,10 @@ class Cortex(s_cell.Cell):  # type: ignore
                 reqs = self._convert_reqdict(reqs)
             else:
                 reqs = [self._convert_reqdict(req) for req in reqs]
+
+            if incunit is not None and s_agenda.TimeUnit.NOW in reqs:
+                mesg = "Recurring jobs may not be scheduled to run 'now'"
+                raise s_exc.BadConfValu(mesg)
 
             cdef['reqs'] = reqs
         except KeyError:

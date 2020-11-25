@@ -252,19 +252,9 @@ commands:
             echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
             echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
 
-  deploy_pypi_upload:
-    description: "Upload packages to pypi"
+  deploy_pypi_sdist_build:
+    description: "Build sdist packages for pypi"
     steps:
-      - run:
-          name: upload to pypi
-          command: |
-            . venv/bin/activate
-            twine upload dist/*
-
-  deploy_sdist_to_pypi:
-    description: "Publish sdist packages to pypi"
-    steps:
-      - deploy_pypi_prologue
       - run:
           name: create packages
           command: |
@@ -284,12 +274,9 @@ commands:
             python3 -c "$PYPI_SMOKE_CODE"
             deactivate
 
-      - deploy_pypi_upload
-
-  deploy_wheel_to_pypi:
-    description: "Publish wheel packages to pypi"
+  deploy_pypi_wheel_build:
+    description: "Build wheel packages for pypi"
     steps:
-      - deploy_pypi_prologue
       - run:
           name: create packages
           command: |
@@ -309,7 +296,14 @@ commands:
             python3 -c "$PYPI_SMOKE_CODE"
             deactivate
 
-      - deploy_pypi_upload
+  deploy_pypi_upload:
+    description: "Upload packages to pypi"
+    steps:
+      - run:
+          name: upload to pypi
+          command: |
+            . venv/bin/activate
+            twine upload dist/*
 
   check_docker_smoketests:
     description: "Check docker smoke test results"
@@ -436,7 +430,7 @@ commands:
           command: |
             docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH} -m synapse.servers.cortex --help
             dstatus00=$?
-            if [ $dstatus00 != "0" ]; then exit 1; f
+            if [ $dstatus00 != "0" ]; then exit 1; fi
             docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH}-py37 -m synapse.servers.cortex --help
             dstatus01=$?
             if [ $dstatus01 != "0" ]; then exit 1; fi
@@ -557,8 +551,10 @@ jobs:
           PYTHON_TAG: py38
 
     steps:
-      - deploy_wheel_to_pypi
-      - deploy_sdist_to_pypi
+      - deploy_pypi_prologue
+      - deploy_pypi_wheel_build
+      - deploy_pypi_sdist_build
+      - deploy_pypi_upload
 
   deploy_pypi_37:
     docker:
@@ -568,7 +564,9 @@ jobs:
           PYTHON_TAG: py37
 
     steps:
-      - deploy_wheel_to_pypi
+      - deploy_pypi_prologue
+      - deploy_pypi_wheel_build
+      - deploy_pypi_upload
 
   docker_tags:
     docker:

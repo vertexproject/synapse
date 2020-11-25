@@ -220,7 +220,7 @@ class LibPkg(Lib):
         Returns:
             dict: The validated storm package definition.
         '''
-        self.runt.user.confirm(('pkg', 'add'), None)
+        self.runt.confirm(('pkg', 'add'), None)
         await self.runt.snap.core.addStormPkg(pkgdef)
 
     async def _libPkgDel(self, name):
@@ -233,7 +233,7 @@ class LibPkg(Lib):
         Returns:
             None
         '''
-        self.runt.user.confirm(('pkg', 'del'), None)
+        self.runt.confirm(('pkg', 'del'), None)
         await self.runt.snap.core.delStormPkg(name)
 
     async def _libPkgList(self):
@@ -276,7 +276,7 @@ class LibDmon(Lib):
             raise s_exc.NoSuchIden(mesg=mesg)
 
         if dmon.get('user') != self.runt.user.iden:
-            self.runt.user.confirm(('dmon', 'del', iden))
+            self.runt.confirm(('dmon', 'del', iden))
 
         await self.runt.snap.core.delStormDmon(iden)
 
@@ -299,7 +299,7 @@ class LibDmon(Lib):
         Returns:
             list: A list of messages from the StormDmon.
         '''
-        self.runt.user.confirm(('dmon', 'log'))
+        self.runt.confirm(('dmon', 'log'))
         return await self.runt.snap.core.getStormDmonLog(iden)
 
     async def _libDmonAdd(self, quer, name='noname'):
@@ -319,7 +319,7 @@ class LibDmon(Lib):
         Returns:
             str: The iden of the newly created StormDmon.
         '''
-        self.runt.user.confirm(('dmon', 'add'))
+        self.runt.confirm(('dmon', 'add'))
 
         # closure style capture of runtime
         runtprims = await toprim(self.runt.vars)
@@ -362,10 +362,10 @@ class LibService(Lib):
         Helper to handle service.get.* permissions
         '''
         try:
-            self.runt.user.confirm(('service', 'get', ssvc.iden))
+            self.runt.confirm(('service', 'get', ssvc.iden))
         except s_exc.AuthDeny as e:
             try:
-                self.runt.user.confirm(('service', 'get', ssvc.name))
+                self.runt.confirm(('service', 'get', ssvc.name))
             except s_exc.AuthDeny as sub_e:
                 raise e from None
             else:
@@ -385,7 +385,7 @@ class LibService(Lib):
             dict: The Storm Service definition.
         '''
 
-        self.runt.user.confirm(('service', 'add'))
+        self.runt.confirm(('service', 'add'))
         sdef = {
             'name': name,
             'url': url,
@@ -402,7 +402,7 @@ class LibService(Lib):
         Returns:
             None: Returns None.
         '''
-        self.runt.user.confirm(('service', 'del'))
+        self.runt.confirm(('service', 'del'))
         return await self.runt.snap.core.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
@@ -448,7 +448,7 @@ class LibService(Lib):
         Returns:
             list: A list of Storm Service definitions.
         '''
-        self.runt.user.confirm(('service', 'list'))
+        self.runt.confirm(('service', 'list'))
         retn = []
 
         for ssvc in self.runt.snap.core.getStormSvcs():
@@ -1008,6 +1008,60 @@ class LibStr(Lib):
         '''
         strs = [str(item) for item in items]
         return sepr.join(strs)
+
+@registry.registerLib
+class LibAxon(Lib):
+    '''
+    A Storm library for interacting with the Cortex's Axon.
+    '''
+    _storm_lib_path = ('axon',)
+
+    def getObjLocals(self):
+        return {
+            'wget': self.wget,
+        }
+
+    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True):
+        '''
+        A method to download an HTTP(S) resource into the Cortex's Axon.
+
+        Args:
+            url (str): The URL to download
+            headers (dict): An optional dictionary of HTTP headers to send.
+            params (dict): An optional dictionary of URL parameters to add.
+            method (str): The HTTP method to use ( default: GET ).
+            json (dict): A JSON object to send as the body.
+            body (bytes): A bytes to send as the body.
+            ssl (bool): Set to False to disable SSL/TLS certificate verification.
+
+        Returns:
+            dict: A status dictionary of metadata
+
+        Example:
+
+            $headers = $lib.dict()
+            $headers."User-Agent" = Foo/Bar
+
+            $resp = $lib.axon.wget(http://vertex.link, method=GET, headers=$headers)
+            if $resp.ok { $lib.print("Downloaded: {size} bytes", size=$resp.size) }
+
+        '''
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+
+        url = await tostr(url)
+        method = await tostr(method)
+
+        ssl = await tobool(ssl)
+        body = await toprim(body)
+        json = await toprim(json)
+        params = await toprim(params)
+        headers = await toprim(headers)
+
+        await self.runt.snap.core.getAxon()
+
+        axon = self.runt.snap.core.axon
+        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json)
 
 @registry.registerLib
 class LibBytes(Lib):
@@ -1579,7 +1633,7 @@ class LibTelepath(Lib):
             Proxy: A Storm Proxy representing a Telepath Proxy.
         '''
         scheme = url.split('://')[0]
-        self.runt.user.confirm(('lib', 'telepath', 'open', scheme))
+        self.runt.confirm(('lib', 'telepath', 'open', scheme))
         return Proxy(await self.runt.getTeleProxy(url))
 
 # @registry.registerType
@@ -3411,7 +3465,7 @@ class LibTrigger(Lib):
         if trigger is None:
             return None
 
-        self.runt.user.confirm(('trigger', 'get'), gateiden=iden)
+        self.runt.confirm(('trigger', 'get'), gateiden=iden)
 
         return Trigger(self.runt, trigger.pack())
 
@@ -3588,7 +3642,7 @@ class LibUsers(Lib):
         Returns:
             User: A Storm User object for the new user.
         '''
-        self.runt.user.confirm(('auth', 'user', 'add'))
+        self.runt.confirm(('auth', 'user', 'add'))
         udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email)
         return User(self.runt, udef['iden'])
 
@@ -3602,7 +3656,7 @@ class LibUsers(Lib):
         Returns:
             None: Returns None.
         '''
-        self.runt.user.confirm(('auth', 'user', 'del'))
+        self.runt.confirm(('auth', 'user', 'del'))
         await self.runt.snap.core.delUser(iden)
 
 @registry.registerLib
@@ -3668,7 +3722,7 @@ class LibRoles(Lib):
         Returns:
             Role: A Storm Role object for the new user.
         '''
-        self.runt.user.confirm(('auth', 'role', 'add'))
+        self.runt.confirm(('auth', 'role', 'add'))
         rdef = await self.runt.snap.core.addRole(name)
         return Role(self.runt, rdef['iden'])
 
@@ -3682,7 +3736,7 @@ class LibRoles(Lib):
         Returns:
             None: Returns None.
         '''
-        self.runt.user.confirm(('auth', 'role', 'del'))
+        self.runt.confirm(('auth', 'role', 'del'))
         await self.runt.snap.core.delRole(iden)
 
 @registry.registerLib
@@ -3795,23 +3849,23 @@ class User(Prim):
         return await self.runt.snap.core.isUserAllowed(self.valu, perm, gateiden=gateiden)
 
     async def _methUserGrant(self, iden):
-        self.runt.user.confirm(('auth', 'user', 'grant'))
+        self.runt.confirm(('auth', 'user', 'grant'))
         await self.runt.snap.core.addUserRole(self.valu, iden)
 
     async def _methUserRevoke(self, iden):
-        self.runt.user.confirm(('auth', 'user', 'revoke'))
+        self.runt.confirm(('auth', 'user', 'revoke'))
         await self.runt.snap.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
-        self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
+        self.runt.confirm(('auth', 'user', 'set', 'rules'))
         await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
 
     async def _methUserAddRule(self, rule, gateiden=None):
-        self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
+        self.runt.confirm(('auth', 'user', 'set', 'rules'))
         await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
-        self.runt.user.confirm(('auth', 'user', 'set', 'rules'))
+        self.runt.confirm(('auth', 'user', 'set', 'rules'))
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserSetEmail(self, email):
@@ -3820,12 +3874,12 @@ class User(Prim):
             await self.runt.snap.core.setUserEmail(self.valu, email)
             return
 
-        self.runt.user.confirm(('auth', 'user', 'set', 'email'))
+        self.runt.confirm(('auth', 'user', 'set', 'email'))
         await self.runt.snap.core.setUserEmail(self.valu, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
 
-        self.runt.user.confirm(('auth', 'user', 'set', 'admin'))
+        self.runt.confirm(('auth', 'user', 'set', 'admin'))
         admin = await tobool(admin)
 
         await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
@@ -3835,11 +3889,11 @@ class User(Prim):
         if self.runt.user.iden == self.valu:
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
-        self.runt.user.confirm(('auth', 'user', 'set', 'passwd'))
+        self.runt.confirm(('auth', 'user', 'set', 'passwd'))
         return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
     async def _methUserSetLocked(self, locked):
-        self.runt.user.confirm(('auth', 'user', 'set', 'locked'))
+        self.runt.confirm(('auth', 'user', 'set', 'locked'))
         return await self.runt.snap.core.setUserLocked(self.valu, await tobool(locked))
 
     async def value(self):
@@ -3874,15 +3928,15 @@ class Role(Prim):
         return rdef.get(name)
 
     async def _methRoleSetRules(self, rules, gateiden=None):
-        self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
+        self.runt.confirm(('auth', 'role', 'set', 'rules'))
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None):
-        self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
+        self.runt.confirm(('auth', 'role', 'set', 'rules'))
         await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
-        self.runt.user.confirm(('auth', 'role', 'set', 'rules'))
+        self.runt.confirm(('auth', 'role', 'set', 'rules'))
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def value(self):
@@ -4231,11 +4285,16 @@ class LibCron(Lib):
                 'year': dt.year
             }
 
-        if not tslist:
+        atnow = kwargs.get('now')
+
+        if not tslist and not atnow:
             mesg = 'At least one requirement must be provided'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
+
+        if atnow:
+            reqdicts.append({'now': True})
 
         cdef = {'storm': query,
                 'reqs': reqdicts,

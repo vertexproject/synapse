@@ -5,6 +5,170 @@ Synapse Changelog
 *****************
 
 
+v2.11.0 - 2020-11-25
+====================
+
+Features and Enhancements
+-------------------------
+- Optimize Storm lift and filter queries, so that more efficient lift
+  operations may be performed in some cases.
+  (`#1966 <https://github.com/vertexproject/synapse/pull/1966>`_)
+- Add a ``Axon.wget()`` API to allow the Axon to retrieve files directly
+  from a URL.
+  (`#1965 <https://github.com/vertexproject/synapse/pull/1965>`_)
+- Add a JsonStor Cell, which allows for hierarchical storage and retrieval
+  of JSON documents.
+  (`#1954 <https://github.com/vertexproject/synapse/pull/1954>`_)
+- Add a Cortex HTTP API, ``/api/v1/storm/call``. This behaves like the
+  ``CoreApi.callStorm()`` API.
+  (`#1967 <https://github.com/vertexproject/synapse/pull/1967>`_)
+- Add ``:client:host`` and ``:server:host`` secondary properties to the
+  ``inet:http:request`` form.
+  (`#1955 <https://github.com/vertexproject/synapse/pull/1955>`_)
+- Add ``:host`` and ``:acct`` secondary properties to the
+  ``inet:search:query`` form.
+  (`#1955 <https://github.com/vertexproject/synapse/pull/1955>`_)
+- Add a Telepath service discovery implementation, the Aha cell. The Aha
+  APIs are currently provisional and subject to change.
+  (`#1954 <https://github.com/vertexproject/synapse/pull/1954>`_)
+
+
+v2.10.2 - 2020-11-20
+====================
+
+Features and Enhancements
+-------------------------
+- The Storm ``cron.at`` command now supports a ``--now`` flag to create a
+  cron job which immediately executes.
+  (`#1963 <https://github.com/vertexproject/synapse/pull/1963>`_)
+
+Bugfixes
+--------
+- Fix a cleanup race that caused occasional ``test_lmdbslab_base`` failures.
+  (`#1962 <https://github.com/vertexproject/synapse/pull/1962>`_)
+- Fix an issue with ``EDIT_NODEDATA_SET`` nodeedits missing the ``oldv``
+  value.
+  (`#1961 <https://github.com/vertexproject/synapse/pull/1961>`_)
+- Fix an issue where ``cron.cleanup`` could have prematurely deleted some cron
+  jobs.
+  (`#1963 <https://github.com/vertexproject/synapse/pull/1963>`_)
+
+
+v2.10.1 - 2020-11-17
+====================
+
+Bugfixes
+--------
+- Fix a CI issue which prevented the Python ``sdist`` package from being
+  uploaded to PyPi.
+  (`#1960 <https://github.com/vertexproject/synapse/pull/1960>`_)
+
+
+v2.10.0 - 2020-11-17
+====================
+
+Announcements
+-------------
+
+The ``v2.10.0`` Synapse release contains support for Python 3.8. Docker images
+are now built using a Python 3.8 image by default. There are also Python 3.7
+images available as ``vertexproject/synapse:master-py37`` and
+``vertexproject/synapse:v2.x.x-py37``.
+
+
+Features and Enhancements
+-------------------------
+- Python 3.8 release support for Docker and PyPi.
+  (`#1921 <https://github.com/vertexproject/synapse/pull/1921>`_)
+  (`#1956 <https://github.com/vertexproject/synapse/pull/1956>`_)
+- Add support for adding extended forms to the Cortex. This allows users to
+  define their own forms using the existing types which are available in the
+  Synapse data model.
+  (`#1944 <https://github.com/vertexproject/synapse/pull/1944>`_)
+- The Storm ``and`` and ``or`` statements now short-circuit and will return
+  when their logical condition is first met. This means that subsequent
+  clauses in those statements may not be executed.
+  (`#1952 <https://github.com/vertexproject/synapse/pull/1952>`_)
+- Add a mechanism for Storm Services to specify commands which may require
+  privilege elevation to execute. An example of this may be to allow a command
+  to create nodes; without managning individual permissions on what nodes a
+  user may normally be allowed to create. Services using this mechanism wiill
+  use the ``storm.asroot.cmd.<<cmd name>>`` hierarchy to grant this permission.
+  (`#1953 <https://github.com/vertexproject/synapse/pull/1953>`_)
+  (`#1958 <https://github.com/vertexproject/synapse/pull/1958>`_)
+- Add ``$lib.json`` Stormtypes Library to convert between string data and
+  primitives.
+  (`#1949 <https://github.com/vertexproject/synapse/pull/1949>`_)
+- Add a ``parallel`` command to allow for executing a portion of a Storm
+  query in parallel. Add a ``background`` command to execute a Storm query
+  as a detached task from the current query, capturing variables in the
+  process.
+  (`#1931 <https://github.com/vertexproject/synapse/pull/1931>`_)
+  (`#1957 <https://github.com/vertexproject/synapse/pull/1957>`_)
+- Add a ``$lib.exit()`` function to StormTypes to allow for quickly
+  exiting a Storm query.
+  (`#1931 <https://github.com/vertexproject/synapse/pull/1931>`_)
+- Add ``$lib.bytes.upload()`` to Stormtypes for streaming bytes into the
+  Axon that the Cortex is configured with.
+  (`#1945 <https://github.com/vertexproject/synapse/pull/1945>`_)
+- Add Storm commands to manage locking and unlocking deprecated model
+  properties.
+  (`#1909 <https://github.com/vertexproject/synapse/pull/1909>`_)
+- Add ``cron.cleanup`` command to make it easy to clean up completed cron
+  jobs.
+  (`#1942 <https://github.com/vertexproject/synapse/pull/1942>`_)
+- Add date of death properties and consistently named photo secondary
+  properties.
+  (`#1929 <https://github.com/vertexproject/synapse/pull/1929>`_)
+- Add model additions for representing education and awards.
+  (`#1930 <https://github.com/vertexproject/synapse/pull/1930>`_)
+- Add additional account linkages to the ``inet`` model for users and groups.
+  (`#1946 <https://github.com/vertexproject/synapse/pull/1946>`_)
+- Add ``inet:web:hashtag`` as its own form, and add ``:hashtags`` to
+  ``inet:web:post``.
+  (`#1946 <https://github.com/vertexproject/synapse/pull/1946>`_)
+- Add ``lang:translation`` to capture language translations of texts in a more
+  comprehensive way than older ``lang`` model forms did. The ``lang:idiom``
+  and ``lang:trans`` forms have been marked as deprecated.
+  (`#1946 <https://github.com/vertexproject/synapse/pull/1946>`_)
+- Update the ``ou`` model to add ``ou:attendee`` and ``ou:contest`` and
+  ``ou:contest:result`` forms. Several secondary properties related to
+  conference attendance have been marked deprecated.
+  (`#1946 <https://github.com/vertexproject/synapse/pull/1946>`_)
+- The ``ps:persona`` and ``ps:persona:has`` forms have been marked as
+  deprecated.
+  (`#1946 <https://github.com/vertexproject/synapse/pull/1946>`_)
+- Add ``ps:contactlist`` to allow collecting multiple ``ps:contact`` nodes
+  together.
+  (`#1935 <https://github.com/vertexproject/synapse/pull/1935>`_)
+- Allow the Storm Service cmdargs to accept any valid model type in the
+  ``type`` value.
+  (`#1923 <https://github.com/vertexproject/synapse/pull/1923>`_)
+  (`#1936 <https://github.com/vertexproject/synapse/pull/1936>`_)
+- Add ``>``, ``<``, ``>=`` and ``<=`` comparators for ``inet:ipv4`` type.
+  (`#1938 <https://github.com/vertexproject/synapse/pull/1938>`_)
+- Add configuration options to the Axon to limit the amount of data which
+  can be stored in it. Add a configuration option the Cortex to limit
+  the number of nodes which may be stored in a given Cortex.
+  (`#1950 <https://github.com/vertexproject/synapse/pull/1950>`_)
+
+Bugfixes
+--------
+- Fix a potential incorrect length for Spooled sets during fallback.
+  (`#1937 <https://github.com/vertexproject/synapse/pull/1937>`_)
+- Fix an issue with the Telepath ``Client`` object caching their ``Method``
+  and ``GenrMethod`` attributes across re-connections of the underlying
+  ``Proxy`` objects.
+  (`#1939 <https://github.com/vertexproject/synapse/pull/1939>`_)
+  (`#1941 <https://github.com/vertexproject/synapse/pull/1941>`_)
+- Fix a bug where a temporary spool slab cleanup failed to remove all
+  files from the filesystem that were created when the slab was made.
+  (`#1940 <https://github.com/vertexproject/synapse/pull/1940>`_)
+- Move exceptions which do not subclass ``SynErr`` out of ``synapse/exc.py``.
+  (`#1947 <https://github.com/vertexproject/synapse/pull/1947>`_)
+  (`#1951 <https://github.com/vertexproject/synapse/pull/1951>`_)
+
+
 v2.9.2 - 2020-10-27
 ===================
 
