@@ -2079,7 +2079,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         turl = self.conf.get('axon')
         if turl is None:
             path = os.path.join(self.dirn, 'axon')
-            conf = {'http:proxy': self.conf.get('http:proxy')}
+            conf = {}
+
+            proxyurl = self.conf.get('http:proxy')
+            if proxyurl is not None:
+                conf['http:proxy'] = proxyurl
+
             self.axon = await s_axon.Axon.anit(path, conf=conf)
             self.axon.onfini(self.axready.clear)
             self.dynitems['axon'] = self.axon
