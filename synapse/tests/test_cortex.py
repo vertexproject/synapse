@@ -259,11 +259,17 @@ class CortexTest(s_t_utils.SynTest):
                     self.eq('list index out of range', retn.get('mesg'))
 
                 body = {'query': 'return ( $lib.exit() )'}
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                async with sess.post(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
                     self.eq('StormExit', retn.get('code'))
                     self.eq('', retn.get('mesg'))
+
+                # No body
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/call') as resp:
+                    retn = await resp.json()
+                    self.eq('err', retn.get('status'))
+                    self.eq('SchemaValidation', retn.get('code'))
 
     async def test_cortex_storm_dmon_log(self):
 

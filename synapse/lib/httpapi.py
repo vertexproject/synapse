@@ -375,7 +375,7 @@ class StormCallV1(Handler):
         except s_exc.SynErr as e:
             mesg = e.get('mesg', str(e))
             return self.sendRestErr(e.__class__.__name__, mesg)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
             mesg = str(e)
