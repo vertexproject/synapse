@@ -43,7 +43,7 @@ class AQueue(s_base.Base):
 class Window(s_base.Base):
     '''
     A Queue like object which yields added items.  If the queue ever reaches
-    it's maxsize, it will be fini()d.  On fini(), the Window will continue to
+    its maxsize, it will be fini()d.  On fini(), the Window will continue to
     yield results until empty and then return.
     '''
     async def __anit__(self, maxsize=None):
