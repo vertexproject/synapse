@@ -446,9 +446,18 @@ class Base:
             return True
 
         if self.finievt is None:
-            self.finievt = asyncio.Event()
+            self.getFiniEvent()
 
         return await s_coro.event_wait(self.finievt, timeout)
+
+    def getFiniEvent(self):
+        '''
+        Returns an asyncio.Event that is set when this object is fini'd
+        '''
+        if self.finievt is None:
+            self.finievt = asyncio.Event()
+
+        return self.finievt
 
     def schedCoro(self, coro):
         '''
@@ -465,7 +474,7 @@ class Base:
         import synapse.lib.provenance as s_provenance  # avoid import cycle
 
         if __debug__:
-            assert s_coro.iscoro(coro)
+            assert inspect.isawaitable(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
 

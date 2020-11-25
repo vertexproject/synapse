@@ -1055,6 +1055,10 @@ class Layer(s_nexus.Pusher):
         self.layrinfo = layrinfo
         self.allow_upstream = allow_upstream
 
+        self.addoffs = None  # The nexus log index where I was created
+        self.deloffs = None  # The nexus log index where I was deleted
+        self.isdeleted = False
+
         self.iden = layrinfo.get('iden')
         await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
 
@@ -2512,13 +2516,51 @@ class Layer(s_nexus.Pusher):
         if not self.logedits:
             return
 
-        for offs, (nodeedits, _) in self.nodeeditlog.iter(offs):
-            yield (offs, nodeedits)
+        for offi, (nodeedits, _) in self.nodeeditlog.iter(offs):
+            yield (offi, nodeedits)
 
         if wait:
             async with self.getNodeEditWindow() as wind:
-                async for offs, nodeedits in wind:
-                    yield (offs, nodeedits)
+                async for offi, nodeedits in wind:
+                    yield (offi, nodeedits)
+
+    async def syncNodeFilteredEdits(self, offs, matchdef, wait=True):
+        '''
+        Yield (offs, (buid, form, individual edits) tuples from the nodeedit log starting from the given offset.
+        Only edits that match the filter in wdef will be yielded.
+
+        Args:
+            offs(int): starting nexus/editlog offset
+            wait(bool):  whether to pend and stream value until this layer is fini'd
+            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
+
+        Note:
+            Will not yield any values if this layer was not created with logedits enabled
+
+        The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a sequence
+        of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
+            forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
+            props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
+            tag:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
+            tagprops; EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be in tag:prop format with no #.
+
+        '''
+
+        formm = set(matchdef.get('forms', ()))
+        propm = set(matchdef.get('props', ()))
+        tagm = set(matchdef.get('tags', ()))
+        tagpropm = set(tuple(tp.split(':', 1)) for tp in matchdef.get('tagprops', ()))
+
+        async for curoff, editses in self.syncNodeEdits(offs, wait=wait):
+            for buid, form, edit in editses:
+                for etyp, vals, meta in edit:
+                    if ((form in formm and etyp in (EDIT_NODE_ADD, EDIT_NODE_DEL))
+                            or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL) and (vals[0] in propm
+                                                                            or f'{form}:{vals[0]}' in propm))
+                            or (etyp in (EDIT_TAG_SET, EDIT_TAG_DEL) and vals[0] in tagm)
+                            or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL) and (vals[0], vals[1]) in tagpropm)):
+
+                        yield (curoff, (buid, form, etyp, vals, meta))
 
     async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''
@@ -2667,6 +2709,7 @@ class Layer(s_nexus.Pusher):
         '''
         Delete the underlying storage
         '''
+        self.isdeleted = True
         await self.fini()
         shutil.rmtree(self.dirn, ignore_errors=True)
 
