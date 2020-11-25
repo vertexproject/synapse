@@ -1555,11 +1555,17 @@ class InetModule(s_module.CoreModule):
                         ('client', ('inet:client', {}), {}),
                         ('client:ipv4', ('inet:ipv4', {}), {}),
                         ('client:ipv6', ('inet:ipv6', {}), {}),
+                        ('client:host', ('it:host', {}), {
+                            'doc': 'The host that sent the HTTP request.',
+                        }),
 
                         ('server', ('inet:server', {}), {}),
                         ('server:ipv4', ('inet:ipv4', {}), {}),
                         ('server:ipv6', ('inet:ipv6', {}), {}),
                         ('server:port', ('inet:port', {}), {}),
+                        ('server:host', ('it:host', {}), {
+                            'doc': 'The host that the HTTP request was sent to.',
+                        }),
 
                         ('time', ('time', {}), {
                             'doc': 'The time that the HTTP request was sent.'}),
@@ -1889,13 +1895,19 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The search query text.',
                             'disp': {'hint': 'text'},
                         }),
-
                         ('time', ('time', {}), {
-                            'doc': 'The time the web search was issued.'}),
-
+                            'doc': 'The time the web search was issued.',
+                        }),
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that the query was issued as.',
+                        }),
+                        ('host', ('it:host', {}), {
+                            'doc': 'The host that issued the query.',
+                        }),
                         ('engine', ('str', {'lower': True}), {
                             'ex': 'google',
-                            'doc': 'A simple name for the search engine used.'}),
+                            'doc': 'A simple name for the search engine used.',
+                        }),
                     )),
 
                     ('inet:search:result', {}, (
