@@ -269,7 +269,7 @@ class CortexTest(s_t_utils.SynTest):
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call') as resp:
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
-                    self.eq('SchemaValidation', retn.get('code'))
+                    self.eq('SchemaViolation', retn.get('code'))
 
     async def test_cortex_storm_dmon_log(self):
 
