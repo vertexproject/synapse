@@ -254,14 +254,17 @@ class CortexTest(s_t_utils.SynTest):
                 body = {'query': '$foo=$lib.list() $bar=$foo.index(10) return ( $bar )'}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
                     retn = await resp.json()
-                    print(retn)
                     self.eq('err', retn.get('status'))
                     self.eq('StormRuntimeError', retn.get('code'))
+                    self.eq('list index out of range', retn.get('mesg'))
 
                 # This raises a error in the handler...
                 body = {'query': 'return ( $lib.exit() )'}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
-                    self.eq(500, resp.status)
+                    retn = await resp.json()
+                    self.eq('err', retn.get('status'))
+                    self.eq('StormExit', retn.get('code'))
+                    self.eq('', retn.get('mesg'))
 
     async def test_cortex_storm_dmon_log(self):
 
