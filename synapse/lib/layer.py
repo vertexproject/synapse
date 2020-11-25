@@ -2170,7 +2170,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        async for item in self._iterRows(indxby, self.byprop, stortype=stortype, startvalu=startvalu):
+        async for item in self._iterRows(indxby, stortype=stortype, startvalu=startvalu):
             yield item
 
     async def iterPropRows(self, form, prop, stortype=None, startvalu=None):
@@ -2180,7 +2180,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        async for item in self._iterRows(indxby, self.byprop, stortype=stortype, startvalu=startvalu):
+        async for item in self._iterRows(indxby, stortype=stortype, startvalu=startvalu):
             yield item
 
     async def iterUnivRows(self, prop, stortype=None, startvalu=None):
@@ -2190,7 +2190,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        async for item in self._iterRows(indxby, self.byprop, stortype=stortype, startvalu=startvalu):
+        async for item in self._iterRows(indxby, stortype=stortype, startvalu=startvalu):
             yield item
 
     async def iterTagRows(self, tag, form=None, startvalu=None):

@@ -634,7 +634,7 @@ class LayerTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, 'range=', (1.0, math.nan)))
 
     async def test_layer_stortype_guid(self):
-        stor = s_layer.StorTypeGuid(self, None)
+        stor = s_layer.StorTypeGuid(None)
 
         vals = (s_common.guid(valu=42), '0' * 32, 'f' * 32)
 
