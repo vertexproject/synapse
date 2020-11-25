@@ -376,7 +376,6 @@ class StorType:
     def __init__(self, layr, stortype):
         self.layr = layr
         self.stortype = stortype
-        self.indxIsInvertible = True
 
         self.lifters = {}
 
@@ -432,7 +431,7 @@ class StorType:
         raise NotImplementedError
 
     def decodeIndx(self, valu):
-        raise NotImplementedError
+        return s_common.novalu
 
     async def _liftRegx(self, liftby, valu):
 
@@ -465,7 +464,6 @@ class StorTypeUtf8(StorType):
 
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_UTF8)
-        self.indxIsInvertible = False
 
         self.lifters.update({
             '=': self._liftUtf8Eq,
@@ -492,9 +490,6 @@ class StorTypeUtf8(StorType):
 
     def _getIndxByts(self, valu):
 
-        # include a byte as a "type" of string index value
-        # ( to allow sub-types to have special indexing )
-
         indx = valu.encode('utf8', 'surrogatepass')
         # cut down an index value to 256 bytes...
         if len(indx) <= 256:
@@ -506,6 +501,11 @@ class StorTypeUtf8(StorType):
 
     def indx(self, valu):
         return (self._getIndxByts(valu), )
+
+    def decodeIndx(self, bytz):
+        if len(bytz) >= 256:
+            return s_common.novalu
+        return bytz.decode('utf8', 'surrogatepass')
 
 class StorTypeHier(StorType):
 
@@ -955,7 +955,6 @@ class StorTypeMsgp(StorType):
 
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_MSGP)
-        self.indxIsInvertible = False
         self.lifters.update({
             '=': self._liftMsgpEq,
             '~=': self._liftRegx,
@@ -2247,15 +2246,16 @@ class Layer(s_nexus.Pusher):
 
         for key, buid in self.layrslab.scanByPref(abrv, startvalu=startbytz, db=indxby.db):
 
-            if stortype is not None and stor.indxIsInvertible:
+            if stortype is not None:
                 # Extract the value directly out of the end of the key
                 indx = key[abrvlen:]
+
                 valu = stor.decodeIndx(indx)
+                if valu is not s_common.novalu:
+                    await asyncio.sleep(0)
 
-                await asyncio.sleep(0)
-                yield buid, valu
-
-                continue
+                    yield buid, valu
+                    continue
 
             valu = indxby.getNodeValu(buid)
 
