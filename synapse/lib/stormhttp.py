@@ -1,8 +1,11 @@
 import json
+import asyncio
 
 import aiohttp
+import aiohttp_socks
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -99,7 +102,14 @@ class LibHttp(s_stormtypes.Lib):
         if params:
             kwargs['params'] = params
 
-        async with aiohttp.ClientSession() as sess:
+        todo = s_common.todo('getConfOpt', 'http:proxy')
+        proxyurl = await self.runt.dyncall('cortex', todo)
+
+        connector = None
+        if proxyurl is not None:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        async with aiohttp.ClientSession(connector=connector) as sess:
             try:
                 async with sess.request(meth, url, headers=headers, json=json, data=body, **kwargs) as resp:
                     info = {
@@ -107,7 +117,9 @@ class LibHttp(s_stormtypes.Lib):
                         'body': await resp.content.read()
                     }
                     return HttpResp(info)
-            except (TypeError, ValueError) as e:
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
                 mesg = f'Error during http {meth} - {str(e)}'
                 raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body, params=params) from None
 
