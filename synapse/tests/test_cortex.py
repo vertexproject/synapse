@@ -36,6 +36,12 @@ class CortexTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
 
+    async def test_cortex_limits(self):
+        async with self.getTestCore(conf={'max:nodes': 10}) as core:
+            self.len(1, await core.nodes('[ ou:org=* ]'))
+            with self.raises(s_exc.HitLimit):
+                await core.nodes('[ inet:ipv4=1.2.3.0/24 ]')
+
     async def test_cortex_rawpivot(self):
 
         async with self.getTestCore() as core:

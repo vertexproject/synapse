@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import hashlib
 import logging
@@ -71,7 +72,6 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
         await self._save()
         return
 
-
 class AxonHttpHasV1(s_httpapi.Handler):
 
     async def get(self, sha256):
@@ -79,7 +79,6 @@ class AxonHttpHasV1(s_httpapi.Handler):
             return
         resp = await self.cell.has(s_common.uhex(sha256))
         return self.sendRestRetn(resp)
-
 
 class AxonHttpDownloadV1(s_httpapi.Handler):
 
@@ -213,6 +212,10 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'upload'))
         return await UpLoadShare.anit(self.cell, self.link)
 
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True):
+        await self._reqUserAllowed(('axon', 'wget'))
+        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl)
+
     async def metrics(self):
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.metrics()
@@ -220,6 +223,21 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
+
+    confdefs = {
+        'max:bytes': {
+            'description': 'The maximum number of bytes that can be stored in the Axon.',
+            'type': 'integer',
+            'minimum': 1,
+            'hidecmdl': True,
+        },
+        'max:count': {
+            'description': 'The maximum number of files that can be stored in the Axon.',
+            'type': 'integer',
+            'minimum': 1,
+            'hidecmdl': True,
+        }
+    }
 
     async def __anit__(self, dirn, conf=None):  # type: ignore
 
@@ -242,12 +260,27 @@ class Axon(s_cell.Cell):
         self.axonmetrics.setdefault('size:bytes', 0)
         self.axonmetrics.setdefault('file:count', 0)
 
+        self.maxbytes = self.conf.get('max:bytes')
+        self.maxcount = self.conf.get('max:count')
+
         self.addHealthFunc(self._axonHealth)
 
         # modularize blob storage
         await self._initBlobStor()
 
         self._initAxonHttpApi()
+
+    def _reqBelowLimit(self):
+
+        if (self.maxbytes is not None and
+            self.maxbytes <= self.axonmetrics.get('size:bytes')):
+            mesg = f'Axon is at size:bytes limit: {self.maxbytes}'
+            raise s_exc.HitLimit(mesg=mesg)
+
+        if (self.maxcount is not None and
+            self.maxcount <= self.axonmetrics.get('file:count')):
+            mesg = f'Axon is at file:count limit: {self.maxcount}'
+            raise s_exc.HitLimit(mesg=mesg)
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
@@ -310,6 +343,7 @@ class Axon(s_cell.Cell):
 
     async def save(self, sha256, genr):
 
+        self._reqBelowLimit()
         byts = self.axonslab.get(sha256, db=self.sizes)
         if byts is not None:
             return int.from_bytes(byts, 'big')
@@ -339,3 +373,45 @@ class Axon(s_cell.Cell):
         Given a list of sha256 bytes, returns a list of the hashes we want bytes for.
         '''
         return [s for s in sha256s if not await self.has(s)]
+
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True):
+        '''
+        Stream a file download directly into the axon.
+        '''
+        async with aiohttp.ClientSession() as sess:
+
+            try:
+
+                async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl) as resp:
+
+                    info = {
+                        'ok': True,
+                        'code': resp.status,
+                        'headers': dict(resp.headers),
+                    }
+
+                    hashset = s_hashset.HashSet()
+
+                    async with await self.upload() as upload:
+
+                        byts = await resp.content.read(CHUNK_SIZE)
+                        while byts:
+                            await upload.write(byts)
+                            hashset.update(byts)
+                            byts = await resp.content.read(CHUNK_SIZE)
+
+                        size, _ = await upload.save()
+
+                    info['size'] = size
+                    info['hashes'] = dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
+
+                    return info
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception as e:
+                return {
+                    'ok': False,
+                    'mesg': str(e),
+                }

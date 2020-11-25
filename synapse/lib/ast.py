@@ -1177,19 +1177,50 @@ class LiftProp(LiftOper):
 
         assert len(self.kids) == 1
 
-        # check if we can optimize a form lift with a tag filter...
+        # check if we can optimize a form lift
         if prop.isform:
-            async for hint in self.getRightHints():
+            async for hint in self.getRightHints(runt, path):
                 if hint[0] == 'tag':
                     tagname = hint[1].get('name')
                     async for node in runt.snap.nodesByTag(tagname, form=name):
                         yield node
                     return
 
+                if hint[0] == 'relprop':
+                    relpropname = hint[1].get('name')
+                    isuniv = hint[1].get('univ')
+
+                    if isuniv:
+                        fullname = ''.join([name, relpropname])
+                    else:
+                        fullname = ':'.join([name, relpropname])
+
+                    prop = runt.model.prop(fullname)
+                    if prop is None:
+                        continue
+
+                    cmpr = hint[1].get('cmpr')
+                    valu = hint[1].get('valu')
+
+                    if cmpr is not None and valu is not None:
+                        try:
+                            # try lifting by valu but no guarantee a cmpr is available
+                            async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu):
+                                yield node
+                            return
+                        except asyncio.CancelledError: # pragma: no cover
+                            raise
+                        except:
+                            pass
+
+                    async for node in runt.snap.nodesByProp(fullname):
+                        yield node
+                    return
+
         async for node in runt.snap.nodesByProp(name):
             yield node
 
-    async def getRightHints(self):
+    async def getRightHints(self, runt, path):
 
         for oper in self.iterright():
 
@@ -1198,8 +1229,11 @@ class LiftProp(LiftOper):
                 continue
 
             if isinstance(oper, FiltOper):
-                for hint in await oper.getLiftHints():
+                for hint in await oper.getLiftHints(runt, path):
                     yield hint
+                continue
+
+            return
 
 class LiftPropBy(LiftOper):
 
@@ -1785,7 +1819,7 @@ class PropPivot(PivotOper):
 
 class Cond(AstNode):
 
-    async def getLiftHints(self):
+    async def getLiftHints(self, runt, path):
         return []
 
     async def getCondEval(self, runt): # pragma: no cover
@@ -1935,9 +1969,9 @@ class AndCond(Cond):
     '''
     <cond> and <cond>
     '''
-    async def getLiftHints(self):
-        h0 = await self.kids[0].getLiftHints()
-        h1 = await self.kids[0].getLiftHints()
+    async def getLiftHints(self, runt, path):
+        h0 = await self.kids[0].getLiftHints(runt, path)
+        h1 = await self.kids[0].getLiftHints(runt, path)
         return h0 + h1
 
     async def getCondEval(self, runt):
@@ -1972,7 +2006,7 @@ class TagCond(Cond):
     '''
     #foo.bar
     '''
-    async def getLiftHints(self):
+    async def getLiftHints(self, runt, path):
 
         kid = self.kids[0]
 
@@ -2027,6 +2061,26 @@ class HasRelPropCond(Cond):
             return node.has(name)
 
         return cond
+
+    async def getLiftHints(self, runt, path):
+
+        relprop = self.kids[0]
+
+        name = await relprop.compute(runt, path)
+        ispiv = name.find('::') != -1
+        if ispiv:
+            return (
+                ('relprop', {'name': name.split('::')[0]}),
+            )
+
+        hint = {
+            'name': name,
+            'univ': isinstance(relprop, UnivProp),
+        }
+
+        return (
+            ('relprop', hint),
+        )
 
 class HasTagPropCond(Cond):
 
@@ -2201,6 +2255,28 @@ class RelPropCond(Cond):
 
         return cond
 
+    async def getLiftHints(self, runt, path):
+
+        relprop = self.kids[0].kids[0]
+
+        name = await relprop.compute(runt, path)
+        ispiv = name.find('::') != -1
+        if ispiv:
+            return (
+                ('relprop', {'name': name.split('::')[0]}),
+            )
+
+        hint = {
+            'name': name,
+            'univ': isinstance(relprop, UnivProp),
+            'cmpr': await self.kids[1].compute(runt, path),
+            'valu': await self.kids[2].compute(runt, path),
+        }
+
+        return (
+            ('relprop', hint),
+        )
+
 class TagPropCond(Cond):
 
     async def getCondEval(self, runt):
@@ -2232,12 +2308,12 @@ class TagPropCond(Cond):
 
 class FiltOper(Oper):
 
-    async def getLiftHints(self):
+    async def getLiftHints(self, runt, path):
 
         if await self.kids[0].compute(None, None) != '+':
             return []
 
-        return await self.kids[1].getLiftHints()
+        return await self.kids[1].getLiftHints(runt, path)
 
     async def run(self, runt, genr):
 

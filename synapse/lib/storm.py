@@ -17,6 +17,7 @@ import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -433,6 +434,47 @@ stormcmds = (
         '''
     },
     {
+        'name': 'pkg.load',
+        'descr': 'Load a storm package from an HTTP URL.',
+        'cmdargs': (
+            ('url', {'help': 'The HTTP URL to load the package from.'}),
+            ('--ssl-noverify', {'default': False, 'action': 'store_true',
+                'help': 'Specify to disable SSL verification of the server.'}),
+        ),
+        'storm': '''
+            init {
+                $ssl = $lib.true
+                if $cmdopts.ssl_noverify { $ssl = $lib.false }
+
+                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl)
+
+                if ($resp.code != 200) {
+                    $lib.warn("pkg.load got HTTP code: {code} for URL: {url}", code=$resp.code, url=$cmdopts.url)
+                    $lib.exit()
+                }
+
+                $reply = $resp.json()
+                if ($reply.status != "ok") {
+                    $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
+                    $lib.exit()
+                }
+
+                $pkg = $reply.result
+
+                $pkg.url = $cmdopts.url
+                $pkg.loaded = $lib.time.now()
+
+                $lib.pkg.add($pkg)
+
+                $maj = $pkg.version.index(0)
+                $min = $pkg.version.index(1)
+                $rev = $pkg.version.index(2)
+
+                $lib.print("Loaded Package: {name} @{maj}.{min}.{rev}", name=$pkg.name, maj=$maj, min=$min, rev=$rev)
+            }
+        ''',
+    },
+    {
         'name': 'view.add',
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
@@ -687,13 +729,15 @@ stormcmds = (
             ('--hour', {'help': 'Hour(s) to execute at.'}),
             ('--day', {'help': 'Day(s) to execute at.'}),
             ('--dt', {'help': 'Datetime(s) to execute at.'}),
+            ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
         ),
         'storm': '''
             $cron = $lib.cron.at(query=$cmdopts.query,
                                  minute=$cmdopts.minute,
                                  hour=$cmdopts.hour,
                                  day=$cmdopts.day,
-                                 dt=$cmdopts.dt)
+                                 dt=$cmdopts.dt,
+                                 now=$cmdopts.now)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -732,7 +776,7 @@ stormcmds = (
             if $crons {
                 for $cron in $crons {
                     $job = $cron.pack()
-                    if (not $job.recur and $job.lastfinishtime) {
+                    if (not $job.recs) {
                         $lib.cron.del($job.iden)
                         $count = ($count + 1)
                     }
@@ -1120,6 +1164,7 @@ class Runtime:
         self.opts = opts
         self.snap = snap
         self.user = user
+        self.asroot = False
 
         self.root = root
         self.funcscope = False
@@ -1158,9 +1203,15 @@ class Runtime:
         self._loadRuntVars(query)
 
     async def dyncall(self, iden, todo, gatekeys=()):
+        #bypass all perms checks if we are running asroot
+        if self.asroot:
+            gatekeys = ()
         return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
+        #bypass all perms checks if we are running asroot
+        if self.asroot:
+            gatekeys = ()
         async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
@@ -1171,6 +1222,9 @@ class Runtime:
         gatekeys = ()
         if perm is not None:
             gatekeys = ((self.user.iden, perm, None),)
+        #bypass all perms checks if we are running asroot
+        if self.asroot:
+            gatekeys = ()
         return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def getTeleProxy(self, url, **opts):
@@ -1282,6 +1336,8 @@ class Runtime:
                 yield node, self.initPath(node)
 
     def layerConfirm(self, perms):
+        if self.asroot:
+            return
         iden = self.snap.wlyr.iden
         return self.user.confirm(perms, gateiden=iden)
 
@@ -1290,7 +1346,14 @@ class Runtime:
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
 
         '''
+        if self.asroot:
+            return
         return self.user.confirm(perms, gateiden=gateiden)
+
+    def allowed(self, perms, gateiden=None):
+        if self.asroot:
+            return True
+        return self.user.allowed(perms, gateiden=gateiden)
 
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -1327,6 +1390,7 @@ class Runtime:
                 snap = await view.snap(self.user)
 
         runt = Runtime(query, snap, user=self.user, opts=opts, root=self)
+        runt.asroot = self.asroot
         runt.readonly = self.readonly
 
         yield runt
@@ -1337,6 +1401,7 @@ class Runtime:
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
         runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt.asroot = self.asroot
         runt.readonly = self.readonly
         yield runt
 
@@ -1345,6 +1410,7 @@ class Runtime:
         Construct a non-context managed runtime for use in module imports.
         '''
         runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt.asroot = self.asroot
         runt.readonly = self.readonly
         return runt
 
@@ -1690,6 +1756,7 @@ class Cmd:
     name = 'cmd'
     pkgname = ''
     svciden = ''
+    asroot = False
     readonly = False
     forms = {}  # type: ignore
 
@@ -1789,6 +1856,7 @@ class PureCmd(Cmd):
     def __init__(self, cdef, runt, runtsafe):
         self.cdef = cdef
         Cmd.__init__(self, runt, runtsafe)
+        self.asroot = cdef.get('asroot', False)
 
     def getDescr(self):
         return self.cdef.get('descr', 'no documentation provided')
@@ -1803,6 +1871,14 @@ class PureCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
+        name = self.getName()
+        perm = ('storm', 'asroot', 'cmd') + tuple(name.split('.'))
+
+        asroot = runt.allowed(perm)
+        if self.asroot and not asroot:
+            mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
+            raise s_exc.AuthDeny(mesg=mesg)
 
         text = self.cdef.get('storm')
         query = runt.snap.core.getStormQuery(text)
@@ -1822,6 +1898,7 @@ class PureCmd(Cmd):
                 yield xnode, xpath
 
         with runt.getCmdRuntime(query, opts=opts) as subr:
+            subr.asroot = asroot
             async for node, path in subr.execute(genr=genx()):
                 path.finiframe()
                 yield node, path
@@ -2499,7 +2576,8 @@ class BackgroundCmd(Cmd):
 
         core = self.runt.snap.core
         user = core._userFromOpts(opts)
-        info = {'query': str(query), 'opts': opts,
+        info = {'query': query.text,
+                'opts': opts,
                 'background': True}
 
         await core.boss.promote('storm', user=user, info=info)
@@ -2517,10 +2595,13 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
+        runtprims = await s_stormtypes.toprim(self.runt.vars)
+        runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
+
         opts = {
             'user': runt.user.iden,
             'view': runt.snap.view.iden,
-            'vars': dict(runt.vars),
+            'vars': runtvars,
         }
 
         query = await runt.getStormQuery(self.opts.query)

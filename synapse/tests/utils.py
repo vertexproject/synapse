@@ -59,6 +59,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
+import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -791,7 +792,7 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.asynccontextmanager
-    async def getTestAxon(self, dirn=None):
+    async def getTestAxon(self, dirn=None, conf=None):
         '''
         Get a test Axon as an async context manager.
 
@@ -799,13 +800,13 @@ class SynTest(unittest.TestCase):
             s_axon.Axon: A Axon object.
         '''
         if dirn is not None:
-            async with await s_axon.Axon.anit(dirn) as axon:
+            async with await s_axon.Axon.anit(dirn, conf) as axon:
                 yield axon
 
             return
 
         with self.getTestDir() as dirn:
-            async with await s_axon.Axon.anit(dirn) as axon:
+            async with await s_axon.Axon.anit(dirn, conf) as axon:
                 yield axon
 
     @contextlib.contextmanager
@@ -1012,7 +1013,7 @@ class SynTest(unittest.TestCase):
                 yield core, prox
 
     @contextlib.asynccontextmanager
-    async def getTestCryo(self, dirn=None):
+    async def getTestCryo(self, dirn=None, conf=None):
         '''
         Get a simple test Cryocell as an async context manager.
 
@@ -1020,13 +1021,13 @@ class SynTest(unittest.TestCase):
             s_cryotank.CryoCell: Test cryocell.
         '''
         if dirn is not None:
-            async with await s_cryotank.CryoCell.anit(dirn) as cryo:
+            async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
                 yield cryo
 
             return
 
         with self.getTestDir() as dirn:
-            async with await s_cryotank.CryoCell.anit(dirn) as cryo:
+            async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
                 yield cryo
 
     @contextlib.asynccontextmanager
@@ -1043,11 +1044,14 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getTestDmon(self):
-        with self.getTestDir(mirror='certdir') as certdir:
+        with self.getTestDir(mirror='certdir') as certpath:
+            certdir = s_certdir.CertDir(path=certpath)
+            s_certdir.addCertPath(certpath)
             async with await s_daemon.Daemon.anit(certdir=certdir) as dmon:
                 await dmon.listen('tcp://127.0.0.1:0/')
                 with mock.patch('synapse.lib.certdir.defdir', certdir):
                     yield dmon
+            s_certdir.delCertPath(certpath)
 
     @contextlib.asynccontextmanager
     async def getTestCell(self, ctor, conf=None, dirn=None):

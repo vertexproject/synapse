@@ -638,3 +638,27 @@ class CellTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup(name='foo/bar')
+
+    async def test_cell_tls_client(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCryo(dirn=dirn) as cryo:
+
+                cryo.certdir.genCaCert('localca')
+                cryo.certdir.genHostCert('localhost', signas='localca')
+                cryo.certdir.genUserCert('root@localhost', signas='localca')
+
+                root = await cryo.auth.addUser('root@localhost')
+                await root.setAdmin(True)
+
+            async with self.getTestCryo(dirn=dirn) as cryo:
+
+                addr, port = await cryo.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
+
+                async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
+                    self.nn(await proxy.getCellIden())
+
+                with self.raises(s_exc.BadCertHost):
+                    async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=borked.localhost') as proxy:
+                        pass

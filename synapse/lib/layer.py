@@ -1003,6 +1003,10 @@ class Layer(s_nexus.Pusher):
         self.growsize = self.layrinfo.get('growsize')
         self.logedits = self.layrinfo.get('logedits')
 
+        # slim hooks to avoid async/fire
+        self.nodeAddHook = None
+        self.nodeDelHook = None
+
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
 
         self.fresh = not os.path.exists(path)
@@ -1668,6 +1672,7 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
 
         self.formcounts.inc(form)
+        if self.nodeAddHook is not None: self.nodeAddHook()
 
         retn = [
             (EDIT_NODE_ADD, (valu, stortype), ())
@@ -1709,6 +1714,7 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(abrv + indx, buid, db=self.byprop)
 
         self.formcounts.inc(form, valu=-1)
+        if self.nodeDelHook is not None: self.nodeDelHook()
 
         self._wipeNodeData(buid)
         # TODO edits to become async so we can sleep(0) on large deletes?
@@ -1962,6 +1968,9 @@ class Layer(s_nexus.Pusher):
         # a bit of special case...
         if sode.get('form') is None:
             self.setSodeDirty(buid, sode, form)
+
+        if oldb is not None:
+            oldv = s_msgpack.un(oldb)
 
         self.dataslab.put(abrv, buid, db=self.dataname)
 
