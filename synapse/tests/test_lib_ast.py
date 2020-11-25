@@ -1665,6 +1665,12 @@ class AstTest(s_test.SynTest):
                     self.eq(calls, [('valu', 'inet:ipv4:loc', '=', 'us')])
                     calls = []
 
+                    # Don't optimize if a non-lift happens before the filter
+                    nodes = await core.nodes('$loc=us inet:ipv4 $loc=uk +:loc=$loc')
+                    self.len(1, nodes)
+                    self.eq(calls, [('prop', 'inet:ipv4')])
+                    calls = []
+
                     nodes = await core.nodes('inet:ipv4:loc {$loc=:loc inet:ipv4 +:loc=$loc}')
                     self.len(2, nodes)
                     exp = [
@@ -1718,3 +1724,9 @@ class AstTest(s_test.SynTest):
 
                     self.eq(calls, exp)
                     calls = []
+
+                    # Shouldn't optimize this, make sure the edit happens
+                    msgs = await core.stormlist('inet:ipv4 | limit 1 | [.seen=now] +#notag')
+                    self.len(1, [m for m in msgs if m[0] == 'node:edits'])
+                    self.len(0, [m for m in msgs if m[0] == 'node'])
+                    self.eq(calls, [('prop', 'inet:ipv4')])
