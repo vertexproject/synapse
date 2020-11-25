@@ -5,6 +5,34 @@ Synapse Changelog
 *****************
 
 
+v2.11.0 - 2020-11-25
+====================
+
+Features and Enhancements
+-------------------------
+- Optimize Storm lift and filter queries, so that more efficient lift
+  operations may be performed in some cases.
+  (`#1966 <https://github.com/vertexproject/synapse/pull/1966>`_)
+- Add a ``Axon.wget()`` API to allow the Axon to retrieve files directly
+  from a URL.
+  (`#1965 <https://github.com/vertexproject/synapse/pull/1965>`_)
+- Add a JsonStor Cell, which allows for hierarchical storage and retrieval
+  of JSON documents.
+  (`#1954 <https://github.com/vertexproject/synapse/pull/1954>`_)
+- Add a Cortex HTTP API, ``/api/v1/storm/call``. This behaves like the
+  ``CoreApi.callStorm()`` API.
+  (`#1967 <https://github.com/vertexproject/synapse/pull/1967>`_)
+- Add ``:client:host`` and ``:server:host`` secondary properties to the
+  ``inet:http:request`` form.
+  (`#1955 <https://github.com/vertexproject/synapse/pull/1955>`_)
+- Add ``:host`` and ``:acct`` secondary properties to the
+  ``inet:search:query`` form.
+  (`#1955 <https://github.com/vertexproject/synapse/pull/1955>`_)
+- Add a Telepath service discovery implementation, the Aha cell. The Aha
+  APIs are currently provisional and subject to change.
+  (`#1954 <https://github.com/vertexproject/synapse/pull/1954>`_)
+
+
 v2.10.2 - 2020-11-20
 ====================
 
