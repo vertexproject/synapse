@@ -762,7 +762,7 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.setStormVar(name, valu)
 
     async def syncNodeFilteredEdits(self, offs, matchdef, wait=True):
-        self.user.confirm(('syncnodefilterededits',))
+        self.user.confirm(('sync',))
         async for item in self.cell.syncNodeFilteredEdits(offs, matchdef, wait=wait):
             yield item
 
