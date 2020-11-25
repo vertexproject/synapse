@@ -4841,11 +4841,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.delLayer(layriden)
 
             item1 = await genr.__anext__()
-            expectadd = (baseoffs + 1, (s_layer.EDIT_LAYR_ADD, (layriden,), ()))
+            expectadd = (baseoffs + 1, layriden, (s_layer.EDIT_LAYR_ADD, (), ()))
             self.eq(expectadd, item1)
 
             item2 = await genr.__anext__()
-            expectdel = (baseoffs + 2, (s_layer.EDIT_LAYR_DEL, (layriden,), ()))
+            expectdel = (baseoffs + 2, layriden, (s_layer.EDIT_LAYR_DEL, (), ()))
             self.eq(expectdel, item2)
 
             layr = await core.addLayer()
@@ -4859,7 +4859,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             node = nodes[0]
 
             item3 = await genr.__anext__()
-            expectadd = (baseoffs + 3, (s_layer.EDIT_LAYR_ADD, (layriden,), ()))
+            expectadd = (baseoffs + 3, layriden, (s_layer.EDIT_LAYR_ADD, (), ()))
             self.eq(expectadd, item3)
 
             item4 = await genr.__anext__()

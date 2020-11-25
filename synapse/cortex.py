@@ -2081,14 +2081,14 @@ class Cortex(s_cell.Cell):  # type: ignore
             layer.syncNodeFilteredEdits for matchdef specification.
         '''
         topoffs = await self.getNexsIndx()  # The latest offset at call time
-        catchingup = True  # Whether we've caught up to topoffs
+        catchingup = True  # whether we've caught up to topoffs
         layrsadded = {}  # layriden -> True
         todo = set()  # outstanding futures
         layrgenrs = {}  # layriden -> genr
 
         async def layrgenr(layr, startoff, endoff=None, newlayer=False):
             if newlayer:
-                yield layr.addoffs, (s_layer.EDIT_LAYR_ADD, (layr.iden,), ())
+                yield layr.addoffs, layr.iden, (s_layer.EDIT_LAYR_ADD, (), ())
 
             wait = endoff is None
 
@@ -2101,7 +2101,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     yield ioff, layr.iden, item
 
             if layr.isdeleted:
-                yield layr.deloffs, (s_layer.EDIT_LAYR_DEL, (layr.iden, ), ())
+                yield layr.deloffs, layr.iden, (s_layer.EDIT_LAYR_DEL, (), ())
 
         async with await s_base.Base.anit() as base:
 
@@ -2827,8 +2827,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.maxnodes:
             counts = await layr.getFormCounts()
             self.nodecount += sum(counts.values())
+
             def onadd():
                 self.nodecount += 1
+
             def ondel():
                 self.nodecount -= 1
             layr.nodeAddHook = onadd
