@@ -761,9 +761,9 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('globals', 'set', name))
         return await self.cell.setStormVar(name, valu)
 
-    async def addEditSubscriber(self, qname, *, form=None, tag=None, prop=None):
-        self.user.confirm(('editsubscriber', 'add'))
-        return await self.cell.addEditSubscriber(qname, form=form, tag=tag, prop=prop)
+    async def syncNodeFilteredEdits(self, offs, matchdef, wait=True):
+        self.user.confirm(('syncnodefilterededits',))
+        return await self.cell.syncNodeFilteredEdits(offs, matchdef, wait=wait)
 
 class Cortex(s_cell.Cell):  # type: ignore
     '''
@@ -927,12 +927,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Initialize our storage and views
         await self._initCoreAxon()
 
-        await self._initCoreQueues()
-
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
         await self._checkLayerModels()
+        await self._initCoreQueues()
 
         self.addHealthFunc(self._cortexHealth)
 
