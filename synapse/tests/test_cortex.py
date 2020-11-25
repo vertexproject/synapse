@@ -4819,7 +4819,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
 
     async def test_cortex_syncnodefilterededits(self):
-        async with self.getTestCore() as core:
+        async with self.getTestCoreAndProxy() as (core, proxy):
             items = await alist(core.syncNodeFilteredEdits(0, {}, wait=False))
             self.eq(items, [])
 
@@ -4867,7 +4867,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                          ('bar', s_layer.STOR_TYPE_UTF8), ()))
             self.eq(expectadd, item4)
 
-            items = await alist(core.syncNodeFilteredEdits(baseoffs + 1, mdef, wait=False))
+            items = await alist(proxy.syncNodeFilteredEdits(baseoffs + 1, mdef, wait=False))
             self.len(1, items)
             self.eq(expectadd, items[0])
 

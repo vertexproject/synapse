@@ -763,7 +763,8 @@ class CoreApi(s_cell.CellApi):
 
     async def syncNodeFilteredEdits(self, offs, matchdef, wait=True):
         self.user.confirm(('syncnodefilterededits',))
-        return await self.cell.syncNodeFilteredEdits(offs, matchdef, wait=wait)
+        async for item in self.cell.syncNodeFilteredEdits(offs, matchdef, wait=wait):
+            yield item
 
 class Cortex(s_cell.Cell):  # type: ignore
     '''
