@@ -193,7 +193,22 @@ class StormTest(s_t_utils.SynTest):
             self.true(resp['ok'])
 
     async def test_storm_undef(self):
+
         async with self.getTestCore() as core:
+
+            # pernode variants
+            self.none(await core.callStorm('''
+                [ ps:contact = * ]
+                if $node {
+                    $foo = $lib.dict()
+                    $foo.bar = $lib.undef
+                    return($foo.bar)
+                }
+            '''))
+            with self.raises(s_exc.NoSuchVar):
+                await core.callStorm('[ps:contact=*] $foo = $node.repr() $foo = $lib.undef return($foo)')
+
+            # runtsafe variants
             self.eq(('foo', 'baz'), await core.callStorm('$foo = (foo, bar, baz) $foo.1 = $lib.undef return($foo)'))
             self.eq(('foo', 'bar'), await core.callStorm('$foo = (foo, bar, baz) $foo."-1" = $lib.undef return($foo)'))
             self.none(await core.callStorm('$foo = $lib.dict() $foo.bar = 10 $foo.bar = $lib.undef return($foo.bar)'))

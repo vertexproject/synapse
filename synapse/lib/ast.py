@@ -760,7 +760,7 @@ class SetVarOper(Oper):
             if valu is undef:
                 runt.popVar(name)
                 #TODO detect which to update here
-                path.popBar(name)
+                path.popVar(name)
 
             else:
                 runt.setVar(name, valu)
