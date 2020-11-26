@@ -203,7 +203,7 @@ class StormTest(s_t_utils.SynTest):
                     'storm': 'function x() { return((0)) }',
                 },
             ),
-            'onload': f'[ ps:contact={cont} ]'
+            'onload': f'[ ps:contact={cont} ] $lib.print(hi) return($path.vars.newp)'
         }
         class PkgHandler(s_httpapi.Handler):
 
