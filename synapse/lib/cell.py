@@ -1384,7 +1384,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             ctor = s_dyndeps.getDynLocal(authctor)
             return await ctor(self)
 
-        return await _initCellHiveAuth()
+        return await self._initCellHiveAuth()
 
     async def _initCellHiveAuth(self):
 
