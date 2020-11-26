@@ -1507,7 +1507,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             except asyncio.CancelledError: # pragma: no cover
                 raise
-            except Exception as e:
+            except Exception as e: # pragma: no cover
                 logger.warning(f'onload failed for package: {name}')
 
         await self.bumpSpawnPool()
