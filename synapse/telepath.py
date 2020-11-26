@@ -47,7 +47,12 @@ async def addAhaUrl(url):
 async def delAhaUrl(url):
     '''
     Remove (decref) an aha registry URL.
+
+    NOTE: You may also remove a list of redundant URLs.
     '''
+    if isinstance(url, list):
+        url = tuple(url)
+
     info = aha_clients.get(url)
     if info is None:
         return 0
