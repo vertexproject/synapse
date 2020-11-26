@@ -50,6 +50,12 @@ class EchoAuth(s_cell.Cell):
         if doraise:
             raise s_exc.BadTime(mesg='call again later')
 
+async def altAuthCtor(cell):
+    authconf = cell.conf.get('auth:conf')
+    assert authconf['foo'] == 'bar'
+    authconf['baz'] = 'faz'
+    return await s_cell.Cell._initCellHiveAuth(cell)
+
 class CellTest(s_t_utils.SynTest):
 
     async def test_cell_auth(self):
@@ -662,3 +668,15 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadCertHost):
                     async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=borked.localhost') as proxy:
                         pass
+
+    async def test_cell_auth_ctor(self):
+        conf = {
+            'auth:ctor': 'synapse.tests.test_lib_cell.altAuthCtor',
+            'auth:conf': {
+                'foo': 'bar',
+            },
+        }
+        with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+                self.eq('faz', cell.conf.get('auth:conf')['baz'])
+                await cell.auth.addUser('visi')

@@ -29,7 +29,12 @@ aha_clients = {}
 async def addAhaUrl(url):
     '''
     Add (incref) an aha registry URL.
+
+    NOTE: You may also add a list of redundant URLs.
     '''
+    if isinstance(url, list):
+        url = tuple(url)
+
     info = aha_clients.get(url)
     if info is None:
         client = await Client.anit(url)

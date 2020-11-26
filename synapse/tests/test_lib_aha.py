@@ -44,12 +44,17 @@ class AhaTest(s_test.SynTest):
             conf = {
                 'aha:name': '0.cryo.mynet',
                 'aha:leader': 'cryo.mynet',
+                'aha:admin': 'root@cryo.mynet',
                 'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
             async with self.getTestCryo(conf=conf) as cryo:
 
                 await cryo.auth.rootuser.setPasswd('secret')
+
+                ahaadmin = await cryo.auth.getUserByName('root@cryo.mynet')
+                self.nn(ahaadmin)
+                self.true(ahaadmin.isAdmin())
 
                 await wait00.wait(timeout=2)
 
