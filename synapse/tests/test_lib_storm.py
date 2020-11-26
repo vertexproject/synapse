@@ -208,10 +208,29 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVar):
                 await core.callStorm('[ps:contact=*] $foo = $node.repr() $foo = $lib.undef return($foo)')
 
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('''
+                    [ps:contact=*]
+                    $path.vars.foo = lol
+                    $path.vars.foo = $lib.undef
+                    return($path.vars.foo)
+                ''')
+
             # runtsafe variants
             self.eq(('foo', 'baz'), await core.callStorm('$foo = (foo, bar, baz) $foo.1 = $lib.undef return($foo)'))
             self.eq(('foo', 'bar'), await core.callStorm('$foo = (foo, bar, baz) $foo."-1" = $lib.undef return($foo)'))
             self.none(await core.callStorm('$foo = $lib.dict() $foo.bar = 10 $foo.bar = $lib.undef return($foo.bar)'))
+            self.eq(('woot',), await core.callStorm('''
+                $foo = (foo, bar, baz)
+                $foo.0 = $lib.undef
+                $foo.0 = $lib.undef
+                $foo.0 = $lib.undef
+                // one extra to test the exc handler
+                $foo.0 = $lib.undef
+                $foo.append(hehe)
+                $foo.0 = woot
+                return($foo)
+            '''))
             with self.raises(s_exc.NoSuchVar):
                 await core.callStorm('$foo = 10 $foo = $lib.undef return($foo)')
 

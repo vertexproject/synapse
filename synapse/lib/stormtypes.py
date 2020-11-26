@@ -2731,7 +2731,7 @@ class PathVars(Prim):
 
     async def setitem(self, name, valu):
         if valu is undef:
-            self.valu.popVar(name)
+            self.path.popVar(name)
             return
         self.path.setVar(name, valu)
 
