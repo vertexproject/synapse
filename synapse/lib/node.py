@@ -721,7 +721,7 @@ class Path:
         self.vars[name] = valu
 
     def popVar(self, name):
-        self.vars.pop(name, s_common.novalu)
+        return self.vars.pop(name, s_common.novalu)
 
     def meta(self, name, valu):
         '''
