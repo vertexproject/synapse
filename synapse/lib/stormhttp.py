@@ -117,7 +117,7 @@ class LibHttp(s_stormtypes.Lib):
                         'body': await resp.content.read()
                     }
                     return HttpResp(info)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError: # pragma: no cover
                 raise
             except Exception as e:
                 mesg = f'Error during http {meth} - {str(e)}'
