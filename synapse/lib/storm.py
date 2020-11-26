@@ -1308,6 +1308,13 @@ class Runtime:
         self.vars[name] = valu
         return
 
+    def popVar(self, name):
+
+        if self._isRootScope(name):
+            return self.root.popVar(name)
+
+        return self.vars.pop(name, s_common.novalu)
+
     def addInput(self, node):
         '''
         Add a Node() object as input to the query runtime.

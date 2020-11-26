@@ -23,7 +23,7 @@ import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
-from synapse.lib.stormtypes import tobool, toint, toprim, tostr
+from synapse.lib.stormtypes import tobool, toint, toprim, tostr, undef
 
 logger = logging.getLogger(__name__)
 
@@ -757,16 +757,24 @@ class SetVarOper(Oper):
             count += 1
 
             valu = await vkid.compute(runt, path)
+            if valu is undef:
+                runt.popVar(name)
+                #TODO detect which to update here
+                path.popBar(name)
 
-            runt.setVar(name, valu)
-            #TODO detect which to update here
-            path.setVar(name, valu)
+            else:
+                runt.setVar(name, valu)
+                #TODO detect which to update here
+                path.setVar(name, valu)
 
             yield node, path
 
         if count == 0 and vkid.isRuntSafe(runt):
             valu = await vkid.compute(runt, None)
-            runt.setVar(name, valu)
+            if valu is undef:
+                runt.popVar(name)
+            else:
+                runt.setVar(name, valu)
 
     def getRuntVars(self, runt):
         yield self.kids[0].value(), self.kids[1].isRuntSafe(runt)

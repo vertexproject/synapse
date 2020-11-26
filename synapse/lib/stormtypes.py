@@ -28,6 +28,9 @@ import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
+class Undef: pass
+undef = Undef()
+
 class StormTypesRegistry:
     def __init__(self):
         self._LIBREG = {}
@@ -495,6 +498,7 @@ class LibBase(Lib):
             'fire': self._fire,
             'list': self._list,
             'null': self._null,
+            'undef': self._undef,
             'true': self._true,
             'false': self._false,
             'text': self._text,
@@ -505,6 +509,24 @@ class LibBase(Lib):
             'sorted': self._sorted,
             'import': self._libBaseImport,
         }
+
+    @property
+    def _undef(self):
+        '''
+        This constant can be used to unset variables and derefs.
+
+        Examples:
+
+            // Unset the variable $foo
+            $foo = $lib.undef
+
+            // Remove a dictionary key bar
+            $foo.bar = $lib.undef
+
+            // Remove a list index of 0
+            $foo.0 = $lib.undef
+        '''
+        return undef
 
     @property
     def _true(self):
@@ -2006,6 +2028,11 @@ class Dict(Prim):
         return tuple(item for item in self.valu.items())
 
     async def setitem(self, name, valu):
+
+        if valu is undef:
+            self.valu.pop(name, None)
+            return
+
         self.valu[name] = valu
 
     async def deref(self, name):
@@ -2118,6 +2145,19 @@ class List(Prim):
     def __iter__(self):
         for item in self.valu:
             yield item
+
+    async def setitem(self, name, valu):
+
+        indx = await toint(name)
+
+        if valu is undef:
+            try:
+                self.valu.pop(indx)
+            except IndexError:
+                pass
+            return
+
+        self.valu[indx] = valu
 
     async def _derefGet(self, name):
         return await self._methListIndex(name)
@@ -2690,6 +2730,9 @@ class PathVars(Prim):
         raise s_exc.StormRuntimeError(mesg=mesg)
 
     async def setitem(self, name, valu):
+        if valu is undef:
+            self.valu.popVar(name)
+            return
         self.path.setVar(name, valu)
 
     def __iter__(self):
