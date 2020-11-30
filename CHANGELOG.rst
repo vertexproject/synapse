@@ -13,6 +13,7 @@ Features and Enhancements
   a Storm query which is executed every time the ``stormpkg`` is loaded in
   a Cortex.
   (`#1971 <https://github.com/vertexproject/synapse/pull/1971>`_)
+  (`#1974 <https://github.com/vertexproject/synapse/pull/1974>`_)
 - Add the ability, in Storm, to unset variables, remove items from
   dictionaries, and remove items from lists. This is done via assigning
   ``$lib.undef`` to the value to be removed.
