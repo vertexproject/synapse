@@ -834,6 +834,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Logging log level to emit storm logs at.',
             'type': 'integer'
         },
+        'http:proxy': {
+            'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
+            'type': 'string',
+        },
     }
 
     cellapi = CoreApi
@@ -2091,7 +2095,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         turl = self.conf.get('axon')
         if turl is None:
             path = os.path.join(self.dirn, 'axon')
-            self.axon = await s_axon.Axon.anit(path)
+            conf = {}
+
+            proxyurl = self.conf.get('http:proxy')
+            if proxyurl is not None:
+                conf['http:proxy'] = proxyurl
+
+            self.axon = await s_axon.Axon.anit(path, conf=conf)
             self.axon.onfini(self.axready.clear)
             self.dynitems['axon'] = self.axon
             self.axready.set()
