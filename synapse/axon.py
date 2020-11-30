@@ -242,7 +242,6 @@ class Axon(s_cell.Cell):
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use in the wget API.',
             'type': 'string',
-            'hidecmdl': True,
         },
     }
 

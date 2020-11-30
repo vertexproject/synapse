@@ -837,7 +837,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
-            'hidecmdl': True,
         },
     }
 
