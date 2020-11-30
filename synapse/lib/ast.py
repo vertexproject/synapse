@@ -2078,12 +2078,12 @@ class HasRelPropCond(Cond):
             if valu is None:
                 return False
 
+            if i >= imax:
+                return True
+
             prop = node.form.props.get(part)
             if prop is None:
                 raise s_exc.NoSuchProp(name=part, form=node.form.name)
-
-            if i >= imax:
-                return True
 
             form = runt.model.forms.get(prop.type.name)
             if form is None:
