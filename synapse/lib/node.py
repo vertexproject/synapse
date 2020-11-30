@@ -720,6 +720,9 @@ class Path:
     def setVar(self, name, valu):
         self.vars[name] = valu
 
+    def popVar(self, name):
+        return self.vars.pop(name, s_common.novalu)
+
     def meta(self, name, valu):
         '''
         Add node specific metadata to be returned with the node.
