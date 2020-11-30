@@ -29,6 +29,7 @@ import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
@@ -526,6 +527,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Allow anonymous telepath access by mapping to the given user name.',
             'type': 'string',
         },
+        'auth:ctor': {
+            'description': 'Allow the construction of the cell auth object to be hooked at runtime.',
+            'type': 'string',
+            'hideconf': True,
+        },
+        'auth:conf': {
+            'description': 'Extended configuration to be used by an alternate auth constructor.',
+            'type': 'object',
+            'hideconf': True,
+        },
         'nexslog:en': {
             'default': False,
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
@@ -558,6 +569,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'aha:registry': {
             'description': 'The telepath URL of the aha service registry.',
+            'type': 'string',
+        },
+        'aha:admin': {
+            'description': 'An AHA client certificate CN to register as a local admin user.',
             'type': 'string',
         },
     }
@@ -700,6 +715,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await s_telepath.delAhaUrl(ahaurl)
 
             self.onfini(finiaha)
+
+        ahaadmin = self.conf.get('aha:admin')
+        if ahaadmin is not None:
+            # add the user in a pre-nexus compatible way
+            user = await self.auth.getUserByName(ahaadmin)
+
+            if user is None:
+                iden = s_common.guid(ahaadmin)
+                await self.auth._addUser(iden, ahaadmin)
+                user = await self.auth.getUserByName(ahaadmin)
+
+            if not user.isAdmin():
+                await user.setAdmin(True, logged=False)
 
     async def initServiceStorage(self):
         pass
@@ -1350,6 +1378,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):
+
+        authctor = self.conf.get('auth:ctor')
+        if authctor is not None:
+            ctor = s_dyndeps.getDynLocal(authctor)
+            return await ctor(self)
+
+        return await self._initCellHiveAuth()
+
+    async def _initCellHiveAuth(self):
+
         node = await self.hive.open(('auth',))
         auth = await s_hiveauth.Auth.anit(node, nexsroot=self.nexsroot)
 
