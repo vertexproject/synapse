@@ -1447,7 +1447,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
+        onload = pkgdef.get('onload')
         svciden = pkgdef.get('svciden')
+
+        if onload is not None:
+            self.getStormQuery(onload)
 
         for mdef in mods:
             modtext = mdef.get('storm')
@@ -1492,6 +1496,19 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         for cdef in cmds:
             await self._setStormCmd(cdef)
+
+        onload = pkgdef.get('onload')
+        if onload is not None:
+            try:
+                async for mesg in self.storm(onload):
+                    if mesg[0] in ('print', 'warn'):
+                        logger.warning(f'onload output: {mesg}')
+                    await asyncio.sleep(0)
+
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+            except Exception as e: # pragma: no cover
+                logger.warning(f'onload failed for package: {name}')
 
         await self.bumpSpawnPool()
 
