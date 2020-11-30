@@ -1503,16 +1503,17 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         onload = pkgdef.get('onload')
         if onload is not None and self.isactive:
-            try:
-                async for mesg in self.storm(onload):
-                    if mesg[0] in ('print', 'warn'):
-                        logger.warning(f'onload output: {mesg}')
-                    await asyncio.sleep(0)
-
-            except asyncio.CancelledError: # pragma: no cover
-                raise
-            except Exception as e: # pragma: no cover
-                logger.warning(f'onload failed for package: {name}')
+            async def _onload():
+                try:
+                    async for mesg in self.storm(onload):
+                        if mesg[0] in ('print', 'warn'):
+                            logger.warning(f'onload output: {mesg}')
+                            await asyncio.sleep(0)
+                except asyncio.CancelledError: # pragma: no cover
+                    raise
+                except Exception as e: # pragma: no cover
+                    logger.warning(f'onload failed for package: {name}')
+            self.schedCoro(_onload())
 
         await self.bumpSpawnPool()
 
