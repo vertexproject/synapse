@@ -15,7 +15,7 @@ Features and Enhancements
   (`#1971 <https://github.com/vertexproject/synapse/pull/1971>`_)
 - Add the ability, in Storm, to unset variables, remove items from
   dictionaries, and remove items from lists. This is done via assigning
-  ``$lib.unset`` to the value to be removed.
+  ``$lib.undef`` to the value to be removed.
   (`#1970 <https://github.com/vertexproject/synapse/pull/1970>`_)
 - Add support for SOCKS proxy support to the Axon and Cortex, using the
   ``'http:proxy`` configuration option. This configuration value must be a
