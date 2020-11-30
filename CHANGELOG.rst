@@ -4,6 +4,35 @@
 Synapse Changelog
 *****************
 
+v2.12.0 - 2020-11-30
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``onload`` paramter to the ``stormpkg`` definition. This represents
+  a Storm query which is executed every time the ``stormpkg`` is loaded in
+  a Cortex.
+  (`#1971 <https://github.com/vertexproject/synapse/pull/1971>`_)
+  (`#1974 <https://github.com/vertexproject/synapse/pull/1974>`_)
+- Add the ability, in Storm, to unset variables, remove items from
+  dictionaries, and remove items from lists. This is done via assigning
+  ``$lib.undef`` to the value to be removed.
+  (`#1970 <https://github.com/vertexproject/synapse/pull/1970>`_)
+- Add support for SOCKS proxy support for outgoing connections from an Axon
+  and Cortex, using the ``'http:proxy`` configuration option. This
+  configuration value must be a valid string for the
+  ``aiohttp_socks.ProxyConnector.from_url()`` API. The SOCKS proxy is used by
+  the Axon when downloading files; and by the Cortex when making HTTP
+  connections inside of Storm.
+  (`#1968 <https://github.com/vertexproject/synapse/pull/1968>`_)
+- Add ``aha:admin`` to the Cell configuration to provide a common name that
+  is used to create an admin user for remote access to the Cell via the
+  Aha service.
+  (`#1969 <https://github.com/vertexproject/synapse/pull/1969>`_)
+- Add ``auth:ctor`` and ``auth:conf`` config to the Cell in order to allow
+  hooking the construction of the ``HiveAuth`` object.
+  (`#1969 <https://github.com/vertexproject/synapse/pull/1969>`_)
+
 
 v2.11.0 - 2020-11-25
 ====================

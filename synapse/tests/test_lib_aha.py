@@ -25,12 +25,13 @@ class AhaTest(s_test.SynTest):
         with self.raises(s_exc.NoSuchName):
             await s_telepath.getAhaProxy({'host': 'hehe.haha'})
 
-        client = await s_telepath.addAhaUrl('newp://newp@newp')
-        client = await s_telepath.addAhaUrl('newp://newp@newp')
+        urls = ['newp://newp@newp', 'newp://newp@newp']
+        client = await s_telepath.addAhaUrl(urls)
+        client = await s_telepath.addAhaUrl(urls)
 
-        await s_telepath.delAhaUrl('newp://newp@newp')
+        await s_telepath.delAhaUrl(urls)
         self.len(1, s_telepath.aha_clients)
-        await s_telepath.delAhaUrl('newp://newp@newp')
+        await s_telepath.delAhaUrl(urls)
         self.len(0, s_telepath.aha_clients)
 
         self.eq(0, await s_telepath.delAhaUrl('newp'))
@@ -44,12 +45,17 @@ class AhaTest(s_test.SynTest):
             conf = {
                 'aha:name': '0.cryo.mynet',
                 'aha:leader': 'cryo.mynet',
+                'aha:admin': 'root@cryo.mynet',
                 'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
             async with self.getTestCryo(conf=conf) as cryo:
 
                 await cryo.auth.rootuser.setPasswd('secret')
+
+                ahaadmin = await cryo.auth.getUserByName('root@cryo.mynet')
+                self.nn(ahaadmin)
+                self.true(ahaadmin.isAdmin())
 
                 await wait00.wait(timeout=2)
 

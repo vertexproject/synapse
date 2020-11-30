@@ -834,6 +834,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Logging log level to emit storm logs at.',
             'type': 'integer'
         },
+        'http:proxy': {
+            'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
+            'type': 'string',
+        },
     }
 
     cellapi = CoreApi
@@ -1498,17 +1502,18 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self._setStormCmd(cdef)
 
         onload = pkgdef.get('onload')
-        if onload is not None:
-            try:
-                async for mesg in self.storm(onload):
-                    if mesg[0] in ('print', 'warn'):
-                        logger.warning(f'onload output: {mesg}')
-                    await asyncio.sleep(0)
-
-            except asyncio.CancelledError: # pragma: no cover
-                raise
-            except Exception as e: # pragma: no cover
-                logger.warning(f'onload failed for package: {name}')
+        if onload is not None and self.isactive:
+            async def _onload():
+                try:
+                    async for mesg in self.storm(onload):
+                        if mesg[0] in ('print', 'warn'):
+                            logger.warning(f'onload output: {mesg}')
+                            await asyncio.sleep(0)
+                except asyncio.CancelledError: # pragma: no cover
+                    raise
+                except Exception as e: # pragma: no cover
+                    logger.warning(f'onload failed for package: {name}')
+            self.schedCoro(_onload())
 
         await self.bumpSpawnPool()
 
@@ -2091,7 +2096,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         turl = self.conf.get('axon')
         if turl is None:
             path = os.path.join(self.dirn, 'axon')
-            self.axon = await s_axon.Axon.anit(path)
+            conf = {}
+
+            proxyurl = self.conf.get('http:proxy')
+            if proxyurl is not None:
+                conf['http:proxy'] = proxyurl
+
+            self.axon = await s_axon.Axon.anit(path, conf=conf)
             self.axon.onfini(self.axready.clear)
             self.dynitems['axon'] = self.axon
             self.axready.set()

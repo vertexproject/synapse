@@ -1,8 +1,10 @@
-import aiohttp
 import asyncio
 import hashlib
 import logging
 import tempfile
+
+import aiohttp
+import aiohttp_socks
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -236,7 +238,11 @@ class Axon(s_cell.Cell):
             'type': 'integer',
             'minimum': 1,
             'hidecmdl': True,
-        }
+        },
+        'http:proxy': {
+            'description': 'An aiohttp-socks compatible proxy URL to use in the wget API.',
+            'type': 'string',
+        },
     }
 
     async def __anit__(self, dirn, conf=None):  # type: ignore
@@ -378,7 +384,12 @@ class Axon(s_cell.Cell):
         '''
         Stream a file download directly into the axon.
         '''
-        async with aiohttp.ClientSession() as sess:
+        connector = None
+        proxyurl = self.conf.get('http:proxy')
+        if proxyurl is not None:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        async with aiohttp.ClientSession(connector=connector) as sess:
 
             try:
 
