@@ -1502,7 +1502,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self._setStormCmd(cdef)
 
         onload = pkgdef.get('onload')
-        if onload is not None:
+        if onload is not None and self.isactive:
             try:
                 async for mesg in self.storm(onload):
                     if mesg[0] in ('print', 'warn'):
