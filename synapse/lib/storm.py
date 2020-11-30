@@ -174,7 +174,8 @@ reqValidPkgdef = s_config.getJsValidator({
             'items': {'$ref': '#/definitions/command'}
         },
         'desc': {'type': 'string'},
-        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden}
+        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'onload': {'type': 'string'},
     },
     'additionalProperties': True,
     'required': ['name', 'version'],

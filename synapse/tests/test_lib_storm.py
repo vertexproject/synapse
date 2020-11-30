@@ -235,6 +235,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('$foo = 10 $foo = $lib.undef return($foo)')
 
     async def test_storm_pkg_load(self):
+        cont = s_common.guid()
         pkg = {
             'name': 'testload',
             'version': (0, 3, 0),
@@ -244,6 +245,7 @@ class StormTest(s_t_utils.SynTest):
                     'storm': 'function x() { return((0)) }',
                 },
             ),
+            'onload': f'[ ps:contact={cont} ] $lib.print(hi) return($path.vars.newp)'
         }
         class PkgHandler(s_httpapi.Handler):
 
@@ -267,6 +269,8 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
             self.stormIsInPrint('testload @0.3.0', msgs)
+
+            self.len(1, await core.nodes(f'ps:contact={cont}'))
 
     async def test_storm_tree(self):
 
