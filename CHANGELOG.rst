@@ -24,7 +24,7 @@ Features and Enhancements
   when making HTTP connections inside of Storm.
   (`#1968 <https://github.com/vertexproject/synapse/pull/1968>`_)
 - Add ``aha:admin`` to the Cell configuration to provide a common name that
-  is used to create a an admin user for remote access to the Cell via the
+  is used to create an admin user for remote access to the Cell via the
   Aha service.
   (`#1969 <https://github.com/vertexproject/synapse/pull/1969>`_)
 - Add ``auth:ctor`` and ``auth:conf`` config to the Cell in order to allow
