@@ -1677,6 +1677,16 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
+            nodes = await core.nodes('inet:ipv4 +:asn::name')
+            self.len(1, nodes)
+
+            await core.nodes('[ ps:contact=* :web:acct=vertex.link/pivuser ]')
+            nodes = await core.nodes('ps:contact +:web:acct::site::iszone=1')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:contact +:web:acct::site::iszone')
+            self.len(1, nodes)
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed

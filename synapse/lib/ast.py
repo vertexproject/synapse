@@ -2050,7 +2050,7 @@ class HasRelPropCond(Cond):
             name = await relprop.compute(runt, None)
 
             async def cond(node, path):
-                return node.has(name)
+                return await self.hasProp(runt, node, name)
 
             return cond
 
@@ -2058,9 +2058,40 @@ class HasRelPropCond(Cond):
 
         async def cond(node, path):
             name = await relprop.compute(runt, path)
-            return node.has(name)
+            return await self.hasProp(runt, node, name)
 
         return cond
+
+    async def hasProp(self, runt, node, name):
+
+        ispiv = name.find('::') != -1
+        if not ispiv:
+            return node.has(name)
+
+        # handle implicit pivot properties
+        names = name.split('::')
+
+        imax = len(names) - 1
+        for i, part in enumerate(names):
+
+            valu = node.get(part)
+            if valu is None:
+                return False
+
+            prop = node.form.props.get(part)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=part, form=node.form.name)
+
+            if i >= imax:
+                return True
+
+            form = runt.model.forms.get(prop.type.name)
+            if form is None:
+                raise s_exc.NoSuchForm(name=prop.type.name)
+
+            node = await runt.snap.getNodeByNdef((form.name, valu))
+            if node is None:
+                return False
 
     async def getLiftHints(self, runt, path):
 
