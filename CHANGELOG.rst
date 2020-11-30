@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.11.0 - 2020-12-30
+v2.12.0 - 2020-11-30
 ====================
 
 Features and Enhancements
