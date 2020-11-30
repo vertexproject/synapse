@@ -2050,7 +2050,7 @@ class HasRelPropCond(Cond):
             name = await relprop.compute(runt, None)
 
             async def cond(node, path):
-                return await self.hasProp(runt, node, name)
+                return await self.hasProp(node, runt, name)
 
             return cond
 
@@ -2058,11 +2058,11 @@ class HasRelPropCond(Cond):
 
         async def cond(node, path):
             name = await relprop.compute(runt, path)
-            return await self.hasProp(runt, node, name)
+            return await self.hasProp(node, runt, name)
 
         return cond
 
-    async def hasProp(self, runt, node, name):
+    async def hasProp(self, node, runt, name):
 
         ispiv = name.find('::') != -1
         if not ispiv:
