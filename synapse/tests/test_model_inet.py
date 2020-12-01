@@ -721,8 +721,7 @@ class InetModelTest(s_t_utils.SynTest):
             # > / < lifts and filters
             self.len(4, await core.nodes('[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 inet:ipv4=3]'))
             # Lifts
-            with self.raises(OverflowError):
-                await core.nodes('inet:ipv4<0')
+            self.len(0, await core.nodes('inet:ipv4<0'))
             self.len(1, await core.nodes('inet:ipv4<=0'))
             self.len(1, await core.nodes('inet:ipv4<1'))
             self.len(3, await core.nodes('inet:ipv4<=2'))

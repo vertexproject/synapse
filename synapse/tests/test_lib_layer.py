@@ -527,13 +527,91 @@ class LayerTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(url) as layrprox:
                 await self.agenlen(26, layrprox.splices())
 
+    async def test_layer_stortype_int(self):
+        async with self.getTestCore() as core:
+
+            layr = core.view.layers[0]
+            tmpdb = layr.layrslab.initdb('temp', dupsort=True)
+
+            stor = s_layer.StorTypeInt(layr, s_layer.STOR_TYPE_I32, 8, True)
+            minv = -2 ** 63 + 1
+            maxv = 2 ** 63
+            vals = [minv, 0, 1,  maxv]
+
+            indxby = s_layer.IndxBy(layr, b'', tmpdb)
+
+            for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
+                layr.layrslab.put(key[0], val, db=tmpdb)
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', minv)]
+            self.eq(retn, [minv])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', maxv)]
+            self.eq(retn, [maxv])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', minv + 1)]
+            self.eq(retn, [minv])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', maxv - 1)]
+            self.eq(retn, [maxv])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', minv)]
+            self.eq(retn, [minv])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', maxv)]
+            self.eq(retn, [maxv])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (minv, maxv))]
+            self.eq(retn, vals)
+
+            # Should get no results instead of overflowing
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', minv - 1)]
+            self.eq(retn, [])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', maxv + 1)]
+            self.eq(retn, [])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', minv)]
+            self.eq(retn, [])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', maxv)]
+            self.eq(retn, [])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', minv - 1)]
+            self.eq(retn, [])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', maxv + 1)]
+            self.eq(retn, [])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (minv - 2, minv - 1))]
+            self.eq(retn, [])
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (maxv + 1, maxv + 2))]
+            self.eq(retn, [])
+
+            # Value is out of range but there are still valid results
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', maxv + 2)]
+            self.eq(retn, vals)
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', minv - 2)]
+            self.eq(retn, vals)
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', maxv + 1)]
+            self.eq(retn, vals)
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', minv - 1)]
+            self.eq(retn, vals)
+
+            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (minv - 1, maxv + 1))]
+            self.eq(retn, vals)
+
     async def test_layer_stortype_float(self):
         async with self.getTestCore() as core:
 
             layr = core.view.layers[0]
             tmpdb = layr.layrslab.initdb('temp', dupsort=True)
 
-            stor = s_layer.StorTypeFloat(s_layer.STOR_TYPE_FLOAT64, 8)
+            stor = s_layer.StorTypeFloat(layr, s_layer.STOR_TYPE_FLOAT64, 8)
             vals = [math.nan, -math.inf, -99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf]
 
             indxby = s_layer.IndxBy(layr, b'', tmpdb)
