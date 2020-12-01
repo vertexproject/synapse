@@ -569,7 +569,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'aha:registry': {
             'description': 'The telepath URL of the aha service registry.',
-            'type': 'string',
+            'type': ['string', 'array'],
+            'items': {'type': 'string'},
         },
         'aha:admin': {
             'description': 'An AHA client certificate CN to register as a local admin user.',
