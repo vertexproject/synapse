@@ -152,7 +152,9 @@ class CellAuthTest(s_t_utils.SynTest):
     async def test_cellauth_passwd(self):
 
         with self.getTestSynDir() as syndir:
-            s_common.yamlsave({}, syndir, 'telepath.yaml')
+
+            s_common.yamlsave({'version': 1}, syndir, 'telepath.yaml')
+
             async with self.getTestCore() as core:
 
                 coreurl = core.getLocalUrl()
