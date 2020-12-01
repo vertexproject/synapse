@@ -1857,7 +1857,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.DupFormName(mesg=mesg)
         return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
-    @s_nexus.Pusher.onPushAuto('model:form:add')
+    @s_nexus.Pusher.onPush('model:form:add')
     async def _addForm(self, formname, basetype, typeopts, typeinfo):
         self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, {}, ())
@@ -1866,7 +1866,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', form=formname, act='add', type='form')
         await self.bumpSpawnPool()
 
-    @s_nexus.Pusher.onPush('model:form:del')
+    @s_nexus.Pusher.onPushAuto('model:form:del')
     async def delForm(self, formname):
 
         if not formname.startswith('_'):
