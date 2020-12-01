@@ -46,7 +46,8 @@ class AhaTest(s_test.SynTest):
                 'aha:name': '0.cryo.mynet',
                 'aha:leader': 'cryo.mynet',
                 'aha:admin': 'root@cryo.mynet',
-                'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
+                'aha:registry': [f'tcp://root:hehehaha@127.0.0.1:{port}',
+                                 f'tcp://root:hehehaha@127.0.0.1:{port}'],
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
             async with self.getTestCryo(conf=conf) as cryo:

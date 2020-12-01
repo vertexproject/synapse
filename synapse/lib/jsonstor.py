@@ -331,6 +331,10 @@ class JsonStorCell(s_cell.Cell):
     async def getPathObj(self, path):
         return await self.jsonstor.getPathObj(path)
 
+    async def getPathObjs(self, path):
+        async for item in self.jsonstor.getPathObjs(path):
+            yield item
+
     async def getPathObjProp(self, path, prop):
         return await self.jsonstor.getPathObjProp(path, prop)
 

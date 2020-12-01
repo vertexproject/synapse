@@ -245,7 +245,7 @@ class StormTest(s_t_utils.SynTest):
                     'storm': 'function x() { return((0)) }',
                 },
             ),
-            'onload': f'[ ps:contact={cont} ] $lib.print(hi) return($path.vars.newp)'
+            'onload': f'[ ps:contact={cont} ] $lib.print(teststring) return($path.vars.newp)'
         }
         class PkgHandler(s_httpapi.Handler):
 
@@ -267,8 +267,11 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
             self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
 
-            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
-            self.stormIsInPrint('testload @0.3.0', msgs)
+            with self.getAsyncLoggerStream('synapse.cortex',
+                                      "{'mesg': 'teststring'}") as stream:
+                msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
+                self.stormIsInPrint('testload @0.3.0', msgs)
+                self.true(await stream.wait(6))
 
             self.len(1, await core.nodes(f'ps:contact={cont}'))
 

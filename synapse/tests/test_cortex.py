@@ -1647,6 +1647,48 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
+            nodes = await core.nodes('inet:ipv4 +:asn::name')
+            self.len(1, nodes)
+
+            await core.nodes('[ ps:contact=* :web:acct=vertex.link/pivuser ]')
+            nodes = await core.nodes('ps:contact +:web:acct::site::iszone=1')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:contact +:web:acct::site::iszone')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:contact +:web:acct::site::notaprop')
+            self.len(0, nodes)
+
+            # test pivprop with an extmodel prop
+            await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})
+            await core.addFormProp('inet:asn', '_pivo', ('_hehe:haha', {}), {})
+
+            self.len(1, await core.nodes('inet:asn=200 [ :_pivo=10 ]'))
+
+            nodes = await core.nodes('inet:ipv4 +:asn::_pivo=10')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:ipv4 +:asn::_pivo')
+            self.len(1, nodes)
+
+            # try to pivot to a node that no longer exists
+            await core.nodes('inet:asn | delnode --force')
+
+            nodes = await core.nodes('inet:ipv4 +:asn::name')
+            self.len(0, nodes)
+
+            # try to pivot to deleted form/props for coverage
+            self.len(1, await core.nodes('[ inet:asn=200 :_pivo=10 ]'))
+
+            core.model.delForm('_hehe:haha')
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('inet:ipv4 +:asn::_pivo::notaprop')
+
+            core.model.delFormProp('inet:asn', '_pivo')
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('inet:ipv4 +:asn::_pivo::notaprop')
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
@@ -4785,7 +4827,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
                 view = core.view
-                NKIDS = 21
+                NKIDS = 3
                 for _ in range(NKIDS):
                     await view.fork()
 

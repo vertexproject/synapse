@@ -1526,16 +1526,17 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         onload = pkgdef.get('onload')
         if onload is not None and self.isactive:
-            try:
-                async for mesg in self.storm(onload):
-                    if mesg[0] in ('print', 'warn'):
-                        logger.warning(f'onload output: {mesg}')
-                    await asyncio.sleep(0)
-
-            except asyncio.CancelledError: # pragma: no cover
-                raise
-            except Exception as e: # pragma: no cover
-                logger.warning(f'onload failed for package: {name}')
+            async def _onload():
+                try:
+                    async for mesg in self.storm(onload):
+                        if mesg[0] in ('print', 'warn'):
+                            logger.warning(f'onload output: {mesg}')
+                            await asyncio.sleep(0)
+                except asyncio.CancelledError: # pragma: no cover
+                    raise
+                except Exception as e: # pragma: no cover
+                    logger.warning(f'onload failed for package: {name}')
+            self.schedCoro(_onload())
 
         await self.bumpSpawnPool()
 
@@ -1870,17 +1871,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.extunivs.set(name, (name, tdef, info))
         await self.fire('core:extmodel:change', prop=name, act='add', type='univ')
 
-    @s_nexus.Pusher.onPushAuto('model:form:add')
     async def addForm(self, formname, basetype, typeopts, typeinfo):
-
         if not formname.startswith('_'):
             mesg = 'Extended form must begin with "_"'
             raise s_exc.BadFormDef(form=formname, mesg=mesg)
-
         if self.model.form(formname) is not None:
             mesg = f'Form name already exists: {formname}'
             raise s_exc.DupFormName(mesg=mesg)
+        return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
+    @s_nexus.Pusher.onPush('model:form:add')
+    async def _addForm(self, formname, basetype, typeopts, typeinfo):
         self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, {}, ())
 
