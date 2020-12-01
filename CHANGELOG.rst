@@ -5,6 +5,28 @@ Synapse Changelog
 *****************
 
 
+v2.12.2 - 2020-12-01
+====================
+
+This release also includes the changes from v2.12.1, which was not released
+due to an issue with CI pipelines.
+
+Bugfixes
+--------
+- Add the missing API ``getPathObjs`` on the JsonStorCell.
+  (`#1976 <https://github.com/vertexproject/synapse/pull/1976>`_)
+- Fix the HasRelPropCond AST node support for Storm pivprop operations.
+  (`#1972 <https://github.com/vertexproject/synapse/pull/1972>`_)
+- Fix support for the ``aha:registry`` config parameter in a Cell to support
+  an array of strings.
+  (`#1975 <https://github.com/vertexproject/synapse/pull/1975>`_)
+- Split the ``Cortex.addForm()`` Nexus handler into two parts to allow for
+  safe event replay.
+  (`#1978 <https://github.com/vertexproject/synapse/pull/1978>`_)
+- Stop forking a large number of child layers in a View persistence test.
+  (`#1977 <https://github.com/vertexproject/synapse/pull/1977>`_)
+
+
 v2.12.1 - 2020-12-01
 ====================
 
