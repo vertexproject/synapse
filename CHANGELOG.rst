@@ -4,6 +4,21 @@
 Synapse Changelog
 *****************
 
+
+v2.12.1 - 2020-12-01
+====================
+
+Bugfixes
+--------
+- Add the missing API ``getPathObjs`` on the JsonStorCell.
+  (`#1976 <https://github.com/vertexproject/synapse/pull/1976>`_)
+- Fix the HasRelPropCond AST node support for Storm pivprop operations.
+  (`#1972 <https://github.com/vertexproject/synapse/pull/1972>`_)
+- Fix support for the ``aha:registry`` config parameter in a Cell to support
+  an array of strings.
+  (`#1975 <https://github.com/vertexproject/synapse/pull/1975>`_)
+
+
 v2.12.0 - 2020-11-30
 ====================
 
