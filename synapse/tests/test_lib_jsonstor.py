@@ -30,6 +30,14 @@ class JsonStorTest(s_test.SynTest):
                     await prox.setPathLink('foo/baz', 'foo/bar')
                     self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/baz'))
 
+                    items = list([x async for x in prox.getPathObjs('foo')])
+
+                    self.len(2, items)
+                    self.eq(items[0][0][0], 'bar')
+                    self.eq(items[1][0][0], 'baz')
+                    self.eq(items[0][1]['hehe'], 'haha')
+                    self.eq(items[1][1]['hehe'], 'haha')
+
                     with self.raises(s_exc.PathExists):
                         await prox.setPathLink('foo/baz', 'foo/bar')
 
