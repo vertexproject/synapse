@@ -1848,17 +1848,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.extunivs.set(name, (name, tdef, info))
         await self.fire('core:extmodel:change', prop=name, act='add', type='univ')
 
-    @s_nexus.Pusher.onPushAuto('model:form:add')
     async def addForm(self, formname, basetype, typeopts, typeinfo):
-
         if not formname.startswith('_'):
             mesg = 'Extended form must begin with "_"'
             raise s_exc.BadFormDef(form=formname, mesg=mesg)
-
         if self.model.form(formname) is not None:
             mesg = f'Form name already exists: {formname}'
             raise s_exc.DupFormName(mesg=mesg)
+        return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
+    @s_nexus.Pusher.onPushAuto('model:form:add')
+    async def _addForm(self, formname, basetype, typeopts, typeinfo):
         self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, {}, ())
 
