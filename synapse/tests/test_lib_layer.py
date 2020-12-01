@@ -536,7 +536,7 @@ class LayerTest(s_t_utils.SynTest):
             stor = s_layer.StorTypeInt(layr, s_layer.STOR_TYPE_I32, 8, True)
             minv = -2 ** 63 + 1
             maxv = 2 ** 63
-            vals = [minv, 0, 1,  maxv]
+            vals = [minv, 0, 1, maxv]
 
             indxby = s_layer.IndxBy(layr, b'', tmpdb)
 
