@@ -1703,7 +1703,7 @@ class AstTest(s_test.SynTest):
                     calls = []
 
                     nodes = await core.nodes('inet:ipv4 +:asn::name')
-                    self.len(0, nodes)
+                    self.len(1, nodes)
                     self.eq(calls, [('prop', 'inet:ipv4:asn')])
                     calls = []
 
