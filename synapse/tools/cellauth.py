@@ -270,7 +270,7 @@ async def main(argv, outprint=None):
 
     fini = None
     teleyaml = s_common.getSynPath('telepath.yaml')
-    if os.path.isfile:
+    if os.path.isfile(teleyaml):
         fini = await s_telepath.loadTeleEnv(teleyaml)
 
     pars = makeargparser()
