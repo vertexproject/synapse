@@ -4857,7 +4857,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
                 view = core.view
-                NKIDS = 20
+                NKIDS = 3
                 for _ in range(NKIDS):
                     await view.fork()
 
