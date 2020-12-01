@@ -1,5 +1,7 @@
 import unittest.mock as mock
 
+import synapse.common as s_common
+
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.cellauth as s_cellauth
@@ -149,18 +151,20 @@ class CellAuthTest(s_t_utils.SynTest):
 
     async def test_cellauth_passwd(self):
 
-        async with self.getTestCore() as core:
+        with self.getTestSynDir() as syndir:
+            s_common.yamlsave({}, syndir, 'telepath.yaml')
+            async with self.getTestCore() as core:
 
-            coreurl = core.getLocalUrl()
+                coreurl = core.getLocalUrl()
 
-            outp = self.getTestOutp()
-            argv = [coreurl, 'modify', '--adduser', 'foo']
-            await s_cellauth.main(argv, outp)
+                outp = self.getTestOutp()
+                argv = [coreurl, 'modify', '--adduser', 'foo']
+                await s_cellauth.main(argv, outp)
 
-            outp = self.getTestOutp()
-            argv = [coreurl, 'modify', '--passwd', 'mysecret', 'foo']
-            await s_cellauth.main(argv, outp)
-            outp.expect('setting passwd for: foo')
+                outp = self.getTestOutp()
+                argv = [coreurl, 'modify', '--passwd', 'mysecret', 'foo']
+                await s_cellauth.main(argv, outp)
+                outp.expect('setting passwd for: foo')
 
     async def test_cellauth_grants(self):
 

@@ -269,7 +269,7 @@ async def main(argv, outprint=None):
     outp = outprint
 
     fini = None
-    teleyaml = s_common.genpath('~/.syn/telepath.yaml')
+    teleyaml = s_common.getSynPath('telepath.yaml')
     if os.path.isfile:
         fini = await s_telepath.loadTeleEnv(teleyaml)
 
