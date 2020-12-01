@@ -2232,7 +2232,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
                 for donetask in done:
                     try:
-                        if donetask is finitask:  # We were fini'd
+                        if donetask is finitask:  # pragma: no cover  # We were fini'd
                             return
 
                         todo.remove(donetask)
@@ -2264,7 +2264,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         count = 0
         async for _, mesg in layr.splicesBack():
             count += 1
-            if not count % 1000: # pragma: no cover
+            if not count % 1000:  # pragma: no cover
                 await asyncio.sleep(0)
 
             if user.iden == mesg[1]['user'] or user.isAdmin():

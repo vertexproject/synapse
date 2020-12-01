@@ -4864,7 +4864,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCoreAndProxy() as (core, proxy):
             baseoffs = await core.getNexsIndx()
             layr = core.getLayer()
-            items = await alist(core.syncAllNodeEdits(0, wait=False))
+            items = await alist(proxy.syncAllNodeEdits(0, wait=False))
             self.len(baseoffs, items)
 
             genr = core.syncAllNodeEdits(baseoffs, wait=True)
