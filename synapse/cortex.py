@@ -851,6 +851,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Logging log level to emit storm logs at.',
             'type': 'integer'
         },
+        'http:proxy': {
+            'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
+            'type': 'string',
+        },
     }
 
     cellapi = CoreApi
@@ -1470,7 +1474,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
+        onload = pkgdef.get('onload')
         svciden = pkgdef.get('svciden')
+
+        if onload is not None:
+            self.getStormQuery(onload)
 
         for mdef in mods:
             modtext = mdef.get('storm')
@@ -1515,6 +1523,19 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         for cdef in cmds:
             await self._setStormCmd(cdef)
+
+        onload = pkgdef.get('onload')
+        if onload is not None and self.isactive:
+            try:
+                async for mesg in self.storm(onload):
+                    if mesg[0] in ('print', 'warn'):
+                        logger.warning(f'onload output: {mesg}')
+                    await asyncio.sleep(0)
+
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+            except Exception as e: # pragma: no cover
+                logger.warning(f'onload failed for package: {name}')
 
         await self.bumpSpawnPool()
 
@@ -2257,7 +2278,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         turl = self.conf.get('axon')
         if turl is None:
             path = os.path.join(self.dirn, 'axon')
-            self.axon = await s_axon.Axon.anit(path)
+            conf = {}
+
+            proxyurl = self.conf.get('http:proxy')
+            if proxyurl is not None:
+                conf['http:proxy'] = proxyurl
+
+            self.axon = await s_axon.Axon.anit(path, conf=conf)
             self.axon.onfini(self.axready.clear)
             self.dynitems['axon'] = self.axon
             self.axready.set()

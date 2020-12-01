@@ -174,7 +174,8 @@ reqValidPkgdef = s_config.getJsValidator({
             'items': {'$ref': '#/definitions/command'}
         },
         'desc': {'type': 'string'},
-        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden}
+        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'onload': {'type': 'string'},
     },
     'additionalProperties': True,
     'required': ['name', 'version'],
@@ -1307,6 +1308,13 @@ class Runtime:
 
         self.vars[name] = valu
         return
+
+    def popVar(self, name):
+
+        if self._isRootScope(name):
+            return self.root.popVar(name)
+
+        return self.vars.pop(name, s_common.novalu)
 
     def addInput(self, node):
         '''

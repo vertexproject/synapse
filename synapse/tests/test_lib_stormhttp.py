@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 
 class StormHttpTest(s_test.SynTest):
@@ -157,3 +158,11 @@ class StormHttpTest(s_test.SynTest):
             err = errs[0]
             self.eq(err[0], 'StormRuntimeError')
             self.isin('Error during http POST - data and json parameters can not be used at the same time', err[1].get('mesg'))
+
+    async def test_storm_http_proxy(self):
+        conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
+        async with self.getTestCore(conf=conf) as core:
+            resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
+            self.ne(-1, resp['mesg'].find('Can not connect to proxy 127.0.0.1:1'))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('return($lib.inet.http.get("http://vertex.link"))')
