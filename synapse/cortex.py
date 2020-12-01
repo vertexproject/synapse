@@ -57,6 +57,11 @@ A Cortex implements the synapse hypergraph object.
 
 reqver = '>=0.2.0,<3.0.0'
 
+# Constants returned in results from syncAllNodeEdits
+SYNC_NODEEDIT = 0  # A nodeedits:      (<offs>, 0, <etyp>, (<etype args>), {<meta>})
+SYNC_LAYRCHNG = 1  # A layer add/del:  (<offs>, 1, s_layer.EDIT_LAYR_ADD/DEL (<layriden>,), () )
+
+
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed when connecting to a Cortex over Telepath.
@@ -761,9 +766,14 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('globals', 'set', name))
         return await self.cell.setStormVar(name, valu)
 
-    async def syncNodeFilteredEdits(self, offs, matchdef, wait=True):
+    async def syncAllNodeEdits(self, offs, wait=True):
         self.user.confirm(('sync',))
-        async for item in self.cell.syncNodeFilteredEdits(offs, matchdef, wait=wait):
+        async for item in self.cell.syncAllNodeEdits(offs, wait=wait):
+            yield item
+
+    async def syncFiltNodeEdits(self, offs, matchdef, wait=True):
+        self.user.confirm(('sync',))
+        async for item in self.cell.syncFiltNodeEdits(offs, matchdef, wait=wait):
             yield item
 
 class Cortex(s_cell.Cell):  # type: ignore
@@ -2061,7 +2071,35 @@ class Cortex(s_cell.Cell):  # type: ignore
         async for item in layr.syncNodeEdits(offs, wait=wait):
             yield item
 
-    async def syncNodeFilteredEdits(self, offs, matchdef, wait=True):
+    async def syncAllNodeEdits(self, offs, wait=True):
+        '''
+        Yield (offs, mesg) tuples for nodeedits for *all* layers, interspersed with add/del layer messages.
+
+        Args:
+            offs(int): starting nexus/editlog offset
+            wait(bool):  whether to pend and stream value until this layer is fini'd
+        '''
+        async def layrgenr(layr, startoff, endoff=None, newlayer=False):
+            if newlayer:
+                yield layr.addoffs, layr.iden, SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD, ), ()
+
+            wait = endoff is None
+
+            if not layr.isfini:
+
+                async for ioff, item, meta in layr.syncNodeEdits(startoff, wait=wait, getmeta=True):
+                    if endoff is not None and ioff >= endoff:
+                        break
+
+                    yield ioff, layr.iden, SYNC_NODEEDIT, item, meta
+
+            if layr.isdeleted:
+                yield layr.deloffs, layr.iden, SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_DEL, ), ()
+
+        async for item in self._syncNodeEdits(offs, layrgenr, wait=wait):
+            yield item
+
+    async def syncFiltNodeEdits(self, offs, matchdef, wait=True):
         '''
         Yield (offs, layriden, (buid, form, individual edits) tuples from the nodeedit logs of all layers starting from
         the given nexus/layer offset (they are synchronized).  Only edits that match the filter in wdef will be
@@ -2077,16 +2115,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         Args:
             offs(int): starting nexus/editlog offset
-            wait(bool):  whether to pend and stream value until this layer is fini'd
             matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded.  See
-            layer.syncNodeFilteredEdits for matchdef specification.
+                layer.syncFiltNodeEdits for matchdef specification.
+            wait(bool):  whether to pend and stream value until this layer is fini'd
         '''
-        topoffs = await self.getNexsIndx()  # The latest offset at call time
-        catchingup = True  # whether we've caught up to topoffs
-        layrsadded = {}  # layriden -> True
-        todo = set()  # outstanding futures
-        layrgenrs = {}  # layriden -> genr
-
         async def layrgenr(layr, startoff, endoff=None, newlayer=False):
             if newlayer:
                 yield layr.addoffs, layr.iden, (s_layer.EDIT_LAYR_ADD, (), ())
@@ -2095,7 +2127,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             if not layr.isfini:
 
-                async for ioff, item in layr.syncNodeFilteredEdits(startoff, matchdef, wait=wait):
+                async for ioff, item in layr.syncFiltNodeEdits(startoff, matchdef, wait=wait):
                     if endoff is not None and ioff >= endoff:
                         break
 
@@ -2104,10 +2136,33 @@ class Cortex(s_cell.Cell):  # type: ignore
             if layr.isdeleted:
                 yield layr.deloffs, layr.iden, (s_layer.EDIT_LAYR_DEL, (), ())
 
+        async for item in self._syncNodeEdits(offs, layrgenr, wait=wait):
+            yield item
+
+    async def _syncNodeEdits(self, offs, genrfunc, wait=True):
+        '''
+        Common guts between syncFiltNodeEdits and syncAllNodeEdits
+
+        Args:
+            offs(int): starting nexus/editlog offset
+            genrfunc(Callable): an async generator function that yields tuples that start with an offset.  The input
+               parameters are:
+                layr(Layer): a Layer object
+                startoff(int);  the starting offset
+                endoff(Optional[int]):  the ending offset
+                newlayer(bool):  whether to emit a new layer item first
+            wait(bool): when the end of the log is hit, whether to continue to wait for new entries and yield them
+        '''
+        topoffs = await self.getNexsIndx()  # The latest offset at call time
+        catchingup = True                   # whether we've caught up to topoffs
+        layrsadded = {}                     # layriden -> True
+        todo = set()                        # outstanding futures
+        layrgenrs = {}                      # layriden -> genr
+
         async with await s_base.Base.anit() as base:
 
             def addlayr(layr, newlayer=False):
-                genr = layrgenr(layr, topoffs, newlayer=newlayer)
+                genr = genrfunc(layr, topoffs, newlayer=newlayer)
                 layrgenrs[layr.iden] = genr
                 task = base.schedCoro(genr.__anext__())
                 task.iden = layr.iden
@@ -2125,9 +2180,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             self.on('core:layr:add', onaddlayr, base=base)
 
-            # First, "catch up" to the current offset, guaranteeing order
+            # First, catch up to what was the current offset when we started, guaranteeing order
 
-            genrs = [layrgenr(layr, offs, endoff=topoffs) for layr in self.layers.values()]
+            genrs = [genrfunc(layr, offs, endoff=topoffs) for layr in self.layers.values()]
             async for item in s_common.merggenr(genrs, lambda x, y: x[0] < y[0]):
                 yield item
 
@@ -2136,7 +2191,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if not wait:
                 return
 
-            # Then, if we're streaming "live", read on genrs from all the layers simultaneously
+            # After we've caught up, read on genrs from all the layers simultaneously
 
             for layr in self.layers.values():
                 if layr not in layrsadded:
@@ -2672,6 +2727,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.hive.pop(('cortex', 'layers', iden))
 
         await layr.delete()
+
         layr.deloffs = nexsitem[0]
 
         await self.bumpSpawnPool()

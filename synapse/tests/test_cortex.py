@@ -4818,16 +4818,101 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('haha', await proxy.popStormVar('hehe'))
                 self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
 
-    async def test_cortex_syncnodefilterededits(self):
+    async def test_cortex_syncallnodeedits(self):
         async with self.getTestCoreAndProxy() as (core, proxy):
-            items = await alist(core.syncNodeFilteredEdits(0, {}, wait=False))
+            baseoffs = await core.getNexsIndx()
+            layr = core.getLayer()
+            items = await alist(core.syncAllNodeEdits(0, wait=False))
+            self.len(baseoffs, items)
+
+            genr = core.syncAllNodeEdits(baseoffs, wait=True)
+            nodes = await core.nodes('[ test:str=foo ]')
+            node = nodes[0]
+
+            # FIXME check add/remove layer for meta
+            item0 = await genr.__anext__()
+            expect = (baseoffs, layr.iden, s_cortex.SYNC_NODEEDIT)
+            expectedits = ((node.buid, 'test:str',
+                            ((s_layer.EDIT_NODE_ADD, ('foo', 1), ()),
+                             (s_layer.EDIT_PROP_SET, ('.created', node.props['.created'], None,
+                                                      s_layer.STOR_TYPE_MINTIME), ()))),)
+            self.eq(expect, item0[:3])
+            self.eq(expectedits, item0[3])
+            self.isin('time', item0[4])
+            self.isin('user', item0[4])
+
+            layr = await core.addLayer()
+            layriden = layr['iden']
+            await core.delLayer(layriden)
+
+            item1 = await genr.__anext__()
+            expect = (baseoffs + 1, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD,), ())
+            self.eq(expect, item1)
+
+            item1 = await genr.__anext__()
+            expect = (baseoffs + 2, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_DEL,), ())
+            self.eq(expect, item1)
+
+            layr = await core.addLayer()
+            layriden = layr['iden']
+            layr = core.getLayer(layriden)
+
+            vdef = {'layers': (layriden,)}
+            view = (await core.addView(vdef)).get('iden')
+
+            item3 = await genr.__anext__()
+            expect = (baseoffs + 3, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD,), ())
+            self.eq(expect, item3)
+
+            items = []
+            syncevent = asyncio.Event()
+
+            async def keep_pulling():
+                syncevent.set()
+                while True:
+                    try:
+                        item = await genr.__anext__()  # NOQA
+                        items.append(item)
+                    except Exception as e:
+                        items.append(str(e))
+                        break
+
+            core.schedCoro(keep_pulling())
+            await syncevent.wait()
+
+            self.len(0, items)
+
+            opts = {'view': view}
+            nodes = await core.nodes('[ test:str=bar ]', opts=opts)
+            node = nodes[0]
+
+            self.len(1, items)
+            item4 = items[0]
+
+            expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDIT)
+            expectedits = ((node.buid, 'test:str',
+                            [(s_layer.EDIT_NODE_ADD, ('bar', 1), ()),
+                             (s_layer.EDIT_PROP_SET, ('.created', node.props['.created'], None,
+                                                      s_layer.STOR_TYPE_MINTIME), ())]),)
+
+            self.eq(expect, item4[:3])
+            self.eq(expectedits, item4[3])
+            self.isin('time', item4[4])
+            self.isin('user', item4[4])
+
+        # Avoid races in cleanup, but do this after cortex is fini'd for coverage
+        del genr
+
+    async def test_cortex_syncfiltnodeedits(self):
+        async with self.getTestCoreAndProxy() as (core, proxy):
+            items = await alist(core.syncFiltNodeEdits(0, {}, wait=False))
             self.eq(items, [])
 
             baseoffs = await core.getNexsIndx()
             layr = core.getLayer()
 
             mdef = {'forms': ['test:str']}
-            genr = core.syncNodeFilteredEdits(baseoffs, mdef, wait=True)
+            genr = core.syncFiltNodeEdits(baseoffs, mdef, wait=True)
             nodes = await core.nodes('[ test:str=foo ]')
             node = nodes[0]
 
@@ -4867,7 +4952,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                          ('bar', s_layer.STOR_TYPE_UTF8), ()))
             self.eq(expectadd, item4)
 
-            items = await alist(proxy.syncNodeFilteredEdits(baseoffs + 1, mdef, wait=False))
+            items = await alist(proxy.syncFiltNodeEdits(baseoffs + 1, mdef, wait=False))
             self.len(1, items)
             self.eq(expectadd, items[0])
 

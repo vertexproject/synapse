@@ -867,7 +867,7 @@ class LayerTest(s_t_utils.SynTest):
                     core1.schedCoro(doEdit())
                     await asyncio.wait_for(waitForEdit(), timeout=6)
 
-    async def test_layer_syncnodefilterededits(self):
+    async def test_layer_syncfiltnodeedits(self):
 
         async with self.getTestCore() as core:
             layr = core.getLayer()
@@ -883,7 +883,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('inet:ipv4=1.2.3.4 test:str=foo | delnode')
 
             mdef = {'forms': ['test:str']}
-            events = await alist(layr.syncNodeFilteredEdits(baseoff, mdef, wait=False))
+            events = await alist(layr.syncFiltNodeEdits(baseoff, mdef, wait=False))
             self.len(2, events)
             expectadd = (baseoff, (strnode.buid, 'test:str', s_layer.EDIT_NODE_ADD,
                                    ('foo', s_layer.STOR_TYPE_UTF8), ()))
@@ -892,7 +892,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(events, [expectadd, expectdel])
 
             mdef = {'props': ['.seen']}
-            events = await alist(layr.syncNodeFilteredEdits(baseoff, mdef, wait=False))
+            events = await alist(layr.syncFiltNodeEdits(baseoff, mdef, wait=False))
             self.len(2, events)
             ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
             expectadd = (baseoff + 3, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET,
@@ -902,7 +902,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(events, [expectadd, expectdel])
 
             mdef = {'props': ['inet:ipv4:asn']}
-            events = await alist(layr.syncNodeFilteredEdits(baseoff, mdef, wait=False))
+            events = await alist(layr.syncFiltNodeEdits(baseoff, mdef, wait=False))
             self.len(2, events)
             expectadd = (baseoff + 2, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET,
                                        ('asn', 42, None, s_layer.STOR_TYPE_I64), ()))
@@ -911,7 +911,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(events, [expectadd, expectdel])
 
             mdef = {'tags': ['foo.bar']}
-            events = await alist(layr.syncNodeFilteredEdits(baseoff, mdef, wait=False))
+            events = await alist(layr.syncFiltNodeEdits(baseoff, mdef, wait=False))
             self.len(2, events)
             expectadd = (baseoff + 9, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_SET,
                                        ('foo.bar', ival, None), ()))
@@ -920,7 +920,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(events, [expectadd, expectdel])
 
             mdef = {'tagprops': ['mytag:score']}
-            events = await alist(layr.syncNodeFilteredEdits(baseoff, mdef, wait=False))
+            events = await alist(layr.syncFiltNodeEdits(baseoff, mdef, wait=False))
             self.len(2, events)
             expectadd = (baseoff + 6, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
                                        ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()))
@@ -930,7 +930,7 @@ class LayerTest(s_t_utils.SynTest):
 
             mdef = {'forms': ['test:str', 'inet:ipv4'], 'tags': ['foo', ]}
             count = 0
-            async for item in layr.syncNodeFilteredEdits(baseoff, mdef):
+            async for item in layr.syncFiltNodeEdits(baseoff, mdef):
                 count += 1
                 if count == 4:
                     await core.nodes('test:str=bar')

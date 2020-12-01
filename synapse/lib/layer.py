@@ -1682,7 +1682,7 @@ class Layer(s_nexus.Pusher):
 
             if self.logedits:
                 offs = self.nodeeditlog.add((flatedits, meta), indx=nexsindx)
-                [(await wind.put((offs, flatedits))) for wind in tuple(self.windows)]
+                [(await wind.put((offs, flatedits, meta))) for wind in tuple(self.windows)]
 
         await asyncio.sleep(0)
 
@@ -1747,7 +1747,8 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
 
         self.formcounts.inc(form)
-        if self.nodeAddHook is not None: self.nodeAddHook()
+        if self.nodeAddHook is not None:
+            self.nodeAddHook()
 
         retn = [
             (EDIT_NODE_ADD, (valu, stortype), ())
@@ -1789,7 +1790,8 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(abrv + indx, buid, db=self.byprop)
 
         self.formcounts.inc(form, valu=-1)
-        if self.nodeDelHook is not None: self.nodeDelHook()
+        if self.nodeDelHook is not None:
+            self.nodeDelHook()
 
         self._wipeNodeData(buid)
         # TODO edits to become async so we can sleep(0) on large deletes?
@@ -2516,24 +2518,31 @@ class Layer(s_nexus.Pusher):
         for offs, (edits, meta) in self.nodeeditlog.iterBack(offs):
             yield (offs, edits, meta)
 
-    async def syncNodeEdits(self, offs, wait=True):
+    async def syncNodeEdits(self, offs, wait=True, getmeta=False):
         '''
-        Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
+        If getmeta is False, yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
+        If getmeta is True, yields (offs, nodeedits, meta) instead.
 
         Once caught up with storage, yield them in realtime.
         '''
         if not self.logedits:
             return
 
-        for offi, (nodeedits, _) in self.nodeeditlog.iter(offs):
-            yield (offi, nodeedits)
+        for offi, (nodeedits, meta) in self.nodeeditlog.iter(offs):
+            if getmeta:
+                yield (offi, nodeedits, meta)
+            else:
+                yield (offi, nodeedits)
 
         if wait:
             async with self.getNodeEditWindow() as wind:
-                async for offi, nodeedits in wind:
-                    yield (offi, nodeedits)
+                async for offi, nodeedits, meta in wind:
+                    if getmeta:
+                        yield (offi, nodeedits, meta)
+                    else:
+                        yield (offi, nodeedits)
 
-    async def syncNodeFilteredEdits(self, offs, matchdef, wait=True):
+    async def syncFiltNodeEdits(self, offs, matchdef, wait=True):
         '''
         Yield (offs, (buid, form, individual edits) tuples from the nodeedit log starting from the given offset.
         Only edits that match the filter in wdef will be yielded.
@@ -2552,7 +2561,6 @@ class Layer(s_nexus.Pusher):
             props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
             tag:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
             tagprops; EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be in tag:prop format with no #.
-
         '''
 
         formm = set(matchdef.get('forms', ()))
