@@ -1866,7 +1866,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', form=formname, act='add', type='form')
         await self.bumpSpawnPool()
 
-    @s_nexus.Pusher.onPushAuto('model:form:del')
+    @s_nexus.Pusher.onPush('model:form:del')
     async def delForm(self, formname):
 
         if not formname.startswith('_'):
