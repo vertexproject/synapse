@@ -1877,13 +1877,33 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
+            derp = await core.auth.addUser('derp')
             root = await core.auth.getUserByName('root')
+
+            await derp.addRule((True, ('view', 'add')))
 
             await core.addTagProp('risk', ('int', {'min': 0, 'max': 100}), {'doc': 'risk score'})
             await core.nodes('[test:int=12 +#tag.test +#tag.proptest:risk=20]')
 
             # Get the main view
             mainiden = await core.callStorm('return($lib.view.get().iden)')
+            altview = await core.callStorm('''
+                $layers = $lib.list()
+                for $layer in $lib.view.get().layers {
+                    $layers.append($layer.iden)
+                }
+                return($lib.view.add($layers).iden)
+            ''')
+
+            altlayr = await core.callStorm('return($lib.layer.add().iden)')
+
+            asderp = {'user': derp.iden, 'vars': {'altlayr': altlayr}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(f'return($lib.view.add(($altlayr,)))', opts=asderp)
+
+            asderp = {'user': derp.iden, 'vars': {'altview': altview}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(f'return($lib.view.get($altview).fork())', opts=asderp)
 
             # Fork the main view
             q = f'''
@@ -2041,16 +2061,13 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.get({mainiden}).fork()'))
 
                 await prox.addUserRule(visi['iden'], (True, ('view', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('layer', 'read')), gateiden=newlayer.iden)
 
                 q = f'''
                     $newview=$lib.view.add(({newlayer.iden},))
-                    $lib.print($newview.pack().iden)
+                    return($newview.pack().iden)
                 '''
-                mesgs = await asvisi.storm(q).list()
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        addiden = mesg[1]['mesg']
-
+                addiden = await asvisi.callStorm(q)
                 self.isin(addiden, core.views)
 
                 q = f'''

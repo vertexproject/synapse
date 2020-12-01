@@ -2451,6 +2451,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             ldef = {'name': 'default'}
             ldef = await self.addLayer(ldef=ldef, nexs=False)
             layriden = ldef.get('iden')
+
+            role = await self.auth.getRoleByName('all')
+            await role.addRule((True, ('layer', 'read')), gateiden=layriden, nexs=False)
+
             vdef = {
                 'name': 'default',
                 'layers': (layriden,),

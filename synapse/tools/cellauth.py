@@ -1,3 +1,4 @@
+import os
 import sys
 import asyncio
 import logging
@@ -267,13 +268,21 @@ async def main(argv, outprint=None):
     global outp
     outp = outprint
 
+    fini = None
+    teleyaml = s_common.genpath('~/.syn/telepath.yaml')
+    if os.path.isfile:
+        fini = await s_telepath.loadTeleEnv(teleyaml)
+
     pars = makeargparser()
     try:
         opts = pars.parse_args(argv)
     except s_exc.ParserExit:
         return -1
 
-    return await opts.func(opts)
+    retn = await opts.func(opts)
+    if fini is not None:
+        await fini()
+    return retn
 
 def makeargparser():
     global outp
