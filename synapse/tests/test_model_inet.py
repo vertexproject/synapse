@@ -688,10 +688,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(2851995905, norm)
             self.eq(info.get('subs').get('type'), 'linklocal')
 
-            # Demonstrate wrap-around
-            info = {'subs': {'type': 'private'}}
-            self.eq(t.norm(0x00000000 - 1), (2**32 - 1, info))
-            self.eq(t.norm(0xFFFFFFFF + 1), (0, info))
+            # Don't allow invalid values
+            with self.raises(s_exc.BadTypeValu):
+                t.norm(0x00000000 - 1)
+
+            with self.raises(s_exc.BadTypeValu):
+                t.norm(0xFFFFFFFF + 1)
 
             # Form Tests ======================================================
             place = s_common.guid()
@@ -728,8 +730,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:ipv4>2'))
             self.len(3, await core.nodes('inet:ipv4>=2'))
             self.len(0, await core.nodes('inet:ipv4>=255.0.0.1'))
-            # This value wraps around and lifts starting from zero.
-            self.len(5, await core.nodes('inet:ipv4>=$foo', {'vars': {'foo': 0xFFFFFFFF + 1}}))
+            with self.raises(s_exc.BadTypeValu):
+                self.len(5, await core.nodes('inet:ipv4>=$foo', {'vars': {'foo': 0xFFFFFFFF + 1}}))
             # Filters
             self.len(0, await core.nodes('.created +inet:ipv4<0'))
             self.len(1, await core.nodes('.created +inet:ipv4<1'))
