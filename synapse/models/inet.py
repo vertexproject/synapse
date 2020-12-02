@@ -20,6 +20,7 @@ fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
+ipv4max = 2 ** 32 - 1
 
 def getAddrType(ip):
 
@@ -378,10 +379,14 @@ class IPv4(s_types.Type):
         yield valu
 
     def _normPyInt(self, valu):
-        norm = valu & 0xffffffff
-        addr = ipaddress.IPv4Address(norm)
+
+        if valu < 0 or valu > ipv4max:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Value outside of IPv4 range')
+
+        addr = ipaddress.IPv4Address(valu)
         subs = {'type': getAddrType(addr)}
-        return norm, {'subs': subs}
+        return valu, {'subs': subs}
 
     def _normPyStr(self, valu):
 
