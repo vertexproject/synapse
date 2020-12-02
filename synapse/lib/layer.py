@@ -606,6 +606,8 @@ class StorTypeInt(StorType):
         if signed:
             self.offset = 2 ** ((self.size * 8) - 1) - 1
 
+        self.maxval = 2 ** (self.size * 8) - 1
+
         self.lifters.update({
             '=': self._liftIntEq,
             '<': self._liftIntLt,
@@ -625,8 +627,12 @@ class StorTypeInt(StorType):
         return (self.getIntIndx(valu),)
 
     async def _liftIntEq(self, liftby, valu):
-        indx = (valu + self.offset).to_bytes(self.size, 'big')
-        for item in liftby.buidsByDups(indx):
+        indx = valu + self.offset
+        if indx < 0 or indx > self.maxval:
+            return
+
+        pkey = indx.to_bytes(self.size, 'big')
+        for item in liftby.buidsByDups(pkey):
             yield item
 
     async def _liftIntGt(self, liftby, valu):
@@ -634,7 +640,13 @@ class StorTypeInt(StorType):
             yield item
 
     async def _liftIntGe(self, liftby, valu):
-        pkeymin = (valu + self.offset).to_bytes(self.size, 'big')
+        minv = valu + self.offset
+        if minv > self.maxval:
+            return
+
+        minv = max(minv, 0)
+
+        pkeymin = minv.to_bytes(self.size, 'big')
         pkeymax = self.fullbyts
         for item in liftby.buidsByRange(pkeymin, pkeymax):
             yield item
@@ -644,14 +656,28 @@ class StorTypeInt(StorType):
             yield item
 
     async def _liftIntLe(self, liftby, valu):
+        maxv = valu + self.offset
+        if maxv < 0:
+            return
+
+        maxv = min(maxv, self.maxval)
+
         pkeymin = self.zerobyts
-        pkeymax = (valu + self.offset).to_bytes(self.size, 'big')
+        pkeymax = maxv.to_bytes(self.size, 'big')
         for item in liftby.buidsByRange(pkeymin, pkeymax):
             yield item
 
     async def _liftIntRange(self, liftby, valu):
-        pkeymin = (valu[0] + self.offset).to_bytes(self.size, 'big')
-        pkeymax = (valu[1] + self.offset).to_bytes(self.size, 'big')
+        minv = valu[0] + self.offset
+        maxv = valu[1] + self.offset
+        if minv > self.maxval or maxv < 0:
+            return
+
+        minv = max(minv, 0)
+        maxv = min(maxv, self.maxval)
+
+        pkeymin = minv.to_bytes(self.size, 'big')
+        pkeymax = maxv.to_bytes(self.size, 'big')
         for item in liftby.buidsByRange(pkeymin, pkeymax):
             yield item
 
