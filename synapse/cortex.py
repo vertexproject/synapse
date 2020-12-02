@@ -983,6 +983,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
+        # updaters fire only once a fully initialized cell becomes active
+        self.cellupdaters = (
+            (1, self._addAllLayrRead),
+        )
+
+    async def _addAllLayrRead(self):
+        layriden = self.getView().layers[0].iden
+        role = await self.auth.getRoleByName('all')
+        await role.addRule((True, ('layer', 'read')), gateiden=layriden)
+
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...

@@ -679,6 +679,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'cell': self
         }
 
+        # a tuple of (vers, func) tuples
+        # it is expected that this is set by
+        # initServiceStorage
+        self.cellupdaters = ()
+
         # initialize web app and callback data structures
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
@@ -701,6 +706,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def _initCellUpdates(self):
+
+        if self.inaugural:
+            vers = 0
+
+            if self.cellupdaters:
+                vers = self.cellupdaters[-1][0]
+
+            await self.cellinfo.set('cell:version', vers)
+
+        else:
+
+            curver = self.cellinfo.get('cell:version', 0)
+            for vers, callback in self.cellupdaters:
+
+                if vers < curver:
+                    continue
+
+                await callback()
+
+                curver = vers
+                await self.cellinfo.set('cell:version', vers)
 
     async def _initAhaRegistry(self):
 
@@ -873,6 +901,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = active
 
         if self.isactive:
+            await self._initCellUpdates()
             await self.initServiceActive()
         else:
             await self.initServicePassive()

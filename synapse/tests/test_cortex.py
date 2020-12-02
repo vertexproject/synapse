@@ -4889,3 +4889,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('hoho', await proxy.getStormVar('lolz', default='hoho'))
                 self.eq('haha', await proxy.popStormVar('hehe'))
                 self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
+
+    async def test_cortex_all_layr_read(self):
+        async with self.getTestCore() as core:
+            layr = core.getView().layers[0].iden
+            visi = await core.auth.addUser('visi')
+            visi.confirm(('layer', 'read'), gateiden=layr)
+
+        async with self.getRegrCore('2.0-layerv2tov3') as core:
+            layr = core.getView().layers[0].iden
+            visi = await core.auth.addUser('visi')
+            visi.confirm(('layer', 'read'), gateiden=layr)
