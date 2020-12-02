@@ -2127,7 +2127,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Yield (offs, layriden, (buid, form, individual edits) tuples from the nodeedit logs of all layers starting from
         the given nexus/layer offset (they are synchronized).  Only edits that match the filter in wdef will be
-        yielded.
+        yielded, plus EDIT_PROGRESS messages.
 
         Additionally, synthesized layer events with type s_layer.EDIT_LAYR_ADD and EDIT_LAYR_DEL are emitted.
 
@@ -2143,21 +2143,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             offs(int): starting nexus/editlog offset
             wait(bool):  whether to pend and stream value until this layer is fini'd
         '''
-        progresscount = 0
         layroffs = {}  # layriden -> last offset reported by that layer
-
-        def progresscb(offs, layr):
-            '''
-            Callback that is called on every layer edit log entry visited.  Returns the last offset per active
-            layer every 1000 entries.
-            '''
-            nonlocal progresscount
-
-            progresscount += 1
-            layroffs[layr.iden] = offs
-
-            if progresscount % 1000 == 0:
-                return offs, (s_layer.EDIT_PROGRESS, layroffs, ())
 
         async def layrgenr(layr, startoff, endoff=None, newlayer=False):
             ''' Yields matching results from a single layer '''
@@ -2170,7 +2156,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             if not layr.isfini:
 
-                async for ioff, item in layr.syncFiltNodeEdits(startoff, matchdef, progresscb=progresscb, wait=wait):
+                async for ioff, item in layr.syncFiltNodeEdits(startoff, matchdef, wait=wait):
                     if endoff is not None and ioff >= endoff:
                         break
 

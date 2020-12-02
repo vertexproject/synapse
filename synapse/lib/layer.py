@@ -225,7 +225,7 @@ EDIT_EDGE_DEL = 11    # (<etyp>, (<verb>, <destnodeiden>), ())
 
 EDIT_LAYR_ADD = 100   # (used by cortex)
 EDIT_LAYR_DEL = 101   # (used by cortex)
-EDIT_PROGRESS = 102   # (used by cortex)
+EDIT_PROGRESS = 102   # (used by syncFiltNodeEdits) (<etyp>, (), ())
 
 class IndxBy:
     '''
@@ -2536,7 +2536,6 @@ class Layer(s_nexus.Pusher):
             else:
                 yield (offi, nodeedits)
 
-
         if wait:
             async with self.getNodeEditWindow() as wind:
                 async for offi, nodeedits, meta in wind:
@@ -2545,18 +2544,17 @@ class Layer(s_nexus.Pusher):
                     else:
                         yield (offi, nodeedits)
 
-
-    async def syncFiltNodeEdits(self, offs, matchdef, progresscb=None, wait=True):
+    async def syncFiltNodeEdits(self, offs, matchdef, wait=True):
         '''
         Yield (offs, (buid, form, individual edits) tuples from the nodeedit log starting from the given offset.
         Only edits that match the filter in wdef will be yielded.
+
+        Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
 
         Args:
             offs(int): starting nexus/editlog offset
             matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
             wait(bool):  whether to pend and stream value until this layer is fini'd
-            progresscb(Optional[Callable[int, Optional[Tuple]]]):  if not None, called with the offset of each new
-                editses
 
         Note:
             Will not yield any values if this layer was not created with logedits enabled
@@ -2573,6 +2571,7 @@ class Layer(s_nexus.Pusher):
         propm = set(matchdef.get('props', ()))
         tagm = set(matchdef.get('tags', ()))
         tagpropm = set(tuple(tp.split(':', 1)) for tp in matchdef.get('tagprops', ()))
+        count = 0
 
         async for curoff, editses in self.syncNodeEdits(offs, wait=wait):
             for buid, form, edit in editses:
@@ -2585,10 +2584,10 @@ class Layer(s_nexus.Pusher):
 
                         yield (curoff, (buid, form, etyp, vals, meta))
 
-            if progresscb:
-                valu = progresscb(curoff, self)
-                if valu:
-                    yield valu
+            count += 1
+            if count % 1000 == 0:
+                yield (curoff, (None, None, EDIT_PROGRESS, (), ()))
+                await asyncio.sleep(0)
 
     async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''

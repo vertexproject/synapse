@@ -5005,13 +5005,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             items = await alist(proxy.syncFiltNodeEdits(mdef, offsdict=offsdict, wait=False))
 
-            progitems = [i for i in items if i[2][0] == s_layer.EDIT_PROGRESS]
-            nonprogitems = [i for i in items if i[2][0] != s_layer.EDIT_PROGRESS]
-            self.len(1, nonprogitems)
-            self.len(1, progitems)
-            progitem = progitems[0][2][1]
-            self.ge(progitem[baselayr.iden], 1000)
-            self.ge(progitem[layriden], baseoffs + 5)
+            expect = (1006, baselayr.iden, (None, None, s_layer.EDIT_PROGRESS, (), ()))
+            self.eq(expect, items[1])
 
             # Avoid races in cleanup
             del genr
