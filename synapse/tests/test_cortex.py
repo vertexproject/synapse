@@ -4863,17 +4863,17 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_syncallnodeedits(self):
         async with self.getTestCoreAndProxy() as (core, proxy):
             baseoffs = await core.getNexsIndx()
-            layr = core.getLayer()
-            items = await alist(proxy.syncAllNodeEdits(0, wait=False))
+            baselayr = core.getLayer()
+            items = await alist(proxy.syncAllNodeEdits({}, wait=False))
             self.len(baseoffs, items)
 
-            genr = core.syncAllNodeEdits(baseoffs, wait=True)
+            offsdict = {baselayr.iden: baseoffs}
+            genr = core.syncAllNodeEdits(offsdict=offsdict, wait=True)
             nodes = await core.nodes('[ test:str=foo ]')
             node = nodes[0]
 
-            # FIXME check add/remove layer for meta
             item0 = await genr.__anext__()
-            expect = (baseoffs, layr.iden, s_cortex.SYNC_NODEEDIT)
+            expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDIT)
             expectedits = ((node.buid, 'test:str',
                             ((s_layer.EDIT_NODE_ADD, ('foo', 1), ()),
                              (s_layer.EDIT_PROP_SET, ('.created', node.props['.created'], None,
@@ -4947,19 +4947,23 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_syncfiltnodeedits(self):
         async with self.getTestCoreAndProxy() as (core, proxy):
-            items = await alist(core.syncFiltNodeEdits(0, {}, wait=False))
+            baseoffs = await core.getNexsIndx()
+            baselayr = core.getLayer()
+
+            # Make sure an empty log works with wait=False
+            items = await alist(core.syncFiltNodeEdits({}, wait=False))
             self.eq(items, [])
 
-            baseoffs = await core.getNexsIndx()
-            layr = core.getLayer()
+            # Test wait=True
 
             mdef = {'forms': ['test:str']}
-            genr = core.syncFiltNodeEdits(baseoffs, mdef, wait=True)
+            offsdict = {baselayr.iden: baseoffs}
+            genr = core.syncFiltNodeEdits(mdef, offsdict=offsdict, wait=True)
             nodes = await core.nodes('[ test:str=foo ]')
             node = nodes[0]
 
             item0 = await genr.__anext__()
-            expectadd = (baseoffs, layr.iden, (node.buid, 'test:str', s_layer.EDIT_NODE_ADD,
+            expectadd = (baseoffs, baselayr.iden, (node.buid, 'test:str', s_layer.EDIT_NODE_ADD,
                          ('foo', s_layer.STOR_TYPE_UTF8), ()))
             self.eq(expectadd, item0)
 
@@ -4994,9 +4998,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                          ('bar', s_layer.STOR_TYPE_UTF8), ()))
             self.eq(expectadd, item4)
 
-            items = await alist(proxy.syncFiltNodeEdits(baseoffs + 1, mdef, wait=False))
-            self.len(1, items)
-            self.eq(expectadd, items[0])
+            # Make sure progress every 1000 layer log entries works
+            await core.nodes('[inet:ipv4=192.168.1/22]')
+
+            offsdict = {baselayr.iden: baseoffs + 1, layriden: baseoffs + 1}
+
+            items = await alist(proxy.syncFiltNodeEdits(mdef, offsdict=offsdict, wait=False))
+
+            progitems = [i for i in items if i[2][0] == s_layer.EDIT_PROGRESS]
+            nonprogitems = [i for i in items if i[2][0] != s_layer.EDIT_PROGRESS]
+            self.len(1, nonprogitems)
+            self.len(1, progitems)
+            progitem = progitems[0][2][1]
+            self.ge(progitem[baselayr.iden], 1000)
+            self.ge(progitem[layriden], baseoffs + 5)
 
             # Avoid races in cleanup
             del genr

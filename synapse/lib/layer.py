@@ -222,8 +222,10 @@ EDIT_NODEDATA_SET = 8 # (<etyp>, (<name>, <valu>, <oldv>), ())
 EDIT_NODEDATA_DEL = 9 # (<etyp>, (<name>, <oldv>), ())
 EDIT_EDGE_ADD = 10    # (<etyp>, (<verb>, <destnodeiden>), ())
 EDIT_EDGE_DEL = 11    # (<etyp>, (<verb>, <destnodeiden>), ())
-EDIT_LAYR_ADD = 12    # (<etyp>, (<iden>,), ())  (used by cortex)
-EDIT_LAYR_DEL = 13    # (<etyp>, (<iden>,), ())  (used by cortex)
+
+EDIT_LAYR_ADD = 100   # (used by cortex)
+EDIT_LAYR_DEL = 101   # (used by cortex)
+EDIT_PROGRESS = 102   # (used by cortex)
 
 class IndxBy:
     '''
@@ -2534,6 +2536,7 @@ class Layer(s_nexus.Pusher):
             else:
                 yield (offi, nodeedits)
 
+
         if wait:
             async with self.getNodeEditWindow() as wind:
                 async for offi, nodeedits, meta in wind:
@@ -2542,15 +2545,18 @@ class Layer(s_nexus.Pusher):
                     else:
                         yield (offi, nodeedits)
 
-    async def syncFiltNodeEdits(self, offs, matchdef, wait=True):
+
+    async def syncFiltNodeEdits(self, offs, matchdef, progresscb=None, wait=True):
         '''
         Yield (offs, (buid, form, individual edits) tuples from the nodeedit log starting from the given offset.
         Only edits that match the filter in wdef will be yielded.
 
         Args:
             offs(int): starting nexus/editlog offset
-            wait(bool):  whether to pend and stream value until this layer is fini'd
             matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
+            wait(bool):  whether to pend and stream value until this layer is fini'd
+            progresscb(Optional[Callable[int, Optional[Tuple]]]):  if not None, called with the offset of each new
+                editses
 
         Note:
             Will not yield any values if this layer was not created with logedits enabled
@@ -2578,6 +2584,11 @@ class Layer(s_nexus.Pusher):
                             or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL) and (vals[0], vals[1]) in tagpropm)):
 
                         yield (curoff, (buid, form, etyp, vals, meta))
+
+            if progresscb:
+                valu = progresscb(curoff, self)
+                if valu:
+                    yield valu
 
     async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''

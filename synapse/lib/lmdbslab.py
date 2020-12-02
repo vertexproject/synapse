@@ -260,6 +260,11 @@ class HotCount(HotKeyVal):
         self.cache[byts] += valu
         self.dirty.add(byts)
 
+    def set(self, name: str, valu):
+        byts = name.encode()
+        self.cache[byts] = valu
+        self.dirty.add(byts)
+
     def get(self, name: str, defv=0):
         return self.cache.get(name.encode(), defv)
 
