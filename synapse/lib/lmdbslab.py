@@ -237,6 +237,12 @@ class HotKeyVal(s_base.Base):
         self.dirty.add(byts)
         return valu
 
+    def delete(self, name: str):
+        byts = name.encode()
+        self.cache.pop(byts, None)
+        self.dirty.discard(byts)
+        self.slab.delete(byts, db=self.db)
+
     def sync(self):
         tups = [(p, self.EncFunc(self.cache[p])) for p in self.dirty]
         if not tups:

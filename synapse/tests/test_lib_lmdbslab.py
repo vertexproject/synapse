@@ -110,6 +110,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             foo = slab.initdb('foo')
             baz = slab.initdb('baz')
             bar = slab.initdb('bar', dupsort=True)
+            empty = slab.initdb('empty')
             barfixed = slab.initdb('barfixed', dupsort=True, dupfixed=True)
 
             slab.put(b'\x00\x01', b'hehe', db=foo)
@@ -135,7 +136,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.false(slab.dirty)
 
             self.eq(b'\x00\x01', slab.firstkey(db=foo))
+            self.none(slab.firstkey(db=empty))
             self.eq(b'\x01\x03', slab.lastkey(db=foo))
+            self.none(slab.lastkey(db=empty))
 
             self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
 
@@ -1221,6 +1224,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 ctr.set('foo', 1)
                 ctr.set('bar', {'val': 42})
                 self.eq({'foo': 1, 'bar': {'val': 42}}, ctr.pack())
+                ctr.set('baz', 42)
+                ctr.delete('baz')
+                self.eq(None, ctr.get('baz'))
 
             async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab, \
                     await s_lmdbslab.HotKeyVal.anit(slab, 'counts') as ctr:
@@ -1358,6 +1364,18 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
                 # TODO: make this test reliable
                 self.ge(lockmem, 0)
+
+    async def test_math(self):
+        self.eq(16, s_lmdbslab._florpo2(16))
+        self.eq(16, s_lmdbslab._florpo2(17))
+        self.eq(16, s_lmdbslab._florpo2(31))
+
+        self.eq(16, s_lmdbslab._ceilpo2(16))
+        self.eq(16, s_lmdbslab._ceilpo2(15))
+        self.eq(16, s_lmdbslab._ceilpo2(9))
+
+        self.eq(4, s_lmdbslab._roundup(4, 2))
+        self.eq(4, s_lmdbslab._roundup(3, 2))
 
 def _writeproc(path):
 

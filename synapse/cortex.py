@@ -1110,14 +1110,14 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def coreQueueGet(self, name, offs=0, cull=True, wait=False):
         if offs and cull:
-            await self.coreQueueCull(name, offs)
+            await self.coreQueueCull(name, offs - 1)
 
         async for item in self.multiqueue.gets(name, offs, cull=False, wait=wait):
             return item
 
     async def coreQueueGets(self, name, offs=0, cull=True, wait=False, size=None):
         if offs and cull:
-            await self.coreQueueCull(name, offs)
+            await self.coreQueueCull(name, offs - 1)
 
         count = 0
         async for item in self.multiqueue.gets(name, offs, cull=False, wait=wait):
