@@ -1,8 +1,10 @@
+import os
 import sys
 import asyncio
 import logging
 import functools
 import traceback
+import contextlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -267,13 +269,22 @@ async def main(argv, outprint=None):
     global outp
     outp = outprint
 
-    pars = makeargparser()
-    try:
-        opts = pars.parse_args(argv)
-    except s_exc.ParserExit:
-        return -1
+    async with contextlib.AsyncExitStack() as cm:
 
-    return await opts.func(opts)
+        teleyaml = s_common.getSynPath('telepath.yaml')
+        if os.path.isfile(teleyaml):
+            fini = await s_telepath.loadTeleEnv(teleyaml)
+            cm.push_async_callback(fini)
+
+        pars = makeargparser()
+        try:
+            opts = pars.parse_args(argv)
+        except s_exc.ParserExit:
+            return -1
+
+        retn = await opts.func(opts)
+
+    return retn
 
 def makeargparser():
     global outp

@@ -983,6 +983,17 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
+    async def _execCellUpdates(self):
+
+        await self._bumpCellVers('cortex:defaults', (
+            (1, self._addAllLayrRead),
+        ))
+
+    async def _addAllLayrRead(self):
+        layriden = self.getView().layers[0].iden
+        role = await self.auth.getRoleByName('all')
+        await role.addRule((True, ('layer', 'read')), gateiden=layriden)
+
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
@@ -2451,6 +2462,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             ldef = {'name': 'default'}
             ldef = await self.addLayer(ldef=ldef, nexs=False)
             layriden = ldef.get('iden')
+
+            role = await self.auth.getRoleByName('all')
+            await role.addRule((True, ('layer', 'read')), gateiden=layriden, nexs=False)
+
             vdef = {
                 'name': 'default',
                 'layers': (layriden,),
