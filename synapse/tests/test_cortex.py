@@ -4865,7 +4865,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             baseoffs = await core.getNexsIndx()
             baselayr = core.getLayer()
             items = await alist(proxy.syncAllNodeEdits({}, wait=False))
-            self.len(baseoffs, items)
+            self.len(1, items)
 
             offsdict = {baselayr.iden: baseoffs}
             genr = core.syncAllNodeEdits(offsdict=offsdict, wait=True)
@@ -5005,7 +5005,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             items = await alist(proxy.syncFiltNodeEdits(mdef, offsdict=offsdict, wait=False))
 
-            expect = (1006, baselayr.iden, (None, None, s_layer.EDIT_PROGRESS, (), ()))
+            expect = (baseoffs + 5 + 1000, baselayr.iden, (None, None, s_layer.EDIT_PROGRESS, (), ()))
             self.eq(expect, items[1])
 
             # Avoid races in cleanup
