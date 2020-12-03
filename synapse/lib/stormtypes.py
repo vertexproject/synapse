@@ -3126,7 +3126,8 @@ class LibView(Lib):
         Returns:
             View: A Storm View object.
         '''
-        self.runt.confirm(('view', 'add'))
+        name = await tostr(name, noneok=True)
+        layers = await toprim(layers)
 
         vdef = {
             'creator': self.runt.user.iden,
@@ -3137,8 +3138,13 @@ class LibView(Lib):
             vdef['name'] = name
 
         useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('view', 'add'), None),)
+        gatekeys = [(useriden, ('view', 'add'), None)]
+
+        for layriden in layers:
+            gatekeys.append((useriden, ('layer', 'read'), layriden))
+
         todo = ('addView', (vdef,), {})
+
         vdef = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
         return View(self.runt, vdef, path=self.path)
 
@@ -3315,7 +3321,10 @@ class View(Prim):
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
 
-        gatekeys = ((useriden, ('view', 'add'), None),)
+        gatekeys = (
+            (useriden, ('view', 'add'), None),
+            (useriden, ('view', 'read'), viewiden),
+        )
 
         ldef = {'creator': self.runt.user.iden}
         vdef = {'creator': self.runt.user.iden}

@@ -5010,3 +5010,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Avoid races in cleanup
             del genr
+
+    async def test_cortex_all_layr_read(self):
+        async with self.getTestCore() as core:
+            layr = core.getView().layers[0].iden
+            visi = await core.auth.addUser('visi')
+            visi.confirm(('layer', 'read'), gateiden=layr)
+
+        async with self.getRegrCore('2.0-layerv2tov3') as core:
+            layr = core.getView().layers[0].iden
+            visi = await core.auth.addUser('visi')
+            visi.confirm(('layer', 'read'), gateiden=layr)

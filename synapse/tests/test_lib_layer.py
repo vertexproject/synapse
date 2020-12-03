@@ -497,12 +497,13 @@ class LayerTest(s_t_utils.SynTest):
             self.nn(splice[1].get('time'))
 
             # Get all the splices
-            await self.agenlen(26, layr.splices())
+            splices = [x async for x in layr.splices()]
+            self.len(26, splices)
 
             # Get all but the first splice
-            await self.agenlen(25, layr.splices((0, 0, 1)))
+            await self.agenlen(25, layr.splices(splices[1][0]))
 
-            await self.agenlen(4, layr.splicesBack((2, 0, 0)))
+            await self.agenlen(4, layr.splicesBack(splices[3][0]))
 
             # Make sure we still get two splices when
             # offset is not at the beginning of a nodeedit
