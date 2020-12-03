@@ -2572,8 +2572,8 @@ class Layer(s_nexus.Pusher):
 
     async def syncFiltNodeEdits(self, offs, matchdef, wait=True):
         '''
-        Yield (offs, (buid, form, individual edits) tuples from the nodeedit log starting from the given offset.
-        Only edits that match the filter in wdef will be yielded.
+        Yield (offs, (buid, form, individual edits)) tuples from the nodeedit log starting from the given offset.
+        Only edits that match the filter in matchdef will be yielded.
 
         Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
 

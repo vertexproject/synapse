@@ -2095,15 +2095,22 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def syncAllNodeEdits(self, offsdict=None, wait=True):
         '''
-        Yield (offs, mesg) tuples for nodeedits for *all* layers, interspersed with add/del layer messages.
+        Yield (offs, layriden, STYP, item, meta) tuples for nodeedits for *all* layers, interspersed with add/del
+        layer messages.
+
+        STYP is one of the following constants:
+            SYNC_NODEEDIT:  item is a nodeedits (buid, form, edits)
+            SYNC_LAYRCHNG:  item is one of layer.EDIT_LAYR_ADD or EDIT_LAYR_DEL and meta is an empty dict
 
         Args:
-            offs(int): starting nexus/editlog offset
+            offsdict(Optional(Dict[str,int])): starting nexus/editlog offset by layer iden.  Defaults to 0 for
+                unspecified layers or if offsdict is None.
             wait(bool):  whether to pend and stream value until this layer is fini'd
+
         '''
         async def layrgenr(layr, startoff, endoff=None, newlayer=False):
             if newlayer:
-                yield layr.addoffs, layr.iden, SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD, ), ()
+                yield layr.addoffs, layr.iden, SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD, ), {}
 
             wait = endoff is None
 
@@ -2116,7 +2123,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     yield ioff, layr.iden, SYNC_NODEEDIT, item, meta
 
             if layr.isdeleted:
-                yield layr.deloffs, layr.iden, SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_DEL, ), ()
+                yield layr.deloffs, layr.iden, SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_DEL, ), {}
 
         # End of layrgenr
 
@@ -2125,8 +2132,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def syncFiltNodeEdits(self, matchdef, offsdict=None, wait=True):
         '''
-        Yield (offs, layriden, (buid, form, individual edits) tuples from the nodeedit logs of all layers starting from
-        the given nexus/layer offset (they are synchronized).  Only edits that match the filter in wdef will be
+        Yield (offs, layriden, (buid, form, individual edits)) tuples from the nodeedit logs of all layers starting
+        from the given nexus/layer offset (they are synchronized).  Only edits that match the filter in wdef will be
         yielded, plus EDIT_PROGRESS messages.
 
         Additionally, synthesized layer events with type s_layer.EDIT_LAYR_ADD and EDIT_LAYR_DEL are emitted.
@@ -2140,11 +2147,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded.  See
                 layer.syncFiltNodeEdits for matchdef specification.
-            offs(int): starting nexus/editlog offset
+            offsdict(Optional(Dict[str,int])): starting nexus/editlog offset by layer iden.  Defaults to 0 for
+                unspecified layers or if offsdict is None.
             wait(bool):  whether to pend and stream value until this layer is fini'd
         '''
-        layroffs = {}  # layriden -> last offset reported by that layer
-
         async def layrgenr(layr, startoff, endoff=None, newlayer=False):
             ''' Yields matching results from a single layer '''
 
@@ -2164,7 +2170,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             if layr.isdeleted:
                 yield layr.deloffs, layr.iden, (s_layer.EDIT_LAYR_DEL, (), ())
-                layroffs.pop(layr.iden, None)
 
         # End of layrgenr
 
