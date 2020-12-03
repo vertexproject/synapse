@@ -654,6 +654,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellinfo = await node.dict()
         self.onfini(node)
 
+        node = await self.hive.open(('cellvers',))
+        self.cellvers = await node.dict(nexs=True)
+
         if self.inaugural:
             await self.cellinfo.set('synapse:version', s_version.version)
 
@@ -707,28 +710,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 5 - service networking
         await self.initServiceNetwork()
 
-    async def _initCellUpdates(self):
+    async def _execCellUpdates(self):
+        # implement to apply updates to a fully initialized active cell
+        # ( and do so using _bumpCellVers )
+        pass
+
+    async def _bumpCellVers(self, name, updates):
 
         if self.inaugural:
-            vers = 0
+            await self.cellvers.set(name, updates[-1][0])
+            return
 
-            if self.cellupdaters:
-                vers = self.cellupdaters[-1][0]
+        curv = self.cellvers.get(name, 0)
 
-            await self.cellinfo.set('cell:version', vers)
+        for vers, callback in updates:
 
-        else:
+            if vers <= curv:
+                continue
 
-            curver = self.cellinfo.get('cell:version', 0)
-            for vers, callback in self.cellupdaters:
+            await callback()
 
-                if vers < curver:
-                    continue
+            await self.cellvers.set(name, vers)
 
-                await callback()
-
-                curver = vers
-                await self.cellinfo.set('cell:version', vers)
+            curv = vers
 
     async def _initAhaRegistry(self):
 
@@ -901,7 +905,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = active
 
         if self.isactive:
-            await self._initCellUpdates()
+            await self._execCellUpdates()
             await self.initServiceActive()
         else:
             await self.initServicePassive()

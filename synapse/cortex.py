@@ -983,10 +983,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
-        # updaters fire only once a fully initialized cell becomes active
-        self.cellupdaters = (
+    async def _execCellUpdates(self):
+
+        await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
-        )
+        ))
 
     async def _addAllLayrRead(self):
         layriden = self.getView().layers[0].iden
