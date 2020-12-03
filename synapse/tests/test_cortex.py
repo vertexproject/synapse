@@ -4888,11 +4888,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.delLayer(layriden)
 
             item1 = await genr.__anext__()
-            expect = (baseoffs + 1, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD,), ())
+            expect = (baseoffs + 1, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD,), {})
             self.eq(expect, item1)
 
             item1 = await genr.__anext__()
-            expect = (baseoffs + 2, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_DEL,), ())
+            expect = (baseoffs + 2, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_DEL,), {})
             self.eq(expect, item1)
 
             layr = await core.addLayer()
@@ -4903,7 +4903,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             view = (await core.addView(vdef)).get('iden')
 
             item3 = await genr.__anext__()
-            expect = (baseoffs + 3, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD,), ())
+            expect = (baseoffs + 3, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD,), {})
             self.eq(expect, item3)
 
             items = []
