@@ -2589,7 +2589,7 @@ class Layer(s_nexus.Pusher):
         of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
             forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
             props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
-            tag:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
+            tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
             tagprops; EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be in tag:prop format with no #.
         '''
 
