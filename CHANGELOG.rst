@@ -5,6 +5,23 @@ Synapse Changelog
 *****************
 
 
+v2.12.3 - 2020-12-03
+====================
+
+Bugfixes
+--------
+- Prevent OverflowError exceptions which could have resulted from lift
+  operations with integer storage types.
+  (`#1980 <https://github.com/vertexproject/synapse/pull/1980>`_)
+- Remove ``inet:ipv4`` norm routine wrap-around behavior for integers which
+  are outside the normal bounds of IPv4 addresses.
+  (`#1979 <https://github.com/vertexproject/synapse/pull/1979>`_)
+- Fix ``view.add`` and fork related permissions.
+  (`#1981 <https://github.com/vertexproject/synapse/pull/1981>`_)
+- Read ``telepath.yaml`` when using the ``synapse.tools.cellauth`` tool.
+  (`#1981 <https://github.com/vertexproject/synapse/pull/1981>`_)
+
+
 v2.12.2 - 2020-12-01
 ====================
 
