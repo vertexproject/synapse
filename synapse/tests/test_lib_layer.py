@@ -1099,6 +1099,7 @@ class LayerTest(s_t_utils.SynTest):
 
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
+            self.true(await layr.hasTagProp('score'))
 
     async def test_layer_waitForHot(self):
         self.thisHostMust(hasmemlocking=True)
@@ -1221,36 +1222,114 @@ class LayerTest(s_t_utils.SynTest):
     async def test_layer_iter_props(self):
 
         async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
 
             async with await core.snap() as snap:
 
-                props = {'asn': 10, '.seen': '2016'}
-                node = await snap.addNode('inet:ipv4', 0x01020304, props=props)
-                self.eq(node.get('asn'), 10)
+                props = {'asn': 10, '.seen': ('2016', '2017')}
+                node = await snap.addNode('inet:ipv4', 1, props=props)
+                buid1 = node.buid
+                await node.addTag('foo', ('2020', '2021'))
+                await node.setTagProp('foo', 'score', 42)
 
-                props = {'asn': 20, '.seen': '2015'}
-                node = await snap.addNode('inet:ipv4', 0x05050505, props=props)
-                self.eq(node.get('asn'), 20)
+                props = {'asn': 20, '.seen': ('2015', '2016')}
+                node = await snap.addNode('inet:ipv4', 2, props=props)
+                buid2 = node.buid
+                await node.addTag('foo', ("2019", "2020"))
+                await node.setTagProp('foo', 'score', 41)
+
+                props = {'asn': 30, '.seen': ('2015', '2016')}
+                node = await snap.addNode('inet:ipv4', 3, props=props)
+                buid3 = node.buid
+                await node.addTag('foo', ("2018", "2020"))
+                await node.setTagProp('foo', 'score', 99)
+
+                node = await snap.addNode('test:str', 'yolo')
+                strbuid = node.buid
+
+                node = await snap.addNode('test:str', 'z' * 500)
+                strbuid2 = node.buid
 
             # rows are (buid, valu) tuples
             layr = core.view.layers[0]
             rows = await alist(layr.iterPropRows('inet:ipv4', 'asn'))
 
-            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
+            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
             styp = core.model.form('inet:ipv4').prop('asn').type.stortype
             rows = await alist(layr.iterPropRows('inet:ipv4', 'asn', styp))
-            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
+            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
             rows = await alist(layr.iterPropRows('inet:ipv4', 'asn', styp))
-            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
+            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
             # rows are (buid, valu) tuples
             rows = await alist(layr.iterUnivRows('.seen'))
 
-            ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
+            tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
+            ivals = (tm('2015', '2016'), tm('2015', '2016'), tm('2016', '2017'))
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
             # iterFormRows
             rows = await alist(layr.iterFormRows('inet:ipv4'))
-            self.eq((0x01020304, 0x05050505), tuple(sorted([row[1] for row in rows])))
+            self.eq([(buid1, 1), (buid2, 2), (buid3, 3)], rows)
+
+            rows = await alist(layr.iterFormRows('inet:ipv4', stortype=s_layer.STOR_TYPE_U32, startvalu=2))
+            self.eq([(buid2, 2), (buid3, 3)], rows)
+
+            rows = await alist(layr.iterFormRows('test:str', stortype=s_layer.STOR_TYPE_UTF8, startvalu='yola'))
+            self.eq([(strbuid, 'yolo'), (strbuid2, 'z' * 500)], rows)
+
+            # iterTagRows
+            expect = sorted(
+                [
+                    (buid1, tm('2020', '2021'), 'inet:ipv4'),
+                    (buid2, tm('2019', '2020'), 'inet:ipv4'),
+                    (buid3, tm('2018', '2020'), 'inet:ipv4'),
+                ], key=lambda x: x[0])
+
+            rows = await alist(layr.iterTagRows('foo'))
+            self.eq(expect, rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='inet:ipv4'))
+            self.eq(expect, rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='newpform'))
+            self.eq([], rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
+            self.eq([], rows)
+
+            rows = await alist(layr.iterTagRows('foo', starttupl=(expect[1][0], 'inet:ipv4')))
+            self.eq(expect[1:], rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='inet:ipv4', starttupl=(expect[1][0], 'inet:ipv4')))
+            self.eq(expect[1:], rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='inet:ipv4', starttupl=(expect[1][0], 'newpform')))
+            self.eq([], rows)
+
+            rows = await alist(layr.iterTagRows('nosuchtag'))
+            self.eq([], rows)
+
+            expect = [
+                (buid2, 41,),
+                (buid1, 42,),
+                (buid3, 99,),
+            ]
+
+            rows = await alist(layr.iterTagPropRows('foo', 'newp'))
+            self.eq([], rows)
+
+            rows = await alist(layr.iterTagPropRows('foo', 'score'))
+            self.eq(expect, rows)
+
+            rows = await alist(layr.iterTagPropRows('foo', 'score', form='inet:ipv4'))
+            self.eq(expect, rows)
+
+            rows = await alist(layr.iterTagPropRows('foo', 'score', form='inet:ipv4', stortype=s_layer.STOR_TYPE_I64,
+                                                    startvalu=42))
+            self.eq(expect[1:], rows)
+
+            rows = await alist(layr.iterTagPropRows('foo', 'score', stortype=s_layer.STOR_TYPE_I64, startvalu=42))
+            self.eq(expect[1:], rows)

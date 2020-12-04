@@ -1748,6 +1748,9 @@ class StormTypesTest(s_test.SynTest):
             info = await core.callStorm('return ($lib.layer.get().pack())')
             self.gt(info.get('totalsize'), 1)
 
+            # Try to create an invalid layer
+            mesgs = await core.stormlist('$lib.layer.add(ldef=$lib.dict(lockmemory=(42)))')
+
             # Create a new layer
             newlayr = await core.callStorm('return($lib.layer.add().iden)')
             self.isin(newlayr, core.layers)

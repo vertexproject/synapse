@@ -336,9 +336,9 @@ class IndxByTag(IndxBy):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
-        abrv = self.tagabrv.bytsToAbrv(tag.encode())
+        abrv = layr.tagabrv.bytsToAbrv(tag.encode())
         if form is not None:
-            abrv += self.getPropAbrv(form, None)
+            abrv += layr.getPropAbrv(form, None)
 
         IndxBy.__init__(self, layr, abrv, layr.bytag)
 
@@ -347,11 +347,11 @@ class IndxByTag(IndxBy):
         self.form = form
         self.tag = tag
 
-    def getNodeValu(self, buid):
+    def getNodeValuForm(self, buid):
         sode = self.layr._getStorNode(buid)
         valt = sode['tags'].get(self.tag)
         if valt is not None:
-            return valt[0]
+            return valt, sode['form']
 
 class IndxByTagProp(IndxBy):
 
@@ -429,10 +429,10 @@ class StorType:
         async for item in self.indxBy(indxby, cmpr, valu):
             yield item
 
-    def indx(self, valu):
+    def indx(self, valu):  # pragma: no cover
         raise NotImplementedError
 
-    def decodeIndx(self, valu):
+    def decodeIndx(self, valu):  # pragma: no cover
         return s_common.novalu
 
     async def _liftRegx(self, liftby, valu):
@@ -2222,6 +2222,10 @@ class Layer(s_nexus.Pusher):
             yield item
 
     async def iterUnivRows(self, prop, stortype=None, startvalu=None):
+        '''
+        Args:
+            startvalu (Any): The value to start at.  May only be not None if stortype is not None.
+        '''
         try:
             indxby = IndxByProp(self, None, prop)
 
@@ -2231,19 +2235,52 @@ class Layer(s_nexus.Pusher):
         async for item in self._iterRows(indxby, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterTagRows(self, tag, form=None, startvalu=None):
+    async def iterTagRows(self, tag, form=None, starttupl=None):
+        '''
+        Args:
+            starttupl(Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu, form)]
+
+        Note: This yields (buid, form) instead of just buid in order to allow resuming an interrupted call by feeding
+        the last value retrieved into starttupl
+        '''
         try:
             indxby = IndxByTag(self, form, tag)
 
         except s_exc.NoSuchAbrv:
             return
 
-        stortype = STOR_TYPE_TAG
+        abrv = indxby.abrv
 
-        async for item in self._iterRows(indxby, stortype=stortype, startvalu=startvalu):
-            yield item
+        startkey = startvalu = None
 
-    async def iterTagPropRows(self, form, tag, prop, stortype=None, startvalu=None):
+        if starttupl:
+            startbuid, startform = starttupl
+            startvalu = startbuid
+
+            if form:
+                if startform != form:
+                    return  # Caller specified a form but doesn't want to start on the same form?!
+                startkey = None
+            else:
+                try:
+                    startkey = self.getPropAbrv(startform, None)
+                except s_exc.NoSuchAbrv:
+                    return
+
+        for _, buid in self.layrslab.scanByPref(abrv, startkey=startkey, startvalu=startvalu, db=indxby.db):
+
+            item = indxby.getNodeValuForm(buid)
+
+            await asyncio.sleep(0)
+            if item is None:
+                continue
+
+            yield buid, *item
+
+    async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''
         Args:
             form:  may be None
@@ -2262,6 +2299,9 @@ class Layer(s_nexus.Pusher):
         Args:
             stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
             startvalu (Any): The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple[buid,valu]]
         '''
         assert stortype is not None or startvalu is None
 
@@ -2272,9 +2312,9 @@ class Layer(s_nexus.Pusher):
         if stortype:
             stor = self.stortypes[stortype]
             if startvalu is not None:
-                startbytz = stor.index(startvalu)[0]
+                startbytz = stor.indx(startvalu)[0]
 
-        for key, buid in self.layrslab.scanByPref(abrv, startvalu=startbytz, db=indxby.db):
+        for key, buid in self.layrslab.scanByPref(abrv, startkey=startbytz, db=indxby.db):
 
             if stortype is not None:
                 # Extract the value directly out of the end of the key
@@ -2289,11 +2329,11 @@ class Layer(s_nexus.Pusher):
 
             valu = indxby.getNodeValu(buid)
 
+            await asyncio.sleep(0)
+
             if valu is None:
-                await asyncio.sleep(0)
                 continue
 
-            await asyncio.sleep(0)
             yield buid, valu
 
     async def getNodeData(self, buid, name):

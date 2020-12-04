@@ -2128,7 +2128,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if not layr.isfini:
 
                 async for ioff, item, meta in layr.syncNodeEdits(startoff, wait=wait, getmeta=True):
-                    if endoff is not None and ioff >= endoff:
+                    if endoff is not None and ioff >= endoff:  # pragma: no cover
                         break
 
                     yield ioff, layr.iden, SYNC_NODEEDIT, item, meta
@@ -2174,7 +2174,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if not layr.isfini:
 
                 async for ioff, item in layr.syncFiltNodeEdits(startoff, matchdef, wait=wait):
-                    if endoff is not None and ioff >= endoff:
+                    if endoff is not None and ioff >= endoff:  # pragma: no cover
                         break
 
                     yield ioff, layr.iden, item
@@ -2259,7 +2259,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             # Also, wake up if we get fini'd
             finievt = self.getFiniEvent()
-            finitask = finievt.wait()
+            finitask = base.schedCoro(finievt.wait())
             todo.add(finitask)
 
             while not self.isfini:

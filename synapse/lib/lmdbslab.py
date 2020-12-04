@@ -1206,13 +1206,23 @@ class Slab(s_base.Base):
 
                 yield item
 
-    def scanByPref(self, byts, startvalu=None, db=None):
-        if startvalu is None:
-            startvalu = b''
+    def scanByPref(self, byts, startkey=None, startvalu=None, db=None):
+        '''
+        Args:
+            byts(bytes):                 prefix to match on
+            startkey(Optional[bytes]):   if present, will start scanning at key=byts+startkey
+            startvalu(Optional[bytes]):  if present, will start scanning at (key+startkey, startvalu)
+
+        Notes:
+            startvalu only makes sense if byts+startkey matches an entire key.
+            startvalu is only value for dupsort=True dbs
+        '''
+        if startkey is None:
+            startkey = b''
 
         with Scan(self, db) as scan:
 
-            if not scan.set_range(byts + startvalu):
+            if not scan.set_range(byts + startkey, valu=startvalu):
                 return
 
             size = len(byts)
@@ -1535,10 +1545,14 @@ class Scan:
         self.atitem = next(self.genr)
         return True
 
-    def set_range(self, lkey):
+    def set_range(self, lkey, valu=None):
 
-        if not self.curs.set_range(lkey):
-            return False
+        if valu is None:
+            if not self.curs.set_range(lkey):
+                return False
+        else:
+            if not self.curs.set_range_dup(lkey, valu):
+                return False
 
         self.genr = self.iterfunc()
         self.atitem = next(self.genr)
