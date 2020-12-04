@@ -192,6 +192,32 @@ class StormTest(s_t_utils.SynTest):
             resp = await core.callStorm(wget, opts=opts)
             self.true(resp['ok'])
 
+            # check that the feed API uses toprim
+            email = await core.callStorm('''
+                $iden = $lib.guid()
+                $props = $lib.dict(email=visi@vertex.link)
+                $lib.feed.ingest(syn.nodes, (
+                    ( (ps:contact, $iden), $lib.dict(props=$props)),
+                ))
+                ps:contact=$iden
+                return(:email)
+            ''')
+            self.eq(email, 'visi@vertex.link')
+
+            email = await core.callStorm('''
+                $iden = $lib.guid()
+                $props = $lib.dict(email=visi@vertex.link)
+                yield $lib.feed.genr(syn.nodes, (
+                    ( (ps:contact, $iden), $lib.dict(props=$props)),
+                ))
+                return(:email)
+            ''')
+            self.eq(email, 'visi@vertex.link')
+
+            pkg0 = {'name': 'hehe', 'version': (1, 2, 3)}
+            await core.addStormPkg(pkg0)
+            self.eq((1, 2, 3), await core.callStorm('return($lib.pkg.get(hehe).version)'))
+
     async def test_storm_undef(self):
 
         async with self.getTestCore() as core:
