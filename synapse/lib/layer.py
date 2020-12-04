@@ -2278,7 +2278,7 @@ class Layer(s_nexus.Pusher):
             if item is None:
                 continue
 
-            yield buid, *item
+            yield buid, item[0], item[1]
 
     async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''
