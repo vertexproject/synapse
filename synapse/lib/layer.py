@@ -2241,10 +2241,10 @@ class Layer(s_nexus.Pusher):
             starttupl(Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there
 
         Returns:
-            AsyncIterator[Tuple(buid, valu, form)]
+            AsyncIterator[Tuple(buid, (valu, form))]
 
-        Note: This yields (buid, form) instead of just buid in order to allow resuming an interrupted call by feeding
-        the last value retrieved into starttupl
+        Note: This yields (buid, (valu, form)) instead of just buid, valu in order to allow resuming an interrupted
+        call by feeding the last value retrieved into starttupl
         '''
         try:
             indxby = IndxByTag(self, form, tag)
@@ -2278,7 +2278,7 @@ class Layer(s_nexus.Pusher):
             if item is None:
                 continue
 
-            yield buid, item[0], item[1]
+            yield buid, item
 
     async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''

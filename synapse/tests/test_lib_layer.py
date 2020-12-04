@@ -1283,9 +1283,9 @@ class LayerTest(s_t_utils.SynTest):
             # iterTagRows
             expect = sorted(
                 [
-                    (buid1, tm('2020', '2021'), 'inet:ipv4'),
-                    (buid2, tm('2019', '2020'), 'inet:ipv4'),
-                    (buid3, tm('2018', '2020'), 'inet:ipv4'),
+                    (buid1, (tm('2020', '2021'), 'inet:ipv4')),
+                    (buid2, (tm('2019', '2020'), 'inet:ipv4')),
+                    (buid3, (tm('2018', '2020'), 'inet:ipv4')),
                 ], key=lambda x: x[0])
 
             rows = await alist(layr.iterTagRows('foo'))
