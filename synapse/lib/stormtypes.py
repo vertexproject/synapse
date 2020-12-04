@@ -209,6 +209,7 @@ class LibPkg(Lib):
     def getObjLocals(self):
         return {
             'add': self._libPkgAdd,
+            'get': self._libPkgGet,
             'del': self._libPkgDel,
             'list': self._libPkgList,
         }
@@ -225,6 +226,20 @@ class LibPkg(Lib):
         '''
         self.runt.confirm(('pkg', 'add'), None)
         await self.runt.snap.core.addStormPkg(pkgdef)
+
+    async def _libPkgGet(self, name):
+        '''
+        Get a Storm package from the Cortex.
+
+        Args:
+            name (str): A Storm Package name.
+
+        Returns:
+            dict: The Storm package definition.
+        '''
+        name = await tostr(name)
+        pkgdef = await self.runt.snap.core.getStormPkg(name)
+        return Dict(pkgdef)
 
     async def _libPkgDel(self, name):
         '''
@@ -1421,6 +1436,9 @@ class LibFeed(Lib):
         Returns:
             s_node.Node: An async generator that yields nodes.
         '''
+        name = await tostr(name)
+        data = await toprim(data)
+
         self.runt.layerConfirm(('feed:data', *name.split('.')))
         with s_provenance.claim('feed:data', name=name):
             return self.runt.snap.addFeedNodes(name, data)
@@ -1450,6 +1468,8 @@ class LibFeed(Lib):
             setting to produce warning messages, instead of causing the Storm Runtime
             to be torn down.
         '''
+        name = await tostr(name)
+        data = await toprim(data)
 
         self.runt.layerConfirm(('feed:data', *name.split('.')))
         with s_provenance.claim('feed:data', name=name):
@@ -1598,6 +1618,7 @@ class Queue(StormType):
             yield item
 
     async def _methQueuePuts(self, items):
+        items = await toprim(items)
         todo = s_common.todo('coreQueuePuts', self.name, items)
         gatekeys = self._getGateKeys('put')
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -1654,6 +1675,7 @@ class LibTelepath(Lib):
         Returns:
             Proxy: A Storm Proxy representing a Telepath Proxy.
         '''
+        url = await tostr(url)
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
         return Proxy(await self.runt.getTeleProxy(url))
