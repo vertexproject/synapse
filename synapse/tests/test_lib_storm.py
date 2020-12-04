@@ -192,7 +192,7 @@ class StormTest(s_t_utils.SynTest):
             resp = await core.callStorm(wget, opts=opts)
             self.true(resp['ok'])
 
-            #check that the feed API uses toprim
+            # check that the feed API uses toprim
             email = await core.callStorm('''
                 $iden = $lib.guid()
                 $props = $lib.dict(email=visi@vertex.link)
