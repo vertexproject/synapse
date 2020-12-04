@@ -591,6 +591,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.dirn = s_common.gendir(dirn)
 
         self.auth = None
+        self.onepass = {}
         self.sessions = {}
         self.isactive = False
         self.inaugural = False
@@ -1351,6 +1352,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHttpApi('/api/v1/auth/password/(.*)', s_httpapi.AuthUserPasswdV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/onepass/issue', s_httpapi.OnePassIssueV1, {'cell': self})
 
     def addHttpApi(self, path, ctor, info):
         self.wapp.add_handlers('.*', (
@@ -1691,6 +1693,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # passwd None always fails...
         passwd = info.get('passwd')
+
+        onepass = self.onepass.pop(user.iden, None)
+        if onepass is not None:
+            onetime, tick = onepass
+            if tick >= s_common.now() and passwd == onetime:
+                return user
+
         if not user.tryPasswd(passwd):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 

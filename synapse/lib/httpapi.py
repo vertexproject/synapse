@@ -874,3 +874,28 @@ class StormVarsSetV1(Handler):
 
         await self.cell.setStormVar(varname, varvalu)
         return self.sendRestRetn(True)
+
+class OnePassIssueV1(Handler):
+    '''
+    /api/v1/auth/onepass/issue
+    '''
+    async def post(self):
+
+        if not await self.reqAuthAdmin():
+            return
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        useriden = body.get('user')
+        duration = body.get('duration', 600000) # 10 mins default
+
+        user = self.cell.auth.user(useriden)
+        if user is None:
+            return self.sendRestErr('NoSuchUser', 'The user iden does not exist.')
+
+        passwd = s_common.guid()
+        self.cell.onepass[user.iden] = (passwd, s_common.now() + duration)
+
+        return self.sendRestRetn(passwd)
