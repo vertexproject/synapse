@@ -254,6 +254,9 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.nodes('$pipe = $lib.pipe.gen(${}) for $item in $pipe.slices(size=999999) {}')
 
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$pipe = $lib.pipe.gen(${}) for $item in $pipe.slice(size=999999) {}')
+
             msgs = await core.stormlist('''
                 $pipe = $lib.pipe.gen(${ $pipe.put((0 + "woot")) })
                 for $items in $pipe.slices() { $lib.print($items) }
