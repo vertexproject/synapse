@@ -762,6 +762,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not user.isAdmin():
                 await user.setAdmin(True, logged=False)
 
+            if user.isLocked():
+                await user.setLocked(False, logged=False)
+
     async def initServiceStorage(self):
         pass
 
@@ -1339,6 +1342,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def _initCellHttpApis(self):
 
         self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
+        self.addHttpApi('/api/v1/active', s_httpapi.ActiveV1, {'cell': self})
         self.addHttpApi('/api/v1/healthcheck', s_httpapi.HealthCheckV1, {'cell': self})
 
         self.addHttpApi('/api/v1/auth/users', s_httpapi.AuthUsersV1, {'cell': self})

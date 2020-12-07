@@ -838,6 +838,14 @@ class HttpApiTest(s_tests.SynTest):
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
             root = await core.auth.getUserByName('root')
+
+            async with self.getHttpSess(auth=None, port=port) as sess:
+                url = f'https://localhost:{port}/api/v1/active'
+                async with sess.get(url) as resp:
+                    result = await resp.json()
+                    self.eq(result.get('status'), 'ok')
+                    self.true(result['result']['active'])
+
             await root.setPasswd('secret')
 
             url = f'https://localhost:{port}/api/v1/healthcheck'

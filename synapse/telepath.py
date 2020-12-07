@@ -91,6 +91,8 @@ async def getAhaProxy(urlinfo):
                 continue
 
             svcurlinfo = svcinfo.get('urlinfo', {})
+            # pop the path to let the local one win
+            svcurlinfo.pop('path')
 
             info = urlinfo.copy()
             info.pop('host', None)

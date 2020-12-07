@@ -38,6 +38,8 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAha() as aha:
 
+            cryo0_dirn = s_common.gendir(aha.dirn, 'cryo0')
+
             host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
             await aha.auth.rootuser.setPasswd('hehehaha')
 
@@ -50,7 +52,7 @@ class AhaTest(s_test.SynTest):
                                  f'tcp://root:hehehaha@127.0.0.1:{port}'],
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
-            async with self.getTestCryo(conf=conf) as cryo:
+            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
 
                 await cryo.auth.rootuser.setPasswd('secret')
 
@@ -95,6 +97,21 @@ class AhaTest(s_test.SynTest):
                 cryo.conf.pop('aha:leader', None)
                 await cryo.setCellActive(False)
 
+                # lock the aha:admin account so we can confirm it is unlocked upon restart
+                # remove the admin flag from the account.
+                self.false(ahaadmin.isLocked())
+                await ahaadmin.setLocked(True, logged=False)
+                self.true(ahaadmin.isLocked())
+                # remove the admin status so we can confirm its an admin upon restart
+                await ahaadmin.setAdmin(False, logged=False)
+                self.false(ahaadmin.isAdmin())
+
+            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
+                ahaadmin = await cryo.auth.getUserByName('root@cryo.mynet')
+                # And we should be unlocked and admin now
+                self.false(ahaadmin.isLocked())
+                self.true(ahaadmin.isAdmin())
+
             wait01 = aha.waiter(1, 'aha:svcadd')
             conf = {
                 'aha:name': '0.cryo.foo',
@@ -113,6 +130,10 @@ class AhaTest(s_test.SynTest):
 
                 async with await s_telepath.openurl('aha://root:secret@0.cryo.foo') as proxy:
                     self.nn(await proxy.getCellIden())
+                    await proxy.puts('hehe', ('hehe', 'haha'))
+
+                async with await s_telepath.openurl('aha://root:secret@0.cryo.foo/*/hehe') as proxy:
+                    self.nn(await proxy.iden())
 
                 async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
                     svcs = [x async for x in ahaproxy.getAhaSvcs('foo')]
