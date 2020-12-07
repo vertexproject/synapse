@@ -130,6 +130,10 @@ class AhaTest(s_test.SynTest):
 
                 async with await s_telepath.openurl('aha://root:secret@0.cryo.foo') as proxy:
                     self.nn(await proxy.getCellIden())
+                    await proxy.puts('hehe', ('hehe', 'haha'))
+
+                async with await s_telepath.openurl('aha://root:secret@0.cryo.foo/*/hehe') as proxy:
+                    self.nn(await proxy.iden())
 
                 async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
                     svcs = [x async for x in ahaproxy.getAhaSvcs('foo')]
