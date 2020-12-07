@@ -418,7 +418,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
 
         # passwd None always fails...
         passwd = info.get('passwd')
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return await HiveApi.anit(self, user)
@@ -689,9 +689,11 @@ class HiveDict(s_base.Base):
 
         return node.valu
 
-    async def set(self, name, valu):
+    async def set(self, name, valu, nexs=None):
         full = self.node.full + (name,)
-        return await self.hive.set(full, valu, nexs=self.nexs)
+        if nexs is None:
+            nexs = self.nexs
+        return await self.hive.set(full, valu, nexs=nexs)
 
     def setdefault(self, name, valu):
         self.defs[name] = valu

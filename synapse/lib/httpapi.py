@@ -218,7 +218,7 @@ class HandlerBase:
         if user.isLocked():
             return None
 
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             return None
 
         self._web_user = user
@@ -461,7 +461,7 @@ class LoginV1(Handler):
         if user is None:
             return self.sendRestErr('AuthDeny', 'No such user.')
 
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             return self.sendRestErr('AuthDeny', 'Incorrect password.')
 
         await sess.login(user)
@@ -895,7 +895,12 @@ class OnePassIssueV1(Handler):
         if user is None:
             return self.sendRestErr('NoSuchUser', 'The user iden does not exist.')
 
+        salt = s_common.guid()
         passwd = s_common.guid()
-        self.cell.onepass[user.iden] = (passwd, s_common.now() + duration)
+        hashed = s_common.guid((salt, passwd))
+
+        onepass = (s_common.now() + duration, salt, hashed)
+
+        await self.cell.auth.setUserInfo(useriden, 'onepass', onepass)
 
         return self.sendRestRetn(passwd)

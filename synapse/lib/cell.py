@@ -591,7 +591,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.dirn = s_common.gendir(dirn)
 
         self.auth = None
-        self.onepass = {}
         self.sessions = {}
         self.isactive = False
         self.inaugural = False
@@ -672,7 +671,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
 
-            if not user.tryPasswd(auth_passwd):
+            if not await user.tryPasswd(auth_passwd):
                 await user.setPasswd(auth_passwd, nexs=False)
 
         self.boss = await s_boss.Boss.anit()
@@ -1085,7 +1084,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if user is None:
             return None
 
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             return None
 
         return user.pack()
@@ -1694,13 +1693,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # passwd None always fails...
         passwd = info.get('passwd')
 
-        onepass = self.onepass.pop(user.iden, None)
-        if onepass is not None:
-            onetime, tick = onepass
-            if tick >= s_common.now() and passwd == onetime:
-                return user
-
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return user

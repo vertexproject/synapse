@@ -882,13 +882,23 @@ class HiveUser(HiveRuler):
         if archived:
             await self.setLocked(True)
 
-    def tryPasswd(self, passwd):
+    async def tryPasswd(self, passwd):
 
         if self.info.get('locked', False):
             return False
 
         if passwd is None:
             return False
+
+        onepass = self.info.get('onepass')
+        if onepass is not None:
+            expires, salt, hashed = onepass
+            if expires >= s_common.now():
+                if s_common.guid((salt, passwd)) == hashed:
+                    await self.auth.setUserInfo(self.iden, 'onepass', None)
+                    return True
+            else:
+                await self.auth.setUserInfo(self.iden, 'onepass', None)
 
         shadow = self.info.get('passwd')
         if shadow is None:
