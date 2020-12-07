@@ -233,6 +233,9 @@ class StormTest(s_t_utils.SynTest):
                     $pipe.puts($crap)
                     $pipe.put(hehe)
                     $pipe.put(haha)
+
+                    // cause the generator to tick once for coverage...
+                    [ ou:org=* ]
                 })
 
                 for $items in $pipe.slices(size=2) {
@@ -269,6 +272,28 @@ class StormTest(s_t_utils.SynTest):
 
                     $pipe.put(hehe)
                 ''')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('''
+                    $pipe = $lib.pipe.gen(${ $pipe.put(woot) })
+
+                    for $items in $pipe.slices() { $lib.print($items) }
+
+                    $pipe.puts((hehe, haha))
+                ''')
+
+            nodes = await core.nodes('''
+                $crap = (foo, bar, baz)
+
+                $pipe = $lib.pipe.gen(${ $pipe.puts((foo, bar, baz)) })
+
+                for $devstr in $pipe.slice(size=2) {
+                    [ it:dev:str=$devstr ]
+                }
+            ''')
+            self.len(2, nodes)
+            nvals = [n.ndef[1] for n in nodes]
+            self.eq(('foo', 'bar'), nvals)
 
     async def test_storm_undef(self):
 
