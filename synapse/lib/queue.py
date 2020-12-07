@@ -60,7 +60,7 @@ class Queue:
             mesg = 'The Queue has been closed.'
             raise s_exc.BadArg(mesg=mesg)
 
-        return await self.q.put(item)
+        await self.q.put(item)
 
     async def size(self):
         size = self.q.qsize()
@@ -76,8 +76,6 @@ class Queue:
 
         for item in items:
             await self.q.put(item)
-
-        return len(items)
 
     async def slice(self, size=1000):
 
