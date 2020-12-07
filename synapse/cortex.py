@@ -2144,8 +2144,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def syncFiltNodeEdits(self, matchdef, offsdict=None, wait=True):
         '''
         Yield (offs, layriden, (buid, form, individual edits)) tuples from the nodeedit logs of all layers starting
-        from the given nexus/layer offset (they are synchronized).  Only edits that match the filter in wdef will be
-        yielded, plus EDIT_PROGRESS messages.
+        from the given nexus/layer offset (they are synchronized).  Only edits that match the filter in matchdef will
+        be yielded, plus EDIT_PROGRESS messages.
 
         Additionally, synthesized layer events with type s_layer.EDIT_LAYR_ADD and EDIT_LAYR_DEL are emitted.
 
