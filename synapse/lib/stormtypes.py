@@ -1537,7 +1537,7 @@ class LibPipe(Lib):
                 async for item in runt.execute():
                     await asyncio.sleep(0)
 
-            except asyncio.CancelledError: # pragma: no-cover
+            except asyncio.CancelledError: # pragma: no cover
                 raise
 
             except Exception as e:
@@ -1648,13 +1648,13 @@ class Pipe(StormType):
                 $dostuff_bulk($slice)
             }
         '''
-        while not self.runt.snap.isfini:
+        size = await toint(size)
+        if size < 1 or size > 10000:
+            mesg = '$pipe.slice() size must be 1-10000'
+            raise s_exc.BadArg(mesg=mesg)
 
-            items = await self._methPipeSlice(size=size)
-            if items is None:
-                return
-
-            yield items
+        async for items in self.queue.slices(size=size):
+            yield List(items)
 
 @registry.registerLib
 class LibQueue(Lib):

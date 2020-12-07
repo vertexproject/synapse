@@ -1,6 +1,7 @@
 import asyncio
 import collections
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.base as s_base
 
@@ -50,8 +51,8 @@ class Queue(asyncio.Queue):
         self.closed = False
 
     async def close(self):
+        await asyncio.Queue.put(self, s_common.novalu)
         self.closed = True
-        await self.put(s_common.novalu)
 
     async def put(self, item):
 
@@ -99,11 +100,12 @@ class Queue(asyncio.Queue):
 
     async def slices(self, size=1000):
 
-        items = await self.slice(size=size)
-        if items is None:
-            return
+        while True:
+            items = await self.slice(size=size)
+            if items is None:
+                return
 
-        yield items
+            yield items
 
 class Window(s_base.Base):
     '''
