@@ -44,7 +44,7 @@ class AQueue(s_base.Base):
 
 class Queue(asyncio.Queue):
     '''
-    A standard asyncio.Queue with bulk methods and graceful close.
+    A standard asyncio.Queue with batch methods and graceful close.
     '''
     def __init__(self, *args, **kwargs):
         asyncio.Queue.__init__(self, *args, **kwargs)

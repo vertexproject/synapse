@@ -1645,7 +1645,7 @@ class Pipe(StormType):
             }
 
             for $slice in $pipe.slices(1000) {
-                $dostuff_bulk($slice)
+                $dostuff_batch($slice)
             }
         '''
         size = await toint(size)
