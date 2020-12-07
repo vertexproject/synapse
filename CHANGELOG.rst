@@ -5,6 +5,23 @@ Synapse Changelog
 *****************
 
 
+v2.13.0 - 2020-12-04
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.pkg.get()`` StormTypes function to get the Storm Package
+  definition for a given package by name.
+  (`#1983 <https://github.com/vertexproject/synapse/pull/1983>`_)
+
+Bugfixes
+--------
+- The user account provisioned by the ``aha:admin`` could be locked out.
+  Now, upon startup, if they have been locked out or had their admin status
+  removed, they are unlocked and admin is reset.
+  (`#1984 <https://github.com/vertexproject/synapse/pull/1984>`_)
+
+
 v2.12.3 - 2020-12-03
 ====================
 
