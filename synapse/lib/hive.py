@@ -689,11 +689,9 @@ class HiveDict(s_base.Base):
 
         return node.valu
 
-    async def set(self, name, valu, nexs=None):
+    async def set(self, name, valu):
         full = self.node.full + (name,)
-        if nexs is None:
-            nexs = self.nexs
-        return await self.hive.set(full, valu, nexs=nexs)
+        return await self.hive.set(full, valu, nexs=self.nexs)
 
     def setdefault(self, name, valu):
         self.defs[name] = valu
