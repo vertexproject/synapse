@@ -761,6 +761,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not user.isAdmin():
                 await user.setAdmin(True, logged=False)
 
+            if user.isLocked():
+                await user.setLocked(False, logged=False)
+
     async def initServiceStorage(self):
         pass
 
