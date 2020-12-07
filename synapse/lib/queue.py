@@ -42,16 +42,16 @@ class AQueue(s_base.Base):
         self.event.clear()
         return retn
 
-class Queue(asyncio.Queue):
+class Queue:
     '''
-    A standard asyncio.Queue with batch methods and graceful close.
+    An asyncio Queue with batch methods and graceful close.
     '''
-    def __init__(self, *args, **kwargs):
-        asyncio.Queue.__init__(self, *args, **kwargs)
+    def __init__(self, maxsize=None):
+        self.q = asyncio.Queue(maxsize=maxsize)
         self.closed = False
 
     async def close(self):
-        await asyncio.Queue.put(self, s_common.novalu)
+        await self.q.put(s_common.novalu)
         self.closed = True
 
     async def put(self, item):
@@ -60,7 +60,13 @@ class Queue(asyncio.Queue):
             mesg = 'The Queue has been closed.'
             raise s_exc.BadArg(mesg=mesg)
 
-        return await asyncio.Queue.put(self, item)
+        return await self.q.put(item)
+
+    async def size(self):
+        size = self.q.qsize()
+        if self.closed:
+            size -= 1
+        return size
 
     async def puts(self, items):
 
@@ -69,18 +75,18 @@ class Queue(asyncio.Queue):
             raise s_exc.BadArg(mesg=mesg)
 
         for item in items:
-            await asyncio.Queue.put(self, item)
+            await self.q.put(item)
 
         return len(items)
 
     async def slice(self, size=1000):
 
-        if self.closed and self.qsize() == 0:
+        if self.closed and self.q.qsize() == 0:
             return None
 
         items = []
 
-        item = await self.get()
+        item = await self.q.get()
         if item is s_common.novalu:
             return None
 
@@ -88,9 +94,9 @@ class Queue(asyncio.Queue):
 
         size -= 1
 
-        for i in range(min(size, self.qsize())):
+        for i in range(min(size, self.q.qsize())):
 
-            item = await self.get()
+            item = await self.q.get()
             if item is s_common.novalu:
                 break
 

@@ -1604,7 +1604,7 @@ class Pipe(StormType):
         Returns:
             int: The number of items in the Pipe.
         '''
-        return self.queue.qsize()
+        return await self.queue.size()
 
     async def _methPipeSlice(self, size=1000):
         '''
