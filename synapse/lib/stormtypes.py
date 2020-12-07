@@ -21,6 +21,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
@@ -1558,8 +1559,7 @@ class Pipe(StormType):
         self.runt = runt
 
         self.locls.update(self.getObjLocals())
-        self.queue = asyncio.Queue(maxsize=size)
-        self.closed = False
+        self.queue = s_queue.Queue(maxsize=size)
 
     def getObjLocals(self):
         return {
@@ -1577,15 +1577,8 @@ class Pipe(StormType):
         Args:
             items (list): A list of items to add.
         '''
-        if self.closed:
-            mesg = '$pipe.puts(): The Pipe is closed.'
-            raise s_exc.BadArg(mesg=mesg)
-
         items = await toprim(items)
-        for item in items:
-            await self.queue.put(item)
-
-        return len(items)
+        return await self.queue.puts(items)
 
     async def _methPipePut(self, item):
         '''
@@ -1594,15 +1587,15 @@ class Pipe(StormType):
         Args:
             item: An object to add to the Pipe.
         '''
-        return await self._methPipePuts((item,))
+        item = await toprim(item)
+        return await self.queue.put(item)
 
     async def close(self):
         '''
         Close the pipe for writing.  This will cause
         the slice()/slices() API to return once drained.
         '''
-        await self.queue.put(s_common.novalu)
-        self.closed = True
+        await self.queue.close()
 
     async def _methPipeSize(self):
         '''
@@ -1623,31 +1616,14 @@ class Pipe(StormType):
         Returns:
             list: A list of at least 1 item from the Pipe.
         '''
-        if self.closed and self.queue.qsize() == 0:
-            return None
-
         size = await toint(size)
         if size < 1 or size > 10000:
             mesg = '$pipe.slice() size must be 1-10000'
             raise s_exc.BadArg(mesg=mesg)
 
-        items = []
-
-        item = await self.queue.get()
-        if item is s_common.novalu:
+        items = await self.queue.slice(size=size)
+        if items is None:
             return None
-
-        items.append(item)
-
-        size -= 1
-
-        for i in range(min(size, self.queue.qsize())):
-
-            item = await self.queue.get()
-            if item is s_common.novalu:
-                break
-
-            items.append(item)
 
         return List(items)
 
@@ -1672,7 +1648,6 @@ class Pipe(StormType):
                 $dostuff_bulk($slice)
             }
         '''
-
         while not self.runt.snap.isfini:
 
             items = await self._methPipeSlice(size=size)

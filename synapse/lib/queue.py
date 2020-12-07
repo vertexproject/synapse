@@ -1,6 +1,7 @@
 import asyncio
 import collections
 
+import synapse.common as s_common
 import synapse.lib.base as s_base
 
 class AQueue(s_base.Base):
@@ -39,6 +40,70 @@ class AQueue(s_base.Base):
         self.fifo.clear()
         self.event.clear()
         return retn
+
+class Queue(asyncio.Queue):
+    '''
+    A standard asyncio.Queue with bulk methods and graceful close.
+    '''
+    def __init__(self, *args, **kwargs):
+        asyncio.Queue.__init__(self, *args, **kwargs)
+        self.closed = False
+
+    async def close(self):
+        self.closed = True
+        await self.put(s_common.novalu)
+
+    async def put(self, item):
+
+        if self.closed:
+            mesg = 'The Queue has been closed.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return await asyncio.Queue.put(self, item)
+
+    async def puts(self, items):
+
+        if self.closed:
+            mesg = 'The Queue has been closed.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        for item in items:
+            await asyncio.Queue.put(self, item)
+
+        return len(items)
+
+    async def slice(self, size=1000):
+
+        if self.closed and self.qsize() == 0:
+            return None
+
+        items = []
+
+        item = await self.get()
+        if item is s_common.novalu:
+            return None
+
+        items.append(item)
+
+        size -= 1
+
+        for i in range(min(size, self.qsize())):
+
+            item = await self.get()
+            if item is s_common.novalu:
+                break
+
+            items.append(item)
+
+        return items
+
+    async def slices(self, size=1000):
+
+        items = await self.slice(size=size)
+        if items is None:
+            return
+
+        yield items
 
 class Window(s_base.Base):
     '''
