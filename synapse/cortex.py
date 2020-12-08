@@ -59,7 +59,7 @@ reqver = '>=0.2.0,<3.0.0'
 
 # Constants returned in results from syncLayersEvents and syncIndexEvents
 SYNC_NODEEDITS = 0  # A nodeedits:     (<offs>, 0, <etyp>, (<etype args>), {<meta>})
-SYNC_NODEEDIT = 1   # A nodeedit:     (<offs>, 0, <etyp>, (<etype args>), {<meta>})
+SYNC_NODEEDIT = 1   # A nodeedit:     (<offs>, 0, <etyp>, (<etype args>))
 SYNC_LAYR_ADD = 3   # A layer was added
 SYNC_LAYR_DEL = 4   # A layer was deleted
 
