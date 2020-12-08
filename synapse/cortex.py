@@ -2149,11 +2149,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         from the given nexus/layer offset (they are synchronized).  Only edits that match the filter in matchdef will
         be yielded, plus EDIT_PROGRESS (see layer.syncIndexEvents) messages.
 
-        The format 4th element of the tuple depends on the STYP.  STYP is one of the following constants
+        The format of the 4th element of the tuple depends on STYPE.  STYPE is one of the following constants:
 
           SYNC_LAYR_ADD:  item is an empty tuple ()
           SYNC_LAYR_DEL:  item is an empty tuple ()
-          SYNC_NODEEDIT:  item is (buid, form, individual edit)) or (None, None, s_layer.EDIT_PROGRESS, (), ())
+          SYNC_NODEEDIT:  item is (buid, form, ETYPE, VALS, META)) or (None, None, s_layer.EDIT_PROGRESS, (), ())
 
         For edits in the past, events are yielded in offset order across all layers.  For current data (wait=True),
         events across different layers may be emitted slightly out of offset order.
