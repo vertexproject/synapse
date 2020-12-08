@@ -643,6 +643,16 @@ def makedirs(path, mode=0o777):
 def iterzip(*args, fillvalue=None):
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
+def hashable(x):
+    '''
+    Translate an object hierarcy into a hashable format.
+    '''
+    if isinstance(x, (list, tuple)):
+        return tuple([hashable(y) for y in x])
+    if isinstance(x, dict):
+        return tuple(sorted([(hashable(k), hashable(v)) for (k, v) in x.items()]))
+    return x
+
 def setlogging(mlogger, defval=None):
     '''
     Configure synapse logging.
