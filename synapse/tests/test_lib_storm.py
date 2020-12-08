@@ -218,6 +218,86 @@ class StormTest(s_t_utils.SynTest):
             await core.addStormPkg(pkg0)
             self.eq((1, 2, 3), await core.callStorm('return($lib.pkg.get(hehe).version)'))
 
+            # test for $lib.queue.gen()
+            self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
+            # and again to test *not* creating it...
+            self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
+
+    async def test_storm_pipe(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                $crap = (foo, bar, baz)
+
+                $pipe = $lib.pipe.gen(${
+                    $pipe.puts($crap)
+                    $pipe.put(hehe)
+                    $pipe.put(haha)
+
+                    // cause the generator to tick once for coverage...
+                    [ ou:org=* ]
+                })
+
+                for $items in $pipe.slices(size=2) {
+                    for $devstr in $items {
+                        [ it:dev:str=$devstr ]
+                    }
+                }
+            ''')
+            self.len(5, nodes)
+            nvals = [n.ndef[1] for n in nodes]
+            self.eq(('foo', 'bar', 'baz', 'hehe', 'haha'), nvals)
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.pipe.gen(${}, size=999999)')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$pipe = $lib.pipe.gen(${}) for $item in $pipe.slices(size=999999) {}')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$pipe = $lib.pipe.gen(${}) for $item in $pipe.slice(size=999999) {}')
+
+            msgs = await core.stormlist('''
+                $pipe = $lib.pipe.gen(${ $pipe.put((0 + "woot")) })
+                for $items in $pipe.slices() { $lib.print($items) }
+            ''')
+
+            self.stormIsInWarn('pipe filler error: BadCast', msgs)
+            self.false(any([m for m in msgs if m[0] == 'err']))
+
+            self.eq(0, await core.callStorm('return($lib.pipe.gen(${}).size())'))
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('''
+                    $pipe = $lib.pipe.gen(${ $pipe.put(woot) })
+
+                    for $items in $pipe.slices() { $lib.print($items) }
+
+                    $pipe.put(hehe)
+                ''')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('''
+                    $pipe = $lib.pipe.gen(${ $pipe.put(woot) })
+
+                    for $items in $pipe.slices() { $lib.print($items) }
+
+                    $pipe.puts((hehe, haha))
+                ''')
+
+            nodes = await core.nodes('''
+                $crap = (foo, bar, baz)
+
+                $pipe = $lib.pipe.gen(${ $pipe.puts((foo, bar, baz)) })
+
+                for $devstr in $pipe.slice(size=2) {
+                    [ it:dev:str=$devstr ]
+                }
+            ''')
+            self.len(2, nodes)
+            nvals = [n.ndef[1] for n in nodes]
+            self.eq(('foo', 'bar'), nvals)
+
     async def test_storm_undef(self):
 
         async with self.getTestCore() as core:

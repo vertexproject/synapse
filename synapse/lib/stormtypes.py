@@ -21,6 +21,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
@@ -1479,6 +1480,183 @@ class LibFeed(Lib):
             self.runt.snap.strict = strict
 
 @registry.registerLib
+class LibPipe(Lib):
+    '''
+    A Storm library for interacting with non-persistent queues.
+    '''
+
+    _storm_lib_path = ('pipe',)
+
+    def getObjLocals(self):
+        return {
+            'gen': self._methPipeGen,
+        }
+
+    async def _methPipeGen(self, filler, size=10000):
+        '''
+        Generate and return a Storm Pipe by name.
+
+        Args:
+            filler (storm): A storm query to fill the Pipe.
+            name (str): A name for the pipe (for IPC).
+
+        Perms:
+            storm.pipe.gen
+
+        Notes:
+            The filler query is run in parallel with $pipe.
+
+        Examples:
+
+            $pipe = $lib.pipe.gen(${ $pipe.puts((1, 2, 3)) })
+
+            for $items in $pipe.slices(size=2) {
+                $dostuff($items)
+            }
+        '''
+
+        size = await toint(size)
+        text = await tostr(filler)
+
+        if size < 1 or size > 10000:
+            mesg = '$lib.pipe.gen() size must be 1-10000'
+            raise s_exc.BadArg(mesg=mesg)
+
+        pipe = Pipe(self.runt, size)
+
+        varz = self.runt.vars.copy()
+        varz['pipe'] = pipe
+
+        opts = {'vars': varz}
+
+        query = await self.runt.getStormQuery(text)
+        runt = self.runt.getModRuntime(query, opts=opts)
+
+        async def coro():
+            try:
+                async for item in runt.execute():
+                    await asyncio.sleep(0)
+
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+
+            except Exception as e:
+                await self.runt.warn(f'pipe filler error: {e}', log=False)
+
+            await pipe.close()
+
+        self.runt.snap.schedCoro(coro())
+
+        return pipe
+
+@registry.registerType
+class Pipe(StormType):
+    '''
+    A Storm Pipe provides fast ephemeral queues.
+    '''
+    def __init__(self, runt, size):
+        StormType.__init__(self)
+        self.runt = runt
+
+        self.locls.update(self.getObjLocals())
+        self.queue = s_queue.Queue(maxsize=size)
+
+    def getObjLocals(self):
+        return {
+            'put': self._methPipePut,
+            'puts': self._methPipePuts,
+            'slice': self._methPipeSlice,
+            'slices': self._methPipeSlices,
+            'size': self._methPipeSize,
+        }
+
+    async def _methPipePuts(self, items):
+        '''
+        Add a list of items to the Pipe.
+
+        Args:
+            items (list): A list of items to add.
+        '''
+        items = await toprim(items)
+        return await self.queue.puts(items)
+
+    async def _methPipePut(self, item):
+        '''
+        Add a single item to the Pipe.
+
+        Args:
+            item: An object to add to the Pipe.
+        '''
+        item = await toprim(item)
+        return await self.queue.put(item)
+
+    async def close(self):
+        '''
+        Close the pipe for writing.  This will cause
+        the slice()/slices() API to return once drained.
+        '''
+        await self.queue.close()
+
+    async def _methPipeSize(self):
+        '''
+        Retrieve the number of items in the Pipe.
+
+        Returns:
+            int: The number of items in the Pipe.
+        '''
+        return await self.queue.size()
+
+    async def _methPipeSlice(self, size=1000):
+        '''
+        Return a list of up to size items from the Pipe.
+
+        Args:
+            size: The max number of items to return (default 1000)
+
+        Returns:
+            list: A list of at least 1 item from the Pipe.
+        '''
+        size = await toint(size)
+        if size < 1 or size > 10000:
+            mesg = '$pipe.slice() size must be 1-10000'
+            raise s_exc.BadArg(mesg=mesg)
+
+        items = await self.queue.slice(size=size)
+        if items is None:
+            return None
+
+        return List(items)
+
+    async def _methPipeSlices(self, size=1000):
+        '''
+        Yield lists of up to size items from the Pipe.
+        The loop will exit when the Pipe is closed and empty.
+
+        Args:
+            size (int): The max number of items to yield per slice.
+
+        Returns:
+            generator
+
+        Examples:
+
+            for $slice in $pipe.slices(1000) {
+                for $item in $slice { $dostuff($item) }
+            }
+
+            for $slice in $pipe.slices(1000) {
+                $dostuff_batch($slice)
+            }
+        '''
+        size = await toint(size)
+        if size < 1 or size > 10000:
+            mesg = '$pipe.slice() size must be 1-10000'
+            raise s_exc.BadArg(mesg=mesg)
+
+        async for items in self.queue.slices(size=size):
+            yield List(items)
+
+@registry.registerLib
 class LibQueue(Lib):
     '''
     A Storm Library for interacting with persistent Queues in the Cortex.
@@ -1488,6 +1666,7 @@ class LibQueue(Lib):
     def getObjLocals(self):
         return {
             'add': self._methQueueAdd,
+            'gen': self._methQueueGen,
             'del': self._methQueueDel,
             'get': self._methQueueGet,
             'list': self._methQueueList,
@@ -1530,6 +1709,21 @@ class LibQueue(Lib):
         info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return Queue(self.runt, name, info)
+
+    async def _methQueueGen(self, name):
+        '''
+        Get/add a Storm Queue in a single operation.
+
+        Args:
+            name (str): The name of the Queue to get/add.
+
+        Returns:
+            Queue: A Storm Queue object.
+        '''
+        try:
+            return await self._methQueueGet(name)
+        except s_exc.NoSuchName:
+            return await self._methQueueAdd(name)
 
     async def _methQueueDel(self, name):
         '''

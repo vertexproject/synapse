@@ -822,6 +822,12 @@ class HealthCheckV1(Handler):
         resp = await self.cell.getHealthCheck()
         return self.sendRestRetn(resp)
 
+class ActiveV1(Handler):
+
+    async def get(self):
+        resp = {'active': self.cell.isactive}
+        return self.sendRestRetn(resp)
+
 class StormVarsGetV1(Handler):
 
     async def get(self):
