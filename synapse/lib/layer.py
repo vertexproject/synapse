@@ -223,9 +223,7 @@ EDIT_NODEDATA_DEL = 9 # (<etyp>, (<name>, <oldv>), ())
 EDIT_EDGE_ADD = 10    # (<etyp>, (<verb>, <destnodeiden>), ())
 EDIT_EDGE_DEL = 11    # (<etyp>, (<verb>, <destnodeiden>), ())
 
-EDIT_LAYR_ADD = 100   # (used by cortex)
-EDIT_LAYR_DEL = 101   # (used by cortex)
-EDIT_PROGRESS = 102   # (used by syncIndexEvents) (<etyp>, (), ())
+EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, (), ())
 
 class IndxBy:
     '''
@@ -2586,34 +2584,34 @@ class Layer(s_nexus.Pusher):
         for offs, (edits, meta) in self.nodeeditlog.iterBack(offs):
             yield (offs, edits, meta)
 
-    async def syncNodeEdits(self, offs, wait=True, getmeta=False):
-        # FIXME Split meta into separate function: syncNodeEdits2
+    async def syncNodeEdits2(self, offs, wait=True):
         '''
-        If getmeta is False, yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
-        If getmeta is True, yields (offs, nodeedits, meta) instead.
-
         Once caught up with storage, yield them in realtime.
+
+        Returns:
+            Tuple of offset(int), nodeedits, meta(dict)
         '''
         if not self.logedits:
             return
 
         for offi, (nodeedits, meta) in self.nodeeditlog.iter(offs):
-            if getmeta:
-                yield (offi, nodeedits, meta)
-            else:
-                yield (offi, nodeedits)
+            yield (offi, nodeedits, meta)
 
         if wait:
             async with self.getNodeEditWindow() as wind:
-                async for offi, nodeedits, meta in wind:
-                    if getmeta:
-                        yield (offi, nodeedits, meta)
-                    else:
-                        yield (offi, nodeedits)
+                async for item in wind:
+                    yield item
+
+    async def syncNodeEdits(self, offs, wait=True):
+        '''
+        Identical to syncNodeEdits2, but doesn't yield meta
+        '''
+        async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait):
+            yield (offi, nodeedits)
 
     async def syncIndexEvents(self, offs, matchdef, wait=True):
         '''
-        Yield (offs, (buid, form, individual edits)) tuples from the nodeedit log starting from the given offset.
+        Yield (offs, (buid, form, individual edit)) tuples from the nodeedit log starting from the given offset.
         Only edits that match the filter in matchdef will be yielded.
 
         Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
@@ -2623,15 +2621,15 @@ class Layer(s_nexus.Pusher):
             matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
             wait(bool):  whether to pend and stream value until this layer is fini'd
 
-        Note:
-            Will not yield any values if this layer was not created with logedits enabled
-
         The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a sequence
         of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
             forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
             props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
             tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
             tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be in tag:prop format with no #.
+
+        Note:
+            Will not yield any values if this layer was not created with logedits enabled
         '''
 
         formm = set(matchdef.get('forms', ()))

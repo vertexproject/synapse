@@ -57,10 +57,11 @@ A Cortex implements the synapse hypergraph object.
 
 reqver = '>=0.2.0,<3.0.0'
 
-# Constants returned in results from syncLayersEvents
-SYNC_NODEEDIT = 0  # A nodeedits:     (<offs>, 0, <etyp>, (<etype args>), {<meta>})
-SYNC_LAYRCHNG = 1  # A layer add/del: (<offs>, 1, s_layer.EDIT_LAYR_ADD/DEL, (<layriden>,), () )
-
+# Constants returned in results from syncLayersEvents and syncIndexEvents
+SYNC_NODEEDITS = 0  # A nodeedits:     (<offs>, 0, <etyp>, (<etype args>), {<meta>})
+SYNC_NODEEDIT = 1   # A nodeedit:     (<offs>, 0, <etyp>, (<etype args>), {<meta>})
+SYNC_LAYR_ADD = 3   # A layer was added
+SYNC_LAYR_DEL = 4   # A layer was deleted
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -2111,31 +2112,31 @@ class Cortex(s_cell.Cell):  # type: ignore
         layer messages.
 
         STYP is one of the following constants:
-            SYNC_NODEEDIT:  item is a nodeedits (buid, form, edits)
-            SYNC_LAYRCHNG:  item is one of layer.EDIT_LAYR_ADD or EDIT_LAYR_DEL and meta is an empty dict
+            SYNC_NODEEDITS:  item is a nodeedits (buid, form, edits)
+            SYNC_LAYR_ADD:   A layer was added (item and meta are empty)
+            SYNC_LAYR_DEL:   A layer was deleted (item and meta are empty)
 
         Args:
             offsdict(Optional(Dict[str,int])): starting nexus/editlog offset by layer iden.  Defaults to 0 for
                 unspecified layers or if offsdict is None.
             wait(bool):  whether to pend and stream value until this layer is fini'd
-
         '''
         async def layrgenr(layr, startoff, endoff=None, newlayer=False):
             if newlayer:
-                yield layr.addoffs, layr.iden, SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD, ), {}
+                yield layr.addoffs, layr.iden, SYNC_LAYR_ADD, (), {}
 
             wait = endoff is None
 
             if not layr.isfini:
 
-                async for ioff, item, meta in layr.syncNodeEdits(startoff, wait=wait, getmeta=True):
+                async for ioff, item, meta in layr.syncNodeEdits2(startoff, wait=wait):
                     if endoff is not None and ioff >= endoff:  # pragma: no cover
                         break
 
-                    yield ioff, layr.iden, SYNC_NODEEDIT, item, meta
+                    yield ioff, layr.iden, SYNC_NODEEDITS, item, meta
 
             if layr.isdeleted:
-                yield layr.deloffs, layr.iden, SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_DEL, ), {}
+                yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
 
         # End of layrgenr
 
@@ -2144,17 +2145,21 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def syncIndexEvents(self, matchdef, offsdict=None, wait=True):
         '''
-        Yield (offs, layriden, (buid, form, individual edits)) tuples from the nodeedit logs of all layers starting
+        Yield (offs, layriden, <STYPE>, <item>) tuples from the nodeedit logs of all layers starting
         from the given nexus/layer offset (they are synchronized).  Only edits that match the filter in matchdef will
-        be yielded, plus EDIT_PROGRESS messages.
+        be yielded, plus EDIT_PROGRESS (see layer.syncIndexEvents) messages.
 
-        Additionally, synthesized layer events with type s_layer.EDIT_LAYR_ADD and EDIT_LAYR_DEL are emitted.
+        The format 4th element of the tuple depends on the STYP.  STYP is one of the following constants
+
+          SYNC_LAYR_ADD:  item is an empty tuple ()
+          SYNC_LAYR_DEL:  item is an empty tuple ()
+          SYNC_NODEEDITS: item is (buid, form, individual edit)) or (None, None, s_layer.EDIT_PROGRESS, (), ())
 
         For edits in the past, events are yielded in offset order across all layers.  For current data (wait=True),
-        events across different layers may be emitted slightly out of order.
+        events across different layers may be emitted slightly out of offset order.
 
         Note:
-            Will not yield any values from layers not created with logedits enabled
+            Will not yield any values from layers created with logedits disabled
 
         Args:
             matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded.  See
@@ -2167,7 +2172,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             ''' Yields matching results from a single layer '''
 
             if newlayer:
-                yield layr.addoffs, layr.iden, (s_layer.EDIT_LAYR_ADD, (), ())
+                yield layr.addoffs, layr.iden, SYNC_LAYR_ADD, ()
 
             wait = endoff is None
             ioff = startoff
@@ -2178,10 +2183,10 @@ class Cortex(s_cell.Cell):  # type: ignore
                     if endoff is not None and ioff >= endoff:  # pragma: no cover
                         break
 
-                    yield ioff, layr.iden, item
+                    yield ioff, layr.iden, SYNC_NODEEDIT, item
 
             if layr.isdeleted:
-                yield layr.deloffs, layr.iden, (s_layer.EDIT_LAYR_DEL, (), ())
+                yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, ()
 
         # End of layrgenr
 

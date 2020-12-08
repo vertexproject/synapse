@@ -4873,7 +4873,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             node = nodes[0]
 
             item0 = await genr.__anext__()
-            expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDIT)
+            expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDITS)
             expectedits = ((node.buid, 'test:str',
                             ((s_layer.EDIT_NODE_ADD, ('foo', 1), ()),
                              (s_layer.EDIT_PROP_SET, ('.created', node.props['.created'], None,
@@ -4888,11 +4888,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.delLayer(layriden)
 
             item1 = await genr.__anext__()
-            expect = (baseoffs + 1, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD,), {})
+            expect = (baseoffs + 1, layriden, s_cortex.SYNC_LAYR_ADD, (), {})
             self.eq(expect, item1)
 
             item1 = await genr.__anext__()
-            expect = (baseoffs + 2, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_DEL,), {})
+            expect = (baseoffs + 2, layriden, s_cortex.SYNC_LAYR_DEL, (), {})
             self.eq(expect, item1)
 
             layr = await core.addLayer()
@@ -4903,7 +4903,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             view = (await core.addView(vdef)).get('iden')
 
             item3 = await genr.__anext__()
-            expect = (baseoffs + 3, layriden, s_cortex.SYNC_LAYRCHNG, (s_layer.EDIT_LAYR_ADD,), {})
+            expect = (baseoffs + 3, layriden, s_cortex.SYNC_LAYR_ADD, (), {})
             self.eq(expect, item3)
 
             items = []
@@ -4931,7 +4931,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, items)
             item4 = items[0]
 
-            expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDIT)
+            expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDITS)
             expectedits = ((node.buid, 'test:str',
                             [(s_layer.EDIT_NODE_ADD, ('bar', 1), ()),
                              (s_layer.EDIT_PROP_SET, ('.created', node.props['.created'], None,
@@ -4963,8 +4963,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             node = nodes[0]
 
             item0 = await genr.__anext__()
-            expectadd = (baseoffs, baselayr.iden, (node.buid, 'test:str', s_layer.EDIT_NODE_ADD,
-                         ('foo', s_layer.STOR_TYPE_UTF8), ()))
+            expectadd = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDIT,
+                         (node.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()))
             self.eq(expectadd, item0)
 
             layr = await core.addLayer()
@@ -4972,11 +4972,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.delLayer(layriden)
 
             item1 = await genr.__anext__()
-            expectadd = (baseoffs + 1, layriden, (s_layer.EDIT_LAYR_ADD, (), ()))
+            expectadd = (baseoffs + 1, layriden, s_cortex.SYNC_LAYR_ADD, ())
             self.eq(expectadd, item1)
 
             item2 = await genr.__anext__()
-            expectdel = (baseoffs + 2, layriden, (s_layer.EDIT_LAYR_DEL, (), ()))
+            expectdel = (baseoffs + 2, layriden, s_cortex.SYNC_LAYR_DEL, ())
             self.eq(expectdel, item2)
 
             layr = await core.addLayer()
@@ -4990,12 +4990,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             node = nodes[0]
 
             item3 = await genr.__anext__()
-            expectadd = (baseoffs + 3, layriden, (s_layer.EDIT_LAYR_ADD, (), ()))
+            expectadd = (baseoffs + 3, layriden, s_cortex.SYNC_LAYR_ADD, ())
             self.eq(expectadd, item3)
 
             item4 = await genr.__anext__()
-            expectadd = (baseoffs + 5, layr.iden, (node.buid, 'test:str', s_layer.EDIT_NODE_ADD,
-                         ('bar', s_layer.STOR_TYPE_UTF8), ()))
+            expectadd = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDIT,
+                         (node.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8), ()))
             self.eq(expectadd, item4)
 
             # Make sure progress every 1000 layer log entries works
@@ -5005,7 +5005,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             items = await alist(proxy.syncIndexEvents(mdef, offsdict=offsdict, wait=False))
 
-            expect = (baseoffs + 5 + 1000, baselayr.iden, (None, None, s_layer.EDIT_PROGRESS, (), ()))
+            expect = (baseoffs + 5 + 1000, baselayr.iden, s_cortex.SYNC_NODEEDIT,
+                      (None, None, s_layer.EDIT_PROGRESS, (), ()))
             self.eq(expect, items[1])
 
             # Avoid races in cleanup
