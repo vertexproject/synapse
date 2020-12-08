@@ -57,7 +57,7 @@ A Cortex implements the synapse hypergraph object.
 
 reqver = '>=0.2.0,<3.0.0'
 
-# Constants returned in results from syncAllNodeEdits
+# Constants returned in results from syncLayersEvents
 SYNC_NODEEDIT = 0  # A nodeedits:     (<offs>, 0, <etyp>, (<etype args>), {<meta>})
 SYNC_LAYRCHNG = 1  # A layer add/del: (<offs>, 1, s_layer.EDIT_LAYR_ADD/DEL, (<layriden>,), () )
 
@@ -766,14 +766,14 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('globals', 'set', name))
         return await self.cell.setStormVar(name, valu)
 
-    async def syncAllNodeEdits(self, offsdict=None, wait=True):
+    async def syncLayersEvents(self, offsdict=None, wait=True):
         self.user.confirm(('sync',))
-        async for item in self.cell.syncAllNodeEdits(offsdict=offsdict, wait=wait):
+        async for item in self.cell.syncLayersEvents(offsdict=offsdict, wait=wait):
             yield item
 
-    async def syncFiltNodeEdits(self, matchdef, offsdict=None, wait=True):
+    async def syncIndexEvents(self, matchdef, offsdict=None, wait=True):
         self.user.confirm(('sync',))
-        async for item in self.cell.syncFiltNodeEdits(matchdef, offsdict=offsdict, wait=wait):
+        async for item in self.cell.syncIndexEvents(matchdef, offsdict=offsdict, wait=wait):
             yield item
 
 class Cortex(s_cell.Cell):  # type: ignore
@@ -2104,7 +2104,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         async for item in layr.syncNodeEdits(offs, wait=wait):
             yield item
 
-    async def syncAllNodeEdits(self, offsdict=None, wait=True):
+    async def syncLayersEvents(self, offsdict=None, wait=True):
+        # syncLayersEvents - rename
         '''
         Yield (offs, layriden, STYP, item, meta) tuples for nodeedits for *all* layers, interspersed with add/del
         layer messages.
@@ -2141,7 +2142,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         async for item in self._syncNodeEdits(offsdict, layrgenr, wait=wait):
             yield item
 
-    async def syncFiltNodeEdits(self, matchdef, offsdict=None, wait=True):
+    async def syncIndexEvents(self, matchdef, offsdict=None, wait=True):
         '''
         Yield (offs, layriden, (buid, form, individual edits)) tuples from the nodeedit logs of all layers starting
         from the given nexus/layer offset (they are synchronized).  Only edits that match the filter in matchdef will
@@ -2157,7 +2158,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         Args:
             matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded.  See
-                layer.syncFiltNodeEdits for matchdef specification.
+                layer.syncIndexEvents for matchdef specification.
             offsdict(Optional(Dict[str,int])): starting nexus/editlog offset by layer iden.  Defaults to 0 for
                 unspecified layers or if offsdict is None.
             wait(bool):  whether to pend and stream value until this layer is fini'd
@@ -2173,7 +2174,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             if not layr.isfini:
 
-                async for ioff, item in layr.syncFiltNodeEdits(startoff, matchdef, wait=wait):
+                async for ioff, item in layr.syncIndexEvents(startoff, matchdef, wait=wait):
                     if endoff is not None and ioff >= endoff:  # pragma: no cover
                         break
 
@@ -2189,7 +2190,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _syncNodeEdits(self, offsdict, genrfunc, wait=True):
         '''
-        Common guts between syncFiltNodeEdits and syncAllNodeEdits
+        Common guts between syncIndexEvents and syncLayersEvents
 
         First, it streams from the layers up to the current offset, sorted by offset.
         Then it streams from all the layers simultaneously.
@@ -2258,8 +2259,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 addlayr(layr, newlayer=True)
 
             # Also, wake up if we get fini'd
-            finievt = self.getFiniEvent()
-            finitask = base.schedCoro(finievt.wait())
+            finitask = base.schedCoro(self.waitfini())
             todo.add(finitask)
 
             while not self.isfini:

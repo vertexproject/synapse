@@ -446,18 +446,9 @@ class Base:
             return True
 
         if self.finievt is None:
-            self.getFiniEvent()
-
-        return await s_coro.event_wait(self.finievt, timeout)
-
-    def getFiniEvent(self):
-        '''
-        Returns an asyncio.Event that is set when this object is fini'd
-        '''
-        if self.finievt is None:
             self.finievt = asyncio.Event()
 
-        return self.finievt
+        return await s_coro.event_wait(self.finievt, timeout)
 
     def schedCoro(self, coro):
         '''

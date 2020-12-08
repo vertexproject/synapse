@@ -225,7 +225,7 @@ EDIT_EDGE_DEL = 11    # (<etyp>, (<verb>, <destnodeiden>), ())
 
 EDIT_LAYR_ADD = 100   # (used by cortex)
 EDIT_LAYR_DEL = 101   # (used by cortex)
-EDIT_PROGRESS = 102   # (used by syncFiltNodeEdits) (<etyp>, (), ())
+EDIT_PROGRESS = 102   # (used by syncIndexEvents) (<etyp>, (), ())
 
 class IndxBy:
     '''
@@ -2587,6 +2587,7 @@ class Layer(s_nexus.Pusher):
             yield (offs, edits, meta)
 
     async def syncNodeEdits(self, offs, wait=True, getmeta=False):
+        # FIXME Split meta into separate function: syncNodeEdits2
         '''
         If getmeta is False, yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
         If getmeta is True, yields (offs, nodeedits, meta) instead.
@@ -2610,7 +2611,7 @@ class Layer(s_nexus.Pusher):
                     else:
                         yield (offi, nodeedits)
 
-    async def syncFiltNodeEdits(self, offs, matchdef, wait=True):
+    async def syncIndexEvents(self, offs, matchdef, wait=True):
         '''
         Yield (offs, (buid, form, individual edits)) tuples from the nodeedit log starting from the given offset.
         Only edits that match the filter in matchdef will be yielded.

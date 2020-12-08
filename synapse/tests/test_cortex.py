@@ -4860,15 +4860,15 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('haha', await proxy.popStormVar('hehe'))
                 self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
 
-    async def test_cortex_syncallnodeedits(self):
+    async def test_cortex_synclayersevents(self):
         async with self.getTestCoreAndProxy() as (core, proxy):
             baseoffs = await core.getNexsIndx()
             baselayr = core.getLayer()
-            items = await alist(proxy.syncAllNodeEdits({}, wait=False))
+            items = await alist(proxy.syncLayersEvents({}, wait=False))
             self.len(1, items)
 
             offsdict = {baselayr.iden: baseoffs}
-            genr = core.syncAllNodeEdits(offsdict=offsdict, wait=True)
+            genr = core.syncLayersEvents(offsdict=offsdict, wait=True)
             nodes = await core.nodes('[ test:str=foo ]')
             node = nodes[0]
 
@@ -4945,20 +4945,20 @@ class CortexBasicTest(s_t_utils.SynTest):
         # Avoid races in cleanup, but do this after cortex is fini'd for coverage
         del genr
 
-    async def test_cortex_syncfiltnodeedits(self):
+    async def test_cortex_syncindexevents(self):
         async with self.getTestCoreAndProxy() as (core, proxy):
             baseoffs = await core.getNexsIndx()
             baselayr = core.getLayer()
 
             # Make sure an empty log works with wait=False
-            items = await alist(core.syncFiltNodeEdits({}, wait=False))
+            items = await alist(core.syncIndexEvents({}, wait=False))
             self.eq(items, [])
 
             # Test wait=True
 
             mdef = {'forms': ['test:str']}
             offsdict = {baselayr.iden: baseoffs}
-            genr = core.syncFiltNodeEdits(mdef, offsdict=offsdict, wait=True)
+            genr = core.syncIndexEvents(mdef, offsdict=offsdict, wait=True)
             nodes = await core.nodes('[ test:str=foo ]')
             node = nodes[0]
 
@@ -5003,7 +5003,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             offsdict = {baselayr.iden: baseoffs + 1, layriden: baseoffs + 1}
 
-            items = await alist(proxy.syncFiltNodeEdits(mdef, offsdict=offsdict, wait=False))
+            items = await alist(proxy.syncIndexEvents(mdef, offsdict=offsdict, wait=False))
 
             expect = (baseoffs + 5 + 1000, baselayr.iden, (None, None, s_layer.EDIT_PROGRESS, (), ()))
             self.eq(expect, items[1])
