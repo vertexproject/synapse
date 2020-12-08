@@ -2153,7 +2153,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
           SYNC_LAYR_ADD:  item is an empty tuple ()
           SYNC_LAYR_DEL:  item is an empty tuple ()
-          SYNC_NODEEDITS: item is (buid, form, individual edit)) or (None, None, s_layer.EDIT_PROGRESS, (), ())
+          SYNC_NODEEDIT:  item is (buid, form, individual edit)) or (None, None, s_layer.EDIT_PROGRESS, (), ())
 
         For edits in the past, events are yielded in offset order across all layers.  For current data (wait=True),
         events across different layers may be emitted slightly out of offset order.
