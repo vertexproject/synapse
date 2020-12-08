@@ -3213,10 +3213,45 @@ class Layer(Prim):
             'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
             'edits': self._methLayerEdits,
+            'addPush': self._addPush,
+            'delPush': self._delPush,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
         }
+
+    async def _addPush(self, url, offs=0):
+        url = await tostr(url)
+        offs = await toint(offs)
+
+        scheme = url.split('://')[0]
+        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+
+        async with await s_telepath.openurl(url) as proxy:
+            pass
+
+        useriden = self.runt.user.iden
+        layriden = self.valu.get('iden')
+
+        gatekeys = (
+            (useriden, ('layer', 'read',), layriden),
+        )
+
+        pdef = {
+            'url': url,
+            'offs': offs,
+            'user': useriden,
+            'iden': s_common.guid(),
+        }
+        todo = s_common.todo('addLayrPush', layriden, pdef)
+        await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+
+    async def _delPush(self, iden):
+        iden = await tostr(iden)
+        # TODO WTF PERM?
+        layriden = self.valu.get('iden')
+        todo = s_common.todo('delLayrPush', layriden, iden)
+        await self.runt.dyncall('cortex', todo)
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
@@ -3436,10 +3471,54 @@ class View(Prim):
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
             'getEdges': self._methGetEdges,
+            'addPull': self._addPull,
+            'delPull': self._delPull,
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
         }
+
+    async def _addPull(self, url, offs=0):
+        '''
+        Add a managed pull configuration to the View.
+        This uses a telelpath connection to the remote layer/view
+        to mirror node edits and fire appropriate triggers.
+
+        Args:
+            url (str): The telepath URL to a layer/feed.
+            offs (int): The (optional) offset to begin from.
+        '''
+        url = await tostr(url)
+        offs = await toint(offs)
+
+        scheme = url.split('://')[0]
+        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+
+        # ensure the user may make *any* node edits
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        layriden = self.valu.get('layers')[0].get('iden')
+
+        self.runt.confirm(('node',), gateiden=layriden)
+
+        async with await s_telepath.openurl(url) as proxy:
+            pass
+
+        pdef = {
+            'url': url,
+            'offs': offs,
+            'user': useriden,
+            'iden': s_common.guid(),
+        }
+        todo = s_common.todo('addViewPull', viewiden, pdef)
+        await self.runt.dyncall('cortex', todo)
+
+    async def _delPull(self, iden):
+        iden = await tostr(iden)
+        # TODO WTF PERM?
+        viewiden = self.valu.get('iden')
+        todo = s_common.todo('delViewPull', viewiden, iden)
+        await self.runt.dyncall('cortex', todo)
 
     async def _methAddNodeEdits(self, edits):
 

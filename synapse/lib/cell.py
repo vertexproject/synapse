@@ -594,6 +594,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sessions = {}
         self.isactive = False
         self.inaugural = False
+        self.activecoros = {}
 
         self.conf = self._initCellConf(conf)
 
@@ -904,13 +905,61 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except Exception as e: # pragma: no cover
             logger.warning(f'_setAhaActive failed: {e}')
 
+    async def addActiveCoro(self, func, iden=None):
+
+        if iden is None:
+            iden = s_common.guid()
+
+        cdef = {'func': func}
+        self.activecoros[iden] = cdef
+
+        if self.isactive:
+            await self._fireActiveCoro(iden, cdef)
+
+        return iden
+
+    async def delActiveCoro(self, iden):
+
+        cent = self.activecoros.pop(iden, None)
+        if cent is None:
+            return
+
+        task = cent.get('task')
+        if task is not None:
+            task.cancel()
+
+    async def _fireActiveCoros(self):
+        for iden, cdef in self.activecoros.items():
+            await self._fireActiveCoro(iden, cdef)
+
+    async def _fireActiveCoro(self, iden, cdef):
+        func = cdef.get('func')
+        async def wrap():
+            while not self.isfini:
+                try:
+                    await func()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    logger.exception('activeCoro Error')
+
+        cdef['task'] = self.schedCoro(wrap())
+
+    async def _killActiveCoros(self):
+        for iden, cdef in self.activecoros.items():
+            task = cdef.pop('task', None)
+            if task is not None:
+                task.cancel()
+
     async def setCellActive(self, active):
         self.isactive = active
 
         if self.isactive:
+            await self._fireActiveCoros()
             await self._execCellUpdates()
             await self.initServiceActive()
         else:
+            await self._killActiveCoros()
             await self.initServicePassive()
 
         await self._setAhaActive()

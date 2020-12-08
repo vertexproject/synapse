@@ -1456,3 +1456,37 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('test:str=refs <(refs)- *'))
             self.len(0, await core.nodes('test:str=* <(seen)- *'))
+
+    async def test_storm_pushpull(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+                await core.auth.rootuser.setPasswd('secret')
+                host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
+
+                view0, layr0 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+                view1, layr1 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+                view2, layr2 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+
+                opts = {'vars': {
+                    'view0': view0,
+                    'view1': view1,
+                    'view2': view2,
+                    'layr0': layr0,
+                    'layr1': layr1,
+                    'layr2': layr2,
+                }}
+                #view0 -push-> view1 <-pull- view2
+                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/view/{view1}")', opts=opts)
+                await core.callStorm(f'$lib.view.get($view2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
+
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await asyncio.sleep(2)
+                self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
+
+                # remove and ensure no replay on restart
+                await core.nodes('ps:contact | delnode', opts={'view': view2})
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.len(0, await core.nodes('ps:contact', opts={'view': view2}))

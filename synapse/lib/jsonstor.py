@@ -369,6 +369,13 @@ class JsonStorCell(s_cell.Cell):
             return True
         return False
 
+    @s_nexus.Pusher.onPushAuto('q:del')
+    async def delQueue(self, name):
+        if not self.multiqueue.exists(name):
+            return False
+        await self.multiqueue.rem(name)
+        return True
+
     @s_nexus.Pusher.onPushAuto('q:puts')
     async def putsQueue(self, name, items, reqid=None):
         return await self.multique.puts(name, items, reqid=reqid)
