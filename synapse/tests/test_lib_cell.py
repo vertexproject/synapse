@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import aiohttp
 import asyncio
 
 from unittest import mock
@@ -680,6 +681,60 @@ class CellTest(s_t_utils.SynTest):
             async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
                 self.eq('faz', cell.conf.get('auth:conf')['baz'])
                 await cell.auth.addUser('visi')
+
+    async def test_cell_onepass(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+
+                await cell.auth.rootuser.setPasswd('root')
+
+                visi = await cell.auth.addUser('visi')
+
+                thost, tport = await cell.dmon.listen('tcp://127.0.0.1:0')
+                hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
+
+                async with self.getHttpSess(port=hport) as sess:
+                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue')
+                    answ = await resp.json()
+                    self.eq('err', answ['status'])
+                    self.eq('NotAuthenticated', answ['code'])
+
+                async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+
+                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue')
+                    answ = await resp.json()
+                    self.eq('err', answ['status'])
+                    self.eq('SchemaViolation', answ['code'])
+
+                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': 'newp'})
+                    answ = await resp.json()
+                    self.eq('err', answ['status'])
+
+                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': visi.iden})
+                    answ = await resp.json()
+                    self.eq('ok', answ['status'])
+
+                    onepass = answ['result']
+
+                async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
+                    await proxy.getCellIden()
+
+                with self.raises(s_exc.AuthDeny):
+                    async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
+                        pass
+
+                # purposely give a negative expire for test...
+                async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': visi.iden, 'duration': -1000})
+                    answ = await resp.json()
+                    self.eq('ok', answ['status'])
+                    onepass = answ['result']
+
+                with self.raises(s_exc.AuthDeny):
+                    async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
+                        pass
 
     async def test_cell_activecoro(self):
 

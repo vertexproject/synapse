@@ -672,7 +672,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
 
-            if not user.tryPasswd(auth_passwd):
+            if not await user.tryPasswd(auth_passwd):
                 await user.setPasswd(auth_passwd, nexs=False)
 
         self.boss = await s_boss.Boss.anit()
@@ -1168,7 +1168,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if user is None:
             return None
 
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             return None
 
         return user.pack()
@@ -1436,6 +1436,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHttpApi('/api/v1/auth/password/(.*)', s_httpapi.AuthUserPasswdV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/onepass/issue', s_httpapi.OnePassIssueV1, {'cell': self})
 
     def addHttpApi(self, path, ctor, info):
         self.wapp.add_handlers('.*', (
@@ -1776,7 +1777,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # passwd None always fails...
         passwd = info.get('passwd')
-        if not user.tryPasswd(passwd):
+
+        if not await user.tryPasswd(passwd):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return user
