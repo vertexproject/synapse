@@ -1466,9 +1466,13 @@ class StormTest(s_t_utils.SynTest):
                 await core.auth.rootuser.setPasswd('secret')
                 host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
 
+                # setup a trigger so we know when the nodes move...
                 view0, layr0 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view1, layr1 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view2, layr2 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+
+                # add a trigger to queue ps:contacts so we can detect the transfer
+                await core.callStorm('trigger.add node:add --form ps:contact --query {$lib.queue.gen(hehe).put($node.repr())}', opts={'view': view2})
 
                 opts = {'vars': {
                     'view0': view0,
@@ -1489,9 +1493,12 @@ class StormTest(s_t_utils.SynTest):
                 self.true(purl.startswith('tcp://root:****@127.0.0.1'))
 
                 self.eq(2, len(core.activecoros) - actv)
+                tasks = await core.callStorm('return($lib.ps.list())')
+                self.len(1, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await asyncio.sleep(2)
+                iden = await core.callStorm('return($lib.queue.gen(hehe).get(0))')
                 self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
 
                 # remove and ensure no replay on restart
@@ -1501,9 +1508,11 @@ class StormTest(s_t_utils.SynTest):
             conf = {'dmon:listen': f'tcp://127.0.0.1:{port}'}
             async with self.getTestCore(dirn=dirn, conf=conf) as core:
 
-                await asyncio.sleep(2)
-                # confirm we dont replay and get this back...
-                self.len(0, await core.nodes('ps:contact', opts={'view': view2}))
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                iden = await core.callStorm('return($lib.queue.gen(hehe).get(1))')
+
+                # confirm we dont replay and get the old one back...
+                self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
 
                 actv = len(core.activecoros)
                 # remove all pushes / pulls
