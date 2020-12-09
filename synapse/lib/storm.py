@@ -1349,6 +1349,11 @@ class Runtime:
         iden = self.snap.wlyr.iden
         return self.user.confirm(perms, gateiden=iden)
 
+    def isAdmin(self, gateiden=None):
+        if self.asroot:
+            return True
+        return self.user.isAdmin(gateiden=gateiden)
+
     def confirm(self, perms, gateiden=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
