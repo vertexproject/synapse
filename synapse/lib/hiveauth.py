@@ -854,8 +854,10 @@ class HiveUser(HiveRuler):
 
     def isAdmin(self, gateiden=None):
 
-        if gateiden is None:
-            return self.info.get('admin', False)
+        # being a global admin always wins
+        admin = self.info.get('admin', False)
+        if admin or gateiden is None:
+            return admin
 
         gateinfo = self.authgates.get(gateiden)
         if gateinfo is None:

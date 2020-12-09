@@ -735,3 +735,60 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
                         pass
+
+    async def test_cell_activecoro(self):
+
+        evt0 = asyncio.Event()
+        evt1 = asyncio.Event()
+        evt2 = asyncio.Event()
+        evt3 = asyncio.Event()
+        evt4 = asyncio.Event()
+
+        async def coro():
+            try:
+                evt0.set()
+                await evt1.wait()
+                evt2.set()
+                await evt3.wait()
+
+            except asyncio.CancelledError as e:
+                evt4.set()
+                raise
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+
+                # he'll start active...
+                iden = await cell.addActiveCoro(coro)
+
+                async def step():
+                    await asyncio.wait_for(evt0.wait(), timeout=2)
+
+                    # step him through...
+                    evt1.set()
+                    await asyncio.wait_for(evt2.wait(), timeout=2)
+
+                    evt0.clear()
+                    evt1.clear()
+                    evt3.set()
+
+                    await asyncio.wait_for(evt0.wait(), timeout=2)
+
+                await step()
+
+                # now deactivate and it gets cancelled
+                await cell.setCellActive(False)
+                await asyncio.wait_for(evt4.wait(), timeout=2)
+
+                evt0.clear()
+                evt1.clear()
+                evt2.clear()
+                evt3.clear()
+                evt4.clear()
+
+                # make him active post-init and confirm
+                await cell.setCellActive(True)
+                await step()
+
+                self.none(await cell.delActiveCoro(s_common.guid()))
