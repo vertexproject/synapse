@@ -2827,6 +2827,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if pushs is None:
             pushs = {}
 
+        # handle last-message replay
+        if pushs.get(iden) is not None:
+            return
+
         pushs[iden] = pdef
 
         await layr.layrinfo.set('pushs', pushs)
@@ -2865,6 +2869,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         pulls = view.info.get('pulls')
         if pulls is None:
             pulls = {}
+
+        # handle last-message replay
+        if pulls.get(iden) is not None:
+            return
 
         pulls[iden] = pdef
         await view.info.set('pulls', pulls)
