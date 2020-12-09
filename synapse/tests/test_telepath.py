@@ -184,11 +184,25 @@ class TeleTest(s_t_utils.SynTest):
         foo = Foo()
         evt = asyncio.Event()
 
+        urls = (
+            'aha://visi@foo.bar.com',
+            'ssl://visi@foo.bar.com?hostname=woot',
+            'aha://visi@127.0.0.1/foo/bar&hostname=hehe',
+            'ssl://127.0.0.1:2222/&hostname=hehe?ca=haha',
+            'tcp://visi:secret@localhost:2929/foo/bar&certname=hehe',
+        )
+
+        for url in urls:
+            self.eq(url, s_telepath.zipurl(s_telepath.chopurl(url)))
+
         async with self.getTestDmon() as dmon:
 
             dmon.share('foo', foo)
 
             await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
+
+            with self.raises(s_exc.BadArg):
+                await s_telepath.openurl(10)
 
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1])
 
