@@ -2600,7 +2600,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         del self.layers[iden]
 
-        for pdef in layr.layrinfo.get('pushes', {}).values():
+        for pdef in layr.layrinfo.get('pushs', {}).values():
             await self.delActiveCoro(pdef.get('iden'))
 
         await self.auth.delAuthGate(iden)
@@ -2911,7 +2911,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     raise
 
                 except Exception as e:
-                    logger.exception('pushBulkEdits fill() error: {e}')
+                    logger.exception(f'pushBulkEdits fill() error: {e}')
                     await queue.close()
 
             base.schedCoro(fill())

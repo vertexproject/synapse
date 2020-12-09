@@ -927,6 +927,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         task = cent.get('task')
         if task is not None:
             task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.warning(f'delActiveCoro Task: {e}')
 
     async def _fireActiveCoros(self):
         for iden, cdef in self.activecoros.items():
@@ -951,6 +957,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             task = cdef.pop('task', None)
             if task is not None:
                 task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    logger.warning(f'killActiveCoros Task: {e}')
 
     async def setCellActive(self, active):
         self.isactive = active

@@ -1531,7 +1531,33 @@ class StormTest(s_t_utils.SynTest):
                         }
                     }
                 ''')
-                self.eq(2, actv, len(core.activecoros))
+                self.eq(actv - 2, len(core.activecoros))
+                tasks = await core.callStorm('return($lib.ps.list())')
+                self.len(0, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
+
+                # add a push/pull and remove the view/layer to cancel it...
+                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/view/{view1}")', opts=opts)
+                await core.callStorm(f'$lib.view.get($view2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
+
+                await asyncio.sleep(0)
+
+                tasks = await core.callStorm('return($lib.ps.list())')
+                self.len(1, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
+                self.eq(actv, len(core.activecoros))
+
+                await core.callStorm('$lib.view.del($view0)', opts=opts)
+                await core.callStorm('$lib.view.del($view1)', opts=opts)
+                await core.callStorm('$lib.view.del($view2)', opts=opts)
+                await core.callStorm('$lib.layer.del($layr0)', opts=opts)
+                await core.callStorm('$lib.layer.del($layr1)', opts=opts)
+                await core.callStorm('$lib.layer.del($layr2)', opts=opts)
+
+                tasks = await core.callStorm('return($lib.ps.list())')
+                self.len(0, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
+                self.eq(actv - 2, len(core.activecoros))
 
                 # sneak a bit of coverage for the raw library in here...
                 self.none(await core.addLayrPush('newp', {}))
