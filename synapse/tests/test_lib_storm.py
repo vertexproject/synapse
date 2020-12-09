@@ -3,6 +3,7 @@ import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.storm as s_storm
@@ -1540,9 +1541,9 @@ class StormTest(s_t_utils.SynTest):
                 # this should fire the reader and exit cleanly when he explodes
                 await core._pushBulkEdits(LayrBork(), LayrBork(), fake)
 
-                async with s_telepath.openurl('tcp://root:secret@127.0.0.1:{port}/*/view'):
+                async with await s_telepath.openurl(f'tcp://root:secret@127.0.0.1:{port}/*/view'):
                     pass
 
                 with self.raises(s_exc.NoSuchPath):
-                    async with s_telepath.openurl('tcp://root:secret@127.0.0.1:{port}/*/newp'):
+                    async with await s_telepath.openurl(f'tcp://root:secret@127.0.0.1:{port}/*/newp'):
                         pass
