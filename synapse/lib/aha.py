@@ -12,6 +12,9 @@ logger = logging.getLogger(__file__)
 
 class AhaApi(s_cell.CellApi):
 
+    async def getAhaUrls(self):
+        return self.cell.conf.get('aha:urls', ())
+
     async def getAhaSvc(self, name):
         svcname, network = name.split('.', 1)
         await self._reqUserAllowed(('aha', 'service', 'get', network))
@@ -101,6 +104,13 @@ class AhaApi(s_cell.CellApi):
 class AhaCell(s_cell.Cell):
 
     cellapi = AhaApi
+    confdefs = {
+        'aha:urls': {
+            'description': 'A list of all available AHA server URLs.',
+            'type': ['string', 'array'],
+            'items': {'type': 'string'},
+        },
+    }
 
     async def initServiceStorage(self):
 

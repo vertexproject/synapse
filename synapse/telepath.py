@@ -19,6 +19,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.certdir as s_certdir
 import synapse.lib.threads as s_threads
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
 
@@ -32,14 +33,13 @@ async def addAhaUrl(url):
 
     NOTE: You may also add a list of redundant URLs.
     '''
-    if isinstance(url, list):
-        url = tuple(url)
+    hkey = s_hashitem.normitem(url)
 
-    info = aha_clients.get(url)
+    info = aha_clients.get(hkey)
     if info is None:
         client = await Client.anit(url)
         client._fini_atexit = True
-        info = aha_clients[url] = {'refs': 0, 'client': client}
+        info = aha_clients[hkey] = {'refs': 0, 'client': client}
 
     info['refs'] += 1
     return info.get('client')
@@ -50,10 +50,9 @@ async def delAhaUrl(url):
 
     NOTE: You may also remove a list of redundant URLs.
     '''
-    if isinstance(url, list):
-        url = tuple(url)
+    hkey = s_hashitem.normitem(url)
 
-    info = aha_clients.get(url)
+    info = aha_clients.get(hkey)
     if info is None:
         return 0
 
@@ -63,9 +62,58 @@ async def delAhaUrl(url):
 
     if refs == 0:
         await info.get('client').fini()
-        aha_clients.pop(url, None)
+        aha_clients.pop(hkey, None)
 
     return refs
+
+def zipurl(info):
+    '''
+    Reconstruct a URL string from a parsed telepath info dict.
+    '''
+    # copy to prevent mutation
+    info = dict(info)
+
+    host = info.pop('host', None)
+    port = info.pop('port', None)
+    path = info.pop('path', None)
+    user = info.pop('user', None)
+    passwd = info.pop('passwd', None)
+    scheme = info.pop('scheme', None)
+
+    url = f'{scheme}://'
+    if user:
+        url += user
+        if passwd:
+            url += f':{passwd}'
+        url += '@'
+
+    if host:
+        url += host
+        if port is not None:
+            url += f':{port}'
+
+    if path:
+        url += f'{path}'
+
+    if info:
+        params = '&'.join([f'{k}={v}' for (k, v) in info.items()])
+        url += f'?{params}'
+
+    return url
+
+def mergeAhaInfo(info0, info1):
+
+    # copy both to prevent mutation
+    info0 = dict(info0)
+    info1 = dict(info1)
+
+    # local path wins
+    info1.pop('path', None)
+
+    # upstream wins everything else
+    info0.update(info1)
+
+    return info0
 
 async def getAhaProxy(urlinfo):
     '''
@@ -90,13 +138,7 @@ async def getAhaProxy(urlinfo):
             if not svcinfo.get('online'):
                 continue
 
-            svcurlinfo = svcinfo.get('urlinfo', {})
-            # pop the path to let the local one win
-            svcurlinfo.pop('path')
-
-            info = urlinfo.copy()
-            info.pop('host', None)
-            info.update(svcurlinfo)
+            info = mergeAhaInfo(urlinfo, svcinfo.get('urlinfo', {}))
 
             return await openinfo(info)
 
@@ -1052,25 +1094,34 @@ async def openurl(url, **opts):
         async with await openurl(url) as proxy:
             valu = await proxy.getFooThing()
     '''
-    if url.find('://') == -1:
-        newurl = alias(url)
-        if newurl is None:
-            raise s_exc.BadUrl(mesg=f':// not found in [{url}] and no alias found!',
-                               url=url)
-        url = newurl
-
     info = chopurl(url, **opts)
     return await openinfo(info)
 
 def chopurl(url, **opts):
 
-    info = s_urlhelp.chopurl(url)
-    info.update(opts)
+    if isinstance(url, str):
+        if url.find('://') == -1:
+            newurl = alias(url)
+            if newurl is None:
+                raise s_exc.BadUrl(mesg=f':// not found in [{url}] and no alias found!',
+                                   url=url)
+            url = newurl
 
-    #flatten query params into info
-    query = info.pop('query', None)
-    if query is not None:
-        info.update(query)
+        info = s_urlhelp.chopurl(url)
+
+        #flatten query params into info
+        query = info.pop('query', None)
+        if query is not None:
+            info.update(query)
+
+    elif isinstance(url, dict):
+        info = dict(url)
+
+    else:
+        mesg = 'telepath.chopurl() requires a str or dict.'
+        raise s_exc.BadArg(mesg)
+
+    info.update(opts)
 
     return info
 
