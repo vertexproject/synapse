@@ -26,6 +26,10 @@ class StormlibModelTest(s_test.SynTest):
             self.eq('inet:dns:a:ipv4', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ipv4).full)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).form.name)'))
 
+            await core.addTagProp('score', ('int', {}), {})
+            self.eq('score', await core.callStorm('return($lib.model.tagprop(score).name)'))
+            self.eq('int', await core.callStorm('return($lib.model.tagprop(score).type.name)'))
+
     async def test_stormlib_model_edge(self):
 
         with self.getTestDir() as dirn:
