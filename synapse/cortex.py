@@ -2893,20 +2893,24 @@ class Cortex(s_cell.Cell):  # type: ignore
         url = pdef.get('url')
         iden = pdef.get('iden')
         # push() will refire as needed
+
         async def push():
             async with await self.boss.promote(f'layer push: {layr.iden} {iden}', self.auth.rootuser) as task:
                 async with await s_telepath.openurl(url) as proxy:
                     await self._pushBulkEdits(layr, proxy, pdef)
+
         await self.addActiveCoro(push, iden=iden)
 
     async def runViewPull(self, view, pdef):
         url = pdef.get('url')
         iden = pdef.get('iden')
         # pull() will refire as needed
+
         async def pull():
             async with await self.boss.promote(f'view pull: {view.iden} {iden}', self.auth.rootuser) as task:
                 async with await s_telepath.openurl(url) as proxy:
                     await self._pushBulkEdits(proxy, view, pdef)
+
         await self.addActiveCoro(pull, iden=iden)
 
     async def _pushBulkEdits(self, layr0, layr1, pdef):
@@ -2919,6 +2923,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         async with await s_base.Base.anit() as base:
 
             queue = s_queue.Queue(maxsize=10000)
+
             async def fill():
 
                 try:

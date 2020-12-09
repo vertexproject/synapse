@@ -3255,7 +3255,7 @@ class Layer(Prim):
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
 
-        async with await s_telepath.openurl(url) as proxy:
+        async with await s_telepath.openurl(url):
             pass
 
         pdef = {
@@ -3550,7 +3550,7 @@ class View(Prim):
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
 
-        async with await s_telepath.openurl(url) as proxy:
+        async with await s_telepath.openurl(url):
             pass
 
         pdef = {

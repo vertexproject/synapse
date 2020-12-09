@@ -906,6 +906,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning(f'_setAhaActive failed: {e}')
 
     async def addActiveCoro(self, func, iden=None):
+        '''
+        Add a function callback to be run as a coroutine when the Cell is active.
+
+        Args:
+            func (coroutine function): The function run as a coroutine.
+            iden (str): The iden to use for the coroutine.
+
+        Returns:
+            str: A GUID string that identifies the coroutine for delActiveCoro()
+
+        NOTE:
+            This will re-fire the coroutine if it exits and the Cell is still active.
+        '''
 
         if iden is None:
             iden = s_common.guid()
@@ -919,6 +932,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return iden
 
     async def delActiveCoro(self, iden):
+        '''
+        Remove a callback previously added with addActiveCoro().
+
+        Args:
+            iden (str): The GUID returned by addActiveCoro()
+        '''
 
         cent = self.activecoros.pop(iden, None)
         if cent is None:
@@ -953,7 +972,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         cdef['task'] = self.schedCoro(wrap())
 
     async def _killActiveCoros(self):
-        for iden, cdef in self.activecoros.items():
+        for cdef in self.activecoros.values():
             task = cdef.pop('task', None)
             if task is not None:
                 task.cancel()
