@@ -23,6 +23,11 @@ reqValidRules = s_config.getJsValidator({
     }
 })
 
+def getShadow(passwd):
+    salt = s_common.guid()
+    hashed = s_common.guid((salt, passwd))
+    return (salt, hashed)
+
 class Auth(s_nexus.Pusher):
     '''
     Auth is a user authentication and authorization stored in a Hive.  Users
@@ -915,9 +920,8 @@ class HiveUser(HiveRuler):
         # Prevent empty string or non-string values
         if not passwd or not isinstance(passwd, str):
             raise s_exc.BadArg(mesg='Password must be a string')
-        salt = s_common.guid()
-        hashed = s_common.guid((salt, passwd))
+        shadow = getShadow(passwd)
         if nexs:
-            await self.auth.setUserInfo(self.iden, 'passwd', (salt, hashed))
+            await self.auth.setUserInfo(self.iden, 'passwd', shadow)
         else:
-            await self.auth._hndlsetUserInfo(self.iden, 'passwd', (salt, hashed))
+            await self.auth._hndlsetUserInfo(self.iden, 'passwd', shadow)

@@ -12,6 +12,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.hiveauth as s_hiveauth
 
 logger = logging.getLogger(__name__)
 
@@ -901,10 +902,8 @@ class OnePassIssueV1(Handler):
         if user is None:
             return self.sendRestErr('NoSuchUser', 'The user iden does not exist.')
 
-        salt = s_common.guid()
         passwd = s_common.guid()
-        hashed = s_common.guid((salt, passwd))
-
+        salt, hashed = s_hiveauth.getShadow(passwd)
         onepass = (s_common.now() + duration, salt, hashed)
 
         await self.cell.auth.setUserInfo(useriden, 'onepass', onepass)
