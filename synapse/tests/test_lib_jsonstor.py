@@ -88,3 +88,6 @@ class JsonStorTest(s_test.SynTest):
                     self.none(await prox.getPathObj('foo/bar'))
                     await prox.delPathObj('foo/baz')
                     self.none(await prox.getPathObj('foo/bar'))
+
+                    self.true(await prox.delQueue('hehe'))
+                    self.false(await prox.delQueue('hehe'))
