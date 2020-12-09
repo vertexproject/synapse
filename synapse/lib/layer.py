@@ -2236,13 +2236,16 @@ class Layer(s_nexus.Pusher):
     async def iterTagRows(self, tag, form=None, starttupl=None):
         '''
         Args:
+            tag(str): the tag to match
+            form(Optional[str]):  if present, only yields buids of nodes that match the form
             starttupl(Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there
 
         Returns:
             AsyncIterator[Tuple(buid, (valu, form))]
 
-        Note: This yields (buid, (valu, form)) instead of just buid, valu in order to allow resuming an interrupted
-        call by feeding the last value retrieved into starttupl
+        Note:
+            This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
+            call by feeding the last value retrieved into starttupl
         '''
         try:
             indxby = IndxByTag(self, form, tag)
@@ -2280,8 +2283,13 @@ class Layer(s_nexus.Pusher):
 
     async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''
+        Yields (buid, valu) that match a tag:prop
+
         Args:
             form:  may be None
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
         '''
         try:
             indxby = IndxByTagProp(self, form, tag, prop)
