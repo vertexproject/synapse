@@ -1465,6 +1465,7 @@ class StormTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
 
                 visi = await core.auth.addUser('visi')
+                await visi.setPasswd('secret')
 
                 await core.auth.rootuser.setPasswd('secret')
                 host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
@@ -1559,6 +1560,10 @@ class StormTest(s_t_utils.SynTest):
                 self.len(0, [t for t in tasks if t.get('name').startswith('view pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
 
+                # code coverage for push/pull dict exists but has no entries
+                self.none(await core.callStorm('return($lib.view.get($view2).delPull($lib.guid()))', opts=opts))
+                self.none(await core.callStorm('return($lib.layer.get($layr0).delPush($lib.guid()))', opts=opts))
+
                 # add a push/pull and remove the view/layer to cancel it...
                 await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/view/{view1}")', opts=opts)
                 await core.callStorm(f'$lib.view.get($view2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
@@ -1606,6 +1611,15 @@ class StormTest(s_t_utils.SynTest):
                 self.none(await core.delViewPull(core.getView().iden, 'newp'))
                 self.none(await core.delLayrPush(core.getView().layers[0].iden, 'newp'))
 
+                async with await s_telepath.openurl(f'tcp://visi:secret@127.0.0.1:{port}/*/view') as proxy:
+                    self.eq(core.getView().iden, await proxy.getCellIden())
+                    with self.raises(s_exc.AuthDeny):
+                        await proxy.storNodeEdits((), {})
+
+                with self.raises(s_exc.NoSuchPath):
+                    async with await s_telepath.openurl(f'tcp://root:secret@127.0.0.1:{port}/*/newp'):
+                        pass
+
                 class LayrBork:
                     async def syncNodeEdits(self, offs, wait=True):
                         if False: yield None
@@ -1614,10 +1628,3 @@ class StormTest(s_t_utils.SynTest):
                 fake = {'iden': s_common.guid(), 'user': s_common.guid()}
                 # this should fire the reader and exit cleanly when he explodes
                 await core._pushBulkEdits(LayrBork(), LayrBork(), fake)
-
-                async with await s_telepath.openurl(f'tcp://root:secret@127.0.0.1:{port}/*/view'):
-                    pass
-
-                with self.raises(s_exc.NoSuchPath):
-                    async with await s_telepath.openurl(f'tcp://root:secret@127.0.0.1:{port}/*/newp'):
-                        pass

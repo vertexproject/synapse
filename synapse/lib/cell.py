@@ -961,7 +961,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     await task
                 except asyncio.CancelledError:
                     pass
-                except Exception as e:
+                except Exception as e: # pragma: no cover
                     logger.warning(f'killActiveCoros Task: {e}')
 
     async def setCellActive(self, active):

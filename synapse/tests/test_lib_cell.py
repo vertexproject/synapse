@@ -735,3 +735,5 @@ class CellTest(s_t_utils.SynTest):
                 # make him active post-init and confirm
                 await cell.setCellActive(True)
                 await step()
+
+                self.none(await cell.delActiveCoro(s_common.guid()))
