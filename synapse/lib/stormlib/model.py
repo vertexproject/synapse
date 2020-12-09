@@ -178,6 +178,7 @@ class LibModel(s_stormtypes.Lib):
             'type': self._methType,
             'prop': self._methProp,
             'form': self._methForm,
+            'tagprop': self._methTagProp,
         }
 
     @s_cache.memoize(size=100)
@@ -224,6 +225,21 @@ class LibModel(s_stormtypes.Lib):
         form = self.model.form(name)
         if form is not None:
             return ModelForm(form)
+
+    @s_cache.memoize(size=100)
+    async def _methTagProp(self, name):
+        '''
+        Get a ModelTagProp by name.
+
+        Args:
+            name (str): The name of the tag property to retrieve.
+
+        Returns:
+            ModelTagProp: A Storm ModelTagProp object.
+        '''
+        tagprop = self.model.getTagProp(name)
+        if tagprop is not None:
+            return ModelTagProp(tagprop)
 
 @s_stormtypes.registry.registerType
 class ModelForm(s_stormtypes.Prim):
@@ -277,6 +293,24 @@ class ModelProp(s_stormtypes.Prim):
 
     def _ctorPropForm(self, path=None):
         return ModelForm(self.valu.form, path=path)
+
+@s_stormtypes.registry.registerType
+class ModelTagProp(s_stormtypes.Prim):
+
+    def __init__(self, tagprop, path=None):
+
+        s_stormtypes.Prim.__init__(self, tagprop, path=path)
+
+        self.locls.update({
+            'name': tagprop.name,
+        })
+
+        self.ctors.update({
+            'type': self._ctorTagPropType,
+        })
+
+    def _ctorTagPropType(self, path=None):
+        return ModelType(self.valu.type, path=path)
 
 @s_stormtypes.registry.registerType
 class ModelType(s_stormtypes.Prim):
