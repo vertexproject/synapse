@@ -5,6 +5,35 @@ Synapse Changelog
 *****************
 
 
+v2.14.0 - 2020-12-09
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``/api/v1/active`` HTTPAPI to the Cell that can be used as an
+  unauthenticated liveliness check.
+  (`#1987 <https://github.com/vertexproject/synapse/pull/1987>`_)
+- Add ``$lib.pip.gen()`` Stormtypes API for ephemeral queues and bulk data
+  access in Storm.
+  (`#1986 <https://github.com/vertexproject/synapse/pull/1986>`_)
+- Add a ``$lib.model.tagprop()`` Stormtypes API for retrieving Tagprop
+  definitions.
+  (`#1990 <https://github.com/vertexproject/synapse/pull/1990>`_)
+- Add efficient View and Layer push/pull configurations.
+  (`#1991 <https://github.com/vertexproject/synapse/pull/1991>`_)
+- Add ``getAhaUrls()`` to the Aha service to prepare for additional
+  service discovery.
+  (`#1989 <https://github.com/vertexproject/synapse/pull/1989>`_)
+- Add a ``/api/v1/auth/onepass/issue`` HTTPAPI for an admin to mint a
+  one-time password for a Cell user.
+  (`#1982 <https://github.com/vertexproject/synapse/pull/1982>`_)
+
+Bugfixes
+--------
+- Make ``aha://`` urls honor local paths.
+  (`#1985 <https://github.com/vertexproject/synapse/pull/1985>`_)
+
+
 v2.13.0 - 2020-12-04
 ====================
 
