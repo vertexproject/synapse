@@ -19,6 +19,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.certdir as s_certdir
 import synapse.lib.threads as s_threads
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ async def addAhaUrl(url):
 
     NOTE: You may also add a list of redundant URLs.
     '''
-    hkey = s_common.hashable(url)
+    hkey = s_hashitem.normitem(url)
 
     info = aha_clients.get(hkey)
     if info is None:
@@ -49,7 +50,7 @@ async def delAhaUrl(url):
 
     NOTE: You may also remove a list of redundant URLs.
     '''
-    hkey = s_common.hashable(url)
+    hkey = s_hashitem.normitem(url)
 
     info = aha_clients.get(hkey)
     if info is None:
