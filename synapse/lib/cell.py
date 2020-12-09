@@ -941,7 +941,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
-                    logger.exception('activeCoro Error')
+                    logger.warning(f'activeCoro Error: {func} {e}')
+                    await asyncio.sleep(1)
 
         cdef['task'] = self.schedCoro(wrap())
 

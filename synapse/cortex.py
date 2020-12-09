@@ -2771,7 +2771,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate(layr.iden, 'layer')
 
-        for pdef in layrinfo.get('pushes', {}).values():
+        for pdef in layrinfo.get('pushs', {}).values():
             await self.runLayrPush(layr, pdef)
 
         await self.bumpSpawnPool()
@@ -2850,7 +2850,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         pulls[iden] = pdef
         await view.info.set('pulls', pulls)
 
-        #await layr.setBulkOffs(iden, offs)
         await self.runViewPull(view, pdef)
 
     @s_nexus.Pusher.onPushAuto('view:pull:del')
@@ -2902,8 +2901,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             async def fill():
 
                 try:
-                    offs = await self.getStormVar(gvar, 0)
-                    async for item in layr0.syncNodeEdits(offs, wait=True):
+                    offs = await self.getStormVar(gvar, -1)
+                    async for item in layr0.syncNodeEdits(offs + 1, wait=True):
                         await queue.put(item)
 
                 except asyncio.CancelledError: # pragma: no cover

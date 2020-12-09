@@ -1477,9 +1477,12 @@ class StormTest(s_t_utils.SynTest):
                     'layr1': layr1,
                     'layr2': layr2,
                 }}
+                actv = len(core.activecoros)
                 #view0 -push-> view1 <-pull- view2
                 await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/view/{view1}")', opts=opts)
                 await core.callStorm(f'$lib.view.get($view2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
+
+                self.eq(2, len(core.activecoros) - actv)
 
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
                 await asyncio.sleep(2)
@@ -1487,6 +1490,30 @@ class StormTest(s_t_utils.SynTest):
 
                 # remove and ensure no replay on restart
                 await core.nodes('ps:contact | delnode', opts={'view': view2})
-
-            async with self.getTestCore(dirn=dirn) as core:
                 self.len(0, await core.nodes('ps:contact', opts={'view': view2}))
+
+            conf = {'dmon:listen': f'tcp://127.0.0.1:{port}'}
+            async with self.getTestCore(dirn=dirn, conf=conf) as core:
+
+                await asyncio.sleep(2)
+                # confirm we dont replay and get this back...
+                self.len(0, await core.nodes('ps:contact', opts={'view': view2}))
+
+                actv = len(core.activecoros)
+                # remove all pushes / pulls
+                await core.callStorm('''
+                    for $view in $lib.view.list() {
+                        $pulls = $view.get(pulls)
+                        if $pulls {
+                            for ($iden, $pdef) in $pulls { $view.delPull($iden) }
+                        }
+                    }
+
+                    for $layr in $lib.layer.list() {
+                        $pushs = $layr.get(pushs)
+                        if $pushs {
+                            for ($iden, $pdef) in $pushs { $layr.delPush($iden) }
+                        }
+                    }
+                ''')
+                self.eq(2, actv, len(core.activecoros))
