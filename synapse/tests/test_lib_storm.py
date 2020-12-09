@@ -1463,6 +1463,9 @@ class StormTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
+
+                visi = await core.auth.addUser('visi')
+
                 await core.auth.rootuser.setPasswd('secret')
                 host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
 
@@ -1482,6 +1485,26 @@ class StormTest(s_t_utils.SynTest):
                     'layr1': layr1,
                     'layr2': layr2,
                 }}
+
+                # lets get some auth denies...
+                async with core.getLocalProxy(user='visi') as asvisi:
+
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.layer.get($layr0).addPush(hehe)', opts=opts)
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.layer.get($layr0).delPush(hehe)', opts=opts)
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.view.get($view2).addPull(hehe)', opts=opts)
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.view.get($view2).delPull(hehe)', opts=opts)
+
+                    # pulls require admin on both the view *and* the layer
+                    await visi.setAdmin(True, gateiden=view2)
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.view.get($view2).addPull(hehe)', opts=opts)
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.view.get($view2).delPull(hehe)', opts=opts)
+
                 actv = len(core.activecoros)
                 #view0 -push-> view1 <-pull- view2
                 await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/view/{view1}")', opts=opts)
@@ -1559,9 +1582,20 @@ class StormTest(s_t_utils.SynTest):
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv - 2, len(core.activecoros))
 
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addLayrPush('newp', {})
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addViewPull('newp', {})
+
                 # sneak a bit of coverage for the raw library in here...
-                self.none(await core.addLayrPush('newp', {}))
-                self.none(await core.addViewPull('newp', {}))
+                fake = {
+                    'time': s_common.now(),
+                    'iden': s_common.guid(),
+                    'user': s_common.guid(),
+                    'url': 'tcp://localhost',
+                }
+                self.none(await core.addLayrPush('newp', fake))
+                self.none(await core.addViewPull('newp', fake))
 
                 self.none(await core.delViewPull('newp', 'newp'))
                 self.none(await core.delViewPull(view0, 'newp'))

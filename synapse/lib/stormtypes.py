@@ -3231,8 +3231,26 @@ class Layer(Prim):
         }
 
     async def _addPush(self, url, offs=0):
+        '''
+        Configure the layer to push edits to a remote layer/view/feed.
+
+        Args:
+            url (str): A telepath URL of the target layer/view/feed.
+            offs (int): The local layer offset to begin pushing from (default: 0).
+
+        Perms:
+            - admin privs are required on the layer.
+            - lib.telepath.open.<scheme>
+        '''
         url = await tostr(url)
         offs = await toint(offs)
+
+        useriden = self.runt.user.iden
+        layriden = self.valu.get('iden')
+
+        if not self.runt.isAdmin(gateiden=layriden):
+            mesg = '$layer.addPush() requires admin privs on the layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
 
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
@@ -3240,26 +3258,32 @@ class Layer(Prim):
         async with await s_telepath.openurl(url) as proxy:
             pass
 
-        useriden = self.runt.user.iden
-        layriden = self.valu.get('iden')
-
-        gatekeys = (
-            (useriden, ('layer', 'read',), layriden),
-        )
-
         pdef = {
             'url': url,
             'offs': offs,
             'user': useriden,
+            'time': s_common.now(),
             'iden': s_common.guid(),
         }
         todo = s_common.todo('addLayrPush', layriden, pdef)
-        await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.runt.dyncall('cortex', todo)
 
     async def _delPush(self, iden):
+        '''
+        Remove a push config from the layer.
+        Args:
+            iden (str): The GUID of the push config to remove.
+
+        Perms:
+            - admin privs are required on the layer.
+        '''
         iden = await tostr(iden)
-        # TODO WTF PERM?
         layriden = self.valu.get('iden')
+
+        if not self.runt.isAdmin(gateiden=layriden):
+            mesg = '$layer.delPush() requires admin privs on the layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
         todo = s_common.todo('delLayrPush', layriden, iden)
         await self.runt.dyncall('cortex', todo)
 
@@ -3498,26 +3522,33 @@ class View(Prim):
 
     async def _addPull(self, url, offs=0):
         '''
-        Add a managed pull configuration to the View.
-        This uses a telelpath connection to the remote layer/view
-        to mirror node edits and fire appropriate triggers.
+        Configure the view to pull edits from a remote layer/view/feed.
 
         Args:
-            url (str): The telepath URL to a layer/feed.
+            url (str): The telepath URL to a layer/view/feed.
             offs (int): The (optional) offset to begin from.
+
+        Perms:
+            - admin privs are required on both the view and the top layer.
+            - lib.telepath.open.<scheme>
         '''
         url = await tostr(url)
         offs = await toint(offs)
 
-        scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
-
-        # ensure the user may make *any* node edits
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
         layriden = self.valu.get('layers')[0].get('iden')
 
-        self.runt.confirm(('node',), gateiden=layriden)
+        if not self.runt.isAdmin(gateiden=viewiden):
+            mesg = '$view.addPull() requires admin privs on the view.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        if not self.runt.isAdmin(gateiden=layriden):
+            mesg = '$view.addPull() requires admin privs on the top layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        scheme = url.split('://')[0]
+        self.runt.confirm(('lib', 'telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url) as proxy:
             pass
@@ -3526,15 +3557,34 @@ class View(Prim):
             'url': url,
             'offs': offs,
             'user': useriden,
+            'time': s_common.now(),
             'iden': s_common.guid(),
         }
         todo = s_common.todo('addViewPull', viewiden, pdef)
         await self.runt.dyncall('cortex', todo)
 
     async def _delPull(self, iden):
+        '''
+        Remove a pull config from the view.
+        Args:
+            iden (str): The GUID of the push config to remove.
+
+        Perms:
+            - admin privs are required on both the view and the top layer.
+        '''
         iden = await tostr(iden)
-        # TODO WTF PERM?
+
         viewiden = self.valu.get('iden')
+        layriden = self.valu.get('layers')[0].get('iden')
+
+        if not self.runt.isAdmin(gateiden=viewiden):
+            mesg = '$view.delPull() requires admin privs on the view.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        if not self.runt.isAdmin(gateiden=layriden):
+            mesg = '$view.delPull() requires admin privs on the top layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
         todo = s_common.todo('delViewPull', viewiden, iden)
         await self.runt.dyncall('cortex', todo)
 

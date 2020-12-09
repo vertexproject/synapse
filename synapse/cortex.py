@@ -26,6 +26,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
+import synapse.lib.config as s_config
 import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
@@ -56,6 +57,21 @@ A Cortex implements the synapse hypergraph object.
 '''
 
 reqver = '>=0.2.0,<3.0.0'
+
+# push/pull def
+reqValidPush = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'url': {'type': 'string'},
+        'time': {'type': 'number'},
+        'offs': {'type': 'number'},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'url', 'user', 'time'],
+})
+reqValidPull = reqValidPush
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -2799,7 +2815,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):
 
-        # TODO: schema validation pdef
+        reqValidPush(pdef)
+
         iden = pdef.get('iden')
 
         layr = self.layers.get(layriden)
@@ -2835,6 +2852,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('view:pull:add')
     async def addViewPull(self, viewiden, pdef):
+
+        reqValidPull(pdef)
 
         # TODO: schema validation
         iden = pdef.get('iden')
