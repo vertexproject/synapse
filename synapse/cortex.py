@@ -2909,7 +2909,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     raise
 
                 except Exception as e:
-                    logger.exception('runLayrPush fill() error: {e}')
+                    logger.exception('pushBulkEdits fill() error: {e}')
                     await queue.close()
 
             base.schedCoro(fill())

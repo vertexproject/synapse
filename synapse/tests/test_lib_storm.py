@@ -1517,3 +1517,32 @@ class StormTest(s_t_utils.SynTest):
                     }
                 ''')
                 self.eq(2, actv, len(core.activecoros))
+
+                # sneak a bit of coverage for the raw library in here...
+                self.none(await core.addLayrPush('newp', {}))
+                self.none(await core.addViewPull('newp', {}))
+
+                self.none(await core.delViewPull('newp', 'newp'))
+                self.none(await core.delViewPull(view0, 'newp'))
+                self.none(await core.delLayrPush('newp', 'newp'))
+                self.none(await core.delLayrPush(layr0, 'newp'))
+
+                # main view/layer have None for pulls/pushs
+                self.none(await core.delViewPull(core.getView().iden, 'newp'))
+                self.none(await core.delLayrPush(core.getView().layers[0].iden, 'newp'))
+
+                class LayrBork:
+                    async def syncNodeEdits(self, offs, wait=True):
+                        if False: yield None
+                        raise s_exc.SynErr()
+
+                fake = {'iden': s_common.guid(), 'user': s_common.guid()}
+                # this should fire the reader and exit cleanly when he explodes
+                await core._pushBulkEdits(LayrBork(), LayrBork(), fake)
+
+                async with s_telepath.openurl('tcp://root:secret@127.0.0.1:{port}/*/view'):
+                    pass
+
+                with self.raises(s_exc.NoSuchPath):
+                    async with s_telepath.openurl('tcp://root:secret@127.0.0.1:{port}/*/newp'):
+                        pass
