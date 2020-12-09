@@ -990,7 +990,7 @@ class LayerTest(s_t_utils.SynTest):
                                         ('foo.bar', ival), ()))
             self.eq(events, [expectadd, expectdel])
 
-            mdef = {'tagprops': ['mytag:score']}
+            mdef = {'tagprops': ['score']}
             events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
             self.len(2, events)
             expectadd = (baseoff + 6, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,

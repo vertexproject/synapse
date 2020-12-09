@@ -2630,7 +2630,7 @@ class Layer(s_nexus.Pusher):
             forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
             props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
             tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
-            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be in tag:prop format with no #.
+            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop.
 
         Note:
             Will not yield any values if this layer was not created with logedits enabled
@@ -2639,7 +2639,7 @@ class Layer(s_nexus.Pusher):
         formm = set(matchdef.get('forms', ()))
         propm = set(matchdef.get('props', ()))
         tagm = set(matchdef.get('tags', ()))
-        tagpropm = set(tuple(tp.split(':', 1)) for tp in matchdef.get('tagprops', ()))
+        tagpropm = set(matchdef.get('tagprops', ()))
         count = 0
 
         async for curoff, editses in self.syncNodeEdits(offs, wait=wait):
@@ -2649,7 +2649,7 @@ class Layer(s_nexus.Pusher):
                             or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL) and (vals[0] in propm
                                                                             or f'{form}:{vals[0]}' in propm))
                             or (etyp in (EDIT_TAG_SET, EDIT_TAG_DEL) and vals[0] in tagm)
-                            or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL) and (vals[0], vals[1]) in tagpropm)):
+                            or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL) and vals[1] in tagpropm)):
 
                         yield (curoff, (buid, form, etyp, vals, meta))
 
