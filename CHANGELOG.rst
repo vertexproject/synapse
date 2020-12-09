@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.14.0 - 2020-12-09
+v2.14.1 - 2020-12-09
 ====================
 
 Features and Enhancements
@@ -21,6 +21,7 @@ Features and Enhancements
   (`#1990 <https://github.com/vertexproject/synapse/pull/1990>`_)
 - Add efficient View and Layer push/pull configurations.
   (`#1991 <https://github.com/vertexproject/synapse/pull/1991>`_)
+  (`#1992 <https://github.com/vertexproject/synapse/pull/1992>`_)
 - Add ``getAhaUrls()`` to the Aha service to prepare for additional
   service discovery.
   (`#1989 <https://github.com/vertexproject/synapse/pull/1989>`_)
@@ -32,6 +33,12 @@ Bugfixes
 --------
 - Make ``aha://`` urls honor local paths.
   (`#1985 <https://github.com/vertexproject/synapse/pull/1985>`_)
+
+
+v2.14.0 - 2020-12-09
+====================
+
+``2.14.0`` was not published due to CI issues.
 
 
 v2.13.0 - 2020-12-04
