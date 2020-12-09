@@ -1483,6 +1483,11 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/view/{view1}")', opts=opts)
                 await core.callStorm(f'$lib.view.get($view2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
 
+                purl = await core.callStorm('for ($iden, $pdef) in $lib.view.get($view2).get(pulls) { return($pdef.url) }', opts=opts)
+                self.true(purl.startswith('tcp://root:****@127.0.0.1'))
+                purl = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr0).get(pushs) { return($pdef.url) }', opts=opts)
+                self.true(purl.startswith('tcp://root:****@127.0.0.1'))
+
                 self.eq(2, len(core.activecoros) - actv)
 
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})

@@ -2915,11 +2915,21 @@ class Cortex(s_cell.Cell):  # type: ignore
             base.schedCoro(fill())
 
             async for chunk in queue.slices():
-                edits = []
-                [edits.extend(e) for (o, e) in chunk]
+
                 meta = {'time': s_common.now(), 'user': user}
-                await layr1.storNodeEdits(edits, meta)
-                await self.setStormVar(gvar, chunk[-1][0])
+
+                alledits = []
+                for offs, edits in chunk:
+                    # prevent push->push->push nodeedits growth
+                    alledits.extend(edits)
+                    if len(alledits) > 1000:
+                        await layr1.storNodeEdits(edits, meta)
+                        await self.setStormVar(gvar, offs)
+                        alledits.clear()
+
+                if alledits:
+                    await layr1.storNodeEdits(edits, meta)
+                    await self.setStormVar(gvar, offs)
 
     async def _checkNexsIndx(self):
         layroffs = [await layr.getNodeEditOffset() for layr in self.layers.values()]
