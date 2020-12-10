@@ -2106,7 +2106,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             yield item
 
     async def syncLayersEvents(self, offsdict=None, wait=True):
-        # syncLayersEvents - rename
         '''
         Yield (offs, layriden, STYP, item, meta) tuples for nodeedits for *all* layers, interspersed with add/del
         layer messages.
