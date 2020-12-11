@@ -26,6 +26,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
+import synapse.lib.config as s_config
 import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
@@ -62,6 +63,21 @@ SYNC_NODEEDITS = 0  # A nodeedits:     (<offs>, 0, <etyp>, (<etype args>), {<met
 SYNC_NODEEDIT = 1   # A nodeedit:     (<offs>, 0, <etyp>, (<etype args>))
 SYNC_LAYR_ADD = 3   # A layer was added
 SYNC_LAYR_DEL = 4   # A layer was deleted
+
+# push/pull def
+reqValidPush = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'url': {'type': 'string'},
+        'time': {'type': 'number'},
+        'offs': {'type': 'number'},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'url', 'user', 'time'],
+})
+reqValidPull = reqValidPush
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -859,6 +875,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     }
 
     cellapi = CoreApi
+    viewapi = s_view.ViewApi
     layerapi = s_layer.LayerApi
     hiveapi = s_hive.HiveApi
 
@@ -2486,6 +2503,18 @@ class Cortex(s_cell.Cell):  # type: ignore
 
                 return await self.layerapi.anit(self, link, user, layr)
 
+        if path[0] == 'view':
+
+            view = None
+            if len(path) == 1:
+                view = self.getView(user=user)
+
+            elif len(path) == 2:
+                view = self.getView(path[1], user=user)
+
+            if view is not None:
+                return await self.viewapi.anit(self, link, user, view)
+
         raise s_exc.NoSuchPath(path=path)
 
     async def getModelDict(self):
@@ -2663,6 +2692,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             view = await self._loadView(node)
             if iden == defiden:
                 self.view = view
+            for pdef in view.info.get('pulls', {}).values():
+                await self.runViewPull(view, pdef)
 
         for view in self.views.values():
             view.init2()
@@ -2766,6 +2797,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             if cview.parent is not None and cview.parent.iden == iden:
                 raise s_exc.SynErr(mesg='Cannot delete a view that has children')
 
+        for pdef in view.info.get('pulls', {}).values():
+            await self.delActiveCoro(pdef.get('iden'))
+
         await self.hive.pop(('cortex', 'views', iden))
         await view.delete()
 
@@ -2791,6 +2825,9 @@ class Cortex(s_cell.Cell):  # type: ignore
                 raise s_exc.LayerInUse(iden=iden)
 
         del self.layers[iden]
+
+        for pdef in layr.layrinfo.get('pushs', {}).values():
+            await self.delActiveCoro(pdef.get('iden'))
 
         await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
@@ -2966,6 +3003,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate(layr.iden, 'layer')
 
+        for pdef in layrinfo.get('pushs', {}).values():
+            await self.runLayrPush(layr, pdef)
+
         await self.bumpSpawnPool()
 
         await self.fire('core:layr:add', iden=layr.iden)
@@ -2989,6 +3029,160 @@ class Cortex(s_cell.Cell):  # type: ignore
         for _, node in node:
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)
+
+    @s_nexus.Pusher.onPushAuto('layer:push:add')
+    async def addLayrPush(self, layriden, pdef):
+
+        reqValidPush(pdef)
+
+        iden = pdef.get('iden')
+
+        layr = self.layers.get(layriden)
+        if layr is None:
+            return
+
+        pushs = layr.layrinfo.get('pushs')
+        if pushs is None:
+            pushs = {}
+
+        # handle last-message replay
+        if pushs.get(iden) is not None:
+            return
+
+        pushs[iden] = pdef
+
+        await layr.layrinfo.set('pushs', pushs)
+        await self.runLayrPush(layr, pdef)
+
+    @s_nexus.Pusher.onPushAuto('layer:push:del')
+    async def delLayrPush(self, layriden, pushiden):
+
+        layr = self.layers.get(layriden)
+        if layr is None:
+            return
+
+        pushs = layr.layrinfo.get('pushs')
+        if pushs is None:
+            return
+
+        pdef = pushs.pop(pushiden, None)
+        if pdef is None:
+            return
+
+        await layr.layrinfo.set('pushs', pushs)
+        await self.delActiveCoro(pushiden)
+
+    @s_nexus.Pusher.onPushAuto('view:pull:add')
+    async def addViewPull(self, viewiden, pdef):
+
+        reqValidPull(pdef)
+
+        # TODO: schema validation
+        iden = pdef.get('iden')
+
+        view = self.views.get(viewiden)
+        if view is None:
+            return
+
+        pulls = view.info.get('pulls')
+        if pulls is None:
+            pulls = {}
+
+        # handle last-message replay
+        if pulls.get(iden) is not None:
+            return
+
+        pulls[iden] = pdef
+        await view.info.set('pulls', pulls)
+
+        await self.runViewPull(view, pdef)
+
+    @s_nexus.Pusher.onPushAuto('view:pull:del')
+    async def delViewPull(self, viewiden, pulliden):
+
+        view = self.views.get(viewiden)
+        if view is None:
+            return
+
+        pulls = view.info.get('pulls')
+        if pulls is None:
+            return
+
+        pdef = pulls.pop(pulliden, None)
+        if pdef is None:
+            return
+
+        await view.info.set('pulls', pulls)
+        await self.delActiveCoro(pulliden)
+
+    async def runLayrPush(self, layr, pdef):
+        url = pdef.get('url')
+        iden = pdef.get('iden')
+        # push() will refire as needed
+
+        async def push():
+            async with await self.boss.promote(f'layer push: {layr.iden} {iden}', self.auth.rootuser):
+                async with await s_telepath.openurl(url) as proxy:
+                    await self._pushBulkEdits(layr, proxy, pdef)
+
+        await self.addActiveCoro(push, iden=iden)
+
+    async def runViewPull(self, view, pdef):
+        url = pdef.get('url')
+        iden = pdef.get('iden')
+        # pull() will refire as needed
+
+        async def pull():
+            async with await self.boss.promote(f'view pull: {view.iden} {iden}', self.auth.rootuser):
+                async with await s_telepath.openurl(url) as proxy:
+                    await self._pushBulkEdits(proxy, view, pdef)
+
+        await self.addActiveCoro(pull, iden=iden)
+
+    async def _pushBulkEdits(self, layr0, layr1, pdef):
+
+        iden = pdef.get('iden')
+        user = pdef.get('user')
+
+        gvar = f'push:{iden}'
+
+        async with await s_base.Base.anit() as base:
+
+            queue = s_queue.Queue(maxsize=10000)
+
+            async def fill():
+
+                try:
+                    offs = await self.getStormVar(gvar, -1)
+                    async for item in layr0.syncNodeEdits(offs + 1, wait=True):
+                        await queue.put(item)
+                    await queue.close()
+
+                except asyncio.CancelledError: # pragma: no cover
+                    raise
+
+                except Exception as e:
+                    logger.exception(f'pushBulkEdits fill() error: {e}')
+                    await queue.close()
+
+            base.schedCoro(fill())
+
+            async for chunk in queue.slices():
+
+                meta = {'time': s_common.now(), 'user': user}
+
+                alledits = []
+                for offs, edits in chunk:
+                    # prevent push->push->push nodeedits growth
+                    alledits.extend(edits)
+                    if len(alledits) > 1000:
+                        await layr1.storNodeEdits(alledits, meta)
+                        await self.setStormVar(gvar, offs)
+                        alledits.clear()
+
+                if alledits:
+                    await layr1.storNodeEdits(edits, meta)
+                    await self.setStormVar(gvar, offs)
 
     async def _checkNexsIndx(self):
         layroffs = [await layr.getNodeEditOffset() for layr in self.layers.values()]

@@ -81,6 +81,7 @@ class UrlTest(s_t_utils.SynTest):
             ('foo://user:password@host.com', 'foo://user:****@host.com'),
             ('foo://user:password@host.com:999', 'foo://user:****@host.com:999'),
             ('foo://user:@host.com', None),
+            ('ssl://feeds00.v.link:43/*/feed/6a1f?cere=root@.vex.link', None),
         ]
 
         for in_, out in data:

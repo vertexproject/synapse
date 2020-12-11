@@ -12,6 +12,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.hiveauth as s_hiveauth
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +219,7 @@ class HandlerBase:
         if user.isLocked():
             return None
 
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             return None
 
         self._web_user = user
@@ -461,7 +462,7 @@ class LoginV1(Handler):
         if user is None:
             return self.sendRestErr('AuthDeny', 'No such user.')
 
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             return self.sendRestErr('AuthDeny', 'Incorrect password.')
 
         await sess.login(user)
@@ -880,3 +881,31 @@ class StormVarsSetV1(Handler):
 
         await self.cell.setStormVar(varname, varvalu)
         return self.sendRestRetn(True)
+
+class OnePassIssueV1(Handler):
+    '''
+    /api/v1/auth/onepass/issue
+    '''
+    async def post(self):
+
+        if not await self.reqAuthAdmin():
+            return
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        useriden = body.get('user')
+        duration = body.get('duration', 600000) # 10 mins default
+
+        user = self.cell.auth.user(useriden)
+        if user is None:
+            return self.sendRestErr('NoSuchUser', 'The user iden does not exist.')
+
+        passwd = s_common.guid()
+        salt, hashed = s_hiveauth.getShadow(passwd)
+        onepass = (s_common.now() + duration, salt, hashed)
+
+        await self.cell.auth.setUserInfo(useriden, 'onepass', onepass)
+
+        return self.sendRestRetn(passwd)

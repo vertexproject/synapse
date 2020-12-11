@@ -3,6 +3,7 @@ import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.storm as s_storm
@@ -1456,3 +1457,190 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('test:str=refs <(refs)- *'))
             self.len(0, await core.nodes('test:str=* <(seen)- *'))
+
+    async def test_storm_pushpull(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                visi = await core.auth.addUser('visi')
+                await visi.setPasswd('secret')
+
+                await core.auth.rootuser.setPasswd('secret')
+                host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
+
+                # setup a trigger so we know when the nodes move...
+                view0, layr0 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+                view1, layr1 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+                view2, layr2 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+
+                # add a trigger to queue ps:contacts so we can detect the transfer
+                await core.callStorm('trigger.add node:add --form ps:contact --query {$lib.queue.gen(hehe).put($node.repr())}', opts={'view': view2})
+
+                opts = {'vars': {
+                    'view0': view0,
+                    'view1': view1,
+                    'view2': view2,
+                    'layr0': layr0,
+                    'layr1': layr1,
+                    'layr2': layr2,
+                }}
+
+                # lets get some auth denies...
+                async with core.getLocalProxy(user='visi') as asvisi:
+
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.layer.get($layr0).addPush(hehe)', opts=opts)
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.layer.get($layr0).delPush(hehe)', opts=opts)
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.view.get($view2).addPull(hehe)', opts=opts)
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.view.get($view2).delPull(hehe)', opts=opts)
+
+                    # pulls require admin on both the view *and* the layer
+                    await visi.setAdmin(True, gateiden=view2)
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.view.get($view2).addPull(hehe)', opts=opts)
+                    with self.raises(s_exc.AuthDeny):
+                        await asvisi.callStorm(f'$lib.view.get($view2).delPull(hehe)', opts=opts)
+
+                actv = len(core.activecoros)
+                #view0 -push-> view1 <-pull- view2
+                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/view/{view1}")', opts=opts)
+                await core.callStorm(f'$lib.view.get($view2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
+
+                purl = await core.callStorm('for ($iden, $pdef) in $lib.view.get($view2).get(pulls) { return($pdef.url) }', opts=opts)
+                self.true(purl.startswith('tcp://root:****@127.0.0.1'))
+                purl = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr0).get(pushs) { return($pdef.url) }', opts=opts)
+                self.true(purl.startswith('tcp://root:****@127.0.0.1'))
+
+                self.eq(2, len(core.activecoros) - actv)
+                tasks = await core.callStorm('return($lib.ps.list())')
+                self.len(1, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
+
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                iden = await core.callStorm('return($lib.queue.gen(hehe).get(0))')
+                self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
+
+                # remove and ensure no replay on restart
+                await core.nodes('ps:contact | delnode', opts={'view': view2})
+                self.len(0, await core.nodes('ps:contact', opts={'view': view2}))
+
+            conf = {'dmon:listen': f'tcp://127.0.0.1:{port}'}
+            async with self.getTestCore(dirn=dirn, conf=conf) as core:
+
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                iden = await core.callStorm('return($lib.queue.gen(hehe).get(1))')
+
+                # confirm we dont replay and get the old one back...
+                self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
+
+                actv = len(core.activecoros)
+                # remove all pushes / pulls
+                await core.callStorm('''
+                    for $view in $lib.view.list() {
+                        $pulls = $view.get(pulls)
+                        if $pulls {
+                            for ($iden, $pdef) in $pulls { $view.delPull($iden) }
+                        }
+                    }
+
+                    for $layr in $lib.layer.list() {
+                        $pushs = $layr.get(pushs)
+                        if $pushs {
+                            for ($iden, $pdef) in $pushs { $layr.delPush($iden) }
+                        }
+                    }
+                ''')
+                self.eq(actv - 2, len(core.activecoros))
+                tasks = await core.callStorm('return($lib.ps.list())')
+                self.len(0, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
+
+                # code coverage for push/pull dict exists but has no entries
+                self.none(await core.callStorm('return($lib.view.get($view2).delPull($lib.guid()))', opts=opts))
+                self.none(await core.callStorm('return($lib.layer.get($layr0).delPush($lib.guid()))', opts=opts))
+
+                # add a push/pull and remove the view/layer to cancel it...
+                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/view/{view1}")', opts=opts)
+                await core.callStorm(f'$lib.view.get($view2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
+
+                await asyncio.sleep(0)
+
+                tasks = await core.callStorm('return($lib.ps.list())')
+                self.len(1, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
+                self.eq(actv, len(core.activecoros))
+
+                await core.callStorm('$lib.view.del($view0)', opts=opts)
+                await core.callStorm('$lib.view.del($view1)', opts=opts)
+                await core.callStorm('$lib.view.del($view2)', opts=opts)
+                await core.callStorm('$lib.layer.del($layr0)', opts=opts)
+                await core.callStorm('$lib.layer.del($layr1)', opts=opts)
+                await core.callStorm('$lib.layer.del($layr2)', opts=opts)
+
+                tasks = await core.callStorm('return($lib.ps.list())')
+                self.len(0, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
+                self.eq(actv - 2, len(core.activecoros))
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addLayrPush('newp', {})
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addViewPull('newp', {})
+
+                # sneak a bit of coverage for the raw library in here...
+                fake = {
+                    'time': s_common.now(),
+                    'iden': s_common.guid(),
+                    'user': s_common.guid(),
+                    'url': 'tcp://localhost',
+                }
+                self.none(await core.addLayrPush('newp', fake))
+                self.none(await core.addViewPull('newp', fake))
+
+                self.none(await core.delViewPull('newp', 'newp'))
+                self.none(await core.delViewPull(view0, 'newp'))
+                self.none(await core.delLayrPush('newp', 'newp'))
+                self.none(await core.delLayrPush(layr0, 'newp'))
+
+                # main view/layer have None for pulls/pushs
+                self.none(await core.delViewPull(core.getView().iden, 'newp'))
+                self.none(await core.delLayrPush(core.getView().layers[0].iden, 'newp'))
+
+                async with await s_telepath.openurl(f'tcp://visi:secret@127.0.0.1:{port}/*/view') as proxy:
+                    self.eq(core.getView().iden, await proxy.getCellIden())
+                    with self.raises(s_exc.AuthDeny):
+                        await proxy.storNodeEdits((), {})
+
+                with self.raises(s_exc.NoSuchPath):
+                    async with await s_telepath.openurl(f'tcp://root:secret@127.0.0.1:{port}/*/newp'):
+                        pass
+
+                class LayrBork:
+                    async def syncNodeEdits(self, offs, wait=True):
+                        if False: yield None
+                        raise s_exc.SynErr()
+
+                fake = {'iden': s_common.guid(), 'user': s_common.guid()}
+                # this should fire the reader and exit cleanly when he explodes
+                await core._pushBulkEdits(LayrBork(), LayrBork(), fake)
+
+                class FastPull:
+                    async def syncNodeEdits(self, offs, wait=True):
+                        yield (0, range(2000))
+
+                class FastPush:
+                    def __init__(self):
+                        self.edits = []
+                    async def storNodeEdits(self, edits, meta):
+                        self.edits.extend(edits)
+
+                pull = FastPull()
+                push = FastPush()
+
+                await core._pushBulkEdits(pull, push, fake)
+                self.eq(push.edits, tuple(range(2000)))
