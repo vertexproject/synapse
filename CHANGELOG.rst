@@ -5,6 +5,27 @@ Synapse Changelog
 *****************
 
 
+v2.15.0 - 2020-12-11
+====================
+
+Features and Enhancements
+-------------------------
+- Add two new Cortex APIs: ``syncIndexEvents`` and ``syncLayerEvents`` useful
+  for external indexing.
+  (`#1948 <https://github.com/vertexproject/synapse/pull/1948>`_)
+  (`#1996 <https://github.com/vertexproject/synapse/pull/1996>`_)
+- LMDB Slab improvements: Allow dupfixed dbs, add ``firstkey`` method, inline
+  ``_ispo2``, add HotCount deletion.
+  (`#1948 <https://github.com/vertexproject/synapse/pull/1948>`_)
+- Add method to merge sort sorted async generators.
+  (`#1948 <https://github.com/vertexproject/synapse/pull/1948>`_)
+
+Bugfixes
+--------
+- Ensure parent FQDN exists even in out-of-order node edit playback.
+  (`#1995 <https://github.com/vertexproject/synapse/pull/1995>`_)
+
+
 v2.14.2 - 2020-12-10
 ====================
 
