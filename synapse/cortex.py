@@ -2957,7 +2957,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     # prevent push->push->push nodeedits growth
                     alledits.extend(edits)
                     if len(alledits) > 1000:
-                        await layr1.storNodeEdits(edits, meta)
+                        await layr1.storNodeEdits(alledits, meta)
                         await self.setStormVar(gvar, offs)
                         alledits.clear()
 
