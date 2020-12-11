@@ -5,6 +5,18 @@ Synapse Changelog
 *****************
 
 
+v2.14.2 - 2020-12-10
+====================
+
+Bugfixes
+--------
+- Fix an issue with the new layer push / pull code.
+  (`#1994 <https://github.com/vertexproject/synapse/pull/1994>`_)
+- Fix an issue with the url sanitization function when the path contains
+  an ``@`` character.
+  (`#1993 <https://github.com/vertexproject/synapse/pull/1993>`_)
+
+
 v2.14.1 - 2020-12-09
 ====================
 
