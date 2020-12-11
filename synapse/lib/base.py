@@ -465,7 +465,7 @@ class Base:
         import synapse.lib.provenance as s_provenance  # avoid import cycle
 
         if __debug__:
-            assert s_coro.iscoro(coro)
+            assert inspect.isawaitable(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
 

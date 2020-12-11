@@ -31,7 +31,6 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
-import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -788,7 +787,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
             logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
         except Exception:  # pragma: no cover
-            logging.exception(f'Unknown dmon listen error.')
+            logging.exception('Unknown dmon listen error.')
             raise
 
         self.sockaddr = None
@@ -1449,6 +1448,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # add our cert path to the global resolver
         s_certdir.addCertPath(certpath)
+
         async def fini():
             s_certdir.delCertPath(certpath)
         self.onfini(fini)

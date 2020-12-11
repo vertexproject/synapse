@@ -321,6 +321,7 @@ class ModelType(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.locls.update({
             'name': valu.name,
+            'stortype': valu.stortype,
         })
         self.locls.update(self.getObjLocals())
 

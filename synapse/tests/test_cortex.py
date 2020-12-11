@@ -614,36 +614,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.true('inet:dns:a' in [n[0][0] for n in nodes])
 
-    async def test_cortex_iter_props(self):
-
-        async with self.getTestCore() as core:
-
-            async with await core.snap() as snap:
-
-                props = {'asn': 10, '.seen': '2016'}
-                node = await snap.addNode('inet:ipv4', 0x01020304, props=props)
-                self.eq(node.get('asn'), 10)
-
-                props = {'asn': 20, '.seen': '2015'}
-                node = await snap.addNode('inet:ipv4', 0x05050505, props=props)
-                self.eq(node.get('asn'), 20)
-
-            # rows are (buid, valu) tuples
-            layr = core.view.layers[0]
-            rows = await alist(layr.iterPropRows('inet:ipv4', 'asn'))
-
-            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
-
-            # rows are (buid, valu) tuples
-            rows = await alist(layr.iterUnivRows('.seen'))
-
-            ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
-            self.eq(ivals, tuple(sorted([row[1] for row in rows])))
-
-            # test iterFormRows as well
-            rows = await alist(layr.iterFormRows('inet:ipv4'))
-            self.eq((0x01020304, 0x05050505), tuple(sorted([row[1] for row in rows])))
-
     async def test_cortex_lift_regex(self):
 
         async with self.getTestCore() as core:
@@ -4874,7 +4844,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
+            await core.auth.addUser('visi')
             async with core.getLocalProxy(user='visi') as proxy:
                 with self.raises(s_exc.AuthDeny):
                     await proxy.setStormVar('hehe', 'haha')
@@ -4889,6 +4859,158 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('hoho', await proxy.getStormVar('lolz', default='hoho'))
                 self.eq('haha', await proxy.popStormVar('hehe'))
                 self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
+
+    async def test_cortex_synclayersevents(self):
+        async with self.getTestCoreAndProxy() as (core, proxy):
+            baseoffs = await core.getNexsIndx()
+            baselayr = core.getLayer()
+            items = await alist(proxy.syncLayersEvents({}, wait=False))
+            self.len(1, items)
+
+            offsdict = {baselayr.iden: baseoffs}
+            genr = core.syncLayersEvents(offsdict=offsdict, wait=True)
+            nodes = await core.nodes('[ test:str=foo ]')
+            node = nodes[0]
+
+            item0 = await genr.__anext__()
+            expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDITS)
+            expectedits = ((node.buid, 'test:str',
+                            ((s_layer.EDIT_NODE_ADD, ('foo', 1), ()),
+                             (s_layer.EDIT_PROP_SET, ('.created', node.props['.created'], None,
+                                                      s_layer.STOR_TYPE_MINTIME), ()))),)
+            self.eq(expect, item0[:3])
+            self.eq(expectedits, item0[3])
+            self.isin('time', item0[4])
+            self.isin('user', item0[4])
+
+            layr = await core.addLayer()
+            layriden = layr['iden']
+            await core.delLayer(layriden)
+
+            item1 = await genr.__anext__()
+            expect = (baseoffs + 1, layriden, s_cortex.SYNC_LAYR_ADD, (), {})
+            self.eq(expect, item1)
+
+            item1 = await genr.__anext__()
+            expect = (baseoffs + 2, layriden, s_cortex.SYNC_LAYR_DEL, (), {})
+            self.eq(expect, item1)
+
+            layr = await core.addLayer()
+            layriden = layr['iden']
+            layr = core.getLayer(layriden)
+
+            vdef = {'layers': (layriden,)}
+            view = (await core.addView(vdef)).get('iden')
+
+            item3 = await genr.__anext__()
+            expect = (baseoffs + 3, layriden, s_cortex.SYNC_LAYR_ADD, (), {})
+            self.eq(expect, item3)
+
+            items = []
+            syncevent = asyncio.Event()
+
+            async def keep_pulling():
+                syncevent.set()
+                while True:
+                    try:
+                        item = await genr.__anext__()  # NOQA
+                        items.append(item)
+                    except Exception as e:
+                        items.append(str(e))
+                        break
+
+            core.schedCoro(keep_pulling())
+            await syncevent.wait()
+
+            self.len(0, items)
+
+            opts = {'view': view}
+            nodes = await core.nodes('[ test:str=bar ]', opts=opts)
+            node = nodes[0]
+
+            self.len(1, items)
+            item4 = items[0]
+
+            expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDITS)
+            expectedits = ((node.buid, 'test:str',
+                            [(s_layer.EDIT_NODE_ADD, ('bar', 1), ()),
+                             (s_layer.EDIT_PROP_SET, ('.created', node.props['.created'], None,
+                                                      s_layer.STOR_TYPE_MINTIME), ())]),)
+
+            self.eq(expect, item4[:3])
+            self.eq(expectedits, item4[3])
+            self.isin('time', item4[4])
+            self.isin('user', item4[4])
+
+        # Avoid races in cleanup, but do this after cortex is fini'd for coverage
+        del genr
+
+    async def test_cortex_syncindexevents(self):
+        async with self.getTestCoreAndProxy() as (core, proxy):
+            baseoffs = await core.getNexsIndx()
+            baselayr = core.getLayer()
+
+            # Make sure an empty log works with wait=False
+            items = await alist(core.syncIndexEvents({}, wait=False))
+            self.eq(items, [])
+
+            # Test wait=True
+
+            mdef = {'forms': ['test:str']}
+            offsdict = {baselayr.iden: baseoffs}
+            genr = core.syncIndexEvents(mdef, offsdict=offsdict, wait=True)
+            nodes = await core.nodes('[ test:str=foo ]')
+            node = nodes[0]
+
+            item0 = await genr.__anext__()
+            expectadd = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDIT,
+                         (node.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()))
+            self.eq(expectadd, item0)
+
+            layr = await core.addLayer()
+            layriden = layr['iden']
+            await core.delLayer(layriden)
+
+            item1 = await genr.__anext__()
+            expectadd = (baseoffs + 1, layriden, s_cortex.SYNC_LAYR_ADD, ())
+            self.eq(expectadd, item1)
+
+            item2 = await genr.__anext__()
+            expectdel = (baseoffs + 2, layriden, s_cortex.SYNC_LAYR_DEL, ())
+            self.eq(expectdel, item2)
+
+            layr = await core.addLayer()
+            layriden = layr['iden']
+            layr = core.getLayer(layriden)
+
+            vdef = {'layers': (layriden,)}
+            view = (await core.addView(vdef)).get('iden')
+            opts = {'view': view}
+            nodes = await core.nodes('[ test:str=bar ]', opts=opts)
+            node = nodes[0]
+
+            item3 = await genr.__anext__()
+            expectadd = (baseoffs + 3, layriden, s_cortex.SYNC_LAYR_ADD, ())
+            self.eq(expectadd, item3)
+
+            item4 = await genr.__anext__()
+            expectadd = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDIT,
+                         (node.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8), ()))
+            self.eq(expectadd, item4)
+
+            # Make sure progress every 1000 layer log entries works
+            await core.nodes('[inet:ipv4=192.168.1/22]')
+
+            offsdict = {baselayr.iden: baseoffs + 1, layriden: baseoffs + 1}
+
+            items = await alist(proxy.syncIndexEvents(mdef, offsdict=offsdict, wait=False))
+
+            expect = (baseoffs + 5 + 1000, baselayr.iden, s_cortex.SYNC_NODEEDIT,
+                      (None, None, s_layer.EDIT_PROGRESS, (), ()))
+            self.eq(expect, items[1])
+
+            # Avoid races in cleanup
+            del genr
 
     async def test_cortex_all_layr_read(self):
         async with self.getTestCore() as core:

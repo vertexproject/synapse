@@ -3135,9 +3135,6 @@ class LibLayer(Lib):
         todo = ('addLayer', (ldef,), {})
 
         ldef = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
-        if ldef is None:
-            mesg = f'Failed to add layer.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
 
         return Layer(self.runt, ldef, path=self.path)
 

@@ -44,11 +44,11 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.lib.stormlib.json as s_stormlib_json
+import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
-import synapse.lib.stormlib.backup as s_stormlib_backup
-import synapse.lib.stormlib.version as s_stormlib_version
+import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
+import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,12 @@ A Cortex implements the synapse hypergraph object.
 '''
 
 reqver = '>=0.2.0,<3.0.0'
+
+# Constants returned in results from syncLayersEvents and syncIndexEvents
+SYNC_NODEEDITS = 0  # A nodeedits:     (<offs>, 0, <etyp>, (<etype args>), {<meta>})
+SYNC_NODEEDIT = 1   # A nodeedit:     (<offs>, 0, <etyp>, (<etype args>))
+SYNC_LAYR_ADD = 3   # A layer was added
+SYNC_LAYR_DEL = 4   # A layer was deleted
 
 # push/pull def
 reqValidPush = s_config.getJsValidator({
@@ -404,12 +410,12 @@ class CoreApi(s_cell.CellApi):
 
         self.user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
 
-        task = await self.cell.boss.promote('feeddata',
-                                            user=self.user,
-                                            info={'name': name,
-                                                  'view': view.iden,
-                                                  'nitems': len(items),
-                                                  })
+        await self.cell.boss.promote('feeddata',
+                                     user=self.user,
+                                     info={'name': name,
+                                           'view': view.iden,
+                                           'nitems': len(items),
+                                           })
 
         async with await self.cell.snap(user=self.user, view=view) as snap:
             with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
@@ -533,6 +539,7 @@ class CoreApi(s_cell.CellApi):
             async for mesg in core.watch(wdef):
                 dostuff(mesg)
         '''
+        s_common.deprecated('watch')
         iden = wdef.get('view', self.cell.view.iden)
         self.user.confirm(('watch',), gateiden=iden)
 
@@ -775,6 +782,16 @@ class CoreApi(s_cell.CellApi):
     async def setStormVar(self, name, valu):
         self.user.confirm(('globals', 'set', name))
         return await self.cell.setStormVar(name, valu)
+
+    async def syncLayersEvents(self, offsdict=None, wait=True):
+        self.user.confirm(('sync',))
+        async for item in self.cell.syncLayersEvents(offsdict=offsdict, wait=wait):
+            yield item
+
+    async def syncIndexEvents(self, matchdef, offsdict=None, wait=True):
+        self.user.confirm(('sync',))
+        async for item in self.cell.syncIndexEvents(matchdef, offsdict=offsdict, wait=wait):
+            yield item
 
 class Cortex(s_cell.Cell):  # type: ignore
     '''
@@ -1053,7 +1070,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             todo.append(_type)
 
         if not todo:
-            mesg = f'setDeprLock() called on non-existant or non-deprecated form, property, or type.'
+            mesg = 'setDeprLock() called on non-existant or non-deprecated form, property, or type.'
             raise s_exc.NoSuchProp(name=name, mesg=mesg)
 
         self.deprlocks[name] = locked
@@ -1120,13 +1137,19 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.multiqueue.rem(name)
 
-    async def coreQueueGet(self, name, offs=0, cull=True, wait=None):
-        async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait):
+    async def coreQueueGet(self, name, offs=0, cull=True, wait=False):
+        if offs and cull:
+            await self.coreQueueCull(name, offs - 1)
+
+        async for item in self.multiqueue.gets(name, offs, cull=False, wait=wait):
             return item
 
-    async def coreQueueGets(self, name, offs=0, cull=True, wait=None, size=None):
+    async def coreQueueGets(self, name, offs=0, cull=True, wait=False, size=None):
+        if offs and cull:
+            await self.coreQueueCull(name, offs - 1)
+
         count = 0
-        async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait):
+        async for item in self.multiqueue.gets(name, offs, cull=False, wait=wait):
 
             yield item
 
@@ -1540,7 +1563,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                             await asyncio.sleep(0)
                 except asyncio.CancelledError: # pragma: no cover
                     raise
-                except Exception as e: # pragma: no cover
+                except Exception: # pragma: no cover
                     logger.warning(f'onload failed for package: {name}')
             self.schedCoro(_onload())
 
@@ -2099,6 +2122,193 @@ class Cortex(s_cell.Cell):  # type: ignore
         async for item in layr.syncNodeEdits(offs, wait=wait):
             yield item
 
+    async def syncLayersEvents(self, offsdict=None, wait=True):
+        '''
+        Yield (offs, layriden, STYP, item, meta) tuples for nodeedits for *all* layers, interspersed with add/del
+        layer messages.
+
+        STYP is one of the following constants:
+            SYNC_NODEEDITS:  item is a nodeedits (buid, form, edits)
+            SYNC_LAYR_ADD:   A layer was added (item and meta are empty)
+            SYNC_LAYR_DEL:   A layer was deleted (item and meta are empty)
+
+        Args:
+            offsdict(Optional(Dict[str,int])): starting nexus/editlog offset by layer iden.  Defaults to 0 for
+                unspecified layers or if offsdict is None.
+            wait(bool):  whether to pend and stream value until this layer is fini'd
+        '''
+        async def layrgenr(layr, startoff, endoff=None, newlayer=False):
+            if newlayer:
+                yield layr.addoffs, layr.iden, SYNC_LAYR_ADD, (), {}
+
+            wait = endoff is None
+
+            if not layr.isfini:
+
+                async for ioff, item, meta in layr.syncNodeEdits2(startoff, wait=wait):
+                    if endoff is not None and ioff >= endoff:  # pragma: no cover
+                        break
+
+                    yield ioff, layr.iden, SYNC_NODEEDITS, item, meta
+
+            if layr.isdeleted:
+                yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
+
+        # End of layrgenr
+
+        async for item in self._syncNodeEdits(offsdict, layrgenr, wait=wait):
+            yield item
+
+    async def syncIndexEvents(self, matchdef, offsdict=None, wait=True):
+        '''
+        Yield (offs, layriden, <STYPE>, <item>) tuples from the nodeedit logs of all layers starting
+        from the given nexus/layer offset (they are synchronized).  Only edits that match the filter in matchdef will
+        be yielded, plus EDIT_PROGRESS (see layer.syncIndexEvents) messages.
+
+        The format of the 4th element of the tuple depends on STYPE.  STYPE is one of the following constants:
+
+          SYNC_LAYR_ADD:  item is an empty tuple ()
+          SYNC_LAYR_DEL:  item is an empty tuple ()
+          SYNC_NODEEDIT:  item is (buid, form, ETYPE, VALS, META)) or (None, None, s_layer.EDIT_PROGRESS, (), ())
+
+        For edits in the past, events are yielded in offset order across all layers.  For current data (wait=True),
+        events across different layers may be emitted slightly out of offset order.
+
+        Note:
+            Will not yield any values from layers created with logedits disabled
+
+        Args:
+            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded.  See
+                layer.syncIndexEvents for matchdef specification.
+            offsdict(Optional(Dict[str,int])): starting nexus/editlog offset by layer iden.  Defaults to 0 for
+                unspecified layers or if offsdict is None.
+            wait(bool):  whether to pend and stream value until this layer is fini'd
+        '''
+        async def layrgenr(layr, startoff, endoff=None, newlayer=False):
+            ''' Yields matching results from a single layer '''
+
+            if newlayer:
+                yield layr.addoffs, layr.iden, SYNC_LAYR_ADD, ()
+
+            wait = endoff is None
+            ioff = startoff
+
+            if not layr.isfini:
+
+                async for ioff, item in layr.syncIndexEvents(startoff, matchdef, wait=wait):
+                    if endoff is not None and ioff >= endoff:  # pragma: no cover
+                        break
+
+                    yield ioff, layr.iden, SYNC_NODEEDIT, item
+
+            if layr.isdeleted:
+                yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, ()
+
+        # End of layrgenr
+
+        async for item in self._syncNodeEdits(offsdict, layrgenr, wait=wait):
+            yield item
+
+    async def _syncNodeEdits(self, offsdict, genrfunc, wait=True):
+        '''
+        Common guts between syncIndexEvents and syncLayersEvents
+
+        First, it streams from the layers up to the current offset, sorted by offset.
+        Then it streams from all the layers simultaneously.
+
+        Args:
+            offsdict(Dict[str, int]): starting nexus/editlog offset per layer.  Defaults to 0 if layer not present
+            genrfunc(Callable): an async generator function that yields tuples that start with an offset.  The input
+               parameters are:
+                layr(Layer): a Layer object
+                startoff(int);  the starting offset
+                endoff(Optional[int]):  the ending offset
+                newlayer(bool):  whether to emit a new layer item first
+            wait(bool): when the end of the log is hit, whether to continue to wait for new entries and yield them
+        '''
+        topoffs = await self.getNexsIndx()  # The latest offset when this function started
+        catchingup = True                   # whether we've caught up to topoffs
+        layrsadded = {}                     # layriden -> True.  Captures all the layers added while catching up
+        todo = set()                        # outstanding futures of active live streaming from layers
+        layrgenrs = {}                      # layriden -> genr.  maps active layers to that layer's async generator
+
+        if offsdict is None:
+            offsdict = {}
+
+        async with await s_base.Base.anit() as base:
+
+            def addlayr(layr, newlayer=False):
+                '''
+                A new layer joins the live stream
+                '''
+                genr = genrfunc(layr, topoffs, newlayer=newlayer)
+                layrgenrs[layr.iden] = genr
+                task = base.schedCoro(genr.__anext__())
+                task.iden = layr.iden
+                todo.add(task)
+
+            def onaddlayr(mesg):
+                etyp, event = mesg
+                layriden = event['iden']
+                layr = self.getLayer(layriden)
+                if catchingup:
+                    layrsadded[layr] = True
+                    return
+
+                addlayr(layr, newlayer=True)
+
+            self.on('core:layr:add', onaddlayr, base=base)
+
+            # First, catch up to what was the current offset when we started, guaranteeing order
+
+            genrs = [genrfunc(layr, offsdict.get(layr.iden, 0), endoff=topoffs) for layr in self.layers.values()]
+            async for item in s_common.merggenr(genrs, lambda x, y: x[0] < y[0]):
+                yield item
+
+            catchingup = False
+
+            if not wait:
+                return
+
+            # After we've caught up, read on genrs from all the layers simultaneously
+
+            for layr in self.layers.values():
+                if layr not in layrsadded:
+                    addlayr(layr)
+
+            for layr in layrsadded:
+                addlayr(layr, newlayer=True)
+
+            # Also, wake up if we get fini'd
+            finitask = base.schedCoro(self.waitfini())
+            todo.add(finitask)
+
+            while not self.isfini:
+                done, _ = await asyncio.wait(todo, return_when=asyncio.FIRST_COMPLETED)
+
+                for donetask in done:
+                    try:
+                        if donetask is finitask:  # pragma: no cover  # We were fini'd
+                            return
+
+                        todo.remove(donetask)
+
+                        layriden = donetask.iden
+
+                        result = donetask.result()
+
+                        yield result
+
+                        # Re-add a task to wait on the next iteration of the generator
+                        genr = layrgenrs[layriden]
+                        task = base.schedCoro(genr.__anext__())
+                        task.iden = layriden
+                        todo.add(task)
+
+                    except StopAsyncIteration:
+                        # Help out the garbage collector
+                        del layrgenrs[layriden]
+
     async def spliceHistory(self, user):
         '''
         Yield splices backwards from the end of the nodeedit log.
@@ -2110,7 +2320,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         count = 0
         async for _, mesg in layr.splicesBack():
             count += 1
-            if not count % 1000: # pragma: no cover
+            if not count % 1000:  # pragma: no cover
                 await asyncio.sleep(0)
 
             if user.iden == mesg[1]['user'] or user.isAdmin():
@@ -2604,8 +2814,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return await self._push('layer:del', iden)
 
-    @s_nexus.Pusher.onPush('layer:del')
-    async def _delLayer(self, iden):
+    @s_nexus.Pusher.onPush('layer:del', passitem=True)
+    async def _delLayer(self, iden, nexsitem):
         layr = self.layers.get(iden, None)
         if layr is None:
             return
@@ -2625,6 +2835,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.hive.pop(('cortex', 'layers', iden))
 
         await layr.delete()
+
+        layr.deloffs = nexsitem[0]
+
         await self.bumpSpawnPool()
 
     async def setViewLayers(self, layers, iden=None):
@@ -2734,10 +2947,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if nexs:
             return await self._push('layer:add', ldef)
         else:
-            return await self._addLayer(ldef)
+            return await self._addLayer(ldef, (None, None))
 
-    @s_nexus.Pusher.onPush('layer:add')
-    async def _addLayer(self, ldef):
+    @s_nexus.Pusher.onPush('layer:add', passitem=True)
+    async def _addLayer(self, ldef, nexsitem):
 
         s_layer.reqValidLdef(ldef)
 
@@ -2758,7 +2971,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for name, valu in ldef.items():
             await layrinfo.set(name, valu)
 
-        layr = await self._initLayr(layrinfo)
+        layr = await self._initLayr(layrinfo, nexsoffs=nexsitem[0])
         await user.setAdmin(True, gateiden=iden, logged=False)
 
         # forward wind the new layer to the current model version
@@ -2766,11 +2979,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return await layr.pack()
 
-    async def _initLayr(self, layrinfo):
+    async def _initLayr(self, layrinfo, nexsoffs=None):
         '''
         Instantiate a Layer() instance via the provided layer info HiveDict.
         '''
         layr = await self._ctorLayr(layrinfo)
+        layr.addoffs = nexsoffs
 
         self.layers[layr.iden] = layr
         self.dynitems[layr.iden] = layr
@@ -2778,8 +2992,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.maxnodes:
             counts = await layr.getFormCounts()
             self.nodecount += sum(counts.values())
+
             def onadd():
                 self.nodecount += 1
+
             def ondel():
                 self.nodecount -= 1
             layr.nodeAddHook = onadd
@@ -2791,6 +3007,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.runLayrPush(layr, pdef)
 
         await self.bumpSpawnPool()
+
+        await self.fire('core:layr:add', iden=layr.iden)
 
         return layr
 
@@ -2903,7 +3121,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # push() will refire as needed
 
         async def push():
-            async with await self.boss.promote(f'layer push: {layr.iden} {iden}', self.auth.rootuser) as task:
+            async with await self.boss.promote(f'layer push: {layr.iden} {iden}', self.auth.rootuser):
                 async with await s_telepath.openurl(url) as proxy:
                     await self._pushBulkEdits(layr, proxy, pdef)
 
@@ -2915,7 +3133,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # pull() will refire as needed
 
         async def pull():
-            async with await self.boss.promote(f'view pull: {view.iden} {iden}', self.auth.rootuser) as task:
+            async with await self.boss.promote(f'view pull: {view.iden} {iden}', self.auth.rootuser):
                 async with await s_telepath.openurl(url) as proxy:
                     await self._pushBulkEdits(proxy, view, pdef)
 
@@ -2995,8 +3213,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return await self._push('layer:clone', iden, ldef)
 
-    @s_nexus.Pusher.onPush('layer:clone')
-    async def _cloneLayer(self, iden, ldef):
+    @s_nexus.Pusher.onPush('layer:clone', passitem=True)
+    async def _cloneLayer(self, iden, ldef, nexsitem):
 
         layr = self.layers.get(iden)
         if layr is None:
@@ -3020,7 +3238,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for name, valu in ldef.items():
             await copyinfo.set(name, valu)
 
-        copylayr = await self._initLayr(copyinfo)
+        copylayr = await self._initLayr(copyinfo, nexsoffs=nexsitem[0])
 
         creator = copyinfo.get('creator')
         user = await self.auth.reqUser(creator)
@@ -3843,7 +4061,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Modify a cron job definition.
         '''
         appt = await self.agenda.get(iden)
-        #TODO make this generic and check cdef
+        # TODO make this generic and check cdef
 
         if name == 'name':
             await appt.setName(str(valu))

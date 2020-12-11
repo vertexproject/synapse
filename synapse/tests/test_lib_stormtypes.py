@@ -1391,6 +1391,14 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('for ($offs, $name) in $lib.queue.get(doit).gets(size=2) { [test:str=$name] }')
             self.len(2, nodes)
 
+            q = '$item = $lib.queue.get(doit).get(offs=1) [test:str=$item.0]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'for ($offs, $name) in $lib.queue.get(doit).gets(size=1, offs=1) { [test:str=$name] }'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
             # test other users who have access to this queue can do things to it
             async with core.getLocalProxy() as root:
                 # add users
@@ -1739,6 +1747,9 @@ class StormTypesTest(s_test.SynTest):
 
             info = await core.callStorm('return ($lib.layer.get().pack())')
             self.gt(info.get('totalsize'), 1)
+
+            # Try to create an invalid layer
+            mesgs = await core.stormlist('$lib.layer.add(ldef=$lib.dict(lockmemory=(42)))')
 
             # Create a new layer
             newlayr = await core.callStorm('return($lib.layer.add().iden)')
