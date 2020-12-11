@@ -59,8 +59,8 @@ A Cortex implements the synapse hypergraph object.
 reqver = '>=0.2.0,<3.0.0'
 
 # Constants returned in results from syncLayersEvents and syncIndexEvents
-SYNC_NODEEDITS = 0  # A nodeedits:     (<offs>, 0, <etyp>, (<etype args>), {<meta>})
-SYNC_NODEEDIT = 1   # A nodeedit:     (<offs>, 0, <etyp>, (<etype args>))
+SYNC_NODEEDITS = 0  # A nodeedits: (<offs>, 0, <etyp>, (<etype args>), {<meta>})
+SYNC_NODEEDIT = 1   # A nodeedit:  (<offs>, 0, <etyp>, (<etype args>))
 SYNC_LAYR_ADD = 3   # A layer was added
 SYNC_LAYR_DEL = 4   # A layer was deleted
 
@@ -2235,6 +2235,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         if offsdict is None:
             offsdict = {}
 
+        newtodoevent = asyncio.Event()
+
         async with await s_base.Base.anit() as base:
 
             def addlayr(layr, newlayer=False):
@@ -2246,6 +2248,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 task = base.schedCoro(genr.__anext__())
                 task.iden = layr.iden
                 todo.add(task)
+                newtodoevent.set()
 
             def onaddlayr(mesg):
                 etyp, event = mesg
@@ -2272,6 +2275,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             # After we've caught up, read on genrs from all the layers simultaneously
 
+            todo.clear()
+
             for layr in self.layers.values():
                 if layr not in layrsadded:
                     addlayr(layr)
@@ -2283,15 +2288,24 @@ class Cortex(s_cell.Cell):  # type: ignore
             finitask = base.schedCoro(self.waitfini())
             todo.add(finitask)
 
+            newtodotask = base.schedCoro(newtodoevent.wait())
+            todo.add(newtodotask)
+
             while not self.isfini:
+                newtodoevent.clear()
                 done, _ = await asyncio.wait(todo, return_when=asyncio.FIRST_COMPLETED)
 
                 for donetask in done:
                     try:
+                        todo.remove(donetask)
+
                         if donetask is finitask:  # pragma: no cover  # We were fini'd
                             return
 
-                        todo.remove(donetask)
+                        if donetask is newtodotask:
+                            newtodotask = base.schedCoro(newtodoevent.wait())
+                            todo.add(newtodotask)
+                            continue
 
                         layriden = donetask.iden
 
