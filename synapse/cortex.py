@@ -2938,6 +2938,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     offs = await self.getStormVar(gvar, -1)
                     async for item in layr0.syncNodeEdits(offs + 1, wait=True):
                         await queue.put(item)
+                    await queue.close()
 
                 except asyncio.CancelledError: # pragma: no cover
                     raise
