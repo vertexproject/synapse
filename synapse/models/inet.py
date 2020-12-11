@@ -891,7 +891,7 @@ class InetModule(s_module.CoreModule):
             await node.pop('zone')
             return
 
-        parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
+        parent = await node.snap.addNode('inet:fqdn', domain)
 
         zone = parent.get('zone')
         if zone is None:
