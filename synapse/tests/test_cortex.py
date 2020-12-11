@@ -5009,6 +5009,44 @@ class CortexBasicTest(s_t_utils.SynTest):
                       (None, None, s_layer.EDIT_PROGRESS, (), ()))
             self.eq(expect, items[1])
 
+            # Make sure that genr wakes up if a new layer occurs after it is already waiting
+            offs = await core.getNexsIndx()
+            offsdict = {baselayr.iden: offs, layriden: offs}
+
+            event = asyncio.Event()
+
+            async def taskfunc():
+                items = []
+                count = 0
+                async for item in proxy.syncIndexEvents(mdef, offsdict=offsdict):
+                    event.set()
+                    items.append(item)
+                    count += 1
+                    if count >= 3:
+                        return items
+
+            task = core.schedCoro(taskfunc())
+            nodes = await core.nodes('[ test:str=bar3 ]', opts=opts)
+            await event.wait()
+
+            # Add a layer and a new node to the layer
+            layr = await core.addLayer()
+            layriden = layr['iden']
+            layr = core.getLayer(layriden)
+
+            vdef = {'layers': (layriden,)}
+            view = (await core.addView(vdef)).get('iden')
+            opts = {'view': view}
+            nodes = await core.nodes('[ test:str=bar2 ]', opts=opts)
+            node = nodes[0]
+
+            await asyncio.wait_for(task, 5.0)
+
+            items = task.result()
+            self.len(3, items)
+            self.eq(items[1][1:], (layriden, s_cortex.SYNC_LAYR_ADD, ()))
+            self.eq(items[2][1:3], (layriden, s_cortex.SYNC_NODEEDIT))
+
             # Avoid races in cleanup
             del genr
 
