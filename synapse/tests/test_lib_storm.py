@@ -1628,3 +1628,19 @@ class StormTest(s_t_utils.SynTest):
                 fake = {'iden': s_common.guid(), 'user': s_common.guid()}
                 # this should fire the reader and exit cleanly when he explodes
                 await core._pushBulkEdits(LayrBork(), LayrBork(), fake)
+
+                class FastPull:
+                    async def syncNodeEdits(self, offs, wait=True):
+                        yield (0, range(2000))
+
+                class FastPush:
+                    def __init__(self):
+                        self.edits = []
+                    async def storNodeEdits(self, edits, meta):
+                        self.edits.extend(edits)
+
+                pull = FastPull()
+                push = FastPush()
+
+                await core._pushBulkEdits(pull, push, fake)
+                self.eq(push.edits, tuple(range(2000)))
