@@ -224,6 +224,20 @@ class StormTest(s_t_utils.SynTest):
             # and again to test *not* creating it...
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
 
+            ddef0 = await core.callStorm('return($lib.dmon.add(${ $lib.queue.gen(hehedmon).put(lolz) $lib.time.sleep(10) }, name=hehedmon))')
+            ddef1 = await core.callStorm('return($lib.dmon.get($iden))', opts={'vars': {'iden': ddef0.get('iden')}})
+            self.none(await core.callStorm('return($lib.dmon.get(newp))'))
+
+            self.eq(ddef0['iden'], ddef1['iden'])
+
+            self.eq((0, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(0))'))
+
+            task = core.stormdmons.getDmon(ddef0['iden']).task
+            self.true(await core.callStorm(f'return($lib.dmon.bump($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.ne(task, core.stormdmons.getDmon(ddef0['iden']).task)
+
+            self.eq((1, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(1))'))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:

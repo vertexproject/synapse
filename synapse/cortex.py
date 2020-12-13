@@ -752,6 +752,14 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getStormDmonLog(iden)
 
     @s_cell.adminapi()
+    async def getStormDmon(self, iden):
+        return await self.cell.getStormDmon(iden)
+
+    @s_cell.adminapi()
+    async def bumpStormDmon(self, iden):
+        return await self.cell.bumpStormDmon(iden)
+
+    @s_cell.adminapi()
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
@@ -3333,6 +3341,13 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def getStormDmon(self, iden):
         return self.stormdmons.getDmonDef(iden)
+
+    async def bumpStormDmon(self, iden):
+        dmon = self.stormdmons.getDmon(iden)
+        if dmon is None:
+            mesg = f'No storm daemon exists with iden {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+        await dmon.bump()
 
     async def getStormDmons(self):
         return self.stormdmons.getDmonDefs()

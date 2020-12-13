@@ -275,9 +275,11 @@ class LibDmon(Lib):
     def getObjLocals(self):
         return {
             'add': self._libDmonAdd,
+            'get': self._libDmonGet,
             'del': self._libDmonDel,
             'log': self._libDmonLog,
             'list': self._libDmonList,
+            'bump': self._libDmonBump,
         }
 
     async def _libDmonDel(self, iden):
@@ -299,6 +301,18 @@ class LibDmon(Lib):
             self.runt.confirm(('dmon', 'del', iden))
 
         await self.runt.snap.core.delStormDmon(iden)
+
+    async def _libDmonGet(self, iden):
+        '''
+        Return a Storm Dmon definition dict by iden.
+
+        Args:
+            iden (str): The iden of the Storm Dmon.
+
+        Returns:
+            (dict): A Storm daemon definition dict.
+        '''
+        return await self.runt.snap.core.getStormDmon(iden)
 
     async def _libDmonList(self):
         '''
@@ -322,16 +336,16 @@ class LibDmon(Lib):
         self.runt.confirm(('dmon', 'log'))
         return await self.runt.snap.core.getStormDmonLog(iden)
 
-    async def _libDmonAdd(self, quer, name='noname'):
+    async def _libDmonAdd(self, text, name='noname'):
         '''
         Add a StormDmon to the Cortex.
 
         Args:
-            quer (str): The query to execute.
-
+            text (str): The Storm query to execute.
             name (str): The name of the Dmon.
 
         Examples:
+
             Add a dmon that executes a query::
 
                 $lib.dmon.add(${ myquery }, name='example dmon')
@@ -339,26 +353,43 @@ class LibDmon(Lib):
         Returns:
             str: The iden of the newly created StormDmon.
         '''
-        self.runt.confirm(('dmon', 'add'))
+        text = await tostr(text)
+        varz = await toprim(self.runt.vars)
+
+        viewiden = self.runt.snap.view.iden
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         # closure style capture of runtime
-        runtprims = await toprim(self.runt.vars)
-        runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
+        varz = {k: v for (k, v) in varz.items() if s_msgpack.isok(v)}
 
-        opts = {'vars': runtvars,
-                'view': self.runt.snap.view.iden,  # Capture the current view iden.
-                }
+        opts = {'vars': varz, 'view': viewiden}
 
         ddef = {
             'name': name,
             'user': self.runt.user.iden,
-            'storm': str(quer),
+            'storm': text,
             'enabled': True,
             'stormopts': opts,
         }
 
-        dmoniden = await self.runt.snap.core.addStormDmon(ddef)
-        return dmoniden
+        return await self.runt.snap.core.addStormDmon(ddef)
+
+    async def _libDmonBump(self, iden):
+        '''
+        Restart the daemon
+
+        Args:
+            iden (str): The GUID of the dmon to restart.
+        '''
+        iden = await tostr(iden)
+        ddef = await self.runt.snap.core.getStormDmon(iden)
+        if ddef is None:
+            return False
+
+        viewiden = ddef['stormopts']['view']
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+        await self.runt.snap.core.bumpStormDmon(iden)
+        return True
 
 @registry.registerLib
 class LibService(Lib):
