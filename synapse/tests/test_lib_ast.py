@@ -1,4 +1,5 @@
 import json
+import asyncio
 
 from unittest import mock
 
@@ -1730,3 +1731,25 @@ class AstTest(s_test.SynTest):
                     self.len(1, [m for m in msgs if m[0] == 'node:edits'])
                     self.len(0, [m for m in msgs if m[0] == 'node'])
                     self.eq(calls, [('prop', 'inet:ipv4')])
+
+    async def test_ast_cmdoper(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:fqdn=vertex.link ]')
+
+            # Make sure commands don't leave generators around
+            evtl = asyncio.get_event_loop()
+            self.eq(1, len(evtl._asyncgens))
+
+            await core.nodes('''
+                $i=0
+                while ($i < 200) {
+                    inet:fqdn=vertex.link | limit 1 | spin |
+                    $i = ($i+1)
+                }
+            ''')
+
+            # Wait a second for cleanup
+            await asyncio.sleep(1)
+            self.eq(1, len(evtl._asyncgens))
