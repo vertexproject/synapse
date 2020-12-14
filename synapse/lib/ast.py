@@ -735,13 +735,16 @@ class CmdOper(Oper):
             # ( many commands expect self.opts is set at run() )
             genr = await pullone(genx())
 
-            if runtsafe:
-                argv = await self.kids[1].compute(runt, None)
-                if not await scmd.setArgv(argv):
-                    return
+            try:
+                if runtsafe:
+                    argv = await self.kids[1].compute(runt, None)
+                    if not await scmd.setArgv(argv):
+                        return
 
-            async for item in scmd.execStormCmd(runt, genr):
-                yield item
+                async for item in scmd.execStormCmd(runt, genr):
+                    yield item
+            finally:
+                await genr.aclose()
 
 class SetVarOper(Oper):
 
