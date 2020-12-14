@@ -22,11 +22,11 @@ def loadOpticFiles(pkgdef, path):
 
         for name in files:
 
-            if name.startswith('.'):
+            if name.startswith('.'): # pragma: no cover
                 continue
 
             fullname = s_common.genpath(root, name)
-            if not os.path.isfile(fullname):
+            if not os.path.isfile(fullname): # pragma: no cover
                 continue
 
             pkgfname = fullname[len(abspath) + 1:]
@@ -94,7 +94,7 @@ async def main(argv, outp=s_output.stdout):
         async with await s_telepath.openurl(opts.push) as core:
             await core.addStormPkg(pkgdef)
 
-        if fini is not None:
+        if fini is not None: # pragma: no cover
             await fini()
 
 if __name__ == '__main__': # pragma: no cover
