@@ -2,6 +2,7 @@ import bz2
 import gzip
 import json
 import time
+import regex
 import types
 import base64
 import pprint
@@ -1384,6 +1385,74 @@ class LibTime(Lib):
         '''
         secs = float(secs)
         return int(secs * 1000)
+
+@registry.registerLib
+class LibRegx(Lib):
+    '''
+    A Storm library for searching/matching with regular expressions.
+    '''
+    _storm_lib_path = ('regx',)
+
+    def __init__(self, runt, name=()):
+        Lib.__init__(self, runt, name=name)
+        self.compiled = {}
+
+    def getObjLocals(self):
+        return {
+            'search': self.search,
+            'matches': self.matches,
+            'flags': {'i': regex.I, 'm': regex.M},
+        }
+
+    async def _getRegx(self, pattern, flags):
+        lkey = (pattern, flags)
+        regx = self.compiled.get(lkey)
+        if regx is None:
+            regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+        return regx
+
+    async def matches(self, pattern, text, flags=0):
+        '''
+        Returns $lib.true if the text matches the pattern, otherwise $lib.false.
+
+        NOTE: This API does *not* enforce a full match. Your pattern may do so
+        by specifying a pattern with ^ and $.
+
+        Example:
+
+            if $lib.regx.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
+                $lib.print("It's semver! ...probably")
+            }
+
+        '''
+        text = await tostr(text)
+        flags = await toint(flags)
+        pattern = await tostr(pattern)
+        regx = await self._getRegx(pattern, flags)
+        return regx.match(text) is not None
+
+    async def search(self, pattern, text, flags=0):
+        '''
+        Search the given text for the pattern and return a match.
+
+        Example:
+
+            $m = $lib.regx.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
+            if $m {
+                ($maj, $min, $pat) = $m
+            }
+
+        '''
+        text = await tostr(text)
+        flags = await toint(flags)
+        pattern = await tostr(pattern)
+        regx = await self._getRegx(pattern, flags)
+
+        m = regx.search(text)
+        if m is None:
+            return None
+
+        return m.groups()
 
 @registry.registerLib
 class LibCsv(Lib):
