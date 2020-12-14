@@ -224,6 +224,8 @@ class StormTest(s_t_utils.SynTest):
             # and again to test *not* creating it...
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
 
+            self.eq({'foo': 'bar'}, await core.callStorm('return($lib.dict(    foo    =    bar   ))'))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
