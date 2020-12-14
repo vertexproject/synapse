@@ -1459,6 +1459,18 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_node_data(self):
 
         async with self.getTestCore() as core:
+            stormpkg = {
+                'name': 'nodedatatest',
+                'version': (0, 0, 1),
+                'commands': (
+                    {
+                     'name': 'nd.permtest',
+                     'storm': '$node.data.get(foo:bar)',
+                    },
+                ),
+            }
+
+            await core.addStormPkg(stormpkg)
 
             nodes = await core.nodes('[test:int=10] $node.data.set(foo, hehe)')
 
@@ -1490,6 +1502,13 @@ class StormTypesTest(s_test.SynTest):
 
             self.none(await nodes[1].getData('woot'))
             self.eq(nodes[0].ndef, ('test:str', 'woot'))
+
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm('test:int | nd.permtest')
+                await visi.addRule((True, 'storm.asroot.cmd.nd.permtest'.split('.')))
+                await asvisi.callStorm('test:int | nd.permtest')
 
     async def test_storm_lib_bytes(self):
 
