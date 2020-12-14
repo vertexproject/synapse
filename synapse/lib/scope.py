@@ -173,7 +173,7 @@ def ctor(name, func, *args, **kwargs):
     return globscope.ctor(name, func, *args, **kwargs)
 
 @contextlib.contextmanager
-def enter(vals=None):
+def enter(**vals):
     '''
     Return the task's local scope for use in a with block
     '''
