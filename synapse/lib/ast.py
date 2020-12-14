@@ -2559,7 +2559,7 @@ class FuncCall(Value):
         kwlist = await self.kids[2].compute(runt, path)
         kwargs = dict(kwlist)
 
-        with s_scope.enter(runt=runt):
+        with s_scope.enter({'runt': runt}):
             return await s_coro.ornot(func, *argv, **kwargs)
 
 class DollarExpr(Value, Cond):
