@@ -743,6 +743,8 @@ class CmdOper(Oper):
             async for item in scmd.execStormCmd(runt, genr):
                 yield item
 
+            await genr.aclose()
+
 class SetVarOper(Oper):
 
     async def run(self, runt, genr):
