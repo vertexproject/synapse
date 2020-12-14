@@ -224,6 +224,8 @@ class StormTest(s_t_utils.SynTest):
             # and again to test *not* creating it...
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
 
+            self.eq({'foo': 'bar'}, await core.callStorm('return($lib.dict(    foo    =    bar   ))'))
+
             ddef0 = await core.callStorm('return($lib.dmon.add(${ $lib.queue.gen(hehedmon).put(lolz) $lib.time.sleep(10) }, name=hehedmon))')
             ddef1 = await core.callStorm('return($lib.dmon.get($iden))', opts={'vars': {'iden': ddef0.get('iden')}})
             self.none(await core.callStorm('return($lib.dmon.get(newp))'))

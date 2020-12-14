@@ -16,6 +16,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
@@ -735,13 +736,16 @@ class CmdOper(Oper):
             # ( many commands expect self.opts is set at run() )
             genr = await pullone(genx())
 
-            if runtsafe:
-                argv = await self.kids[1].compute(runt, None)
-                if not await scmd.setArgv(argv):
-                    return
+            try:
+                if runtsafe:
+                    argv = await self.kids[1].compute(runt, None)
+                    if not await scmd.setArgv(argv):
+                        return
 
-            async for item in scmd.execStormCmd(runt, genr):
-                yield item
+                async for item in scmd.execStormCmd(runt, genr):
+                    yield item
+            finally:
+                await genr.aclose()
 
 class SetVarOper(Oper):
 
@@ -2558,7 +2562,8 @@ class FuncCall(Value):
         kwlist = await self.kids[2].compute(runt, path)
         kwargs = dict(kwlist)
 
-        return await s_coro.ornot(func, *argv, **kwargs)
+        with s_scope.enter({'runt': runt}):
+            return await s_coro.ornot(func, *argv, **kwargs)
 
 class DollarExpr(Value, Cond):
     '''

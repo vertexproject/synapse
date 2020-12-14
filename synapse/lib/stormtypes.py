@@ -2,6 +2,7 @@ import bz2
 import gzip
 import json
 import time
+import regex
 import types
 import base64
 import pprint
@@ -22,6 +23,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
+import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
@@ -32,6 +34,12 @@ logger = logging.getLogger(__name__)
 
 class Undef: pass
 undef = Undef()
+
+def confirm(perm, gateiden=None):
+    s_scope.get('runt').confirm(perm, gateiden=gateiden)
+
+def allowed(perm, gateiden=None):
+    return s_scope.get('runt').allowed(perm, gateiden=gateiden)
 
 class StormTypesRegistry:
     def __init__(self):
@@ -1410,6 +1418,74 @@ class LibTime(Lib):
         return int(secs * 1000)
 
 @registry.registerLib
+class LibRegx(Lib):
+    '''
+    A Storm library for searching/matching with regular expressions.
+    '''
+    _storm_lib_path = ('regx',)
+
+    def __init__(self, runt, name=()):
+        Lib.__init__(self, runt, name=name)
+        self.compiled = {}
+
+    def getObjLocals(self):
+        return {
+            'search': self.search,
+            'matches': self.matches,
+            'flags': {'i': regex.I, 'm': regex.M},
+        }
+
+    async def _getRegx(self, pattern, flags):
+        lkey = (pattern, flags)
+        regx = self.compiled.get(lkey)
+        if regx is None:
+            regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+        return regx
+
+    async def matches(self, pattern, text, flags=0):
+        '''
+        Returns $lib.true if the text matches the pattern, otherwise $lib.false.
+
+        NOTE: This API does *not* enforce a full match. Your pattern may do so
+        by specifying a pattern with ^ and $.
+
+        Example:
+
+            if $lib.regx.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
+                $lib.print("It's semver! ...probably")
+            }
+
+        '''
+        text = await tostr(text)
+        flags = await toint(flags)
+        pattern = await tostr(pattern)
+        regx = await self._getRegx(pattern, flags)
+        return regx.match(text) is not None
+
+    async def search(self, pattern, text, flags=0):
+        '''
+        Search the given text for the pattern and return a match.
+
+        Example:
+
+            $m = $lib.regx.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
+            if $m {
+                ($maj, $min, $pat) = $m
+            }
+
+        '''
+        text = await tostr(text)
+        flags = await toint(flags)
+        pattern = await tostr(pattern)
+        regx = await self._getRegx(pattern, flags)
+
+        m = regx.search(text)
+        if m is None:
+            return None
+
+        return m.groups()
+
+@registry.registerLib
 class LibCsv(Lib):
     '''
     A Storm Library for interacting with csvtool.
@@ -1784,7 +1860,7 @@ class LibQueue(Lib):
         qlist = await self.dyncall('cortex', todo)
 
         for queue in qlist:
-            if not self.runt.user.allowed(('queue', 'get'), f"queue:{queue['name']}"):
+            if not allowed(('queue', 'get'), f"queue:{queue['name']}"):
                 continue
 
             retn.append(queue)
@@ -2601,7 +2677,7 @@ class LibGlobals(Lib):
         todo = ('itemsStormVar', (), {})
 
         async for key, valu in self.runt.dyniter('cortex', todo):
-            if user.allowed(('globals', 'get', key)):
+            if allowed(('globals', 'get', key)):
                 ret.append((key, valu))
         return ret
 
@@ -2794,7 +2870,6 @@ class NodeData(Prim):
     def __init__(self, node, path=None):
 
         Prim.__init__(self, node, path=path)
-
         self.locls.update(self.getObjLocals())
 
     def getObjLocals(self):
@@ -2806,35 +2881,29 @@ class NodeData(Prim):
             'load': self._loadNodeData,
         }
 
-    def _reqAllowed(self, perm):
-        if not self.valu.snap.user.allowed(perm):
-            pstr = '.'.join(perm)
-            mesg = f'User is not allowed permission: {pstr}'
-            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
-
     @stormfunc(readonly=True)
     async def _getNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'get', name))
+        confirm(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
-        self._reqAllowed(('node', 'data', 'set', name))
+        confirm(('node', 'data', 'set', name))
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'pop', name))
+        confirm(('node', 'data', 'pop', name))
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
     async def _listNodeData(self):
-        self._reqAllowed(('node', 'data', 'list'))
+        confirm(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
     @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'get', name))
+        confirm(('node', 'data', 'get', name))
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
@@ -3772,7 +3841,7 @@ class LibTrigger(Lib):
                     mesg = 'Provided iden matches more than one trigger.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-                if not user.allowed(('trigger', 'get'), gateiden=iden):
+                if not allowed(('trigger', 'get'), gateiden=iden):
                     continue
 
                 match = trig
@@ -3888,7 +3957,7 @@ class LibTrigger(Lib):
         triggers = []
 
         for iden, trig in await view.listTriggers():
-            if not user.allowed(('trigger', 'get'), gateiden=iden):
+            if not allowed(('trigger', 'get'), gateiden=iden):
                 continue
             triggers.append(Trigger(self.runt, trig.pack()))
 
@@ -4418,7 +4487,7 @@ class LibCron(Lib):
         for cron in crons:
             iden = cron.get('iden')
 
-            if iden.startswith(prefix) and user.allowed(perm, gateiden=iden):
+            if iden.startswith(prefix) and allowed(perm, gateiden=iden):
                 if matchcron is not None:
                     mesg = 'Provided iden matches more than one cron job.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
