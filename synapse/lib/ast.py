@@ -746,8 +746,6 @@ class CmdOper(Oper):
             finally:
                 await genr.aclose()
 
-            await genr.aclose()
-
 class SetVarOper(Oper):
 
     async def run(self, runt, genr):
