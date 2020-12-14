@@ -97,5 +97,5 @@ async def main(argv, outp=s_output.stdout):
         if fini is not None:
             await fini()
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))
