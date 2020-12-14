@@ -3345,9 +3345,9 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def bumpStormDmon(self, iden):
         dmon = self.stormdmons.getDmon(iden)
         if dmon is None:
-            mesg = f'No storm daemon exists with iden {iden}.'
-            raise s_exc.NoSuchIden(mesg=mesg)
+            return False
         await dmon.bump()
+        return True
 
     async def getStormDmons(self):
         return self.stormdmons.getDmonDefs()

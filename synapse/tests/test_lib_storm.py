@@ -235,8 +235,14 @@ class StormTest(s_t_utils.SynTest):
             task = core.stormdmons.getDmon(ddef0['iden']).task
             self.true(await core.callStorm(f'return($lib.dmon.bump($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.ne(task, core.stormdmons.getDmon(ddef0['iden']).task)
+            self.false(await core.callStorm(f'return($lib.dmon.bump(newp))'))
 
             self.eq((1, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(1))'))
+
+            async with core.getLocalProxy() as proxy:
+                self.nn(await proxy.getStormDmon(ddef0['iden']))
+                self.true(await proxy.bumpStormDmon(ddef0['iden']))
+                self.false(await proxy.bumpStormDmon('newp'))
 
     async def test_storm_pipe(self):
 
