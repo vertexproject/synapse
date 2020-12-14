@@ -558,6 +558,13 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="QuickBrownFox" return ( $foo.lower() )'
             self.eq('quickbrownfox', await core.callStorm(q))
 
+            # tuck the regx tests in with str
+            self.true(await core.callStorm(r'''return($lib.regx.matches('^foo', foobar))'''))
+            self.true(await core.callStorm(r'''return($lib.regx.matches('foo', FOOBAR, $lib.regx.flags.i))'''))
+            self.false(await core.callStorm(r'''return($lib.regx.matches('^foo$', foobar))'''))
+
+            self.eq(('oo',), await core.callStorm(r'''return($lib.regx.search('([aeiou]+)', foobar))'''))
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
