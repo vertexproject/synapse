@@ -67,7 +67,7 @@ def loadPkgProto(path, opticdir=None):
     return pkgdef
 
 
-prog = 'synmods.pkgrepo.tools.genpkg'
+prog = 'synapse.tools.genpkg'
 desc = 'A tool for generating/pushing storm packages from YAML prototypes.'
 
 async def main(argv, outp=s_output.stdout):
