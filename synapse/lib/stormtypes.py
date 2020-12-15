@@ -288,6 +288,8 @@ class LibDmon(Lib):
             'log': self._libDmonLog,
             'list': self._libDmonList,
             'bump': self._libDmonBump,
+            'stop': self._libDmonStop,
+            'start': self._libDmonStart,
         }
 
     async def _libDmonDel(self, iden):
@@ -390,13 +392,53 @@ class LibDmon(Lib):
             iden (str): The GUID of the dmon to restart.
         '''
         iden = await tostr(iden)
+
         ddef = await self.runt.snap.core.getStormDmon(iden)
         if ddef is None:
             return False
 
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+
         await self.runt.snap.core.bumpStormDmon(iden)
+        return True
+
+    async def _libDmonStop(self, iden):
+        '''
+        Stop a storm dmon.
+
+        Args:
+            iden (str): The GUID of the dmon to stop.
+        '''
+        iden = await tostr(iden)
+
+        ddef = await self.runt.snap.core.getStormDmon(iden)
+        if ddef is None:
+            return False
+
+        viewiden = ddef['stormopts']['view']
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+
+        await self.runt.snap.core.disableStormDmon(iden)
+        return True
+
+    async def _libDmonStart(self, iden):
+        '''
+        Start a storm dmon.
+
+        Args:
+            iden (str): The GUID of the dmon to start.
+        '''
+        iden = await tostr(iden)
+
+        ddef = await self.runt.snap.core.getStormDmon(iden)
+        if ddef is None:
+            return False
+
+        viewiden = ddef['stormopts']['view']
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+
+        await self.runt.snap.core.enableStormDmon(iden)
         return True
 
 @registry.registerLib

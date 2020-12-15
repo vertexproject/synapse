@@ -760,6 +760,14 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.bumpStormDmon(iden)
 
     @s_cell.adminapi()
+    async def disableStormDmon(self, iden):
+        return await self.cell.disableStormDmon(iden)
+
+    @s_cell.adminapi()
+    async def enableStormDmon(self, iden):
+        return await self.cell.enableStormDmon(iden)
+
+    @s_cell.adminapi()
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
@@ -3286,6 +3294,52 @@ class Cortex(s_cell.Cell):  # type: ignore
         ddef['iden'] = iden
         return await self._push('storm:dmon:add', ddef)
 
+    @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
+    async def bumpStormDmon(self, iden):
+        ddef = self.stormdmonhive.get(iden)
+        if ddef is None:
+            return False
+
+        if self.isactive:
+            dmon = self.stormdmons.getDmon(iden)
+            if dmon is not None:
+                await dmon.bump()
+
+        return True
+
+    @s_nexus.Pusher.onPushAuto('storm:dmon:enable')
+    async def enableStormDmon(self, iden):
+        ddef = self.stormdmonhive.get(iden)
+        if ddef is None:
+            return False
+
+        curv = ddef.get('enabled')
+
+        ddef['enabled'] = True
+        await self.stormdmonhive.set(iden, ddef)
+
+        if self.isactive and not curv:
+            dmon = self.stormdmons.getDmon(iden)
+            await dmon.run()
+        return True
+
+    @s_nexus.Pusher.onPushAuto('storm:dmon:disable')
+    async def disableStormDmon(self, iden):
+
+        ddef = self.stormdmonhive.get(iden)
+        if ddef is None:
+            return False
+
+        curv = ddef.get('enabled')
+
+        ddef['enabled'] = False
+        await self.stormdmonhive.set(iden, ddef)
+
+        if self.isactive and curv:
+            dmon = self.stormdmons.getDmon(iden)
+            await dmon.stop()
+        return True
+
     @s_nexus.Pusher.onPush('storm:dmon:add')
     async def _onAddStormDmon(self, ddef):
         iden = ddef['iden']
@@ -3341,13 +3395,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def getStormDmon(self, iden):
         return self.stormdmons.getDmonDef(iden)
-
-    async def bumpStormDmon(self, iden):
-        dmon = self.stormdmons.getDmon(iden)
-        if dmon is None:
-            return False
-        await dmon.bump()
-        return True
 
     async def getStormDmons(self):
         return self.stormdmons.getDmonDefs()
