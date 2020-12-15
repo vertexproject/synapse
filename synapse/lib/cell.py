@@ -1,11 +1,15 @@
 import os
 import ssl
+import time
+import shutil
 import socket
 import asyncio
 import logging
 import argparse
+import datetime
 import functools
 import contextlib
+import multiprocessing
 
 import tornado.web as t_web
 
@@ -25,11 +29,13 @@ import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
-
 import synapse.lib.lmdbslab as s_lmdbslab
+
+import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +81,12 @@ class CellApi(s_base.Base):
         self.link = link
         assert user
         self.user = user
-        sess = self.link.get('sess')  # type: s_daemon.Sess
-        sess.user = user
+        self.sess = self.link.get('sess')  # type: s_daemon.Sess
+        self.sess.user = user
+        await self.initCellApi()
+
+    async def initCellApi(self):
+        pass
 
     async def allowed(self, perm, default=None):
         '''
@@ -207,7 +217,7 @@ class CellApi(s_base.Base):
         '''
         try:
             await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
         except Exception:
             pass
@@ -445,6 +455,40 @@ class CellApi(s_base.Base):
             yield item
 
     @adminapi()
+    async def runBackup(self, name=None, wait=True):
+        '''
+        Run a new backup.
+
+        Args:
+            name (str): The optional name of the backup.
+            wait (bool): On True, wait for backup to complete before returning.
+
+        Returns:
+            str: The name of the newly created backup.
+        '''
+        return await self.cell.runBackup(name=name, wait=wait)
+
+    @adminapi()
+    async def getBackups(self):
+        '''
+        Retrieve a list of backups.
+
+        Returns:
+            list[str]: A list of backup names.
+        '''
+        return await self.cell.getBackups()
+
+    @adminapi()
+    async def delBackup(self, name):
+        '''
+        Delete a backup by name.
+
+        Args:
+            name (str): The name of the backup to delete.
+        '''
+        return await self.cell.delBackup(name)
+
+    @adminapi()
     async def getDiagInfo(self):
         return {
             'slabs': await s_lmdbslab.Slab.getSlabStats(),
@@ -476,12 +520,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'auth:passwd': {
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
-            'type': 'string'
+            'type': 'string',
+        },
+        'auth:anon': {
+            'description': 'Allow anonymous telepath access by mapping to the given user name.',
+            'type': 'string',
+        },
+        'auth:ctor': {
+            'description': 'Allow the construction of the cell auth object to be hooked at runtime.',
+            'type': 'string',
+            'hideconf': True,
+        },
+        'auth:conf': {
+            'description': 'Extended configuration to be used by an alternate auth constructor.',
+            'type': 'object',
+            'hideconf': True,
         },
         'nexslog:en': {
             'default': False,
             'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
-            'type': 'boolean'
+            'type': 'boolean',
         },
         'nexslog:async': {
             'default': False,
@@ -496,7 +554,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'A config-driven way to specify the HTTPS port.',
             'type': ['integer', 'null'],
         },
+        'backup:dir': {
+            'description': 'A directory outside the service directory where backups will be saved.',
+            'type': 'string',
+        },
+        'aha:name': {
+            'description': 'The name of the cell service in the aha service registry.',
+            'type': 'string',
+        },
+        'aha:leader': {
+            'description': 'The AHA service name to claim as the active instance of a storm service.',
+            'type': 'string',
+        },
+        'aha:registry': {
+            'description': 'The telepath URL of the aha service registry.',
+            'type': ['string', 'array'],
+            'items': {'type': 'string'},
+        },
+        'aha:admin': {
+            'description': 'An AHA client certificate CN to register as a local admin user.',
+            'type': 'string',
+        },
     }
+
+    BACKUP_SPAWN_TIMEOUT = 4.0
+    BACKUP_ACQUIRE_TIMEOUT = 0.5
 
     async def __anit__(self, dirn, conf=None, readonly=False):
 
@@ -511,6 +593,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sessions = {}
         self.isactive = False
         self.inaugural = False
+        self.activecoros = {}
 
         self.conf = self._initCellConf(conf)
 
@@ -534,6 +617,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.iden = fd.read().strip()
 
         self.donexslog = self.conf.get('nexslog:en')
+
+        backdirn = self.conf.get('backup:dir')
+        if backdirn is not None:
+            backdirn = s_common.genpath(backdirn)
+            if backdirn.startswith(self.dirn):
+                mesg = 'backup:dir must not be within the service directory'
+                raise s_exc.BadConfValu(mesg=mesg)
+
+            backdirn = s_common.gendir(backdirn)
+
+        self.backdirn = backdirn
+        self.backuprunning = False
 
         if self.conf.get('mirror') and not self.conf.get('nexslog:en'):
             mesg = 'Mirror mode requires nexslog:en=True'
@@ -559,6 +654,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellinfo = await node.dict()
         self.onfini(node)
 
+        node = await self.hive.open(('cellvers',))
+        self.cellvers = await node.dict(nexs=True)
+
         if self.inaugural:
             await self.cellinfo.set('synapse:version', s_version.version)
 
@@ -573,7 +671,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
 
-            if not user.tryPasswd(auth_passwd):
+            if not await user.tryPasswd(auth_passwd):
                 await user.setPasswd(auth_passwd, nexs=False)
 
         self.boss = await s_boss.Boss.anit()
@@ -584,9 +682,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'cell': self
         }
 
+        # a tuple of (vers, func) tuples
+        # it is expected that this is set by
+        # initServiceStorage
+        self.cellupdaters = ()
+
         # initialize web app and callback data structures
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
+
+        # initialize network backend infrastructure
+        await self._initCertDir()
+        await self._initAhaRegistry()
 
         # initialize network daemons (but do not listen yet)
         # to allow registration of callbacks and shared objects
@@ -602,6 +709,61 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def _execCellUpdates(self):
+        # implement to apply updates to a fully initialized active cell
+        # ( and do so using _bumpCellVers )
+        pass
+
+    async def _bumpCellVers(self, name, updates):
+
+        if self.inaugural:
+            await self.cellvers.set(name, updates[-1][0])
+            return
+
+        curv = self.cellvers.get(name, 0)
+
+        for vers, callback in updates:
+
+            if vers <= curv:
+                continue
+
+            await callback()
+
+            await self.cellvers.set(name, vers)
+
+            curv = vers
+
+    async def _initAhaRegistry(self):
+
+        self.ahainfo = None
+        self.ahaclient = None
+
+        ahaurl = self.conf.get('aha:registry')
+        if ahaurl is not None:
+
+            self.ahaclient = await s_telepath.addAhaUrl(ahaurl)
+
+            async def finiaha():
+                await s_telepath.delAhaUrl(ahaurl)
+
+            self.onfini(finiaha)
+
+        ahaadmin = self.conf.get('aha:admin')
+        if ahaadmin is not None:
+            # add the user in a pre-nexus compatible way
+            user = await self.auth.getUserByName(ahaadmin)
+
+            if user is None:
+                iden = s_common.guid(ahaadmin)
+                await self.auth._addUser(iden, ahaadmin)
+                user = await self.auth.getUserByName(ahaadmin)
+
+            if not user.isAdmin():
+                await user.setAdmin(True, logged=False)
+
+            if user.isLocked():
+                await user.setLocked(False, logged=False)
 
     async def initServiceStorage(self):
         pass
@@ -619,24 +781,68 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
             await self.dmon.listen(sockurl)
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
         except OSError as e:
             logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
             logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
         except Exception:  # pragma: no cover
-            logging.exception(f'Unknown dmon listen error.')
+            logging.exception('Unknown dmon listen error.')
             raise
+
+        self.sockaddr = None
 
         turl = self.conf.get('dmon:listen')
         if turl is not None:
-            await self.dmon.listen(turl)
+            self.sockaddr = await self.dmon.listen(turl)
             logger.info(f'dmon listening: {turl}')
+
+        await self._initAhaService()
 
         port = self.conf.get('https:port')
         if port is not None:
             await self.addHttpsPort(port)
             logger.info(f'https listening: {port}')
+
+    async def _initAhaService(self):
+
+        if self.ahaclient is None:
+            return
+
+        turl = self.conf.get('dmon:listen')
+        ahaname = self.conf.get('aha:name')
+        if ahaname is None:
+            return
+
+        ahalead = self.conf.get('aha:leader')
+
+        ahainfo = self.conf.get('aha:svcinfo')
+        if ahainfo is None and turl is not None:
+
+            urlinfo = s_telepath.chopurl(turl)
+
+            urlinfo.pop('host', None)
+            urlinfo['port'] = self.sockaddr[1]
+
+            ahainfo = {
+                'urlinfo': urlinfo,
+            }
+
+        if ahainfo is None:
+            return
+
+        self.ahainfo = ahainfo
+
+        async def onlink(proxy):
+            await proxy.addAhaSvc(ahaname, self.ahainfo)
+            if self.isactive and ahalead is not None:
+                await proxy.addAhaSvc(ahalead, self.ahainfo)
+
+        async def fini():
+            await self.ahaclient.offlink(onlink)
+
+        await self.ahaclient.onlink(onlink)
+        self.onfini(fini)
 
     async def initServiceRuntime(self):
         pass
@@ -651,6 +857,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getNexsIndx(self):
         return await self.nexsroot.index()
 
+    @s_nexus.Pusher.onPushAuto('nexslog:setindex')
+    async def setNexsIndx(self, indx):
+        return await self.nexsroot.setindex(indx)
+
     async def promote(self):
         '''
         Transform this cell from a passive follower to
@@ -663,12 +873,127 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.nexsroot.promote()
         await self.setCellActive(True)
 
+    async def _setAhaActive(self):
+
+        if self.ahaclient is None:
+            return
+
+        if self.ahainfo is None:
+            return
+
+        ahalead = self.conf.get('aha:leader')
+        if ahalead is None:
+            return
+
+        try:
+
+            proxy = await self.ahaclient.proxy(timeout=2)
+
+        except TimeoutError: # pragma: no cover
+            return None
+
+        # if we went inactive, bump the aha proxy
+        if not self.isactive:
+            await proxy.fini()
+            return
+
+        try:
+            await proxy.addAhaSvc(ahalead, self.ahainfo)
+        except asyncio.CancelledError: # pragma: no cover
+            raise
+        except Exception as e: # pragma: no cover
+            logger.warning(f'_setAhaActive failed: {e}')
+
+    async def addActiveCoro(self, func, iden=None):
+        '''
+        Add a function callback to be run as a coroutine when the Cell is active.
+
+        Args:
+            func (coroutine function): The function run as a coroutine.
+            iden (str): The iden to use for the coroutine.
+
+        Returns:
+            str: A GUID string that identifies the coroutine for delActiveCoro()
+
+        NOTE:
+            This will re-fire the coroutine if it exits and the Cell is still active.
+        '''
+
+        if iden is None:
+            iden = s_common.guid()
+
+        cdef = {'func': func}
+        self.activecoros[iden] = cdef
+
+        if self.isactive:
+            await self._fireActiveCoro(iden, cdef)
+
+        return iden
+
+    async def delActiveCoro(self, iden):
+        '''
+        Remove a callback previously added with addActiveCoro().
+
+        Args:
+            iden (str): The GUID returned by addActiveCoro()
+        '''
+
+        cent = self.activecoros.pop(iden, None)
+        if cent is None:
+            return
+
+        task = cent.get('task')
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.warning(f'delActiveCoro Task: {e}')
+
+    async def _fireActiveCoros(self):
+        for iden, cdef in self.activecoros.items():
+            await self._fireActiveCoro(iden, cdef)
+
+    async def _fireActiveCoro(self, iden, cdef):
+        func = cdef.get('func')
+        async def wrap():
+            while not self.isfini:
+                try:
+                    await func()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    logger.warning(f'activeCoro Error: {func} {e}')
+                    await asyncio.sleep(1)
+
+        cdef['task'] = self.schedCoro(wrap())
+
+    async def _killActiveCoros(self):
+        for cdef in self.activecoros.values():
+            task = cdef.pop('task', None)
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e: # pragma: no cover
+                    logger.warning(f'killActiveCoros Task: {e}')
+
     async def setCellActive(self, active):
         self.isactive = active
+
         if self.isactive:
+            await self._fireActiveCoros()
+            await self._execCellUpdates()
             await self.initServiceActive()
         else:
+            await self._killActiveCoros()
             await self.initServicePassive()
+
+        await self._setAhaActive()
 
     async def initServiceActive(self): # pragma: no cover
         pass
@@ -679,6 +1004,156 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getNexusChanges(self, offs):
         async for item in self.nexsroot.iter(offs):
             yield item
+
+    def _reqBackDirn(self, name):
+        self._reqBackConf()
+
+        path = s_common.genpath(self.backdirn, name)
+        if not path.startswith(self.backdirn):
+            mesg = 'Directory traversal detected'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return path
+
+    async def runBackup(self, name=None, wait=True):
+
+        if self.backuprunning:
+            raise s_exc.BackupAlreadyRunning(mesg='Another backup is already running')
+
+        try:
+            task = None
+            self.backuprunning = True
+
+            if name is None:
+                name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
+
+            path = self._reqBackDirn(name)
+            if os.path.isdir(path):
+                mesg = 'Backup with name already exists'
+                raise s_exc.BadArg(mesg=mesg)
+
+            task = self.schedCoro(self._execBackupTask(path))
+
+            def done(self, task):
+                self.backuprunning = False
+
+            task.add_done_callback(functools.partial(done, self))
+
+            if wait:
+                await task
+
+            return name
+
+        except (asyncio.CancelledError, Exception):
+            if task is not None:
+                task.cancel()
+            self.backuprunning = False
+            raise
+
+    async def _execBackupTask(self, dirn):
+        '''
+        A task that backs up the cell to the target directory
+        '''
+        await self.boss.promote('backup', self.auth.rootuser)
+        slabs = s_lmdbslab.Slab.getSlabsInDir(self.dirn)
+        assert slabs
+
+        ctx = multiprocessing.get_context('spawn')
+
+        mypipe, child_pipe = ctx.Pipe()
+        paths = [str(slab.path) for slab in slabs]
+
+        def spawnproc():
+            proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths))
+            proc.start()
+            hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
+            if not hasdata:
+                raise s_exc.SynErr(mesg='backup subprocess stuck')
+            data = mypipe.recv()
+            assert data == 'ready'
+            return proc
+
+        proc = await s_coro.executor(spawnproc)
+
+        while True:
+            await s_lmdbslab.Slab.syncLoopOnce()
+            if not any(slab.dirty for slab in slabs):
+                break
+
+        try:
+            mypipe.send('proceed')
+
+            # This is technically pending the ioloop waiting for the backup process to acquire a bunch of
+            # transactions.  We're effectively locking out new write requests the brute force way.
+            hasdata = mypipe.poll(timeout=self.BACKUP_ACQUIRE_TIMEOUT)
+            if not hasdata:
+                raise s_exc.SynErr(mesg='backup subprocess stuck')
+
+            data = mypipe.recv()
+            assert data == 'captured'
+
+            def waitforproc():
+                proc.join()
+                if proc.exitcode:
+                    raise s_exc.SpawnExit(code=proc.exitcode)
+
+            return await s_coro.executor(waitforproc)
+
+        except (asyncio.CancelledError, Exception):
+            proc.terminate()
+            raise
+
+    @staticmethod
+    def _backupProc(pipe, srcdir, dstdir, lmdbpaths):
+        '''
+        (In a separate process) Actually do the backup
+        '''
+        pipe.send('ready')
+        data = pipe.recv()
+        assert data == 'proceed'
+        with s_t_backup.capturelmdbs(srcdir, onlydirs=lmdbpaths) as lmdbinfo:
+            # Let parent know we have the transactions so he can resume the ioloop
+            pipe.send('captured')
+
+            s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
+
+    def _reqBackConf(self):
+        if self.backdirn is None:
+            mesg = 'Backup APIs require the backup:dir config option is set'
+            raise s_exc.NeedConfValu(mesg=mesg)
+
+    async def delBackup(self, name):
+
+        self._reqBackConf()
+        path = self._reqBackDirn(name)
+
+        cellguid = os.path.join(path, 'cell.guid')
+        if not os.path.isfile(cellguid):
+            mesg = 'Specified backup path has no cell.guid file.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+
+    async def getBackups(self):
+        self._reqBackConf()
+        backups = []
+
+        def walkpath(path):
+
+            for name in os.listdir(path):
+
+                full = os.path.join(path, name)
+                cellguid = os.path.join(full, 'cell.guid')
+
+                if os.path.isfile(cellguid):
+                    backups.append(os.path.relpath(full, self.backdirn))
+                    continue
+
+                if os.path.isdir(full):
+                    walkpath(full)
+
+        walkpath(self.backdirn)
+        return backups
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
         user = self.auth.user(iden)
@@ -692,7 +1167,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if user is None:
             return None
 
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             return None
 
         return user.pack()
@@ -891,7 +1366,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not os.path.isfile(certpath):
                 logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
                 with s_common.getTempDir() as dirn:
-                    cdir = s_certdir.CertDir(dirn)
+                    cdir = s_certdir.CertDir(path=(dirn,))
                     pkey, cert = cdir.genHostCert(self.getCellType())
                     cdir.savePkeyPem(pkey, pkeypath)
                     cdir.saveCertPem(cert, certpath)
@@ -947,6 +1422,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def _initCellHttpApis(self):
 
         self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
+        self.addHttpApi('/api/v1/active', s_httpapi.ActiveV1, {'cell': self})
         self.addHttpApi('/api/v1/healthcheck', s_httpapi.HealthCheckV1, {'cell': self})
 
         self.addHttpApi('/api/v1/auth/users', s_httpapi.AuthUsersV1, {'cell': self})
@@ -959,16 +1435,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHttpApi('/api/v1/auth/password/(.*)', s_httpapi.AuthUserPasswdV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/onepass/issue', s_httpapi.OnePassIssueV1, {'cell': self})
 
     def addHttpApi(self, path, ctor, info):
         self.wapp.add_handlers('.*', (
             (path, ctor, info),
         ))
 
-    async def _initCellDmon(self):
-        cdir = s_common.gendir(self.dirn, 'certs')
+    async def _initCertDir(self):
 
-        self.dmon = await s_daemon.Daemon.anit(certdir=(cdir, s_certdir.defdir))
+        certpath = s_common.gendir(self.dirn, 'certs')
+
+        # add our cert path to the global resolver
+        s_certdir.addCertPath(certpath)
+
+        async def fini():
+            s_certdir.delCertPath(certpath)
+        self.onfini(fini)
+
+        # our certdir is *only* the cell certs dir
+        self.certdir = s_certdir.CertDir(path=(certpath,))
+
+    async def _initCellDmon(self):
+
+        self.dmon = await s_daemon.Daemon.anit()
         self.dmon.share('*', self)
 
         self.onfini(self.dmon.fini)
@@ -1008,6 +1498,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):
+
+        authctor = self.conf.get('auth:ctor')
+        if authctor is not None:
+            ctor = s_dyndeps.getDynLocal(authctor)
+            return await ctor(self)
+
+        return await self._initCellHiveAuth()
+
+    async def _initCellHiveAuth(self):
+
         node = await self.hive.open(('auth',))
         auth = await s_hiveauth.Auth.anit(node, nexsroot=self.nexsroot)
 
@@ -1055,7 +1555,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 raise s_exc.NoSuchUser(name=name)
 
         else:
-            user = await self._getCellUser(mesg)
+            user = await self._getCellUser(link, mesg)
 
         return await self.getCellApi(link, user, path)
 
@@ -1099,7 +1599,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Notes:
             Boot time configuration data is placed in the argument group called ``config``.
             This adds default ``dirn``, ``--telepath``, ``--https`` and ``--name`` arguements to the argparser instance.
-            Configuration values which have the ``hideconf`` value set to True are not added to the argparser instance.
+            Configuration values which have the ``hideconf`` or ``hidecmdl`` value set to True are not added to the
+            argparser instance.
 
         Returns:
             argparse.ArgumentParser: A ArgumentParser for the Cell.
@@ -1212,7 +1713,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if outp is not None:
                     outp.printf(f'...{cell.getCellType()} API (telepath name): %s' % (opts.name,))
 
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             await cell.fini()
             raise
 
@@ -1241,11 +1742,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await cell.main()
 
-    async def _getCellUser(self, mesg):
+    async def _getCellUser(self, link, mesg):
+
+        # check for a TLS client cert
+        username = link.getTlsPeerCn()
+        if username is not None:
+            user = await self.auth.getUserByName(username)
+            if user is not None:
+                return user
+
+            logger.warning(f'TLS Client Cert User NOT FOUND: {username}')
 
         auth = mesg[1].get('auth')
         if auth is None:
-            raise s_exc.AuthDeny(mesg='Unable to find cell user')
+
+            anonuser = self.conf.get('auth:anon')
+            if anonuser is None:
+                raise s_exc.AuthDeny(mesg='Unable to find cell user')
+
+            user = await self.auth.getUserByName(anonuser)
+            if user is None:
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.')
+
+            if user.isLocked():
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.')
+
+            return user
 
         name, info = auth
 
@@ -1255,7 +1777,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # passwd None always fails...
         passwd = info.get('passwd')
-        if not user.tryPasswd(passwd):
+
+        if not await user.tryPasswd(passwd):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return user

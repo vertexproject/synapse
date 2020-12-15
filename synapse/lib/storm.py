@@ -1,11 +1,13 @@
 import asyncio
 import logging
 import argparse
+import contextlib
 import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
@@ -15,6 +17,9 @@ import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.spooled as s_spooled
+import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -156,6 +161,10 @@ reqValidPkgdef = s_config.getJsValidator({
             'type': ['array', 'number'],
             'items': {'type': 'number'}
         },
+        'synapse_minversion': {
+            'type': ['array', 'null'],
+            'items': {'type': 'number'}
+        },
         'modules': {
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/module'}
@@ -165,7 +174,8 @@ reqValidPkgdef = s_config.getJsValidator({
             'items': {'$ref': '#/definitions/command'}
         },
         'desc': {'type': 'string'},
-        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden}
+        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'onload': {'type': 'string'},
     },
     'additionalProperties': True,
     'required': ['name', 'version'],
@@ -174,7 +184,8 @@ reqValidPkgdef = s_config.getJsValidator({
             'type': 'object',
             'properties': {
                 'name': {'type': 'string'},
-                'storm': {'type': 'string'}
+                'storm': {'type': 'string'},
+                'modconf': {'type': 'object'},
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -186,10 +197,30 @@ reqValidPkgdef = s_config.getJsValidator({
                     'type': 'string',
                     'pattern': s_grammar.re_scmd
                 },
+                'cmdargs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/cmdarg'},
+                },
                 'storm': {'type': 'string'}
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'cmdarg': {
+            'type': 'array',
+            'items': [
+                {'type': 'string'},
+                {
+                    'type': 'object',
+                    'properties': {
+                        'help': {'type': 'string'},
+                        'type': {
+                            'type': 'string',
+                            'enum': list(s_datamodel.Model().types)
+                        },
+                    },
+                }
+            ]
         }
     }
 })
@@ -292,7 +323,7 @@ stormcmds = (
                               'action': 'store_true'}),
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
-            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': int}),
+            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
         ),
@@ -402,6 +433,47 @@ stormcmds = (
 
             }
         '''
+    },
+    {
+        'name': 'pkg.load',
+        'descr': 'Load a storm package from an HTTP URL.',
+        'cmdargs': (
+            ('url', {'help': 'The HTTP URL to load the package from.'}),
+            ('--ssl-noverify', {'default': False, 'action': 'store_true',
+                'help': 'Specify to disable SSL verification of the server.'}),
+        ),
+        'storm': '''
+            init {
+                $ssl = $lib.true
+                if $cmdopts.ssl_noverify { $ssl = $lib.false }
+
+                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl)
+
+                if ($resp.code != 200) {
+                    $lib.warn("pkg.load got HTTP code: {code} for URL: {url}", code=$resp.code, url=$cmdopts.url)
+                    $lib.exit()
+                }
+
+                $reply = $resp.json()
+                if ($reply.status != "ok") {
+                    $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
+                    $lib.exit()
+                }
+
+                $pkg = $reply.result
+
+                $pkg.url = $cmdopts.url
+                $pkg.loaded = $lib.time.now()
+
+                $lib.pkg.add($pkg)
+
+                $maj = $pkg.version.index(0)
+                $min = $pkg.version.index(1)
+                $rev = $pkg.version.index(2)
+
+                $lib.print("Loaded Package: {name} @{maj}.{min}.{rev}", name=$pkg.name, maj=$maj, min=$min, rev=$rev)
+            }
+        ''',
     },
     {
         'name': 'view.add',
@@ -515,8 +587,7 @@ stormcmds = (
         ),
         'storm': '''
             $trig = $lib.trigger.add($cmdopts)
-
-            $lib.print("Added trigger: {iden}", iden=$iden)
+            $lib.print("Added trigger: {iden}", iden=$trig.iden)
         ''',
     },
     {
@@ -621,6 +692,8 @@ stormcmds = (
         'cmdargs': (
             ('query', {'help': 'Query for the cron job to execute.'}),
             ('--minute', {'help': 'Minute value for job or recurrence period.'}),
+            ('--name', {'help': 'An optional name for the cron job.'}),
+            ('--doc', {'help': 'An optional doc string for the cron job.'}),
             ('--hour', {'help': 'Hour value for job or recurrence period.'}),
             ('--day', {'help': 'Day value for job or recurrence period.'}),
             ('--month', {'help': 'Month value for job or recurrence period.'}),
@@ -642,6 +715,9 @@ stormcmds = (
                                   monthly=$cmdopts.monthly,
                                   yearly=$cmdopts.yearly)
 
+            if $cmdopts.doc { $cron.set(doc, $cmdopts.doc) }
+            if $cmdopts.name { $cron.set(name, $cmdopts.name) }
+
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
     },
@@ -654,13 +730,15 @@ stormcmds = (
             ('--hour', {'help': 'Hour(s) to execute at.'}),
             ('--day', {'help': 'Day(s) to execute at.'}),
             ('--dt', {'help': 'Datetime(s) to execute at.'}),
+            ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
         ),
         'storm': '''
             $cron = $lib.cron.at(query=$cmdopts.query,
                                  minute=$cmdopts.minute,
                                  hour=$cmdopts.hour,
                                  day=$cmdopts.day,
-                                 dt=$cmdopts.dt)
+                                 dt=$cmdopts.dt,
+                                 now=$cmdopts.now)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -688,6 +766,27 @@ stormcmds = (
             $lib.print("Modified cron job: {iden}", iden=$iden)
         ''',
     },
+    {
+        'name': 'cron.cleanup',
+        'descr': "Delete all completed at jobs",
+        'cmdargs': (),
+        'storm': '''
+            $crons = $lib.cron.list()
+            $count = 0
+
+            if $crons {
+                for $cron in $crons {
+                    $job = $cron.pack()
+                    if (not $job.recs) {
+                        $lib.cron.del($job.iden)
+                        $count = ($count + 1)
+                    }
+                }
+            }
+            $lib.print("{count} cron/at jobs deleted.", count=$count)
+        ''',
+    },
+
     {
         'name': 'cron.list',
         'descr': "List existing cron jobs in the cortex.",
@@ -1006,7 +1105,7 @@ class StormDmon(s_base.Base):
         def dmonWarn(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.info(f'Dmon - {self.iden} - WARNING: {mesg}')
+            logger.warning(f'Dmon - {self.iden} - {mesg}')
 
         while not self.isfini:
 
@@ -1029,6 +1128,10 @@ class StormDmon(s_base.Base):
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
 
+            except s_stormctrl.StormExit:
+                self.status = 'exited'
+                await self.waitfini(timeout=1)
+
             except asyncio.CancelledError:
                 logger.warning(f'Dmon loop cancelled: ({self.iden})')
                 raise
@@ -1049,7 +1152,7 @@ class Runtime:
     opaque object which is called through, but not dereferenced.
 
     '''
-    def __init__(self, snap, opts=None, user=None):
+    def __init__(self, query, snap, opts=None, user=None, root=None):
 
         if opts is None:
             opts = {}
@@ -1062,7 +1165,14 @@ class Runtime:
         self.opts = opts
         self.snap = snap
         self.user = user
+        self.asroot = False
 
+        self.root = root
+        self.funcscope = False
+
+        self.query = query
+
+        self.readonly = opts.get('readonly', False) # EXPERIMENTAL: Make it safe to run untrusted queries
         self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
@@ -1075,19 +1185,34 @@ class Runtime:
         if varz is not None:
             self.vars.update(varz)
 
-        self.runtvars = set()
-        self.runtvars.update(self.vars.keys())
-        self.runtvars.update(self.ctors.keys())
-        self.isModuleRunt = False
-        self.globals = set()
-        self.modulefuncs = {}
+        # declare path builtins as non-runtsafe
+        self.runtvars = {
+            'node': False,
+            'path': False,
+        }
+
+        # inherit runtsafe vars from our root
+        if self.root is not None:
+            self.runtvars.update(root.runtvars)
+
+        # all vars/ctors are de-facto runtsafe
+        self.runtvars.update({k: True for k in self.vars.keys()})
+        self.runtvars.update({k: True for k in self.ctors.keys()})
 
         self.proxies = {}
 
+        self._loadRuntVars(query)
+
     async def dyncall(self, iden, todo, gatekeys=()):
+        #bypass all perms checks if we are running asroot
+        if self.asroot:
+            gatekeys = ()
         return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
+        #bypass all perms checks if we are running asroot
+        if self.asroot:
+            gatekeys = ()
         async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
@@ -1098,6 +1223,9 @@ class Runtime:
         gatekeys = ()
         if perm is not None:
             gatekeys = ((self.user.iden, perm, None),)
+        #bypass all perms checks if we are running asroot
+        if self.asroot:
+            gatekeys = ()
         return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def getTeleProxy(self, url, **opts):
@@ -1115,15 +1243,16 @@ class Runtime:
         return prox
 
     def isRuntVar(self, name):
-        if name in self.runtvars:
-            return True
-        return False
+        return bool(self.runtvars.get(name))
 
     async def printf(self, mesg):
         return await self.snap.printf(mesg)
 
     async def warn(self, mesg, **info):
         return await self.snap.warn(mesg, **info)
+
+    async def warnonce(self, mesg, **info):
+        return await self.snap.warnonce(mesg, **info)
 
     def tick(self):
         pass
@@ -1132,7 +1261,7 @@ class Runtime:
         self.task.cancel()
 
     def initPath(self, node):
-        return s_node.Path(self, dict(self.vars), [node])
+        return s_node.Path(dict(self.vars), [node])
 
     def getOpt(self, name, defval=None):
         return self.opts.get(name, defval)
@@ -1152,10 +1281,40 @@ class Runtime:
             self.vars[name] = item
             return item
 
+        if self.root is not None:
+            valu = self.root.getVar(name, defv=s_common.novalu)
+            if valu is not s_common.novalu:
+                return valu
+
         return defv
 
+    def _isRootScope(self, name):
+        if self.root is None:
+            return False
+        if not self.funcscope:
+            return True
+        if name in self.root.vars:
+            return True
+        return self.root._isRootScope(name)
+
     def setVar(self, name, valu):
+
+        if name in self.ctors or name in self.vars:
+            self.vars[name] = valu
+            return
+
+        if self._isRootScope(name):
+            return self.root.setVar(name, valu)
+
         self.vars[name] = valu
+        return
+
+    def popVar(self, name):
+
+        if self._isRootScope(name):
+            return self.root.popVar(name)
+
+        return self.vars.pop(name, s_common.novalu)
 
     def addInput(self, node):
         '''
@@ -1185,102 +1344,88 @@ class Runtime:
                 yield node, self.initPath(node)
 
     def layerConfirm(self, perms):
+        if self.asroot:
+            return
         iden = self.snap.wlyr.iden
         return self.user.confirm(perms, gateiden=iden)
+
+    def isAdmin(self, gateiden=None):
+        if self.asroot:
+            return True
+        return self.user.isAdmin(gateiden=gateiden)
 
     def confirm(self, perms, gateiden=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
 
         '''
+        if self.asroot:
+            return
         return self.user.confirm(perms, gateiden=gateiden)
 
-    def loadRuntVars(self, query):
+    def allowed(self, perms, gateiden=None):
+        if self.asroot:
+            return True
+        return self.user.allowed(perms, gateiden=gateiden)
+
+    def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
-            for name in oper.getRuntVars(self):
-                if self.isModuleRunt and isinstance(oper, s_ast.Function):
-                    self.modulefuncs[name] = oper
-                self.runtvars.add(name)
+            for name, isrunt in oper.getRuntVars(self):
+                # once runtsafe, always runtsafe
+                if self.runtvars.get(name):
+                    continue
+                self.runtvars[name] = isrunt
 
-    async def iterStormQuery(self, query, genr=None):
-
-        with s_provenance.claim('storm', q=query.text, user=self.user.iden):
-
-            self.loadRuntVars(query)
-
-            # init any options from the query
-            # (but dont override our own opts)
-            for name, valu in query.opts.items():
-                self.opts.setdefault(name, valu)
-
-            async for node, path in query.iterNodePaths(self, genr=genr):
+    async def execute(self, genr=None):
+        with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
+            async for item in self.query.iterNodePaths(self, genr=genr):
                 self.tick()
-                yield node, path
+                yield item
 
-    def canPropName(self, name):
-        if name not in self.modulefuncs and name not in self.ctors:
-            return True
-        return False
-
-    async def getScopeRuntime(self, query, opts=None, impd=False):
+    @contextlib.asynccontextmanager
+    async def getSubRuntime(self, query, opts=None):
         '''
-        Derive a new runt off of an existing runt. It will pass down any global level vars. It has to
-        re run the oper.run function on any function opers so that it gets the correct context of
-        variable values and functions.
+        Yield a runtime with shared scope that will populate changes upward.
         '''
-        runt = Runtime(self.snap, user=self.user, opts=opts)
-        # imported implies module level
-        runt.isModuleRunt = impd
-        if not impd:  # respect the import boundary
+        snap = self.snap
 
-            # if we are a top level module we need to
-            # push down our runtvars
-            if self.isModuleRunt:
-                for name in self.runtvars:
-                    valu = self.vars.get(name, s_common.novalu)
-                    if valu is s_common.novalu:
-                        continue
-                    if self.canPropName(name):
-                        runt.globals.add(name)
-                        runt.runtvars.add(name)
-                        runt.vars[name] = valu
+        if opts is not None:
 
-            # propagate down all the global variables
-            for name in self.globals:
-                if self.canPropName(name):
-                    runt.vars[name] = self.vars[name]
-                    runt.globals.add(name)
-                    runt.runtvars.add(name)
+            viewiden = opts.get('view')
+            if viewiden is not None:
 
-            # regardless of module level, we have to reload the module functions
-            # we were given so they run with the right runt. We need this so we have
-            # the whole function telescoping going on, and module level variables get
-            # set to the right values
-            runt.modulefuncs = dict(self.modulefuncs)
-            for name, oper in self.modulefuncs.items():
-                runt.runtvars.add(name)
-                async for item in oper.run(runt, s_common.agen()):
-                    pass  # pragma: no cover
+                view = snap.core.views.get(viewiden)
+                if view is None:
+                    raise s_exc.NoSuchView(iden=viewiden)
 
-        runt.loadRuntVars(query)
+                self.user.confirm(('view', 'read'), gateiden=viewiden)
+                snap = await view.snap(self.user)
+
+        runt = Runtime(query, snap, user=self.user, opts=opts, root=self)
+        runt.asroot = self.asroot
+        runt.readonly = self.readonly
+
+        yield runt
+
+    @contextlib.contextmanager
+    def getCmdRuntime(self, query, opts=None):
+        '''
+        Yield a runtime with proper scoping for use in executing a pure storm command.
+        '''
+        runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt.asroot = self.asroot
+        runt.readonly = self.readonly
+        yield runt
+
+    def getModRuntime(self, query, opts=None):
+        '''
+        Construct a non-context managed runtime for use in module imports.
+        '''
+        runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt.asroot = self.asroot
+        runt.readonly = self.readonly
         return runt
-
-    async def propBackGlobals(self, runt):
-        '''
-        From a called runt (passed in by parameter), propagate the vars we know to be global
-        to the module back up into the calling runt. *Don't* propagate any functions, since
-        those need the context of which runt they're being called from, and just for safety
-        don't mess with the base lib object.
-        '''
-        for name in runt.globals:
-            valu = runt.vars.get(name, s_common.novalu)
-            if valu is s_common.novalu:
-                continue
-            if not self.canPropName(name):
-                # don't override our parent's version of a function
-                continue
-            self.vars[name] = valu
 
 class Parser:
 
@@ -1307,6 +1452,11 @@ class Parser:
     def add_argument(self, *names, **opts):
 
         assert len(names)
+
+        argtype = opts.get('type')
+        if argtype is not None and argtype not in s_datamodel.Model().types:
+            mesg = f'Argument type "{argtype}" is not a valid model type name'
+            raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
         dest = self._get_dest(names)
         opts.setdefault('dest', dest)
@@ -1443,9 +1593,9 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = argtype(valu)
+                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                 except Exception:
-                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
 
             opts[dest] = valu
@@ -1461,9 +1611,9 @@ class Parser:
                 valu = todo.popleft()
                 if argtype is not None:
                     try:
-                        valu = argtype(valu)
+                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                     except Exception:
-                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
                 opts[dest] = valu
@@ -1478,9 +1628,9 @@ class Parser:
 
                 if argtype is not None:
                     try:
-                        valu = argtype(valu)
+                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                     except Exception:
-                        mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                        mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
                 vals.append(valu)
@@ -1501,9 +1651,9 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = argtype(valu)
+                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
                 except Exception:
-                    mesg = f'Invalid value for type ({str(argtype)}): {valu}'
+                    mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
 
             vals.append(valu)
@@ -1593,7 +1743,9 @@ class Cmd:
 
     Notes:
         Python Cmd implementers may override the ``forms`` attribute with a dictionary to provide information
-        about Synapse forms which are possible input and output nodes that a Cmd may recognize.
+        about Synapse forms which are possible input and output nodes that a Cmd may recognize. A list of
+        (key, form) tuples may also be added to provide information about forms which may have additional
+        nodedata added to them by the Cmd.
 
         Example:
 
@@ -1607,12 +1759,18 @@ class Cmd:
                     'output': (
                         'geo:place',
                     ),
+                    'nodedata': (
+                        ('foodata', 'inet:http:request'),
+                        ('bardata', 'inet:ipv4'),
+                    ),
                 }
 
     '''
     name = 'cmd'
     pkgname = ''
     svciden = ''
+    asroot = False
+    readonly = False
     forms = {}  # type: ignore
 
     def __init__(self, runt, runtsafe):
@@ -1625,6 +1783,9 @@ class Cmd:
 
         self.pars = self.getArgParser()
         self.pars.printf = runt.snap.printf
+
+    def isReadOnly(self):
+        return self.readonly
 
     @classmethod
     def getCmdBrief(cls):
@@ -1670,12 +1831,16 @@ class Cmd:
 
         inpt = cls.forms.get('input')
         outp = cls.forms.get('output')
+        nodedata = cls.forms.get('nodedata')
 
         if inpt:
             props['input'] = tuple(inpt)
 
         if outp:
             props['output'] = tuple(outp)
+
+        if nodedata:
+            props['nodedata'] = tuple(nodedata)
 
         if cls.svciden:
             props['svciden'] = cls.svciden
@@ -1696,9 +1861,15 @@ class Cmd:
 
 class PureCmd(Cmd):
 
+    # pure commands are all "readonly" safe because their perms are enforced
+    # by the underlying runtime executing storm operations that are readonly
+    # or not
+    readonly = True
+
     def __init__(self, cdef, runt, runtsafe):
         self.cdef = cdef
         Cmd.__init__(self, runt, runtsafe)
+        self.asroot = cdef.get('asroot', False)
 
     def getDescr(self):
         return self.cdef.get('descr', 'no documentation provided')
@@ -1714,38 +1885,35 @@ class PureCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        name = self.getName()
+        perm = ('storm', 'asroot', 'cmd') + tuple(name.split('.'))
+
+        asroot = runt.allowed(perm)
+        if self.asroot and not asroot:
+            mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
+            raise s_exc.AuthDeny(mesg=mesg)
+
         text = self.cdef.get('storm')
         query = runt.snap.core.getStormQuery(text)
 
+        cmdopts = s_stormtypes.CmdOpts(self)
+
         opts = {
             'vars': {
-                'cmdopts': None,
-                'cmdconf': self.cdef.get('cmdconf', {})
+                'cmdopts': cmdopts,
+                'cmdconf': self.cdef.get('cmdconf', {}),
             }
         }
-        with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
 
-            if self.opts is not None:
-                subr.setVar('cmdopts', vars(self.opts))
+        async def genx():
+            async for xnode, xpath in genr:
+                xpath.initframe(initvars={'cmdopts': cmdopts})
+                yield xnode, xpath
 
-            subr.setVar('cmdconf', self.cdef.get('cmdconf', {}))
-
-            async def wrapgenr():
-
-                async for node, path in genr:
-
-                    # In the event of a non-runtsafe command invocation our
-                    # setArgv() method will be called with an argv computed
-                    # for each node, so we need to remap cmdopts into our path & subr
-                    cmdopts = vars(self.opts)
-                    path.initframe(initvars={'cmdopts': cmdopts}, initrunt=subr)
-                    subr.setVar('cmdopts', cmdopts)
-                    yield node, path
-
-            subr.loadRuntVars(query)
-
-            async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
-                path.finiframe(subr)
+        with runt.getCmdRuntime(query, opts=opts) as subr:
+            subr.asroot = asroot
+            async for node, path in subr.execute(genr=genx()):
+                path.finiframe()
                 yield node, path
 
 class HelpCmd(Cmd):
@@ -1822,10 +1990,11 @@ class LimitCmd(Cmd):
     '''
 
     name = 'limit'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('count', type=int, help='The maximum number of nodes to yield.')
+        pars.add_argument('count', type='int', help='The maximum number of nodes to yield.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -1853,6 +2022,7 @@ class UniqCmd(Cmd):
     '''
 
     name = 'uniq'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -1885,6 +2055,7 @@ class MaxCmd(Cmd):
     '''
 
     name = 'max'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -1931,6 +2102,7 @@ class MinCmd(Cmd):
         file:bytes +#foo.bar | min .seen
     '''
     name = 'min'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -1991,7 +2163,6 @@ class DelNodeCmd(Cmd):
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
-        i = 0
         async for node, path in genr:
 
             # make sure we can delete the tags...
@@ -2002,10 +2173,7 @@ class DelNodeCmd(Cmd):
 
             await node.delete(force=self.opts.force)
 
-            i += 1
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
+            await asyncio.sleep(0)
 
         # a bit odd, but we need to be detected as a generator
         if False:
@@ -2160,6 +2328,7 @@ class SpinCmd(Cmd):
 
     '''
     name = 'spin'
+    readonly = True
 
     async def execStormCmd(self, runt, genr):
 
@@ -2180,6 +2349,7 @@ class CountCmd(Cmd):
 
     '''
     name = 'count'
+    readonly = True
 
     async def execStormCmd(self, runt, genr):
 
@@ -2200,10 +2370,11 @@ class IdenCmd(Cmd):
         iden b25bc9eec7e159dce879f9ec85fb791f83b505ac55b346fcb64c3c51e98d1175 | count
     '''
     name = 'iden'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('iden', nargs='*', type=str, default=[],
+        pars.add_argument('iden', nargs='*', type='str', default=[],
                           help='Iden to lift nodes by. May be specified multiple times.')
         return pars
 
@@ -2216,15 +2387,19 @@ class IdenCmd(Cmd):
             try:
                 buid = s_common.uhex(iden)
             except Exception:
+                await asyncio.sleep(0)
                 await runt.warn(f'Failed to decode iden: [{iden}]')
                 continue
             if len(buid) != 32:
+                await asyncio.sleep(0)
                 await runt.warn(f'iden must be 32 bytes [{iden}]')
                 continue
 
             node = await runt.snap.getNodeByBuid(buid)
-            if node is not None:
-                yield node, runt.initPath(node)
+            if node is None:
+                await asyncio.sleep(0)
+                continue
+            yield node, runt.initPath(node)
 
 class SleepCmd(Cmd):
     '''
@@ -2238,6 +2413,7 @@ class SleepCmd(Cmd):
 
     '''
     name = 'sleep'
+    readonly = True
 
     async def execStormCmd(self, runt, genr):
         async for item in genr:
@@ -2246,7 +2422,7 @@ class SleepCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('delay', type=float, default=1, help='Delay in floating point seconds.')
+        pars.add_argument('delay', type='float', default=1, help='Delay in floating point seconds.')
         return pars
 
 class GraphCmd(Cmd):
@@ -2273,7 +2449,7 @@ class GraphCmd(Cmd):
     def getArgParser(self):
 
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--degrees', type=int, default=1, help='How many degrees to graph out.')
+        pars.add_argument('--degrees', type='int', default=1, help='How many degrees to graph out.')
 
         pars.add_argument('--pivot', default=[], action='append',
                           help='Specify a storm pivot for all nodes. (must quote)')
@@ -2317,10 +2493,10 @@ class GraphCmd(Cmd):
             rules['edges'] = False
 
         for pivo in self.opts.pivot:
-            rules['pivots'].append(pivo[1:-1])
+            rules['pivots'].append(pivo)
 
         for filt in self.opts.filter:
-            rules['filters'].append(filt[1:-1])
+            rules['filters'].append(filt)
 
         for name, pivo in self.opts.form_pivot:
 
@@ -2329,7 +2505,7 @@ class GraphCmd(Cmd):
                 formrule = {'pivots': [], 'filters': []}
                 rules['forms'][name] = formrule
 
-            formrule['pivots'].append(pivo[1:-1])
+            formrule['pivots'].append(pivo)
 
         for name, filt in self.opts.form_filter:
 
@@ -2338,12 +2514,203 @@ class GraphCmd(Cmd):
                 formrule = {'pivots': [], 'filters': []}
                 rules['forms'][name] = formrule
 
-            formrule['filters'].append(filt[1:-1])
+            formrule['filters'].append(filt)
 
         subg = s_ast.SubGraph(rules)
 
         async for node, path in subg.run(runt, genr):
             yield node, path
+
+class ViewExecCmd(Cmd):
+    '''
+    Execute a storm query in a different view.
+
+    NOTE: Variables are passed through but nodes are not
+
+    Examples:
+
+        // Move some tagged nodes to another view
+        inet:fqdn#foo.bar $fqdn=$node.value() | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
+    '''
+
+    name = 'view.exec'
+    readonly = True
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('view', help='The GUID of the view in which the query will execute.')
+        pars.add_argument('storm', help='The storm query to execute on the view.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        # nodes may not pass across views, but their path vars may
+        node = None
+        async for node, path in genr:
+
+            view = await s_stormtypes.tostr(self.opts.view)
+            text = await s_stormtypes.tostr(self.opts.storm)
+
+            opts = {
+                'vars': path.vars,
+                'view': view,
+            }
+
+            query = await runt.getStormQuery(text)
+            async with runt.getSubRuntime(query, opts=opts) as subr:
+                async for item in subr.execute():
+                    await asyncio.sleep(0)
+
+            yield node, path
+
+        if node is None and self.runtsafe:
+            view = await s_stormtypes.tostr(self.opts.view)
+            text = await s_stormtypes.tostr(self.opts.storm)
+            query = await runt.getStormQuery(text)
+
+            opts = {'view': self.opts.view}
+            async with runt.getSubRuntime(query, opts=opts) as subr:
+                async for item in subr.execute():
+                    await asyncio.sleep(0)
+
+class BackgroundCmd(Cmd):
+    '''
+    Execute a query pipeline as a background task.
+    NOTE: Variables are passed through but nodes are not
+    '''
+    name = 'background'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('query', help='The query to execute in the background.')
+        return pars
+
+    async def execStormTask(self, query, opts):
+
+        core = self.runt.snap.core
+        user = core._userFromOpts(opts)
+        info = {'query': query.text,
+                'opts': opts,
+                'background': True}
+
+        await core.boss.promote('storm', user=user, info=info)
+
+        async with core.getStormRuntime(query, opts=opts) as runt:
+            async for item in runt.execute():
+                await asyncio.sleep(0)
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'The background query must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        async for item in genr:
+            yield item
+
+        runtprims = await s_stormtypes.toprim(self.runt.vars)
+        runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
+
+        opts = {
+            'user': runt.user.iden,
+            'view': runt.snap.view.iden,
+            'vars': runtvars,
+        }
+
+        query = await runt.getStormQuery(self.opts.query)
+
+        # make sure the subquery *could* have run with existing vars
+        query.validate(runt)
+
+        coro = self.execStormTask(query, opts)
+        runt.snap.core.schedCoro(coro)
+
+class ParallelCmd(Cmd):
+    '''
+    Execute part of a query pipeline in parallel.
+    This can be useful to minimize round-trip delay during enrichments.
+
+    Examples:
+        inet:ipv4#foo | parallel { $place = $lib.import(foobar).lookup(:latlong) [ :place=$place ] }
+
+    NOTE: Storm variables set within the parallel query pipelines do not interact.
+    '''
+    name = 'parallel'
+    readonly = True
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--size', default=8,
+            help='The number of parallel Storm pipelines to execute.')
+
+        pars.add_argument('query',
+            help='The query to execute in parallel.')
+
+        return pars
+
+    async def nextitem(self, inq):
+        while True:
+            item = await inq.get()
+            if item is None:
+                return
+
+            yield item
+
+    async def pipeline(self, runt, query, inq, outq):
+        try:
+            async with runt.getSubRuntime(query) as subr:
+                async for item in subr.execute(genr=self.nextitem(inq)):
+                    await outq.put(item)
+
+            await outq.put(None)
+
+        except asyncio.CancelledError: # pragma: no cover
+            raise
+
+        except Exception as e:
+            await outq.put(e)
+
+    async def execStormCmd(self, runt, genr):
+
+        size = await s_stormtypes.toint(self.opts.size)
+        query = await runt.getStormQuery(self.opts.query)
+
+        query.validate(runt)
+
+        async with await s_base.Base.anit() as base:
+
+            inq = asyncio.Queue(maxsize=size)
+            outq = asyncio.Queue(maxsize=size)
+
+            async def pump():
+                try:
+                    async for pumpitem in genr:
+                        await inq.put(pumpitem)
+                    [await inq.put(None) for i in range(size)]
+                except asyncio.CancelledError: # pragma: no cover
+                    raise
+                except Exception as e:
+                    await outq.put(e)
+
+            base.schedCoro(pump())
+            for i in range(size):
+                base.schedCoro(self.pipeline(runt, query, inq, outq))
+
+            exited = 0
+            while True:
+
+                item = await outq.get()
+                if isinstance(item, Exception):
+                    raise item
+
+                if item is None:
+                    exited += 1
+                    if exited == size:
+                        return
+                    continue
+
+                yield item
 
 class TeeCmd(Cmd):
     '''
@@ -2361,6 +2728,7 @@ class TeeCmd(Cmd):
 
     '''
     name = 'tee'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -2379,25 +2747,29 @@ class TeeCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
                                           name=self.name)
 
-        hasnodes = False
-        async for node, path in genr:  # type: s_node.Node, s_node.Path
-            hasnodes = True
-            for text in self.opts.query:
-                text = text[1:-1]
-                # This does update path with any vars set in the last npath (node.storm behavior)
-                async for nnode, npath in node.storm(text, user=runt.user, path=path):
-                    yield nnode, npath
+        async with contextlib.AsyncExitStack() as stack:
 
-            if self.opts.join:
-                yield node, path
-
-        if not hasnodes:
+            runts = []
             for text in self.opts.query:
-                text = text[1:-1]
                 query = await runt.getStormQuery(text)
-                subr = await runt.getScopeRuntime(query)
-                async for nnode, npath in subr.iterStormQuery(query):
-                    yield nnode, npath
+                subr = await stack.enter_async_context(runt.getSubRuntime(query))
+                runts.append(subr)
+
+            item = None
+            async for item in genr:
+
+                for subr in runts:
+                    subg = s_common.agen(item)
+                    async for subitem in subr.execute(genr=subg):
+                        yield subitem
+
+                if self.opts.join:
+                    yield item
+
+            if item is None and self.runtsafe:
+                for subr in runts:
+                    async for subitem in subr.execute():
+                        yield subitem
 
 class TreeCmd(Cmd):
     '''
@@ -2409,6 +2781,7 @@ class TreeCmd(Cmd):
         inet:fqdn=www.vertex.link | tree { :domain -> inet:fqdn }
     '''
     name = 'tree'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -2417,13 +2790,13 @@ class TreeCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        text = self.opts.query[1:-1]
+        text = self.opts.query
 
         async def recurse(node, path):
 
             yield node, path
 
-            async for nnode, npath in node.storm(text, user=runt.user, path=path):
+            async for nnode, npath in node.storm(runt, text, path=path):
                 async for item in recurse(nnode, npath):
                     yield item
 
@@ -2453,6 +2826,9 @@ class ScrapeCmd(Cmd):
 
         # Scrape properties inbound nodes and yield newly scraped nodes.
         inet:search:query | scrape --yield
+
+        # Skip re-fanging text before scraping.
+        inet:search:query | scrape --skiprefang
     '''
 
     name = 'scrape'
@@ -2464,6 +2840,8 @@ class ScrapeCmd(Cmd):
                           help='Create refs light edges to any scraped nodes from the input node')
         pars.add_argument('--yield', dest='doyield', default=False, action='store_true',
                           help='Include newly scraped nodes in the output')
+        pars.add_argument('--skiprefang', dest='dorefang', default=True, action='store_false',
+                          help='Do not remove de-fanging from text before scraping')
         pars.add_argument('values', nargs='*',
                           help='Specific relative properties or variables to scrape')
         return pars
@@ -2481,7 +2859,7 @@ class ScrapeCmd(Cmd):
                 text = str(await s_stormtypes.toprim(item))
 
                 try:
-                    for form, valu in s_scrape.scrape(text):
+                    for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
                         addnode = await runt.snap.addNode(form, valu)
                         if self.opts.doyield:
                             yield addnode, runt.initPath(addnode)
@@ -2506,7 +2884,7 @@ class ScrapeCmd(Cmd):
 
                 text = str(text)
 
-                for form, valu in s_scrape.scrape(text):
+                for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
 
                     try:
                         nnode = await node.snap.addNode(form, valu)
@@ -2546,17 +2924,18 @@ class SpliceListCmd(Cmd):
     '''
 
     name = 'splice.list'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
 
-        pars.add_argument('--maxtimestamp', type=int, default=None,
+        pars.add_argument('--maxtimestamp', type='int', default=None,
                           help='Only yield splices which occurred on or before this timestamp.')
-        pars.add_argument('--mintimestamp', type=int, default=None,
+        pars.add_argument('--mintimestamp', type='int', default=None,
                           help='Only yield splices which occurred on or after this timestamp.')
-        pars.add_argument('--maxtime', type=str, default=None,
+        pars.add_argument('--maxtime', type='str', default=None,
                           help='Only yield splices which occurred on or before this time.')
-        pars.add_argument('--mintime', type=str, default=None,
+        pars.add_argument('--mintime', type='str', default=None,
                           help='Only yield splices which occurred on or after this time.')
 
         return pars
@@ -2831,3 +3210,131 @@ class SpliceUndoCmd(Cmd):
             # Yield to other tasks occasionally
             if not i % 1000:
                 await asyncio.sleep(0)
+
+class LiftByVerb(Cmd):
+    '''
+    Lift nodes from the current view by an light edge verb.
+
+    Examples:
+
+        # Lift all the n1 nodes for the light edge "foo"
+        lift.byverb "foo"
+
+        # Lift all the n2 nodes for the light edge "foo"
+        lift.byverb --n2 "foo"
+
+    Notes:
+
+        Only a single instance of a node will be yielded from this command
+        when that node is lifted via the light edge membership.
+    '''
+    name = 'lift.byverb'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('verb', type='str', required=True,
+                          help='The edge verb to lift nodes by.')
+        pars.add_argument('--n2', action='store_true', default=False,
+                          help='Lift by the N2 value instead of N1 value.')
+        return pars
+
+    async def iterEdgeNodes(self, verb, idenset, n2=False):
+        if n2:
+            async for (_, _, n2) in self.runt.snap.view.getEdges(verb):
+                if n2 in idenset:
+                    continue
+                await idenset.add(n2)
+                node = await self.runt.snap.getNodeByBuid(s_common.uhex(n2))
+                if node:
+                    yield node
+        else:
+            async for (n1, _, _) in self.runt.snap.view.getEdges(verb):
+                if n1 in idenset:
+                    continue
+                await idenset.add(n1)
+                node = await self.runt.snap.getNodeByBuid(s_common.uhex(n1))
+                if node:
+                    yield node
+
+    async def execStormCmd(self, runt, genr):
+
+        async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as idenset:
+
+            if self.runtsafe:
+                verb = await s_stormtypes.tostr(self.opts.verb)
+                n2 = self.opts.n2
+
+                async for x in genr:
+                    yield x
+
+                async for node in self.iterEdgeNodes(verb, idenset, n2):
+                    yield node, runt.initPath(node)
+
+            else:
+                async for _node, _path in genr:
+                    verb = await s_stormtypes.tostr(self.opts.verb)
+                    n2 = self.opts.n2
+
+                    yield _node, _path
+
+                    async for node in self.iterEdgeNodes(verb, idenset, n2):
+                        yield node, _path.fork(node)
+
+class EdgesDelCmd(Cmd):
+    '''
+    Bulk delete light edges from input nodes.
+
+    Examples:
+
+        # Delete all "foo" light edges from an inet:ipv4
+        inet:ipv4=1.2.3.4 | edges.del foo
+
+        # Delete light edges with any verb from a node
+        inet:ipv4=1.2.3.4 | edges.del *
+
+        # Delete all "foo" light edges to an inet:ipv4
+        inet:ipv4=1.2.3.4 | edges.del foo --n2
+    '''
+    name = 'edges.del'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('verb', type='str', help='The verb of light edges to delete.')
+
+        pars.add_argument('--n2', action='store_true', default=False,
+                          help='Delete light edges where input node is N2 instead of N1.')
+        return pars
+
+    async def delEdges(self, node, verb, n2=False):
+        if n2:
+            n2iden = node.iden()
+            async for (v, n1iden) in node.iterEdgesN2(verb):
+                n1 = await self.runt.snap.getNodeByBuid(s_common.uhex(n1iden))
+                await n1.delEdge(v, n2iden)
+        else:
+            async for (v, n2iden) in node.iterEdgesN1(verb):
+                await node.delEdge(v, n2iden)
+
+    async def execStormCmd(self, runt, genr):
+
+        if self.runtsafe:
+            n2 = self.opts.n2
+            verb = await s_stormtypes.tostr(self.opts.verb)
+
+            if verb == '*':
+                verb = None
+
+            async for node, path in genr:
+                await self.delEdges(node, verb, n2)
+                yield node, path
+
+        else:
+            async for node, path in genr:
+                n2 = self.opts.n2
+                verb = await s_stormtypes.tostr(self.opts.verb)
+
+                if verb == '*':
+                    verb = None
+
+                await self.delEdges(node, verb, n2)
+                yield node, path

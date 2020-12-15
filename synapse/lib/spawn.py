@@ -5,7 +5,6 @@ Spawn is mechanism so that a cortex can execute different queries in separate pr
 import os
 import asyncio
 import logging
-import functools
 import threading
 import contextlib
 import collections
@@ -26,7 +25,6 @@ import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
 import synapse.lib.view as s_view
-import synapse.lib.storm as s_storm
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.hiveauth as s_hiveauth
 
@@ -329,6 +327,7 @@ class SpawnCore(s_base.Base):
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
+        self.svcsbysvcname = {}
 
         self.stormcmds = {}
         self.storm_cmd_ctors = {}
@@ -387,7 +386,7 @@ class SpawnCore(s_base.Base):
         for view in self.views.values():
             view.init2()
 
-        #TODO maybe we should subclass telepath client
+        # TODO maybe we should subclass telepath client
         self.addStormDmon = self.prox.addStormDmon
         self.delStormDmon = self.prox.delStormDmon
         self.getStormDmon = self.prox.getStormDmon

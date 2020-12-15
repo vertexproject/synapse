@@ -90,12 +90,15 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('StormvarServiceCell Storm Service', s)
             self.isin('This documentation is generated for version 0.0.1 of the service.', s)
             self.isin('Storm Package\\: stormvar', s)
+            self.isin('.. _stormcmd-stormvar-magic:\n', s)
             self.isin('magic\n-----', s)
             self.isin('Test stormvar support', s)
             self.isin('forms as input nodes', s)
             self.isin('``test:str``', s)
             self.isin('nodes in the graph', s)
             self.isin('``test:comp``', s)
+            self.isin('nodedata with the following keys', s)
+            self.isin('``foo`` on ``inet:ipv4``', s)
 
     async def test_tools_autodoc_stormtypes(self):
         with self.getTestDir() as path:

@@ -160,6 +160,18 @@ class AstConverter(lark.Transformer):
 
         return subq
 
+    @lark.v_args(meta=True)
+    def argvquery(self, kids, meta):
+        assert len(kids) == 1
+
+        epos = getattr(meta, 'end_pos', 0)
+        spos = getattr(meta, 'start_pos', 0)
+
+        argq = s_ast.ArgvQuery(kids)
+        argq.text = self.text[spos:epos]
+
+        return argq
+
     def looklist(self, kids):
         kids = self._convert_children(kids)
         return s_ast.Lookup(kids)
@@ -227,7 +239,7 @@ class AstConverter(lark.Transformer):
             else:
                 argv.append(self._convert_child(kid))
 
-        return s_ast.List(None, kids=argv)
+        return s_ast.List(kids=argv)
 
     def cmdrargs(self, kids):
         argv = []
@@ -292,7 +304,7 @@ class AstConverter(lark.Transformer):
 
     def valulist(self, kids):
         kids = self._convert_children(kids)
-        return s_ast.List(None, kids=kids)
+        return s_ast.List(kids=kids)
 
     def univpropvalu(self, kids):
         kids = self._convert_children(kids)
@@ -453,8 +465,8 @@ ruleClassMap = {
     'edittagpropdel': s_ast.EditTagPropDel,
     'editunivdel': s_ast.EditUnivDel,
     'editunivset': s_ast.EditPropSet,
-    'expror': s_ast.ExprNode,
-    'exprand': s_ast.ExprNode,
+    'expror': s_ast.ExprOrNode,
+    'exprand': s_ast.ExprAndNode,
     'exprnot': s_ast.UnaryExprNode,
     'exprcmp': s_ast.ExprNode,
     'exprproduct': s_ast.ExprNode,

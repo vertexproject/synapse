@@ -79,10 +79,12 @@ class TelcoModelTest(s_t_utils.SynTest):
 
                 # tel:mob:telem
                 guid = s_common.guid()
+                host = s_common.guid()
                 softguid = s_common.guid()
                 props = {'time': '2001',
                          'latlong': (-1, 1),
                          'place': place,
+                         'host': host,
                          'loc': 'us',
                          'accuracy': '100mm',
                          'cell': (('001', '02'), 3, 4),
@@ -92,8 +94,8 @@ class TelcoModelTest(s_t_utils.SynTest):
                          'mac': '00:00:00:00:00:00',
                          'ipv4': '1.2.3.4',
                          'ipv6': '::1',
-                         'wifi:ssid': 'The Best SSID2',
-                         'wifi:bssid': '00:11:22:33:44:55',
+                         'wifi': ('The Best SSID2', '00:11:22:33:44:55'),
+                         'adid': 'someadid',
                          'aaid': 'somestr',
                          'idfa': 'someotherstr',
                          'name': 'Robert Grey',
@@ -108,6 +110,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('time'), 978307200000)
                 self.eq(node.get('latlong'), (-1.0, 1.0))
                 self.eq(node.get('place'), place)
+                self.eq(node.get('host'), host)
                 self.eq(node.get('loc'), 'us')
                 self.eq(node.get('accuracy'), 100)
                 self.eq(node.get('cell'), (('001', '02'), 3, 4))
@@ -118,8 +121,10 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('mac'), '00:00:00:00:00:00')
                 self.eq(node.get('ipv4'), 0x01020304)
                 self.eq(node.get('ipv6'), '::1')
+                self.eq(node.get('wifi'), ('The Best SSID2', '00:11:22:33:44:55')),
                 self.eq(node.get('wifi:ssid'), 'The Best SSID2')
                 self.eq(node.get('wifi:bssid'), '00:11:22:33:44:55')
+                self.eq(node.get('adid'), 'someadid')
                 self.eq(node.get('aaid'), 'somestr')
                 self.eq(node.get('idfa'), 'someotherstr')
                 self.eq(node.get('name'), 'robert grey')

@@ -55,10 +55,10 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:seen', {}, (
 
-                    ('source', ('meta:source', {}), {'ro': 1,
+                    ('source', ('meta:source', {}), {'ro': True,
                         'doc': 'The source which observed or provided the node.'}),
 
-                    ('node', ('ndef', {}), {'ro': 1,
+                    ('node', ('ndef', {}), {'ro': True,
                         'doc': 'The node which was observed by or received from the source.'}),
 
                 )),
@@ -73,26 +73,26 @@ class BaseModule(s_module.CoreModule):
                 )),
 
                 ('edge:has', {}, (
-                    ('n1', ('ndef', {}), {'ro': 1}),
-                    ('n1:form', ('str', {}), {'ro': 1}),
-                    ('n2', ('ndef', {}), {'ro': 1}),
-                    ('n2:form', ('str', {}), {'ro': 1}),
+                    ('n1', ('ndef', {}), {'ro': True}),
+                    ('n1:form', ('str', {}), {'ro': True}),
+                    ('n2', ('ndef', {}), {'ro': True}),
+                    ('n2:form', ('str', {}), {'ro': True}),
                 )),
 
                 ('edge:refs', {}, (
-                    ('n1', ('ndef', {}), {'ro': 1}),
-                    ('n1:form', ('str', {}), {'ro': 1}),
-                    ('n2', ('ndef', {}), {'ro': 1}),
-                    ('n2:form', ('str', {}), {'ro': 1}),
+                    ('n1', ('ndef', {}), {'ro': True}),
+                    ('n1:form', ('str', {}), {'ro': True}),
+                    ('n2', ('ndef', {}), {'ro': True}),
+                    ('n2:form', ('str', {}), {'ro': True}),
                 )),
 
                 ('edge:wentto', {}, (
-                    ('n1', ('ndef', {}), {'ro': 1}),
-                    ('n1:form', ('str', {}), {'ro': 1}),
-                    ('n2', ('ndef', {}), {'ro': 1}),
-                    ('n2:form', ('str', {}), {'ro': 1}),
+                    ('n1', ('ndef', {}), {'ro': True}),
+                    ('n1:form', ('str', {}), {'ro': True}),
+                    ('n2', ('ndef', {}), {'ro': True}),
+                    ('n2:form', ('str', {}), {'ro': True}),
 
-                    ('time', ('time', {}), {'ro': 1}),
+                    ('time', ('time', {}), {'ro': True}),
                 )),
 
                 ('graph:node', {}, (
@@ -109,18 +109,18 @@ class BaseModule(s_module.CoreModule):
                 )),
 
                 ('graph:edge', {}, (
-                    ('n1', ('ndef', {}), {'ro': 1}),
-                    ('n1:form', ('str', {}), {'ro': 1}),
-                    ('n2', ('ndef', {}), {'ro': 1}),
-                    ('n2:form', ('str', {}), {'ro': 1}),
+                    ('n1', ('ndef', {}), {'ro': True}),
+                    ('n1:form', ('str', {}), {'ro': True}),
+                    ('n2', ('ndef', {}), {'ro': True}),
+                    ('n2:form', ('str', {}), {'ro': True}),
                 )),
 
                 ('graph:timeedge', {}, (
-                    ('time', ('time', {}), {'ro': 1}),
-                    ('n1', ('ndef', {}), {'ro': 1}),
-                    ('n1:form', ('str', {}), {'ro': 1}),
-                    ('n2', ('ndef', {}), {'ro': 1}),
-                    ('n2:form', ('str', {}), {'ro': 1}),
+                    ('time', ('time', {}), {'ro': True}),
+                    ('n1', ('ndef', {}), {'ro': True}),
+                    ('n1:form', ('str', {}), {'ro': True}),
+                    ('n2', ('ndef', {}), {'ro': True}),
+                    ('n2:form', ('str', {}), {'ro': True}),
                 )),
 
                 ('graph:event', {}, (

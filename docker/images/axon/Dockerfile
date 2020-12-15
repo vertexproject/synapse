@@ -1,5 +1,5 @@
 # vim:set ft=dockerfile:
-FROM vertexproject/synapse-base-image3:py37
+FROM vertexproject/synapse-base-image3:py38
 
 COPY synapse /build/synapse/synapse
 COPY setup.py /build/synapse/setup.py

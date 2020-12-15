@@ -1,4 +1,5 @@
 import sys
+import json
 import asyncio
 import inspect
 import logging
@@ -178,7 +179,6 @@ def processTypes(rst, dochelp, types):
     Returns:
         None
     '''
-
     rst.addHead('Types', lvl=1, link='.. _dm-types:')
 
     rst.addLines('',
@@ -217,8 +217,51 @@ def processTypes(rst, dochelp, types):
                          f'The type ``{name}`` has the following options set:',
                          ''
                          )
-            for k, v in sorted(topt.items(), key=lambda x: x[0]):
-                rst.addLines(f' * {k}: ``{v}``')
+
+            for key, valu in sorted(topt.items(), key=lambda x: x[0]):
+                if key == 'enums':
+                    if valu is None:
+                        rst.addLines(f' * {key}: ``{valu}``')
+                        continue
+                    lines = [f' * {key}:\n']
+                    valu = sorted(valu, key=lambda x: x[0])
+                    elines = []
+
+                    maxa, maxb = len('int'), len('valu')
+                    for (a, b) in valu:
+                        maxa = max(len(str(a)), maxa)
+                        maxb = max(len(b), maxb)
+
+                    line = f'{"=" * maxa} {"=" * maxb}'
+                    elines.append(line)
+                    line = f'int{" " * (maxa - 3)} valu{" " * (maxb - 4)}'
+                    elines.append(line)
+                    line = f'{"=" * maxa} {"=" * maxb}'
+                    elines.append(line)
+
+                    for (a, b) in valu:
+                        line = f'{a}{" " * (maxa - len(str(a)))} {b}{" " * (maxb - len(b))}'
+                        elines.append(line)
+
+                    line = f'{"=" * maxa} {"=" * maxb}'
+                    elines.append(line)
+                    elines = ['    ' + line for line in elines]
+                    lines.extend(elines)
+                    lines.append('\n')
+                    rst.addLines(*lines)
+                elif key in ('fields',
+                             'schema',
+                             ):
+                    if len(str(valu)) < 80:
+                        rst.addLines(f' * {key}: ``{valu}``')
+                        continue
+                    lines = [f' * {key}:\n', '  ::\n\n']
+                    json_lines = json.dumps(valu, indent=1, sort_keys=True)
+                    json_lines = ['   ' + line for line in json_lines.split('\n')]
+                    lines.extend(json_lines)
+                    rst.addLines(*lines)
+                else:
+                    rst.addLines(f' * {key}: ``{valu}``')
 
         for key in info_ignores:
             info.pop(key, None)
@@ -408,8 +451,6 @@ async def docModel(outp,
     processFormsProps(rst2, dochelp, forms, univ_names)
     processUnivs(rst2, dochelp, univs)
 
-    # outp.printf(rst.getRstText())
-    # outp.printf(rst2.getRstText())
     return rst, rst2
 
 async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
@@ -551,8 +592,8 @@ async def docStormsvc(ctor):
                 cargs = cdef.get('cmdargs')
 
                 # command names cannot have colons in them thankfully
-
-                rst.addHead(cname, lvl=3)
+                cref = f'.. _stormcmd-{pname.replace(":", "-")}-{cname.replace(".", "-")}:'
+                rst.addHead(cname, lvl=3, link=cref)
 
                 # Form the description
                 lines = ['::\n']
@@ -576,6 +617,8 @@ async def docStormsvc(ctor):
                 forms = cdef.get('forms', {})
                 iforms = forms.get('input')
                 oforms = forms.get('output')
+                nodedata = forms.get('nodedata')
+
                 if iforms:
                     line = 'The command is aware of how to automatically handle the following forms as input nodes:\n'
                     lines.append(line)
@@ -588,6 +631,13 @@ async def docStormsvc(ctor):
                     lines.append(line)
                     for form in oforms:
                         lines.append(f'- ``{form}``')
+                    lines.append('\n')
+
+                if nodedata:
+                    line = 'The command may add nodedata with the following keys to the corresponding forms:\n'
+                    lines.append(line)
+                    for key, form in nodedata:
+                        lines.append(f'- ``{key}`` on ``{form}``')
                     lines.append('\n')
 
                 rst.addLines(*lines)

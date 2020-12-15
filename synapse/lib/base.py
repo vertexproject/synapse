@@ -36,9 +36,9 @@ def _fini_atexit(): # pragma: no cover
 
         if not item._fini_atexit and not OMIT_FINI_WARNS:
             if __debug__:
-                print(f'At exit: Missing fini for {item}')
+                logger.debug(f'At exit: Missing fini for {item}')
                 for depth, call in enumerate(item.call_stack[:-2]):
-                    print(f'{depth+1:3}: {call.strip()}')
+                    logger.debug(f'{depth+1:3}: {call.strip()}')
             continue
 
         try:
@@ -96,7 +96,7 @@ class Base:
 
             await self.__anit__(*args, **kwargs)
 
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             if self.anitted:
                 await self.fini()
 
@@ -104,7 +104,7 @@ class Base:
 
         try:
             await self.postAnit()
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             logger.exception('Error during postAnit callback.')
             await self.fini()
             raise
@@ -129,11 +129,6 @@ class Base:
         self.anitted = True  # For assertion purposes
         self.finievt = None
         self.entered = False
-        self.exitinfo = None
-
-        self.exitok = None
-        self.entered = False
-        self.exitinfo = None
 
         # hold a weak ref to other bases we should fini if they
         # are still around when we go down...
@@ -210,19 +205,7 @@ class Base:
         except RuntimeError:
             pass
 
-        self.exitok = cls is None
-        self.exitinfo = (exc, cls, tb)
         await self.fini()
-
-    def _isExitExc(self):
-        # if entered but not exited *or* exitinfo has exc
-        if not self.entered:
-            return False
-
-        if self.exitinfo is None:
-            return True
-
-        return self.exitinfo[0] is not None
 
     def incref(self):
         '''
@@ -354,7 +337,7 @@ class Base:
 
             try:
                 ret.append(await s_coro.ornot(func, mesg))
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
@@ -362,7 +345,7 @@ class Base:
         for func in self._syn_links:
             try:
                 ret.append(await s_coro.ornot(func, mesg))
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
@@ -379,7 +362,7 @@ class Base:
             task.cancel()
             try:
                 await task
-            except Exception:
+            except (asyncio.CancelledError, Exception):
                 # The taskDone callback will emit the exception.  No need to repeat
                 pass
 
@@ -408,15 +391,12 @@ class Base:
         for base in list(self.tofini):
             await base.fini()
 
-        try:
-            await self._kill_active_tasks()
-        except Exception:
-            logger.exception(f'{self} - Exception during _kill_active_tasks')
+        await self._kill_active_tasks()
 
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception:
                 logger.exception(f'{self} - fini function failed: {fini}')
@@ -485,7 +465,7 @@ class Base:
         import synapse.lib.provenance as s_provenance  # avoid import cycle
 
         if __debug__:
-            assert s_coro.iscoro(coro)
+            assert inspect.isawaitable(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
 
@@ -500,7 +480,7 @@ class Base:
             try:
                 if not task.done():
                     task.result()
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 pass
             except Exception:
                 logger.exception('Task %s scheduled through Base.schedCoro raised exception', task)
@@ -601,7 +581,7 @@ class Base:
             events = await waiter.wait(timeout=3)
 
             if events == None:
-                # handle the timout case...
+                # handle the timeout case...
 
             for event in events:
                 # parse the events if you need...
@@ -620,7 +600,7 @@ class Waiter:
         self.base = base
         self.names = names
         self.count = count
-        self.event = asyncio.Event(loop=base.loop)
+        self.event = asyncio.Event()
 
         self.events = []
 
@@ -682,7 +662,7 @@ class BaseRef(Base):
         self.onfini(self._onBaseRefFini)
 
     async def _onBaseRefFini(self):
-        await asyncio.gather(*[base.fini() for base in self.vals()], loop=self.loop)
+        await asyncio.gather(*[base.fini() for base in self.vals()])
 
     def put(self, name, base):
         '''
@@ -772,7 +752,7 @@ async def schedGenr(genr, maxsize=100):
 
             await q.put((False, None))
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
 
         except Exception:

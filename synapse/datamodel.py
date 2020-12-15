@@ -110,11 +110,20 @@ class Prop:
         self.type = None
         self.typedef = typedef
 
+        self.locked = False
+        self.deprecated = self.info.get('deprecated', False)
+
         self.type = self.modl.getTypeClone(typedef)
 
         if form is not None:
             form.setProp(name, self)
             self.modl.propsbytype[self.type.name].append(self)
+
+        if self.deprecated or self.type.deprecated:
+            async def depfunc(node, oldv):
+                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
+                await node.snap.warnonce(mesg)
+            self.onSet(depfunc)
 
     def __repr__(self):
         return f'DataModel Prop: {self.full}'
@@ -246,6 +255,15 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.refsout = None
+
+        self.locked = False
+        self.deprecated = self.type.deprecated
+
+        if self.deprecated:
+            async def depfunc(node):
+                mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
+                await node.snap.warnonce(mesg)
+            self.onAdd(depfunc)
 
     def getStorNode(self, form):
 
@@ -487,7 +505,7 @@ class Model:
         item = s_types.TimeEdge(self, 'timeedge', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'Arbitrary msgpack compatible data stored without an index.'}
+        info = {'doc': 'Arbitrary json compatible data.'}
         item = s_types.Data(self, 'data', info, {})
         self.addBaseType(item)
 
@@ -603,12 +621,15 @@ class Model:
 
         # load all the types in order...
         for _, mdef in mods:
+            custom = mdef.get('custom', False)
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+                typeinfo['custom'] = custom
                 self.addType(typename, basename, typeopts, typeinfo)
 
         # Load all the universal properties
         for _, mdef in mods:
             for univname, typedef, univinfo in mdef.get('univs', ()):
+                univinfo['custom'] = custom
                 self.addUnivProp(univname, typedef, univinfo)
 
         # Load all the tagprops
@@ -628,6 +649,12 @@ class Model:
             raise s_exc.NoSuchType(name=basename)
 
         newtype = base.extend(typename, typeopts, typeinfo)
+
+        if newtype.deprecated and typeinfo.get('custom'):
+            mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
+                   f'which which will be removed in 3.0.0.'
+            logger.warning(mesg)
+
         self.types[typename] = newtype
         self._modeldef['types'].append(newtype.getTypeDef())
 
@@ -646,6 +673,9 @@ class Model:
         self.forms[formname] = form
         self.props[formname] = form
 
+        if isinstance(form.type, s_types.Array):
+            self.arraysbytype[form.type.arraytype.name].append(form)
+
         for univname, typedef, univinfo in (u.getPropDef() for u in self.univs.values()):
             self._addFormUniv(form, univname, typedef, univinfo)
 
@@ -656,6 +686,32 @@ class Model:
 
             propname, typedef, propinfo = propdef
             self._addFormProp(form, propname, typedef, propinfo)
+
+        return form
+
+    def delForm(self, formname):
+
+        form = self.forms.get(formname)
+        if form is None:
+            raise s_exc.NoSuchForm(name=formname)
+
+        if isinstance(form.type, s_types.Array):
+            self.arraysbytype[form.type.arraytype.name].remove(form)
+
+        self.forms.pop(formname, None)
+        self.props.pop(formname, None)
+
+    def delType(self, typename):
+
+        _type = self.types.get(typename)
+        if _type is None:
+            raise s_exc.NoSuchType(name=typename)
+
+        if self.propsbytype.get(typename):
+            raise s_exc.CantDelType(name=typename)
+
+        self.types.pop(typename, None)
+        self.propsbytype.pop(typename, None)
 
     def _addFormUniv(self, form, name, tdef, info):
 
@@ -671,6 +727,11 @@ class Model:
         base = '.' + name
         univ = Prop(self, None, base, tdef, info)
 
+        if univ.type.deprecated:
+            mesg = f'The universal property {univ.full} is using a deprecated type {univ.type.name} which will' \
+                   f' be removed in 3.0.0'
+            logger.warning(mesg)
+
         self.props[base] = univ
         self.univs[base] = univ
 
@@ -681,7 +742,7 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             raise s_exc.NoSuchForm(name=formname)
-        self._addFormProp(form, propname, tdef, info)
+        return self._addFormProp(form, propname, tdef, info)
 
     def _addFormProp(self, form, name, tdef, info):
 
@@ -692,6 +753,7 @@ class Model:
             self.arraysbytype[prop.type.arraytype.name].append(prop)
 
         self.props[prop.full] = prop
+        return prop
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)
@@ -702,6 +764,12 @@ class Model:
 
         prop = TagProp(self, name, tdef, info)
         self.tagprops[name] = prop
+
+        if prop.type.deprecated:
+            mesg = f'The tag property {prop.name} is using a deprecated type {prop.type.name} which will' \
+                   f' be removed in 3.0.0'
+            logger.warning(mesg)
+
         return prop
 
     def getTagProp(self, name):

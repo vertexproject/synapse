@@ -12,6 +12,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.hiveauth as s_hiveauth
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +219,7 @@ class HandlerBase:
         if user.isLocked():
             return None
 
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             return None
 
         self._web_user = user
@@ -268,6 +269,12 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
             raise s_exc.AuthDeny(mesg=mesg, perm=perm)
 
 class Handler(HandlerBase, t_web.RequestHandler):
+
+    def prepare(self):
+        self.task = asyncio.current_task()
+
+    def on_connection_close(self):
+        self.task.cancel()
 
     async def _reqValidOpts(self, opts):
 
@@ -347,6 +354,36 @@ class StormV1(Handler):
             self.write(json.dumps(mesg))
             await self.flush()
 
+class StormCallV1(Handler):
+
+    async def post(self):
+        return await self.get()
+
+    async def get(self):
+
+        user, body = await self.getUserBody()
+        if body is s_common.novalu:
+            return
+
+        # dont allow a user to be specified
+        opts = body.get('opts')
+        query = body.get('query')
+
+        opts = await self._reqValidOpts(opts)
+
+        try:
+            ret = await self.cell.callStorm(query, opts=opts)
+        except s_exc.SynErr as e:
+            mesg = e.get('mesg', str(e))
+            return self.sendRestErr(e.__class__.__name__, mesg)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            mesg = str(e)
+            return self.sendRestErr(e.__class__.__name__, mesg)
+        else:
+            return self.sendRestRetn(ret)
+
 class ReqValidStormV1(Handler):
 
     async def post(self):
@@ -399,7 +436,7 @@ class WatchSockV1(WebSocket):
             text = e.get('mesg', str(e))
             await self.xmit('errx', code=e.__class__.__name__, mesg=text)
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
 
         except Exception as e:
@@ -425,7 +462,7 @@ class LoginV1(Handler):
         if user is None:
             return self.sendRestErr('AuthDeny', 'No such user.')
 
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             return self.sendRestErr('AuthDeny', 'Incorrect password.')
 
         await sess.login(user)
@@ -785,3 +822,90 @@ class HealthCheckV1(Handler):
             return
         resp = await self.cell.getHealthCheck()
         return self.sendRestRetn(resp)
+
+class ActiveV1(Handler):
+
+    async def get(self):
+        resp = {'active': self.cell.isactive}
+        return self.sendRestRetn(resp)
+
+class StormVarsGetV1(Handler):
+
+    async def get(self):
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        varname = str(body.get('name'))
+        defvalu = body.get('default')
+
+        if not await self.reqAuthAllowed(('globals', 'get', varname)):
+            return
+
+        valu = await self.cell.getStormVar(varname, default=defvalu)
+        return self.sendRestRetn(valu)
+
+class StormVarsPopV1(Handler):
+
+    async def post(self):
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        varname = str(body.get('name'))
+        defvalu = body.get('default')
+
+        if not await self.reqAuthAllowed(('globals', 'pop', varname)):
+            return
+
+        valu = await self.cell.popStormVar(varname, default=defvalu)
+        return self.sendRestRetn(valu)
+
+class StormVarsSetV1(Handler):
+
+    async def post(self):
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        varname = str(body.get('name'))
+        varvalu = body.get('value', s_common.novalu)
+        if varvalu is s_common.novalu:
+            return self.sendRestErr('BadArg', 'The "value" field is required.')
+
+        if not await self.reqAuthAllowed(('globals', 'set', varname)):
+            return
+
+        await self.cell.setStormVar(varname, varvalu)
+        return self.sendRestRetn(True)
+
+class OnePassIssueV1(Handler):
+    '''
+    /api/v1/auth/onepass/issue
+    '''
+    async def post(self):
+
+        if not await self.reqAuthAdmin():
+            return
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        useriden = body.get('user')
+        duration = body.get('duration', 600000) # 10 mins default
+
+        user = self.cell.auth.user(useriden)
+        if user is None:
+            return self.sendRestErr('NoSuchUser', 'The user iden does not exist.')
+
+        passwd = s_common.guid()
+        salt, hashed = s_hiveauth.getShadow(passwd)
+        onepass = (s_common.now() + duration, salt, hashed)
+
+        await self.cell.auth.setUserInfo(useriden, 'onepass', onepass)
+
+        return self.sendRestRetn(passwd)

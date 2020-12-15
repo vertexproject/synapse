@@ -1,4 +1,6 @@
 import synapse.exc as s_exc
+import synapse.lib.layer as s_layer
+
 import synapse.tests.utils as s_test
 
 class StormlibModelTest(s_test.SynTest):
@@ -19,12 +21,17 @@ class StormlibModelTest(s_test.SynTest):
 
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
             self.eq('inet:ipv4', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.name)'))
+            self.eq(s_layer.STOR_TYPE_U32, await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.stortype)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.type(inet:dns:a).name)'))
 
             self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ipv4).repr($(0x01020304)))'))
             self.eq(0x01020304, await core.callStorm('return($lib.model.type(inet:ipv4).norm(1.2.3.4).index(0))'))
             self.eq('inet:dns:a:ipv4', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ipv4).full)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).form.name)'))
+
+            await core.addTagProp('score', ('int', {}), {})
+            self.eq('score', await core.callStorm('return($lib.model.tagprop(score).name)'))
+            self.eq('int', await core.callStorm('return($lib.model.tagprop(score).type.name)'))
 
     async def test_stormlib_model_edge(self):
 
@@ -154,3 +161,56 @@ class StormlibModelTest(s_test.SynTest):
                 elist = await core.callStorm('return($lib.model.edge.list())')
                 self.sorteq([('cat', 'ran up a tree'), ('dog', ''), ('refs', '')],
                             [(e[0], e[1].get('doc', '')) for e in elist])
+
+    async def test_stormlib_model_depr(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                # create both a deprecated form and a node with a deprecated prop
+                await core.nodes('[ ou:org=* :sic=1234 ou:hasalias=($node.repr(), foobar) ]')
+
+                with self.raises(s_exc.NoSuchProp):
+                    await core.nodes('model.deprecated.lock newp:newp')
+
+                # lock a prop and a form/type
+                await core.nodes('model.deprecated.lock ou:org:sic')
+                await core.nodes('model.deprecated.lock ou:hasalias')
+
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('ou:org [ :sic=5678 ]')
+
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('[ou:hasalias=(*, hehe)]')
+
+                mesgs = await core.stormlist('model.deprecated.locks')
+                self.stormIsInPrint('ou:org:sic: True', mesgs)
+                self.stormIsInPrint('ou:hasalias: True', mesgs)
+                self.stormIsInPrint('it:reveng:funcstr: False', mesgs)
+
+                await core.nodes('model.deprecated.lock --unlock ou:org:sic')
+                await core.nodes('ou:org [ :sic=5678 ]')
+                await core.nodes('model.deprecated.lock ou:org:sic')
+
+            # ensure that the locks persisted and got loaded correctly
+            async with self.getTestCore(dirn=dirn) as core:
+
+                mesgs = await core.stormlist('model.deprecated.check')
+                # warn due to unlocked
+                self.stormIsInWarn('it:reveng:funcstr', mesgs)
+                # warn due to existing
+                self.stormIsInWarn('ou:org:sic', mesgs)
+                self.stormIsInWarn('ou:hasalias', mesgs)
+                self.stormIsInPrint('Your cortex contains deprecated model elements', mesgs)
+
+                await core.nodes('model.deprecated.lock *')
+
+                mesgs = await core.stormlist('model.deprecated.locks')
+                self.stormIsInPrint('it:reveng:funcstr: True', mesgs)
+
+                await core.nodes('ou:org [ -:sic ]')
+                await core.nodes('ou:hasalias | delnode')
+
+                mesgs = await core.stormlist('model.deprecated.check')
+                self.stormIsInPrint('Congrats!', mesgs)

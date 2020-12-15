@@ -215,6 +215,7 @@ class TelcoModule(s_module.CoreModule):
                     }),
                     ('text', ('str', {}), {
                         'doc': 'The text transcription of the call.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'A file containing related media.',
@@ -238,6 +239,7 @@ class TelcoModule(s_module.CoreModule):
                     }),
                     ('text', ('str', {}), {
                         'doc': 'The text of the message.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'A file containing related media.',
@@ -259,36 +261,37 @@ class TelcoModule(s_module.CoreModule):
                 )),
                 ('tel:mob:imei', {}, (
                     ('tac', ('tel:mob:tac', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The Type Allocate Code within the IMEI.'
                     }),
                     ('serial', ('int', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The serial number within the IMEI.',
                     })
                 )),
                 ('tel:mob:imsi', {}, (
                     ('mcc', ('tel:mob:mcc', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The Mobile Country Code.',
                     }),
                 )),
                 ('tel:mob:imid', {}, (
-                    ('imei', ('tel:mob:imei', {}), {'ro': 1,
+                    ('imei', ('tel:mob:imei', {}), {
+                        'ro': True,
                         'doc': 'The IMEI for the phone hardware.'
                     }),
                     ('imsi', ('tel:mob:imsi', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The IMSI for the phone subscriber.'
                     }),
                 )),
                 ('tel:mob:imsiphone', {}, (
                     ('phone', ('tel:phone', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The phone number assigned to the IMSI.'
                     }),
                     ('imsi', ('tel:mob:imsi', {}), {
-                        'ro': 1,
+                        'ro': True,
                         'doc': 'The IMSI with the assigned phone number.'
                     }),
                 )),
@@ -297,10 +300,10 @@ class TelcoModule(s_module.CoreModule):
                 )),
                 ('tel:mob:carrier', {}, (
                     ('mcc', ('tel:mob:mcc', {}), {
-                        'ro': 1,
+                        'ro': True,
                     }),
                     ('mnc', ('tel:mob:mnc', {}), {
-                        'ro': 1,
+                        'ro': True,
                     }),
                     ('org', ('ou:org', {}), {
                         'doc': 'Organization operating the carrier.'
@@ -330,6 +333,9 @@ class TelcoModule(s_module.CoreModule):
                     ('time', ('time', {}), {}),
                     ('latlong', ('geo:latlong', {}), {}),
 
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host that generated the mobile telemetry data.'}),
+
                     ('place', ('geo:place', {}), {
                         'doc': 'The place representing the location of the mobile telemetry sample.'}),
 
@@ -353,10 +359,12 @@ class TelcoModule(s_module.CoreModule):
                     ('ipv4', ('inet:ipv4', {}), {}),
                     ('ipv6', ('inet:ipv6', {}), {}),
 
+                    ('wifi', ('inet:wifi:ap', {}), {}),
                     ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
                     ('wifi:bssid', ('inet:mac', {}), {}),
 
                     # host specific data
+                    ('adid', ('it:adid', {}), {}),
                     ('aaid', ('it:os:android:aaid', {}), {}),
                     ('idfa', ('it:os:ios:idfa', {}), {}),
 

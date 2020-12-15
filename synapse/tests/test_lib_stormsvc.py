@@ -13,6 +13,7 @@ import synapse.tools.backup as s_tools_backup
 old_pkg = {
     'name': 'old',
     'version': (0, 0, 1),
+    'synapse_minversion': (2, 8, 0),
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
         {'name': 'old.baz', 'storm': 'function baz(x, y) { return ($($x + $y)) }'},
@@ -36,6 +37,7 @@ old_pkg = {
 new_old_pkg = {
     'name': 'old',
     'version': (0, 1, 0),
+    'synapse_minversion': (2, 8, 0),
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
         {'name': 'new.baz', 'storm': 'function baz(x) { return ($($x + 20)) }'},
@@ -59,6 +61,7 @@ new_old_pkg = {
 new_pkg = {
     'name': 'new',
     'version': (0, 0, 1),
+    'synapse_minversion': (2, 8, 0),
     'modules': (
         {'name': 'echo', 'storm': '''function echo(arg1, arg2) {
                                         $lib.print("{arg1}={arg2}", arg1=$arg1, arg2=$arg2)
@@ -103,7 +106,7 @@ class ChangingService(s_cell.Cell):
 
     async def getTeleApi(self, link, mesg, path):
 
-        user = await self._getCellUser(mesg)
+        user = await self._getCellUser(link, mesg)
 
         if self.conf.get('updated'):
             return await NewServiceAPI.anit(self, link, user)
@@ -116,8 +119,18 @@ class RealService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'foo',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
             'modules': (
-                {'name': 'foo.bar', 'storm': 'function asdf(x, y) { return ($($x + $y)) }'},
+                {'name': 'foo.bar',
+                 'storm': '''
+                 function asdf(x, y) { return ($($x + $y)) }
+                 function printmodconf() {
+                     for ($k, $v) in $modconf { $lib.print('{k}={v}', k=$k, v=$v) }
+                     return ( $lib.true )
+                 }
+                 ''',
+                 'modconf': {'key': 'valu'},
+                 },
             ),
             'commands': (
                 {
@@ -150,7 +163,7 @@ class RealService(s_stormsvc.StormSvc):
             'storm': '$lib.queue.add(vertex)',
         },
         'del': {
-            'storm': '$lib.queue.del(vertex)',
+            'storm': '$que=$lib.queue.get(vertex) $que.put(done)',
         },
     }
 
@@ -168,6 +181,7 @@ class NodeCreateService(s_stormsvc.StormSvc):
         {
             'name': 'ncreate',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
             'commands': (
                 {
                     'name': 'baz',
@@ -185,6 +199,7 @@ class BoomService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'boom',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
             'modules': (
                 {'name': 'blah', 'storm': '+}'},
             ),
@@ -242,6 +257,7 @@ class LifterService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'lifter',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
             'commands': (
                 {
                     'name': 'lifter',
@@ -266,6 +282,7 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'stormvar',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
             'commands': (
                 {
                     'name': 'magic',
@@ -277,6 +294,9 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                     'forms': {
                         'input': ('test:str', 'test:int'),
                         'output': ('test:comp', 'inet:ipv4'),
+                        'nodedata': (
+                            ('foo', 'inet:ipv4'),
+                        ),
                     },
                     'storm': '''
                     $fooz = $cmdopts.name
@@ -384,6 +404,7 @@ class StormSvcTest(s_test.SynTest):
         pkg = {
             'name': 'foobar',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
             'modules': (
                 {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
             ),
@@ -451,7 +472,7 @@ class StormSvcTest(s_test.SynTest):
                 curl = f'tcp://127.0.0.1:{port}/lift'
                 durl = f'tcp://127.0.0.1:{port}/dead'
 
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                async with self.getTestCore(dirn=dirn) as core:
 
                     await core.nodes(f'service.add fake {lurl}')
                     iden = core.getStormSvcs()[0].iden
@@ -525,7 +546,66 @@ class StormSvcTest(s_test.SynTest):
                     nodes = await core.nodes('lifter')
                     self.len(1, nodes)
 
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                    # modconf data is available to commands
+                    msgs = await core.stormlist('$real_lib = $lib.import("foo.bar") $real_lib.printmodconf()')
+                    self.stormIsInPrint(f'svciden={iden}', msgs)
+                    self.stormIsInPrint('key=valu', msgs)
+
+                    # Check some service related permissions
+                    user = await core.auth.addUser('user')
+
+                    # No permissions is a failure too!
+                    msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
+                    self.stormIsInErr(f'must have permission service.get.{iden}', msgs)
+
+                    # Old permissions still wrk for now but cause warnings
+                    await user.addRule((True, ('service', 'get', 'fake')))
+                    msgs = await core.stormlist('$svc=$lib.service.get(fake)', {'user': user.iden})
+                    self.stormIsInWarn('service.get.<servicename> permissions are deprecated.', msgs)
+                    await user.delRule((True, ('service', 'get', 'fake')))
+
+                    # storm service permissions should use svcidens
+                    await user.addRule((True, ('service', 'get', iden)))
+                    msgs = await core.stormlist('$svc=$lib.service.get(fake) $lib.print($svc)', {'user': user.iden})
+                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.len(0, [m for m in msgs if m[0] == 'warn'])
+
+                    msgs = await core.stormlist(f'$svc=$lib.service.get({iden}) $lib.print($svc)', {'user': user.iden})
+                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.len(0, [m for m in msgs if m[0] == 'warn'])
+
+                    msgs = await core.stormlist(f'$svc=$lib.service.get(real) $lib.print($svc)', {'user': user.iden})
+                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.len(0, [m for m in msgs if m[0] == 'warn'])
+
+                    q = '$hasfoo=$lib.service.has($svc) if $hasfoo {$lib.print(yes)} else {$lib.print(no)}'
+                    msgs = await core.stormlist(q, {'vars': {'svc': 'foo'}})
+                    self.stormIsInPrint('no', msgs)
+                    msgs = await core.stormlist(q, {'vars': {'svc': 'real'}})
+                    self.stormIsInPrint('yes', msgs)
+                    msgs = await core.stormlist(q, {'vars': {'svc': 'fake'}})
+                    self.stormIsInPrint('yes', msgs)
+                    msgs = await core.stormlist(q, {'vars': {'svc': iden}})
+                    self.stormIsInPrint('yes', msgs)
+
+                    # Since there ws a chnage to how $lib.service.wait handles permissions, anyone that can
+                    # get a service can also wait for it, so ensure that those permissions still work.
+                    # lib.service.wait can still be called both ways (iden or name)
+                    msgs = await core.stormlist('$svc=$lib.service.wait(fake) $lib.print(yup)', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    self.stormIsInPrint('yup', msgs)
+
+                    msgs = await core.stormlist(f'$svc=$lib.service.wait({iden}) $lib.print(yup)', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    self.stormIsInPrint('yup', msgs)
+
+                    await user.delRule((True, ('service', 'get', iden)))
+                    await user.addRule((True, ('service', 'get')))
+                    msgs = await core.stormlist(f'$svc=$lib.service.wait({iden}) $lib.print(yup)', {'user': user.iden})
+                    self.len(0, [m for m in msgs if m[0] == 'err'])
+                    self.stormIsInPrint('yup', msgs)
+
+                async with self.getTestCore(dirn=dirn) as core:
 
                     nodes = await core.nodes('$lib.service.wait(fake)')
                     nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
@@ -554,9 +634,10 @@ class StormSvcTest(s_test.SynTest):
                     # make sure stormcmd got deleted
                     self.none(core.getStormCmd('ohhai'))
 
-                    # ensure fini ran
-                    queue = core.multiqueue.list()
-                    self.len(0, queue)
+                    # ensure del event ran
+                    q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                    retn = await core.callStorm(q)
+                    self.eq(retn, (0, 'done'))
 
                     # specifically call teardown
                     for svc in core.getStormSvcs():
@@ -568,7 +649,7 @@ class StormSvcTest(s_test.SynTest):
                     self.len(0, core.getStormSvcs())
                     # make sure all the dels ran, except for the BoomService (which should fail)
                     nodes = await core.nodes('inet:ipv4')
-                    ans = set(['1.2.3.4', '5.5.5.5', '6.6.6.6', '8.8.8.8', '123.123.123.123'])
+                    ans = {'1.2.3.4', '5.5.5.5', '6.6.6.6', '8.8.8.8', '123.123.123.123'}
                     reprs = set(map(lambda k: k.repr(), nodes))
                     self.eq(ans, reprs)
 
@@ -776,11 +857,11 @@ class StormSvcTest(s_test.SynTest):
 
                         # Make sure it got removed from both
                         self.none(core00.getStormCmd('ohhai'))
-                        queue = core00.multiqueue.list()
-                        self.len(0, queue)
-                        self.notin('foo.bar', core00.stormmods)
+                        q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                        retn = await core00.callStorm(q)
+                        self.eq(retn, (0, 'done'))
 
                         self.none(core01.getStormCmd('ohhai'))
-                        queue = core01.multiqueue.list()
-                        self.len(0, queue)
-                        self.notin('foo.bar', core01.stormmods)
+                        q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
+                        retn = await core01.callStorm(q)
+                        self.eq(retn, (0, 'done'))

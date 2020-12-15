@@ -70,12 +70,15 @@ class Type:
             'range=': self._storLiftRange,
         }
 
+        self.locked = False
+        self.deprecated = bool(self.info.get('deprecated', False))
+
         self.postTypeInit()
 
     def _storLiftSafe(self, cmpr, valu):
         try:
             return self.storlifts['=']('=', valu)
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
         except Exception:
             return ()
@@ -389,6 +392,7 @@ class Array(Type):
 
         self.isuniq = self.opts.get('uniq', False)
         self.issorted = self.opts.get('sorted', False)
+        self.splitstr = self.opts.get('split', None)
 
         typename = self.opts.get('type')
         if typename is None:
@@ -402,10 +406,24 @@ class Array(Type):
             mesg = 'Array type of array values is not (yet) supported.'
             raise s_exc.BadTypeDef(mesg)
 
+        if self.arraytype.deprecated:
+            if self.info.get('custom'):
+                mesg = f'The Array type {self.name} is based on a deprecated type {self.arraytype.name} type which ' \
+                       f'which will be removed in 3.0.0'
+                logger.warning(mesg)
+
+        self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.stortype = s_layer.STOR_FLAG_ARRAY | self.arraytype.stortype
+
+    def _normPyStr(self, text):
+        if self.splitstr is None:
+            mesg = f'{self.name} type has no split-char defined.'
+            raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
+        parts = [p.strip() for p in text.split(self.splitstr)]
+        return self._normPyTuple(parts)
 
     def _normPyTuple(self, valu):
 
@@ -432,7 +450,10 @@ class Array(Type):
         return tuple(norms), {'adds': adds}
 
     def repr(self, valu):
-        return [self.arraytype.repr(v) for v in valu]
+        rval = [self.arraytype.repr(v) for v in valu]
+        if self.splitstr:
+            rval = self.splitstr.join(rval)
+        return rval
 
 class Comp(Type):
 
@@ -454,7 +475,7 @@ class Comp(Type):
         # calc and save field offsets...
         self.fieldoffs = {n: i for (i, (n, t)) in enumerate(fields)}
 
-        self.tcache = FieldHelper(self.modl, fields)
+        self.tcache = FieldHelper(self.modl, self.name, fields)
 
     def _normPyTuple(self, valu):
 
@@ -504,9 +525,10 @@ class FieldHelper(collections.defaultdict):
     '''
     Helper for Comp types. Performs Type lookup/creation upon first use.
     '''
-    def __init__(self, modl, fields):
+    def __init__(self, modl, tname, fields):
         collections.defaultdict.__init__(self)
         self.modl = modl
+        self.tname = tname
         self.fields = {name: tname for name, tname in fields}
 
     def __missing__(self, key):
@@ -524,6 +546,10 @@ class FieldHelper(collections.defaultdict):
             if not basetype:
                 raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
             _type = basetype.clone(opts)
+        if _type.deprecated:
+            mesg = f'The type {self.tname} field {key} uses a deprecated ' \
+                   f'type {_type.name} which will removed in 3.0.0'
+            logger.warning(mesg)
         self.setdefault(key, _type)
         return _type
 
@@ -703,7 +729,6 @@ class IntBase(Type):
 
         self.setCmprCtor('>=', self._ctorCmprGe)
         self.setCmprCtor('<=', self._ctorCmprLe)
-
         self.setCmprCtor('>', self._ctorCmprGt)
         self.setCmprCtor('<', self._ctorCmprLt)
 

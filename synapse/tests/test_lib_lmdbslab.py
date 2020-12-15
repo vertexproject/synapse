@@ -3,6 +3,7 @@ import asyncio
 import pathlib
 import multiprocessing
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 
 from unittest.mock import patch
@@ -89,7 +90,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
     async def test_lmdbslab_base(self):
 
-        with self.getTestDir() as dirn:
+        with self.getTestDir() as dirn0, self.getTestDir(startdir=dirn0) as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
 
@@ -97,28 +98,47 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
 
+            slabs = slab.getSlabsInDir(dirn)
+            self.eq(slabs, [slab])
+
+            slabs = slab.getSlabsInDir(pathlib.Path(dirn) / 'nowhere')
+            self.len(0, slabs)
+
+            slabs = slab.getSlabsInDir(pathlib.Path(dirn).parent)
+            self.ge(1, len(slabs))
+
             foo = slab.initdb('foo')
             baz = slab.initdb('baz')
             bar = slab.initdb('bar', dupsort=True)
+            empty = slab.initdb('empty')
+            barfixed = slab.initdb('barfixed', dupsort=True, dupfixed=True)
 
             slab.put(b'\x00\x01', b'hehe', db=foo)
             slab.put(b'\x00\x02', b'haha', db=foo)
             slab.put(b'\x01\x03', b'hoho', db=foo)
 
-            slab.put(b'\x00\x01', b'hehe', dupdata=True, db=bar)
-            slab.put(b'\x00\x02', b'haha', dupdata=True, db=bar)
-            slab.put(b'\x00\x02', b'visi', dupdata=True, db=bar)
-            slab.put(b'\x00\x02', b'zomg', dupdata=True, db=bar)
-            slab.put(b'\x00\x03', b'hoho', dupdata=True, db=bar)
+            for db in (bar, barfixed):
+                slab.put(b'\x00\x01', b'hehe', dupdata=True, db=db)
+                slab.put(b'\x00\x02', b'haha', dupdata=True, db=db)
+                slab.put(b'\x00\x02', b'visi', dupdata=True, db=db)
+                slab.put(b'\x00\x02', b'zomg', dupdata=True, db=db)
+                slab.put(b'\x00\x03', b'hoho', dupdata=True, db=db)
 
             slab.put(b'\x00\x01', b'hehe', db=baz)
             slab.put(b'\xff', b'haha', db=baz)
-            slab.put(b'\xff\xff', b'hoho', db=baz)
+
+            slab.put(b'\xff\xff', b'hoho', append=True, db=baz)  # Should succeed
+            slab.put(b'\xaa\xff', b'hoho', append=True, db=baz)  # Should fail (not the last key)
 
             self.true(slab.dirty)
 
             self.true(slab.forcecommit())
             self.false(slab.dirty)
+
+            self.eq(b'\x00\x01', slab.firstkey(db=foo))
+            self.none(slab.firstkey(db=empty))
+            self.eq(b'\x01\x03', slab.lastkey(db=foo))
+            self.none(slab.lastkey(db=empty))
 
             self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
 
@@ -128,11 +148,27 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(slab.scanByRange(b'\x00\x02', b'\x01\x03', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x01\x03', b'hoho')))
 
-            items = list(slab.scanByDups(b'\x00\x02', db=bar))
-            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
+            for db in (bar, barfixed):
+                items = list(slab.scanByDups(b'\x00\x02', db=db))
+                self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
 
-            items = list(slab.scanByDups(b'\x00\x04', db=bar))
-            self.eq(items, ())
+                items = list(slab.scanByDups(b'\x00\x04', db=db))
+                self.eq(items, ())
+
+            # Test scanByPref startkey, startvalu
+            items = list(slab.scanByPref(b'\x00', db=bar))
+            alld = [(b'\x00\x01', b'hehe'),
+                    (b'\x00\x02', b'haha'),
+                    (b'\x00\x02', b'visi'),
+                    (b'\x00\x02', b'zomg'),
+                    (b'\x00\x03', b'hoho')]
+            self.eq(alld, items)
+
+            items = list(slab.scanByPref(b'\x00', startkey=b'\x02', db=bar))
+            self.eq(alld[1:], items)
+
+            items = list(slab.scanByPref(b'\x00', startkey=b'\x02', startvalu=b'vaaa', db=bar))
+            self.eq(alld[2:], items)
 
             self.true(slab.prefexists(b'\x00', db=baz))
             self.true(slab.prefexists(b'\x00\x01', db=baz))
@@ -140,6 +176,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.false(slab.prefexists(b'\x02', db=baz))
             self.true(slab.prefexists(b'\xff\xff', db=baz))
             self.false(slab.prefexists(b'\xff\xff', db=foo))
+            self.false(slab.prefexists(b'\xaa\xff', db=baz))
 
             self.true(slab.rangeexists(b'\x00', b'\x01', db=baz))
             self.true(slab.rangeexists(b'\x00\x00', b'\x00\x04', db=baz))
@@ -174,18 +211,19 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(slab.scanByRangeBack(b'\x01\x05', b'\x00\x02', db=foo))
             self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha')))
 
-            items = list(slab.scanByDupsBack(b'\x00\x02', db=bar))
-            self.eq(items, ((b'\x00\x02', b'zomg'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'haha')))
+            for db in (bar, barfixed):
+                items = list(slab.scanByDupsBack(b'\x00\x02', db=db))
+                self.eq(items, ((b'\x00\x02', b'zomg'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'haha')))
 
-            items = list(slab.scanByDupsBack(b'\x00\x04', db=bar))
-            self.eq(items, ())
+                items = list(slab.scanByDupsBack(b'\x00\x04', db=db))
+                self.eq(items, ())
+
+                with s_lmdbslab.ScanBack(slab, db=db) as scan:
+                    scan.first()
+                    self.eq(scan.atitem, (b'\x00\x03', b'hoho'))
 
             items = list(slab.scanByFullBack(db=foo))
             self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
-
-            with s_lmdbslab.ScanBack(slab, db=bar) as scan:
-                scan.first()
-                self.eq(scan.atitem, (b'\x00\x03', b'hoho'))
 
             with s_lmdbslab.ScanBack(slab, db=foo) as scan:
                 scan.set_key(b'\x00\x02')
@@ -216,9 +254,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(scan)
             self.eq(items, ((b'\x00\x02', b'haha'),))
 
-            # to test iternext_dup, lets do the same with a dup scan
-            scan = slab.scanByDups(b'\x00\x02', db=bar)
-            self.eq((b'\x00\x02', b'haha'), next(scan))
+            for db in (bar, barfixed):
+                # to test iternext_dup, lets do the same with a dup scan
+                scan = slab.scanByDups(b'\x00\x02', db=db)
+                self.eq((b'\x00\x02', b'haha'), next(scan))
 
             slab.forcecommit()
 
@@ -274,6 +313,15 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.raises(s_exc.IsFini, next, scan)
             self.raises(s_exc.IsFini, next, scanback)
 
+            slabs = s_lmdbslab.Slab.getSlabsInDir(dirn)
+            self.len(0, slabs)
+
+            # Ensure that our envar override for memory locking is acknowledged
+            with self.setTstEnvars(SYN_LOCKMEM_DISABLE='1'):
+                slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
+                self.false(slab.lockmemory)
+                self.none(slab.memlocktask)
+
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'test.lmdb')
@@ -294,7 +342,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                     self.true(slab.syncevnt.is_set())
 
-                    self.len(1, await waiter.wait(timeout=1))
+                    retn = await waiter.wait(timeout=1)
+                    self.nn(retn)
+                    self.len(1, retn)
 
     async def test_lmdbslab_maxsize(self):
         with self.getTestDir() as dirn:
@@ -870,6 +920,40 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.false(slab.dbexists('foo'))
                 self.gt(slab.mapsize, before_mapsize)
 
+    @staticmethod
+    def make_slab(path):
+        '''
+        Multiprocessing target for expanding an existing slab
+        '''
+        async def workloop():
+            s_glob.iAmLoop()
+            data = [i.to_bytes(4, 'little') for i in range(400)]
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
+                slab.initdb('foo')
+                kvpairs = [(x, x) for x in data]
+                slab.putmulti(kvpairs)
+                slab.forcecommit()
+
+        asyncio.run(workloop())
+
+    async def test_slab_mapfull_initdb(self):
+        '''
+        Test a mapfull in the middle of an initdb
+        '''
+        mpctx = multiprocessing.get_context('spawn')
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000) as slab:
+                pass
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, readonly=True) as slab:
+
+                proc = mpctx.Process(target=self.make_slab, args=(path,))
+                proc.start()
+                proc.join(10)
+                self.nn(proc.exitcode)
+                slab.initdb('foo')
+                self.true(True)
+
     async def test_lmdb_multiqueue(self):
 
         with self.getTestDir() as dirn:
@@ -1155,6 +1239,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 ctr.set('foo', 1)
                 ctr.set('bar', {'val': 42})
                 self.eq({'foo': 1, 'bar': {'val': 42}}, ctr.pack())
+                ctr.set('baz', 42)
+                ctr.delete('baz')
+                self.eq(None, ctr.get('baz'))
 
             async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab, \
                     await s_lmdbslab.HotKeyVal.anit(slab, 'counts') as ctr:
@@ -1292,6 +1379,18 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
                 # TODO: make this test reliable
                 self.ge(lockmem, 0)
+
+    async def test_math(self):
+        self.eq(16, s_lmdbslab._florpo2(16))
+        self.eq(16, s_lmdbslab._florpo2(17))
+        self.eq(16, s_lmdbslab._florpo2(31))
+
+        self.eq(16, s_lmdbslab._ceilpo2(16))
+        self.eq(16, s_lmdbslab._ceilpo2(15))
+        self.eq(16, s_lmdbslab._ceilpo2(9))
+
+        self.eq(4, s_lmdbslab._roundup(4, 2))
+        self.eq(4, s_lmdbslab._roundup(3, 2))
 
 def _writeproc(path):
 

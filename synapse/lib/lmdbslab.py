@@ -1,7 +1,6 @@
 import os
 import shutil
 import asyncio
-import pathlib
 import threading
 import collections
 
@@ -33,9 +32,6 @@ MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
-# The paths of all open slabs, to prevent accidental opening of the same slab in two places
-_AllSlabs = {}   # type: ignore
-
 class Hist:
     '''
     A class for storing items in a slab by time.
@@ -66,7 +62,7 @@ class Hist:
 
 class SlabDict:
     '''
-    A dictionary-like object which stores it's props in a slab via a prefix.
+    A dictionary-like object which stores its props in a slab via a prefix.
 
     It is assumed that only one SlabDict with a given prefix exists at any given
     time, but it is up to the caller to cache them.
@@ -241,6 +237,12 @@ class HotKeyVal(s_base.Base):
         self.dirty.add(byts)
         return valu
 
+    def delete(self, name: str):
+        byts = name.encode()
+        self.cache.pop(byts, None)
+        self.dirty.discard(byts)
+        self.slab.delete(byts, db=self.db)
+
     def sync(self):
         tups = [(p, self.EncFunc(self.cache[p])) for p in self.dirty]
         if not tups:
@@ -262,6 +264,11 @@ class HotCount(HotKeyVal):
     def inc(self, name: str, valu=1):
         byts = name.encode()
         self.cache[byts] += valu
+        self.dirty.add(byts)
+
+    def set(self, name: str, valu):
+        byts = name.encode()
+        self.cache[byts] = valu
         self.dirty.add(byts)
 
     def get(self, name: str, defv=0):
@@ -371,7 +378,8 @@ class MultiQueue(s_base.Base):
 
         for item in items:
 
-            self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
+            putv = self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
+            assert putv, 'Put failed'
 
             self.sizes.inc(name, 1)
             offs = self.offsets.inc(name, 1)
@@ -515,23 +523,22 @@ class GuidStor:
         bidn = s_common.uhex(iden)
         return SlabDict(self.slab, db=self.db, pref=bidn)
 
-def _ispo2(i):
-    return not (i & (i - 1)) and i
-
 def _florpo2(i):
     '''
     Return largest power of 2 equal to or less than i
     '''
-    if _ispo2(i):
+    if not (i & (i - 1)):
         return i
+
     return 1 << (i.bit_length() - 1)
 
 def _ceilpo2(i):
     '''
     Return smallest power of 2 equal to or greater than i
     '''
-    if _ispo2(i):
+    if not (i & (i - 1)):
         return i
+
     return 1 << i.bit_length()
 
 def _roundup(i, multiple):
@@ -552,7 +559,8 @@ class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
-    syncset = set()  # type:  ignore
+    # The paths of all open slabs, to prevent accidental opening of the same slab in two places
+    allslabs = {}  # type: ignore
     synctask = None
     syncevnt = None  # set this event to trigger a sync
 
@@ -561,21 +569,16 @@ class Slab(s_base.Base):
     DEFAULT_GROWSIZE = None
 
     @classmethod
+    def getSlabsInDir(clas, dirn):
+        '''
+        Returns all open slabs under a directory
+        '''
+        toppath = s_common.genpath(dirn)
+        return [slab for slab in clas.allslabs.values()
+                if toppath == slab.path or slab.path.startswith(toppath + os.sep)]
+
+    @classmethod
     async def initSyncLoop(clas, inst):
-
-        clas.syncset.add(inst)
-
-        async def fini():
-
-            # no need to sync
-            clas.syncset.discard(inst)
-
-            if not clas.syncset:
-                clas.synctask.cancel()
-                clas.synctask = None
-                clas.syncevnt = None
-
-        inst.onfini(fini)
 
         if clas.synctask is not None:
             return
@@ -597,7 +600,7 @@ class Slab(s_base.Base):
 
                 await clas.syncLoopOnce()
 
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception: # pragma: no cover
@@ -605,14 +608,15 @@ class Slab(s_base.Base):
 
     @classmethod
     async def syncLoopOnce(clas):
-        for slab in clas.syncset:
+        for slab in list(clas.allslabs.values()):
             if slab.dirty:
                 await slab.sync()
+                await asyncio.sleep(0)
 
     @classmethod
     async def getSlabStats(clas):
         retn = []
-        for slab in clas.syncset:
+        for slab in clas.allslabs.values():
             retn.append({
                 'path': str(slab.path),
                 'xactops': len(slab.xactops),
@@ -620,6 +624,10 @@ class Slab(s_base.Base):
                 'readonly': slab.readonly,
                 'lockmemory': slab.lockmemory,
                 'recovering': slab.recovering,
+                'maxsize': slab.maxsize,
+                'growsize': slab.growsize,
+                'mapasync': slab.mapasync,
+
             })
         return retn
 
@@ -633,25 +641,22 @@ class Slab(s_base.Base):
 
         opts = kwargs
 
-        path = pathlib.Path(path)
         self.path = path
-        self.optspath = path.with_suffix('.opts.yaml')
+        self.optspath = s_common.switchext(path, ext='.opts.yaml')
 
         # Make sure we don't have this lmdb DB open already.  (This can lead to seg faults)
-        abspath = str(path.resolve())
-        if abspath in _AllSlabs:
+        if path in self.allslabs:
             raise s_exc.SlabAlreadyOpen(mesg=path)
-        self.abspath = abspath
 
-        if self.optspath.exists():
+        if os.path.isfile(self.optspath):
             opts.update(s_common.yamlload(self.optspath))
 
         initial_mapsize = opts.get('map_size')
         if initial_mapsize is None:
             raise s_exc.BadArg('Slab requires map_size')
 
-        mdbpath = path / 'data.mdb'
-        if mdbpath.exists():
+        mdbpath = s_common.genpath(path, 'data.mdb')
+        if os.path.isfile(mdbpath):
             mapsize = max(initial_mapsize, os.path.getsize(mdbpath))
         else:
             mapsize = initial_mapsize
@@ -669,7 +674,14 @@ class Slab(s_base.Base):
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
-        opts.setdefault('map_async', True)
+
+        if self.lockmemory:
+            lockmem_override = s_common.envbool('SYN_LOCKMEM_DISABLE')
+            if lockmem_override:
+                logger.info(f'SYN_LOCKMEM_DISABLE envar set, skipping lockmem for {self.path}')
+                self.lockmemory = False
+
+        self.mapasync = opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:
@@ -678,7 +690,7 @@ class Slab(s_base.Base):
         self._saveOptsFile()
 
         self.lenv = lmdb.open(str(path), **opts)
-        _AllSlabs[abspath] = self
+        self.allslabs[path] = self
 
         self.scans = set()
 
@@ -695,6 +707,7 @@ class Slab(s_base.Base):
         # LMDB layer uses these for status reporting
         self.locking_memory = False
         self.prefaulting = False
+        self.memlocktask = None
         self.max_could_lock = 0
         self.lock_progress = 0
         self.lock_goal = 0
@@ -710,7 +723,7 @@ class Slab(s_base.Base):
 
         self.dbnames = {None: (None, False)}  # prepopulate the default DB for speed
 
-        self.onfini(self._onCoFini)
+        self.onfini(self._onSlabFini)
 
         self.commitstats = collections.deque(maxlen=1000)  # stores Tuple[time, replayloglen, commit time delta]
 
@@ -798,10 +811,12 @@ class Slab(s_base.Base):
             self._handle_mapfull()
             # There's no need to re-try self.forcecommit as _growMapSize does it
 
-    async def _onCoFini(self):
-        assert s_glob.iAmLoop()
-
+    async def fini(self):
         await self.fire('commit')
+        return await s_base.Base.fini(self)
+
+    async def _onSlabFini(self):
+        assert s_glob.iAmLoop()
 
         while True:
             try:
@@ -811,9 +826,16 @@ class Slab(s_base.Base):
                 continue
             break
 
+        self.dirty = False
         self.lenv.close()
-        _AllSlabs.pop(self.abspath, None)
+        self.allslabs.pop(self.path, None)
         del self.lenv
+
+        if not self.allslabs:
+            if self.synctask:
+                self.synctask.cancel()
+            self.__class__.synctask = None
+            self.__class__.syncevnt = None
 
     def _finiCoXact(self):
         '''
@@ -867,7 +889,7 @@ class Slab(s_base.Base):
         '''
         Separate thread loop that manages the prefaulting and locking of the memory backing the data file
         '''
-        if not s_thishost.get('hasmemlocking'):
+        if not s_thishost.get('hasmemlocking'):  # pragma: no cover
             return
         MAX_TOTAL_PERCENT = .90  # how much of all the RAM to take
         MAX_LOCK_AT_ONCE = s_const.gibibyte
@@ -894,7 +916,7 @@ class Slab(s_base.Base):
 
         self.max_could_lock = max_to_lock
 
-        path = self.path.absolute() / 'data.mdb'  # Path to the file that gets mapped
+        path = s_common.genpath(self.path, 'data.mdb')  # Path to the file that gets mapped
         fh = open(path, 'r+b')
         fileno = fh.fileno()
 
@@ -918,7 +940,7 @@ class Slab(s_base.Base):
 
             try:
                 memstart, memlen = s_thisplat.getFileMappedRegion(path)
-            except s_exc.NoSuchFile:
+            except s_exc.NoSuchFile:  # pragma: no cover
                 logger.warning('map not found for %s', path)
 
                 if not self.resizeevent.is_set():
@@ -972,15 +994,21 @@ class Slab(s_base.Base):
         self.locking_memory = False
         logger.debug('memory locking thread ended')
 
-    def initdb(self, name, dupsort=False, integerkey=False):
+    def initdb(self, name, dupsort=False, integerkey=False, dupfixed=False):
+
+        if name in self.dbnames:
+            return name
+
         while True:
             try:
                 if self.readonly:
                     # In a readonly environment, we can't make our own write transaction, but we
                     # can have the lmdb module create one for us by not specifying the transaction
-                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey)
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey,
+                                           dupfixed=dupfixed)
                 else:
-                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey)
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey,
+                                           dupfixed=dupfixed)
                     self.dirty = True
                     self.forcecommit()
 
@@ -988,6 +1016,10 @@ class Slab(s_base.Base):
                 return name
             except lmdb.MapFullError:
                 self._handle_mapfull()
+            except lmdb.MapResizedError:
+                # This can only happen if readonly and another process added data (e.g. cortex spawn)
+                # _initCoXact knows the magic to resolve this
+                self._initCoXact()
 
     def dropdb(self, name):
         '''
@@ -1055,6 +1087,20 @@ class Slab(s_base.Base):
         finally:
             self._relXactForReading()
 
+    def firstkey(self, db=None):
+        '''
+        Return the first key or None from the given db.
+        '''
+        self._acqXactForReading()
+        realdb, _ = self.dbnames[db]
+        try:
+            with self.xact.cursor(db=realdb) as curs:
+                if not curs.first():
+                    return None
+                return curs.key()
+        finally:
+            self._relXactForReading()
+
     def hasdup(self, lkey, lval, db=None):
         realdb, dupsort = self.dbnames[db]
         with self.xact.cursor(db=realdb) as curs:
@@ -1109,7 +1155,7 @@ class Slab(s_base.Base):
 
             yield from scan.iternext()
 
-    async def countByPref(self, byts, db=None):
+    async def countByPref(self, byts, db=None, maxsize=None):
         '''
         Return the number of rows in the given db with the matching prefix bytes.
         '''
@@ -1126,6 +1172,9 @@ class Slab(s_base.Base):
                     return count
 
                 count += 1
+                if maxsize is not None and maxsize == count:
+                    return count
+
                 await asyncio.sleep(0)
 
             return count
@@ -1157,11 +1206,23 @@ class Slab(s_base.Base):
 
                 yield item
 
-    def scanByPref(self, byts, db=None):
+    def scanByPref(self, byts, startkey=None, startvalu=None, db=None):
+        '''
+        Args:
+            byts(bytes):                 prefix to match on
+            startkey(Optional[bytes]):   if present, will start scanning at key=byts+startkey
+            startvalu(Optional[bytes]):  if present, will start scanning at (key+startkey, startvalu)
+
+        Notes:
+            startvalu only makes sense if byts+startkey matches an entire key.
+            startvalu is only value for dupsort=True dbs
+        '''
+        if startkey is None:
+            startkey = b''
 
         with Scan(self, db) as scan:
 
-            if not scan.set_range(byts):
+            if not scan.set_range(byts + startkey, valu=startvalu):
                 return
 
             size = len(byts)
@@ -1381,12 +1442,13 @@ class Slab(s_base.Base):
 
     async def copyslab(self, dstpath, compact=True):
 
-        dstpath = pathlib.Path(dstpath)
-        if dstpath.exists():
+        dstpath = s_common.genpath(dstpath)
+        if os.path.isdir(dstpath):
             raise s_exc.DataAlreadyExists()
 
-        dstoptspath = dstpath.with_suffix('.opts.yaml')
         s_common.gendir(dstpath)
+
+        dstoptspath = s_common.switchext(dstpath, ext='.opts.yaml')
 
         await self.sync()
 
@@ -1405,9 +1467,9 @@ class Slab(s_base.Base):
     def delete(self, lkey, val=None, db=None):
         return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
 
-    def put(self, lkey, lval, dupdata=False, overwrite=True, db=None):
+    def put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
         return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
-                                 db=db)
+                                 append=append, db=db)
 
     def replace(self, lkey, lval, db=None):
         '''
@@ -1464,15 +1526,6 @@ class Scan:
         self.slab._relXactForReading()
         self.curs = None
 
-    def last_key(self):
-        '''
-        Return the last key in the database.  Returns none if database is empty.
-        '''
-        if not self.curs.last():
-            return None
-
-        return self.curs.key()
-
     def first(self):
 
         if not self.curs.first():
@@ -1492,10 +1545,14 @@ class Scan:
         self.atitem = next(self.genr)
         return True
 
-    def set_range(self, lkey):
+    def set_range(self, lkey, valu=None):
 
-        if not self.curs.set_range(lkey):
-            return False
+        if valu is None:
+            if not self.curs.set_range(lkey):
+                return False
+        else:
+            if not self.curs.set_range_dup(lkey, valu):
+                return False
 
         self.genr = self.iterfunc()
         self.atitem = next(self.genr)

@@ -74,7 +74,7 @@ class Node:
         async for edge in self.snap.iterNodeEdgesN2(self.buid, verb=verb):
             yield edge
 
-    async def storm(self, text, opts=None, user=None, path=None):
+    async def storm(self, runt, text, opts=None, path=None):
         '''
         Args:
             path (Path):
@@ -86,31 +86,25 @@ class Node:
         '''
         query = self.snap.core.getStormQuery(text)
 
-        # Merge vars from path into opts.vars
-        pathvars = path.vars if path is not None else None
         if opts is None:
-            if pathvars is None:
-                newopts = None
-            else:
-                newopts = {'vars': pathvars}
-        else:
-            vars = opts.get('vars')
-            if pathvars is None:
-                newopts = opts
-            elif vars is None:
-                newopts = {**opts, **{'vars': pathvars}}
-            else:
-                newopts = {**opts, **{'vars': {**vars, **pathvars}}}
+            opts = {}
 
-        with self.snap.getStormRuntime(opts=newopts, user=user) as runt:
-            runt.addInput(self)
-            async for item in runt.iterStormQuery(query):
-                yield item
-            if path:
-                path.vars.update(runt.vars)
+        opts.setdefault('vars', {})
+        if path is not None:
+            opts['vars'].update(path.vars)
 
-    async def filter(self, text, opts=None, user=None, path=None):
-        async for item in self.storm(text, opts=opts, user=user, path=path):
+        async with runt.getSubRuntime(query, opts=opts) as subr:
+
+            subr.addInput(self)
+
+            async for subn, subp in subr.execute():
+                yield subn, subp
+
+            if path is not None:
+                path.vars.update(subr.vars)
+
+    async def filter(self, runt, text, opts=None, path=None):
+        async for item in self.storm(runt, text, opts=opts, path=path):
             return False
         return True
 
@@ -614,7 +608,8 @@ class Node:
 
                 async for _ in self.snap.nodesByTag(self.ndef[1]):  # NOQA
                     mesg = 'Nodes still have this tag.'
-                    return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
+                    return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
+                                                          iden=self.iden())
 
             async for refr in self.snap.nodesByPropTypeValu(formname, formvalu):
 
@@ -622,7 +617,8 @@ class Node:
                     continue
 
                 mesg = 'Other nodes still refer to this node.'
-                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
+                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
+                                                      iden=self.iden())
 
         # TODO put these into one edit...
 
@@ -670,13 +666,9 @@ class Path:
     '''
     A path context tracked through the storm runtime.
     '''
-    def __init__(self, runt, vars, nodes):
+    def __init__(self, vars, nodes):
 
         self.node = None
-        self.runt = runt
-        # we must "smell" like a runt for some AST ops
-        self.snap = runt.snap
-        self.model = runt.model
         self.nodes = nodes
 
         self.traces = []
@@ -723,10 +715,13 @@ class Path:
             self.vars[name] = valu
             return valu
 
-        return self.runt.getVar(name, defv=defv)
+        return s_common.novalu
 
     def setVar(self, name, valu):
         self.vars[name] = valu
+
+    def popVar(self, name):
+        return self.vars.pop(name, s_common.novalu)
 
     def meta(self, name, valu):
         '''
@@ -745,7 +740,7 @@ class Path:
         nodes = list(self.nodes)
         nodes.append(node)
 
-        path = Path(self.runt, dict(self.vars), nodes)
+        path = Path(self.vars.copy(), nodes)
         path.traces.extend(self.traces)
 
         [t.addFork(path) for t in self.traces]
@@ -753,36 +748,34 @@ class Path:
         return path
 
     def clone(self):
-        path = Path(self.runt,
-                    copy.copy(self.vars),
-                    copy.copy(self.nodes),)
+        path = Path(copy.copy(self.vars), copy.copy(self.nodes))
         path.traces = list(self.traces)
-        path.frames = [(copy.copy(vars), runt) for (vars, runt) in self.frames]
+        path.frames = [v.copy() for v in self.frames]
         return path
 
-    def initframe(self, initvars=None, initrunt=None):
+    def initframe(self, initvars=None):
 
         # full copy for now...
         framevars = self.vars.copy()
         if initvars is not None:
             framevars.update(initvars)
 
-        if initrunt is None:
-            initrunt = self.runt
+        self.frames.append(self.vars)
 
-        self.frames.append((self.vars, self.runt))
-
-        self.runt = initrunt
         self.vars = framevars
 
-    def finiframe(self, runt):
-
+    def finiframe(self):
+        '''
+        Pop a scope frame from the path, restoring runt if at the top
+        Args:
+            runt (Runtime): A storm runtime to restore if we're at the top
+            merge (bool): Set to true to merge vars back up into the next frame
+        '''
         if not self.frames:
             self.vars.clear()
-            self.runt = runt
             return
 
-        (self.vars, self.runt) = self.frames.pop()
+        self.vars = self.frames.pop()
 
 class Trace:
     '''

@@ -164,11 +164,13 @@ def vertup(vstr):
     '''
     return tuple([int(x) for x in vstr.split('.')])
 
-def todo(name, *args, **kwargs):
+def todo(_todoname, *args, **kwargs):
     '''
     Construct and return a todo tuple of (name, args, kwargs).
+
+    Note:  the odd name for the first parameter is to avoid collision with keys in kwargs.
     '''
-    return (name, args, kwargs)
+    return (_todoname, args, kwargs)
 
 def tuplify(obj):
     '''
@@ -177,18 +179,60 @@ def tuplify(obj):
     return s_msgpack.un(s_msgpack.en(obj))
 
 def genpath(*paths):
+    '''
+    Return an absolute path of the joining of the arguments as path elements
+
+    Performs home directory(``~``) and environment variable expansion on the joined path
+
+    Args:
+        *paths ([str,...]): A list of path elements
+
+    Note:
+        All paths used by Synapse operations (i.e. everything but the data) shall use this function or one of its
+        callers before storing as object properties.
+    '''
     path = os.path.join(*paths)
     path = os.path.expanduser(path)
     path = os.path.expandvars(path)
     return os.path.abspath(path)
 
+def switchext(*paths, ext):
+    '''
+    Return an absolute path of the joining of the arguments with the extension replaced.
+
+    If an extension does not exist, it will be added.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        ext (str):  A file extension (e.g. '.txt').  It should begin with a period.
+    '''
+    return os.path.splitext(genpath(*paths))[0] + ext
+
 def reqpath(*paths):
+    '''
+    Return the absolute path of the joining of the arguments, raising an exception if a file doesn't exist at resulting
+    path
+
+    Args:
+        *paths ([str,...]): A list of path elements
+    '''
     path = genpath(*paths)
     if not os.path.isfile(path):
         raise s_exc.NoSuchFile(name=path)
     return path
 
 def reqfile(*paths, **opts):
+    '''
+    Return a file at the path resulting from joining of the arguments, raising an exception if the file does not
+    exist.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        **opts:  arguments as kwargs to io.open
+
+    Returns:
+        io.BufferedRandom: A file-object which can be read/written too.
+    '''
     path = genpath(*paths)
     if not os.path.isfile(path):
         raise s_exc.NoSuchFile(path=path)
@@ -196,6 +240,16 @@ def reqfile(*paths, **opts):
     return io.open(path, **opts)
 
 def getfile(*paths, **opts):
+    '''
+    Return a file at the path resulting from joining of the arguments, or None if the file does not exist.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        **opts:  arguments as kwargs to io.open
+
+    Returns:
+        io.BufferedRandom: A file-object which can be read/written too.
+    '''
     path = genpath(*paths)
     if not os.path.isfile(path):
         return None
@@ -216,7 +270,7 @@ def reqbytes(*paths):
 
 def genfile(*paths):
     '''
-    Create or open ( for read/write ) a file path join.
+    Create or open (for read/write) a file path join.
 
     Args:
         *paths: A list of paths to join together to make the file.
@@ -296,7 +350,16 @@ def listdir(*paths, glob=None):
     return retn
 
 def gendir(*paths, **opts):
+    '''
+    Return the absolute path of the joining of the arguments, creating a directory at the resulting path if one does
+    not exist.
 
+    Performs home directory(~) and environment variable expansion.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        **opts:  arguments as kwargs to os.makedirs
+    '''
     mode = opts.get('mode', 0o700)
     path = genpath(*paths)
 
@@ -309,6 +372,16 @@ def gendir(*paths, **opts):
     return path
 
 def reqdir(*paths):
+    '''
+    Return the absolute path of the joining of the arguments, raising an exception if a directory does not exist at
+    the resulting path.
+
+    Performs home directory(~) and environment variable expansion.
+
+    Args:
+        *paths ([str,...]): A list of path elements
+        **opts:  arguments as kwargs to os.makedirs
+    '''
     path = genpath(*paths)
     if not os.path.isdir(path):
         raise s_exc.NoSuchDir(path=path)
@@ -598,6 +671,23 @@ syndir = os.getenv('SYN_DIR')
 if syndir is None:
     syndir = '~/.syn'
 
+def envbool(name, defval='false'):
+    '''
+    Resolve an environment variable to a boolean value.
+
+    Args:
+        name (str): Environment variable to resolve.
+        defval (str): Default string value to resolve as.
+
+    Notes:
+        False values will be consider strings "0" or "false" after lower casing.
+
+    Returns:
+        boolean: True if the envar is set, false if it is set to a false value.
+
+    '''
+    return os.getenv(name, defval).lower() not in ('0', 'false')
+
 def getSynPath(*paths):
     return genpath(syndir, *paths)
 
@@ -698,3 +788,65 @@ def unjsonsafe_nodeedits(nodeedits):
         retn.append(newedit)
 
     return retn
+
+async def merggenr(genrs, cmprkey):
+    '''
+    Iterate multiple sorted async generators and yield their results in order.
+
+    Args:
+        genrs (Sequence[AsyncGenerator[T]]):  a sequence of async generator that each yield sorted items
+        cmprkey(Callable[T, T, bool]):  a comparison function over the items yielded
+
+    Note:
+        If the genrs yield increasing items, cmprkey should return True if the first parameter is less
+        than the second parameter, e.g lambda x, y: x < y.
+    '''
+
+    size = len(genrs)
+    genrs = list(genrs)
+
+    indxs = list(range(size))
+
+    async def genrnext(g):
+        try:
+            ret = await g.__anext__()
+            return ret
+        except StopAsyncIteration:
+            return novalu
+
+    curvs = [await genrnext(g) for g in genrs]
+
+    while True:
+
+        nextindx = None
+        nextvalu = novalu
+        toremove = []
+
+        for i in indxs:
+
+            curv = curvs[i]
+            if curv is novalu:
+                toremove.append(i)
+                continue
+
+            # in the case where we're the first, initialize...
+            if nextvalu is novalu:
+                nextindx = i
+                nextvalu = curv
+                continue
+
+            if cmprkey(curv, nextvalu):
+                nextindx = i
+                nextvalu = curv
+
+        # check if we're done
+        if nextvalu is novalu:
+            return
+
+        # Remove spent genrs
+        for i in toremove:
+            indxs.remove(i)
+
+        yield nextvalu
+
+        curvs[nextindx] = await genrnext(genrs[nextindx])

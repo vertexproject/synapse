@@ -24,10 +24,12 @@ class MediaModule(s_module.CoreModule):
                 ('title', ('str', {'lower': True}), {
                     'doc': 'Title/Headline for the news.',
                     'ex': 'mars lander reaches mars',
+                    'disp': {'hint': 'text'},
                 }),
                 ('summary', ('str', {}), {
                     'doc': 'A brief summary of the news item.',
                     'ex': 'lorum ipsum',
+                    'disp': {'hint': 'text'},
                 }),
                 ('published', ('time', {}), {
                     'doc': 'The date the news item was published.',
@@ -39,7 +41,11 @@ class MediaModule(s_module.CoreModule):
                 }),
                 ('author', ('ps:name', {}), {
                     'doc': 'The free-form author of the news.',
+                    'deprecated': True,
                     'ex': 'stark,anthony'
+                }),
+                ('authors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of authors of the news item.',
                 }),
                 ('rss:feed', ('inet:url', {}), {
                     'doc': 'The RSS feed that published the news.',

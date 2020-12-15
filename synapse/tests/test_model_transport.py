@@ -6,7 +6,14 @@ class TransportTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            craft = (await core.nodes('[ transport:air:craft=* :tailnum=FF023 ]'))[0]
+            craft = (await core.nodes('[ transport:air:craft=* :tailnum=FF023 :type=helicopter :built=202002 :make=boeing :model=747 :serial=1234 :operator=*]'))[0]
+            self.eq('helicopter', craft.get('type'))
+            self.eq(1580515200000, craft.get('built'))
+            self.eq('boeing', craft.get('make'))
+            self.eq('747', craft.get('model'))
+            self.eq('1234', craft.get('serial'))
+            self.nn(craft.get('operator'))
+
             tailnum = (await core.nodes('transport:air:tailnum=FF023 [ :type=fighter ]'))[0]
             flightnum = (await core.nodes('[ transport:air:flightnum="ua 2437" :carrier=* :from:port=IAD :to:port=LAS :stops=(IAD,VISI,LAS) ]'))[0]
 
@@ -75,6 +82,7 @@ class TransportTest(s_test.SynTest):
                     :built=2020
                     :length=20m
                     :beam=10m
+                    :operator=*
                 ]'''))[0]
             self.eq('123456789', vessel.get('mmsi'))
             self.eq('slice of life', vessel.get('name'))
@@ -83,6 +91,7 @@ class TransportTest(s_test.SynTest):
             self.eq(1577836800000, vessel.get('built'))
             self.eq(20000, vessel.get('length'))
             self.eq(10000, vessel.get('beam'))
+            self.nn(vessel.get('operator'))
 
             self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))
 

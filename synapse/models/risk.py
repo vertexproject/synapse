@@ -27,6 +27,7 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the vulnerability.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.',
@@ -87,6 +88,9 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('target:person', ('ps:person', {}), {
                         'doc': 'The person was the target of the attack.',
+                    }),
+                    ('target:place', ('geo:place', {}), {
+                        'doc': 'The place that was the target of the attack.',
                     }),
                     ('via:ipv4', ('inet:ipv4', {}), {
                         'doc': 'The target host was contacted via the IPv4 address.',

@@ -6,12 +6,14 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
+import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -23,10 +25,40 @@ reqValidVdef = s_config.getJsValidator({
         'name': {'type': 'string'},
         'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'layers': {
+            'type': 'array',
+            'items': {'type': 'string', 'pattern': s_config.re_iden}
+        },
     },
     'additionalProperties': True,
-    'required': ['iden', 'parent', 'creator'],
+    'required': ['iden', 'parent', 'creator', 'layers'],
 })
+
+class ViewApi(s_cell.CellApi):
+
+    async def __anit__(self, core, link, user, view):
+
+        await s_cell.CellApi.__anit__(self, core, link, user)
+        self.view = view
+        layriden = view.layers[0].iden
+        self.allowedits = user.allowed(('layer', 'write'), gateiden=layriden)
+
+    async def storNodeEdits(self, edits, meta):
+
+        if not self.allowedits:
+            mesg = 'storNodeEdits() not allowed without layer.write on layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        if meta is None:
+            meta = {}
+
+        meta['time'] = s_common.now()
+        meta['user'] = self.user.iden
+
+        return await self.view.storNodeEdits(edits, meta)
+
+    async def getCellIden(self):
+        return self.view.iden
 
 class View(s_nexus.Pusher):  # type: ignore
     '''
@@ -59,7 +91,7 @@ class View(s_nexus.Pusher):  # type: ignore
             try:
                 self.triggers.load(tdef)
 
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception:
@@ -93,11 +125,11 @@ class View(s_nexus.Pusher):  # type: ignore
     def isafork(self):
         return self.parent is not None
 
-    def pack(self):
+    async def pack(self):
         d = {'iden': self.iden}
         d.update(self.info.pack())
 
-        layrinfo = [lyr.pack() for lyr in self.layers]
+        layrinfo = [await lyr.pack() for lyr in self.layers]
         d['layers'] = layrinfo
 
         triginfo = [t.pack() for _, t in self.triggers.list()]
@@ -134,6 +166,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 async for edge in layr.getEdges(verb=verb):
 
+                    await asyncio.sleep(0)
+
                     if edge in eset:
                         continue
 
@@ -160,6 +194,8 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
+        self.core._logStormQuery(text, user)
+
         info = {'query': text, 'opts': opts}
         await self.core.boss.promote('storm', user=user, info=info)
 
@@ -173,9 +209,13 @@ class View(s_nexus.Pusher):  # type: ignore
             async for item in self.eval(text, opts=opts):
                 await asyncio.sleep(0)  # pragma: no cover
 
-        except s_exc.StormReturn as e:
-
+        except s_stormctrl.StormReturn as e:
+            # Catch return( ... ) values and return the
+            # primitive version of that item.
             return await s_stormtypes.toprim(e.item)
+
+        # Any other exceptions will be raised to
+        # callers as expected.
 
     async def nodes(self, text, opts=None):
         '''
@@ -190,11 +230,10 @@ class View(s_nexus.Pusher):  # type: ignore
             ((str,dict)): Storm messages.
         '''
         opts = self.core._initStormOpts(opts)
-
         user = self.core._userFromOpts(opts)
 
         MSG_QUEUE_SIZE = 1000
-        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+        chan = asyncio.Queue(MSG_QUEUE_SIZE)
 
         info = {'query': text, 'opts': opts}
         synt = await self.core.boss.promote('storm', user=user, info=info)
@@ -237,6 +276,9 @@ class View(s_nexus.Pusher):  # type: ignore
                     else:
                         async for item in snap.storm(text, opts=opts, user=user):
                             count += 1
+
+            except s_stormctrl.StormExit:
+                pass
 
             except asyncio.CancelledError:
                 logger.warning('Storm runtime cancelled.')
@@ -434,11 +476,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async with await self.parent.snap(user=user) as snap:
 
-            with snap.getStormRuntime(user=user):
-                meta = await snap.getSnapMeta()
-
-                async for nodeedits in fromlayr.iterLayerNodeEdits():
-                    await parentlayr.storNodeEditsNoLift([nodeedits], meta)
+            meta = await snap.getSnapMeta()
+            async for nodeedits in fromlayr.iterLayerNodeEdits():
+                await parentlayr.storNodeEditsNoLift([nodeedits], meta)
 
         await fromlayr.truncate()
 
@@ -507,63 +547,84 @@ class View(s_nexus.Pusher):  # type: ignore
                     if splicecount % 1000 == 0:
                         await asyncio.sleep(0)
 
-    async def runTagAdd(self, node, tag, valu):
+    async def runTagAdd(self, node, tag, valu, view=None):
 
         # Run the non-glob callbacks, then the glob callbacks
         funcs = itertools.chain(self.core.ontagadds.get(tag, ()), (x[1] for x in self.core.ontagaddglobs.get(tag)))
         for func in funcs:
             try:
                 await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception:
                 logger.exception('onTagAdd Error')
 
-        # Run any trigger handlers
-        await self.triggers.runTagAdd(node, tag)
+        if view is None:
+            view = self.iden
 
-    async def runTagDel(self, node, tag, valu):
+        # Run any trigger handlers
+        await self.triggers.runTagAdd(node, tag, view=view)
+
+        if self.parent is not None:
+            await self.parent.runTagAdd(node, tag, valu, view=view)
+
+    async def runTagDel(self, node, tag, valu, view=None):
 
         funcs = itertools.chain(self.core.ontagdels.get(tag, ()), (x[1] for x in self.core.ontagdelglobs.get(tag)))
         for func in funcs:
             try:
                 await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
             except Exception:
                 logger.exception('onTagDel Error')
 
-        await self.triggers.runTagDel(node, tag)
+        if view is None:
+            view = self.iden
 
-    async def runNodeAdd(self, node):
+        await self.triggers.runTagDel(node, tag, view=view)
+
+        if self.parent is not None:
+            await self.parent.runTagDel(node, tag, valu, view=view)
+
+    async def runNodeAdd(self, node, view=None):
         if not node.snap.trigson:
             return
 
-        await self.triggers.runNodeAdd(node)
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runNodeAdd(node, view=view)
 
         if self.parent is not None:
-            await self.parent.runNodeAdd(node)
+            await self.parent.runNodeAdd(node, view=view)
 
-    async def runNodeDel(self, node):
+    async def runNodeDel(self, node, view=None):
         if not node.snap.trigson:
             return
 
-        await self.triggers.runNodeDel(node)
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runNodeDel(node, view=view)
 
         if self.parent is not None:
-            await self.parent.runNodeDel(node)
+            await self.parent.runNodeDel(node, view=view)
 
-    async def runPropSet(self, node, prop, oldv):
+    async def runPropSet(self, node, prop, oldv, view=None):
         '''
         Handle when a prop set trigger event fired
         '''
         if not node.snap.trigson:
             return
 
-        await self.triggers.runPropSet(node, prop, oldv)
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runPropSet(node, prop, oldv, view=view)
 
         if self.parent is not None:
-            await self.parent.runPropSet(node, prop, oldv)
+            await self.parent.runPropSet(node, prop, oldv, view=view)
 
     async def addTrigger(self, tdef):
         '''
@@ -659,3 +720,18 @@ class View(s_nexus.Pusher):  # type: ignore
         return {
             'iden': self.iden,
         }
+
+    async def addNodeEdits(self, edits, meta):
+        '''
+        A telepath compatible way to apply node edits to a view.
+
+        NOTE: This does cause trigger execution.
+        '''
+        user = await self.core.auth.reqUser(meta.get('user'))
+        async with await self.snap(user=user) as snap:
+            # go with the anti-pattern for now...
+            await snap.applyNodeEdits(edits)
+
+    async def storNodeEdits(self, edits, meta):
+        return await self.addNodeEdits(edits, meta)
+        # TODO remove addNodeEdits?

@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
 import synapse.lib.stormtypes as s_stormtypes
@@ -74,6 +75,91 @@ stormcmds = [
             }
         ''',
     },
+    {
+        'name': 'model.deprecated.lock',
+        'descr': 'Edit lock status of deprecated model elements.',
+        'cmdargs': (
+            ('name', {'help': 'The deprecated form or property name to lock or * to lock all.'}),
+            ('--unlock', {'help': 'Unlock rather than lock the deprecated property.', 'default': False, 'action': 'store_true'}),
+        ),
+        'storm': '''
+            init {
+                if $cmdopts.unlock {
+                    $lib.print("Unlocking: {name}", name=$cmdopts.name)
+                    $lib.model.deprecated.lock($cmdopts.name, $lib.false)
+                } else {
+                    if ($cmdopts.name = "*") {
+                        $lib.print("Locking all deprecated model elements.")
+                        for ($name, $locked) in $lib.model.deprecated.locks() {
+                            if (not $locked) { $lib.model.deprecated.lock($name, $lib.true) }
+                        }
+                    } else {
+                        $lib.print("Locking: {name}", name=$cmdopts.name)
+                        $lib.model.deprecated.lock($cmdopts.name, $lib.true)
+                    }
+                }
+            }
+        ''',
+    },
+    {
+        'name': 'model.deprecated.locks',
+        'descr': 'Display lock status of deprecated model elements.',
+        'storm': '''
+            $locks = $lib.model.deprecated.locks()
+            if $locks {
+                $lib.print("Lock status for deprecated forms/props:")
+                for ($name, $locked) in $lib.sorted($locks) {
+                    $lib.print("{name}: {locked}", name=$name, locked=$locked)
+                }
+            } else {
+                $lib.print("No deprecated locks found.")
+            }
+        ''',
+    },
+    {
+        'name': 'model.deprecated.check',
+        'descr': 'Check for lock status and the existance of deprecated model elements',
+        'storm': '''
+            init {
+
+                $ok = $lib.true
+                $lib.print("Checking the cortex for 3.0.0 upgrade readiness...")
+
+                $locks = $lib.model.deprecated.locks()
+
+                $lib.print("Checking deprecated model locks:")
+                for ($name, $locked) in $locks {
+                    if $locked {
+                        $lib.print("{name} is locked", name=$name)
+                    } else {
+                        $lib.warn("{name} is not yet locked", name=$name)
+                        $ok = $lib.false
+                    }
+
+                }
+
+                $lib.print("Checking for existance of deprecated model elements:")
+                for ($name, $locked) in $locks {
+
+                    $lib.print("{name}...", name=$name)
+
+                    for $layr in $lib.layer.list() {
+                        if $layr.getPropCount($name, maxsize=1) {
+                            $lib.warn("Layer {iden} still contains {name}", iden=$layr.iden, name=$name)
+                            $ok = $lib.false
+                        }
+                    }
+                }
+
+                if (not $ok) {
+                    $lib.print("Your cortex contains deprecated model elements.")
+                } else {
+                    $lib.print("Congrats! Your Cortex is fully future-model compliant!")
+                }
+
+            }
+        ''',
+    },
 ]
 
 @s_stormtypes.registry.registerLib
@@ -92,6 +178,7 @@ class LibModel(s_stormtypes.Lib):
             'type': self._methType,
             'prop': self._methProp,
             'form': self._methForm,
+            'tagprop': self._methTagProp,
         }
 
     @s_cache.memoize(size=100)
@@ -138,6 +225,21 @@ class LibModel(s_stormtypes.Lib):
         form = self.model.form(name)
         if form is not None:
             return ModelForm(form)
+
+    @s_cache.memoize(size=100)
+    async def _methTagProp(self, name):
+        '''
+        Get a ModelTagProp by name.
+
+        Args:
+            name (str): The name of the tag property to retrieve.
+
+        Returns:
+            ModelTagProp: A Storm ModelTagProp object.
+        '''
+        tagprop = self.model.getTagProp(name)
+        if tagprop is not None:
+            return ModelTagProp(tagprop)
 
 @s_stormtypes.registry.registerType
 class ModelForm(s_stormtypes.Prim):
@@ -193,6 +295,24 @@ class ModelProp(s_stormtypes.Prim):
         return ModelForm(self.valu.form, path=path)
 
 @s_stormtypes.registry.registerType
+class ModelTagProp(s_stormtypes.Prim):
+
+    def __init__(self, tagprop, path=None):
+
+        s_stormtypes.Prim.__init__(self, tagprop, path=path)
+
+        self.locls.update({
+            'name': tagprop.name,
+        })
+
+        self.ctors.update({
+            'type': self._ctorTagPropType,
+        })
+
+    def _ctorTagPropType(self, path=None):
+        return ModelType(self.valu.type, path=path)
+
+@s_stormtypes.registry.registerType
 class ModelType(s_stormtypes.Prim):
     '''
     A Storm types wrapper around a lib.types.Type
@@ -201,6 +321,7 @@ class ModelType(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.locls.update({
             'name': valu.name,
+            'stortype': valu.stortype,
         })
         self.locls.update(self.getObjLocals())
 
@@ -356,3 +477,29 @@ class LibModelEdge(s_stormtypes.Lib):
             retn.append((verb, kvdict))
 
         return retn
+
+@s_stormtypes.registry.registerLib
+class LibModelDeprecated(s_stormtypes.Lib):
+    '''
+    A storm library for interacting with the model deprecation mechanism.
+    '''
+    _storm_lib_path = ('model', 'deprecated')
+
+    def getObjLocals(self):
+        return {
+            'lock': self._lock,
+            'locks': self._locks,
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _locks(self):
+        todo = s_common.todo('getDeprLocks')
+        locks = await self.runt.dyncall('cortex', todo)
+        return s_stormtypes.Dict(locks)
+
+    async def _lock(self, name, locked):
+        name = await s_stormtypes.tostr(name)
+        locked = await s_stormtypes.tobool(locked)
+        todo = s_common.todo('setDeprLock', name, locked)
+        gatekeys = ((self.runt.user.iden, ('model', 'deprecated', 'lock'), None),)
+        await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)

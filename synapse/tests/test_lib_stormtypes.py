@@ -157,6 +157,7 @@ class StormTypesTest(s_test.SynTest):
             'name': 'foo',
             'desc': 'test',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
             'modules': [
                 {
                     'name': 'test',
@@ -389,10 +390,8 @@ class StormTypesTest(s_test.SynTest):
             $lib.print("post exec {bar}", bar=$bar)
             [ test:str=$foo ]
             '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint("in exec", msgs)
-            prints = [m for m in msgs if m[0] == 'print']
-            self.len(1, prints)
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes(q)
 
             # make sure returns work
             q = '''
@@ -537,6 +536,38 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('$s = foo-bar-baz [ test:str=$s.replace("-", ".", 1) ]')
             self.eq('foo.bar-baz', nodes[0].ndef[1])
+
+            q = '$foo=" foo " return ( $foo.strip() )'
+            self.eq('foo', await core.callStorm(q))
+
+            q = '$foo=" foo " return ( $foo.lstrip() )'
+            self.eq('foo ', await core.callStorm(q))
+
+            q = '$foo=" foo " return ( $foo.rstrip() )'
+            self.eq(' foo', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.strip(quxk) )'
+            self.eq('ickbrownfo', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.lstrip(quxk) )'
+            self.eq('ickbrownfox', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.rstrip(quxk) )'
+            self.eq('quickbrownfo', await core.callStorm(q))
+
+            q = '$foo="QuickBrownFox" return ( $foo.lower() )'
+            self.eq('quickbrownfox', await core.callStorm(q))
+
+            # tuck the regx tests in with str
+            self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
+            self.true(await core.callStorm(r'''return($lib.regex.matches('foo', FOOBAR, $lib.regex.flags.i))'''))
+            self.false(await core.callStorm(r'''return($lib.regex.matches('^foo$', foobar))'''))
+            self.false(await core.callStorm(f'return($lib.regex.matches(foo, " foobar"))'))
+
+            self.eq(('oo',), await core.callStorm(r'''return($lib.regex.search('([aeiou]+)', foobar))'''))
+            self.eq(('foo', 'baz'), await core.callStorm('return($lib.regex.search("(foo)bar(baz)", foobarbaz))'))
+            self.eq((), await core.callStorm('return($lib.regex.search(foo, foobar))'))
+            self.none(await core.callStorm('return($lib.regex.search(foo, bat))'))
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
@@ -770,8 +801,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(csv_rows[1], ('csv:row', {'row': [32535216000000, None], 'table': None}))
 
             # Sad path case...
-            q = '''$data=() $genr=$lib.feed.genr(syn.node, $data)
-            $lib.csv.emit($genr)
+            q = '''
+                [ test:str=woot ]
+                $lib.csv.emit($path)
             '''
             mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
             err = mesgs[-2]
@@ -895,7 +927,7 @@ class StormTypesTest(s_test.SynTest):
             self.isin('No var with name: testkey', err[1].get('mesg'))
 
             opts = {'vars': {'testkey': 'testvar'}}
-            text = "[ test:str='123' ] $path.vars.$testkey = test [ test:str=$testvar ]"
+            text = "[ test:str='123' ] $path.vars.$testkey = test [ test:str=$path.vars.testvar ]"
             nodes = await core.nodes(text, opts=opts)
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test'))
@@ -1370,6 +1402,14 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('for ($offs, $name) in $lib.queue.get(doit).gets(size=2) { [test:str=$name] }')
             self.len(2, nodes)
 
+            q = '$item = $lib.queue.get(doit).get(offs=1) [test:str=$item.0]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'for ($offs, $name) in $lib.queue.get(doit).gets(size=1, offs=1) { [test:str=$name] }'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
             # test other users who have access to this queue can do things to it
             async with core.getLocalProxy() as root:
                 # add users
@@ -1423,6 +1463,18 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_node_data(self):
 
         async with self.getTestCore() as core:
+            stormpkg = {
+                'name': 'nodedatatest',
+                'version': (0, 0, 1),
+                'commands': (
+                    {
+                     'name': 'nd.permtest',
+                     'storm': '$node.data.get(foo:bar)',
+                    },
+                ),
+            }
+
+            await core.addStormPkg(stormpkg)
 
             nodes = await core.nodes('[test:int=10] $node.data.set(foo, hehe)')
 
@@ -1454,6 +1506,13 @@ class StormTypesTest(s_test.SynTest):
 
             self.none(await nodes[1].getData('woot'))
             self.eq(nodes[0].ndef, ('test:str', 'woot'))
+
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm('test:int | nd.permtest')
+                await visi.addRule((True, 'storm.asroot.cmd.nd.permtest'.split('.')))
+                await asvisi.callStorm('test:int | nd.permtest')
 
     async def test_storm_lib_bytes(self):
 
@@ -1517,6 +1576,10 @@ class StormTypesTest(s_test.SynTest):
 
             bobj = s_stormtypes.Bytes(b'beepbeep')
             self.len(8, bobj)
+
+            opts = {'vars': {'chunks': (b'visi', b'kewl')}}
+            retn = await core.callStorm('return($lib.bytes.upload($chunks))', opts=opts)
+            self.eq((8, '9ed8ffd0a11e337e6e461358195ebf8ea2e12a82db44561ae5d9e638f6f922c4'), retn)
 
     async def test_storm_lib_base64(self):
 
@@ -1712,6 +1775,12 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             self.stormIsInPrint(mainlayr, mesgs)
 
+            info = await core.callStorm('return ($lib.layer.get().pack())')
+            self.gt(info.get('totalsize'), 1)
+
+            # Try to create an invalid layer
+            mesgs = await core.stormlist('$lib.layer.add(ldef=$lib.dict(lockmemory=(42)))')
+
             # Create a new layer
             newlayr = await core.callStorm('return($lib.layer.add().iden)')
             self.isin(newlayr, core.layers)
@@ -1815,6 +1884,14 @@ class StormTypesTest(s_test.SynTest):
                 layr = core.getLayer(locklayr)
                 self.true(layr.lockmemory)
 
+            # formcounts for layers are exposed on the View object
+            nodes = await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
+            counts = await core.callStorm('return( $lib.layer.get().getFormCounts() )')
+            self.eq(counts.get('test:int'), 2)
+            self.eq(counts.get('test:guid'), 1)
+
+    async def test_storm_lib_layer_upstream(self):
+        async with self.getTestCore() as core:
             async with self.getTestCore() as core2:
 
                 await core2.nodes('[ inet:ipv4=1.2.3.4 ]')
@@ -1834,20 +1911,40 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(uplayr)
 
-                #evnt = await layr.waitUpstreamOffs(layriden, offs)
-                #await asyncio.wait_for(evnt.wait(), timeout=2.0)
+                evnt = await layr.waitUpstreamOffs(layriden, offs)
+                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
 
     async def test_storm_lib_view(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
+            derp = await core.auth.addUser('derp')
             root = await core.auth.getUserByName('root')
 
-            await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
+            await derp.addRule((True, ('view', 'add')))
+
+            await core.addTagProp('risk', ('int', {'min': 0, 'max': 100}), {'doc': 'risk score'})
             await core.nodes('[test:int=12 +#tag.test +#tag.proptest:risk=20]')
 
             # Get the main view
             mainiden = await core.callStorm('return($lib.view.get().iden)')
+            altview = await core.callStorm('''
+                $layers = $lib.list()
+                for $layer in $lib.view.get().layers {
+                    $layers.append($layer.iden)
+                }
+                return($lib.view.add($layers).iden)
+            ''')
+
+            altlayr = await core.callStorm('return($lib.layer.add().iden)')
+
+            asderp = {'user': derp.iden, 'vars': {'altlayr': altlayr}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(f'return($lib.view.add(($altlayr,)))', opts=asderp)
+
+            asderp = {'user': derp.iden, 'vars': {'altview': altview}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(f'return($lib.view.get($altview).fork())', opts=asderp)
 
             # Fork the main view
             q = f'''
@@ -2005,16 +2102,13 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.get({mainiden}).fork()'))
 
                 await prox.addUserRule(visi['iden'], (True, ('view', 'add')))
+                await prox.addUserRule(visi['iden'], (True, ('layer', 'read')), gateiden=newlayer.iden)
 
                 q = f'''
                     $newview=$lib.view.add(({newlayer.iden},))
-                    $lib.print($newview.pack().iden)
+                    return($newview.pack().iden)
                 '''
-                mesgs = await asvisi.storm(q).list()
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        addiden = mesg[1]['mesg']
-
+                addiden = await asvisi.callStorm(q)
                 self.isin(addiden, core.views)
 
                 q = f'''
@@ -2123,6 +2217,12 @@ class StormTypesTest(s_test.SynTest):
                 self.len(1, triggers)
                 self.eq(triggers[0]['iden'], tdef['iden'])
 
+            # Test formcounts
+            nodes = await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
+            counts = await core.callStorm('return( $lib.view.get().getFormCounts() )')
+            self.eq(counts.get('test:int'), 1003)
+            self.eq(counts.get('test:guid'), 1)
+
     async def test_storm_lib_trigger(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -2230,9 +2330,6 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.add node:add --tag tag1 --query {test:str}')
             self.stormIsInErr("data must contain ['form']", mesgs)
 
-            mesgs = await core.stormlist(f'trigger.mod {goodbuid2} test:str')
-            self.stormIsInErr('start with {', mesgs)
-
             # Bad storm syntax
             mesgs = await core.stormlist('trigger.add node:add --form test:str --query {[ | | test:int=1 ] }')
             self.stormIsInErr('No terminal defined', mesgs)
@@ -2303,6 +2400,45 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(f'trigger.del {goodbuid2}').list()
                 self.stormIsInPrint('Deleted trigger', mesgs)
 
+    async def test_storm_lib_cron_notime(self):
+        # test cron APIs that don't require time stepping
+        async with self.getTestCore() as core:
+
+            cdef = await core.callStorm('return($lib.cron.add(query="{[graph:node=*]}", hourly=30).pack())')
+            self.eq('', cdef.get('doc'))
+            self.eq('', cdef.get('name'))
+
+            iden = cdef.get('iden')
+            opts = {'vars': {'iden': iden}}
+
+            cdef = await core.callStorm('return($lib.cron.get($iden).set(name, foobar))', opts=opts)
+            self.eq('foobar', cdef.get('name'))
+
+            cdef = await core.callStorm('return($lib.cron.get($iden).set(doc, foodoc))', opts=opts)
+            self.eq('foodoc', cdef.get('doc'))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.cron.get($iden).set(hehe, haha))', opts=opts)
+
+            mesgs = await core.stormlist('cron.add --hour +1 {[graph:node=*]} --name myname --doc mydoc')
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    iden0 = mesg[1]['mesg'].split(' ')[-1]
+
+            opts = {'vars': {'iden': iden0}}
+
+            cdef = await core.callStorm('return($lib.cron.get($iden).pack())', opts=opts)
+            self.eq('mydoc', cdef.get('doc'))
+            self.eq('myname', cdef.get('name'))
+
+            async with core.getLocalProxy() as proxy:
+
+                cdef = await proxy.editCronJob(iden0, 'name', 'lolz')
+                self.eq('lolz', cdef.get('name'))
+
+                cdef = await proxy.editCronJob(iden0, 'doc', 'zoinks')
+                self.eq('zoinks', cdef.get('doc'))
+
     async def test_storm_lib_cron(self):
 
         MONO_DELT = 1543827303.0
@@ -2330,7 +2466,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = 'cron.add foo'
                 mesgs = await core.stormlist(q)
-                self.stormIsInErr('must start with {', mesgs)
+                self.stormIsInErr('Must provide at least one optional argument', mesgs)
 
                 q = "cron.add --month nosuchmonth --day=-2 {#foo}"
                 mesgs = await core.stormlist(q)
@@ -2416,13 +2552,13 @@ class StormTypesTest(s_test.SynTest):
 
                 async def getCronIden():
                     return await core.callStorm('''
-                        for $job in $lib.cron.list() { return ($job.iden) }
+                        $jobs=$lib.cron.list() $job=$jobs.index(0) return ($job.iden)
                     ''')
 
                 @contextlib.asynccontextmanager
                 async def getCronJob(text):
                     msgs = await core.stormlist(text)
-                    self.stormIsInPrint(f'Created cron job', msgs)
+                    self.stormIsInPrint('Created cron job', msgs)
                     guid = await getCronIden()
                     yield guid
                     msgs = await core.stormlist(f'cron.del {guid}')
@@ -2459,10 +2595,6 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('does not match', mesgs)
 
-                q = f"cron.mod xxx yyy"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('Expected second argument to start with {', mesgs)
-
                 # Make sure the old one didn't run and the new query ran
                 unixtime += 60
                 await asyncio.sleep(0)
@@ -2474,10 +2606,6 @@ class StormTypesTest(s_test.SynTest):
                 q = f"cron.del {guid}"
                 mesgs = await core.stormlist(q)
                 self.stormIsInPrint('Deleted cron job', mesgs)
-
-                q = f"cron.del xxx"
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('does not match', mesgs)
 
                 q = f"cron.del xxx"
                 mesgs = await core.stormlist(q)
@@ -2584,11 +2712,6 @@ class StormTypesTest(s_test.SynTest):
                 ##################
 
                 # Test 'at' command
-
-                q = 'cron.at foo'
-                mesgs = await core.stormlist(q)
-                self.stormIsInErr('must start with {', mesgs)
-
                 q = 'cron.at {#foo}'
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('At least', mesgs)
@@ -2609,15 +2732,37 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                async with getCronJob("cron.at --minute +5 {$lib.queue.get(foo).put(at1)}"):
+                q = "cron.at --minute +5,+10 {$lib.queue.get(foo).put(at1)}"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('Created cron job', msgs)
 
-                    unixtime += 5 * MINSECS
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('0 cron/at jobs deleted.', msgs)
 
-                    self.eq('at1', await getNextFoo())
+                unixtime += 5 * MINSECS
+                core.agenda._wake_event.set()
+
+                self.eq('at1', await getNextFoo())
+
+                # Shouldn't delete yet, still one more run scheduled
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('0 cron/at jobs deleted.', msgs)
+
+                unixtime += 5 * MINSECS
+                core.agenda._wake_event.set()
+
+                self.eq('at1', await getNextFoo())
+
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
                 async with getCronJob("cron.at --day +1,+7 {$lib.queue.get(foo).put(at2)}"):
 
                     unixtime += DAYSECS
+                    core.agenda._wake_event.set()
 
                     self.eq('at2', await getNextFoo())
 
@@ -2632,6 +2777,7 @@ class StormTypesTest(s_test.SynTest):
                     unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
 
+                    core.agenda._wake_event.set()
                     self.eq('at3', await getNextFoo())
 
                     mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
@@ -2661,6 +2807,39 @@ class StormTypesTest(s_test.SynTest):
 
                     mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
                     self.stormIsInPrint('enabled:         Y', mesgs)
+
+                ##################
+
+                # Test --now
+                q = "cron.at --now {$lib.queue.get(foo).put(atnow)}"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('Created cron job', msgs)
+
+                self.eq('atnow', await getNextFoo())
+
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
+
+                q = "cron.at --now --minute +5 {$lib.queue.get(foo).put(atnow)}"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('Created cron job', msgs)
+
+                self.eq('atnow', await getNextFoo())
+
+                # Shouldn't delete yet, still one more run scheduled
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('0 cron/at jobs deleted.', msgs)
+
+                unixtime += 5 * MINSECS
+                core.agenda._wake_event.set()
+
+                self.eq('atnow', await getNextFoo())
+
+                q = "cron.cleanup"
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
                 ##################
 
@@ -3150,3 +3329,78 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm('return($lib.layer.get().getPropCount(newp:newp))')
+
+    async def test_lib_stormtypes_cmdopts(self):
+        pdef = {
+            'name': 'foo',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'modules': [
+                {
+                    'name': 'test',
+                    'storm': 'function f(a) { return ($a) }',
+                }
+            ],
+            'commands': [
+                {
+                    'name': 'test.cmdopts',
+                    'cmdargs': (
+                        ('foo', {}),
+                        ('--bar', {'default': False, 'action': 'store_true'}),
+                        ('--footime', {'default': False, 'type': 'time'}),
+                    ),
+                    'storm': '''
+                        $lib.print($lib.len($cmdopts))
+                        if ($lib.len($cmdopts) = 4) { $lib.print(foo) }
+
+                        $set = $lib.set()
+                        for ($name, $valu) in $cmdopts { $set.add($valu) }
+
+                        if ($lib.len($set) = 4) { $lib.print(bar) }
+
+                        if $cmdopts.bar { $lib.print(baz) }
+
+                        if $cmdopts.footime { $lib.print($cmdopts.footime) }
+                    '''
+                },
+                {
+                    'name': 'test.setboom',
+                    'cmdargs': [
+                        ('foo', {}),
+                        ('--bar', {'default': False, 'action': 'store_true'}),
+                    ],
+                    'storm': '''
+                        $cmdopts.foo = hehe
+                    '''
+                },
+            ],
+        }
+        sadt = {
+            'name': 'bar',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'commands': [
+                {
+                    'name': 'test.badtype',
+                    'cmdargs': [
+                        ('--bar', {'type': 'notatype'}),
+                    ],
+                    'storm': '''
+                        $cmdopts.foo = hehe
+                    '''
+                },
+            ],
+        }
+        async with self.getTestCore() as core:
+            await core.addStormPkg(pdef)
+            msgs = await core.stormlist('test.cmdopts hehe --bar --footime 20200101')
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInPrint('bar', msgs)
+            self.stormIsInPrint('baz', msgs)
+            self.stormIsInPrint('1577836800000', msgs)
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test.setboom hehe --bar')
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(sadt)

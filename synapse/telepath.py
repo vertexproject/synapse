@@ -19,10 +19,170 @@ import synapse.lib.queue as s_queue
 import synapse.lib.certdir as s_certdir
 import synapse.lib.threads as s_threads
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
 
 televers = (3, 0)
+
+aha_clients = {}
+
+async def addAhaUrl(url):
+    '''
+    Add (incref) an aha registry URL.
+
+    NOTE: You may also add a list of redundant URLs.
+    '''
+    hkey = s_hashitem.normitem(url)
+
+    info = aha_clients.get(hkey)
+    if info is None:
+        client = await Client.anit(url)
+        client._fini_atexit = True
+        info = aha_clients[hkey] = {'refs': 0, 'client': client}
+
+    info['refs'] += 1
+    return info.get('client')
+
+async def delAhaUrl(url):
+    '''
+    Remove (decref) an aha registry URL.
+
+    NOTE: You may also remove a list of redundant URLs.
+    '''
+    hkey = s_hashitem.normitem(url)
+
+    info = aha_clients.get(hkey)
+    if info is None:
+        return 0
+
+    info['refs'] -= 1
+
+    refs = info['refs']
+
+    if refs == 0:
+        await info.get('client').fini()
+        aha_clients.pop(hkey, None)
+
+    return refs
+
+def zipurl(info):
+    '''
+    Reconstruct a URL string from a parsed telepath info dict.
+    '''
+    # copy to prevent mutation
+    info = dict(info)
+
+    host = info.pop('host', None)
+    port = info.pop('port', None)
+    path = info.pop('path', None)
+    user = info.pop('user', None)
+    passwd = info.pop('passwd', None)
+    scheme = info.pop('scheme', None)
+
+    url = f'{scheme}://'
+    if user:
+        url += user
+        if passwd:
+            url += f':{passwd}'
+        url += '@'
+
+    if host:
+        url += host
+        if port is not None:
+            url += f':{port}'
+
+    if path:
+        url += f'{path}'
+
+    if info:
+        params = '&'.join([f'{k}={v}' for (k, v) in info.items()])
+        url += f'?{params}'
+
+    return url
+
+def mergeAhaInfo(info0, info1):
+
+    # copy both to prevent mutation
+    info0 = dict(info0)
+    info1 = dict(info1)
+
+    # local path wins
+    info1.pop('path', None)
+
+    # upstream wins everything else
+    info0.update(info1)
+
+    return info0
+
+async def getAhaProxy(urlinfo):
+    '''
+    Return a telepath proxy by looking up a host from an aha registry.
+    '''
+    host = urlinfo.get('host')
+    if host is None:
+        mesg = f'getAhaProxy urlinfo has no host: {urlinfo}'
+        raise s_exc.NoSuchName(mesg=mesg)
+
+    laste = None
+    for ahaurl, cnfo in list(aha_clients.items()):
+        client = cnfo.get('client')
+        try:
+            proxy = await client.proxy(timeout=1)
+
+            ahasvc = await proxy.getAhaSvc(host)
+            if ahasvc is None:
+                continue
+
+            svcinfo = ahasvc.get('svcinfo', {})
+            if not svcinfo.get('online'):
+                continue
+
+            info = mergeAhaInfo(urlinfo, svcinfo.get('urlinfo', {}))
+
+            return await openinfo(info)
+
+        except asyncio.CancelledError: # pragma: no cover
+            raise
+
+        except Exception as e:
+            logger.exception(f'aha resolver ({ahaurl})')
+            laste = e
+
+    if laste is not None:
+        raise laste
+
+    mesg = f'aha lookup failed: {host}'
+    raise s_exc.NoSuchName(mesg=mesg)
+
+async def loadTeleEnv(path):
+
+    if not os.path.isfile(path):
+        return
+
+    conf = s_common.yamlload(path)
+
+    vers = conf.get('version')
+    if vers != 1:
+        logger.warning(f'telepath.yaml unknown version: {vers}')
+        return
+
+    ahas = conf.get('aha:servers', ())
+    cdirs = conf.get('certdirs', ())
+
+    for a in ahas:
+        await addAhaUrl(a)
+
+    for p in cdirs:
+        s_certdir.addCertPath(p)
+
+    async def fini():
+        for a in ahas:
+            await delAhaUrl(a)
+        for p in cdirs:
+            s_certdir.delCertPath(p)
+
+    return fini
 
 class Aware:
     '''
@@ -610,7 +770,7 @@ class Proxy(s_base.Base):
 
                     await func(mesg)
 
-                except asyncio.CancelledError:  # pragma: no cover
+                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
 
                 except Exception:
@@ -696,8 +856,12 @@ class Client(s_base.Base):
 
         self._t_proxy = None
         self._t_ready = asyncio.Event()
-        self._t_onlink = onlink
+        self._t_onlinks = []
         self._t_methinfo = None
+        self._t_named_meths = set()
+
+        if onlink is not None:
+            self._t_onlinks.append(onlink)
 
         async def fini():
             if self._t_proxy is not None:
@@ -724,6 +888,14 @@ class Client(s_base.Base):
     def _setNextUrl(self, url):
         self._t_urls.appendleft(url)
 
+    async def onlink(self, func):
+        self._t_onlinks.append(func)
+        if self._t_proxy:
+            await func(self._t_proxy)
+
+    async def offlink(self, func):
+        self._t_onlinks.remove(func)
+
     async def _fireLinkLoop(self):
         self._t_proxy = None
         self._t_ready.clear()
@@ -744,7 +916,7 @@ class Client(s_base.Base):
                 self._setNextUrl(e.errinfo.get('url'))
                 continue
 
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception as e:
@@ -761,15 +933,27 @@ class Client(s_base.Base):
 
         self._t_proxy = await openurl(url, **self._t_opts)
         self._t_methinfo = self._t_proxy.methinfo
+        self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
         async def fini():
+            if self._t_named_meths:
+                for name in self._t_named_meths:
+                    delattr(self, name)
+                self._t_named_meths.clear()
             await self._fireLinkLoop()
 
         self._t_proxy.onfini(fini)
-        self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
-        if self._t_onlink is not None:
-            await self._t_onlink(self._t_proxy)
+        for onlink in self._t_onlinks:
+            try:
+                await onlink(self._t_proxy)
+                # in case the callback fini()s the proxy
+                if self._t_proxy is None:
+                    break
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+            except Exception as e:
+                logger.exception(f'onlink: {onlink}')
 
     async def task(self, todo, name=None):
         # implement the main workhorse method for a proxy to allow Method
@@ -803,9 +987,11 @@ class Client(s_base.Base):
         if info is not None and info.get('genr'):
             meth = GenrMethod(self, name)
             setattr(self, name, meth)
+            self._t_named_meths.add(name)
             return meth
 
         meth = Method(self, name)
+        self._t_named_meths.add(name)
         setattr(self, name, meth)
         return meth
 
@@ -861,13 +1047,12 @@ async def disc_consul(info):
     '''
     info.setdefault('original_host', info.get('host'))
     service = info.get('original_host')
-    query = info.get('query')
-    host = query.get('consul')
-    tag = query.get('consul_tag')  # iterate through entries until a match for tag is present.
-    ctag_addr = query.get('consul_tag_address')  # Prefer a taggedAddress if set
-    csvc_tag_addr = query.get('consul_service_tag_address')  # Prefer a serviceTaggedAddress if set
+    host = info.get('consul')
+    tag = info.get('consul_tag')  # iterate through entries until a match for tag is present.
+    ctag_addr = info.get('consul_tag_address')  # Prefer a taggedAddress if set
+    csvc_tag_addr = info.get('consul_service_tag_address')  # Prefer a serviceTaggedAddress if set
     gkwargs = {'raise_for_status': True}
-    if query.get('consul_nosslverify'):
+    if info.get('consul_nosslverify'):
         gkwargs['ssl'] = False
 
     if ctag_addr and csvc_tag_addr:
@@ -904,7 +1089,7 @@ async def disc_consul(info):
                             info['port'] = entry['ServicePort']
                         return
 
-    except asyncio.CancelledError:  # pragma: no cover
+    except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
         raise
     except Exception as e:
         raise s_exc.BadUrl(mesg=f'Unknown error while resolving service name [{service}] via consul [{str(e)}].',
@@ -980,17 +1165,43 @@ async def openurl(url, **opts):
         async with await openurl(url) as proxy:
             valu = await proxy.getFooThing()
     '''
-    if url.find('://') == -1:
-        newurl = alias(url)
-        if newurl is None:
-            raise s_exc.BadUrl(mesg=f':// not found in [{url}] and no alias found!',
-                               url=url)
-        url = newurl
+    info = chopurl(url, **opts)
+    return await openinfo(info)
 
-    info = s_urlhelp.chopurl(url)
+def chopurl(url, **opts):
+
+    if isinstance(url, str):
+        if url.find('://') == -1:
+            newurl = alias(url)
+            if newurl is None:
+                raise s_exc.BadUrl(mesg=f':// not found in [{url}] and no alias found!',
+                                   url=url)
+            url = newurl
+
+        info = s_urlhelp.chopurl(url)
+
+        #flatten query params into info
+        query = info.pop('query', None)
+        if query is not None:
+            info.update(query)
+
+    elif isinstance(url, dict):
+        info = dict(url)
+
+    else:
+        mesg = 'telepath.chopurl() requires a str or dict.'
+        raise s_exc.BadArg(mesg)
+
     info.update(opts)
 
+    return info
+
+async def openinfo(info):
+
     scheme = info.get('scheme')
+
+    if scheme == 'aha':
+        return await getAhaProxy(info)
 
     if '+' in scheme:
         scheme, disc = scheme.split('+', 1)
@@ -1016,6 +1227,7 @@ async def openurl(url, **opts):
         # cell:///path/to/celldir:share
         # cell://rel/path/to/celldir:share
         path = info.get('path')
+
         name = info.get('name', '*')
 
         # support cell://<relpath>/<to>/<cell>
@@ -1044,25 +1256,31 @@ async def openurl(url, **opts):
         path = info.get('path')
         name = info.get('name', path[1:])
 
+        hostname = None
+
         sslctx = None
         if scheme == 'ssl':
 
-            certname = None
-            certpath = None
-
-            certdir = opts.get('certdir')
-
-            query = info.get('query')
-            if query is not None:
-                certpath = query.get('certdir')
-                certname = query.get('certname')
+            certdir = info.get('certdir')
+            certname = info.get('certname')
+            hostname = info.get('hostname', host)
 
             if certdir is None:
-                certdir = s_certdir.CertDir(certpath)
+                certdir = s_certdir.getCertDir()
+
+            # if a TLS connection specifies a user with no password
+            # attempt to auto-resolve a user certificate for the given
+            # host/network.
+            if certname is None and user is not None and passwd is None:
+                certname = f'{user}@{hostname}'
 
             sslctx = certdir.getClientSSLContext(certname=certname)
 
-        link = await s_link.connect(host, port, ssl=sslctx)
+            # do hostname checking manually to avoid DNS lookups
+            # ( to support dynamic IP addresses on services )
+            sslctx.check_hostname = False
+
+        link = await s_link.connect(host, port, ssl=sslctx, hostname=hostname)
 
     prox = await Proxy.anit(link, name)
     prox.onfini(link)
@@ -1070,7 +1288,7 @@ async def openurl(url, **opts):
     try:
         await prox.handshake(auth=auth)
 
-    except Exception:
+    except (asyncio.CancelledError, Exception):
         await prox.fini()
         raise
 

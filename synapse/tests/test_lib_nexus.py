@@ -46,7 +46,13 @@ class SampleNexus(s_nexus.Pusher):
     async def doathingauto3(self, eventdict):
         raise s_exc.SynErr(mesg='Test error')
 
-class SampleNexus2(SampleNexus):
+class SampleMixin(metaclass=s_nexus.RegMethType):
+    @s_nexus.Pusher.onPushAuto('mixinthing')
+    async def mixinthing(self, eventdict):
+        eventdict['autohappened3'] = self.iden
+        return 42
+
+class SampleNexus2(SampleNexus, SampleMixin):
     async def doathing(self, eventdict):
         return await self._push('thing:doathing', eventdict, 'bar')
 
@@ -96,6 +102,17 @@ class NexusTest(s_t_utils.SynTest):
                         stream.seek(0)
                         self.isin('while replaying log', stream.read())
 
+    async def test_nexus_mixin(self):
+        with self.getTestDir() as dirn:
+
+            async with await s_nexus.NexsRoot.anit(dirn) as nexsroot:
+                await nexsroot.startup(None)
+
+                eventdict = {'specialpush': 0}
+                async with await SampleNexus2.anit(2, nexsroot=nexsroot) as testkid:
+                    self.eq('bar', await testkid.doathing(eventdict))
+                    self.eq(42, await testkid.mixinthing(eventdict))
+
     async def test_nexus_no_logging(self):
         '''
         Pushers/NexsRoot works with donexslog=False
@@ -122,3 +139,33 @@ class NexusTest(s_t_utils.SynTest):
                         self.eq('foo', await nexus2.doathing2(eventdict))
                         self.eq(2, eventdict.get('happened'))
                         self.eq(3, eventdict.get('gotindex'))
+
+    async def test_nexus_setindex(self):
+
+        async with self.getRegrCore('migrated-nexuslog') as core00:
+
+            nexsindx = await core00.getNexsIndx()
+            layrindx = max([await layr.getNodeEditOffset() for layr in core00.layers.values()])
+            self.eq(nexsindx, layrindx)
+
+            # Make sure a mirror gets updated to the correct index
+            url = core00.getLocalUrl()
+            core01conf = {'mirror': url}
+
+            async with self.getRegrCore('migrated-nexuslog', conf=core01conf) as core01:
+
+                await core01.sync()
+
+                layrindx = max([await layr.getNodeEditOffset() for layr in core01.layers.values()])
+                self.eq(nexsindx, layrindx)
+
+            # Can only move index forward
+            self.false(await core00.setNexsIndx(0))
+
+        # Test with nexuslog disabled
+        nologconf = {'nexslog:en': False}
+        async with self.getRegrCore('migrated-nexuslog', conf=nologconf) as core:
+
+            nexsindx = await core.getNexsIndx()
+            layrindx = max([await layr.getNodeEditOffset() for layr in core.layers.values()])
+            self.eq(nexsindx, layrindx)

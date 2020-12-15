@@ -254,16 +254,16 @@ class FileModule(s_module.CoreModule):
                     ('size', ('int', {}), {
                         'doc': 'The file size in bytes.'}),
 
-                    ('md5', ('hash:md5', {}), {'ro': 1,
+                    ('md5', ('hash:md5', {}), {'ro': True,
                                                'doc': 'The md5 hash of the file.'}),
 
-                    ('sha1', ('hash:sha1', {}), {'ro': 1,
+                    ('sha1', ('hash:sha1', {}), {'ro': True,
                                                  'doc': 'The sha1 hash of the file.'}),
 
-                    ('sha256', ('hash:sha256', {}), {'ro': 1,
+                    ('sha256', ('hash:sha256', {}), {'ro': True,
                                                      'doc': 'The sha256 hash of the file.'}),
 
-                    ('sha512', ('hash:sha512', {}), {'ro': 1,
+                    ('sha512', ('hash:sha512', {}), {'ro': True,
                                                      'doc': 'The sha512 hash of the file.'}),
 
                     ('name', ('file:base', {}), {
@@ -391,7 +391,7 @@ class FileModule(s_module.CoreModule):
                 )),
 
                 ('file:base', {}, (
-                    ('ext', ('str', {}), {'ro': 1,
+                    ('ext', ('str', {}), {'ro': True,
                         'doc': 'The file extension (if any).'}),
                 )),
 
@@ -435,13 +435,13 @@ class FileModule(s_module.CoreModule):
                 )),
 
                 ('file:path', {}, (
-                    ('dir', ('file:path', {}), {'ro': 1,
+                    ('dir', ('file:path', {}), {'ro': True,
                         'doc': 'The parent directory.'}),
 
-                    ('base', ('file:base', {}), {'ro': 1,
+                    ('base', ('file:base', {}), {'ro': True,
                         'doc': 'The file base name.'}),
 
-                    ('base:ext', ('str', {}), {'ro': 1,
+                    ('base:ext', ('str', {}), {'ro': True,
                         'doc': 'The file extension.'}),
                 )),
             ),

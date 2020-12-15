@@ -23,6 +23,11 @@ reqValidRules = s_config.getJsValidator({
     }
 })
 
+def getShadow(passwd):
+    salt = s_common.guid()
+    hashed = s_common.guid((salt, passwd))
+    return (salt, hashed)
+
 class Auth(s_nexus.Pusher):
     '''
     Auth is a user authentication and authorization stored in a Hive.  Users
@@ -333,6 +338,17 @@ class Auth(s_nexus.Pusher):
         return gate
 
     async def addUser(self, name, passwd=None, email=None):
+        '''
+        Add a User to the Hive.
+
+        Args:
+            name (str): The name of the User.
+            passwd (str): A optional password for the user.
+            email (str): A optional emall for the user.
+
+        Returns:
+            HiveUser: A Hive User.
+        '''
 
         if self.usersbyname.get(name) is not None:
             raise s_exc.DupUserName(name=name)
@@ -838,8 +854,10 @@ class HiveUser(HiveRuler):
 
     def isAdmin(self, gateiden=None):
 
-        if gateiden is None:
-            return self.info.get('admin', False)
+        # being a global admin always wins
+        admin = self.info.get('admin', False)
+        if admin or gateiden is None:
+            return admin
 
         gateinfo = self.authgates.get(gateiden)
         if gateinfo is None:
@@ -871,13 +889,23 @@ class HiveUser(HiveRuler):
         if archived:
             await self.setLocked(True)
 
-    def tryPasswd(self, passwd):
+    async def tryPasswd(self, passwd):
 
         if self.info.get('locked', False):
             return False
 
         if passwd is None:
             return False
+
+        onepass = self.info.get('onepass')
+        if onepass is not None:
+            expires, salt, hashed = onepass
+            if expires >= s_common.now():
+                if s_common.guid((salt, passwd)) == hashed:
+                    await self.auth.setUserInfo(self.iden, 'onepass', None)
+                    return True
+            else:
+                await self.auth.setUserInfo(self.iden, 'onepass', None)
 
         shadow = self.info.get('passwd')
         if shadow is None:
@@ -894,9 +922,8 @@ class HiveUser(HiveRuler):
         # Prevent empty string or non-string values
         if not passwd or not isinstance(passwd, str):
             raise s_exc.BadArg(mesg='Password must be a string')
-        salt = s_common.guid()
-        hashed = s_common.guid((salt, passwd))
+        shadow = getShadow(passwd)
         if nexs:
-            await self.auth.setUserInfo(self.iden, 'passwd', (salt, hashed))
+            await self.auth.setUserInfo(self.iden, 'passwd', shadow)
         else:
-            await self.auth._hndlsetUserInfo(self.iden, 'passwd', (salt, hashed))
+            await self.auth._hndlsetUserInfo(self.iden, 'passwd', shadow)

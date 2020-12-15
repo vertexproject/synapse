@@ -191,10 +191,13 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A arbitrary, unversioned software product.',
                 }),
 
-                ('it:os:ios:idfa', ('str', {'lower': 1}), {
+                ('it:adid', ('str', {'lower': True, 'strip': True}), {
+                    'doc': 'An advertising identification string.'}),
+
+                ('it:os:ios:idfa', ('it:adid', {}), {
                     'doc': 'An iOS advertising identification string.'}),
 
-                ('it:os:android:aaid', ('str', {'lower': 1}), {
+                ('it:os:android:aaid', ('it:adid', {}), {
                     'doc': 'An android advertising identification string.'}),
 
                 ('it:os:android:perm', ('str', {}), {
@@ -307,6 +310,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a function in an executable.',
                 }),
                 ('it:reveng:funcstr', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
+                    'deprecated': True,
                     'doc': 'A reference to a string inside a function.',
                 }),
                 ('it:reveng:impfunc', ('str', {'lower': 1}), {
@@ -347,6 +351,12 @@ class ItModule(s_module.CoreModule):
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.',
                     }),
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'The operator of the host.',
+                    }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org that operates the given host.',
+                    }),
                 )),
                 ('it:hosturl', {}, (
                     ('host', ('it:host', {}), {
@@ -366,6 +376,7 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:cve', {}, (
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the CVE vulnerability.',
+                        'disp': {'hint': 'text'},
                     }),
                 )),
                 ('it:dev:int', {}, ()),
@@ -393,6 +404,7 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the software.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('desc:short', ('str', {'lower': True}), {
                         'doc': 'A short description of the software.',
@@ -421,6 +433,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Set to True if the software is a library.'}),
                 )),
 
+                ('it:adid', {}, ()),
                 ('it:os:ios:idfa', {}, ()),
                 ('it:os:android:aaid', {}, ()),
                 ('it:os:android:perm', {}, ()),
@@ -541,6 +554,7 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the signature.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'A reference URL for information about the signature.',
@@ -600,6 +614,7 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('cmd', ('str', {}), {
                         'doc': 'The command string used to launch the process, including any command line parameters.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('pid', ('int', {}), {
                         'doc': 'The process ID.',
@@ -925,7 +940,9 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:snort:rule', {}, (
                     ('text', ('str', {}), {
-                        'doc': 'The snort rule text.'}),
+                        'doc': 'The snort rule text.',
+                        'disp': {'hint': 'text'},
+                    }),
                     ('name', ('str', {}), {
                         'doc': 'The name of the snort rule.'}),
                     ('version', ('it:semver', {}), {
@@ -963,7 +980,9 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:yara:rule', {}, (
                     ('text', ('str', {}), {
-                        'doc': 'The yara rule text.'}),
+                        'doc': 'The yara rule text.',
+                        'disp': {'hint': 'text'},
+                    }),
                     ('name', ('str', {}), {
                         'doc': 'The name of the yara rule.'}),
                     ('author', ('ps:contact', {}), {
@@ -990,6 +1009,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Notes concerning the function.'}),
                     ('impcalls', ('array', {'type': 'it:reveng:impfunc'}), {
                         'doc': 'Calls to imported library functions within the scope of the function.',
+                    }),
+                    ('strings', ('array', {'type': 'it:dev:str', 'uniq': True}), {
+                        'doc': 'An array of strings referenced within the function.',
                     }),
                 )),
 

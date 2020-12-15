@@ -6,6 +6,8 @@ import asyncio
 import logging
 import threading
 
+from unittest import mock
+
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
@@ -18,7 +20,6 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
 import synapse.lib.httpapi as s_httpapi
-import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
@@ -183,11 +184,25 @@ class TeleTest(s_t_utils.SynTest):
         foo = Foo()
         evt = asyncio.Event()
 
+        urls = (
+            'aha://visi@foo.bar.com',
+            'ssl://visi@foo.bar.com?hostname=woot',
+            'aha://visi@127.0.0.1/foo/bar&hostname=hehe',
+            'ssl://127.0.0.1:2222/&hostname=hehe?ca=haha',
+            'tcp://visi:secret@localhost:2929/foo/bar&certname=hehe',
+        )
+
+        for url in urls:
+            self.eq(url, s_telepath.zipurl(s_telepath.chopurl(url)))
+
         async with self.getTestDmon() as dmon:
 
             dmon.share('foo', foo)
 
             await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
+
+            with self.raises(s_exc.BadArg):
+                await s_telepath.openurl(10)
 
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1])
 
@@ -367,6 +382,7 @@ class TeleTest(s_t_utils.SynTest):
 
             dmon.certdir.genCaCert('userca')
             dmon.certdir.genUserCert('visi', signas='userca')
+            dmon.certdir.genUserCert('visi@localhost', signas='userca')
 
             addr, port = await dmon.listen('ssl://127.0.0.1:0/?ca=userca&hostname=localhost')
             dmon.share('foo', foo)
@@ -374,8 +390,11 @@ class TeleTest(s_t_utils.SynTest):
             with self.raises(s_exc.LinkShutDown):
                 await s_telepath.openurl(f'ssl://localhost/foo', port=port, certdir=dmon.certdir)
 
-            proxy = await s_telepath.openurl(f'ssl://localhost/foo?certname=visi', port=port, certdir=dmon.certdir)
-            self.eq(20, await proxy.bar(15, 5))
+            async with await s_telepath.openurl(f'ssl://localhost/foo?certname=visi', port=port, certdir=dmon.certdir) as proxy:
+                self.eq(20, await proxy.bar(15, 5))
+
+            async with await s_telepath.openurl(f'ssl://visi@localhost/foo', port=port, certdir=dmon.certdir) as proxy:
+                self.eq(20, await proxy.bar(15, 5))
 
     async def test_telepath_tls(self):
         self.thisHostMustNot(platform='darwin')
@@ -1008,7 +1027,7 @@ class TeleTest(s_t_utils.SynTest):
                 consul = f'https://127.0.0.1:{hport}'
 
                 burl = f'tcp+consul://root:root@foobar/*?consul_nosslverify=1&consul={consul}'
-                info = s_urlhelp.chopurl(burl)
+                info = s_telepath.chopurl(burl)
                 self.eq(info.get('host'), 'foobar')
                 self.none(info.get('port'))
 
@@ -1020,14 +1039,14 @@ class TeleTest(s_t_utils.SynTest):
 
                 # Support tag_address and service_tag_address
                 url = burl + '&consul_tag_address=wan'
-                info = s_urlhelp.chopurl(url)
+                info = s_telepath.chopurl(url)
                 await s_telepath.disc_consul(info)
                 self.eq(info.get('host'), '10.0.10.10')
                 self.eq(info.get('port'), 5000)
                 self.eq(info.get('original_host'), 'foobar')
 
                 url = burl + '&consul_service_tag_address=wan'
-                info = s_urlhelp.chopurl(url)
+                info = s_telepath.chopurl(url)
                 await s_telepath.disc_consul(info)
                 self.eq(info.get('host'), '198.18.0.1')
                 self.eq(info.get('port'), 512)
@@ -1035,7 +1054,7 @@ class TeleTest(s_t_utils.SynTest):
 
                 # Support servicetag based port finding
                 url = burl + '&consul_tag=tacos'
-                info = s_urlhelp.chopurl(url)
+                info = s_telepath.chopurl(url)
                 await s_telepath.disc_consul(info)
                 self.eq(info.get('host'), '192.168.10.10')
                 self.eq(info.get('port'), 5000)
@@ -1050,21 +1069,21 @@ class TeleTest(s_t_utils.SynTest):
                 # Sad path - non-existing service name.
                 with self.raises(s_exc.BadUrl) as cm:
                     url = f'tcp+consul://root:root@newp/*?consul_nosslverify=1&consul={consul}'
-                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                    await s_telepath.disc_consul(s_telepath.chopurl(url))
                 self.eq(cm.exception.get('name'), 'newp')
 
                 # Sad path - multiple tag resolution.
                 with self.raises(s_exc.BadUrl) as cm:
                     url = burl + '&consul_tag_address=wan'
                     url = url + '&consul_service_tag_address=lan'
-                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                    await s_telepath.disc_consul(s_telepath.chopurl(url))
                 self.eq(cm.exception.get('consul_tag_address'), 'wan')
                 self.eq(cm.exception.get('consul_service_tag_address'), 'lan')
 
                 # Sad path - ssl verification failure
                 with self.raises(s_exc.BadUrl) as cm:
                     url = f'tcp+consul://root:root@foobar/*?consul={consul}'
-                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                    await s_telepath.disc_consul(s_telepath.chopurl(url))
                 self.isin('certificate verify failed', cm.exception.get('mesg'))
                 self.isinstance(cm.exception.__context__, ssl.SSLCertVerificationError)
 
@@ -1075,7 +1094,7 @@ class TeleTest(s_t_utils.SynTest):
                 cell.consul_data.insert(0, new_data)
                 with self.raises(s_exc.BadUrl) as cm:
                     url = burl + '&consul_tag=burritos'
-                    await s_telepath.disc_consul(s_urlhelp.chopurl(url))
+                    await s_telepath.disc_consul(s_telepath.chopurl(url))
                 self.eq('burritos', cm.exception.get('tag'))
 
     async def test_telepath_pipeline(self):
@@ -1104,3 +1123,149 @@ class TeleTest(s_t_utils.SynTest):
 
                 self.eq(1, len(proxy.links))
                 self.eq(160, await proxy.bar(80, 80))
+
+    async def test_telepath_client_onlink_exc(self):
+
+        cnts = {
+            'ok': 0,
+            'exc': 0,
+            'loops': 0,
+            'inits': 0
+        }
+        evnt = asyncio.Event()
+        origfire = s_telepath.Client._fireLinkLoop
+        originit = s_telepath.Client._initTeleLink
+
+        async def countLinkLoops(self):
+            cnts['loops'] += 1
+            await origfire(self)
+
+        async def countInitLinks(self, url):
+            cnts['inits'] += 1
+            if cnts['inits'] > 3:
+                evnt.set()
+
+            await originit(self, url)
+
+        async def onLinkOk(p):
+            cnts['ok'] += 1
+
+        async def onlinkFail(p):
+            await p.fini()
+
+        async def onlinkExc(p):
+            cnts['exc'] += 1
+            raise s_exc.SynErr(mesg='ohhai')
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            dmon.share('foo', foo)
+            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+
+            async with await s_telepath.Client.anit(url) as targ:
+                proxy = await targ.proxy(timeout=2)
+                await targ.onlink(onLinkOk)
+                self.eq(1, cnts['ok'])
+                with self.raises(s_exc.SynErr):
+                    await targ.onlink(onlinkExc)
+                self.eq(1, cnts['exc'])
+
+            with mock.patch('synapse.telepath.Client._fireLinkLoop', countLinkLoops):
+                with mock.patch('synapse.telepath.Client._initTeleLink', countInitLinks):
+                    async with await s_telepath.Client.anit(url, onlink=onlinkFail) as targ:
+
+                        self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                        self.eq(4, cnts['loops'])
+                        self.eq(4, cnts['inits'])
+
+                    evnt.clear()
+                    async with await s_telepath.Client.anit(url, onlink=onlinkExc) as targ:
+
+                        self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                        self.eq(5, cnts['loops'])
+                        self.eq(5, cnts['inits'])
+
+    async def test_client_method_reset(self):
+        class Foo:
+            def __init__(self):
+                self.a = 1
+
+            async def foo(self):
+                return self.a
+
+            async def bar(self):
+                for i in range(self.a):
+                    yield i
+
+        class Bar:
+            def bar(self):
+                return 'bar'
+
+        foo = Foo()
+        bar = Bar()
+
+        with self.getTestDir() as dirn:
+            url = f'cell://{dirn}'
+            url = url + ':obj'
+            surl = os.path.join(f'unix://{dirn}', 'sock')
+
+            async with await s_telepath.Client.anit(url) as prox:
+                async with self.getTestDmon() as dmon:
+                    dmon.share('obj', foo)
+                    await dmon.listen(surl)
+
+                    self.none(await prox.waitready())
+                    self.eq(await prox.foo(), 1)
+
+                    # The .bar function is a genrmeth
+                    self.eq(await prox.bar().list(), [0],)
+                    self.eq(prox._t_named_meths, {'foo', 'bar'})
+
+                    # Disable the dmon and wait for the proxy to have been fini'd
+                    dmon.schedCoro(dmon.setReady(False))
+                    self.true(await prox._t_proxy.waitfini(10))
+
+                    # Swap out the object and reconnect
+                    dmon.share('obj', bar)
+                    await dmon.setReady(True)
+                    self.none(await prox.waitready())
+                    self.eq(prox._t_named_meths, set())
+
+                    # .foo is gone
+                    with self.raises(s_exc.NoSuchMeth):
+                        self.eq(await prox.foo(), 1)
+                    # The type of the .bar function changed so it is
+                    # no longer a genrmeth and can be called directly
+                    self.eq(await prox.bar(), 'bar')
+                    # We still have foo and bar as named meths
+                    self.eq(prox._t_named_meths, {'foo', 'bar'})
+
+    async def test_telepath_loadenv(self):
+        with self.getTestDir() as dirn:
+
+            certpath = s_common.gendir(dirn, 'certs')
+            newppath = s_common.genpath(dirn, 'newps')
+
+            conf = {
+                'version': 1,
+                'aha:servers': [
+                    'tcp://localhost:9999/',
+                ],
+                'certdirs': [
+                    certpath,
+                    newppath,
+                ],
+            }
+
+            path = s_common.genpath(dirn, 'telepath.yaml')
+            s_common.yamlsave(conf, path)
+
+            fini = await s_telepath.loadTeleEnv(path)
+            await fini()
+
+            self.none(await s_telepath.loadTeleEnv(newppath))
+
+            conf['version'] = 99
+            s_common.yamlsave(conf, path)
+            self.none(await s_telepath.loadTeleEnv(path))

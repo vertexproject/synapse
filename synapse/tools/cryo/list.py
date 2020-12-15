@@ -25,6 +25,8 @@ def main(argv, outp=s_output.stdout):
 
                 outp.printf(f'    {name}: {info}')
 
+    return 0
+
 if __name__ == '__main__':  # pragma: no cover
     logging.basicConfig()
     sys.exit(main(sys.argv[1:]))

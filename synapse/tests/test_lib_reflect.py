@@ -5,15 +5,13 @@ import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 
-class Lol: pass
-class Foo(Lol): pass
+class Lol:
+    def lol(self):
+        return 'lol'
 
-class Bar:
-    def __init__(self):
-        self.foo = Foo()
-
-    def _syn_reflect(self):
-        return s_reflect.getItemInfo(self.foo)
+class Foo(Lol):
+    def foo(self):
+        return 'foo'
 
 class Echo(s_base.Base):
     def echo(self, args):
@@ -41,6 +39,17 @@ class ReflectTest(s_t_utils.SynTest):
         names = s_reflect.getClsNames(foo)
         self.isin('synapse.tests.test_lib_reflect.Lol', names)
         self.isin('synapse.tests.test_lib_reflect.Foo', names)
+
+    def test_reflect_getMethName(self):
+        foo = Foo()
+        name = s_reflect.getMethName(foo.foo)
+        self.eq('synapse.tests.test_lib_reflect.Foo.foo', name)
+
+    def test_reflect_getItemLocals(self):
+        foo = Foo()
+        locls = s_reflect.getItemLocals(foo)
+        self.isin(('foo', foo.foo), locls)
+        self.isin(('lol', foo.lol), locls)
 
     async def test_telemeth(self):
         self.none(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None))

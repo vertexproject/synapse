@@ -1,5 +1,10 @@
 import os
+import sys
+import time
+import aiohttp
 import asyncio
+
+from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -8,6 +13,19 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 
 import synapse.tests.utils as s_t_utils
+
+# Defective versions of spawned backup processes
+def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths):
+    time.sleep(3.0)
+
+def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths):
+    pipe.send('ready')
+    time.sleep(2.0)
+
+def _exiterProc(pipe, srcdir, dstdir, lmdbpaths):
+    pipe.send('ready')
+    pipe.send('captured')
+    sys.exit(1)
 
 class EchoAuthApi(s_cell.CellApi):
 
@@ -32,6 +50,12 @@ class EchoAuth(s_cell.Cell):
         yield 2
         if doraise:
             raise s_exc.BadTime(mesg='call again later')
+
+async def altAuthCtor(cell):
+    authconf = cell.conf.get('auth:conf')
+    assert authconf['foo'] == 'bar'
+    authconf['baz'] = 'faz'
+    return await s_cell.Cell._initCellHiveAuth(cell)
 
 class CellTest(s_t_utils.SynTest):
 
@@ -399,6 +423,26 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadConfValu):
                         await proxy.promote()
 
+    async def test_cell_anon(self):
+
+        with self.getTestDir() as dirn:
+            conf = {'auth:anon': 'anon'}
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+                anon = await cell.auth.addUser('anon')
+                await cell.auth.rootuser.setPasswd('secret')
+                host, port = await cell.dmon.listen('tcp://127.0.0.1:0')
+                async with await s_telepath.openurl('tcp://127.0.0.1/', port=port) as prox:
+                    info = await prox.getCellUser()
+                    self.eq(anon.iden, info.get('iden'))
+
+                await anon.setLocked(True)
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl('tcp://127.0.0.1/', port=port)
+
+                await cell.auth.delUser(anon.iden)
+                with self.raises(s_exc.AuthDeny):
+                    await s_telepath.openurl('tcp://127.0.0.1/', port=port)
+
     async def test_cell_nexuschanges(self):
 
         with self.getTestDir() as dirn:
@@ -527,7 +571,7 @@ class CellTest(s_t_utils.SynTest):
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
                 outp = self.getTestOutp()
-                async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
+                async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
                     outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
                     outp.expect('...cell API (https): 0')
 
@@ -538,6 +582,213 @@ class CellTest(s_t_utils.SynTest):
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
                 outp = self.getTestOutp()
-                async with await s_cell.Cell.initFromArgv([dirn], outp=outp) as cell:
+                async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
                     outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
                     outp.expect('...cell API (https): disabled')
+
+    async def test_cell_backup(self):
+
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.NeedConfValu):
+                await core.runBackup()
+            with self.raises(s_exc.NeedConfValu):
+                await core.getBackups()
+            with self.raises(s_exc.NeedConfValu):
+                await core.delBackup('foo')
+
+        with self.getTestDir() as dirn:
+            s_common.yamlsave({'backup:dir': dirn}, dirn, 'cell.yaml')
+            with self.raises(s_exc.BadConfValu):
+                async with self.getTestCore(dirn=dirn) as core:
+                    pass
+
+        with self.getTestDir() as dirn:
+
+            backdirn = os.path.join(dirn, 'backups')
+            coredirn = os.path.join(dirn, 'cortex')
+
+            conf = {'backup:dir': backdirn}
+            s_common.yamlsave(conf, coredirn, 'cell.yaml')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+
+                async with core.getLocalProxy() as proxy:
+
+                    with self.raises(s_exc.BadArg):
+                        await proxy.runBackup('../woot')
+
+                    with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
+                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+
+                    # Test runners can take an unusually long time to spawn a process
+                    with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
+
+                        with mock.patch.object(s_cell.Cell, 'BACKUP_ACQUIRE_TIMEOUT', 0.1):
+                            with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
+                                await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+
+                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
+                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup())
+
+                    name = await proxy.runBackup()
+                    self.eq((name,), await proxy.getBackups())
+                    await proxy.delBackup(name)
+                    self.eq((), await proxy.getBackups())
+                    name = await proxy.runBackup(name='foo/bar')
+
+                    with self.raises(s_exc.BadArg):
+                        await proxy.delBackup(name='foo')
+
+                    self.true(os.path.isdir(os.path.join(backdirn, 'foo', 'bar')))
+                    self.eq(('foo/bar',), await proxy.getBackups())
+
+                    with self.raises(s_exc.BadArg):
+                        await proxy.runBackup(name='foo/bar')
+
+    async def test_cell_tls_client(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCryo(dirn=dirn) as cryo:
+
+                cryo.certdir.genCaCert('localca')
+                cryo.certdir.genHostCert('localhost', signas='localca')
+                cryo.certdir.genUserCert('root@localhost', signas='localca')
+
+                root = await cryo.auth.addUser('root@localhost')
+                await root.setAdmin(True)
+
+            async with self.getTestCryo(dirn=dirn) as cryo:
+
+                addr, port = await cryo.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
+
+                async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
+                    self.nn(await proxy.getCellIden())
+
+                with self.raises(s_exc.BadCertHost):
+                    async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=borked.localhost') as proxy:
+                        pass
+
+    async def test_cell_auth_ctor(self):
+        conf = {
+            'auth:ctor': 'synapse.tests.test_lib_cell.altAuthCtor',
+            'auth:conf': {
+                'foo': 'bar',
+            },
+        }
+        with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+                self.eq('faz', cell.conf.get('auth:conf')['baz'])
+                await cell.auth.addUser('visi')
+
+    async def test_cell_onepass(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+
+                await cell.auth.rootuser.setPasswd('root')
+
+                visi = await cell.auth.addUser('visi')
+
+                thost, tport = await cell.dmon.listen('tcp://127.0.0.1:0')
+                hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
+
+                async with self.getHttpSess(port=hport) as sess:
+                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue')
+                    answ = await resp.json()
+                    self.eq('err', answ['status'])
+                    self.eq('NotAuthenticated', answ['code'])
+
+                async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+
+                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue')
+                    answ = await resp.json()
+                    self.eq('err', answ['status'])
+                    self.eq('SchemaViolation', answ['code'])
+
+                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': 'newp'})
+                    answ = await resp.json()
+                    self.eq('err', answ['status'])
+
+                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': visi.iden})
+                    answ = await resp.json()
+                    self.eq('ok', answ['status'])
+
+                    onepass = answ['result']
+
+                async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
+                    await proxy.getCellIden()
+
+                with self.raises(s_exc.AuthDeny):
+                    async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
+                        pass
+
+                # purposely give a negative expire for test...
+                async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': visi.iden, 'duration': -1000})
+                    answ = await resp.json()
+                    self.eq('ok', answ['status'])
+                    onepass = answ['result']
+
+                with self.raises(s_exc.AuthDeny):
+                    async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
+                        pass
+
+    async def test_cell_activecoro(self):
+
+        evt0 = asyncio.Event()
+        evt1 = asyncio.Event()
+        evt2 = asyncio.Event()
+        evt3 = asyncio.Event()
+        evt4 = asyncio.Event()
+
+        async def coro():
+            try:
+                evt0.set()
+                await evt1.wait()
+                evt2.set()
+                await evt3.wait()
+
+            except asyncio.CancelledError as e:
+                evt4.set()
+                raise
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+
+                # he'll start active...
+                iden = await cell.addActiveCoro(coro)
+
+                async def step():
+                    await asyncio.wait_for(evt0.wait(), timeout=2)
+
+                    # step him through...
+                    evt1.set()
+                    await asyncio.wait_for(evt2.wait(), timeout=2)
+
+                    evt0.clear()
+                    evt1.clear()
+                    evt3.set()
+
+                    await asyncio.wait_for(evt0.wait(), timeout=2)
+
+                await step()
+
+                # now deactivate and it gets cancelled
+                await cell.setCellActive(False)
+                await asyncio.wait_for(evt4.wait(), timeout=2)
+
+                evt0.clear()
+                evt1.clear()
+                evt2.clear()
+                evt3.clear()
+                evt4.clear()
+
+                # make him active post-init and confirm
+                await cell.setCellActive(True)
+                await step()
+
+                self.none(await cell.delActiveCoro(s_common.guid()))

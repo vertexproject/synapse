@@ -129,29 +129,35 @@ class SynModule(s_module.CoreModule):
                 ('syn:splice', ('guid', {'strip': True}), {
                     'doc': 'A splice from a layer.'
                 }),
+                ('syn:nodedata', ('comp', {'fields': (('key', 'str'), ('form', 'syn:form'))}), {
+                    'doc': 'A nodedata key and the form it may be present on.',
+                }),
             ),
 
             'forms': (
 
                 ('syn:tag', {}, (
 
-                    ('up', ('syn:tag', {}), {'ro': 1,
+                    ('up', ('syn:tag', {}), {'ro': True,
                         'doc': 'The parent tag for the tag.'}),
 
                     ('isnow', ('syn:tag', {}), {
                         'doc': 'Set to an updated tag if the tag has been renamed.'}),
 
-                    ('doc', ('str', {}), {'doc': 'A short definition for the tag.'}),
+                    ('doc', ('str', {}), {
+                        'doc': 'A short definition for the tag.',
+                        'disp': {'hint': 'text'},
+                    }),
 
                     ('doc:url', ('inet:url', {}), {
                         'doc': 'A URL link to additional documentation about the tag.'}),
 
-                    ('depth', ('int', {}), {'ro': 1,
+                    ('depth', ('int', {}), {'ro': True,
                         'doc': 'How deep the tag is in the hierarchy.'}),
 
                     ('title', ('str', {}), {'doc': 'A display title for the tag.'}),
 
-                    ('base', ('str', {}), {'ro': 1,
+                    ('base', ('str', {}), {'ro': True,
                         'doc': 'The tag base name. Eg baz for foo.bar.baz .'}),
                 )),
                 ('syn:type', {'runt': True}, (
@@ -202,6 +208,7 @@ class SynModule(s_module.CoreModule):
                     }),
                     ('doc', ('str', {}), {
                         'doc': 'A documentation string describing the trigger.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('name', ('str', {}), {
                         'doc': 'A user friendly name/alias for the trigger.',
@@ -214,6 +221,7 @@ class SynModule(s_module.CoreModule):
                     }),
                     ('storm', ('str', {}), {
                         'doc': 'The Storm query for the trigger.', 'ro': True,
+                        'disp': {'hint': 'text'},
                     }),
                     ('enabled', ('bool', {}), {
                         'doc': 'Trigger enabled status.', 'ro': True,
@@ -231,19 +239,25 @@ class SynModule(s_module.CoreModule):
                 ('syn:cron', {'runt': True}, (
 
                     ('doc', ('str', {}), {
-                        'doc': 'A description of the cron job.'}),
+                        'doc': 'A description of the cron job.',
+                        'disp': {'hint': 'text'},
+                    }),
 
                     ('name', ('str', {}), {
                         'doc': 'A user friendly name/alias for the cron job.'}),
 
                     ('storm', ('str', {}), {
                         'ro': True,
-                        'doc': 'The storm query executed by the cron job.'}),
+                        'doc': 'The storm query executed by the cron job.',
+                        'disp': {'hint': 'text'},
+                    }),
 
                 )),
                 ('syn:cmd', {'runt': True}, (
                     ('doc', ('str', {'strip': True}), {
-                        'doc': 'Description of the command.'}),
+                        'doc': 'Description of the command.',
+                        'disp': {'hint': 'text'},
+                    }),
                     ('package', ('str', {'strip': True}), {
                         'doc': 'Storm package which provided the command.'}),
                     ('svciden', ('guid', {'strip': True}), {
@@ -252,6 +266,8 @@ class SynModule(s_module.CoreModule):
                         'doc': 'The list of forms accepted by the command as input.', 'ro': True}),
                     ('output', ('array', {'type': 'syn:form'}), {
                         'doc': 'The list of forms produced by the command as output.', 'ro': True}),
+                    ('nodedata', ('array', {'type': 'syn:nodedata'}), {
+                        'doc': 'The list of nodedata that may be added by the command.', 'ro': True}),
                 )),
                 ('syn:splice', {'runt': True}, (
                     ('type', ('str', {'strip': True}), {

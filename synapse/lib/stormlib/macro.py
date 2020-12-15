@@ -7,8 +7,14 @@ import synapse.lib.stormtypes as s_stormtypes
 macro_set_descr = '''
 Set a macro definition in the cortex.
 
-Example:
+Variables can also be used that are defined outside the definition.
+
+Examples:
     macro.set foobar ${ [+#foo] }
+
+    # Use variable from parent scope
+    macro.set bam ${ [ inet:ipv4=$val ] }
+    $val=1.2.3.4 macro.exec bam
 '''
 
 macro_del_descr = '''
@@ -101,28 +107,18 @@ class MacroExecCmd(s_storm.Cmd):
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         name = await s_stormtypes.tostr(self.opts.name)
-        path = ('cortex', 'storm', 'macros', name)
+        hivepath = ('cortex', 'storm', 'macros', name)
 
-        mdef = await runt.snap.core.getHiveKey(path)
+        mdef = await runt.snap.core.getHiveKey(hivepath)
         if mdef is None:
             mesg = f'Macro name not found: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
 
         query = await runt.getStormQuery(mdef['storm'])
 
-        with runt.snap.getStormRuntime() as subr:
-
-            async def wrapgenr():
-
-                async for node, path in genr:
-                    path.initframe(initrunt=subr)
-                    yield node, path
-
-            subr.loadRuntVars(query)
-
-            async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
-                path.finiframe(runt)
-                yield node, path
+        async with runt.getSubRuntime(query) as subr:
+            async for nnode, npath in subr.execute(genr=genr):
+                yield nnode, npath
 
 @s_stormtypes.registry.registerLib
 class LibMacro(s_stormtypes.Lib):
