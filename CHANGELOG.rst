@@ -5,6 +5,43 @@ Synapse Changelog
 *****************
 
 
+v2.16.0 - 2020-12-15
+====================
+
+Features and Enhancements
+-------------------------
+- Replaced the View sync APIs introduced in ``v2.14.0`` with Layer specific
+  sync APIs.
+  (`#2003 <https://github.com/vertexproject/synapse/pull/2003>`_)
+- Add ``$lib.regex.matches()`` and ``$lib.regex.search()`` Stormtypes APIs for
+  performing regular expression operations against text in Storm.
+  (`#1999 <https://github.com/vertexproject/synapse/pull/1999>`_)
+  (`#2005 <https://github.com/vertexproject/synapse/pull/2005>`_)
+- Add ``synapse.tools.genpkg`` for generating Storm packages and loading them
+  into a Cortex.
+  (`#2004 <https://github.com/vertexproject/synapse/pull/2004>`_)
+- Refactored the StormDmon implementation to use a single async task and allow
+  the Dmons to be restarted via ``$lib.dmon.bump(iden)``. This replaces the
+  outer task / inner task paradigm that was previously present. Also add the
+  ability to persistently disable and enable a StomDmon.
+  (`#1998 <https://github.com/vertexproject/synapse/pull/1998>`_)
+- Added ``aha://`` support to the ``synapse.tools.pushfile`` and
+  ``synapse.tools.pullfile`` tools.
+  (`#2006 <https://github.com/vertexproject/synapse/pull/2006>`_)
+
+Bugfixes
+--------
+- Properly handle whitespace in keyword arguments when calling functions in
+  Storm.
+  (`#1999 <https://github.com/vertexproject/synapse/pull/1997>`_)
+- Fix some garbage collection issues causing periodic pauses in a Cortex due
+  to failing to close some generators used in the Storm Command AST node.
+  (`#2001 <https://github.com/vertexproject/synapse/pull/2001>`_)
+  (`#2002 <https://github.com/vertexproject/synapse/pull/2002>`_)
+- Fix scope based permission checks in Storm.
+  (`#2000 <https://github.com/vertexproject/synapse/pull/2000>`_)
+
+
 v2.15.0 - 2020-12-11
 ====================
 

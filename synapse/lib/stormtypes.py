@@ -23,6 +23,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
+import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
@@ -33,6 +34,12 @@ logger = logging.getLogger(__name__)
 
 class Undef: pass
 undef = Undef()
+
+def confirm(perm, gateiden=None):
+    s_scope.get('runt').confirm(perm, gateiden=gateiden)
+
+def allowed(perm, gateiden=None):
+    return s_scope.get('runt').allowed(perm, gateiden=gateiden)
 
 class StormTypesRegistry:
     def __init__(self):
@@ -276,9 +283,13 @@ class LibDmon(Lib):
     def getObjLocals(self):
         return {
             'add': self._libDmonAdd,
+            'get': self._libDmonGet,
             'del': self._libDmonDel,
             'log': self._libDmonLog,
             'list': self._libDmonList,
+            'bump': self._libDmonBump,
+            'stop': self._libDmonStop,
+            'start': self._libDmonStart,
         }
 
     async def _libDmonDel(self, iden):
@@ -300,6 +311,18 @@ class LibDmon(Lib):
             self.runt.confirm(('dmon', 'del', iden))
 
         await self.runt.snap.core.delStormDmon(iden)
+
+    async def _libDmonGet(self, iden):
+        '''
+        Return a Storm Dmon definition dict by iden.
+
+        Args:
+            iden (str): The iden of the Storm Dmon.
+
+        Returns:
+            (dict): A Storm daemon definition dict.
+        '''
+        return await self.runt.snap.core.getStormDmon(iden)
 
     async def _libDmonList(self):
         '''
@@ -323,16 +346,16 @@ class LibDmon(Lib):
         self.runt.confirm(('dmon', 'log'))
         return await self.runt.snap.core.getStormDmonLog(iden)
 
-    async def _libDmonAdd(self, quer, name='noname'):
+    async def _libDmonAdd(self, text, name='noname'):
         '''
         Add a StormDmon to the Cortex.
 
         Args:
-            quer (str): The query to execute.
-
+            text (str): The Storm query to execute.
             name (str): The name of the Dmon.
 
         Examples:
+
             Add a dmon that executes a query::
 
                 $lib.dmon.add(${ myquery }, name='example dmon')
@@ -340,26 +363,83 @@ class LibDmon(Lib):
         Returns:
             str: The iden of the newly created StormDmon.
         '''
-        self.runt.confirm(('dmon', 'add'))
+        text = await tostr(text)
+        varz = await toprim(self.runt.vars)
+
+        viewiden = self.runt.snap.view.iden
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         # closure style capture of runtime
-        runtprims = await toprim(self.runt.vars)
-        runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
+        varz = {k: v for (k, v) in varz.items() if s_msgpack.isok(v)}
 
-        opts = {'vars': runtvars,
-                'view': self.runt.snap.view.iden,  # Capture the current view iden.
-                }
+        opts = {'vars': varz, 'view': viewiden}
 
         ddef = {
             'name': name,
             'user': self.runt.user.iden,
-            'storm': str(quer),
+            'storm': text,
             'enabled': True,
             'stormopts': opts,
         }
 
-        dmoniden = await self.runt.snap.core.addStormDmon(ddef)
-        return dmoniden
+        return await self.runt.snap.core.addStormDmon(ddef)
+
+    async def _libDmonBump(self, iden):
+        '''
+        Restart the daemon
+
+        Args:
+            iden (str): The GUID of the dmon to restart.
+        '''
+        iden = await tostr(iden)
+
+        ddef = await self.runt.snap.core.getStormDmon(iden)
+        if ddef is None:
+            return False
+
+        viewiden = ddef['stormopts']['view']
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+
+        await self.runt.snap.core.bumpStormDmon(iden)
+        return True
+
+    async def _libDmonStop(self, iden):
+        '''
+        Stop a storm dmon.
+
+        Args:
+            iden (str): The GUID of the dmon to stop.
+        '''
+        iden = await tostr(iden)
+
+        ddef = await self.runt.snap.core.getStormDmon(iden)
+        if ddef is None:
+            return False
+
+        viewiden = ddef['stormopts']['view']
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+
+        await self.runt.snap.core.disableStormDmon(iden)
+        return True
+
+    async def _libDmonStart(self, iden):
+        '''
+        Start a storm dmon.
+
+        Args:
+            iden (str): The GUID of the dmon to start.
+        '''
+        iden = await tostr(iden)
+
+        ddef = await self.runt.snap.core.getStormDmon(iden)
+        if ddef is None:
+            return False
+
+        viewiden = ddef['stormopts']['view']
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+
+        await self.runt.snap.core.enableStormDmon(iden)
+        return True
 
 @registry.registerLib
 class LibService(Lib):
@@ -1384,7 +1464,7 @@ class LibRegx(Lib):
     '''
     A Storm library for searching/matching with regular expressions.
     '''
-    _storm_lib_path = ('regx',)
+    _storm_lib_path = ('regex',)
 
     def __init__(self, runt, name=()):
         Lib.__init__(self, runt, name=name)
@@ -1408,12 +1488,13 @@ class LibRegx(Lib):
         '''
         Returns $lib.true if the text matches the pattern, otherwise $lib.false.
 
-        NOTE: This API does *not* enforce a full match. Your pattern may do so
-        by specifying a pattern with ^ and $.
+        Notes:
+
+            This API requires the pattern to match at the start of the string.
 
         Example:
 
-            if $lib.regx.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
+            if $lib.regex.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
                 $lib.print("It's semver! ...probably")
             }
 
@@ -1426,11 +1507,18 @@ class LibRegx(Lib):
 
     async def search(self, pattern, text, flags=0):
         '''
-        Search the given text for the pattern and return a match.
+        Search the given text for the pattern and return the matching groups.
+
+        Note:
+
+            In order to get the matching groups, patterns must use parentheses
+            to indicate the start and stop of the regex to return portions of.
+            If groups are not used, a successful match will return a empty list
+            and a unsuccessful match will return ``$lib.null``.
 
         Example:
 
-            $m = $lib.regx.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
+            $m = $lib.regex.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
             if $m {
                 ($maj, $min, $pat) = $m
             }
@@ -1822,7 +1910,7 @@ class LibQueue(Lib):
         qlist = await self.dyncall('cortex', todo)
 
         for queue in qlist:
-            if not self.runt.user.allowed(('queue', 'get'), f"queue:{queue['name']}"):
+            if not allowed(('queue', 'get'), f"queue:{queue['name']}"):
                 continue
 
             retn.append(queue)
@@ -2639,7 +2727,7 @@ class LibGlobals(Lib):
         todo = ('itemsStormVar', (), {})
 
         async for key, valu in self.runt.dyniter('cortex', todo):
-            if user.allowed(('globals', 'get', key)):
+            if allowed(('globals', 'get', key)):
                 ret.append((key, valu))
         return ret
 
@@ -2832,7 +2920,6 @@ class NodeData(Prim):
     def __init__(self, node, path=None):
 
         Prim.__init__(self, node, path=path)
-
         self.locls.update(self.getObjLocals())
 
     def getObjLocals(self):
@@ -2844,35 +2931,29 @@ class NodeData(Prim):
             'load': self._loadNodeData,
         }
 
-    def _reqAllowed(self, perm):
-        if not self.valu.snap.user.allowed(perm):
-            pstr = '.'.join(perm)
-            mesg = f'User is not allowed permission: {pstr}'
-            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
-
     @stormfunc(readonly=True)
     async def _getNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'get', name))
+        confirm(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
-        self._reqAllowed(('node', 'data', 'set', name))
+        confirm(('node', 'data', 'set', name))
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'pop', name))
+        confirm(('node', 'data', 'pop', name))
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
     async def _listNodeData(self):
-        self._reqAllowed(('node', 'data', 'list'))
+        confirm(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
     @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'get', name))
+        confirm(('node', 'data', 'get', name))
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
@@ -3276,6 +3357,13 @@ class Layer(Prim):
                 if url is not None:
                     pdef['url'] = s_urlhelp.sanitizeUrl(url)
 
+        pulls = ldef.get('pulls')
+        if pulls is not None:
+            for pdef in pulls.values():
+                url = pdef.get('url')
+                if url is not None:
+                    pdef['url'] = s_urlhelp.sanitizeUrl(url)
+
         self.locls.update({
             'iden': ldef.get('iden'),
         })
@@ -3291,17 +3379,76 @@ class Layer(Prim):
             'edits': self._methLayerEdits,
             'addPush': self._addPush,
             'delPush': self._delPush,
+            'addPull': self._addPull,
+            'delPull': self._delPull,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
         }
 
-    async def _addPush(self, url, offs=0):
+    async def _addPull(self, url, offs=0):
         '''
-        Configure the layer to push edits to a remote layer/view/feed.
+        Configure the layer to pull edits from a remote layer/feed.
 
         Args:
-            url (str): A telepath URL of the target layer/view/feed.
+            url (str): The telepath URL to a layer/feed.
+            offs (int): The (optional) offset to begin from.
+
+        Perms:
+            - admin privs are required on the layer.
+            - lib.telepath.open.<scheme>
+        '''
+        url = await tostr(url)
+        offs = await toint(offs)
+
+        useriden = self.runt.user.iden
+        layriden = self.valu.get('iden')
+
+        if not self.runt.isAdmin(gateiden=layriden):
+            mesg = '$layr.addPull() requires admin privs on the layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        scheme = url.split('://')[0]
+        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+
+        async with await s_telepath.openurl(url):
+            pass
+
+        pdef = {
+            'url': url,
+            'offs': offs,
+            'user': useriden,
+            'time': s_common.now(),
+            'iden': s_common.guid(),
+        }
+        todo = s_common.todo('addLayrPull', layriden, pdef)
+        await self.runt.dyncall('cortex', todo)
+
+    async def _delPull(self, iden):
+        '''
+        Remove a pull config from the layer.
+        Args:
+            iden (str): The GUID of the push config to remove.
+
+        Perms:
+            - admin privs are required on the layer.
+        '''
+        iden = await tostr(iden)
+
+        layriden = self.valu.get('iden')
+        if not self.runt.isAdmin(gateiden=layriden):
+            mesg = '$layr.delPull() requires admin privs on the top layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        todo = s_common.todo('delLayrPull', layriden, iden)
+        await self.runt.dyncall('cortex', todo)
+
+    async def _addPush(self, url, offs=0):
+        '''
+        Configure the layer to push edits to a remote layer/feed.
+
+        Args:
+            url (str): A telepath URL of the target layer/feed.
             offs (int): The local layer offset to begin pushing from (default: 0).
 
         Perms:
@@ -3555,13 +3702,6 @@ class View(Prim):
         Prim.__init__(self, vdef, path=path)
         self.runt = runt
 
-        pulls = vdef.get('pulls')
-        if pulls is not None:
-            for pdef in pulls.values():
-                url = pdef.get('url')
-                if url is not None:
-                    pdef['url'] = s_urlhelp.sanitizeUrl(url)
-
         self.locls.update({
             'iden': vdef.get('iden'),
             'layers': [Layer(runt, ldef, path=path) for ldef in vdef.get('layers')],
@@ -3579,80 +3719,10 @@ class View(Prim):
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
             'getEdges': self._methGetEdges,
-            'addPull': self._addPull,
-            'delPull': self._delPull,
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
         }
-
-    async def _addPull(self, url, offs=0):
-        '''
-        Configure the view to pull edits from a remote layer/view/feed.
-
-        Args:
-            url (str): The telepath URL to a layer/view/feed.
-            offs (int): The (optional) offset to begin from.
-
-        Perms:
-            - admin privs are required on both the view and the top layer.
-            - lib.telepath.open.<scheme>
-        '''
-        url = await tostr(url)
-        offs = await toint(offs)
-
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        layriden = self.valu.get('layers')[0].get('iden')
-
-        if not self.runt.isAdmin(gateiden=viewiden):
-            mesg = '$view.addPull() requires admin privs on the view.'
-            raise s_exc.AuthDeny(mesg=mesg)
-
-        if not self.runt.isAdmin(gateiden=layriden):
-            mesg = '$view.addPull() requires admin privs on the top layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
-
-        scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
-
-        async with await s_telepath.openurl(url):
-            pass
-
-        pdef = {
-            'url': url,
-            'offs': offs,
-            'user': useriden,
-            'time': s_common.now(),
-            'iden': s_common.guid(),
-        }
-        todo = s_common.todo('addViewPull', viewiden, pdef)
-        await self.runt.dyncall('cortex', todo)
-
-    async def _delPull(self, iden):
-        '''
-        Remove a pull config from the view.
-        Args:
-            iden (str): The GUID of the push config to remove.
-
-        Perms:
-            - admin privs are required on both the view and the top layer.
-        '''
-        iden = await tostr(iden)
-
-        viewiden = self.valu.get('iden')
-        layriden = self.valu.get('layers')[0].get('iden')
-
-        if not self.runt.isAdmin(gateiden=viewiden):
-            mesg = '$view.delPull() requires admin privs on the view.'
-            raise s_exc.AuthDeny(mesg=mesg)
-
-        if not self.runt.isAdmin(gateiden=layriden):
-            mesg = '$view.delPull() requires admin privs on the top layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
-
-        todo = s_common.todo('delViewPull', viewiden, iden)
-        await self.runt.dyncall('cortex', todo)
 
     async def _methAddNodeEdits(self, edits):
 
@@ -3810,7 +3880,7 @@ class LibTrigger(Lib):
                     mesg = 'Provided iden matches more than one trigger.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-                if not user.allowed(('trigger', 'get'), gateiden=iden):
+                if not allowed(('trigger', 'get'), gateiden=iden):
                     continue
 
                 match = trig
@@ -3926,7 +3996,7 @@ class LibTrigger(Lib):
         triggers = []
 
         for iden, trig in await view.listTriggers():
-            if not user.allowed(('trigger', 'get'), gateiden=iden):
+            if not allowed(('trigger', 'get'), gateiden=iden):
                 continue
             triggers.append(Trigger(self.runt, trig.pack()))
 
@@ -4456,7 +4526,7 @@ class LibCron(Lib):
         for cron in crons:
             iden = cron.get('iden')
 
-            if iden.startswith(prefix) and user.allowed(perm, gateiden=iden):
+            if iden.startswith(prefix) and allowed(perm, gateiden=iden):
                 if matchcron is not None:
                     mesg = 'Provided iden matches more than one cron job.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)

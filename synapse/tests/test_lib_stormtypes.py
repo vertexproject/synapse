@@ -559,11 +559,15 @@ class StormTypesTest(s_test.SynTest):
             self.eq('quickbrownfox', await core.callStorm(q))
 
             # tuck the regx tests in with str
-            self.true(await core.callStorm(r'''return($lib.regx.matches('^foo', foobar))'''))
-            self.true(await core.callStorm(r'''return($lib.regx.matches('foo', FOOBAR, $lib.regx.flags.i))'''))
-            self.false(await core.callStorm(r'''return($lib.regx.matches('^foo$', foobar))'''))
+            self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
+            self.true(await core.callStorm(r'''return($lib.regex.matches('foo', FOOBAR, $lib.regex.flags.i))'''))
+            self.false(await core.callStorm(r'''return($lib.regex.matches('^foo$', foobar))'''))
+            self.false(await core.callStorm(f'return($lib.regex.matches(foo, " foobar"))'))
 
-            self.eq(('oo',), await core.callStorm(r'''return($lib.regx.search('([aeiou]+)', foobar))'''))
+            self.eq(('oo',), await core.callStorm(r'''return($lib.regex.search('([aeiou]+)', foobar))'''))
+            self.eq(('foo', 'baz'), await core.callStorm('return($lib.regex.search("(foo)bar(baz)", foobarbaz))'))
+            self.eq((), await core.callStorm('return($lib.regex.search(foo, foobar))'))
+            self.none(await core.callStorm('return($lib.regex.search(foo, bat))'))
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
@@ -1459,6 +1463,18 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_node_data(self):
 
         async with self.getTestCore() as core:
+            stormpkg = {
+                'name': 'nodedatatest',
+                'version': (0, 0, 1),
+                'commands': (
+                    {
+                     'name': 'nd.permtest',
+                     'storm': '$node.data.get(foo:bar)',
+                    },
+                ),
+            }
+
+            await core.addStormPkg(stormpkg)
 
             nodes = await core.nodes('[test:int=10] $node.data.set(foo, hehe)')
 
@@ -1490,6 +1506,13 @@ class StormTypesTest(s_test.SynTest):
 
             self.none(await nodes[1].getData('woot'))
             self.eq(nodes[0].ndef, ('test:str', 'woot'))
+
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm('test:int | nd.permtest')
+                await visi.addRule((True, 'storm.asroot.cmd.nd.permtest'.split('.')))
+                await asvisi.callStorm('test:int | nd.permtest')
 
     async def test_storm_lib_bytes(self):
 
