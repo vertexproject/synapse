@@ -485,7 +485,7 @@ class TeleTest(s_t_utils.SynTest):
 
             await self.asyncraises(s_exc.IsFini, asyncio.wait_for(task, timeout=2))
 
-    async def test_telepath_async2(self):
+    async def test_telepath_asyncgenr_early_termination(self):
 
         foo = Foo()
 

@@ -291,6 +291,7 @@ class Genr(Share):
     async def __aiter__(self):
 
         try:
+
             while not self.isfini:
 
                 for retn in await self.queue.slice():
@@ -610,7 +611,8 @@ class Proxy(s_base.Base):
                             raise s_exc.LinkShutDown(mesg=mesg)
 
                         if mesg[0] != 't2:yield':  # pragma: no cover
-                            raise s_exc.BadMesgFormat(mesg='Protocol violation:  unexpected message received')
+                            info = 'Telepath protocol violation:  unexpected message received'
+                            raise s_exc.BadMesgFormat(mesg=info)
 
                         retn = mesg[1].get('retn')
                         if retn is None:
