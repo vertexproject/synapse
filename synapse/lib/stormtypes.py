@@ -1391,7 +1391,7 @@ class LibRegx(Lib):
     '''
     A Storm library for searching/matching with regular expressions.
     '''
-    _storm_lib_path = ('regx',)
+    _storm_lib_path = ('regex',)
 
     def __init__(self, runt, name=()):
         Lib.__init__(self, runt, name=name)
@@ -1415,12 +1415,13 @@ class LibRegx(Lib):
         '''
         Returns $lib.true if the text matches the pattern, otherwise $lib.false.
 
-        NOTE: This API does *not* enforce a full match. Your pattern may do so
-        by specifying a pattern with ^ and $.
+        Notes:
+
+            This API requires the pattern to match at the start of the string.
 
         Example:
 
-            if $lib.regx.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
+            if $lib.regex.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
                 $lib.print("It's semver! ...probably")
             }
 
@@ -1433,11 +1434,18 @@ class LibRegx(Lib):
 
     async def search(self, pattern, text, flags=0):
         '''
-        Search the given text for the pattern and return a match.
+        Search the given text for the pattern and return the matching groups.
+
+        Note:
+
+            In order to get the matching groups, patterns must use parentheses
+            to indicate the start and stop of the regex to return portions of.
+            If groups are not used, a successful match will return a empty list
+            and a unsuccessful match will return ``$lib.null``.
 
         Example:
 
-            $m = $lib.regx.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
+            $m = $lib.regex.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
             if $m {
                 ($maj, $min, $pat) = $m
             }
