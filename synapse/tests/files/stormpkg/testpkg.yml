@@ -1,0 +1,20 @@
+name: testpkg
+version: 0.0.1
+
+modules:
+    - name: testmod
+
+commands:
+    - name: testcmd
+
+optic:
+    title: woot
+
+    actions:
+
+        - name: hehe
+          storm: dofoo
+
+        - name: barbar
+          callback: dobar
+    
