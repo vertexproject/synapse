@@ -33,13 +33,14 @@ async def main(argv, outp=None):
     if opts.cortex:
         core = await s_telepath.openurl(opts.cortex)
 
-        tags = {}
+        tags = set()
         if opts.tags:
             for tag in opts.tags.split(','):
-                tags[tag] = (None, None)
+                tags.add(tag)
 
+        tags = tuple(tags)
         if tags:
-            outp.printf('adding tags: %r' % (list(tags.keys())))
+            outp.printf(f'adding tags: {tags}')
 
     filepaths = set()
     for item in opts.filenames:
@@ -84,21 +85,20 @@ async def main(argv, outp=None):
             outp.printf(f'Axon already had [{bname}]')
 
         if core:
-            pnode = (
-                ('file:bytes', f'sha256:{sha256}'),
-                {
-                    'props': {
-                        'md5': fhashes.get('md5'),
-                        'sha1': fhashes.get('sha1'),
-                        'sha256': fhashes.get('sha256'),
-                        'size': hset.size,
-                        'name': bname,
-                    },
-                    'tags': tags,
-                }
-            )
+            opts = {'vars': {
+                'md5': fhashes.get('md5'),
+                'sha1': fhashes.get('sha1'),
+                'sha256': fhashes.get('sha256'),
+                'size': hset.size,
+                'name': bname,
+                'tags': tags,
+            }}
 
-            node = [x async for x in core.addNodes([pnode])][0]
+            q = '[file:bytes=$sha256 :md5=$md5 :sha1=$sha1 :size=$size :name=$name] ' \
+                '{ for $tag in $tags { [+#$tag] } }'
+
+            msgs = await core.storm(q, opts=opts).list()
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
 
             iden = node[0][1]
             size = node[1]['props']['size']
