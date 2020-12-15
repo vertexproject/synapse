@@ -1,4 +1,5 @@
 import sys
+import asyncio
 import pathlib
 import argparse
 
@@ -8,10 +9,13 @@ import synapse.telepath as s_telepath
 import synapse.lib.output as s_output
 
 
-def main(argv, outp=None):
+async def main(argv, outp=None):
 
     pars = setup()
     opts = pars.parse_args(argv)
+
+    path = s_common.getSynPath('telepath.yaml')
+    telefini = await s_telepath.loadTeleEnv(path)
 
     if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
@@ -23,11 +27,11 @@ def main(argv, outp=None):
 
     s_common.gendir(opts.output)
 
-    with s_telepath.openurl(opts.axon) as axon:
+    async with await s_telepath.openurl(opts.axon) as axon:
 
         # reminder: these are the hashes *not* available
 
-        awants = axon.wants([s_common.uhex(h) for h in opts.hashes])
+        awants = await axon.wants([s_common.uhex(h) for h in opts.hashes])
         for a in awants:
             outp.printf(f'{s_common.ehex(a)} not in axon store')
 
@@ -39,7 +43,7 @@ def main(argv, outp=None):
                 outp.printf(f'Fetching {h} to file')
 
                 with open(outdir.joinpath(h), 'wb') as fd:
-                    for b in axon.get(s_common.uhex(h)):
+                    async for b in axon.get(s_common.uhex(h)):
                         fd.write(b)
 
                 outp.printf(f'Fetched {h} to file')
@@ -47,6 +51,9 @@ def main(argv, outp=None):
             except Exception as e:
                 outp.printf('Error: Hit Exception: %s' % (str(e),))
                 continue
+
+    if telefini:
+        await telefini()
 
     return 0
 
@@ -65,4 +72,4 @@ def setup():
 
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(asyncio.run(main(sys.argv[1:])))

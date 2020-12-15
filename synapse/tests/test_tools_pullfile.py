@@ -23,31 +23,26 @@ class TestPullFile(s_t_utils.SynTest):
 
             self.eq(((4, visibash), (4, testbash)), await axon.puts([b'visi', b'test']))
 
-            def pullfile():
+            with self.getTestDir() as wdir:
 
-                with self.getTestDir() as wdir:
+                outp = self.getTestOutp()
+                self.eq(0, await s_pullfile.main(['-a', axonurl,
+                                            '-o', wdir,
+                                            '-l', testhash,
+                                            '-l', nonehash], outp))
+                oldcwd = os.getcwd()
+                os.chdir(wdir)
+                self.eq(0, await s_pullfile.main(['-a', axonurl,
+                                            '-l', visihash], outp))
 
-                    outp = self.getTestOutp()
-                    self.eq(0, s_pullfile.main(['-a', axonurl,
-                                                '-o', wdir,
-                                                '-l', testhash,
-                                                '-l', nonehash], outp))
-                    oldcwd = os.getcwd()
-                    os.chdir(wdir)
-                    self.eq(0, s_pullfile.main(['-a', axonurl,
-                                                '-l', visihash], outp))
+                os.chdir(oldcwd)
 
-                    os.chdir(oldcwd)
+                with open(pathlib.Path(wdir, testhash), 'rb') as fd:
+                    self.eq(b'test', fd.read())
 
-                    with open(pathlib.Path(wdir, testhash), 'rb') as fd:
-                        self.eq(b'test', fd.read())
+                with open(pathlib.Path(wdir, visihash), 'rb') as fd:
+                    self.eq(b'visi', fd.read())
 
-                    with open(pathlib.Path(wdir, visihash), 'rb') as fd:
-                        self.eq(b'visi', fd.read())
-
-                    self.true(outp.expect(f'{nonehash} not in axon store'))
-                    self.true(outp.expect(f'Fetching {testhash} to file'))
-                    self.true(outp.expect(f'Fetching {visihash} to file'))
-
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, pullfile)
+                self.true(outp.expect(f'{nonehash} not in axon store'))
+                self.true(outp.expect(f'Fetching {testhash} to file'))
+                self.true(outp.expect(f'Fetching {visihash} to file'))
