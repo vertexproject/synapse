@@ -621,7 +621,7 @@ class CoreSpawnTest(s_test.SynTest):
         '''
         Copied from test-cortex_storm_lib_dmon_cmds
         '''
-        async with self.getTestCoreAndProxy() as (_, prox):
+        async with self.getTestCoreAndProxy() as (core, prox):
             opts = {'spawn': True}
             await prox.storm('''
                 $q = $lib.queue.add(visi)
@@ -644,7 +644,19 @@ class CoreSpawnTest(s_test.SynTest):
             msgs = await prox.storm('dmon.list', opts=opts).list()
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
-            msgs = await prox.storm('$lib.dmon.del($ddef.iden)').list()
+            dmon = list(core.stormdmons.dmons.values())[0]
+
+            # make the dmon blow up
+            q = '''$lib.queue.get(boom).put(hehe)
+            $q = $lib.queue.get(visi)
+            for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
+            '''
+            _ = await prox.storm(q, opts=opts).list()
+
+            self.true(await s_coro.event_wait(dmon.err_evnt, 6))
+
+            msgs = await prox.storm('dmon.list').list()
+            self.stormIsInPrint('(wootdmon            ): error', msgs)
 
     async def test_spawn_forked_view(self):
         async with self.getTestCoreAndProxy() as (core, prox):

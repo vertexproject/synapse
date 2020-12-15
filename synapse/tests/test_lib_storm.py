@@ -226,6 +226,39 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq({'foo': 'bar'}, await core.callStorm('return($lib.dict(    foo    =    bar   ))'))
 
+            ddef0 = await core.callStorm('return($lib.dmon.add(${ $lib.queue.gen(hehedmon).put(lolz) $lib.time.sleep(10) }, name=hehedmon))')
+            ddef1 = await core.callStorm('return($lib.dmon.get($iden))', opts={'vars': {'iden': ddef0.get('iden')}})
+            self.none(await core.callStorm('return($lib.dmon.get(newp))'))
+
+            self.eq(ddef0['iden'], ddef1['iden'])
+
+            self.eq((0, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(0))'))
+
+            task = core.stormdmons.getDmon(ddef0['iden']).task
+            self.true(await core.callStorm(f'return($lib.dmon.bump($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.ne(task, core.stormdmons.getDmon(ddef0['iden']).task)
+
+            self.true(await core.callStorm(f'return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.none(core.stormdmons.getDmon(ddef0['iden']).task)
+
+            self.true(await core.callStorm(f'return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.nn(core.stormdmons.getDmon(ddef0['iden']).task)
+
+            self.false(await core.callStorm(f'return($lib.dmon.bump(newp))'))
+            self.false(await core.callStorm(f'return($lib.dmon.stop(newp))'))
+            self.false(await core.callStorm(f'return($lib.dmon.start(newp))'))
+
+            self.eq((1, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(1))'))
+
+            async with core.getLocalProxy() as proxy:
+                self.nn(await proxy.getStormDmon(ddef0['iden']))
+                self.true(await proxy.bumpStormDmon(ddef0['iden']))
+                self.true(await proxy.disableStormDmon(ddef0['iden']))
+                self.true(await proxy.enableStormDmon(ddef0['iden']))
+                self.false(await proxy.bumpStormDmon('newp'))
+                self.false(await proxy.disableStormDmon('newp'))
+                self.false(await proxy.enableStormDmon('newp'))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
@@ -1477,9 +1510,6 @@ class StormTest(s_t_utils.SynTest):
                 view1, layr1 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view2, layr2 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
 
-                # add a trigger to queue ps:contacts so we can detect the transfer
-                await core.callStorm('trigger.add node:add --form ps:contact --query {$lib.queue.gen(hehe).put($node.repr())}', opts={'view': view2})
-
                 opts = {'vars': {
                     'view0': view0,
                     'view1': view1,
@@ -1497,34 +1527,32 @@ class StormTest(s_t_utils.SynTest):
                     with self.raises(s_exc.AuthDeny):
                         await asvisi.callStorm(f'$lib.layer.get($layr0).delPush(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.view.get($view2).addPull(hehe)', opts=opts)
+                        await asvisi.callStorm(f'$lib.layer.get($layr2).addPull(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.view.get($view2).delPull(hehe)', opts=opts)
-
-                    # pulls require admin on both the view *and* the layer
-                    await visi.setAdmin(True, gateiden=view2)
+                        await asvisi.callStorm(f'$lib.layer.get($layr2).delPull(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.view.get($view2).addPull(hehe)', opts=opts)
+                        await asvisi.callStorm(f'$lib.layer.get($layr2).addPull(hehe)', opts=opts)
                     with self.raises(s_exc.AuthDeny):
-                        await asvisi.callStorm(f'$lib.view.get($view2).delPull(hehe)', opts=opts)
+                        await asvisi.callStorm(f'$lib.layer.get($layr2).delPull(hehe)', opts=opts)
 
                 actv = len(core.activecoros)
                 #view0 -push-> view1 <-pull- view2
-                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/view/{view1}")', opts=opts)
-                await core.callStorm(f'$lib.view.get($view2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
+                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
+                await core.callStorm(f'$lib.layer.get($layr2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
 
-                purl = await core.callStorm('for ($iden, $pdef) in $lib.view.get($view2).get(pulls) { return($pdef.url) }', opts=opts)
+                purl = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr2).get(pulls) { return($pdef.url) }', opts=opts)
                 self.true(purl.startswith('tcp://root:****@127.0.0.1'))
                 purl = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr0).get(pushs) { return($pdef.url) }', opts=opts)
                 self.true(purl.startswith('tcp://root:****@127.0.0.1'))
 
                 self.eq(2, len(core.activecoros) - actv)
                 tasks = await core.callStorm('return($lib.ps.list())')
-                self.len(1, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
+                indx = core.layers.get(layr2).nodeeditlog.index()
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                iden = await core.callStorm('return($lib.queue.gen(hehe).get(0))')
+                await asyncio.wait_for(core.layers.get(layr2).nodeeditlog.waitForOffset(indx), timeout=3)
                 self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
 
                 # remove and ensure no replay on restart
@@ -1534,8 +1562,9 @@ class StormTest(s_t_utils.SynTest):
             conf = {'dmon:listen': f'tcp://127.0.0.1:{port}'}
             async with self.getTestCore(dirn=dirn, conf=conf) as core:
 
+                indx = core.layers.get(layr2).nodeeditlog.index()
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                iden = await core.callStorm('return($lib.queue.gen(hehe).get(1))')
+                await asyncio.wait_for(core.layers.get(layr2).nodeeditlog.waitForOffset(indx), timeout=3)
 
                 # confirm we dont replay and get the old one back...
                 self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
@@ -1543,37 +1572,34 @@ class StormTest(s_t_utils.SynTest):
                 actv = len(core.activecoros)
                 # remove all pushes / pulls
                 await core.callStorm('''
-                    for $view in $lib.view.list() {
-                        $pulls = $view.get(pulls)
-                        if $pulls {
-                            for ($iden, $pdef) in $pulls { $view.delPull($iden) }
-                        }
-                    }
-
                     for $layr in $lib.layer.list() {
                         $pushs = $layr.get(pushs)
                         if $pushs {
                             for ($iden, $pdef) in $pushs { $layr.delPush($iden) }
                         }
+                        $pulls = $layr.get(pulls)
+                        if $pulls {
+                            for ($iden, $pdef) in $pulls { $layr.delPull($iden) }
+                        }
                     }
                 ''')
                 self.eq(actv - 2, len(core.activecoros))
                 tasks = await core.callStorm('return($lib.ps.list())')
-                self.len(0, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
 
                 # code coverage for push/pull dict exists but has no entries
-                self.none(await core.callStorm('return($lib.view.get($view2).delPull($lib.guid()))', opts=opts))
+                self.none(await core.callStorm('return($lib.layer.get($layr2).delPull($lib.guid()))', opts=opts))
                 self.none(await core.callStorm('return($lib.layer.get($layr0).delPush($lib.guid()))', opts=opts))
 
-                # add a push/pull and remove the view/layer to cancel it...
-                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/view/{view1}")', opts=opts)
-                await core.callStorm(f'$lib.view.get($view2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
+                # add a push/pull and remove the layer to cancel it...
+                await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
+                await core.callStorm(f'$lib.layer.get($layr2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
 
                 await asyncio.sleep(0)
 
                 tasks = await core.callStorm('return($lib.ps.list())')
-                self.len(1, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv, len(core.activecoros))
 
@@ -1584,15 +1610,17 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('$lib.layer.del($layr1)', opts=opts)
                 await core.callStorm('$lib.layer.del($layr2)', opts=opts)
 
+                await asyncio.sleep(0)
+
                 tasks = await core.callStorm('return($lib.ps.list())')
-                self.len(0, [t for t in tasks if t.get('name').startswith('view pull:')])
+                self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv - 2, len(core.activecoros))
 
                 with self.raises(s_exc.SchemaViolation):
                     await core.addLayrPush('newp', {})
                 with self.raises(s_exc.SchemaViolation):
-                    await core.addViewPull('newp', {})
+                    await core.addLayrPull('newp', {})
 
                 # sneak a bit of coverage for the raw library in here...
                 fake = {
@@ -1602,15 +1630,15 @@ class StormTest(s_t_utils.SynTest):
                     'url': 'tcp://localhost',
                 }
                 self.none(await core.addLayrPush('newp', fake))
-                self.none(await core.addViewPull('newp', fake))
+                self.none(await core.addLayrPull('newp', fake))
 
-                self.none(await core.delViewPull('newp', 'newp'))
-                self.none(await core.delViewPull(view0, 'newp'))
+                self.none(await core.delLayrPull('newp', 'newp'))
+                self.none(await core.delLayrPull(layr0, 'newp'))
                 self.none(await core.delLayrPush('newp', 'newp'))
                 self.none(await core.delLayrPush(layr0, 'newp'))
 
                 # main view/layer have None for pulls/pushs
-                self.none(await core.delViewPull(core.getView().iden, 'newp'))
+                self.none(await core.delLayrPull(core.getView().layers[0].iden, 'newp'))
                 self.none(await core.delLayrPush(core.getView().layers[0].iden, 'newp'))
 
                 async with await s_telepath.openurl(f'tcp://visi:secret@127.0.0.1:{port}/*/view') as proxy:

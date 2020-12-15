@@ -392,6 +392,10 @@ class SpawnCore(s_base.Base):
         self.getStormDmon = self.prox.getStormDmon
         self.getStormDmons = self.prox.getStormDmons
 
+        self.bumpStormDmon = self.prox.bumpStormDmon
+        self.enableStormDmon = self.prox.enableStormDmon
+        self.disableStormDmon = self.prox.disableStormDmon
+
         # Cell specific apis
         self.setHiveKey = self.prox.setHiveKey
         self.getHiveKey = self.prox.getHiveKey
