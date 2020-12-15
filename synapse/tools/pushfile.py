@@ -110,7 +110,7 @@ async def main(argv, outp=None):
     if core:
         await core.fini()
 
-    if telefini:
+    if telefini: # pragma: no cover
         await telefini()
 
     return 0

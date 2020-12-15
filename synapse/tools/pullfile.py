@@ -52,7 +52,7 @@ async def main(argv, outp=None):
                 outp.printf('Error: Hit Exception: %s' % (str(e),))
                 continue
 
-    if telefini:
+    if telefini: # pragma: no cover
         await telefini()
 
     return 0
