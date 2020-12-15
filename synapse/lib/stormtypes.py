@@ -23,6 +23,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
+import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
@@ -33,6 +34,12 @@ logger = logging.getLogger(__name__)
 
 class Undef: pass
 undef = Undef()
+
+def confirm(perm, gateiden=None):
+    s_scope.get('runt').confirm(perm, gateiden=gateiden)
+
+def allowed(perm, gateiden=None):
+    return s_scope.get('runt').allowed(perm, gateiden=gateiden)
 
 class StormTypesRegistry:
     def __init__(self):
@@ -1384,7 +1391,7 @@ class LibRegx(Lib):
     '''
     A Storm library for searching/matching with regular expressions.
     '''
-    _storm_lib_path = ('regx',)
+    _storm_lib_path = ('regex',)
 
     def __init__(self, runt, name=()):
         Lib.__init__(self, runt, name=name)
@@ -1408,12 +1415,13 @@ class LibRegx(Lib):
         '''
         Returns $lib.true if the text matches the pattern, otherwise $lib.false.
 
-        NOTE: This API does *not* enforce a full match. Your pattern may do so
-        by specifying a pattern with ^ and $.
+        Notes:
+
+            This API requires the pattern to match at the start of the string.
 
         Example:
 
-            if $lib.regx.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
+            if $lib.regex.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
                 $lib.print("It's semver! ...probably")
             }
 
@@ -1426,11 +1434,18 @@ class LibRegx(Lib):
 
     async def search(self, pattern, text, flags=0):
         '''
-        Search the given text for the pattern and return a match.
+        Search the given text for the pattern and return the matching groups.
+
+        Note:
+
+            In order to get the matching groups, patterns must use parentheses
+            to indicate the start and stop of the regex to return portions of.
+            If groups are not used, a successful match will return a empty list
+            and a unsuccessful match will return ``$lib.null``.
 
         Example:
 
-            $m = $lib.regx.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
+            $m = $lib.regex.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
             if $m {
                 ($maj, $min, $pat) = $m
             }
@@ -1822,7 +1837,7 @@ class LibQueue(Lib):
         qlist = await self.dyncall('cortex', todo)
 
         for queue in qlist:
-            if not self.runt.user.allowed(('queue', 'get'), f"queue:{queue['name']}"):
+            if not allowed(('queue', 'get'), f"queue:{queue['name']}"):
                 continue
 
             retn.append(queue)
@@ -2639,7 +2654,7 @@ class LibGlobals(Lib):
         todo = ('itemsStormVar', (), {})
 
         async for key, valu in self.runt.dyniter('cortex', todo):
-            if user.allowed(('globals', 'get', key)):
+            if allowed(('globals', 'get', key)):
                 ret.append((key, valu))
         return ret
 
@@ -2832,7 +2847,6 @@ class NodeData(Prim):
     def __init__(self, node, path=None):
 
         Prim.__init__(self, node, path=path)
-
         self.locls.update(self.getObjLocals())
 
     def getObjLocals(self):
@@ -2844,35 +2858,29 @@ class NodeData(Prim):
             'load': self._loadNodeData,
         }
 
-    def _reqAllowed(self, perm):
-        if not self.valu.snap.user.allowed(perm):
-            pstr = '.'.join(perm)
-            mesg = f'User is not allowed permission: {pstr}'
-            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
-
     @stormfunc(readonly=True)
     async def _getNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'get', name))
+        confirm(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
-        self._reqAllowed(('node', 'data', 'set', name))
+        confirm(('node', 'data', 'set', name))
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'pop', name))
+        confirm(('node', 'data', 'pop', name))
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
     async def _listNodeData(self):
-        self._reqAllowed(('node', 'data', 'list'))
+        confirm(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
     @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'get', name))
+        confirm(('node', 'data', 'get', name))
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
@@ -3799,7 +3807,7 @@ class LibTrigger(Lib):
                     mesg = 'Provided iden matches more than one trigger.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-                if not user.allowed(('trigger', 'get'), gateiden=iden):
+                if not allowed(('trigger', 'get'), gateiden=iden):
                     continue
 
                 match = trig
@@ -3915,7 +3923,7 @@ class LibTrigger(Lib):
         triggers = []
 
         for iden, trig in await view.listTriggers():
-            if not user.allowed(('trigger', 'get'), gateiden=iden):
+            if not allowed(('trigger', 'get'), gateiden=iden):
                 continue
             triggers.append(Trigger(self.runt, trig.pack()))
 
@@ -4445,7 +4453,7 @@ class LibCron(Lib):
         for cron in crons:
             iden = cron.get('iden')
 
-            if iden.startswith(prefix) and user.allowed(perm, gateiden=iden):
+            if iden.startswith(prefix) and allowed(perm, gateiden=iden):
                 if matchcron is not None:
                     mesg = 'Provided iden matches more than one cron job.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
