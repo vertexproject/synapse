@@ -4211,59 +4211,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.FeatureNotSupported):
                 await core.getSpawnInfo()
 
-    async def test_cortex_storm_dmon_ps(self):
-
-        with self.getTestDir() as dirn:
-
-            async with await s_cortex.Cortex.anit(dirn) as core:
-                async with core.getLocalProxy() as prox:
-                    await core.nodes('$lib.queue.add(visi)')
-                    ddef = {'storm': '$lib.queue.get(visi).put(done) for $tick in $lib.time.ticker(1) {}'}
-                    dmonpack = await prox.addStormDmon(ddef)
-                    dmoniden = dmonpack.get('iden')
-                    # Storm task pairs are promoted as tasks
-                    retn = await prox.ps()
-                    dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
-                    dmon_main_tasks = [task for task in retn if task.get('name') == 'storm:dmon:main']
-                    self.len(1, dmon_loop_tasks)
-                    self.len(1, dmon_main_tasks)
-                    self.eq(dmon_loop_tasks[0].get('info').get('iden'), dmoniden)
-                    self.eq(dmon_main_tasks[0].get('info').get('iden'), dmoniden)
-                    # We can kill the loop task and it will respawn
-                    mpid = dmon_main_tasks[0].get('iden')
-                    lpid = dmon_loop_tasks[0].get('iden')
-                    self.true(await prox.kill(lpid))
-                    await asyncio.sleep(0)
-                    retn = await prox.ps()
-                    dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
-                    dmon_main_tasks = [task for task in retn if task.get('name') == 'storm:dmon:main']
-                    self.len(1, dmon_loop_tasks)
-                    self.len(1, dmon_main_tasks)
-                    self.eq(dmon_main_tasks[0].get('iden'), mpid)
-                    self.ne(dmon_loop_tasks[0].get('iden'), lpid)
-                    # If we kill the main task, there is no respawn
-                    self.true(await prox.kill(mpid))
-                    await asyncio.sleep(0)
-                    retn = await prox.ps()
-                    dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
-                    dmon_main_tasks = [task for task in retn if task.get('name') == 'storm:dmon:main']
-                    self.len(0, dmon_loop_tasks)
-                    self.len(0, dmon_main_tasks)
-
-                    iden = 'XXX'
-                    with self.raises(s_exc.NoSuchIden):
-                        await prox.delStormDmon(iden)
-
-                    with self.raises(s_exc.SchemaViolation):
-                        await core.runStormDmon(iden, {})
-
-                    with self.raises(s_exc.SchemaViolation):
-                        await core.runStormDmon(iden, {'user': 'XXX'})
-
-            async with await s_cortex.Cortex.anit(dirn) as core:
-                # two entries means he ran twice ( once on add and once on restart )
-                await core.nodes('$lib.queue.get(visi).gets(size=2)')
-
     async def test_cortex_storm_dmon_view(self):
 
         with self.getTestDir() as dirn:
@@ -4307,7 +4254,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.nodes('test:int', opts={'view': view2_iden})
 
             with self.getAsyncLoggerStream('synapse.lib.storm',
-                                           'Dmon View is invalid. Exiting Dmon') as stream:
+                                           'Dmon View is invalid. Stopping Dmon') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     self.true(await stream.wait(6))
                     msgs = await core.stormlist('dmon.list')

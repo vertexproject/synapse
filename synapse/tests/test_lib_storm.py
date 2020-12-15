@@ -226,6 +226,39 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq({'foo': 'bar'}, await core.callStorm('return($lib.dict(    foo    =    bar   ))'))
 
+            ddef0 = await core.callStorm('return($lib.dmon.add(${ $lib.queue.gen(hehedmon).put(lolz) $lib.time.sleep(10) }, name=hehedmon))')
+            ddef1 = await core.callStorm('return($lib.dmon.get($iden))', opts={'vars': {'iden': ddef0.get('iden')}})
+            self.none(await core.callStorm('return($lib.dmon.get(newp))'))
+
+            self.eq(ddef0['iden'], ddef1['iden'])
+
+            self.eq((0, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(0))'))
+
+            task = core.stormdmons.getDmon(ddef0['iden']).task
+            self.true(await core.callStorm(f'return($lib.dmon.bump($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.ne(task, core.stormdmons.getDmon(ddef0['iden']).task)
+
+            self.true(await core.callStorm(f'return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.none(core.stormdmons.getDmon(ddef0['iden']).task)
+
+            self.true(await core.callStorm(f'return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.nn(core.stormdmons.getDmon(ddef0['iden']).task)
+
+            self.false(await core.callStorm(f'return($lib.dmon.bump(newp))'))
+            self.false(await core.callStorm(f'return($lib.dmon.stop(newp))'))
+            self.false(await core.callStorm(f'return($lib.dmon.start(newp))'))
+
+            self.eq((1, 'lolz'), await core.callStorm('return($lib.queue.gen(hehedmon).get(1))'))
+
+            async with core.getLocalProxy() as proxy:
+                self.nn(await proxy.getStormDmon(ddef0['iden']))
+                self.true(await proxy.bumpStormDmon(ddef0['iden']))
+                self.true(await proxy.disableStormDmon(ddef0['iden']))
+                self.true(await proxy.enableStormDmon(ddef0['iden']))
+                self.false(await proxy.bumpStormDmon('newp'))
+                self.false(await proxy.disableStormDmon('newp'))
+                self.false(await proxy.enableStormDmon('newp'))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
