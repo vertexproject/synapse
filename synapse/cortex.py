@@ -2706,8 +2706,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             view = await self._loadView(node)
             if iden == defiden:
                 self.view = view
-            for pdef in view.info.get('pulls', {}).values():
-                await self.runViewPull(view, pdef)
 
         for view in self.views.values():
             view.init2()
@@ -2811,9 +2809,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             if cview.parent is not None and cview.parent.iden == iden:
                 raise s_exc.SynErr(mesg='Cannot delete a view that has children')
 
-        for pdef in view.info.get('pulls', {}).values():
-            await self.delActiveCoro(pdef.get('iden'))
-
         await self.hive.pop(('cortex', 'views', iden))
         await view.delete()
 
@@ -2841,6 +2836,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         del self.layers[iden]
 
         for pdef in layr.layrinfo.get('pushs', {}).values():
+            await self.delActiveCoro(pdef.get('iden'))
+
+        for pdef in layr.layrinfo.get('pulls', {}).values():
             await self.delActiveCoro(pdef.get('iden'))
 
         await self.auth.delAuthGate(iden)
@@ -3020,6 +3018,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         for pdef in layrinfo.get('pushs', {}).values():
             await self.runLayrPush(layr, pdef)
 
+        for pdef in layrinfo.get('pulls', {}).values():
+            await self.runLayrPull(layr, pdef)
+
         await self.bumpSpawnPool()
 
         await self.fire('core:layr:add', iden=layr.iden)
@@ -3086,19 +3087,19 @@ class Cortex(s_cell.Cell):  # type: ignore
         await layr.layrinfo.set('pushs', pushs)
         await self.delActiveCoro(pushiden)
 
-    @s_nexus.Pusher.onPushAuto('view:pull:add')
-    async def addViewPull(self, viewiden, pdef):
+    @s_nexus.Pusher.onPushAuto('layer:pull:add')
+    async def addLayrPull(self, layriden, pdef):
 
         reqValidPull(pdef)
 
         # TODO: schema validation
         iden = pdef.get('iden')
 
-        view = self.views.get(viewiden)
-        if view is None:
+        layr = self.layers.get(layriden)
+        if layr is None:
             return
 
-        pulls = view.info.get('pulls')
+        pulls = layr.layrinfo.get('pulls')
         if pulls is None:
             pulls = {}
 
@@ -3107,18 +3108,18 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         pulls[iden] = pdef
-        await view.info.set('pulls', pulls)
+        await layr.layrinfo.set('pulls', pulls)
 
-        await self.runViewPull(view, pdef)
+        await self.runLayrPull(layr, pdef)
 
-    @s_nexus.Pusher.onPushAuto('view:pull:del')
-    async def delViewPull(self, viewiden, pulliden):
+    @s_nexus.Pusher.onPushAuto('layer:pull:del')
+    async def delLayrPull(self, layriden, pulliden):
 
-        view = self.views.get(viewiden)
-        if view is None:
+        layr = self.layers.get(layriden)
+        if layr is None:
             return
 
-        pulls = view.info.get('pulls')
+        pulls = layr.layrinfo.get('pulls')
         if pulls is None:
             return
 
@@ -3126,7 +3127,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         if pdef is None:
             return
 
-        await view.info.set('pulls', pulls)
+        await layr.layrinfo.set('pulls', pulls)
         await self.delActiveCoro(pulliden)
 
     async def runLayrPush(self, layr, pdef):
@@ -3141,15 +3142,15 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.addActiveCoro(push, iden=iden)
 
-    async def runViewPull(self, view, pdef):
+    async def runLayrPull(self, layr, pdef):
         url = pdef.get('url')
         iden = pdef.get('iden')
         # pull() will refire as needed
 
         async def pull():
-            async with await self.boss.promote(f'view pull: {view.iden} {iden}', self.auth.rootuser):
+            async with await self.boss.promote(f'layer pull: {layr.iden} {iden}', self.auth.rootuser):
                 async with await s_telepath.openurl(url) as proxy:
-                    await self._pushBulkEdits(proxy, view, pdef)
+                    await self._pushBulkEdits(proxy, layr, pdef)
 
         await self.addActiveCoro(pull, iden=iden)
 
