@@ -1,6 +1,7 @@
 import os
 import sys
 import glob
+import asyncio
 import logging
 import argparse
 
@@ -15,27 +16,31 @@ import synapse.lib.hashset as s_hashset
 logger = logging.getLogger(__name__)
 
 
-def main(argv, outp=None):
+async def main(argv, outp=None):
 
     if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
+    path = s_common.getSynPath('telepath.yaml')
+    telefini = await s_telepath.loadTeleEnv(path)
+
     pars = makeargparser()
     opts = pars.parse_args(argv)
 
-    axon = s_telepath.openurl(opts.axon)
+    axon = await s_telepath.openurl(opts.axon)
 
     core = None
     if opts.cortex:
-        core = s_telepath.openurl(opts.cortex)
+        core = await s_telepath.openurl(opts.cortex)
 
-        tags = {}
+        tags = set()
         if opts.tags:
             for tag in opts.tags.split(','):
-                tags[tag] = (None, None)
+                tags.add(tag)
 
+        tags = tuple(tags)
         if tags:
-            outp.printf('adding tags: %r' % (list(tags.keys())))
+            outp.printf(f'adding tags: {tags}')
 
     filepaths = set()
     for item in opts.filenames:
@@ -60,15 +65,15 @@ def main(argv, outp=None):
         sha256 = fhashes.get('sha256')
         bsha256 = s_common.uhex(sha256)
 
-        if not axon.has(bsha256):
+        if not await axon.has(bsha256):
 
-            with axon.upload() as upfd:
+            async with await axon.upload() as upfd:
 
                 with s_common.genfile(path) as fd:
                     for byts in s_common.iterfd(fd):
-                        upfd.write(byts)
+                        await upfd.write(byts)
 
-                size, hashval = upfd.save()
+                size, hashval = await upfd.save()
 
             if hashval != bsha256:  # pragma: no cover
                 raise s_exc.SynErr(mesg='hashes do not match',
@@ -80,21 +85,20 @@ def main(argv, outp=None):
             outp.printf(f'Axon already had [{bname}]')
 
         if core:
-            pnode = (
-                ('file:bytes', f'sha256:{sha256}'),
-                {
-                    'props': {
-                        'md5': fhashes.get('md5'),
-                        'sha1': fhashes.get('sha1'),
-                        'sha256': fhashes.get('sha256'),
-                        'size': hset.size,
-                        'name': bname,
-                    },
-                    'tags': tags,
-                }
-            )
+            opts = {'vars': {
+                'md5': fhashes.get('md5'),
+                'sha1': fhashes.get('sha1'),
+                'sha256': fhashes.get('sha256'),
+                'size': hset.size,
+                'name': bname,
+                'tags': tags,
+            }}
 
-            node = list(core.addNodes([pnode]))[0]
+            q = '[file:bytes=$sha256 :md5=$md5 :sha1=$sha1 :size=$size :name=$name] ' \
+                '{ for $tag in $tags { [+#$tag] } }'
+
+            msgs = await core.storm(q, opts=opts).list()
+            node = [m[1] for m in msgs if m[0] == 'node'][0]
 
             iden = node[0][1]
             size = node[1]['props']['size']
@@ -102,9 +106,13 @@ def main(argv, outp=None):
             mesg = f'file: {bname} ({size}) added to core ({iden}) as {name}'
             outp.printf(mesg)
 
-    s_glob.sync(axon.fini())
+    await axon.fini()
     if core:
-        s_glob.sync(core.fini())
+        await core.fini()
+
+    if telefini: # pragma: no cover
+        await telefini()
+
     return 0
 
 def makeargparser():
@@ -121,9 +129,5 @@ def makeargparser():
     pars.add_argument('-t', '--tags', help='comma separated list of tags to add to the nodes')
     return pars
 
-def _main():  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
-    return main(sys.argv[1:])
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(_main())
+    sys.exit(asyncio.run(main(sys.argv[1:])))
