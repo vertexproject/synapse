@@ -485,7 +485,7 @@ class TeleTest(s_t_utils.SynTest):
 
             await self.asyncraises(s_exc.IsFini, asyncio.wait_for(task, timeout=2))
 
-    async def test_telepath_asyncgenr_early_termination(self):
+    async def test_telepath_asyncgenr_early_term(self):
 
         foo = Foo()
 
@@ -493,20 +493,24 @@ class TeleTest(s_t_utils.SynTest):
 
             dmon.share('foo', foo)
 
-            retn = []
+            # Test with and without session (telepath v2 and v1)
+            for do_sess in (True, False):
+                retn = []
 
-            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
+                async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
+                    if not do_sess:
+                        prox.sess = None
 
-                with self.raises(Exception):
+                    with self.raises(s_exc.LinkShutDown):
 
-                    genr = prox.corogenr(1000)
-                    async for i in genr:
-                        retn.append(i)
-                        if i == 2:
-                            # yank out the ethernet cable
-                            await list(dmon.links)[0].fini()
+                        genr = prox.corogenr(1000)
+                        async for i in genr:
+                            retn.append(i)
+                            if i == 2:
+                                # yank out the ethernet cable
+                                await list(dmon.links)[0].fini()
 
-            self.eq(retn, [0, 1, 2])
+                self.eq(retn, [0, 1, 2])
 
     async def test_telepath_blocking(self):
         ''' Make sure that async methods on the same proxy don't block each other '''

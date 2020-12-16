@@ -291,7 +291,6 @@ class Genr(Share):
     async def __aiter__(self):
 
         try:
-
             while not self.isfini:
 
                 for retn in await self.queue.slice():
