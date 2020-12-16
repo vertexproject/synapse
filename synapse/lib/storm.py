@@ -1010,7 +1010,6 @@ class StormDmon(s_base.Base):
         self.ddef = ddef
 
         self.task = None
-        self.loop_task = None
         self.enabled = ddef.get('enabled')
         self.user = core.auth.user(ddef.get('user'))
 
@@ -1024,12 +1023,15 @@ class StormDmon(s_base.Base):
     async def stop(self):
         if self.task is not None:
             self.task.cancel()
-        if self.loop_task is not None:
-            self.loop_task.cancel()
-        self.status = 'stopped'
+        self.task = None
 
     async def run(self):
-        self.task = self.schedCoro(self._run())
+        assert self.task is None
+        self.task = self.schedCoro(self.dmonloop())
+
+    async def bump(self):
+        await self.stop()
+        await self.run()
 
     def pack(self):
         retn = dict(self.ddef)
@@ -1038,64 +1040,18 @@ class StormDmon(s_base.Base):
         retn['err'] = self.err_evnt.is_set()
         return retn
 
-    async def _run(self):
-        name = self.ddef.get('name', 'storm dmon')
-        info = {'iden': self.iden, 'name': name}
-        await self.core.boss.promote('storm:dmon:main', user=self.user, info=info)
-        while not self.isfini:
-            try:
-                logger.info(f'Dmon loop starting ({self.iden})')
-                synt = await self.core.boss.execute(self._innr_run(),
-                                                    name='storm:dmon:loop',
-                                                    user=self.user,
-                                                    info=info)
-                self.loop_task = synt.task
-                await synt.waitfini()
-                # We have to give the callbacks a chance to run
-                # so that we can determine the status of the task
-                await asyncio.sleep(0)
-                if self.loop_task.cancelled():
-                    # Restart the loop right away
-                    continue
-                # Check and re-raise exceptions
-                exc = self.loop_task.exception()
-                if exc:
-                    raise exc
-            except asyncio.CancelledError:
-                if self.loop_task:
-                    self.loop_task.cancel()
-                self.status = f'fatal error: Dmon main cancelled'
-                self.err_evnt.set()
-                logger.warning(f'Dmon main cancelled ({self.iden})')
-                raise
-            except s_exc.NoSuchView as e:
-                if self.loop_task:
-                    self.loop_task.cancel()
-                self.status = f'fatal error: invalid view (iden={e.get("iden")})'
-                logger.warning(f'Dmon View is invalid. Exiting Dmon: ({self.iden})')
-                raise
-            except Exception as e:  # pragma: no cover
-                self.status = f'error: {e}'
-                self.err_evnt.set()
-                logger.exception(f'Dmon error during loop task execution ({self.iden})')
-                await self.waitfini(timeout=1)
-
     def _runLogAdd(self, mesg):
         self.runlog.append((s_common.now(), mesg))
 
     def _getRunLog(self):
         return list(self.runlog)
 
-    async def _innr_run(self):
+    async def dmonloop(self):
 
         s_scope.set('storm:dmon', self.iden)
 
-        text = self.ddef.get('storm')
-        opts = self.ddef.get('stormopts', {})
-        view_iden = opts.get('view')
-        view = self.core.getView(view_iden)
-        if view is None:
-            raise s_exc.NoSuchView(iden=view_iden)
+        info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon')}
+        await self.core.boss.promote('storm:dmon', user=self.user, info=info)
 
         def dmonPrint(evnt):
             self._runLogAdd(evnt)
@@ -1108,6 +1064,16 @@ class StormDmon(s_base.Base):
             logger.warning(f'Dmon - {self.iden} - {mesg}')
 
         while not self.isfini:
+
+            text = self.ddef.get('storm')
+            opts = self.ddef.get('stormopts', {})
+
+            viewiden = opts.get('view')
+            view = self.core.getView(viewiden)
+            if view is None:
+                self.status = 'fatal error: invalid view'
+                logger.warning(f'Dmon View is invalid. Stopping Dmon.')
+                return
 
             try:
 
@@ -1125,15 +1091,13 @@ class StormDmon(s_base.Base):
 
                     logger.warning(f'Dmon query exited: {self.iden}')
 
-                    self.status = 'exited'
-                    await self.waitfini(timeout=1)
+                    self.status = 'sleeping'
 
             except s_stormctrl.StormExit:
-                self.status = 'exited'
-                await self.waitfini(timeout=1)
+                self.status = 'sleeping'
 
             except asyncio.CancelledError:
-                logger.warning(f'Dmon loop cancelled: ({self.iden})')
+                self.status = 'stopped'
                 raise
 
             except Exception as e:
@@ -1141,7 +1105,9 @@ class StormDmon(s_base.Base):
                 logger.exception(f'Dmon error ({self.iden})')
                 self.status = f'error: {e}'
                 self.err_evnt.set()
-                await self.waitfini(timeout=1)
+
+            # bottom of the loop... wait it out
+            await self.waitfini(timeout=1)
 
 class Runtime:
     '''
