@@ -18,11 +18,12 @@ class Node:
     NOTE: This object is for local Cortex use during a single Xact.
     '''
     # def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
-    def __init__(self, snap, sode, bylayer=None):
+    def __init__(self, snap, sode, bylayer=None, sodes=None):
         self.snap = snap
         self.sode = sode
 
         self.buid = sode[0]
+        self.sodes = sodes  # [ {sode_layer0}, {sode_layer1}, ... ]
 
         # Tracks which property is retrieved from which layer
         self.bylayer = bylayer
@@ -46,6 +47,11 @@ class Node:
         self.nodedata = sode[1].get('nodedata')
         if self.nodedata is None:
             self.nodedata = {}
+
+    def sodes(self):
+        '''
+        '''
+        return s_msgpack.un(s_msgpack.en(self.sodes))
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'

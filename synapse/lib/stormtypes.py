@@ -3384,6 +3384,7 @@ class Layer(Prim):
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
+            'getStorNodes': self.getStorNodes,
         }
 
     async def _addPull(self, url, offs=0):
@@ -3575,6 +3576,22 @@ class Layer(Prim):
             count += 1
             if size is not None and size == count:
                 break
+
+    async def getStorNodes(self):
+        '''
+        Yield (buid, sode) tuples represeting the data stored in this layer.
+
+        NOTE: "storage nodes" (or "sodes") represent *only* the data stored in
+              the layer and may not represent whole nodes.
+        '''
+        layriden = self.valu.get('iden')
+        #assert s_scope.get('runt') == self.runt
+        self.runt.confirm(('layer', 'read'), gateiden=layriden)
+
+        todo = s_common.todo('getStorNodes')
+
+        async for item in self.runt.dyniter(layriden, todo):
+            yield item
 
     async def _methLayerGet(self, name, defv=None):
         return self.valu.get(name, defv)

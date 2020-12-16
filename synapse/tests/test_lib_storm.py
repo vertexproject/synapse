@@ -259,6 +259,29 @@ class StormTest(s_t_utils.SynTest):
                 self.false(await proxy.disableStormDmon('newp'))
                 self.false(await proxy.enableStormDmon('newp'))
 
+            view = await core.callStorm('return($lib.view.get().fork().iden)')
+            #self.len(0, await core.callStorm('return($lib.list($lib.view.get().layers.0.getStorNodes()))'))
+            opts = {'view': view}
+            self.len(0, await core.callStorm('''
+                $list = $lib.list()
+                $layr = $lib.view.get().layers.0
+                for $item in $layr.getStorNodes() {
+                    $list.append($item)
+                }
+                return($list)''', opts=opts))
+
+            await core.callStorm('[ inet:ipv4=11.22.33.44 inet:fqdn=55667788.link ]', opts=opts)
+
+            sodes = await core.callStorm('''
+                $list = $lib.list()
+                $layr = $lib.view.get().layers.0
+                for $item in $layr.getStorNodes() {
+                    $list.append($item)
+                }
+                return($list)''', opts=opts)
+            self.len(2, sodes)
+            print(repr(sodes))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:

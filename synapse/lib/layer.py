@@ -2512,6 +2512,22 @@ class Layer(s_nexus.Pusher):
     async def setModelVers(self, vers):
         await self.layrinfo.set('model:version', vers)
 
+    async def getStorNodes(self):
+
+        done = set()
+
+        for buid, sode in list(self.dirty.items()):
+            done.add(buid)
+            yield buid, sode
+
+        for buid, byts in self.layrslab.scanByFull(db=self.bybuidv3):
+
+            if buid in done:
+                continue
+
+            yield buid, sode
+            await asyncio.sleep(0)
+
     async def splices(self, offs=None, size=None):
         '''
         Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
