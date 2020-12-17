@@ -1,4 +1,5 @@
 import bz2
+import copy
 import gzip
 import json
 import time
@@ -2917,6 +2918,12 @@ class NodeProps(Prim):
         name = await tostr(name)
         valu = await toprim(valu)
         return await self.valu.set(name, valu)
+
+    def __iter__(self):
+        # Make copies of property values since array types are mutable
+        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
+        for item in items:
+            yield item
 
     @stormfunc(readonly=True)
     async def get(self, name, defv=None):
