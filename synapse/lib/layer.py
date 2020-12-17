@@ -1065,7 +1065,283 @@ class StorTypeLatLon(StorType):
         lat = (int.from_bytes(bytz[5:], 'big') - self.latspace) / self.scale
         return (lat, lon)
 
-class Layer(s_nexus.Pusher):
+class LayerBase(s_nexus.Pusher):
+
+    async def __anit__(self, layrinfo, nexsroot=None):
+
+        self.iden = layrinfo.get('iden')
+
+        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
+
+        self.layrinfo = layrinfo
+        self.nexsroot = nexsroot
+        self.readonly = layrinfo.get('readonly')
+        self.logedits = layrinfo.get('logedits')
+        self.growsize = self.layrinfo.get('growsize')
+        self.lockmemory = self.layrinfo.get('lockmemory')
+
+        self.addoffs = None  # The nexus log index where I was created
+        self.deloffs = None  # The nexus log index where I was deleted
+        self.isdeleted = False
+
+    async def pack(self):
+        ret = self.layrinfo.pack()
+        ret['totalsize'] = await self.getLayerSize()
+        return ret
+
+    async def getLayerSize(self):
+        raise s_exc.NoSuchImpl(mesg=f'{self.__class__.__name__}.getLayerSize()')
+
+    async def setModelVers(self, vers):
+        raise s_exc.NoSuchImpl(mesg=f'{self.__class__.__name__}.setModelVers()')
+
+    async def delete(self):
+        raise s_exc.NoSuchImpl(mesg=f'{self.__class__.__name__}.delete()')
+
+    async def splicesBack(self):
+        for x in (): yield x
+        raise s_exc.NoSuchImpl(mesg=f'{self.__class__.__name__}.splicesBack()')
+
+    #LayerBaseApi APIs that only use the LayerBase APIs to do their job...
+    async def getEditOffs(self, defv=None):
+        raise s_exc.NoSuchImpl(mesg=f'{self.__class__.__name__}.getEditOffs()')
+
+    async def waitEditOffs(self, offs, timeout=None):
+        raise s_exc.NoSuchImpl(mesg=f'{self.__class__.__name__}.waitEditOffs()')
+
+    async def hasTagProp(self, name):
+        async for _ in self.liftTagProp(name):
+            return True
+
+        return False
+
+    async def splices(self, offs=None, size=None):
+        '''
+        Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
+
+        Nodeedits will be flattened into splices before being yielded.
+        '''
+        if not self.logedits:
+            return
+
+        if offs is None:
+            offs = (0, 0, 0)
+
+        if size is not None:
+
+            count = 0
+            async for offset, nodeedits, meta in self.iterNodeEditLog(offs[0]):
+                async for splice in self.makeSplices(offset, nodeedits, meta):
+
+                    if splice[0] < offs:
+                        continue
+
+                    if count >= size:
+                        return
+
+                    yield splice
+                    count = count + 1
+        else:
+            async for offset, nodeedits, meta in self.iterNodeEditLog(offs[0]):
+                async for splice in self.makeSplices(offset, nodeedits, meta):
+
+                    if splice[0] < offs:
+                        continue
+
+                    yield splice
+
+    async def syncIndexEvents(self, offs, matchdef, wait=True):
+        '''
+        Yield (offs, (buid, form, ETYPE, VALS, META)) tuples from the nodeedit log starting from the given offset.
+        Only edits that match the filter in matchdef will be yielded.
+
+        ETYPE is an constant EDIT_* above.  VALS is a tuple whose format depends on ETYPE, outlined in the comment
+        next to the constant.  META is a dict that may contain keys 'user' and 'time' to represent the iden of the user
+        that initiated the change, and the time that it took place, respectively.
+
+        Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
+
+        Args:
+            offs(int): starting nexus/editlog offset
+            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
+            wait(bool):  whether to pend and stream value until this layer is fini'd
+
+        The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a sequence
+        of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
+            forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
+            props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
+            tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
+            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop.
+
+        Note:
+            Will not yield any values if this layer was not created with logedits enabled
+        '''
+
+        formm = set(matchdef.get('forms', ()))
+        propm = set(matchdef.get('props', ()))
+        tagm = set(matchdef.get('tags', ()))
+        tagpropm = set(matchdef.get('tagprops', ()))
+        count = 0
+
+        async for curoff, editses in self.syncNodeEdits(offs, wait=wait):
+            for buid, form, edit in editses:
+                for etyp, vals, meta in edit:
+                    if ((form in formm and etyp in (EDIT_NODE_ADD, EDIT_NODE_DEL))
+                            or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL) and (vals[0] in propm
+                                                                            or f'{form}:{vals[0]}' in propm))
+                            or (etyp in (EDIT_TAG_SET, EDIT_TAG_DEL) and vals[0] in tagm)
+                            or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL) and vals[1] in tagpropm)):
+
+                        yield (curoff, (buid, form, etyp, vals, meta))
+
+            count += 1
+            if count % 1000 == 0:
+                yield (curoff, (None, None, EDIT_PROGRESS, (), ()))
+                await asyncio.sleep(0)
+
+    async def splicesBack(self, offs=None, size=None):
+
+        if not self.logedits:
+            return
+
+        if offs is None:
+            offs = (await self.getNodeEditOffset(), 0, 0)
+
+        if size is not None:
+
+            count = 0
+            async for offset, nodeedits, meta in self.iterNodeEditLogBack(offs[0]):
+                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
+
+                    if splice[0] > offs:
+                        continue
+
+                    if count >= size:
+                        return
+
+                    yield splice
+                    count += 1
+        else:
+            async for offset, nodeedits, meta in self.iterNodeEditLogBack(offs[0]):
+                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
+
+                    if splice[0] > offs:
+                        continue
+
+                    yield splice
+
+    async def makeSplices(self, offs, nodeedits, meta, reverse=False):
+        '''
+        Flatten a set of nodeedits into splices.
+        '''
+        if meta is None:
+            meta = {}
+
+        user = meta.get('user')
+        time = meta.get('time')
+        prov = meta.get('prov')
+
+        if reverse:
+            nodegenr = reversed(list(enumerate(nodeedits)))
+        else:
+            nodegenr = enumerate(nodeedits)
+
+        for nodeoffs, (buid, form, edits) in nodegenr:
+
+            formvalu = None
+
+            if reverse:
+                editgenr = reversed(list(enumerate(edits)))
+            else:
+                editgenr = enumerate(edits)
+
+            for editoffs, (edit, info, _) in editgenr:
+
+                if edit in (EDIT_NODEDATA_SET, EDIT_NODEDATA_DEL, EDIT_EDGE_ADD, EDIT_EDGE_DEL):
+                    continue
+
+                spliceoffs = (offs, nodeoffs, editoffs)
+
+                props = {
+                    'time': time,
+                    'user': user,
+                }
+
+                if prov is not None:
+                    props['prov'] = prov
+
+                if edit == EDIT_NODE_ADD:
+                    formvalu, stortype = info
+                    props['ndef'] = (form, formvalu)
+
+                    yield (spliceoffs, ('node:add', props))
+                    continue
+
+                if edit == EDIT_NODE_DEL:
+                    formvalu, stortype = info
+                    props['ndef'] = (form, formvalu)
+
+                    yield (spliceoffs, ('node:del', props))
+                    continue
+
+                if formvalu is None:
+                    formvalu = await self.getNodeValu(buid)
+
+                props['ndef'] = (form, formvalu)
+
+                if edit == EDIT_PROP_SET:
+                    prop, valu, oldv, stortype = info
+                    props['prop'] = prop
+                    props['valu'] = valu
+                    props['oldv'] = oldv
+
+                    yield (spliceoffs, ('prop:set', props))
+                    continue
+
+                if edit == EDIT_PROP_DEL:
+                    prop, valu, stortype = info
+                    props['prop'] = prop
+                    props['valu'] = valu
+
+                    yield (spliceoffs, ('prop:del', props))
+                    continue
+
+                if edit == EDIT_TAG_SET:
+                    tag, valu, oldv = info
+                    props['tag'] = tag
+                    props['valu'] = valu
+                    props['oldv'] = oldv
+
+                    yield (spliceoffs, ('tag:add', props))
+                    continue
+
+                if edit == EDIT_TAG_DEL:
+                    tag, valu = info
+                    props['tag'] = tag
+                    props['valu'] = valu
+
+                    yield (spliceoffs, ('tag:del', props))
+                    continue
+
+                if edit == EDIT_TAGPROP_SET:
+                    tag, prop, valu, oldv, stortype = info
+                    props['tag'] = tag
+                    props['prop'] = prop
+                    props['valu'] = valu
+                    props['oldv'] = oldv
+
+                    yield (spliceoffs, ('tag:prop:set', props))
+                    continue
+
+                if edit == EDIT_TAGPROP_DEL:
+                    tag, prop, valu, stortype = info
+                    props['tag'] = tag
+                    props['prop'] = prop
+                    props['valu'] = valu
+
+                    yield (spliceoffs, ('tag:prop:del', props))
+
+class Layer(LayerBase):
     '''
     The base class for a cortex layer.
     '''
@@ -1076,23 +1352,10 @@ class Layer(s_nexus.Pusher):
 
     async def __anit__(self, layrinfo, dirn, nexsroot=None, allow_upstream=True):
 
-        self.nexsroot = nexsroot
-        self.layrinfo = layrinfo
-        self.allow_upstream = allow_upstream
-
-        self.addoffs = None  # The nexus log index where I was created
-        self.deloffs = None  # The nexus log index where I was deleted
-        self.isdeleted = False
-
-        self.iden = layrinfo.get('iden')
-        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
+        await LayerBase.__anit__(self, layrinfo, nexsroot=nexsroot)
 
         self.dirn = dirn
-        self.readonly = layrinfo.get('readonly')
-
-        self.lockmemory = self.layrinfo.get('lockmemory')
-        self.growsize = self.layrinfo.get('growsize')
-        self.logedits = self.layrinfo.get('logedits')
+        self.allow_upstream = allow_upstream
 
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
@@ -1175,10 +1438,15 @@ class Layer(s_nexus.Pusher):
 
         self.onfini(self._onLayrFini)
 
-    async def pack(self):
-        ret = self.layrinfo.pack()
-        ret['totalsize'] = await self.getLayerSize()
-        return ret
+    async def waitEditOffs(self, offs, timeout=None):
+        '''
+        Wait for the node edit log to write an entry at/past the given offset.
+        '''
+        if not self.logedits:
+            mesg = 'Layer.waitEditOffs() does not work with logedits disabled.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return await self.nodeeditlog.waitForOffset(offs, timeout=timeout)
 
     @s_nexus.Pusher.onPushAuto('layer:truncate')
     async def truncate(self):
@@ -1560,12 +1828,6 @@ class Layer(s_nexus.Pusher):
             valu = await self.getNodeTag(buid, tag)
             if filt(valu):
                 yield buid, self._getStorNode(buid)
-
-    async def hasTagProp(self, name):
-        async for _ in self.liftTagProp(name):
-            return True
-
-        return False
 
     async def liftTagProp(self, name):
         '''
@@ -2512,72 +2774,6 @@ class Layer(s_nexus.Pusher):
     async def setModelVers(self, vers):
         await self.layrinfo.set('model:version', vers)
 
-    async def splices(self, offs=None, size=None):
-        '''
-        Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
-
-        Nodeedits will be flattened into splices before being yielded.
-        '''
-        if not self.logedits:
-            return
-
-        if offs is None:
-            offs = (0, 0, 0)
-
-        if size is not None:
-
-            count = 0
-            async for offset, nodeedits, meta in self.iterNodeEditLog(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta):
-
-                    if splice[0] < offs:
-                        continue
-
-                    if count >= size:
-                        return
-
-                    yield splice
-                    count = count + 1
-        else:
-            async for offset, nodeedits, meta in self.iterNodeEditLog(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta):
-
-                    if splice[0] < offs:
-                        continue
-
-                    yield splice
-
-    async def splicesBack(self, offs=None, size=None):
-
-        if not self.logedits:
-            return
-
-        if offs is None:
-            offs = (await self.getNodeEditOffset(), 0, 0)
-
-        if size is not None:
-
-            count = 0
-            async for offset, nodeedits, meta in self.iterNodeEditLogBack(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
-
-                    if splice[0] > offs:
-                        continue
-
-                    if count >= size:
-                        return
-
-                    yield splice
-                    count += 1
-        else:
-            async for offset, nodeedits, meta in self.iterNodeEditLogBack(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
-
-                    if splice[0] > offs:
-                        continue
-
-                    yield splice
-
     async def iterNodeEditLog(self, offs=0):
         '''
         Iterate the node edit log and yield (offs, edits, meta) tuples.
@@ -2617,166 +2813,6 @@ class Layer(s_nexus.Pusher):
         async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait):
             yield (offi, nodeedits)
 
-    async def syncIndexEvents(self, offs, matchdef, wait=True):
-        '''
-        Yield (offs, (buid, form, ETYPE, VALS, META)) tuples from the nodeedit log starting from the given offset.
-        Only edits that match the filter in matchdef will be yielded.
-
-        ETYPE is an constant EDIT_* above.  VALS is a tuple whose format depends on ETYPE, outlined in the comment
-        next to the constant.  META is a dict that may contain keys 'user' and 'time' to represent the iden of the user
-        that initiated the change, and the time that it took place, respectively.
-
-        Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
-
-        Args:
-            offs(int): starting nexus/editlog offset
-            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
-            wait(bool):  whether to pend and stream value until this layer is fini'd
-
-        The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a sequence
-        of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
-            forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
-            props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
-            tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
-            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop.
-
-        Note:
-            Will not yield any values if this layer was not created with logedits enabled
-        '''
-
-        formm = set(matchdef.get('forms', ()))
-        propm = set(matchdef.get('props', ()))
-        tagm = set(matchdef.get('tags', ()))
-        tagpropm = set(matchdef.get('tagprops', ()))
-        count = 0
-
-        async for curoff, editses in self.syncNodeEdits(offs, wait=wait):
-            for buid, form, edit in editses:
-                for etyp, vals, meta in edit:
-                    if ((form in formm and etyp in (EDIT_NODE_ADD, EDIT_NODE_DEL))
-                            or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL) and (vals[0] in propm
-                                                                            or f'{form}:{vals[0]}' in propm))
-                            or (etyp in (EDIT_TAG_SET, EDIT_TAG_DEL) and vals[0] in tagm)
-                            or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL) and vals[1] in tagpropm)):
-
-                        yield (curoff, (buid, form, etyp, vals, meta))
-
-            count += 1
-            if count % 1000 == 0:
-                yield (curoff, (None, None, EDIT_PROGRESS, (), ()))
-                await asyncio.sleep(0)
-
-    async def makeSplices(self, offs, nodeedits, meta, reverse=False):
-        '''
-        Flatten a set of nodeedits into splices.
-        '''
-        if meta is None:
-            meta = {}
-
-        user = meta.get('user')
-        time = meta.get('time')
-        prov = meta.get('prov')
-
-        if reverse:
-            nodegenr = reversed(list(enumerate(nodeedits)))
-        else:
-            nodegenr = enumerate(nodeedits)
-
-        for nodeoffs, (buid, form, edits) in nodegenr:
-
-            formvalu = None
-
-            if reverse:
-                editgenr = reversed(list(enumerate(edits)))
-            else:
-                editgenr = enumerate(edits)
-
-            for editoffs, (edit, info, _) in editgenr:
-
-                if edit in (EDIT_NODEDATA_SET, EDIT_NODEDATA_DEL, EDIT_EDGE_ADD, EDIT_EDGE_DEL):
-                    continue
-
-                spliceoffs = (offs, nodeoffs, editoffs)
-
-                props = {
-                    'time': time,
-                    'user': user,
-                }
-
-                if prov is not None:
-                    props['prov'] = prov
-
-                if edit == EDIT_NODE_ADD:
-                    formvalu, stortype = info
-                    props['ndef'] = (form, formvalu)
-
-                    yield (spliceoffs, ('node:add', props))
-                    continue
-
-                if edit == EDIT_NODE_DEL:
-                    formvalu, stortype = info
-                    props['ndef'] = (form, formvalu)
-
-                    yield (spliceoffs, ('node:del', props))
-                    continue
-
-                if formvalu is None:
-                    formvalu = await self.getNodeValu(buid)
-
-                props['ndef'] = (form, formvalu)
-
-                if edit == EDIT_PROP_SET:
-                    prop, valu, oldv, stortype = info
-                    props['prop'] = prop
-                    props['valu'] = valu
-                    props['oldv'] = oldv
-
-                    yield (spliceoffs, ('prop:set', props))
-                    continue
-
-                if edit == EDIT_PROP_DEL:
-                    prop, valu, stortype = info
-                    props['prop'] = prop
-                    props['valu'] = valu
-
-                    yield (spliceoffs, ('prop:del', props))
-                    continue
-
-                if edit == EDIT_TAG_SET:
-                    tag, valu, oldv = info
-                    props['tag'] = tag
-                    props['valu'] = valu
-                    props['oldv'] = oldv
-
-                    yield (spliceoffs, ('tag:add', props))
-                    continue
-
-                if edit == EDIT_TAG_DEL:
-                    tag, valu = info
-                    props['tag'] = tag
-                    props['valu'] = valu
-
-                    yield (spliceoffs, ('tag:del', props))
-                    continue
-
-                if edit == EDIT_TAGPROP_SET:
-                    tag, prop, valu, oldv, stortype = info
-                    props['tag'] = tag
-                    props['prop'] = prop
-                    props['valu'] = valu
-                    props['oldv'] = oldv
-
-                    yield (spliceoffs, ('tag:prop:set', props))
-                    continue
-
-                if edit == EDIT_TAGPROP_DEL:
-                    tag, prop, valu, stortype = info
-                    props['tag'] = tag
-                    props['prop'] = prop
-                    props['valu'] = valu
-
-                    yield (spliceoffs, ('tag:prop:del', props))
-
     @contextlib.asynccontextmanager
     async def getNodeEditWindow(self):
         if not self.logedits:
@@ -2798,6 +2834,15 @@ class Layer(s_nexus.Pusher):
             return 0
 
         return self.nodeeditlog.index()
+
+    async def getEditOffs(self, defv=None):
+        '''
+        Return the offset of the last *recorded* log entry.
+        '''
+        last = self.nodeeditlog.last()
+        if last is not None:
+            return last[0]
+        return defv
 
     async def waitUpstreamOffs(self, iden, offs):
         evnt = asyncio.Event()

@@ -1550,9 +1550,9 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
-                indx = core.layers.get(layr2).nodeeditlog.index()
+                offs = await core.layers.get(layr2).getEditOffs(defv=-1)
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await asyncio.wait_for(core.layers.get(layr2).nodeeditlog.waitForOffset(indx), timeout=3)
+                await core.layers.get(layr2).waitEditOffs(offs + 1, timeout=3)
                 self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
 
                 # remove and ensure no replay on restart
@@ -1562,9 +1562,11 @@ class StormTest(s_t_utils.SynTest):
             conf = {'dmon:listen': f'tcp://127.0.0.1:{port}'}
             async with self.getTestCore(dirn=dirn, conf=conf) as core:
 
-                indx = core.layers.get(layr2).nodeeditlog.index()
+                await asyncio.sleep(0)
+
+                offs = await core.layers.get(layr2).getEditOffs(defv=-1)
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await asyncio.wait_for(core.layers.get(layr2).nodeeditlog.waitForOffset(indx), timeout=3)
+                await core.layers.get(layr2).waitEditOffs(offs + 1, timeout=3)
 
                 # confirm we dont replay and get the old one back...
                 self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
