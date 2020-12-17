@@ -2973,6 +2973,7 @@ class Node(Prim):
 
     def getObjLocals(self):
         return {
+            'set': self._methNodeSet,
             'form': self._methNodeForm,
             'iden': self._methNodeIden,
             'ndef': self._methNodeNdef,
@@ -3076,7 +3077,33 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeIden(self):
+        '''
+        Get the iden of the Node.
+
+        Returns:
+            String value for the Node's iden.
+        '''
         return self.valu.iden()
+
+    async def _methNodeSet(self, name, valu):
+        '''
+        Set a property on a Node.
+
+        Args:
+            prop (str): The name of the property to set.
+
+            valu: The value being set.
+
+        Returns:
+            Boolean, True if value was set, False if the value was not set.
+
+        Raises:
+            s_exc:NoSuchProp: If the property being set is not valid for the node.
+            s_exc.BadTypeValu: If the value of the proprerty fails to normalize.
+        '''
+        name = await tostr(name)
+        valu = await toprim(valu)
+        return await self.valu.set(name, valu)
 
 @registry.registerType
 class PathVars(Prim):

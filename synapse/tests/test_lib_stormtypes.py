@@ -3215,6 +3215,14 @@ class StormTypesTest(s_test.SynTest):
                 _ = await core.nodes('inet:ipv4=1.2.3.4 $lib.print($lib.len($node))')
             self.eq(cm.exception.get('mesg'), 'Object synapse.lib.node.Node does not have a length.')
 
+            self.true(await core.callStorm('[test:str=beep] return ( $node.set(hehe, "12") )'))
+            self.false(await core.callStorm('[test:str=beep] return ( $node.set(hehe, "12") )'))
+            self.true(await core.callStorm('[test:str=beep] return ( $node.set(".seen", 2020) )'))
+            with self.raises(s_exc.NoSuchProp):
+                self.true(await core.callStorm('[test:str=beep] return ( $node.set(newp, "12") )'))
+            with self.raises(s_exc.BadTypeValu):
+                self.true(await core.callStorm('[test:str=beep] return ( $node.set(hehe, (foo, bar)) )'))
+
     async def test_stormtypes_toprim(self):
 
         async with self.getTestCore() as core:
