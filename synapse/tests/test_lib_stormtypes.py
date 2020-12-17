@@ -14,7 +14,6 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.node as s_node
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
