@@ -2654,7 +2654,7 @@ class Layer(s_nexus.Pusher):
             forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
             props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
             tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
-            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop.
+            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop or tag:prop.
 
         Note:
             Will not yield any values if this layer was not created with logedits enabled
@@ -2670,10 +2670,11 @@ class Layer(s_nexus.Pusher):
             for buid, form, edit in editses:
                 for etyp, vals, meta in edit:
                     if ((form in formm and etyp in (EDIT_NODE_ADD, EDIT_NODE_DEL))
-                            or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL) and (vals[0] in propm
-                                                                            or f'{form}:{vals[0]}' in propm))
+                            or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL)
+                                and (vals[0] in propm or f'{form}:{vals[0]}' in propm))
                             or (etyp in (EDIT_TAG_SET, EDIT_TAG_DEL) and vals[0] in tagm)
-                            or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL) and vals[1] in tagpropm)):
+                            or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL)
+                                and (vals[1] in tagpropm or f'{vals[0]}:{vals[1]}' in tagpropm))):
 
                         yield (curoff, (buid, form, etyp, vals, meta))
 
