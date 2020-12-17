@@ -273,7 +273,10 @@ class StormTest(s_t_utils.SynTest):
                 }
                 return($list)''', opts=opts))
 
-            await core.callStorm('[ inet:ipv4=11.22.33.44 :asn=99 inet:fqdn=55667788.link +#foo ]', opts=opts)
+            await core.addTagProp('score', ('int', {}), {})
+            await core.callStorm('[ inet:ipv4=11.22.33.44 :asn=99 inet:fqdn=55667788.link +#foo=2020 +#foo:score=100]', opts=opts)
+            await core.callStorm('inet:ipv4=11.22.33.44 $node.data.set(foo, bar)', opts=opts)
+            await core.callStorm('inet:ipv4=11.22.33.44 [ +(blahverb)> { inet:asn=99 } ]', opts=opts)
 
             sodes = await core.callStorm('''
                 $list = $lib.list()
@@ -295,8 +298,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('11.22.33.44', ipv4)
 
             sodes = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getStorNodes())', opts=opts)
-            [print(repr(s)) for s in sodes]
-            self.eq((None, None), sodes[0]['tags']['foo'])
+            self.eq((1577836800000, 1577836800001), sodes[0]['tags']['foo'])
             self.eq((99, 9), sodes[0]['props']['asn'])
             self.eq((185999660, 4), sodes[1]['valu'])
             self.eq(('unicast', 1), sodes[1]['props']['type'])
@@ -308,9 +310,15 @@ class StormTest(s_t_utils.SynTest):
             self.eq(bylayer['tags']['foo'], layr)
             self.ne(bylayer['props']['type'], layr)
 
-            await core.callStorm('inet:ipv4=11.22.33.44 | merge', opts=opts)
+            msgs = await core.stormlist('inet:ipv4=11.22.33.44 | merge', opts=opts)
+            self.stormIsInPrint('aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4:asn = 99', msgs)
+            self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4#foo = ('2020/01/01 00:00:00.000', '2020/01/01 00:00:00.001')", msgs)
+            self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4#foo:score = 100", msgs)
+            self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4 DATA foo = 'bar'", msgs)
+            self.stormIsInPrint('aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4 +(blahverb)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
+
+            await core.callStorm('inet:ipv4=11.22.33.44 | merge --apply', opts=opts)
             nodes = await core.nodes('inet:ipv4=11.22.33.44')
-            print(repr(nodes[0]))
             self.len(1, nodes)
             self.nn(nodes[0].getTag('foo'))
             self.eq(99, nodes[0].get('asn'))
@@ -320,8 +328,32 @@ class StormTest(s_t_utils.SynTest):
             self.ne(bylayer['props']['asn'], layr)
             self.ne(bylayer['tags']['foo'], layr)
 
+            # confirm that we moved node data and light edges
+            self.eq('bar', await core.callStorm('inet:ipv4=11.22.33.44 return($node.data.get(foo))'))
+            self.eq(99, await core.callStorm('inet:ipv4=11.22.33.44 -(blahverb)> inet:asn return($node.value())'))
+            self.eq(100, await core.callStorm('inet:ipv4=11.22.33.44 return(#foo:score)'))
+
             sodes = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getStorNodes())', opts=opts)
             self.eq(sodes[0], {})
+
+            with self.raises(s_exc.CantMergeView):
+                await core.callStorm('inet:ipv4=11.22.33.44 | merge')
+
+            # merge all the nodes with anything stored in the top layer...
+            await core.callStorm('''
+                for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {
+                    yield $buid
+                }
+                | merge --apply
+            ''', opts=opts)
+
+            self.len(0, await core.callStorm('''
+                $list = $lib.list()
+                for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {
+                    $list.append($buid)
+                }
+                return($list)
+            ''', opts=opts))
 
     async def test_storm_pipe(self):
 

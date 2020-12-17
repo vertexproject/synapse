@@ -2525,7 +2525,7 @@ class Layer(s_nexus.Pusher):
             if buid in done:
                 continue
 
-            yield buid, sode
+            yield buid, s_msgpack.un(byts)
             await asyncio.sleep(0)
 
     async def splices(self, offs=None, size=None):

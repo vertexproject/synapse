@@ -1957,6 +1957,10 @@ class MergeCmd(Cmd):
 
         // Having tagged a new #cno.mal.redtree subgraph in a forked view...
 
+        #cno.mal.redtree | merge --apply
+
+        // Print out what the merge command *would* do but dont.
+
         #cno.mal.redtree | merge
 
     '''
@@ -1964,12 +1968,14 @@ class MergeCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
+        pars.add_argument('--apply', default=False, action='store_true', help='Execute the merge changes.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
         if runt.snap.view.parent is None:
-            raise s_exc.FIXME()
+            mesg = 'You may only merge nodes in forked views'
+            raise s_exc.CantMergeView(mesg=mesg)
 
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
@@ -1977,6 +1983,7 @@ class MergeCmd(Cmd):
         async for node, path in genr:
 
             # the timestamp for the adds/subs of each node merge will match
+            nodeiden = node.iden()
             meta = {'user': runt.user.iden, 'time': s_common.now()}
 
             sode = node.sodes[-1]
@@ -1985,6 +1992,11 @@ class MergeCmd(Cmd):
             subs = []
 
             async def sync():
+
+                if not self.opts.apply:
+                    adds.clear()
+                    subs.clear()
+                    return
 
                 if adds:
                     addedits = [(node.buid, node.form.name, adds)]
@@ -2002,28 +2014,74 @@ class MergeCmd(Cmd):
             if valu is not None:
                 runt.confirm(('node', 'add', form), gateiden=layr0)
                 adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
-                dels.append((s_layer.EDIT_NODE_DEL, valu, ()))
+                subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
+                if not self.opts.apply:
+                    valurepr = node.form.type.repr(valu)
+                    await runt.printf(f'{nodeiden} {form} = {valurepr}')
 
             for name, (valu, stortype) in sode.get('props', {}).items():
-                runt.confirm(('node', 'prop', 'del', form, name), gateiden=layr0)
-                runt.confirm(('node', 'prop', 'set', form, name), gateiden=layr1)
+                full = node.form.prop(name).full
+                runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
+                runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
                 adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
                 subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                if not self.opts.apply:
+                    valurepr = node.form.prop(name).type.repr(valu)
+                    await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
 
-            for name, valu in sode.get('tags', {}).items():
-                tagperm = tuple(name.split('.'))
+            for tag, valu in sode.get('tags', {}).items():
+                tagperm = tuple(tag.split('.'))
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-                runt.confirm(('node', 'tag', 'set') + tagperm, gateiden=layr1)
-                adds.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
-                subs.append((s_layer.EDIT_TAG_DEL, (name, valu), ()))
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+                adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
+                subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
+                if not self.opts.apply:
+                    valurepr = ''
+                    if valu != (None, None):
+                        tagrepr = runt.model.type('ival').repr(valu)
+                        valurepr = f' = {tagrepr}'
+                    await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
+
+            for (tag, prop), (valu, stortype) in sode.get('tagprops', {}).items():
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+                adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+                if not self.opts.apply:
+                    valurepr = repr(valu)
+                    await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
+
+            layr = runt.snap.view.layers[0]
+            async for name, valu in layr.iterNodeData(node.buid):
+                adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+                subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
+                if len(adds) >= 1000:
+                    await sync()
+
+                if not self.opts.apply:
+                    valurepr = repr(valu)
+                    await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
+
+            async for edge in layr.iterNodeEdgesN1(node.buid):
+                adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
+                subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                if len(adds) >= 1000:
+                    await sync()
+
+                if not self.opts.apply:
+                    name, dest = edge
+                    await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
 
             await sync()
+
+            #todo = s_common.todo('getNodeData', buid, name)
+            #ok, valu = await self.core.dyncall(layr.iden, todo)
 
             # TODO iterate node data / light edges and sync them too...
 
             # TODO API to clear one node from the snap cache?
             runt.snap.livenodes.pop(node.buid, None)
-
             yield await runt.snap.getNodeByBuid(node.buid), path
 
 class LimitCmd(Cmd):
