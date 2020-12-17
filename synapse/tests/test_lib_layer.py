@@ -990,14 +990,15 @@ class LayerTest(s_t_utils.SynTest):
                                         ('foo.bar', ival), ()))
             self.eq(events, [expectadd, expectdel])
 
-            mdef = {'tagprops': ['score']}
-            events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
-            self.len(2, events)
-            expectadd = (baseoff + 6, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
-                                       ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()))
-            expectdel = (baseoff + 11, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
-                                        ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()))
-            self.eq(events, [expectadd, expectdel])
+            mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
+            for mdef in mdefs:
+                events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
+                self.len(2, events)
+                expectadd = (baseoff + 6, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
+                                           ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()))
+                expectdel = (baseoff + 11, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
+                                            ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()))
+                self.eq(events, [expectadd, expectdel])
 
             mdef = {'forms': ['test:str', 'inet:ipv4'], 'tags': ['foo', ]}
             count = 0
