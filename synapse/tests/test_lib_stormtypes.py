@@ -14,6 +14,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.node as s_node
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -3215,13 +3216,15 @@ class StormTypesTest(s_test.SynTest):
                 _ = await core.nodes('inet:ipv4=1.2.3.4 $lib.print($lib.len($node))')
             self.eq(cm.exception.get('mesg'), 'Object synapse.lib.node.Node does not have a length.')
 
-            self.true(await core.callStorm('[test:str=beep] return ( $node.set(hehe, "12") )'))
-            self.false(await core.callStorm('[test:str=beep] return ( $node.set(hehe, "12") )'))
-            self.true(await core.callStorm('[test:str=beep] return ( $node.set(".seen", 2020) )'))
+            nodes = await core.nodes('[test:guid=(beep,)] $node.props.size="12"')
+            self.eq(12, nodes[0].get('size'))
+            nodes = await core.nodes('[test:guid=(beep,)] $node.props.".seen"=2020')
+            self.eq((1577836800000, 1577836800001), nodes[0].get('.seen'))
+
             with self.raises(s_exc.NoSuchProp):
-                self.true(await core.callStorm('[test:str=beep] return ( $node.set(newp, "12") )'))
+                self.true(await core.callStorm('[test:guid=(beep,)] $node.props.newp="noSuchProp"'))
             with self.raises(s_exc.BadTypeValu):
-                self.true(await core.callStorm('[test:str=beep] return ( $node.set(hehe, (foo, bar)) )'))
+                self.true(await core.callStorm('[test:guid=(beep,)] $node.props.size=(foo, bar)'))
 
     async def test_stormtypes_toprim(self):
 
