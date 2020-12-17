@@ -833,7 +833,7 @@ class VarListSetOper(Oper):
 
             item = await vkid.compute(runt, path)
             if len(item) < len(names):
-                mesg = 'Attempting to assign more items then we have variable to assign too.'
+                mesg = 'Attempting to assign more items then we have variable to assign to.'
                 raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
 
             for name, valu in zip(names, item):
@@ -846,7 +846,7 @@ class VarListSetOper(Oper):
 
             item = await vkid.compute(runt, None)
             if len(item) < len(names):
-                mesg = 'Attempting to assign more items then we have variable to assign too.'
+                mesg = 'Attempting to assign more items then we have variable to assign to.'
                 raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
 
             for name, valu in zip(names, item):
