@@ -1065,14 +1065,16 @@ class CortexTest(s_t_utils.SynTest):
     async def test_pivot_inout(self):
 
         async def getPackNodes(core, query):
-            nodes = sorted([n.pack() async for n in core.eval(query)])
+            nodes = await core.nodes(query)
+            nodes = sorted([n.pack() for n in nodes])
             return nodes
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
             # seed a node for pivoting
-            await alist(wcore.eval('[ test:pivcomp=(foo,bar) :tick=2018 ]'))
-            await alist(wcore.eval('[ edge:refs=((ou:org, "*"), (test:pivcomp,(foo,bar))) ]'))
+
+            await core.nodes('[ test:pivcomp=(foo,bar) :tick=2018 ]')
+            await wcore.nodes('[ edge:refs=((ou:org, "*"), (test:pivcomp,(foo,bar))) ]')
 
             self.len(1, await core.nodes('ou:org -> edge:refs:n1'))
 
@@ -1083,13 +1085,13 @@ class CortexTest(s_t_utils.SynTest):
 
             # Regression test:  bug in implicit form pivot where absence of foreign key in source node was treated like
             # a match-any
-            await alist(wcore.eval('[ test:int=42 ]'))
+            await wcore.nodes('[ test:int=42 ]')
             q = 'test:pivcomp -> test:int'
             nodes = await getPackNodes(core, q)
             self.len(0, nodes)
 
             # Multiple props of source form have type of destination form:  pivot through all the matching props.
-            await alist(wcore.eval('[ test:pivcomp=(xxx,yyy) :width=42 ]'))
+            await wcore.nodes('[ test:pivcomp=(xxx,yyy) :width=42 ]')
             q = 'test:pivcomp -> test:int'
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
