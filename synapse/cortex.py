@@ -2562,7 +2562,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             layrcounts = await layr.getFormCounts()
             for name, valu in layrcounts.items():
                 counts[name] += valu
-        return counts
+        return dict(counts)
 
     def onTagAdd(self, name, func):
         '''
