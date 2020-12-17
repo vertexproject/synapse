@@ -1676,3 +1676,9 @@ class StormTest(s_t_utils.SynTest):
 
                 await core._pushBulkEdits(pull, push, fake)
                 self.eq(push.edits, tuple(range(2000)))
+
+                # a quick/ghetto test for coverage...
+                layr = core.getView().layers[0]
+                layr.logedits = False
+                with self.raises(s_exc.BadArg):
+                    await layr.waitEditOffs(200)
