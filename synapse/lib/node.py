@@ -48,10 +48,21 @@ class Node:
         if self.nodedata is None:
             self.nodedata = {}
 
-    def sodes(self):
+    def getStorNodes(self):
         '''
+        Return a list of the raw storage nodes for each layer.
         '''
-        return s_msgpack.un(s_msgpack.en(self.sodes))
+        s = copy.deepcopy(self.sodes)
+        # snap has layers reversed as a node construction optimization
+        s.reverse()
+        return s
+
+    def getByLayer(self):
+        ndef = self.bylayer.get('ndef').iden
+        tags = {t: l.iden for (t, l) in self.bylayer.get('tags', {}).items()}
+        props = {p: l.iden for (p, l) in self.bylayer.get('props', {}).items()}
+        tagprops = {p: l.iden for (p, l) in self.bylayer.get('tagprops', {}).items()}
+        return {'ndef': ndef, 'props': props, 'tags': tags, 'tagprops': tagprops}
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'

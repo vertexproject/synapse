@@ -2983,7 +2983,21 @@ class Node(Prim):
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
             'isform': self._methNodeIsForm,
+            'getByLayer': self.getByLayer,
+            'getStorNodes': self.getStorNodes,
         }
+
+    def getStorNodes(self):
+        '''
+        Return a list of "storage nodes" as represented in the layers.
+        '''
+        return self.valu.getStorNodes()
+
+    def getByLayer(self):
+        '''
+        Return a dict you can use to lookup which props/tags came from which layers.
+        '''
+        return self.valu.getByLayer()
 
     def _ctorNodeData(self, path=None):
         return NodeData(self.valu, path=path)

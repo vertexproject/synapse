@@ -259,8 +259,11 @@ class StormTest(s_t_utils.SynTest):
                 self.false(await proxy.disableStormDmon('newp'))
                 self.false(await proxy.enableStormDmon('newp'))
 
-            view = await core.callStorm('return($lib.view.get().fork().iden)')
-            #self.len(0, await core.callStorm('return($lib.list($lib.view.get().layers.0.getStorNodes()))'))
+            await core.callStorm('[ inet:ipv4=11.22.33.44 :asn=56 inet:asn=99]')
+            await core.callStorm('[ ps:person=* +#foo ]')
+
+            view, layr = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+
             opts = {'view': view}
             self.len(0, await core.callStorm('''
                 $list = $lib.list()
@@ -270,7 +273,7 @@ class StormTest(s_t_utils.SynTest):
                 }
                 return($list)''', opts=opts))
 
-            await core.callStorm('[ inet:ipv4=11.22.33.44 inet:fqdn=55667788.link ]', opts=opts)
+            await core.callStorm('[ inet:ipv4=11.22.33.44 :asn=99 inet:fqdn=55667788.link +#foo ]', opts=opts)
 
             sodes = await core.callStorm('''
                 $list = $lib.list()
@@ -280,7 +283,45 @@ class StormTest(s_t_utils.SynTest):
                 }
                 return($list)''', opts=opts)
             self.len(2, sodes)
-            print(repr(sodes))
+
+            ipv4 = await core.callStorm('''
+                $list = $lib.list()
+                $layr = $lib.view.get().layers.0
+                for ($buid, $sode) in $layr.getStorNodes() {
+                    yield $buid
+                }
+                +inet:ipv4
+                return($node.repr())''', opts=opts)
+            self.eq('11.22.33.44', ipv4)
+
+            sodes = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getStorNodes())', opts=opts)
+            [print(repr(s)) for s in sodes]
+            self.eq((None, None), sodes[0]['tags']['foo'])
+            self.eq((99, 9), sodes[0]['props']['asn'])
+            self.eq((185999660, 4), sodes[1]['valu'])
+            self.eq(('unicast', 1), sodes[1]['props']['type'])
+            self.eq((56, 9), sodes[1]['props']['asn'])
+
+            bylayer = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getByLayer())', opts=opts)
+            self.ne(bylayer['ndef'], layr)
+            self.eq(bylayer['props']['asn'], layr)
+            self.eq(bylayer['tags']['foo'], layr)
+            self.ne(bylayer['props']['type'], layr)
+
+            await core.callStorm('inet:ipv4=11.22.33.44 | merge', opts=opts)
+            nodes = await core.nodes('inet:ipv4=11.22.33.44')
+            print(repr(nodes[0]))
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('foo'))
+            self.eq(99, nodes[0].get('asn'))
+
+            bylayer = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getByLayer())', opts=opts)
+            self.ne(bylayer['ndef'], layr)
+            self.ne(bylayer['props']['asn'], layr)
+            self.ne(bylayer['tags']['foo'], layr)
+
+            sodes = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getStorNodes())', opts=opts)
+            self.eq(sodes[0], {})
 
     async def test_storm_pipe(self):
 

@@ -13,6 +13,7 @@ import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
+import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
@@ -1945,6 +1946,85 @@ class HelpCmd(Cmd):
                     await runt.printf('')
 
         await runt.printf('For detailed help on any command, use <cmd> --help')
+
+class MergeCmd(Cmd):
+    '''
+    Merge edits from the incoming nodes down to the next layer.
+
+    NOTE: This command requires the current view to be a fork.
+
+    Examples:
+
+        // Having tagged a new #cno.mal.redtree subgraph in a forked view...
+
+        #cno.mal.redtree | merge
+
+    '''
+    name = 'merge'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if runt.snap.view.parent is None:
+            raise s_exc.FIXME()
+
+        layr0 = runt.snap.view.layers[0].iden
+        layr1 = runt.snap.view.layers[1].iden
+
+        async for node, path in genr:
+
+            # the timestamp for the adds/subs of each node merge will match
+            meta = {'user': runt.user.iden, 'time': s_common.now()}
+
+            sode = node.sodes[-1]
+
+            adds = []
+            subs = []
+
+            async def sync():
+
+                if adds:
+                    addedits = [(node.buid, node.form.name, adds)]
+                    await runt.snap.view.layers[1].storNodeEdits(addedits, meta=meta)
+                    adds.clear()
+
+                if subs:
+                    subedits = [(node.buid, node.form.name, subs)]
+                    await runt.snap.view.layers[0].storNodeEdits(subedits, meta=meta)
+                    subs.clear()
+
+            # check all node perms first
+            form = sode.get('form')
+            valu = sode.get('valu')
+            if valu is not None:
+                runt.confirm(('node', 'add', form), gateiden=layr0)
+                adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
+                dels.append((s_layer.EDIT_NODE_DEL, valu, ()))
+
+            for name, (valu, stortype) in sode.get('props', {}).items():
+                runt.confirm(('node', 'prop', 'del', form, name), gateiden=layr0)
+                runt.confirm(('node', 'prop', 'set', form, name), gateiden=layr1)
+                adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
+                subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+
+            for name, valu in sode.get('tags', {}).items():
+                tagperm = tuple(name.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'set') + tagperm, gateiden=layr1)
+                adds.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
+                subs.append((s_layer.EDIT_TAG_DEL, (name, valu), ()))
+
+            await sync()
+
+            # TODO iterate node data / light edges and sync them too...
+
+            # TODO API to clear one node from the snap cache?
+            runt.snap.livenodes.pop(node.buid, None)
+
+            yield await runt.snap.getNodeByBuid(node.buid), path
 
 class LimitCmd(Cmd):
     '''
