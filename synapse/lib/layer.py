@@ -2800,6 +2800,25 @@ class Layer(s_nexus.Pusher):
 
         return self.nodeeditlog.index()
 
+    async def getEditOffs(self, defv=None):
+        '''
+        Return the offset of the last *recorded* log entry.
+        '''
+        last = self.nodeeditlog.last()
+        if last is not None:
+            return last[0]
+        return defv
+
+    async def waitEditOffs(self, offs, timeout=None):
+        '''
+        Wait for the node edit log to write an entry at/past the given offset.
+        '''
+        if not self.logedits:
+            mesg = 'Layer.waitEditOffs() does not work with logedits disabled.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return await self.nodeeditlog.waitForOffset(offs, timeout=timeout)
+
     async def waitUpstreamOffs(self, iden, offs):
         evnt = asyncio.Event()
 
