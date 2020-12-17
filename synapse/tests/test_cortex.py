@@ -2229,6 +2229,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq(node.ndef, ('inet:fqdn', 'vertex.link'))
 
+            text = '.created ($foo, $bar, $baz) = $blob'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text, opts)
+
+            text = '($foo, $bar, $baz) = $blob'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text, opts)
+
     async def test_storm_contbreak(self):
 
         async with self.getTestCore() as core:
