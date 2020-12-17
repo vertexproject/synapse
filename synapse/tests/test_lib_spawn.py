@@ -333,9 +333,8 @@ class CoreSpawnTest(s_test.SynTest):
                 # Ensure the task cancellation tore down the spawnproc
                 self.true(await victimproc.waitfini(6))
 
-                resp = await fut
-                self.true(resp)
-                # We did not get a fini messages since the proc was killed
+                await self.asyncraises(s_exc.LinkShutDown, fut)
+                # We did not get a fini message since the proc was killed
                 self.eq({m[0] for m in msgs.get('msgs')}, {'init', 'node'})
 
                 # test kill -9 ing a spawn proc
@@ -345,17 +344,19 @@ class CoreSpawnTest(s_test.SynTest):
                 victimpid = victimproc.proc.pid
                 sig = signal.SIGKILL
 
+                retn = []
+
                 async def taskfunc3():
-                    retn = await prox.storm('test:int=1 | sleep 15', opts=opts).list()
-                    return retn
+                    async for item in prox.storm('test:int=1 | sleep 15', opts=opts):
+                        retn.append(item)
 
                 fut = core.schedCoro(taskfunc3())
                 await asyncio.sleep(1)
                 os.kill(victimpid, sig)
                 self.true(await victimproc.waitfini(6))
-                msgs = await fut
+                await self.asyncraises(s_exc.LinkShutDown, fut)
                 # We did not get a fini messages since the proc was killed
-                self.eq({m[0] for m in msgs}, {'init', 'node'})
+                self.eq({m[0] for m in retn}, {'init', 'node'})
 
     async def test_queues(self):
         conf = {

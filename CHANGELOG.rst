@@ -5,6 +5,34 @@ Synapse Changelog
 *****************
 
 
+v2.16.1 - 2020-12-17
+====================
+
+Features and Enhancements
+-------------------------
+- Allow the ``matchdef`` used in the ``Layer.syncIndexEvents()`` API
+  to match on tagprop data.
+  (`#2010 <https://github.com/vertexproject/synapse/pull/2010>`_)
+
+Bugfixes
+--------
+- Properly detect and raise a client side exception in Telepath generators
+  when the underlying Link has been closed.
+  (`#2008 <https://github.com/vertexproject/synapse/pull/2008>`_)
+- Refactor the Layer push/push test to not reach through the Layer API
+  boundary.
+  (`#2012 <https://github.com/vertexproject/synapse/pull/2012>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for Storm raw pivot syntax.
+  (`#2007 <https://github.com/vertexproject/synapse/pull/2007>`_)
+- Add documentation for recently added Storm commands.
+  (`#2007 <https://github.com/vertexproject/synapse/pull/2007>`_)
+- General cleanup and clarifications.
+  (`#2007 <https://github.com/vertexproject/synapse/pull/2007>`_)
+
+
 v2.16.0 - 2020-12-15
 ====================
 
