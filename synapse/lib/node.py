@@ -23,7 +23,10 @@ class Node:
         self.sode = sode
 
         self.buid = sode[0]
-        self.sodes = sodes  # [ {sode_layer0}, {sode_layer1}, ... ]
+
+        # sodes are in *reverse* layer order due to a snap optimization
+        # (we'll leave them that way and reverse them JIT since it'll be rare)
+        self.sodes = sodes
 
         # Tracks which property is retrieved from which layer
         self.bylayer = bylayer
@@ -58,6 +61,9 @@ class Node:
         return s
 
     def getByLayer(self):
+        '''
+        Return a dictionary that translates the node's bylayer dict to a primitive.
+        '''
         ndef = self.bylayer.get('ndef').iden
         tags = {t: l.iden for (t, l) in self.bylayer.get('tags', {}).items()}
         props = {p: l.iden for (p, l) in self.bylayer.get('props', {}).items()}

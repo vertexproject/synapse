@@ -2989,7 +2989,7 @@ class Node(Prim):
 
     def getStorNodes(self):
         '''
-        Return a list of "storage nodes" as represented in the layers.
+        Return a list of "storage nodes" which were fused from the layers to make this node.
         '''
         return self.valu.getStorNodes()
 

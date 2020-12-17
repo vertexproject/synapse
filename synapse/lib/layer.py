@@ -2513,7 +2513,9 @@ class Layer(s_nexus.Pusher):
         await self.layrinfo.set('model:version', vers)
 
     async def getStorNodes(self):
-
+        '''
+        Yield (buid, sode) tuples for all the nodes with props/tags/tagprops stored in this layer.
+        '''
         done = set()
 
         for buid, sode in list(self.dirty.items()):

@@ -2075,11 +2075,6 @@ class MergeCmd(Cmd):
 
             await sync()
 
-            #todo = s_common.todo('getNodeData', buid, name)
-            #ok, valu = await self.core.dyncall(layr.iden, todo)
-
-            # TODO iterate node data / light edges and sync them too...
-
             # TODO API to clear one node from the snap cache?
             runt.snap.livenodes.pop(node.buid, None)
             yield await runt.snap.getNodeByBuid(node.buid), path
