@@ -1171,7 +1171,7 @@ class LayerBase(s_nexus.Pusher):
             forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
             props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
             tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
-            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop.
+            tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop or tag:prop.
 
         Note:
             Will not yield any values if this layer was not created with logedits enabled
@@ -1187,10 +1187,11 @@ class LayerBase(s_nexus.Pusher):
             for buid, form, edit in editses:
                 for etyp, vals, meta in edit:
                     if ((form in formm and etyp in (EDIT_NODE_ADD, EDIT_NODE_DEL))
-                            or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL) and (vals[0] in propm
-                                                                            or f'{form}:{vals[0]}' in propm))
+                            or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL)
+                                and (vals[0] in propm or f'{form}:{vals[0]}' in propm))
                             or (etyp in (EDIT_TAG_SET, EDIT_TAG_DEL) and vals[0] in tagm)
-                            or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL) and vals[1] in tagpropm)):
+                            or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL)
+                                and (vals[1] in tagpropm or f'{vals[0]}:{vals[1]}' in tagpropm))):
 
                         yield (curoff, (buid, form, etyp, vals, meta))
 
@@ -1198,37 +1199,6 @@ class LayerBase(s_nexus.Pusher):
             if count % 1000 == 0:
                 yield (curoff, (None, None, EDIT_PROGRESS, (), ()))
                 await asyncio.sleep(0)
-
-    async def splicesBack(self, offs=None, size=None):
-
-        if not self.logedits:
-            return
-
-        if offs is None:
-            offs = (await self.getNodeEditOffset(), 0, 0)
-
-        if size is not None:
-
-            count = 0
-            async for offset, nodeedits, meta in self.iterNodeEditLogBack(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
-
-                    if splice[0] > offs:
-                        continue
-
-                    if count >= size:
-                        return
-
-                    yield splice
-                    count += 1
-        else:
-            async for offset, nodeedits, meta in self.iterNodeEditLogBack(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
-
-                    if splice[0] > offs:
-                        continue
-
-                    yield splice
 
     async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''
