@@ -1,4 +1,5 @@
 import bz2
+import copy
 import gzip
 import json
 import time
@@ -2896,11 +2897,33 @@ class NodeProps(Prim):
         return {
             'get': self.get,
             'list': self.list,
-            # TODO implement set()
         }
 
     async def _derefGet(self, name):
         return self.valu.get(name)
+
+    async def setitem(self, name, valu):
+        '''
+        Set a property on a Node.
+
+        Args:
+            prop (str): The name of the property to set.
+
+            valu: The value being set.
+
+        Raises:
+            s_exc:NoSuchProp: If the property being set is not valid for the node.
+            s_exc.BadTypeValu: If the value of the proprerty fails to normalize.
+        '''
+        name = await tostr(name)
+        valu = await toprim(valu)
+        return await self.valu.set(name, valu)
+
+    def __iter__(self):
+        # Make copies of property values since array types are mutable
+        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
+        for item in items:
+            yield item
 
     @stormfunc(readonly=True)
     async def get(self, name, defv=None):
@@ -3076,6 +3099,12 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeIden(self):
+        '''
+        Get the iden of the Node.
+
+        Returns:
+            String value for the Node's iden.
+        '''
         return self.valu.iden()
 
 @registry.registerType
