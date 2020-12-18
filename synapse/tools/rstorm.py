@@ -18,6 +18,12 @@ async def cortex():
     core.onfini(base.fini)
     return core
 
+class StormOutput:
+    '''
+    Produce standard output from a stream of storm runtime messages.
+    '''
+    # TODO: Eventually make this obey all cmdr options and swap it in
+
 async def genStormRst(path, debug=False):
 
     outp = []
@@ -41,6 +47,23 @@ async def genStormRst(path, debug=False):
             context['opts'] = item
             continue
 
+        if line.startswith('.. storm-expect::'):
+            # TODO handle some light weight output confirmation.
+            continue
+
+        if line.startswith('.. storm-pre::'):
+            # runt a storm query to prepare the cortex (do not output)
+
+            text = line.split('::', 1)[1].strip()
+
+            core = context.get('cortex')
+            if core is None:
+                raise s_exc.SynErr('no cortex')
+
+            opts = context.get('opts')
+            await core.callStorm(text, opts=opts)
+            continue
+
         if line.startswith('.. storm::'):
 
             text = line.split('::', 1)[1].strip()
@@ -55,6 +78,9 @@ async def genStormRst(path, debug=False):
             outp.append(f'    > {text}\n')
 
             opts = context.get('opts')
+            msgs = await core.stormlist(text, opts=opts)
+
+            # TODO use StormOutput
             for mesg in await core.stormlist(text, opts=opts):
 
                 if mesg[0] == 'print':
@@ -81,9 +107,12 @@ async def genStormRst(path, debug=False):
 
     return outp
 
+prog = 'synapse.tools.rstorm'
+descr = 'An RST pre-processor that allows you to embed storm directives.'
+
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser()
+    pars = argparse.ArgumentParser(prog=prog, description=descr)
     pars.add_argument('rstfile', help='Input RST file with storm directives.')
     pars.add_argument('--save', help='Output file to save (default: stdout)')
 
