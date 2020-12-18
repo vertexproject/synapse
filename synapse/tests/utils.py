@@ -1658,7 +1658,7 @@ class SynTest(unittest.TestCase):
 
         Args:
             obj (object): Object being inspected. This is validated to be a
-            tuple of length two, contiaing a str or None as the first value,
+            tuple of length two, containing a str or None as the first value,
             and a dict as the second value.
 
         Notes:

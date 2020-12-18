@@ -5,6 +5,9 @@ import json
 
 @s_stormtypes.registry.registerLib
 class JsonLib(s_stormtypes.Lib):
+    '''
+    A Storm Library for interacting with version information.
+    '''
 
     _storm_lib_path = ('json',)
 

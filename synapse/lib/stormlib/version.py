@@ -6,6 +6,9 @@ import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
 class VersionLib(s_stormtypes.Lib):
+    '''
+    A Storm Library for interacting with version information.
+    '''
 
     _storm_lib_path = ('version',)
 
@@ -17,7 +20,7 @@ class VersionLib(s_stormtypes.Lib):
 
     async def _getSynVersion(self):
         '''
-        Return the synapse version tuple for the local cortex.
+        Return the synapse version tuple for the local Cortex.
 
         Returns:
             tuple: A version tripple.
