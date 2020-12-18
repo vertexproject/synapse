@@ -229,7 +229,7 @@ def reqValidPkgdef(pkgdef):
     # mutate the pkgdef inline... sorry @epiphyte... :D
     version = pkgdef.get('version')
     if isinstance(version, (tuple, list)):
-        pkgdef['version'] = '%d.%d.%d' % version
+        pkgdef['version'] = '%d.%d.%d' % tuple(version)
     return _reqValidPkgdef(pkgdef)
 
 reqValidDdef = s_config.getJsValidator({
@@ -472,13 +472,9 @@ stormcmds = (
                 $pkg.url = $cmdopts.url
                 $pkg.loaded = $lib.time.now()
 
-                $lib.pkg.add($pkg)
+                $pkd = $lib.pkg.add($pkg)
 
-                $maj = $pkg.version.index(0)
-                $min = $pkg.version.index(1)
-                $rev = $pkg.version.index(2)
-
-                $lib.print("Loaded Package: {name} @{maj}.{min}.{rev}", name=$pkg.name, maj=$maj, min=$min, rev=$rev)
+                $lib.print("Loaded Package: {name} @{version}", name=$pkg.name, version=$pkg.version)
             }
         ''',
     },
