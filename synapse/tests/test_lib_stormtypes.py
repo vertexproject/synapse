@@ -1051,27 +1051,21 @@ class StormTypesTest(s_test.SynTest):
 
                     # Storing a valu into the hive that can't be msgpacked fails
                     q = '[test:str=test] $lib.user.vars.set(mynode, $node)'
-                    mesgs = await s_test.alist(prox.storm(q))
+                    mesgs = await prox.storm(q).list()
                     err = "can not serialize 'Node'"
-                    errs = [m for m in mesgs if m[0] == 'err']
-                    self.len(1, errs)
-                    self.isin(err, errs[0][1][1].get('mesg'))
+                    self.stormIsInErr(err, mesgs)
 
                     # Sad path - names must be strings.
                     q = '$lib.globals.set((my, nested, valu), haha)'
-                    mesgs = await s_test.alist(prox.storm(q))
+                    mesgs = await prox.storm(q).list()
                     err = 'The name of a persistent variable must be a string.'
-                    errs = [m for m in mesgs if m[0] == 'err']
-                    self.len(1, errs)
-                    self.eq(errs[0][1][1].get('mesg'), err)
+                    self.stormIsInErr(err, mesgs)
 
                     # Sad path - names must be strings.
                     q = '$lib.globals.set((my, nested, valu), haha)'
-                    mesgs = await s_test.alist(prox.storm(q))
+                    mesgs = await prox.storm(q).list()
                     err = 'The name of a persistent variable must be a string.'
-                    errs = [m for m in mesgs if m[0] == 'err']
-                    self.len(1, errs)
-                    self.eq(errs[0][1][1].get('mesg'), err)
+                    self.stormIsInErr(err, mesgs)
 
                 async with core.getLocalProxy() as uprox:
                     self.true(await uprox.setCellUser(iden1))
