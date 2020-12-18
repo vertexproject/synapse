@@ -418,16 +418,16 @@ class Pipeline(s_base.Base):
                 return
 
             mesg = await self.link.rx()
-            if mesg is None:
-                await self.fini()
-                return
+            if mesg is None: # pragma: no cover
+                raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
 
             if mesg[0] == 't2:fini':
                 self.count -= 1
                 yield mesg[1].get('retn')
                 continue
 
-            logger.warning('Pipeline got unhandled message: {mesg!r}.')
+            # pragma: no cover
+            logger.warning(f'Pipeline got unhandled message: {mesg!r}.')
 
 class Proxy(s_base.Base):
     '''
