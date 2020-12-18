@@ -542,7 +542,12 @@ class Proxy(s_base.Base):
 
     async def getPipeline(self, genr, name=None):
         '''
-        Construct a proxy API call pipeline.
+        Construct a proxy API call pipeline in order to make
+        multiple telepath API calls while minimizing round trips.
+
+        Args:
+            genr (async generator): An async generator that yields todo tuples.
+            name (str): The name of the shared object on the daemon.
 
         Example:
 
