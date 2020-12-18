@@ -19,6 +19,7 @@ import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
+import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -153,13 +154,13 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 '''
 
-reqValidPkgdef = s_config.getJsValidator({
+_reqValidPkgdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'name': {'type': 'string'},
         'version': {
-            'type': ['array', 'number'],
-            'items': {'type': 'number'}
+            'type': 'string',
+            'pattern': s_version.semverstr,
         },
         'synapse_minversion': {
             'type': ['array', 'null'],
@@ -224,6 +225,12 @@ reqValidPkgdef = s_config.getJsValidator({
         }
     }
 })
+def reqValidPkgdef(pkgdef):
+    # mutate the pkgdef inline... sorry @epiphyte... :D
+    version = pkgdef.get('version')
+    if isinstance(version, (tuple, list)):
+        pkgdef['version'] = '%d.%d.%d' % version
+    return _reqValidPkgdef(pkgdef)
 
 reqValidDdef = s_config.getJsValidator({
     'type': 'object',
