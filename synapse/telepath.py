@@ -389,18 +389,28 @@ class Pipeline(s_base.Base):
 
         self.link = await proxy.getPoolLink()
         self.task = self.schedCoro(self._runGenrLoop())
+        self.taskexc = None
 
     async def _runGenrLoop(self):
 
-        async for todo in self.genr:
+        try:
+            async for todo in self.genr:
 
-            mesg = ('t2:init', {
-                    'todo': todo,
-                    'name': self.name,
-                    'sess': self.proxy.sess})
+                mesg = ('t2:init', {
+                        'todo': todo,
+                        'name': self.name,
+                        'sess': self.proxy.sess})
 
-            await self.link.tx(mesg)
-            self.count += 1
+                await self.link.tx(mesg)
+                self.count += 1
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            self.taskexc = e
+            await self.link.fini()
+            raise
 
     async def __aiter__(self):
 
@@ -418,7 +428,10 @@ class Pipeline(s_base.Base):
                 return
 
             mesg = await self.link.rx()
-            if mesg is None: # pragma: no cover
+            if self.taskexc:
+                raise self.taskexc
+
+            if mesg is None:
                 raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
 
             if mesg[0] == 't2:fini':

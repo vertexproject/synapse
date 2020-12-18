@@ -954,14 +954,14 @@ class TeleTest(s_t_utils.SynTest):
 
             async with await s_telepath.openurl(url) as proxy:
 
-                # Fire up an async generator which will yield a message then
-                # wait for a while so that our break will tear it down
-                async for mesg in proxy.sleepg(t=60):
-                    self.eq(mesg, ('init', {}))
-                    break
-
                 with self.getAsyncLoggerStream('synapse.daemon',
                                                'task sleepg') as stream:
+
+                    # Fire up an async generator which will yield a message then
+                    # wait for a while so that our break will tear it down
+                    async for mesg in proxy.sleepg(t=60):
+                        self.eq(mesg, ('init', {}))
+                        break
 
                     # Ensure that the sleepg function got canceled.
                     self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
@@ -1150,6 +1150,24 @@ class TeleTest(s_t_utils.SynTest):
 
                 self.eq(1, len(proxy.links))
                 self.eq(160, await proxy.bar(80, 80))
+
+                async def boomgenr():
+                    yield s_common.todo('bar', 10, 30)
+                    raise s_exc.NoSuchIden()
+
+                with self.raises(s_exc.NoSuchIden):
+                    async for retn in proxy.getPipeline(boomgenr()):
+                        pass
+
+                # This test must remain at the end of the with block
+                async def sleeper():
+                    yield s_common.todo('bar', 10, 30)
+                    await asyncio.sleep(3)
+
+                with self.raises(s_exc.LinkShutDown):
+                    async for retn in proxy.getPipeline(sleeper()):
+                        vals.append(s_common.result(retn))
+                        await proxy.fini()
 
     async def test_telepath_client_onlink_exc(self):
 
