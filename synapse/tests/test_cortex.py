@@ -1165,7 +1165,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(nodes[1][0], ('test:str', 'bar'))
 
             # A simple edge for testing pivotinfrom with a edge to n2
-            await alist(wcore.eval('[ edge:has=((test:str, foobar), (test:str, foo)) ]'))
+            await wcore.nodes('[ edge:has=((test:str, foobar), (test:str, foo)) ]')
 
             q = 'test:str=foobar -+> edge:has'
             nodes = await getPackNodes(core, q)
@@ -1259,7 +1259,7 @@ class CortexTest(s_t_utils.SynTest):
 
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
-            await alist(wcore.eval('[ test:comp=(127,newp) ] [test:comp=(127,127)]'))
+            await wcore.nodes('[ test:comp=(127,newp) ] [test:comp=(127,127)]')
             mesgs = await core.stormlist('test:comp :haha -> test:int')
 
             warns = [msg for msg in mesgs if msg[0] == 'warn']
@@ -1294,7 +1294,8 @@ class CortexTest(s_t_utils.SynTest):
                       'test:pivcomp :lulz <- test:str',
                       'test:pivcomp :lulz <+- test:str',
                       ]:
-                await self.agenraises(s_exc.BadSyntax, core.eval(q))
+                with self.raises(s_exc.BadSyntax):
+                    await core.nodes(q)
 
     async def test_cortex_storm_set_univ(self):
 
