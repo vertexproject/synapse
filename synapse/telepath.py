@@ -439,8 +439,7 @@ class Pipeline(s_base.Base):
                 yield mesg[1].get('retn')
                 continue
 
-            # pragma: no cover
-            logger.warning(f'Pipeline got unhandled message: {mesg!r}.')
+            logger.warning(f'Pipeline got unhandled message: {mesg!r}.') # pragma: no cover
 
 class Proxy(s_base.Base):
     '''
