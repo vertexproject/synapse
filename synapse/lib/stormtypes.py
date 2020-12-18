@@ -2587,6 +2587,9 @@ class List(Prim):
 
 @registry.registerType
 class Bool(Prim):
+    '''
+    OMG SO COOL
+    '''
 
     def __str__(self):
         return str(self.value()).lower()
@@ -2603,18 +2606,25 @@ class LibUser(Lib):
 
     def getObjLocals(self):
         return {
+            'vars': self._libUserVars,
             'name': self._libUserName,
             'allowed': self._libUserAllowed,
+            'profile': self._libUserProfile,
         }
 
-    # Todo: Plumb vars and profile access via a @property, implement our own __init__
-    # which makes the underlying prims to be accessed by the runtime
-    def addLibFuncs(self):
-        super().addLibFuncs()
-        self.locls.update({
-            'vars': StormHiveDict(self.runt, self.runt.user.vars),
-            'profile': StormHiveDict(self.runt, self.runt.user.profile),
-        })
+    @property
+    def _libUserVars(self):
+        '''
+        OMG SO COOL
+        '''
+        return StormHiveDict(self.runt, self.runt.user.vars)
+
+    @property
+    def _libUserProfile(self):
+        '''
+        OMG SO COOL
+        '''
+        return StormHiveDict(self.runt, self.runt.user.profile)
 
     async def _libUserName(self):
         '''
@@ -2723,6 +2733,8 @@ class LibGlobals(Lib):
             list: A list of variable names and values that the user can access.
         '''
         ret = []
+
+        # XXX DEAD CODE?
         user = self.runt.user
 
         todo = ('itemsStormVar', (), {})
