@@ -3599,7 +3599,6 @@ class Layer(Prim):
               the layer and may not represent whole nodes.
         '''
         layriden = self.valu.get('iden')
-        #assert s_scope.get('runt') == self.runt
         self.runt.confirm(('layer', 'read'), gateiden=layriden)
 
         todo = s_common.todo('getStorNodes')
