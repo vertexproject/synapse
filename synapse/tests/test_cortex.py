@@ -1070,7 +1070,6 @@ class CortexTest(s_t_utils.SynTest):
             return nodes
 
         async with self.getTestReadWriteCores() as (core, wcore):
-
             # seed a node for pivoting
 
             await core.nodes('[ test:pivcomp=(foo,bar) :tick=2018 ]')
@@ -1100,6 +1099,18 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('test:pivtarg', 'foo'))
+
+            q = 'test:pivcomp=(foo,bar) :targ -+> test:pivtarg'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('test:pivtarg', 'foo'))
+
+            q = 'test:pivcomp=(foo,bar) :targ -+> *'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('test:pivtarg', 'foo'))
 
             q = 'test:str=bar -> test:pivcomp:lulz'
             nodes = await getPackNodes(core, q)

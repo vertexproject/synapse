@@ -1729,6 +1729,10 @@ class PropPivotOut(PivotOper):
 
         warned = False
         async for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
+
             name = await self.kids[0].compute(runt, path)
 
             prop = node.form.props.get(name)
