@@ -2954,7 +2954,10 @@ class Query(Prim):
 
 @registry.registerType
 class NodeProps(Prim):
-
+    # TODO How to document setitem ?
+    '''
+    A Storm Primitive representing the properties on a Node.
+    '''
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
@@ -2993,10 +2996,26 @@ class NodeProps(Prim):
 
     @stormfunc(readonly=True)
     async def get(self, name, defv=None):
+        '''
+        Get a specific property value by name.
+
+        Args:
+            name (str): The name of the property to return.
+
+        Returns:
+            The requested value.
+        '''
+        # TODO defv is unused.
         return self.valu.get(name)
 
     @stormfunc(readonly=True)
     async def list(self):
+        '''
+        List the properties and their values from the ``$node``.
+
+        Returns:
+            A list of (name, value) tuples.
+        '''
         return list(self.valu.props.items())
 
     @stormfunc(readonly=True)
