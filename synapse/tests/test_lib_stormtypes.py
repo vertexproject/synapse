@@ -1172,14 +1172,14 @@ class StormTypesTest(s_test.SynTest):
                 async with core.getLocalProxy() as uprox:
                     self.true(await uprox.setCellUser(iden1))
 
-                    mesgs = await s_test.alist(uprox.storm(listq))
+                    mesgs = await uprox.storm(listq).list()
                     self.len(1, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('somekey is hehe', mesgs)
 
                     q = '''$valu=$lib.globals.get(userkey)
                     $lib.print($valu)
                     '''
-                    mesgs = await s_test.alist(uprox.storm(q))
+                    mesgs = await uprox.storm(q).list()
                     self.stormIsInPrint('lessThanSekrit', mesgs)
 
                     # The StormHiveDict is safe when computing things
@@ -1187,7 +1187,8 @@ class StormTypesTest(s_test.SynTest):
                     $lib.user.vars.set(someint, $node.value())
                     [test:str=$lib.user.vars.get(someint)]
                     '''
-                    podes = await s_test.alist(uprox.eval(q))
+                    mesgs = await uprox.storm(q).list()
+                    podes = [m[1] for m in mesgs if m[0] == 'node']
                     self.len(2, podes)
                     self.eq({('test:str', '1234'), ('test:int', 1234)},
                             {pode[0] for pode in podes})
