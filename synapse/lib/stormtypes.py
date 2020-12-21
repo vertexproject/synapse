@@ -3024,7 +3024,9 @@ class NodeProps(Prim):
 
 @registry.registerType
 class NodeData(Prim):
-
+    '''
+    A Storm Primitive representing the NodeData stored for a Node.
+    '''
     def __init__(self, node, path=None):
 
         Prim.__init__(self, node, path=path)
@@ -3041,26 +3043,70 @@ class NodeData(Prim):
 
     @stormfunc(readonly=True)
     async def _getNodeData(self, name):
+        '''
+        Get the Node data for a given name for the Node.
+
+        Args:
+            name (str): Name of the data to get.
+
+        Returns:
+            The value stored for the name.
+        '''
         confirm(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
+        '''
+        Set the Node data for a given name on the Node.
+
+        Args:
+            name (str): The name of the data.
+
+            valu: The data to store.
+
+        Returns:
+            ```$lib.null``.
+        '''
         confirm(('node', 'data', 'set', name))
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
+        '''
+        Pop (remove) a the Node data from the Node.
+
+        Args:
+            name (str): The name of the data to remove from the node.
+
+        Returns:
+            The data removed from the node.
+        '''
         confirm(('node', 'data', 'pop', name))
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
     async def _listNodeData(self):
+        '''
+        Get a list of the Node data names on the Node.
+
+        Returns:
+            List: A list of strings.
+        '''
         confirm(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
     @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
+        '''
+        Load the Node data onto the Node so that the Node data is packed and returned by the runtime.
+
+        Args:
+            name (str): The name of the data to load.
+
+        Returns:
+            ``$lib.null``.
+        '''
         confirm(('node', 'data', 'get', name))
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent
