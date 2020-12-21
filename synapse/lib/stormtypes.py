@@ -2933,6 +2933,16 @@ class Query(Prim):
             yield Node(node)
 
     async def _methQueryExec(self):
+        '''
+        Execute the Query in a sub-runtime.
+
+        Notes:
+            The ``.exec()`` method can return a value if the Storm query
+            contains a ``return( ... )`` statement in it.
+
+        Returns:
+            $lib.null or a value specified in a return statement.
+        '''
         logger.info(f'Executing storm query via exec() {{{self.text}}} as [{self.runt.user.name}]')
         try:
             async for item in self._getRuntGenr():
