@@ -2746,7 +2746,9 @@ class LibGlobals(Lib):
 
 @registry.registerType
 class StormHiveDict(Prim):
-
+    '''
+    A Storm Primitive representing a HiveDict.
+    '''
     def __init__(self, runt, info):
         Prim.__init__(self, None)
         self.runt = runt
@@ -2762,20 +2764,62 @@ class StormHiveDict(Prim):
         }
 
     async def _get(self, name, default=None):
+        '''
+        Get the named value from the HiveDict.
+
+        Args:
+            name (str): The name to retrieve.
+
+            default: The default value to return if the name is note set. This defaults to ``$lib.null``.
+
+        Returns:
+
+            The contents of the requested value.
+        '''
         return self.info.get(name, default)
 
     async def _pop(self, name, default=None):
+        '''
+        Pop (remove) a value out of the HiveDict.
+
+        Args:
+            name (str): The name to pop.
+
+            default: The default value to return if the name is note set. This defaults to ``$lib.null``.
+
+        Returns:
+
+            The contents of the removed value.
+        '''
         return await self.info.pop(name, default)
 
     async def _set(self, name, valu):
+        '''
+        Set a value in the HiveDict.
 
+        Args:
+            name (str): The name to set.
+
+            valu: The value to store in the HiveDict.
+
+        Returns:
+            ``$lib.null`` or the old value which was set for the name.
+        '''
         if not isinstance(name, str):
-            mesg = 'The name of a persistent variable must be a string.'
+            mesg = 'The name of a variable must be a string.'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+        valu = await toprim(valu)
 
         return await self.info.set(name, valu)
 
     def _list(self):
+        '''
+        List the keys and values in the HiveDict.
+
+        Returns:
+            A list of (key, value) tuples.
+        '''
         return list(self.info.items())
 
     def __iter__(self):
