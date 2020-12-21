@@ -1703,7 +1703,7 @@ class Layer(s_nexus.Pusher):
         flatedits = list(results.values())
 
         if edited:
-            nexsindx = nexsitem[0]
+            nexsindx = nexsitem[0] if nexsitem is not None else None
             await self.fire('layer:write', layer=self.iden, edits=flatedits, meta=meta, nexsindx=nexsindx)
 
             if self.logedits:
