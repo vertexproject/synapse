@@ -3169,10 +3169,29 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
+        '''
+        Check if a Node is a given form.
+
+        Args:
+            name (str): The form to compare the Node against.
+
+        Returns:
+            ``$lib.true`` if the node matches the form; ``$lib.false`` otherwise.
+        '''
         return self.valu.form.name == name
 
     @stormfunc(readonly=True)
     async def _methNodeTags(self, glob=None):
+        '''
+        Get a list of the tags on the Node.
+
+        Args:
+            glob (str): Optional, a tag glob expression. If this is provided,
+            only tags which match the expression are returned.
+
+        Returns:
+            List of the tags.
+        '''
         tags = list(self.valu.tags.keys())
         if glob is not None:
             regx = s_cache.getTagGlobRegx(glob)
@@ -3181,6 +3200,15 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeGlobTags(self, glob):
+        '''
+        Get a list of the tag components from a Node which match a tag glob expression.
+
+        Args:
+            glob (str): A tag glob expression.
+
+        Returns:
+            The components of tags which match the wildcard component of a glob expression.
+        '''
         tags = list(self.valu.tags.keys())
         regx = s_cache.getTagGlobRegx(glob)
         ret = []
@@ -3200,14 +3228,23 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeValue(self):
+        '''
+        Get the value of the primary property of the Node.
+        '''
         return self.valu.ndef[1]
 
     @stormfunc(readonly=True)
     async def _methNodeForm(self):
+        '''
+        Get the form of the Node.
+        '''
         return self.valu.ndef[0]
 
     @stormfunc(readonly=True)
     async def _methNodeNdef(self):
+        '''
+        Get the form and primary property of the Node as a tuple.
+        '''
         return self.valu.ndef
 
     @stormfunc(readonly=True)
