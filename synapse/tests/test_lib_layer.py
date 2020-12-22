@@ -938,6 +938,26 @@ class LayerTest(s_t_utils.SynTest):
                     core1.schedCoro(doEdit())
                     await asyncio.wait_for(waitForEdit(), timeout=6)
 
+    async def test_layer_stornodeedits_nonexus(self):
+        # test for migration methods that store nodeedits bypassing nexus
+
+        async with self.getTestCore() as core0:
+
+            layer0 = core0.getLayer()
+
+            await core0.nodes('[ test:str=foo ]')
+            self.len(2, await core0.nodes('.created'))
+
+            nodeedits = [ne async for ne in layer0.iterLayerNodeEdits()]
+            self.len(2, nodeedits)
+
+            await core0.nodes('.created | delnode --force')
+
+            flatedits = await layer0._storNodeEdits(nodeedits, {}, None)
+            self.len(2, flatedits)
+
+            self.len(2, await core0.nodes('.created'))
+
     async def test_layer_syncindexevents(self):
 
         async with self.getTestCore() as core:
