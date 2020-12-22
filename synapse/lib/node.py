@@ -18,11 +18,15 @@ class Node:
     NOTE: This object is for local Cortex use during a single Xact.
     '''
     # def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
-    def __init__(self, snap, sode, bylayer=None):
+    def __init__(self, snap, sode, bylayer=None, sodes=None):
         self.snap = snap
         self.sode = sode
 
         self.buid = sode[0]
+
+        # sodes are in *reverse* layer order due to a snap optimization
+        # (we'll leave them that way and reverse them JIT since it'll be rare)
+        self.sodes = sodes
 
         # Tracks which property is retrieved from which layer
         self.bylayer = bylayer
@@ -46,6 +50,25 @@ class Node:
         self.nodedata = sode[1].get('nodedata')
         if self.nodedata is None:
             self.nodedata = {}
+
+    def getStorNodes(self):
+        '''
+        Return a list of the raw storage nodes for each layer.
+        '''
+        s = copy.deepcopy(self.sodes)
+        # snap has layers reversed as a node construction optimization
+        s.reverse()
+        return s
+
+    def getByLayer(self):
+        '''
+        Return a dictionary that translates the node's bylayer dict to a primitive.
+        '''
+        ndef = self.bylayer.get('ndef').iden
+        tags = {t: l.iden for (t, l) in self.bylayer.get('tags', {}).items()}
+        props = {p: l.iden for (p, l) in self.bylayer.get('props', {}).items()}
+        tagprops = {p: l.iden for (p, l) in self.bylayer.get('tagprops', {}).items()}
+        return {'ndef': ndef, 'props': props, 'tags': tags, 'tagprops': tagprops}
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
