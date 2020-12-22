@@ -226,7 +226,12 @@ _reqValidPkgdef = s_config.getJsValidator({
     }
 })
 def reqValidPkgdef(pkgdef):
-    # mutate the pkgdef inline... sorry @epiphyte... :D
+    '''
+    Require a valid storm package definition.
+
+    NOTE: This API may mutate the input dictionary to
+          provide inline updates to the package structure.
+    '''
     version = pkgdef.get('version')
     if isinstance(version, (tuple, list)):
         pkgdef['version'] = '%d.%d.%d' % tuple(version)
