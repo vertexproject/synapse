@@ -1240,6 +1240,18 @@ class LayerTest(s_t_utils.SynTest):
             layr = await s_layer.Layer.anit(layrinfo, dirn)
             self.true(layr.logedits)
 
+    async def test_layer_no_logedits(self):
+
+        with self.getTestDir() as dirn:
+
+            layrinfo = {
+                'logedits': False
+            }
+            layr = await s_layer.Layer.anit(layrinfo, dirn)
+            self.false(layr.logedits)
+
+            self.eq(-1, await layr.getEditOffs())
+
     async def test_layer_iter_props(self):
 
         async with self.getTestCore() as core:

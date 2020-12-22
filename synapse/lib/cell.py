@@ -983,7 +983,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             try:
                 await task
                 task.result()
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma:  no cover
                 pass
             except Exception: # pragma: no cover
                 logger.exception('activeCoro in _killActiveCoros')

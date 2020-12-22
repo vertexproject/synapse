@@ -760,7 +760,7 @@ class CellTest(s_t_utils.SynTest):
             async with await s_cell.Cell.anit(dirn) as cell:
 
                 # Note: cell starts active, so coro should immediate run
-                iden = cell.addActiveCoro(coro)
+                cell.addActiveCoro(coro)
 
                 async def step():
                     await asyncio.wait_for(evt0.wait(), timeout=2)
@@ -785,6 +785,8 @@ class CellTest(s_t_utils.SynTest):
                     self.len(2, cell.activecoros)
 
                 self.len(1, cell.activecoros)
+
+                self.raises(s_exc.IsFini, cell.addActiveCoro, coro, base=base)
 
                 # now deactivate and it gets cancelled
                 await cell.setCellActive(False)
