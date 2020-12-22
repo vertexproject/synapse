@@ -169,11 +169,6 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.liftperm)
         return await self.layr.getEditIndx()
 
-    async def getNodeEditOffset(self):
-        s_common.deprecated('getNodeEditOffset')  # changed method name
-        await self._reqUserAllowed(self.liftperm)
-        return await self.layr.getEditIndx()
-
     async def getIden(self):
         await self._reqUserAllowed(self.liftperm)
         return self.layr.iden
