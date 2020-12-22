@@ -354,6 +354,7 @@ class Daemon(s_base.Base):
 
         async def rxloop():
 
+            task = None
             while not link.isfini:
 
                 mesg = await link.rx()
@@ -361,8 +362,11 @@ class Daemon(s_base.Base):
                     await link.fini()
                     return
 
+                if task is not None:
+                    await task
+
                 coro = self._onLinkMesg(link, mesg)
-                link.schedCoro(coro)
+                task = link.schedCoro(coro)
 
         link.schedCoro(rxloop())
 

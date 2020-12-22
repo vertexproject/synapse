@@ -20,6 +20,7 @@ import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
+import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -154,13 +155,13 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 '''
 
-reqValidPkgdef = s_config.getJsValidator({
+_reqValidPkgdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'name': {'type': 'string'},
         'version': {
-            'type': ['array', 'number'],
-            'items': {'type': 'number'}
+            'type': 'string',
+            'pattern': s_version.semverstr,
         },
         'synapse_minversion': {
             'type': ['array', 'null'],
@@ -225,6 +226,17 @@ reqValidPkgdef = s_config.getJsValidator({
         }
     }
 })
+def reqValidPkgdef(pkgdef):
+    '''
+    Require a valid storm package definition.
+
+    NOTE: This API may mutate the input dictionary to
+          provide inline updates to the package structure.
+    '''
+    version = pkgdef.get('version')
+    if isinstance(version, (tuple, list)):
+        pkgdef['version'] = '%d.%d.%d' % tuple(version)
+    return _reqValidPkgdef(pkgdef)
 
 reqValidDdef = s_config.getJsValidator({
     'type': 'object',
@@ -466,13 +478,9 @@ stormcmds = (
                 $pkg.url = $cmdopts.url
                 $pkg.loaded = $lib.time.now()
 
-                $lib.pkg.add($pkg)
+                $pkd = $lib.pkg.add($pkg)
 
-                $maj = $pkg.version.index(0)
-                $min = $pkg.version.index(1)
-                $rev = $pkg.version.index(2)
-
-                $lib.print("Loaded Package: {name} @{maj}.{min}.{rev}", name=$pkg.name, maj=$maj, min=$min, rev=$rev)
+                $lib.print("Loaded Package: {name} @{version}", name=$pkg.name, version=$pkg.version)
             }
         ''',
     },

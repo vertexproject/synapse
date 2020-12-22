@@ -215,9 +215,9 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.eq(email, 'visi@vertex.link')
 
-            pkg0 = {'name': 'hehe', 'version': (1, 2, 3)}
+            pkg0 = {'name': 'hehe', 'version': '1.2.3'}
             await core.addStormPkg(pkg0)
-            self.eq((1, 2, 3), await core.callStorm('return($lib.pkg.get(hehe).version)'))
+            self.eq('1.2.3', await core.callStorm('return($lib.pkg.get(hehe).version)'))
 
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
@@ -476,7 +476,7 @@ class StormTest(s_t_utils.SynTest):
         cont = s_common.guid()
         pkg = {
             'name': 'testload',
-            'version': (0, 3, 0),
+            'version': '0.3.0',
             'modules': (
                 {
                     'name': 'testload',
@@ -1632,7 +1632,7 @@ class StormTest(s_t_utils.SynTest):
                         await asvisi.callStorm(f'$lib.layer.get($layr2).delPull(hehe)', opts=opts)
 
                 actv = len(core.activecoros)
-                #view0 -push-> view1 <-pull- view2
+                # view0 -push-> view1 <-pull- view2
                 await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
                 await core.callStorm(f'$lib.layer.get($layr2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
 
@@ -1646,9 +1646,9 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
-                indx = core.layers.get(layr2).nodeeditlog.index()
+                offs = await core.layers.get(layr2).getEditOffs()
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await asyncio.wait_for(core.layers.get(layr2).nodeeditlog.waitForOffset(indx), timeout=3)
+                await core.layers.get(layr2).waitEditOffs(offs + 1, timeout=3)
                 self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
 
                 # remove and ensure no replay on restart
@@ -1658,9 +1658,11 @@ class StormTest(s_t_utils.SynTest):
             conf = {'dmon:listen': f'tcp://127.0.0.1:{port}'}
             async with self.getTestCore(dirn=dirn, conf=conf) as core:
 
-                indx = core.layers.get(layr2).nodeeditlog.index()
+                await asyncio.sleep(0)
+
+                offs = await core.layers.get(layr2).getEditOffs()
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await asyncio.wait_for(core.layers.get(layr2).nodeeditlog.waitForOffset(indx), timeout=3)
+                await core.layers.get(layr2).waitEditOffs(offs + 1, timeout=3)
 
                 # confirm we dont replay and get the old one back...
                 self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
@@ -1770,3 +1772,9 @@ class StormTest(s_t_utils.SynTest):
 
                 await core._pushBulkEdits(pull, push, fake)
                 self.eq(push.edits, tuple(range(2000)))
+
+                # a quick/ghetto test for coverage...
+                layr = core.getView().layers[0]
+                layr.logedits = False
+                with self.raises(s_exc.BadArg):
+                    await layr.waitEditOffs(200)

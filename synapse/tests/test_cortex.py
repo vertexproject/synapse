@@ -1065,14 +1065,15 @@ class CortexTest(s_t_utils.SynTest):
     async def test_pivot_inout(self):
 
         async def getPackNodes(core, query):
-            nodes = sorted([n.pack() async for n in core.eval(query)])
+            nodes = await core.nodes(query)
+            nodes = sorted([n.pack() for n in nodes])
             return nodes
 
         async with self.getTestReadWriteCores() as (core, wcore):
-
             # seed a node for pivoting
-            await alist(wcore.eval('[ test:pivcomp=(foo,bar) :tick=2018 ]'))
-            await alist(wcore.eval('[ edge:refs=((ou:org, "*"), (test:pivcomp,(foo,bar))) ]'))
+
+            await core.nodes('[ test:pivcomp=(foo,bar) :tick=2018 ]')
+            await wcore.nodes('[ edge:refs=((ou:org, "*"), (test:pivcomp,(foo,bar))) ]')
 
             self.len(1, await core.nodes('ou:org -> edge:refs:n1'))
 
@@ -1083,13 +1084,13 @@ class CortexTest(s_t_utils.SynTest):
 
             # Regression test:  bug in implicit form pivot where absence of foreign key in source node was treated like
             # a match-any
-            await alist(wcore.eval('[ test:int=42 ]'))
+            await wcore.nodes('[ test:int=42 ]')
             q = 'test:pivcomp -> test:int'
             nodes = await getPackNodes(core, q)
             self.len(0, nodes)
 
             # Multiple props of source form have type of destination form:  pivot through all the matching props.
-            await alist(wcore.eval('[ test:pivcomp=(xxx,yyy) :width=42 ]'))
+            await wcore.nodes('[ test:pivcomp=(xxx,yyy) :width=42 ]')
             q = 'test:pivcomp -> test:int'
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
@@ -1098,6 +1099,18 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('test:pivtarg', 'foo'))
+
+            q = 'test:pivcomp=(foo,bar) :targ -+> test:pivtarg'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('test:pivtarg', 'foo'))
+
+            q = 'test:pivcomp=(foo,bar) :targ -+> *'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('test:pivtarg', 'foo'))
 
             q = 'test:str=bar -> test:pivcomp:lulz'
             nodes = await getPackNodes(core, q)
@@ -1152,7 +1165,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(nodes[1][0], ('test:str', 'bar'))
 
             # A simple edge for testing pivotinfrom with a edge to n2
-            await alist(wcore.eval('[ edge:has=((test:str, foobar), (test:str, foo)) ]'))
+            await wcore.nodes('[ edge:has=((test:str, foobar), (test:str, foo)) ]')
 
             q = 'test:str=foobar -+> edge:has'
             nodes = await getPackNodes(core, q)
@@ -1246,7 +1259,7 @@ class CortexTest(s_t_utils.SynTest):
 
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
-            await alist(wcore.eval('[ test:comp=(127,newp) ] [test:comp=(127,127)]'))
+            await wcore.nodes('[ test:comp=(127,newp) ] [test:comp=(127,127)]')
             mesgs = await core.stormlist('test:comp :haha -> test:int')
 
             warns = [msg for msg in mesgs if msg[0] == 'warn']
@@ -1281,7 +1294,8 @@ class CortexTest(s_t_utils.SynTest):
                       'test:pivcomp :lulz <- test:str',
                       'test:pivcomp :lulz <+- test:str',
                       ]:
-                await self.agenraises(s_exc.BadSyntax, core.eval(q))
+                with self.raises(s_exc.BadSyntax):
+                    await core.nodes(q)
 
     async def test_cortex_storm_set_univ(self):
 
@@ -1908,7 +1922,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Test the stormpkg apis
             otherpkg = {
                 'name': 'foosball',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'synapse_minversion': (2, 8, 0),
             }
             self.none(await proxy.addStormPkg(otherpkg))
@@ -1951,7 +1965,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # a storm service are displayed
             otherpkg = {
                 'name': 'foosball',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'synapse_minversion': (2, 8, 0),
                 'commands': ({
                     'name': 'testcmd',
@@ -2228,6 +2242,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             for node in nodes:
                 self.eq(node.ndef, ('inet:fqdn', 'vertex.link'))
+
+            text = '.created ($foo, $bar, $baz) = $blob'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text, opts)
+
+            text = '($foo, $bar, $baz) = $blob'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text, opts)
 
     async def test_storm_contbreak(self):
 
@@ -2989,7 +3011,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.agenlen(0, layr.splices())
             await self.agenlen(0, layr.splicesBack())
             await self.agenlen(0, layr.syncNodeEdits(0))
-            self.eq(0, await layr.getNodeEditOffset())
+            self.eq(0, await layr.getEditIndx())
 
             self.nn(await core.stat())
 

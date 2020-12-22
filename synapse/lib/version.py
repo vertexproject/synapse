@@ -17,7 +17,8 @@ import synapse.exc as s_exc
 vseps = ('.', '-', '_', '+')
 mask20 = 0xFFFFF
 mask60 = 0xFFFFFFFFFFFFFFF
-semver_re = regex.compile(r'''^(?P<maj>(0(?![0-9])|[1-9][0-9]*))\.(?P<min>(0(?![0-9])|[1-9][0-9]*))\.(?P<pat>(0(?![0-9])|[1-9][0-9]*))(\-(?P<pre>([0-9A-Za-z\-\.]+)))?(\+(?P<bld>([0-9A-Za-z\.\-]+)))?$''')
+semverstr = r'''^(?P<maj>(0(?![0-9])|[1-9][0-9]*))\.(?P<min>(0(?![0-9])|[1-9][0-9]*))\.(?P<pat>(0(?![0-9])|[1-9][0-9]*))(\-(?P<pre>([0-9A-Za-z\-\.]+)))?(\+(?P<bld>([0-9A-Za-z\.\-]+)))?$'''
+semver_re = regex.compile(semverstr)
 
 def parseSemver(text):
     '''
@@ -215,5 +216,5 @@ def reqVersion(valu, reqver,
 ##############################################################################
 # The following are touched during the release process by bumpversion.
 # Do not modify these directly.
-version = (2, 16, 0)
+version = (2, 16, 1)
 verstring = '.'.join([str(x) for x in version])

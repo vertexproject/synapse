@@ -2563,7 +2563,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             layrcounts = await layr.getFormCounts()
             for name, valu in layrcounts.items():
                 counts[name] += valu
-        return counts
+        return dict(counts)
 
     def onTagAdd(self, name, func):
         '''
@@ -3157,7 +3157,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 async with await s_telepath.openurl(url) as proxy:
                     await self._pushBulkEdits(layr, proxy, pdef)
 
-        await self.addActiveCoro(push, iden=iden)
+        self.addActiveCoro(push, iden=iden)
 
     async def runLayrPull(self, layr, pdef):
         url = pdef.get('url')
@@ -3169,7 +3169,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 async with await s_telepath.openurl(url) as proxy:
                     await self._pushBulkEdits(proxy, layr, pdef)
 
-        await self.addActiveCoro(pull, iden=iden)
+        self.addActiveCoro(pull, iden=iden)
 
     async def _pushBulkEdits(self, layr0, layr1, pdef):
 
@@ -3217,7 +3217,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     await self.setStormVar(gvar, offs)
 
     async def _checkNexsIndx(self):
-        layroffs = [await layr.getNodeEditOffset() for layr in self.layers.values()]
+        layroffs = [await layr.getEditIndx() for layr in self.layers.values()]
         if layroffs:
             maxindx = max(layroffs)
             if maxindx > await self.getNexsIndx():

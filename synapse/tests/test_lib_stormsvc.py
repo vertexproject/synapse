@@ -712,7 +712,7 @@ class StormSvcTest(s_test.SynTest):
                         self.isin('old.bar', core.stormmods)
                         self.isin('old.baz', core.stormmods)
                         pkg = await core.getStormPkg('old')
-                        self.eq(pkg.get('version'), (0, 0, 1))
+                        self.eq(pkg.get('version'), '0.0.1')
 
                         waiter = core.waiter(1, 'stormsvc:client:unready')
 
@@ -736,7 +736,7 @@ class StormSvcTest(s_test.SynTest):
                         self.isin('new.baz', core.stormmods)
                         self.notin('old.baz', core.stormmods)
                         pkg = await core.getStormPkg('old')
-                        self.eq(pkg.get('version'), (0, 1, 0))
+                        self.eq(pkg.get('version'), '0.1.0')
 
             # This test verifies that storm commands loaded from a previously connected service are still available,
             # even if the service is not available now

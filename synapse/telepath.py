@@ -3,6 +3,7 @@ An RMI framework for synapse.
 '''
 
 import os
+import time
 import asyncio
 import logging
 import collections
@@ -375,6 +376,72 @@ class GenrMethod(Method):
         todo = (self.name, args, kwargs)
         return GenrIter(self.proxy, todo, self.share)
 
+class Pipeline(s_base.Base):
+
+    async def __anit__(self, proxy, genr, name=None):
+
+        await s_base.Base.__anit__(self)
+
+        self.genr = genr
+        self.name = name
+        self.proxy = proxy
+
+        self.count = 0
+
+        self.link = await proxy.getPoolLink()
+        self.task = self.schedCoro(self._runGenrLoop())
+        self.taskexc = None
+
+    async def _runGenrLoop(self):
+
+        try:
+            async for todo in self.genr:
+
+                mesg = ('t2:init', {
+                        'todo': todo,
+                        'name': self.name,
+                        'sess': self.proxy.sess})
+
+                await self.link.tx(mesg)
+                self.count += 1
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            self.taskexc = e
+            await self.link.fini()
+            raise
+
+    async def __aiter__(self):
+
+        taskdone = False
+        while not self.isfini:
+
+            if not taskdone and self.task.done():
+                taskdone = True
+                self.task.result()
+
+            if taskdone and self.count == 0:
+                if not self.link.isfini:
+                    await self.proxy._putPoolLink(self.link)
+                await self.fini()
+                return
+
+            mesg = await self.link.rx()
+            if self.taskexc:
+                raise self.taskexc
+
+            if mesg is None:
+                raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
+
+            if mesg[0] == 't2:fini':
+                self.count -= 1
+                yield mesg[1].get('retn')
+                continue
+
+            logger.warning(f'Pipeline got unhandled message: {mesg!r}.') # pragma: no cover
+
 class Proxy(s_base.Base):
     '''
     A telepath Proxy is used to call remote APIs on a shared object.
@@ -485,6 +552,28 @@ class Proxy(s_base.Base):
 
         # we need a new one...
         return await self._initPoolLink()
+
+    async def getPipeline(self, genr, name=None):
+        '''
+        Construct a proxy API call pipeline in order to make
+        multiple telepath API calls while minimizing round trips.
+
+        Args:
+            genr (async generator): An async generator that yields todo tuples.
+            name (str): The name of the shared object on the daemon.
+
+        Example:
+
+            def genr():
+                yield s_common.todo('getFooByBar', 10)
+                yield s_common.todo('getFooByBar', 20)
+
+            for retn in proxy.getPipeline(genr()):
+                valu = s_common.result(retn)
+        '''
+        async with await Pipeline.anit(self, genr, name=name) as pipe:
+            async for retn in pipe:
+                yield retn
 
     async def _initPoolLink(self):
 
@@ -834,6 +923,7 @@ class Client(s_base.Base):
         self.schedCoro(self._teleLinkLoop())
 
     async def _teleLinkLoop(self):
+        lastlog = 0.0
 
         while not self.isfini:
 
@@ -852,7 +942,10 @@ class Client(s_base.Base):
                 raise
 
             except Exception as e:
-                logger.warning(f'telepath client ({s_urlhelp.sanitizeUrl(url)}): {e}')
+                now = time.monotonic()
+                if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
+                    logger.info(f'telepath client ({s_urlhelp.sanitizeUrl(url)}): {e}')
+                    lastlog = now
                 await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
 
     async def proxy(self, timeout=10):

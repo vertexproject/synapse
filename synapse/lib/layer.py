@@ -162,9 +162,12 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.splices(offs=offs, size=size):
             yield item
 
-    async def getNodeEditOffset(self):
+    async def getEditIndx(self):
+        '''
+        Returns what will be the *next* nodeedit log index.
+        '''
         await self._reqUserAllowed(self.liftperm)
-        return await self.layr.getNodeEditOffset()
+        return await self.layr.getEditIndx()
 
     async def getIden(self):
         await self._reqUserAllowed(self.liftperm)
@@ -1703,7 +1706,7 @@ class Layer(s_nexus.Pusher):
         flatedits = list(results.values())
 
         if edited:
-            nexsindx = nexsitem[0]
+            nexsindx = nexsitem[0] if nexsitem is not None else None
             await self.fire('layer:write', layer=self.iden, edits=flatedits, meta=meta, nexsindx=nexsindx)
 
             if self.logedits:
@@ -2431,7 +2434,7 @@ class Layer(s_nexus.Pusher):
                     logger.warning(f'upstream sync connected ({s_urlhelp.sanitizeUrl(url)} offset={offs})')
 
                     if offs == 0:
-                        offs = await proxy.getNodeEditOffset()
+                        offs = await proxy.getEditIndx()
                         meta = {'time': s_common.now(),
                                 'user': creator,
                                 }
@@ -2571,7 +2574,7 @@ class Layer(s_nexus.Pusher):
             return
 
         if offs is None:
-            offs = (await self.getNodeEditOffset(), 0, 0)
+            offs = (await self.getEditIndx(), 0, 0)
 
         if size is not None:
 
@@ -2812,11 +2815,37 @@ class Layer(s_nexus.Pusher):
 
             yield wind
 
-    async def getNodeEditOffset(self):
+    async def getEditIndx(self):
+        '''
+        Returns what will be the *next* (i.e. 1 past the last) nodeedit log index.
+        '''
         if not self.logedits:
             return 0
 
         return self.nodeeditlog.index()
+
+    async def getEditOffs(self):
+        '''
+        Return the offset of the last *recorded* log entry.  Returns -1 if nodeedit log is disabled or empty.
+        '''
+        if not self.logedits:
+            return -1
+
+        last = self.nodeeditlog.last()
+        if last is not None:
+            return last[0]
+
+        return -1
+
+    async def waitEditOffs(self, offs, timeout=None):
+        '''
+        Wait for the node edit log to write an entry at/past the given offset.
+        '''
+        if not self.logedits:
+            mesg = 'Layer.waitEditOffs() does not work with logedits disabled.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return await self.nodeeditlog.waitForOffset(offs, timeout=timeout)
 
     async def waitUpstreamOffs(self, iden, offs):
         evnt = asyncio.Event()
