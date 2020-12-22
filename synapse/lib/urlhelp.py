@@ -69,7 +69,7 @@ def chopurl(url):
     ret['path'] = pathrem
     return ret
 
-_url_re = regex.compile(r"^(?P<front>.+?://.+?:).+?(?=@)")
+_url_re = regex.compile(r'^(?P<front>.+?://.+?:)[^/]+?(?=@)')
 
 def sanitizeUrl(url):
     '''

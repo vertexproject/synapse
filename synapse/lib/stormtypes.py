@@ -1,7 +1,9 @@
 import bz2
+import copy
 import gzip
 import json
 import time
+import regex
 import types
 import base64
 import pprint
@@ -21,7 +23,10 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.queue as s_queue
+import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -30,6 +35,12 @@ logger = logging.getLogger(__name__)
 
 class Undef: pass
 undef = Undef()
+
+def confirm(perm, gateiden=None):
+    s_scope.get('runt').confirm(perm, gateiden=gateiden)
+
+def allowed(perm, gateiden=None):
+    return s_scope.get('runt').allowed(perm, gateiden=gateiden)
 
 class StormTypesRegistry:
     def __init__(self):
@@ -273,9 +284,13 @@ class LibDmon(Lib):
     def getObjLocals(self):
         return {
             'add': self._libDmonAdd,
+            'get': self._libDmonGet,
             'del': self._libDmonDel,
             'log': self._libDmonLog,
             'list': self._libDmonList,
+            'bump': self._libDmonBump,
+            'stop': self._libDmonStop,
+            'start': self._libDmonStart,
         }
 
     async def _libDmonDel(self, iden):
@@ -297,6 +312,18 @@ class LibDmon(Lib):
             self.runt.confirm(('dmon', 'del', iden))
 
         await self.runt.snap.core.delStormDmon(iden)
+
+    async def _libDmonGet(self, iden):
+        '''
+        Return a Storm Dmon definition dict by iden.
+
+        Args:
+            iden (str): The iden of the Storm Dmon.
+
+        Returns:
+            (dict): A Storm daemon definition dict.
+        '''
+        return await self.runt.snap.core.getStormDmon(iden)
 
     async def _libDmonList(self):
         '''
@@ -320,16 +347,16 @@ class LibDmon(Lib):
         self.runt.confirm(('dmon', 'log'))
         return await self.runt.snap.core.getStormDmonLog(iden)
 
-    async def _libDmonAdd(self, quer, name='noname'):
+    async def _libDmonAdd(self, text, name='noname'):
         '''
         Add a StormDmon to the Cortex.
 
         Args:
-            quer (str): The query to execute.
-
+            text (str): The Storm query to execute.
             name (str): The name of the Dmon.
 
         Examples:
+
             Add a dmon that executes a query::
 
                 $lib.dmon.add(${ myquery }, name='example dmon')
@@ -337,26 +364,83 @@ class LibDmon(Lib):
         Returns:
             str: The iden of the newly created StormDmon.
         '''
-        self.runt.confirm(('dmon', 'add'))
+        text = await tostr(text)
+        varz = await toprim(self.runt.vars)
+
+        viewiden = self.runt.snap.view.iden
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         # closure style capture of runtime
-        runtprims = await toprim(self.runt.vars)
-        runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
+        varz = {k: v for (k, v) in varz.items() if s_msgpack.isok(v)}
 
-        opts = {'vars': runtvars,
-                'view': self.runt.snap.view.iden,  # Capture the current view iden.
-                }
+        opts = {'vars': varz, 'view': viewiden}
 
         ddef = {
             'name': name,
             'user': self.runt.user.iden,
-            'storm': str(quer),
+            'storm': text,
             'enabled': True,
             'stormopts': opts,
         }
 
-        dmoniden = await self.runt.snap.core.addStormDmon(ddef)
-        return dmoniden
+        return await self.runt.snap.core.addStormDmon(ddef)
+
+    async def _libDmonBump(self, iden):
+        '''
+        Restart the daemon
+
+        Args:
+            iden (str): The GUID of the dmon to restart.
+        '''
+        iden = await tostr(iden)
+
+        ddef = await self.runt.snap.core.getStormDmon(iden)
+        if ddef is None:
+            return False
+
+        viewiden = ddef['stormopts']['view']
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+
+        await self.runt.snap.core.bumpStormDmon(iden)
+        return True
+
+    async def _libDmonStop(self, iden):
+        '''
+        Stop a storm dmon.
+
+        Args:
+            iden (str): The GUID of the dmon to stop.
+        '''
+        iden = await tostr(iden)
+
+        ddef = await self.runt.snap.core.getStormDmon(iden)
+        if ddef is None:
+            return False
+
+        viewiden = ddef['stormopts']['view']
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+
+        await self.runt.snap.core.disableStormDmon(iden)
+        return True
+
+    async def _libDmonStart(self, iden):
+        '''
+        Start a storm dmon.
+
+        Args:
+            iden (str): The GUID of the dmon to start.
+        '''
+        iden = await tostr(iden)
+
+        ddef = await self.runt.snap.core.getStormDmon(iden)
+        if ddef is None:
+            return False
+
+        viewiden = ddef['stormopts']['view']
+        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+
+        await self.runt.snap.core.enableStormDmon(iden)
+        return True
 
 @registry.registerLib
 class LibService(Lib):
@@ -1377,6 +1461,82 @@ class LibTime(Lib):
         return int(secs * 1000)
 
 @registry.registerLib
+class LibRegx(Lib):
+    '''
+    A Storm library for searching/matching with regular expressions.
+    '''
+    _storm_lib_path = ('regex',)
+
+    def __init__(self, runt, name=()):
+        Lib.__init__(self, runt, name=name)
+        self.compiled = {}
+
+    def getObjLocals(self):
+        return {
+            'search': self.search,
+            'matches': self.matches,
+            'flags': {'i': regex.I, 'm': regex.M},
+        }
+
+    async def _getRegx(self, pattern, flags):
+        lkey = (pattern, flags)
+        regx = self.compiled.get(lkey)
+        if regx is None:
+            regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+        return regx
+
+    async def matches(self, pattern, text, flags=0):
+        '''
+        Returns $lib.true if the text matches the pattern, otherwise $lib.false.
+
+        Notes:
+
+            This API requires the pattern to match at the start of the string.
+
+        Example:
+
+            if $lib.regex.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
+                $lib.print("It's semver! ...probably")
+            }
+
+        '''
+        text = await tostr(text)
+        flags = await toint(flags)
+        pattern = await tostr(pattern)
+        regx = await self._getRegx(pattern, flags)
+        return regx.match(text) is not None
+
+    async def search(self, pattern, text, flags=0):
+        '''
+        Search the given text for the pattern and return the matching groups.
+
+        Note:
+
+            In order to get the matching groups, patterns must use parentheses
+            to indicate the start and stop of the regex to return portions of.
+            If groups are not used, a successful match will return a empty list
+            and a unsuccessful match will return ``$lib.null``.
+
+        Example:
+
+            $m = $lib.regex.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
+            if $m {
+                ($maj, $min, $pat) = $m
+            }
+
+        '''
+        text = await tostr(text)
+        flags = await toint(flags)
+        pattern = await tostr(pattern)
+        regx = await self._getRegx(pattern, flags)
+
+        m = regx.search(text)
+        if m is None:
+            return None
+
+        return m.groups()
+
+@registry.registerLib
 class LibCsv(Lib):
     '''
     A Storm Library for interacting with csvtool.
@@ -1479,6 +1639,183 @@ class LibFeed(Lib):
             self.runt.snap.strict = strict
 
 @registry.registerLib
+class LibPipe(Lib):
+    '''
+    A Storm library for interacting with non-persistent queues.
+    '''
+
+    _storm_lib_path = ('pipe',)
+
+    def getObjLocals(self):
+        return {
+            'gen': self._methPipeGen,
+        }
+
+    async def _methPipeGen(self, filler, size=10000):
+        '''
+        Generate and return a Storm Pipe by name.
+
+        Args:
+            filler (storm): A storm query to fill the Pipe.
+            name (str): A name for the pipe (for IPC).
+
+        Perms:
+            storm.pipe.gen
+
+        Notes:
+            The filler query is run in parallel with $pipe.
+
+        Examples:
+
+            $pipe = $lib.pipe.gen(${ $pipe.puts((1, 2, 3)) })
+
+            for $items in $pipe.slices(size=2) {
+                $dostuff($items)
+            }
+        '''
+
+        size = await toint(size)
+        text = await tostr(filler)
+
+        if size < 1 or size > 10000:
+            mesg = '$lib.pipe.gen() size must be 1-10000'
+            raise s_exc.BadArg(mesg=mesg)
+
+        pipe = Pipe(self.runt, size)
+
+        varz = self.runt.vars.copy()
+        varz['pipe'] = pipe
+
+        opts = {'vars': varz}
+
+        query = await self.runt.getStormQuery(text)
+        runt = self.runt.getModRuntime(query, opts=opts)
+
+        async def coro():
+            try:
+                async for item in runt.execute():
+                    await asyncio.sleep(0)
+
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+
+            except Exception as e:
+                await self.runt.warn(f'pipe filler error: {e}', log=False)
+
+            await pipe.close()
+
+        self.runt.snap.schedCoro(coro())
+
+        return pipe
+
+@registry.registerType
+class Pipe(StormType):
+    '''
+    A Storm Pipe provides fast ephemeral queues.
+    '''
+    def __init__(self, runt, size):
+        StormType.__init__(self)
+        self.runt = runt
+
+        self.locls.update(self.getObjLocals())
+        self.queue = s_queue.Queue(maxsize=size)
+
+    def getObjLocals(self):
+        return {
+            'put': self._methPipePut,
+            'puts': self._methPipePuts,
+            'slice': self._methPipeSlice,
+            'slices': self._methPipeSlices,
+            'size': self._methPipeSize,
+        }
+
+    async def _methPipePuts(self, items):
+        '''
+        Add a list of items to the Pipe.
+
+        Args:
+            items (list): A list of items to add.
+        '''
+        items = await toprim(items)
+        return await self.queue.puts(items)
+
+    async def _methPipePut(self, item):
+        '''
+        Add a single item to the Pipe.
+
+        Args:
+            item: An object to add to the Pipe.
+        '''
+        item = await toprim(item)
+        return await self.queue.put(item)
+
+    async def close(self):
+        '''
+        Close the pipe for writing.  This will cause
+        the slice()/slices() API to return once drained.
+        '''
+        await self.queue.close()
+
+    async def _methPipeSize(self):
+        '''
+        Retrieve the number of items in the Pipe.
+
+        Returns:
+            int: The number of items in the Pipe.
+        '''
+        return await self.queue.size()
+
+    async def _methPipeSlice(self, size=1000):
+        '''
+        Return a list of up to size items from the Pipe.
+
+        Args:
+            size: The max number of items to return (default 1000)
+
+        Returns:
+            list: A list of at least 1 item from the Pipe.
+        '''
+        size = await toint(size)
+        if size < 1 or size > 10000:
+            mesg = '$pipe.slice() size must be 1-10000'
+            raise s_exc.BadArg(mesg=mesg)
+
+        items = await self.queue.slice(size=size)
+        if items is None:
+            return None
+
+        return List(items)
+
+    async def _methPipeSlices(self, size=1000):
+        '''
+        Yield lists of up to size items from the Pipe.
+        The loop will exit when the Pipe is closed and empty.
+
+        Args:
+            size (int): The max number of items to yield per slice.
+
+        Returns:
+            generator
+
+        Examples:
+
+            for $slice in $pipe.slices(1000) {
+                for $item in $slice { $dostuff($item) }
+            }
+
+            for $slice in $pipe.slices(1000) {
+                $dostuff_batch($slice)
+            }
+        '''
+        size = await toint(size)
+        if size < 1 or size > 10000:
+            mesg = '$pipe.slice() size must be 1-10000'
+            raise s_exc.BadArg(mesg=mesg)
+
+        async for items in self.queue.slices(size=size):
+            yield List(items)
+
+@registry.registerLib
 class LibQueue(Lib):
     '''
     A Storm Library for interacting with persistent Queues in the Cortex.
@@ -1488,6 +1825,7 @@ class LibQueue(Lib):
     def getObjLocals(self):
         return {
             'add': self._methQueueAdd,
+            'gen': self._methQueueGen,
             'del': self._methQueueDel,
             'get': self._methQueueGet,
             'list': self._methQueueList,
@@ -1531,6 +1869,21 @@ class LibQueue(Lib):
 
         return Queue(self.runt, name, info)
 
+    async def _methQueueGen(self, name):
+        '''
+        Get/add a Storm Queue in a single operation.
+
+        Args:
+            name (str): The name of the Queue to get/add.
+
+        Returns:
+            Queue: A Storm Queue object.
+        '''
+        try:
+            return await self._methQueueGet(name)
+        except s_exc.NoSuchName:
+            return await self._methQueueAdd(name)
+
     async def _methQueueDel(self, name):
         '''
         Delete a given named Queue.
@@ -1558,7 +1911,7 @@ class LibQueue(Lib):
         qlist = await self.dyncall('cortex', todo)
 
         for queue in qlist:
-            if not self.runt.user.allowed(('queue', 'get'), f"queue:{queue['name']}"):
+            if not allowed(('queue', 'get'), f"queue:{queue['name']}"):
                 continue
 
             retn.append(queue)
@@ -2375,7 +2728,7 @@ class LibGlobals(Lib):
         todo = ('itemsStormVar', (), {})
 
         async for key, valu in self.runt.dyniter('cortex', todo):
-            if user.allowed(('globals', 'get', key)):
+            if allowed(('globals', 'get', key)):
                 ret.append((key, valu))
         return ret
 
@@ -2544,11 +2897,33 @@ class NodeProps(Prim):
         return {
             'get': self.get,
             'list': self.list,
-            # TODO implement set()
         }
 
     async def _derefGet(self, name):
         return self.valu.get(name)
+
+    async def setitem(self, name, valu):
+        '''
+        Set a property on a Node.
+
+        Args:
+            prop (str): The name of the property to set.
+
+            valu: The value being set.
+
+        Raises:
+            s_exc:NoSuchProp: If the property being set is not valid for the node.
+            s_exc.BadTypeValu: If the value of the proprerty fails to normalize.
+        '''
+        name = await tostr(name)
+        valu = await toprim(valu)
+        return await self.valu.set(name, valu)
+
+    def __iter__(self):
+        # Make copies of property values since array types are mutable
+        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
+        for item in items:
+            yield item
 
     @stormfunc(readonly=True)
     async def get(self, name, defv=None):
@@ -2568,7 +2943,6 @@ class NodeData(Prim):
     def __init__(self, node, path=None):
 
         Prim.__init__(self, node, path=path)
-
         self.locls.update(self.getObjLocals())
 
     def getObjLocals(self):
@@ -2580,35 +2954,29 @@ class NodeData(Prim):
             'load': self._loadNodeData,
         }
 
-    def _reqAllowed(self, perm):
-        if not self.valu.snap.user.allowed(perm):
-            pstr = '.'.join(perm)
-            mesg = f'User is not allowed permission: {pstr}'
-            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
-
     @stormfunc(readonly=True)
     async def _getNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'get', name))
+        confirm(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
-        self._reqAllowed(('node', 'data', 'set', name))
+        confirm(('node', 'data', 'set', name))
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'pop', name))
+        confirm(('node', 'data', 'pop', name))
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
     async def _listNodeData(self):
-        self._reqAllowed(('node', 'data', 'list'))
+        confirm(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
     @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
-        self._reqAllowed(('node', 'data', 'get', name))
+        confirm(('node', 'data', 'get', name))
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
@@ -2731,6 +3099,12 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeIden(self):
+        '''
+        Get the iden of the Node.
+
+        Returns:
+            String value for the Node's iden.
+        '''
         return self.valu.iden()
 
 @registry.registerType
@@ -2940,9 +3314,6 @@ class LibLayer(Lib):
         todo = ('addLayer', (ldef,), {})
 
         ldef = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
-        if ldef is None:
-            mesg = f'Failed to add layer.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
 
         return Layer(self.runt, ldef, path=self.path)
 
@@ -3006,6 +3377,22 @@ class Layer(Prim):
     def __init__(self, runt, ldef, path=None):
         Prim.__init__(self, ldef, path=path)
         self.runt = runt
+
+        # hide any passwd in push URLs
+        pushs = ldef.get('pushs')
+        if pushs is not None:
+            for pdef in pushs.values():
+                url = pdef.get('url')
+                if url is not None:
+                    pdef['url'] = s_urlhelp.sanitizeUrl(url)
+
+        pulls = ldef.get('pulls')
+        if pulls is not None:
+            for pdef in pulls.values():
+                url = pdef.get('url')
+                if url is not None:
+                    pdef['url'] = s_urlhelp.sanitizeUrl(url)
+
         self.locls.update({
             'iden': ldef.get('iden'),
         })
@@ -3019,10 +3406,128 @@ class Layer(Prim):
             'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
             'edits': self._methLayerEdits,
+            'addPush': self._addPush,
+            'delPush': self._delPush,
+            'addPull': self._addPull,
+            'delPull': self._delPull,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
         }
+
+    async def _addPull(self, url, offs=0):
+        '''
+        Configure the layer to pull edits from a remote layer/feed.
+
+        Args:
+            url (str): The telepath URL to a layer/feed.
+            offs (int): The (optional) offset to begin from.
+
+        Perms:
+            - admin privs are required on the layer.
+            - lib.telepath.open.<scheme>
+        '''
+        url = await tostr(url)
+        offs = await toint(offs)
+
+        useriden = self.runt.user.iden
+        layriden = self.valu.get('iden')
+
+        if not self.runt.isAdmin(gateiden=layriden):
+            mesg = '$layr.addPull() requires admin privs on the layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        scheme = url.split('://')[0]
+        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+
+        async with await s_telepath.openurl(url):
+            pass
+
+        pdef = {
+            'url': url,
+            'offs': offs,
+            'user': useriden,
+            'time': s_common.now(),
+            'iden': s_common.guid(),
+        }
+        todo = s_common.todo('addLayrPull', layriden, pdef)
+        await self.runt.dyncall('cortex', todo)
+
+    async def _delPull(self, iden):
+        '''
+        Remove a pull config from the layer.
+        Args:
+            iden (str): The GUID of the push config to remove.
+
+        Perms:
+            - admin privs are required on the layer.
+        '''
+        iden = await tostr(iden)
+
+        layriden = self.valu.get('iden')
+        if not self.runt.isAdmin(gateiden=layriden):
+            mesg = '$layr.delPull() requires admin privs on the top layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        todo = s_common.todo('delLayrPull', layriden, iden)
+        await self.runt.dyncall('cortex', todo)
+
+    async def _addPush(self, url, offs=0):
+        '''
+        Configure the layer to push edits to a remote layer/feed.
+
+        Args:
+            url (str): A telepath URL of the target layer/feed.
+            offs (int): The local layer offset to begin pushing from (default: 0).
+
+        Perms:
+            - admin privs are required on the layer.
+            - lib.telepath.open.<scheme>
+        '''
+        url = await tostr(url)
+        offs = await toint(offs)
+
+        useriden = self.runt.user.iden
+        layriden = self.valu.get('iden')
+
+        if not self.runt.isAdmin(gateiden=layriden):
+            mesg = '$layer.addPush() requires admin privs on the layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        scheme = url.split('://')[0]
+        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+
+        async with await s_telepath.openurl(url):
+            pass
+
+        pdef = {
+            'url': url,
+            'offs': offs,
+            'user': useriden,
+            'time': s_common.now(),
+            'iden': s_common.guid(),
+        }
+        todo = s_common.todo('addLayrPush', layriden, pdef)
+        await self.runt.dyncall('cortex', todo)
+
+    async def _delPush(self, iden):
+        '''
+        Remove a push config from the layer.
+        Args:
+            iden (str): The GUID of the push config to remove.
+
+        Perms:
+            - admin privs are required on the layer.
+        '''
+        iden = await tostr(iden)
+        layriden = self.valu.get('iden')
+
+        if not self.runt.isAdmin(gateiden=layriden):
+            mesg = '$layer.delPush() requires admin privs on the layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        todo = s_common.todo('delLayrPush', layriden, iden)
+        await self.runt.dyncall('cortex', todo)
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
@@ -3225,6 +3730,7 @@ class View(Prim):
     def __init__(self, runt, vdef, path=None):
         Prim.__init__(self, vdef, path=path)
         self.runt = runt
+
         self.locls.update({
             'iden': vdef.get('iden'),
             'layers': [Layer(runt, ldef, path=path) for ldef in vdef.get('layers')],
@@ -3403,7 +3909,7 @@ class LibTrigger(Lib):
                     mesg = 'Provided iden matches more than one trigger.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-                if not user.allowed(('trigger', 'get'), gateiden=iden):
+                if not allowed(('trigger', 'get'), gateiden=iden):
                     continue
 
                 match = trig
@@ -3519,7 +4025,7 @@ class LibTrigger(Lib):
         triggers = []
 
         for iden, trig in await view.listTriggers():
-            if not user.allowed(('trigger', 'get'), gateiden=iden):
+            if not allowed(('trigger', 'get'), gateiden=iden):
                 continue
             triggers.append(Trigger(self.runt, trig.pack()))
 
@@ -4049,7 +4555,7 @@ class LibCron(Lib):
         for cron in crons:
             iden = cron.get('iden')
 
-            if iden.startswith(prefix) and user.allowed(perm, gateiden=iden):
+            if iden.startswith(prefix) and allowed(perm, gateiden=iden):
                 if matchcron is not None:
                     mesg = 'Provided iden matches more than one cron job.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)

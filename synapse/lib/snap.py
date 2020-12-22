@@ -316,7 +316,6 @@ class Snap(s_base.Base):
         self.livenodes[buid] = node
         self.buidcache.append(node)
 
-        # moved here from getNodeByBuid() to cover more
         await asyncio.sleep(0)
         return node
 

@@ -116,7 +116,7 @@ formjoinin.2: _LEFTJOIN _WS? "*" -> formjoinin_pivotin
           | _LEFTJOIN _WS? ABSPROP -> formjoinin_pivotinfrom
 
 operrelprop: relprop _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
-           | relprop _WS? _RIGHTJOIN _WS? ABSPROP -> operrelprop_join
+           | relprop _WS? _RIGHTJOIN _WS? ("*" | ABSPROP) -> operrelprop_join
 
 rawpivot: _RIGHTPIVOT _WS? "{" query "}"
 
@@ -252,7 +252,7 @@ DEREFMATCHNOSEP: (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
 _callargs: "(" [_WS? (kwarg | _valu) (_WS? "," _WS? (kwarg | _valu))*] _WS? ["," _WS?] ")"
-kwarg: VARTOKN "=" _valu
+kwarg: VARTOKN _WS? "=" _WS? _valu
 
 filtoper: FILTPREFIX _cond
 FILTPREFIX: "+" | "-"

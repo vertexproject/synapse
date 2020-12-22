@@ -31,7 +31,6 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
-import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -594,6 +593,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sessions = {}
         self.isactive = False
         self.inaugural = False
+        self.activecoros = {}
 
         self.conf = self._initCellConf(conf)
 
@@ -671,7 +671,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
 
-            if not user.tryPasswd(auth_passwd):
+            if not await user.tryPasswd(auth_passwd):
                 await user.setPasswd(auth_passwd, nexs=False)
 
         self.boss = await s_boss.Boss.anit()
@@ -787,7 +787,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
             logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
         except Exception:  # pragma: no cover
-            logging.exception(f'Unknown dmon listen error.')
+            logging.exception('Unknown dmon listen error.')
             raise
 
         self.sockaddr = None
@@ -904,13 +904,93 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except Exception as e: # pragma: no cover
             logger.warning(f'_setAhaActive failed: {e}')
 
+    async def addActiveCoro(self, func, iden=None):
+        '''
+        Add a function callback to be run as a coroutine when the Cell is active.
+
+        Args:
+            func (coroutine function): The function run as a coroutine.
+            iden (str): The iden to use for the coroutine.
+
+        Returns:
+            str: A GUID string that identifies the coroutine for delActiveCoro()
+
+        NOTE:
+            This will re-fire the coroutine if it exits and the Cell is still active.
+        '''
+
+        if iden is None:
+            iden = s_common.guid()
+
+        cdef = {'func': func}
+        self.activecoros[iden] = cdef
+
+        if self.isactive:
+            await self._fireActiveCoro(iden, cdef)
+
+        return iden
+
+    async def delActiveCoro(self, iden):
+        '''
+        Remove a callback previously added with addActiveCoro().
+
+        Args:
+            iden (str): The GUID returned by addActiveCoro()
+        '''
+
+        cent = self.activecoros.pop(iden, None)
+        if cent is None:
+            return
+
+        task = cent.get('task')
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.warning(f'delActiveCoro Task: {e}')
+
+    async def _fireActiveCoros(self):
+        for iden, cdef in self.activecoros.items():
+            await self._fireActiveCoro(iden, cdef)
+
+    async def _fireActiveCoro(self, iden, cdef):
+        func = cdef.get('func')
+        async def wrap():
+            while not self.isfini:
+                try:
+                    await func()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    logger.warning(f'activeCoro Error: {func} {e}')
+                    await asyncio.sleep(1)
+
+        cdef['task'] = self.schedCoro(wrap())
+
+    async def _killActiveCoros(self):
+        for cdef in self.activecoros.values():
+            task = cdef.pop('task', None)
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e: # pragma: no cover
+                    logger.warning(f'killActiveCoros Task: {e}')
+
     async def setCellActive(self, active):
         self.isactive = active
 
         if self.isactive:
+            await self._fireActiveCoros()
             await self._execCellUpdates()
             await self.initServiceActive()
         else:
+            await self._killActiveCoros()
             await self.initServicePassive()
 
         await self._setAhaActive()
@@ -1087,7 +1167,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if user is None:
             return None
 
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             return None
 
         return user.pack()
@@ -1355,6 +1435,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHttpApi('/api/v1/auth/password/(.*)', s_httpapi.AuthUserPasswdV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/onepass/issue', s_httpapi.OnePassIssueV1, {'cell': self})
 
     def addHttpApi(self, path, ctor, info):
         self.wapp.add_handlers('.*', (
@@ -1367,6 +1448,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # add our cert path to the global resolver
         s_certdir.addCertPath(certpath)
+
         async def fini():
             s_certdir.delCertPath(certpath)
         self.onfini(fini)
@@ -1695,7 +1777,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # passwd None always fails...
         passwd = info.get('passwd')
-        if not user.tryPasswd(passwd):
+
+        if not await user.tryPasswd(passwd):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return user

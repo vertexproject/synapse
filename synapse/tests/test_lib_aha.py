@@ -12,10 +12,19 @@ import synapse.servers.aha as s_servers_aha
 class AhaTest(s_test.SynTest):
 
     @contextlib.asynccontextmanager
-    async def getTestAha(self):
+    async def getTestAha(self, conf=None):
         with self.getTestDir() as dirn:
-            async with await s_aha.AhaCell.anit(dirn) as aha:
+            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
                 yield aha
+
+    async def test_lib_aha_mirrors(self):
+
+        urls = ('cell://home0', 'cell://home1')
+        conf = {'aha:urls': urls}
+
+        async with self.getTestAha(conf=conf) as aha:
+            async with aha.getLocalProxy() as proxy:
+                self.eq(urls, await proxy.getAhaUrls())
 
     async def test_lib_aha(self):
 

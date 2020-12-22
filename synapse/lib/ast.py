@@ -16,6 +16,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
@@ -557,7 +558,8 @@ class ForLoop(Oper):
                 if isinstance(name, (list, tuple)):
 
                     if len(name) != len(item):
-                        raise s_exc.StormVarListError(names=name, vals=item)
+                        mesg = 'Number of items to unpack does not match the number of variables.'
+                        raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
 
                     for x, y in itertools.zip_longest(name, item):
                         path.setVar(x, y)
@@ -605,7 +607,8 @@ class ForLoop(Oper):
                 if isinstance(name, (list, tuple)):
 
                     if len(name) != len(item):
-                        raise s_exc.StormVarListError(names=name, vals=item)
+                        mesg = 'Number of items to unpack does not match the number of variables.'
+                        raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
 
                     for x, y in itertools.zip_longest(name, item):
                         runt.setVar(x, y)
@@ -735,13 +738,16 @@ class CmdOper(Oper):
             # ( many commands expect self.opts is set at run() )
             genr = await pullone(genx())
 
-            if runtsafe:
-                argv = await self.kids[1].compute(runt, None)
-                if not await scmd.setArgv(argv):
-                    return
+            try:
+                if runtsafe:
+                    argv = await self.kids[1].compute(runt, None)
+                    if not await scmd.setArgv(argv):
+                        return
 
-            async for item in scmd.execStormCmd(runt, genr):
-                yield item
+                async for item in scmd.execStormCmd(runt, genr):
+                    yield item
+            finally:
+                await genr.aclose()
 
 class SetVarOper(Oper):
 
@@ -827,7 +833,8 @@ class VarListSetOper(Oper):
 
             item = await vkid.compute(runt, path)
             if len(item) < len(names):
-                raise s_exc.StormVarListError(names=names, vals=item)
+                mesg = 'Attempting to assign more items then we have variable to assign to.'
+                raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
 
             for name, valu in zip(names, item):
                 runt.setVar(name, valu)
@@ -839,7 +846,8 @@ class VarListSetOper(Oper):
 
             item = await vkid.compute(runt, None)
             if len(item) < len(names):
-                raise s_exc.StormVarListError(names=names, vals=item)
+                mesg = 'Attempting to assign more items then we have variable to assign to.'
+                raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
 
             for name, valu in zip(names, item):
                 runt.setVar(name, valu)
@@ -1721,6 +1729,10 @@ class PropPivotOut(PivotOper):
 
         warned = False
         async for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
+
             name = await self.kids[0].compute(runt, path)
 
             prop = node.form.props.get(name)
@@ -2558,7 +2570,8 @@ class FuncCall(Value):
         kwlist = await self.kids[2].compute(runt, path)
         kwargs = dict(kwlist)
 
-        return await s_coro.ornot(func, *argv, **kwargs)
+        with s_scope.enter({'runt': runt}):
+            return await s_coro.ornot(func, *argv, **kwargs)
 
 class DollarExpr(Value, Cond):
     '''

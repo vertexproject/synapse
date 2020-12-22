@@ -558,6 +558,17 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="QuickBrownFox" return ( $foo.lower() )'
             self.eq('quickbrownfox', await core.callStorm(q))
 
+            # tuck the regx tests in with str
+            self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
+            self.true(await core.callStorm(r'''return($lib.regex.matches('foo', FOOBAR, $lib.regex.flags.i))'''))
+            self.false(await core.callStorm(r'''return($lib.regex.matches('^foo$', foobar))'''))
+            self.false(await core.callStorm(f'return($lib.regex.matches(foo, " foobar"))'))
+
+            self.eq(('oo',), await core.callStorm(r'''return($lib.regex.search('([aeiou]+)', foobar))'''))
+            self.eq(('foo', 'baz'), await core.callStorm('return($lib.regex.search("(foo)bar(baz)", foobarbaz))'))
+            self.eq((), await core.callStorm('return($lib.regex.search(foo, foobar))'))
+            self.none(await core.callStorm('return($lib.regex.search(foo, bat))'))
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
@@ -1391,6 +1402,14 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('for ($offs, $name) in $lib.queue.get(doit).gets(size=2) { [test:str=$name] }')
             self.len(2, nodes)
 
+            q = '$item = $lib.queue.get(doit).get(offs=1) [test:str=$item.0]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'for ($offs, $name) in $lib.queue.get(doit).gets(size=1, offs=1) { [test:str=$name] }'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
             # test other users who have access to this queue can do things to it
             async with core.getLocalProxy() as root:
                 # add users
@@ -1444,6 +1463,18 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_node_data(self):
 
         async with self.getTestCore() as core:
+            stormpkg = {
+                'name': 'nodedatatest',
+                'version': (0, 0, 1),
+                'commands': (
+                    {
+                     'name': 'nd.permtest',
+                     'storm': '$node.data.get(foo:bar)',
+                    },
+                ),
+            }
+
+            await core.addStormPkg(stormpkg)
 
             nodes = await core.nodes('[test:int=10] $node.data.set(foo, hehe)')
 
@@ -1475,6 +1506,13 @@ class StormTypesTest(s_test.SynTest):
 
             self.none(await nodes[1].getData('woot'))
             self.eq(nodes[0].ndef, ('test:str', 'woot'))
+
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm('test:int | nd.permtest')
+                await visi.addRule((True, 'storm.asroot.cmd.nd.permtest'.split('.')))
+                await asvisi.callStorm('test:int | nd.permtest')
 
     async def test_storm_lib_bytes(self):
 
@@ -1739,6 +1777,9 @@ class StormTypesTest(s_test.SynTest):
 
             info = await core.callStorm('return ($lib.layer.get().pack())')
             self.gt(info.get('totalsize'), 1)
+
+            # Try to create an invalid layer
+            mesgs = await core.stormlist('$lib.layer.add(ldef=$lib.dict(lockmemory=(42)))')
 
             # Create a new layer
             newlayr = await core.callStorm('return($lib.layer.add().iden)')
@@ -3173,6 +3214,22 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError) as cm:
                 _ = await core.nodes('inet:ipv4=1.2.3.4 $lib.print($lib.len($node))')
             self.eq(cm.exception.get('mesg'), 'Object synapse.lib.node.Node does not have a length.')
+
+            nodes = await core.nodes('[test:guid=(beep,)] $node.props.size="12"')
+            self.eq(12, nodes[0].get('size'))
+            nodes = await core.nodes('[test:guid=(beep,)] $node.props.".seen"=2020')
+            self.eq((1577836800000, 1577836800001), nodes[0].get('.seen'))
+
+            text = '$d=$lib.dict() test:guid=(beep,) { for ($name, $valu) in $node.props { $d.$name=$valu } } return ($d)'
+            props = await core.callStorm(text)
+            self.eq(12, props.get('size'))
+            self.eq((1577836800000, 1577836800001), props.get('.seen'))
+            self.isin('.created', props)
+
+            with self.raises(s_exc.NoSuchProp):
+                self.true(await core.callStorm('[test:guid=(beep,)] $node.props.newp="noSuchProp"'))
+            with self.raises(s_exc.BadTypeValu):
+                self.true(await core.callStorm('[test:guid=(beep,)] $node.props.size=(foo, bar)'))
 
     async def test_stormtypes_toprim(self):
 

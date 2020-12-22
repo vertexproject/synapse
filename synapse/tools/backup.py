@@ -32,7 +32,7 @@ def backup(srcdir, dstdir, skipdirs=None):
 @contextlib.contextmanager
 def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
     '''
-    A context manager that opens all the lmdb files under a srcdir and makes a read transaction.  All tranactions are
+    A context manager that opens all the lmdb files under a srcdir and makes a read transaction.  All transactions are
     aborted and environments closed when the context is exited.
 
     Yields:

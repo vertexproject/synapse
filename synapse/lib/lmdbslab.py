@@ -62,7 +62,7 @@ class Hist:
 
 class SlabDict:
     '''
-    A dictionary-like object which stores it's props in a slab via a prefix.
+    A dictionary-like object which stores its props in a slab via a prefix.
 
     It is assumed that only one SlabDict with a given prefix exists at any given
     time, but it is up to the caller to cache them.
@@ -237,6 +237,12 @@ class HotKeyVal(s_base.Base):
         self.dirty.add(byts)
         return valu
 
+    def delete(self, name: str):
+        byts = name.encode()
+        self.cache.pop(byts, None)
+        self.dirty.discard(byts)
+        self.slab.delete(byts, db=self.db)
+
     def sync(self):
         tups = [(p, self.EncFunc(self.cache[p])) for p in self.dirty]
         if not tups:
@@ -258,6 +264,11 @@ class HotCount(HotKeyVal):
     def inc(self, name: str, valu=1):
         byts = name.encode()
         self.cache[byts] += valu
+        self.dirty.add(byts)
+
+    def set(self, name: str, valu):
+        byts = name.encode()
+        self.cache[byts] = valu
         self.dirty.add(byts)
 
     def get(self, name: str, defv=0):
@@ -512,23 +523,22 @@ class GuidStor:
         bidn = s_common.uhex(iden)
         return SlabDict(self.slab, db=self.db, pref=bidn)
 
-def _ispo2(i):
-    return not (i & (i - 1)) and i
-
 def _florpo2(i):
     '''
     Return largest power of 2 equal to or less than i
     '''
-    if _ispo2(i):
+    if not (i & (i - 1)):
         return i
+
     return 1 << (i.bit_length() - 1)
 
 def _ceilpo2(i):
     '''
     Return smallest power of 2 equal to or greater than i
     '''
-    if _ispo2(i):
+    if not (i & (i - 1)):
         return i
+
     return 1 << i.bit_length()
 
 def _roundup(i, multiple):
@@ -984,15 +994,21 @@ class Slab(s_base.Base):
         self.locking_memory = False
         logger.debug('memory locking thread ended')
 
-    def initdb(self, name, dupsort=False, integerkey=False):
+    def initdb(self, name, dupsort=False, integerkey=False, dupfixed=False):
+
+        if name in self.dbnames:
+            return name
+
         while True:
             try:
                 if self.readonly:
                     # In a readonly environment, we can't make our own write transaction, but we
                     # can have the lmdb module create one for us by not specifying the transaction
-                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey)
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey,
+                                           dupfixed=dupfixed)
                 else:
-                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey)
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey,
+                                           dupfixed=dupfixed)
                     self.dirty = True
                     self.forcecommit()
 
@@ -1066,6 +1082,20 @@ class Slab(s_base.Base):
         try:
             with self.xact.cursor(db=realdb) as curs:
                 if not curs.last():
+                    return None
+                return curs.key()
+        finally:
+            self._relXactForReading()
+
+    def firstkey(self, db=None):
+        '''
+        Return the first key or None from the given db.
+        '''
+        self._acqXactForReading()
+        realdb, _ = self.dbnames[db]
+        try:
+            with self.xact.cursor(db=realdb) as curs:
+                if not curs.first():
                     return None
                 return curs.key()
         finally:
@@ -1176,11 +1206,23 @@ class Slab(s_base.Base):
 
                 yield item
 
-    def scanByPref(self, byts, db=None):
+    def scanByPref(self, byts, startkey=None, startvalu=None, db=None):
+        '''
+        Args:
+            byts(bytes):                 prefix to match on
+            startkey(Optional[bytes]):   if present, will start scanning at key=byts+startkey
+            startvalu(Optional[bytes]):  if present, will start scanning at (key+startkey, startvalu)
+
+        Notes:
+            startvalu only makes sense if byts+startkey matches an entire key.
+            startvalu is only value for dupsort=True dbs
+        '''
+        if startkey is None:
+            startkey = b''
 
         with Scan(self, db) as scan:
 
-            if not scan.set_range(byts):
+            if not scan.set_range(byts + startkey, valu=startvalu):
                 return
 
             size = len(byts)
@@ -1503,10 +1545,14 @@ class Scan:
         self.atitem = next(self.genr)
         return True
 
-    def set_range(self, lkey):
+    def set_range(self, lkey, valu=None):
 
-        if not self.curs.set_range(lkey):
-            return False
+        if valu is None:
+            if not self.curs.set_range(lkey):
+                return False
+        else:
+            if not self.curs.set_range_dup(lkey, valu):
+                return False
 
         self.genr = self.iterfunc()
         self.atitem = next(self.genr)

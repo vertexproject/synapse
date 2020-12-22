@@ -94,6 +94,11 @@ class Foo:
         yield 20
         raise s_exc.SynErr(mesg='derp')
 
+    async def agenrboom(self):
+        yield 10
+        yield 20
+        raise s_exc.SynErr(mesg='derp')
+
     def raze(self):
         # test that SynErr makes it through
         raise s_exc.NoSuchMeth(name='haha')
@@ -184,11 +189,25 @@ class TeleTest(s_t_utils.SynTest):
         foo = Foo()
         evt = asyncio.Event()
 
+        urls = (
+            'aha://visi@foo.bar.com',
+            'ssl://visi@foo.bar.com?hostname=woot',
+            'aha://visi@127.0.0.1/foo/bar&hostname=hehe',
+            'ssl://127.0.0.1:2222/&hostname=hehe?ca=haha',
+            'tcp://visi:secret@localhost:2929/foo/bar&certname=hehe',
+        )
+
+        for url in urls:
+            self.eq(url, s_telepath.zipurl(s_telepath.chopurl(url)))
+
         async with self.getTestDmon() as dmon:
 
             dmon.share('foo', foo)
 
             await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
+
+            with self.raises(s_exc.BadArg):
+                await s_telepath.openurl(10)
 
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1])
 
@@ -235,6 +254,10 @@ class TeleTest(s_t_utils.SynTest):
             genr = prox.corogenr(3)
             self.true(isinstance(genr, s_telepath.GenrIter))
             self.eq((0, 1, 2), await alist(genr))
+
+            # check async generator explodes channel
+            genr = prox.agenrboom()
+            await self.asyncraises(s_exc.SynErr, genr.list())
 
             await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
 
@@ -435,8 +458,6 @@ class TeleTest(s_t_utils.SynTest):
 
                 genr = prox.corogenr(3)
                 self.eq([0, 1, 2], [x async for x in genr])
-                # To act the same as a local object, would be:
-                # self.eq([0, 1, 2], [x async for x in genr])
 
                 aitr = prox.corogenr('fred').__aiter__()
                 await self.asyncraises(s_exc.SynErr, aitr.__anext__())
@@ -453,7 +474,7 @@ class TeleTest(s_t_utils.SynTest):
 
                 task = dmon.schedCoro(longwaiter())
 
-            await self.asyncraises(StopAsyncIteration, aitr.__anext__())
+            await self.asyncraises(s_exc.LinkShutDown, aitr.__anext__())
             start_event.set()
 
             # Test that a coroutine about to await on an async proxy method doesn't become "stuck" by awaiting on a
@@ -463,6 +484,33 @@ class TeleTest(s_t_utils.SynTest):
             await asyncio.sleep(.1)
 
             await self.asyncraises(s_exc.IsFini, asyncio.wait_for(task, timeout=2))
+
+    async def test_telepath_asyncgenr_early_term(self):
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+
+            dmon.share('foo', foo)
+
+            # Test with and without session (telepath v2 and v1)
+            for do_sess in (True, False):
+                retn = []
+
+                async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
+                    if not do_sess:
+                        prox.sess = None
+
+                    with self.raises(s_exc.LinkShutDown):
+
+                        genr = prox.corogenr(1000)
+                        async for i in genr:
+                            retn.append(i)
+                            if i == 2:
+                                # yank out the ethernet cable
+                                await list(dmon.links)[0].fini()
+
+                self.eq(retn, [0, 1, 2])
 
     async def test_telepath_blocking(self):
         ''' Make sure that async methods on the same proxy don't block each other '''

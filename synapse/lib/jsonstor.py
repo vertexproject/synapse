@@ -303,6 +303,10 @@ class JsonStorApi(s_cell.CellApi):
         info['created'] = s_common.now()
         return await self.cell.addQueue(name, info)
 
+    async def delQueue(self, name):
+        await self._reqUserAllowed(('queue', 'del', name))
+        return await self.cell.delQueue(name)
+
     async def cullQueue(self, name, offs):
         await self._reqUserAllowed(('queue', 'gets', name))
         return await self.cell.cullQueue(name, offs)
@@ -368,6 +372,13 @@ class JsonStorCell(s_cell.Cell):
             await self.multique.add(name, info)
             return True
         return False
+
+    @s_nexus.Pusher.onPushAuto('q:del')
+    async def delQueue(self, name):
+        if not self.multique.exists(name):
+            return False
+        await self.multique.rem(name)
+        return True
 
     @s_nexus.Pusher.onPushAuto('q:puts')
     async def putsQueue(self, name, items, reqid=None):

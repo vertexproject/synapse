@@ -6,6 +6,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
@@ -32,6 +33,32 @@ reqValidVdef = s_config.getJsValidator({
     'additionalProperties': True,
     'required': ['iden', 'parent', 'creator', 'layers'],
 })
+
+class ViewApi(s_cell.CellApi):
+
+    async def __anit__(self, core, link, user, view):
+
+        await s_cell.CellApi.__anit__(self, core, link, user)
+        self.view = view
+        layriden = view.layers[0].iden
+        self.allowedits = user.allowed(('layer', 'write'), gateiden=layriden)
+
+    async def storNodeEdits(self, edits, meta):
+
+        if not self.allowedits:
+            mesg = 'storNodeEdits() not allowed without layer.write on layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        if meta is None:
+            meta = {}
+
+        meta['time'] = s_common.now()
+        meta['user'] = self.user.iden
+
+        return await self.view.storNodeEdits(edits, meta)
+
+    async def getCellIden(self):
+        return self.view.iden
 
 class View(s_nexus.Pusher):  # type: ignore
     '''
@@ -704,3 +731,7 @@ class View(s_nexus.Pusher):  # type: ignore
         async with await self.snap(user=user) as snap:
             # go with the anti-pattern for now...
             await snap.applyNodeEdits(edits)
+
+    async def storNodeEdits(self, edits, meta):
+        return await self.addNodeEdits(edits, meta)
+        # TODO remove addNodeEdits?

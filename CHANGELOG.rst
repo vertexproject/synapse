@@ -5,6 +5,140 @@ Synapse Changelog
 *****************
 
 
+v2.16.1 - 2020-12-17
+====================
+
+Features and Enhancements
+-------------------------
+- Allow the ``matchdef`` used in the ``Layer.syncIndexEvents()`` API
+  to match on tagprop data.
+  (`#2010 <https://github.com/vertexproject/synapse/pull/2010>`_)
+
+Bugfixes
+--------
+- Properly detect and raise a client side exception in Telepath generators
+  when the underlying Link has been closed.
+  (`#2008 <https://github.com/vertexproject/synapse/pull/2008>`_)
+- Refactor the Layer push/push test to not reach through the Layer API
+  boundary.
+  (`#2012 <https://github.com/vertexproject/synapse/pull/2012>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for Storm raw pivot syntax.
+  (`#2007 <https://github.com/vertexproject/synapse/pull/2007>`_)
+- Add documentation for recently added Storm commands.
+  (`#2007 <https://github.com/vertexproject/synapse/pull/2007>`_)
+- General cleanup and clarifications.
+  (`#2007 <https://github.com/vertexproject/synapse/pull/2007>`_)
+
+
+v2.16.0 - 2020-12-15
+====================
+
+Features and Enhancements
+-------------------------
+- Replaced the View sync APIs introduced in ``v2.14.0`` with Layer specific
+  sync APIs.
+  (`#2003 <https://github.com/vertexproject/synapse/pull/2003>`_)
+- Add ``$lib.regex.matches()`` and ``$lib.regex.search()`` Stormtypes APIs for
+  performing regular expression operations against text in Storm.
+  (`#1999 <https://github.com/vertexproject/synapse/pull/1999>`_)
+  (`#2005 <https://github.com/vertexproject/synapse/pull/2005>`_)
+- Add ``synapse.tools.genpkg`` for generating Storm packages and loading them
+  into a Cortex.
+  (`#2004 <https://github.com/vertexproject/synapse/pull/2004>`_)
+- Refactored the StormDmon implementation to use a single async task and allow
+  the Dmons to be restarted via ``$lib.dmon.bump(iden)``. This replaces the
+  outer task / inner task paradigm that was previously present. Also add the
+  ability to persistently disable and enable a StomDmon.
+  (`#1998 <https://github.com/vertexproject/synapse/pull/1998>`_)
+- Added ``aha://`` support to the ``synapse.tools.pushfile`` and
+  ``synapse.tools.pullfile`` tools.
+  (`#2006 <https://github.com/vertexproject/synapse/pull/2006>`_)
+
+Bugfixes
+--------
+- Properly handle whitespace in keyword arguments when calling functions in
+  Storm.
+  (`#1999 <https://github.com/vertexproject/synapse/pull/1997>`_)
+- Fix some garbage collection issues causing periodic pauses in a Cortex due
+  to failing to close some generators used in the Storm Command AST node.
+  (`#2001 <https://github.com/vertexproject/synapse/pull/2001>`_)
+  (`#2002 <https://github.com/vertexproject/synapse/pull/2002>`_)
+- Fix scope based permission checks in Storm.
+  (`#2000 <https://github.com/vertexproject/synapse/pull/2000>`_)
+
+
+v2.15.0 - 2020-12-11
+====================
+
+Features and Enhancements
+-------------------------
+- Add two new Cortex APIs: ``syncIndexEvents`` and ``syncLayerEvents`` useful
+  for external indexing.
+  (`#1948 <https://github.com/vertexproject/synapse/pull/1948>`_)
+  (`#1996 <https://github.com/vertexproject/synapse/pull/1996>`_)
+- LMDB Slab improvements: Allow dupfixed dbs, add ``firstkey`` method, inline
+  ``_ispo2``, add HotCount deletion.
+  (`#1948 <https://github.com/vertexproject/synapse/pull/1948>`_)
+- Add method to merge sort sorted async generators.
+  (`#1948 <https://github.com/vertexproject/synapse/pull/1948>`_)
+
+Bugfixes
+--------
+- Ensure parent FQDN exists even in out-of-order node edit playback.
+  (`#1995 <https://github.com/vertexproject/synapse/pull/1995>`_)
+
+
+v2.14.2 - 2020-12-10
+====================
+
+Bugfixes
+--------
+- Fix an issue with the new layer push / pull code.
+  (`#1994 <https://github.com/vertexproject/synapse/pull/1994>`_)
+- Fix an issue with the url sanitization function when the path contains
+  an ``@`` character.
+  (`#1993 <https://github.com/vertexproject/synapse/pull/1993>`_)
+
+
+v2.14.1 - 2020-12-09
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``/api/v1/active`` HTTPAPI to the Cell that can be used as an
+  unauthenticated liveliness check.
+  (`#1987 <https://github.com/vertexproject/synapse/pull/1987>`_)
+- Add ``$lib.pip.gen()`` Stormtypes API for ephemeral queues and bulk data
+  access in Storm.
+  (`#1986 <https://github.com/vertexproject/synapse/pull/1986>`_)
+- Add a ``$lib.model.tagprop()`` Stormtypes API for retrieving Tagprop
+  definitions.
+  (`#1990 <https://github.com/vertexproject/synapse/pull/1990>`_)
+- Add efficient View and Layer push/pull configurations.
+  (`#1991 <https://github.com/vertexproject/synapse/pull/1991>`_)
+  (`#1992 <https://github.com/vertexproject/synapse/pull/1992>`_)
+- Add ``getAhaUrls()`` to the Aha service to prepare for additional
+  service discovery.
+  (`#1989 <https://github.com/vertexproject/synapse/pull/1989>`_)
+- Add a ``/api/v1/auth/onepass/issue`` HTTPAPI for an admin to mint a
+  one-time password for a Cell user.
+  (`#1982 <https://github.com/vertexproject/synapse/pull/1982>`_)
+
+Bugfixes
+--------
+- Make ``aha://`` urls honor local paths.
+  (`#1985 <https://github.com/vertexproject/synapse/pull/1985>`_)
+
+
+v2.14.0 - 2020-12-09
+====================
+
+``2.14.0`` was not published due to CI issues.
+
+
 v2.13.0 - 2020-12-04
 ====================
 

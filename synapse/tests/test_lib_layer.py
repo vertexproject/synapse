@@ -1,7 +1,6 @@
 import os
 import math
 import asyncio
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -22,18 +21,6 @@ async def iterPropForm(self, form=None, prop=None):
     bad_valu += [(b'boz', 'boz')] * 10
     for buid, valu in bad_valu:
         yield buid, valu
-
-@contextlib.contextmanager
-def patch_snap(snap):
-    old_layr = []
-    for layr in snap.layers:
-        old_layr.append((layr.iterPropRows, layr.iterUnivRows))
-        layr.iterPropRows, layr.iterUnivRows = (iterPropForm,) * 2
-
-    yield
-
-    for layr_idx, layr in enumerate(snap.layers):
-        layr.iterPropRows, layr.iterUnivRows = old_layr[layr_idx]
 
 class LayerTest(s_t_utils.SynTest):
 
@@ -528,6 +515,46 @@ class LayerTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(url) as layrprox:
                 await self.agenlen(26, layrprox.splices())
 
+    async def test_layer_stortype_hier(self):
+        stor = s_layer.StorTypeHier(None, None)
+
+        vals = ['', 'foo', 'foo.bar']
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
+    async def test_layer_stortype_ipv6(self):
+        stor = s_layer.StorTypeIpv6(None)
+
+        vals = ('::1', 'fe80::431c:39b2:888:974')
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
+    async def test_layer_stortype_hugenum(self):
+        stor = s_layer.StorTypeHugeNum(self, None)
+
+        vals = [-99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, 2**63 + 1.1]
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eqish(valu, stor.decodeIndx(indx[0]), places=3)
+
+    async def test_layer_stortype_ival(self):
+        stor = s_layer.StorTypeIval(self)
+
+        vals = [(2000, 2020), (1960, 1970)]
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
+    async def test_layer_stortype_latlon(self):
+        stor = s_layer.StorTypeLatLon(self)
+
+        vals = [(0.0, 0.0), (89.2, -140.2)]
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
     async def test_layer_stortype_int(self):
         async with self.getTestCore() as core:
 
@@ -620,6 +647,7 @@ class LayerTest(s_t_utils.SynTest):
 
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
                 layr.layrslab.put(key[0], val, db=tmpdb)
+                self.eqOrNan(s_msgpack.un(val), stor.decodeIndx(key[0]))
 
             # = -99999.9
             retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', -99999.9)]
@@ -685,6 +713,14 @@ class LayerTest(s_t_utils.SynTest):
 
             # 1.0 to NaN
             await self.agenraises(s_exc.NotANumberCompared, stor.indxBy(indxby, 'range=', (1.0, math.nan)))
+
+    async def test_layer_stortype_guid(self):
+        stor = s_layer.StorTypeGuid(None)
+
+        vals = (s_common.guid(valu=42), '0' * 32, 'f' * 32)
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
 
     async def test_layer_stortype_merge(self):
 
@@ -897,10 +933,103 @@ class LayerTest(s_t_utils.SynTest):
                             await asyncio.sleep(0)
 
                     async def doEdit():
-                        await core1.nodes(f'sleep 1 | [ test:str=endofquery ]')
+                        await core1.nodes('sleep 1 | [ test:str=endofquery ]')
 
-                    task = core1.schedCoro(doEdit())
+                    core1.schedCoro(doEdit())
                     await asyncio.wait_for(waitForEdit(), timeout=6)
+
+    async def test_layer_stornodeedits_nonexus(self):
+        # test for migration methods that store nodeedits bypassing nexus
+
+        async with self.getTestCore() as core0:
+
+            layer0 = core0.getLayer()
+
+            await core0.nodes('[ test:str=foo ]')
+            self.len(2, await core0.nodes('.created'))
+
+            nodeedits = [ne async for ne in layer0.iterLayerNodeEdits()]
+            self.len(2, nodeedits)
+
+            await core0.nodes('.created | delnode --force')
+
+            flatedits = await layer0._storNodeEdits(nodeedits, {}, None)
+            self.len(2, flatedits)
+
+            self.len(2, await core0.nodes('.created'))
+
+    async def test_layer_syncindexevents(self):
+
+        async with self.getTestCore() as core:
+            layr = core.getLayer()
+            await core.addTagProp('score', ('int', {}), {})
+            baseoff = await core.getNexsIndx()
+
+            nodes = await core.nodes('[ test:str=foo ]')
+            strnode = nodes[0]
+            q = '[ inet:ipv4=1.2.3.4 :asn=42 .seen=(2012,2014) +#mytag:score=99 +#foo.bar=(2012, 2014) ]'
+            nodes = await core.nodes(q)
+            ipv4node = nodes[0]
+
+            await core.nodes('inet:ipv4=1.2.3.4 test:str=foo | delnode')
+
+            mdef = {'forms': ['test:str']}
+            events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
+            self.len(2, events)
+            expectadd = (baseoff, (strnode.buid, 'test:str', s_layer.EDIT_NODE_ADD,
+                                   ('foo', s_layer.STOR_TYPE_UTF8), ()))
+            expectdel = (baseoff + 19, (strnode.buid, 'test:str', s_layer.EDIT_NODE_DEL,
+                                        ('foo', s_layer.STOR_TYPE_UTF8), ()))
+            self.eq(events, [expectadd, expectdel])
+
+            mdef = {'props': ['.seen']}
+            events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
+            self.len(2, events)
+            ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
+            expectadd = (baseoff + 3, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET,
+                                       ('.seen', ival, None, s_layer.STOR_TYPE_IVAL), ()))
+            expectdel = (baseoff + 16, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL,
+                                        ('.seen', ival, s_layer.STOR_TYPE_IVAL), ()))
+            self.eq(events, [expectadd, expectdel])
+
+            mdef = {'props': ['inet:ipv4:asn']}
+            events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
+            self.len(2, events)
+            expectadd = (baseoff + 2, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET,
+                                       ('asn', 42, None, s_layer.STOR_TYPE_I64), ()))
+            expectdel = (baseoff + 15, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL,
+                                        ('asn', 42, s_layer.STOR_TYPE_I64), ()))
+            self.eq(events, [expectadd, expectdel])
+
+            mdef = {'tags': ['foo.bar']}
+            events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
+            self.len(2, events)
+            expectadd = (baseoff + 9, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_SET,
+                                       ('foo.bar', ival, None), ()))
+            expectdel = (baseoff + 10, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_DEL,
+                                        ('foo.bar', ival), ()))
+            self.eq(events, [expectadd, expectdel])
+
+            mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
+            for mdef in mdefs:
+                events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
+                self.len(2, events)
+                expectadd = (baseoff + 6, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
+                                           ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()))
+                expectdel = (baseoff + 11, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
+                                            ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()))
+                self.eq(events, [expectadd, expectdel])
+
+            mdef = {'forms': ['test:str', 'inet:ipv4'], 'tags': ['foo', ]}
+            count = 0
+            async for item in layr.syncIndexEvents(baseoff, mdef):
+                count += 1
+                if count == 4:
+                    await core.nodes('test:str=bar')
+                if count == 5:
+                    break
+
+            self.eq(count, 5)
 
     async def test_layer_form_by_buid(self):
 
@@ -991,6 +1120,7 @@ class LayerTest(s_t_utils.SynTest):
 
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
+            self.true(await layr.hasTagProp('score'))
 
     async def test_layer_waitForHot(self):
         self.thisHostMust(hasmemlocking=True)
@@ -1109,3 +1239,118 @@ class LayerTest(s_t_utils.SynTest):
             s_layer.reqValidLdef(layrinfo)
             layr = await s_layer.Layer.anit(layrinfo, dirn)
             self.true(layr.logedits)
+
+    async def test_layer_iter_props(self):
+
+        async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
+
+            async with await core.snap() as snap:
+
+                props = {'asn': 10, '.seen': ('2016', '2017')}
+                node = await snap.addNode('inet:ipv4', 1, props=props)
+                buid1 = node.buid
+                await node.addTag('foo', ('2020', '2021'))
+                await node.setTagProp('foo', 'score', 42)
+
+                props = {'asn': 20, '.seen': ('2015', '2016')}
+                node = await snap.addNode('inet:ipv4', 2, props=props)
+                buid2 = node.buid
+                await node.addTag('foo', ("2019", "2020"))
+                await node.setTagProp('foo', 'score', 41)
+
+                props = {'asn': 30, '.seen': ('2015', '2016')}
+                node = await snap.addNode('inet:ipv4', 3, props=props)
+                buid3 = node.buid
+                await node.addTag('foo', ("2018", "2020"))
+                await node.setTagProp('foo', 'score', 99)
+
+                node = await snap.addNode('test:str', 'yolo')
+                strbuid = node.buid
+
+                node = await snap.addNode('test:str', 'z' * 500)
+                strbuid2 = node.buid
+
+            # rows are (buid, valu) tuples
+            layr = core.view.layers[0]
+            rows = await alist(layr.iterPropRows('inet:ipv4', 'asn'))
+
+            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
+
+            styp = core.model.form('inet:ipv4').prop('asn').type.stortype
+            rows = await alist(layr.iterPropRows('inet:ipv4', 'asn', styp))
+            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
+
+            rows = await alist(layr.iterPropRows('inet:ipv4', 'asn', styp))
+            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
+
+            # rows are (buid, valu) tuples
+            rows = await alist(layr.iterUnivRows('.seen'))
+
+            tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
+            ivals = (tm('2015', '2016'), tm('2015', '2016'), tm('2016', '2017'))
+            self.eq(ivals, tuple(sorted([row[1] for row in rows])))
+
+            # iterFormRows
+            rows = await alist(layr.iterFormRows('inet:ipv4'))
+            self.eq([(buid1, 1), (buid2, 2), (buid3, 3)], rows)
+
+            rows = await alist(layr.iterFormRows('inet:ipv4', stortype=s_layer.STOR_TYPE_U32, startvalu=2))
+            self.eq([(buid2, 2), (buid3, 3)], rows)
+
+            rows = await alist(layr.iterFormRows('test:str', stortype=s_layer.STOR_TYPE_UTF8, startvalu='yola'))
+            self.eq([(strbuid, 'yolo'), (strbuid2, 'z' * 500)], rows)
+
+            # iterTagRows
+            expect = sorted(
+                [
+                    (buid1, (tm('2020', '2021'), 'inet:ipv4')),
+                    (buid2, (tm('2019', '2020'), 'inet:ipv4')),
+                    (buid3, (tm('2018', '2020'), 'inet:ipv4')),
+                ], key=lambda x: x[0])
+
+            rows = await alist(layr.iterTagRows('foo'))
+            self.eq(expect, rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='inet:ipv4'))
+            self.eq(expect, rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='newpform'))
+            self.eq([], rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
+            self.eq([], rows)
+
+            rows = await alist(layr.iterTagRows('foo', starttupl=(expect[1][0], 'inet:ipv4')))
+            self.eq(expect[1:], rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='inet:ipv4', starttupl=(expect[1][0], 'inet:ipv4')))
+            self.eq(expect[1:], rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='inet:ipv4', starttupl=(expect[1][0], 'newpform')))
+            self.eq([], rows)
+
+            rows = await alist(layr.iterTagRows('nosuchtag'))
+            self.eq([], rows)
+
+            expect = [
+                (buid2, 41,),
+                (buid1, 42,),
+                (buid3, 99,),
+            ]
+
+            rows = await alist(layr.iterTagPropRows('foo', 'newp'))
+            self.eq([], rows)
+
+            rows = await alist(layr.iterTagPropRows('foo', 'score'))
+            self.eq(expect, rows)
+
+            rows = await alist(layr.iterTagPropRows('foo', 'score', form='inet:ipv4'))
+            self.eq(expect, rows)
+
+            rows = await alist(layr.iterTagPropRows('foo', 'score', form='inet:ipv4', stortype=s_layer.STOR_TYPE_I64,
+                                                    startvalu=42))
+            self.eq(expect[1:], rows)
+
+            rows = await alist(layr.iterTagPropRows('foo', 'score', stortype=s_layer.STOR_TYPE_I64, startvalu=42))
+            self.eq(expect[1:], rows)

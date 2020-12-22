@@ -1,4 +1,6 @@
 import synapse.exc as s_exc
+import synapse.lib.layer as s_layer
+
 import synapse.tests.utils as s_test
 
 class StormlibModelTest(s_test.SynTest):
@@ -19,12 +21,17 @@ class StormlibModelTest(s_test.SynTest):
 
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
             self.eq('inet:ipv4', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.name)'))
+            self.eq(s_layer.STOR_TYPE_U32, await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.stortype)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.type(inet:dns:a).name)'))
 
             self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ipv4).repr($(0x01020304)))'))
             self.eq(0x01020304, await core.callStorm('return($lib.model.type(inet:ipv4).norm(1.2.3.4).index(0))'))
             self.eq('inet:dns:a:ipv4', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ipv4).full)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).form.name)'))
+
+            await core.addTagProp('score', ('int', {}), {})
+            self.eq('score', await core.callStorm('return($lib.model.tagprop(score).name)'))
+            self.eq('int', await core.callStorm('return($lib.model.tagprop(score).type.name)'))
 
     async def test_stormlib_model_edge(self):
 
