@@ -952,28 +952,21 @@ class TeleTest(s_t_utils.SynTest):
             dmon.share('foo', foo)
             url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
 
-            prox = await s_telepath.openurl(url)  # type: Foo
+            async with await s_telepath.openurl(url) as proxy:
 
-            # Fire up an async generator which will yield a message then
-            # wait for a while
-            async for mesg in prox.sleepg(t=60):
-                self.eq(mesg, ('init', {}))
-                break
+                with self.getAsyncLoggerStream('synapse.daemon',
+                                               'task sleepg') as stream:
 
-            # Ensure that tearing down the client prompty tears down
-            # taskv2init coro due to the link being fini'd by the server.
-            # It is important that we validate these items BEFORE we
-            # teardown the proxy, since the previous (<0.1.32) behaviour
-            # would hold onto coroutines on the Daemon and not cancel
-            # the taskv2init coroutines until the Daemon was shut down.
-            with self.getAsyncLoggerStream('synapse.daemon',
-                                           'task sleepg') as stream:
-                await prox.fini()
-                # Ensure that the sleepg function got canceled.
-                await asyncio.sleep(1)
-                self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
-                # Ensure we logged the cancellation.
-                self.true(await stream.wait(6))
+                    # Fire up an async generator which will yield a message then
+                    # wait for a while so that our break will tear it down
+                    async for mesg in proxy.sleepg(t=60):
+                        self.eq(mesg, ('init', {}))
+                        break
+
+                    # Ensure that the sleepg function got canceled.
+                    self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
+                    # Ensure we logged the cancellation.
+                    self.true(await stream.wait(6))
 
     async def test_link_fini_breaking_tasks2(self):
         '''
@@ -1130,6 +1123,51 @@ class TeleTest(s_t_utils.SynTest):
                     url = burl + '&consul_tag=burritos'
                     await s_telepath.disc_consul(s_telepath.chopurl(url))
                 self.eq('burritos', cm.exception.get('tag'))
+
+    async def test_telepath_pipeline(self):
+
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+
+            dmon.share('foo', foo)
+
+            async def genr():
+                yield s_common.todo('bar', 10, 30)
+                yield s_common.todo('bar', 20, 30)
+                yield s_common.todo('bar', 30, 30)
+
+            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+            async with await s_telepath.openurl(url) as proxy:
+
+                self.eq(20, await proxy.bar(10, 10))
+                self.eq(1, len(proxy.links))
+
+                vals = []
+                async for retn in proxy.getPipeline(genr()):
+                    vals.append(s_common.result(retn))
+
+                self.eq(vals, (40, 50, 60))
+
+                self.eq(1, len(proxy.links))
+                self.eq(160, await proxy.bar(80, 80))
+
+                async def boomgenr():
+                    yield s_common.todo('bar', 10, 30)
+                    raise s_exc.NoSuchIden()
+
+                with self.raises(s_exc.NoSuchIden):
+                    async for retn in proxy.getPipeline(boomgenr()):
+                        pass
+
+                # This test must remain at the end of the with block
+                async def sleeper():
+                    yield s_common.todo('bar', 10, 30)
+                    await asyncio.sleep(3)
+
+                with self.raises(s_exc.LinkShutDown):
+                    async for retn in proxy.getPipeline(sleeper()):
+                        vals.append(s_common.result(retn))
+                        await proxy.fini()
 
     async def test_telepath_client_onlink_exc(self):
 
