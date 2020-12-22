@@ -58,7 +58,8 @@ async def genStormRst(path, debug=False):
 
             core = context.get('cortex')
             if core is None:
-                raise s_exc.SynErr('no cortex')
+                mesg = 'No cortex set.  Use .. storm-cortex::'
+                raise s_exc.NoSuchVar(mesg=mesg)
 
             opts = context.get('opts')
             await core.callStorm(text, opts=opts)
@@ -70,7 +71,8 @@ async def genStormRst(path, debug=False):
 
             core = context.get('cortex')
             if core is None:
-                raise s_exc.SynErr('no cortex')
+                mesg = 'No cortex set.  Use .. storm-cortex::'
+                raise s_exc.NoSuchVar(mesg=mesg)
 
             outp.append('::\n')
             outp.append('\n')
@@ -94,7 +96,7 @@ async def genStormRst(path, debug=False):
                     continue
 
                 if mesg[0] == 'err':
-                    raise s_exc.StormRuntimeError(mesg)
+                    raise s_exc.StormRuntimeError(mesg=mesg)
 
             outp.append('\n')
             continue
