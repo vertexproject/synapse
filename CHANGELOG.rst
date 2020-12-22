@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.17.0 - 2020-12-22
+v2.17.1 - 2020-12-22
 ====================
 
 Features and Enhancements
@@ -32,11 +32,17 @@ Bugfixes
 - Allow :prop -+> * join syntax.
   (`#2015 <https://github.com/vertexproject/synapse/pull/2015>`_)
 
-- make getFormCount() API return a primitive dictionary.
+- Make getFormCount() API return a primitive dictionary.
   (`#2014 <https://github.com/vertexproject/synapse/pull/2014>`_)
 
 - Make StormVarListError messages more user friendly.
   (`#2013 <https://github.com/vertexproject/synapse/pull/2013>`_)
+
+v2.17.0 - 2020-12-22
+====================
+
+``2.17.0`` was not published due to CI issues.
+
 
 v2.16.1 - 2020-12-17
 ====================
