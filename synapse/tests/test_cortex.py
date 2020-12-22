@@ -1922,7 +1922,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Test the stormpkg apis
             otherpkg = {
                 'name': 'foosball',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'synapse_minversion': (2, 8, 0),
             }
             self.none(await proxy.addStormPkg(otherpkg))
@@ -1965,7 +1965,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # a storm service are displayed
             otherpkg = {
                 'name': 'foosball',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'synapse_minversion': (2, 8, 0),
                 'commands': ({
                     'name': 'testcmd',

@@ -215,9 +215,9 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.eq(email, 'visi@vertex.link')
 
-            pkg0 = {'name': 'hehe', 'version': (1, 2, 3)}
+            pkg0 = {'name': 'hehe', 'version': '1.2.3'}
             await core.addStormPkg(pkg0)
-            self.eq((1, 2, 3), await core.callStorm('return($lib.pkg.get(hehe).version)'))
+            self.eq('1.2.3', await core.callStorm('return($lib.pkg.get(hehe).version)'))
 
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
@@ -380,7 +380,7 @@ class StormTest(s_t_utils.SynTest):
         cont = s_common.guid()
         pkg = {
             'name': 'testload',
-            'version': (0, 3, 0),
+            'version': '0.3.0',
             'modules': (
                 {
                     'name': 'testload',
