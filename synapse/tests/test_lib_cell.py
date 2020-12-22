@@ -1,7 +1,6 @@
 import os
 import sys
 import time
-import aiohttp
 import asyncio
 
 from unittest import mock
@@ -10,6 +9,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 
 import synapse.tests.utils as s_t_utils
@@ -751,7 +751,7 @@ class CellTest(s_t_utils.SynTest):
                 evt2.set()
                 await evt3.wait()
 
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 evt4.set()
                 raise
 
@@ -759,8 +759,8 @@ class CellTest(s_t_utils.SynTest):
 
             async with await s_cell.Cell.anit(dirn) as cell:
 
-                # he'll start active...
-                iden = await cell.addActiveCoro(coro)
+                # Note: cell starts active, so coro should immediate run
+                iden = cell.addActiveCoro(coro)
 
                 async def step():
                     await asyncio.wait_for(evt0.wait(), timeout=2)
@@ -776,6 +776,15 @@ class CellTest(s_t_utils.SynTest):
                     await asyncio.wait_for(evt0.wait(), timeout=2)
 
                 await step()
+
+                self.none(await cell.delActiveCoro('notacoro'))
+
+                # Make sure a fini'd base takes its activecoros with it
+                async with await s_base.Base.anit() as base:
+                    cell.addActiveCoro(coro, base=base)
+                    self.len(2, cell.activecoros)
+
+                self.len(1, cell.activecoros)
 
                 # now deactivate and it gets cancelled
                 await cell.setCellActive(False)

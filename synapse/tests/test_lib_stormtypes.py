@@ -1898,7 +1898,7 @@ class StormTypesTest(s_test.SynTest):
                 url = core2.getLocalUrl('*/layer')
 
                 layriden = core2.view.layers[0].iden
-                offs = await core2.view.layers[0].getNodeEditOffset()
+                offs = await core2.view.layers[0].getEditIndx()
 
                 layers = set(core.layers.keys())
                 q = f'layer.add --upstream {url}'

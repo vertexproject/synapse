@@ -904,13 +904,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except Exception as e: # pragma: no cover
             logger.warning(f'_setAhaActive failed: {e}')
 
-    async def addActiveCoro(self, func, iden=None):
+    def addActiveCoro(self, func, iden=None, base=None):
         '''
         Add a function callback to be run as a coroutine when the Cell is active.
 
         Args:
             func (coroutine function): The function run as a coroutine.
             iden (str): The iden to use for the coroutine.
+            base (Optional[Base]):  if present, this active coro will be fini'd whe
+                                    when the base is fini'd
+
 
         Returns:
             str: A GUID string that identifies the coroutine for delActiveCoro()
@@ -918,75 +921,78 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         NOTE:
             This will re-fire the coroutine if it exits and the Cell is still active.
         '''
+        if base and base.isfini:
+            raise s_exc.IsFini()
 
         if iden is None:
             iden = s_common.guid()
 
-        cdef = {'func': func}
+        cdef = {'func': func, 'base': base}
         self.activecoros[iden] = cdef
 
+        if base:
+            async def fini():
+                await self.delActiveCoro(iden)
+            base.onfini(fini)
+
         if self.isactive:
-            await self._fireActiveCoro(iden, cdef)
+            self._fireActiveCoro(iden, cdef)
 
         return iden
 
     async def delActiveCoro(self, iden):
         '''
-        Remove a callback previously added with addActiveCoro().
+        Remove an Active coroutine previously added with addActiveCoro().
 
         Args:
-            iden (str): The GUID returned by addActiveCoro()
+            iden (str): The iden returned by addActiveCoro()
         '''
-
-        cent = self.activecoros.pop(iden, None)
-        if cent is None:
+        cdef = self.activecoros.pop(iden, None)
+        if cdef is None:
             return
 
-        task = cent.get('task')
-        if task is not None:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                logger.warning(f'delActiveCoro Task: {e}')
+        await self._killActiveCoro(cdef)
 
-    async def _fireActiveCoros(self):
+    def _fireActiveCoros(self):
         for iden, cdef in self.activecoros.items():
-            await self._fireActiveCoro(iden, cdef)
+            self._fireActiveCoro(iden, cdef)
 
-    async def _fireActiveCoro(self, iden, cdef):
+    def _fireActiveCoro(self, iden, cdef):
         func = cdef.get('func')
+
         async def wrap():
             while not self.isfini:
                 try:
                     await func()
                 except asyncio.CancelledError:
                     raise
-                except Exception as e:
-                    logger.warning(f'activeCoro Error: {func} {e}')
+                except Exception:  # pragma no cover
+                    logger.exception(f'activeCoro Error: {func}')
                     await asyncio.sleep(1)
 
         cdef['task'] = self.schedCoro(wrap())
 
     async def _killActiveCoros(self):
         for cdef in self.activecoros.values():
-            task = cdef.pop('task', None)
-            if task is not None:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-                except Exception as e: # pragma: no cover
-                    logger.warning(f'killActiveCoros Task: {e}')
+            await self._killActiveCoro(cdef)
+
+    async def _killActiveCoro(self, cdef):
+        task = cdef.pop('task', None)
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+                task.result()
+            except asyncio.CancelledError:
+                pass
+            except Exception: # pragma: no cover
+                logger.exception('activeCoro in _killActiveCoros')
 
     async def setCellActive(self, active):
         self.isactive = active
 
         if self.isactive:
-            await self._fireActiveCoros()
+            self._fireActiveCoros()
             await self._execCellUpdates()
             await self.initServiceActive()
         else:
