@@ -3,6 +3,7 @@ An RMI framework for synapse.
 '''
 
 import os
+import time
 import asyncio
 import logging
 import collections
@@ -922,6 +923,7 @@ class Client(s_base.Base):
         self.schedCoro(self._teleLinkLoop())
 
     async def _teleLinkLoop(self):
+        lastlog = 0.0
 
         while not self.isfini:
 
@@ -940,7 +942,10 @@ class Client(s_base.Base):
                 raise
 
             except Exception as e:
-                logger.warning(f'telepath client ({s_urlhelp.sanitizeUrl(url)}): {e}')
+                now = time.monotonic()
+                if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
+                    logger.info(f'telepath client ({s_urlhelp.sanitizeUrl(url)}): {e}')
+                    lastlog = now
                 await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
 
     async def proxy(self, timeout=10):

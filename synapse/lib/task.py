@@ -61,8 +61,10 @@ class Task(s_base.Base):
 
         try:
             await self.task
-        except (asyncio.CancelledError, Exception):
+        except asyncio.CancelledError:
             pass
+        except Exception:  # pragma:  no cover
+            logger.exception('Task completed with exception')
 
         if self.root is not None:
             self.root.kids.pop(self.iden)

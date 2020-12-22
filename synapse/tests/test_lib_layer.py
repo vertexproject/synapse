@@ -82,7 +82,7 @@ class LayerTest(s_t_utils.SynTest):
                     await core01.view.addLayer(layr.iden)
 
                     # test initial sync
-                    offs = await core00.getView().layers[0].getNodeEditOffset()
+                    offs = await core00.getView().layers[0].getEditIndx()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -102,14 +102,14 @@ class LayerTest(s_t_utils.SynTest):
                     # make sure updates show up
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
 
-                    offs = await core00.getView().layers[0].getNodeEditOffset()
+                    offs = await core00.getView().layers[0].getEditIndx()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
-                offs = await core00.getView().layers[0].getNodeEditOffset()
+                offs = await core00.getView().layers[0].getEditIndx()
 
                 # test what happens when we go down and come up again...
                 async with self.getTestCore(dirn=path01) as core01:
@@ -123,7 +123,7 @@ class LayerTest(s_t_utils.SynTest):
 
                     await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
 
-                    offs = await core00.getView().layers[0].getNodeEditOffset()
+                    offs = await core00.getView().layers[0].getEditIndx()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -169,7 +169,7 @@ class LayerTest(s_t_utils.SynTest):
                     layr = core01.getLayer(ldef.get('iden'))
 
                     # Sync core01 with core00
-                    offs = await core00.getView().layers[0].getNodeEditOffset()
+                    offs = await core00.getView().layers[0].getEditIndx()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=8.0)
 
@@ -222,7 +222,7 @@ class LayerTest(s_t_utils.SynTest):
                         await core02.view.addLayer(layr.iden)
 
                         # core00 is synced
-                        offs = await core00.getView().layers[0].getNodeEditOffset()
+                        offs = await core00.getView().layers[0].getEditIndx()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -232,7 +232,7 @@ class LayerTest(s_t_utils.SynTest):
                         self.nn(nodes[0].tags.get('hehe.haha'))
 
                         # core01 is synced
-                        offs = await core01.getView().layers[0].getNodeEditOffset()
+                        offs = await core01.getView().layers[0].getEditIndx()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -244,7 +244,7 @@ class LayerTest(s_t_utils.SynTest):
                         # updates from core00 show up
                         await core00.nodes('[ inet:fqdn=vertex.link ]')
 
-                        offs = await core00.getView().layers[0].getNodeEditOffset()
+                        offs = await core00.getView().layers[0].getEditIndx()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -253,7 +253,7 @@ class LayerTest(s_t_utils.SynTest):
                         # updates from core01 show up
                         await core01.nodes('[ inet:fqdn=google.com ]')
 
-                        offs = await core01.getView().layers[0].getNodeEditOffset()
+                        offs = await core01.getView().layers[0].getEditIndx()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -268,14 +268,14 @@ class LayerTest(s_t_utils.SynTest):
                         layr = core02.getView().layers[-1]
 
                         # test we catch up to core00
-                        offs = await core00.getView().layers[0].getNodeEditOffset()
+                        offs = await core00.getView().layers[0].getEditIndx()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:ipv4=5.5.5.5'))
 
                         # test we catch up to core01
-                        offs = await core01.getView().layers[0].getNodeEditOffset()
+                        offs = await core01.getView().layers[0].getEditIndx()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -284,7 +284,7 @@ class LayerTest(s_t_utils.SynTest):
                         # test we get updates from core00
                         await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
 
-                        offs = await core00.getView().layers[0].getNodeEditOffset()
+                        offs = await core00.getView().layers[0].getEditIndx()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -293,7 +293,7 @@ class LayerTest(s_t_utils.SynTest):
                         # test we get updates from core01
                         await core01.nodes('[ inet:ipv4=8.7.6.5 ]')
 
-                        offs = await core01.getView().layers[0].getNodeEditOffset()
+                        offs = await core01.getView().layers[0].getEditIndx()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -1239,6 +1239,18 @@ class LayerTest(s_t_utils.SynTest):
             s_layer.reqValidLdef(layrinfo)
             layr = await s_layer.Layer.anit(layrinfo, dirn)
             self.true(layr.logedits)
+
+    async def test_layer_no_logedits(self):
+
+        with self.getTestDir() as dirn:
+
+            layrinfo = {
+                'logedits': False
+            }
+            layr = await s_layer.Layer.anit(layrinfo, dirn)
+            self.false(layr.logedits)
+
+            self.eq(-1, await layr.getEditOffs())
 
     async def test_layer_iter_props(self):
 
