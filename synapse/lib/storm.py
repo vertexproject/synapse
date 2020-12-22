@@ -2012,66 +2012,77 @@ class MergeCmd(Cmd):
             form = sode.get('form')
             valu = sode.get('valu')
             if valu is not None:
-                runt.confirm(('node', 'add', form), gateiden=layr0)
-                adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
-                subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
+                runt.confirm(('node', 'del', form), gateiden=layr0)
+                runt.confirm(('node', 'add', form), gateiden=layr1)
+
                 if not self.opts.apply:
                     valurepr = node.form.type.repr(valu)
                     await runt.printf(f'{nodeiden} {form} = {valurepr}')
+                else:
+                    adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
+                    subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
 
             for name, (valu, stortype) in sode.get('props', {}).items():
                 full = node.form.prop(name).full
                 runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
                 runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
-                adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
-                subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
                 if not self.opts.apply:
                     valurepr = node.form.prop(name).type.repr(valu)
                     await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
+                else:
+                    adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
+                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
 
             for tag, valu in sode.get('tags', {}).items():
                 tagperm = tuple(tag.split('.'))
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
-                adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
-                subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
                 if not self.opts.apply:
                     valurepr = ''
                     if valu != (None, None):
                         tagrepr = runt.model.type('ival').repr(valu)
                         valurepr = f' = {tagrepr}'
                     await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
+                else:
+                    adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
+                    subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
 
             for (tag, prop), (valu, stortype) in sode.get('tagprops', {}).items():
                 tagperm = tuple(tag.split('.'))
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
-                adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
                 if not self.opts.apply:
                     valurepr = repr(valu)
                     await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                else:
+                    adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                    subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
             layr = runt.snap.view.layers[0]
             async for name, valu in layr.iterNodeData(node.buid):
-                adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
-                subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
-                if len(adds) >= 1000:
-                    await sync()
-
+                runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+                runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
                 if not self.opts.apply:
                     valurepr = repr(valu)
                     await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
+                else:
+                    adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+                    subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
+                    if len(adds) >= 1000:
+                        await sync()
 
             async for edge in layr.iterNodeEdgesN1(node.buid):
-                adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
-                subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
-                if len(adds) >= 1000:
-                    await sync()
-
+                verb = edge[0]
+                runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+                runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
                 if not self.opts.apply:
                     name, dest = edge
                     await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
+                else:
+                    adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
+                    subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                    if len(adds) >= 1000:
+                        await sync()
 
             await sync()
 
