@@ -2410,6 +2410,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.CountCmd)
         self.addStormCmd(s_storm.GraphCmd)
         self.addStormCmd(s_storm.LimitCmd)
+        self.addStormCmd(s_storm.MergeCmd)
         self.addStormCmd(s_storm.SleepCmd)
         self.addStormCmd(s_storm.ScrapeCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
@@ -3156,7 +3157,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 async with await s_telepath.openurl(url) as proxy:
                     await self._pushBulkEdits(layr, proxy, pdef)
 
-        await self.addActiveCoro(push, iden=iden)
+        self.addActiveCoro(push, iden=iden)
 
     async def runLayrPull(self, layr, pdef):
         url = pdef.get('url')
@@ -3168,7 +3169,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 async with await s_telepath.openurl(url) as proxy:
                     await self._pushBulkEdits(proxy, layr, pdef)
 
-        await self.addActiveCoro(pull, iden=iden)
+        self.addActiveCoro(pull, iden=iden)
 
     async def _pushBulkEdits(self, layr0, layr1, pdef):
 
@@ -3216,7 +3217,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     await self.setStormVar(gvar, offs)
 
     async def _checkNexsIndx(self):
-        layroffs = [await layr.getNodeEditOffset() for layr in self.layers.values()]
+        layroffs = [await layr.getEditIndx() for layr in self.layers.values()]
         if layroffs:
             maxindx = max(layroffs)
             if maxindx > await self.getNexsIndx():

@@ -3006,7 +3006,21 @@ class Node(Prim):
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
             'isform': self._methNodeIsForm,
+            'getByLayer': self.getByLayer,
+            'getStorNodes': self.getStorNodes,
         }
+
+    def getStorNodes(self):
+        '''
+        Return a list of "storage nodes" which were fused from the layers to make this node.
+        '''
+        return self.valu.getStorNodes()
+
+    def getByLayer(self):
+        '''
+        Return a dict you can use to lookup which props/tags came from which layers.
+        '''
+        return self.valu.getByLayer()
 
     def _ctorNodeData(self, path=None):
         return NodeData(self.valu, path=path)
@@ -3413,6 +3427,7 @@ class Layer(Prim):
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
+            'getStorNodes': self.getStorNodes,
         }
 
     async def _addPull(self, url, offs=0):
@@ -3604,6 +3619,21 @@ class Layer(Prim):
             count += 1
             if size is not None and size == count:
                 break
+
+    async def getStorNodes(self):
+        '''
+        Yield (buid, sode) tuples represeting the data stored in this layer.
+
+        NOTE: "storage nodes" (or "sodes") represent *only* the data stored in
+              the layer and may not represent whole nodes.
+        '''
+        layriden = self.valu.get('iden')
+        self.runt.confirm(('layer', 'read'), gateiden=layriden)
+
+        todo = s_common.todo('getStorNodes')
+
+        async for item in self.runt.dyniter(layriden, todo):
+            yield item
 
     async def _methLayerGet(self, name, defv=None):
         return self.valu.get(name, defv)
