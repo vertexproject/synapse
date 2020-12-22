@@ -1797,6 +1797,7 @@ class Layer(s_nexus.Pusher):
         valt = sode.pop('valu', None)
         if valt is None:
             # TODO tombstone
+            self.mayDelBuid(buid, sode)
             return ()
 
         self.setSodeDirty(buid, sode, form)
@@ -1916,6 +1917,7 @@ class Layer(s_nexus.Pusher):
         valt = sode['props'].pop(prop, None)
         if valt is None:
             # FIXME tombstone
+            self.mayDelBuid(buid, sode)
             return ()
 
         self.setSodeDirty(buid, sode, form)
@@ -1987,6 +1989,7 @@ class Layer(s_nexus.Pusher):
         oldv = sode['tags'].pop(tag, None)
         if oldv is None:
             # TODO tombstone
+            self.mayDelBuid(buid, sode)
             return ()
 
         self.setSodeDirty(buid, sode, form)
@@ -2045,6 +2048,7 @@ class Layer(s_nexus.Pusher):
 
         oldv, oldt = sode['tagprops'].pop(tpkey, (None, None))
         if oldv is None:
+            self.mayDelBuid(buid, sode)
             return ()
 
         self.setSodeDirty(buid, sode, form)
@@ -2091,6 +2095,7 @@ class Layer(s_nexus.Pusher):
 
         oldb = self.dataslab.pop(buid + abrv, db=self.nodedata)
         if oldb is None:
+            self.mayDelBuid(buid, sode)
             return ()
 
         oldv = s_msgpack.un(oldb)
@@ -2137,6 +2142,7 @@ class Layer(s_nexus.Pusher):
         n2buid = s_common.uhex(n2iden)
 
         if not self.layrslab.delete(buid + venc, n2buid, db=self.edgesn1):
+            self.mayDelBuid(buid, sode)
             return ()
 
         self.layrslab.delete(venc, buid + n2buid, db=self.byverb)
