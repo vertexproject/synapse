@@ -1536,7 +1536,7 @@ class StormTest(s_t_utils.SynTest):
                         await asvisi.callStorm(f'$lib.layer.get($layr2).delPull(hehe)', opts=opts)
 
                 actv = len(core.activecoros)
-                #view0 -push-> view1 <-pull- view2
+                # view0 -push-> view1 <-pull- view2
                 await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
                 await core.callStorm(f'$lib.layer.get($layr2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
 
@@ -1550,7 +1550,7 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
-                offs = await core.layers.get(layr2).getEditOffs(defv=-1)
+                offs = await core.layers.get(layr2).getEditOffs()
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
                 await core.layers.get(layr2).waitEditOffs(offs + 1, timeout=3)
                 self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
@@ -1564,7 +1564,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await asyncio.sleep(0)
 
-                offs = await core.layers.get(layr2).getEditOffs(defv=-1)
+                offs = await core.layers.get(layr2).getEditOffs()
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
                 await core.layers.get(layr2).waitEditOffs(offs + 1, timeout=3)
 

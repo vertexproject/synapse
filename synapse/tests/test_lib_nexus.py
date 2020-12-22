@@ -145,7 +145,7 @@ class NexusTest(s_t_utils.SynTest):
         async with self.getRegrCore('migrated-nexuslog') as core00:
 
             nexsindx = await core00.getNexsIndx()
-            layrindx = max([await layr.getNodeEditOffset() for layr in core00.layers.values()])
+            layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
             self.eq(nexsindx, layrindx)
 
             # Make sure a mirror gets updated to the correct index
@@ -156,7 +156,7 @@ class NexusTest(s_t_utils.SynTest):
 
                 await core01.sync()
 
-                layrindx = max([await layr.getNodeEditOffset() for layr in core01.layers.values()])
+                layrindx = max([await layr.getEditIndx() for layr in core01.layers.values()])
                 self.eq(nexsindx, layrindx)
 
             # Can only move index forward
@@ -167,5 +167,5 @@ class NexusTest(s_t_utils.SynTest):
         async with self.getRegrCore('migrated-nexuslog', conf=nologconf) as core:
 
             nexsindx = await core.getNexsIndx()
-            layrindx = max([await layr.getNodeEditOffset() for layr in core.layers.values()])
+            layrindx = max([await layr.getEditIndx() for layr in core.layers.values()])
             self.eq(nexsindx, layrindx)
