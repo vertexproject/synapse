@@ -740,6 +740,9 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _exit(self):
+        '''
+        Cause a Storm Runtime to stop running.
+        '''
         raise s_stormctrl.StormExit()
 
     @stormfunc(readonly=True)

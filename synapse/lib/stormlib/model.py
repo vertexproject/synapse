@@ -493,11 +493,28 @@ class LibModelDeprecated(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _locks(self):
+        '''
+        Get a dictionary of the data model elements which are deprecated and their lock status in the Cortex.
+
+        Returns:
+            Dict: A dictionary of named elements to their boolean lock values.
+        '''
         todo = s_common.todo('getDeprLocks')
         locks = await self.runt.dyncall('cortex', todo)
         return s_stormtypes.Dict(locks)
 
     async def _lock(self, name, locked):
+        # FIXME
+        '''
+        Lock a
+
+        Args:
+            name:
+            locked:
+
+        Returns:
+
+        '''
         name = await s_stormtypes.tostr(name)
         locked = await s_stormtypes.tobool(locked)
         todo = s_common.todo('setDeprLock', name, locked)
