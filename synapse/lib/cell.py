@@ -911,7 +911,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Args:
             func (coroutine function): The function run as a coroutine.
             iden (str): The iden to use for the coroutine.
-            base (Optional[Base]):  if present, this active coro will be fini'd whe
+            base (Optional[Base]):  if present, this active coro will be fini'd
                                     when the base is fini'd
 
 
