@@ -4,6 +4,39 @@
 Synapse Changelog
 *****************
 
+v2.17.0 - 2020-12-22
+====================
+
+Features and Enhancements
+-------------------------
+
+- Added (BETA) RST pre-processor to embed Storm output into RST docs.
+  (`#2009 <https://github.com/vertexproject/synapse/pull/2009>`_)
+
+- Updated storm package format to include a semver version string.
+  (`#2016 <https://github.com/vertexproject/synapse/pull/2016>`_)
+
+- Added telepath proxy getPipeline API to minimize round-trip delay.
+  (`#1615 <https://github.com/vertexproject/synapse/pull/1615>`_)
+
+- Added Node properties iteration and setitem APIs to storm.
+  (`#2011 <https://github.com/vertexproject/synapse/pull/2011>`_)
+
+
+Bugfixes
+--------
+
+- Fixes for active coro API and internal layer API name fixes.
+  (`#2018 <https://github.com/vertexproject/synapse/pull/2018>`_)
+
+- Allow :prop -+> * join syntax.
+  (`#2015 <https://github.com/vertexproject/synapse/pull/2015>`_)
+
+- make getFormCount() API return a primitive dictionary.
+  (`#2014 <https://github.com/vertexproject/synapse/pull/2014>`_)
+
+- Make StormVarListError messages more user friendly.
+  (`#2013 <https://github.com/vertexproject/synapse/pull/2013>`_)
 
 v2.16.1 - 2020-12-17
 ====================
