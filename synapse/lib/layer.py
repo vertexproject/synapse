@@ -2865,7 +2865,7 @@ class Layer(s_nexus.Pusher):
 
     async def delete(self):
         '''
-        Delete the local underlying storage
+        Delete the underlying storage
         '''
         self.isdeleted = True
         await self.fini()
