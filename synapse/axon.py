@@ -188,6 +188,10 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.has(sha256)
 
+    async def size(self, sha256):
+        await self._reqUserAllowed(('axon', 'has'))
+        return await self.cell.size(sha256)
+
     async def hashes(self, offs):
         await self._reqUserAllowed(('axon', 'has'))
         async for item in self.cell.hashes(offs):
@@ -343,6 +347,11 @@ class Axon(s_cell.Cell):
 
     async def has(self, sha256):
         return self.axonslab.get(sha256, db=self.sizes) is not None
+
+    async def size(self, sha256):
+        byts = self.axonslab.get(sha256, db=self.sizes)
+        if byts is not None:
+            return int.from_bytes(byts, 'big')
 
     async def metrics(self):
         return dict(self.axonmetrics.items())

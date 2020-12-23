@@ -1534,6 +1534,9 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(text, opts=opts)
             self.len(2, nodes)
 
+            opts = {'vars': {'sha256': asdfhash_h}}
+            self.eq(8, await core.callStorm('return($lib.bytes.size($sha256))', opts=opts))
+
             self.eq(nodes[0].ndef, ('test:int', 8))
             self.eq(nodes[1].ndef, ('test:str', asdfhash_h))
 

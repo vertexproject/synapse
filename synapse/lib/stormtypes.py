@@ -1195,6 +1195,7 @@ class LibBytes(Lib):
         return {
             'put': self._libBytesPut,
             'has': self._libBytesHas,
+            'size': self._libBytesSize,
             'upload': self._libBytesUpload,
         }
 
@@ -1239,6 +1240,25 @@ class LibBytes(Lib):
         '''
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('has', s_common.uhex(sha256))
+        ret = await self.dyncall('axon', todo)
+        return ret
+
+    async def _libBytesSize(self, sha256):
+        '''
+        Return the size of the bytes stored in the Axon for the given sha256.
+
+        Args:
+            sha256 (str): The sha256 value to check.
+
+        Examples:
+
+            $size = $lib.bytes.size($sha256)
+
+        Returns:
+            int: The size of the file or $lib.null if the file is not found.
+        '''
+        await self.runt.snap.core.getAxon()
+        todo = s_common.todo('size', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
 

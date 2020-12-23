@@ -70,6 +70,7 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(b'asdfasdf', b''.join(bytz))
 
         self.true(await axon.has(asdfhash))
+        self.eq(8, await axon.size(asdfhash))
 
         logger.info('bbufhash test')
 
