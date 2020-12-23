@@ -980,13 +980,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         task = cdef.pop('task', None)
         if task is not None:
             task.cancel()
-            try:
-                await task
-                task.result()
-            except asyncio.CancelledError:  # pragma:  no cover
-                pass
-            except Exception: # pragma: no cover
-                logger.exception('activeCoro in _killActiveCoros')
+            await asyncio.sleep(0)
 
     async def setCellActive(self, active):
         self.isactive = active
