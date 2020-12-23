@@ -4,6 +4,21 @@
 Synapse Changelog
 *****************
 
+v2.18.0 - 2020-12-23
+====================
+
+Features and Enhancements
+-------------------------
+
+- Added axon.size() API and storm plumbing
+  (`#2020 <https://github.com/vertexproject/synapse/pull/2020>`_)
+
+Bugfixes
+--------
+
+- Fix active coro issue uncovered with cluster testing
+  (`#2021 <https://github.com/vertexproject/synapse/pull/2021>`_)
+
 v2.17.1 - 2020-12-22
 ====================
 
