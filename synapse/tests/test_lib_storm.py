@@ -1701,6 +1701,8 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv, len(core.activecoros))
 
+                acoros = [cdef.get('task') for cdef in core.activecoros.values()]
+
                 await core.callStorm('$lib.view.del($view0)', opts=opts)
                 await core.callStorm('$lib.view.del($view1)', opts=opts)
                 await core.callStorm('$lib.view.del($view2)', opts=opts)
@@ -1708,7 +1710,18 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('$lib.layer.del($layr1)', opts=opts)
                 await core.callStorm('$lib.layer.del($layr2)', opts=opts)
 
-                await asyncio.sleep(1)
+                # Wait for the active coros to die
+                for acor in acoros:
+                    if acor is None or acor.done():
+                        continue
+                    try:
+                        await asyncio.wait_for(acor, timeout=5.0)
+                    except asyncio.CancelledError:
+                        pass
+                    except asyncio.TimeoutError:
+                        raise
+                    except Exception:
+                        pass
 
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
