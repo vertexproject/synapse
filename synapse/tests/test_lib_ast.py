@@ -1736,11 +1736,13 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            evtl = asyncio.get_event_loop()
+            beforecount = len(evtl._asyncgens)
+
             await core.nodes('[ inet:fqdn=vertex.link ]')
 
             # Make sure commands don't leave generators around
-            evtl = asyncio.get_event_loop()
-            self.eq(1, len(evtl._asyncgens))
+            self.eq(beforecount, len(evtl._asyncgens))
 
             await core.nodes('''
                 $i=0
@@ -1752,4 +1754,4 @@ class AstTest(s_test.SynTest):
 
             # Wait a second for cleanup
             await asyncio.sleep(1)
-            self.eq(1, len(evtl._asyncgens))
+            self.eq(beforecount, len(evtl._asyncgens))

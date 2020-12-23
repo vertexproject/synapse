@@ -1708,7 +1708,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('$lib.layer.del($layr1)', opts=opts)
                 await core.callStorm('$lib.layer.del($layr2)', opts=opts)
 
-                await asyncio.sleep(0)
+                await asyncio.sleep(1)
 
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
