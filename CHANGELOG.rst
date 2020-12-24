@@ -4,6 +4,25 @@
 Synapse Changelog
 *****************
 
+v2.18.1 - 2020-12-24
+====================
+
+Bugfixes
+--------
+
+- Make syncIndexEvents testing more resiliant
+- Make syncIndexEvents yield more often when filtering results
+  (`#2025 <https://github.com/vertexproject/synapse/pull/2025>`_)
+
+- Update push/pull tests to use new waittask() API
+- Raise clear errors in ambiguous use of node.tagglobs() API
+- Update model docs and examples for geo:latitude and geo:longitude
+- Support deref form names in storm node add expressions
+  (`#2024 <https://github.com/vertexproject/synapse/pull/2024>`_)
+
+- Update tests to normalize equality comparison values
+  (`#2023 <https://github.com/vertexproject/synapse/pull/2023>`_)
+
 v2.18.0 - 2020-12-23
 ====================
 
