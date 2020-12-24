@@ -3084,6 +3084,10 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeGlobTags(self, glob):
+        glob = await tostr(glob)
+        if glob.find('***') != -1:
+            mesg = f'Tag globs may not be adjacent: {glob}'
+            raise s_exc.BadArg(mesg=mesg)
         tags = list(self.valu.tags.keys())
         regx = s_cache.getTagGlobRegx(glob)
         ret = []
@@ -4975,7 +4979,8 @@ class LibCron(Lib):
 
         todo = s_common.todo('updateCronJob', iden, query)
         gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
-        return await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        return iden
 
     async def _methCronList(self):
         '''

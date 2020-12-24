@@ -355,6 +355,20 @@ class StormTest(s_t_utils.SynTest):
                 return($list)
             ''', opts=opts))
 
+            self.eq('c8af8cfbcc36ba5dec9858124f8f014d', await core.callStorm('''
+                $iden = c8af8cfbcc36ba5dec9858124f8f014d
+                [ inet:fqdn=vertex.link <(woots)+ {[ meta:source=$iden ]} ]
+                <(woots)- meta:source
+                return($node.value())
+            '''))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('inet:fqdn=vertex.link $tags = $node.globtags(foo.***)')
+
+            nodes = await core.nodes('$form=inet:fqdn [ *$form=visi.com ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'visi.com'))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:

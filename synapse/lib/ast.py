@@ -2767,6 +2767,11 @@ class PropName(Value):
     async def compute(self, runt, path):
         return await self.kids[0].compute(runt, path)
 
+class FormName(Value):
+
+    async def compute(self, runt, path):
+        return await self.kids[0].compute(runt, path)
+
 class RelProp(PropName):
     pass
 
@@ -2837,12 +2842,10 @@ class EditNodeAdd(Edit):
 
     def prepare(self):
 
-        assert isinstance(self.kids[0], Const)
+        assert isinstance(self.kids[0], FormName)
         assert isinstance(self.kids[1], Const)
 
-        self.name = self.kids[0].value()
         self.oper = self.kids[1].value()
-
         self.excignore = (s_exc.BadTypeValu, ) if self.oper == '?=' else ()
 
     async def addFromPath(self, form, runt, path):
@@ -2853,13 +2856,9 @@ class EditNodeAdd(Edit):
         '''
         vals = await self.kids[2].compute(runt, path)
 
-        # for now, we have a conflict with a Node instance and prims
-        # if not isinstance(vals, s_stormtypes.Node):
-        #     vals = await s_stormtypes.toprim(vals)
-
         for valu in form.type.getTypeVals(vals):
             try:
-                newn = await runt.snap.addNode(self.name, valu)
+                newn = await runt.snap.addNode(form.name, valu)
             except self.excignore:
                 pass
             else:
@@ -2884,10 +2883,6 @@ class EditNodeAdd(Edit):
         if runt.readonly:
             raise s_exc.IsReadOnly()
 
-        form = runt.model.form(self.name)
-        if form is None:
-            raise s_exc.NoSuchForm(name=self.name)
-
         runtsafe = self.isRuntSafe(runt)
 
         async def feedfunc():
@@ -2898,9 +2893,12 @@ class EditNodeAdd(Edit):
                 async for node, path in genr:
 
                     # must reach back first to trigger sudo / etc
-                    if first:
-                        runt.layerConfirm(('node', 'add', self.name))
-                        first = False
+                    formname = await self.kids[0].compute(runt, path)
+                    runt.layerConfirm(('node', 'add', formname))
+
+                    form = runt.model.form(formname)
+                    if form is None:
+                        raise s_exc.NoSuchForm(name=formname)
 
                     # must use/resolve all variables from path before yield
                     async for item in self.addFromPath(form, runt, path):
@@ -2911,14 +2909,19 @@ class EditNodeAdd(Edit):
 
             else:
 
-                runt.layerConfirm(('node', 'add', self.name))
+                formname = await self.kids[0].compute(runt, None)
+                runt.layerConfirm(('node', 'add', formname))
+
+                form = runt.model.form(formname)
+                if form is None:
+                    raise s_exc.NoSuchForm(name=formname)
 
                 valu = await self.kids[2].compute(runt, None)
                 valu = await s_stormtypes.toprim(valu)
 
                 for valu in form.type.getTypeVals(valu):
                     try:
-                        node = await runt.snap.addNode(self.name, valu)
+                        node = await runt.snap.addNode(formname, valu)
                     except self.excignore:
                         continue
 
