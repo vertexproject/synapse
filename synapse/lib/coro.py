@@ -82,6 +82,9 @@ async def event_wait(event: asyncio.Event, timeout=None):
 async def waittask(task, timeout=None):
     '''
     Await a task without cancelling it when you time out.
+
+    Returns:
+        boolean: True if the task completed before the timeout.
     '''
     futu = asyncio.get_running_loop().create_future()
     task.add_done_callback(futu.set_result)
