@@ -79,6 +79,20 @@ async def event_wait(event: asyncio.Event, timeout=None):
         return False
     return True
 
+async def waittask(task, timeout=None):
+    '''
+    Await a task without cancelling it when you time out.
+    '''
+    futu = asyncio.get_running_loop().create_future()
+    task.add_done_callback(futu.set_result)
+    try:
+        await asyncio.wait_for(futu, timeout=timeout)
+        return True
+    except asyncio.TimeoutError:
+        return False
+    finally:
+        task.remove_done_callback(futu.set_result)
+
 async def ornot(func, *args, **kwargs):
     '''
     Calls func and awaits it if a returns a coroutine.

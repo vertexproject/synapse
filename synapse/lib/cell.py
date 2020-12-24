@@ -960,7 +960,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def _fireActiveCoro(self, iden, cdef):
 
         func = cdef.get('func')
-        futu = asyncio.Future()
 
         async def wrap():
             while not self.isfini:
@@ -972,11 +971,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     logger.exception(f'activeCoro Error: {func}')
                     await asyncio.sleep(1)
 
-        task = self.schedCoro(wrap())
-        task.add_done_callback(futu.set_result)
-
-        cdef['futu'] = futu
-        cdef['task'] = task
+        cdef['task'] = self.schedCoro(wrap())
 
     async def _killActiveCoros(self):
         for cdef in self.activecoros.values():

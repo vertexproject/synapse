@@ -6,6 +6,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.coro as s_coro
 import synapse.lib.storm as s_storm
 import synapse.lib.version as s_version
 import synapse.lib.httpapi as s_httpapi
@@ -1719,7 +1720,7 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv, len(core.activecoros))
 
-                futus = [cdef.get('futu') for cdef in core.activecoros.values()]
+                tasks = [cdef.get('task') for cdef in core.activecoros.values()]
 
                 await core.callStorm('$lib.view.del($view0)', opts=opts)
                 await core.callStorm('$lib.view.del($view1)', opts=opts)
@@ -1729,8 +1730,8 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('$lib.layer.del($layr2)', opts=opts)
 
                 # Wait for the active coros to die
-                for futu in futus:
-                    await asyncio.wait_for(futu, timeout=5)
+                for task in [t for t in tasks if t is not None]:
+                    await s_coro.waittask(task, timeout=5)
 
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
