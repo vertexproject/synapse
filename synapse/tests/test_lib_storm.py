@@ -1730,7 +1730,7 @@ class StormTest(s_t_utils.SynTest):
 
                 # Wait for the active coros to die
                 for futu in futus:
-                    await asyncio.wait_for(futu, timeout=5.0)
+                    await asyncio.wait_for(futu, timeout=5)
 
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
