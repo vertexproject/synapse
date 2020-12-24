@@ -75,6 +75,13 @@ TEST_MAP_SIZE = s_const.gibibyte
 async def alist(coro):
     return [x async for x in coro]
 
+def norm(z):
+    if isinstance(z, (list, tuple)):
+        return tuple([norm(n) for n in z])
+    if isinstance(z, dict):
+        return {norm(k): norm(v) for (k, v) in z.items()}
+    return z
+
 class LibTst(s_stormtypes.Lib):
 
     def addLibFuncs(self):
@@ -1476,13 +1483,7 @@ class SynTest(unittest.TestCase):
         '''
         Assert X is equal to Y
         '''
-        if type(x) == list:
-            x = tuple(x)
-
-        if type(y) == list:
-            y = tuple(y)
-
-        self.assertEqual(x, y, msg=msg)
+        self.assertEqual(norm(x), norm(y), msg=msg)
 
     def eqOrNan(self, x, y, msg=None):
         '''
@@ -1504,7 +1505,7 @@ class SynTest(unittest.TestCase):
         '''
         Assert X is not equal to Y
         '''
-        self.assertNotEqual(x, y)
+        self.assertNotEqual(norm(x), norm(y))
 
     def true(self, x, msg=None):
         '''
