@@ -374,6 +374,11 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchForm):
                 await core.callStorm('[ it:dev:str=hehe:haha ] $form=$node.value() [*$form=lol]')
 
+            async def sleeper():
+                await asyncio.sleep(2)
+            task = core.schedCoro(sleeper())
+            self.false(await s_coro.waittask(task, timeout=0.1))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
