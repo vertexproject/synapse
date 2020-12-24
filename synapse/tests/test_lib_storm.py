@@ -369,6 +369,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:fqdn', 'visi.com'))
 
+            # test non-runtsafe invalid form deref node add
+            with self.raises(s_exc.NoSuchForm):
+                await core.callStorm('[ it:dev:str=hehe:haha ] $form=$node.value() [*$form=lol]')
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
