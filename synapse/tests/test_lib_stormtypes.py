@@ -2592,7 +2592,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = f"cron.mod {guid[:6]} {{[graph:node='*' :type=m2]}}"
                 mesgs = await core.stormlist(q)
-                self.stormIsInPrint('Modified cron job', mesgs)
+                self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
 
                 q = f"cron.mod xxx {{[graph:node='*' :type=m2]}}"
                 mesgs = await core.stormlist(q)

@@ -46,7 +46,7 @@ edittagdel: "-" tagname
 editpropset: relprop _WS? SETOPER _WS? _valu
 editpropdel: "-" relprop
 editunivset: univprop _WS? SETOPER _WS? _valu
-editnodeadd: ABSPROPNOUNIV _WS? SETOPER _WS? _valu
+editnodeadd: formname _WS? SETOPER _WS? _valu
 edittagpropset: "+" tagprop _WS? SETOPER _WS? _valu
 edittagpropdel: "-" tagprop
 SETOPER: "=" | "+=" | "-=" | _TRYSET
@@ -315,6 +315,7 @@ univprop:  UNIVNAME | "." _varvalu
 PROPNAME: PROPS | UNIVNAME
 ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
+formname: PROPS | _DEREF _varvalu
 // A relative property
 relprop: ":" BASEPROP | ":" _varvalu
 

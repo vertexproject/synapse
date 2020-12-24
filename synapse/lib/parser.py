@@ -457,6 +457,7 @@ ruleClassMap = {
     'editparens': s_ast.EditParens,
     'initblock': s_ast.InitBlock,
     'finiblock': s_ast.FiniBlock,
+    'formname': s_ast.FormName,
     'editpropdel': s_ast.EditPropDel,
     'editpropset': s_ast.EditPropSet,
     'edittagadd': s_ast.EditTagAdd,

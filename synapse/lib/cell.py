@@ -958,6 +958,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self._fireActiveCoro(iden, cdef)
 
     def _fireActiveCoro(self, iden, cdef):
+
         func = cdef.get('func')
 
         async def wrap():

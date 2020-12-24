@@ -304,9 +304,15 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'A street/mailing address string.',
                     }),
                     ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
-                                       'minisvalid': False, 'maxisvalid': True}), {}),
+                                       'minisvalid': False, 'maxisvalid': True}), {
+                        'ex': '31.337',
+                        'doc': 'A longitude in floating point notation.',
+                    }),
                     ('geo:latitude', ('float', {'min': -90.0, 'max': 90.0,
-                                      'minisvalid': True, 'maxisvalid': True}), {}),
+                                      'minisvalid': True, 'maxisvalid': True}), {
+                        'ex': '31.337',
+                        'doc': 'A latitude in floating point notation.',
+                    }),
 
                     ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
                                                 ('xmin', 'geo:longitude'),

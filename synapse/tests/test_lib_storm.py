@@ -6,6 +6,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.coro as s_coro
 import synapse.lib.storm as s_storm
 import synapse.lib.version as s_version
 import synapse.lib.httpapi as s_httpapi
@@ -354,6 +355,29 @@ class StormTest(s_t_utils.SynTest):
                 }
                 return($list)
             ''', opts=opts))
+
+            self.eq('c8af8cfbcc36ba5dec9858124f8f014d', await core.callStorm('''
+                $iden = c8af8cfbcc36ba5dec9858124f8f014d
+                [ inet:fqdn=vertex.link <(woots)+ {[ meta:source=$iden ]} ]
+                <(woots)- meta:source
+                return($node.value())
+            '''))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('inet:fqdn=vertex.link $tags = $node.globtags(foo.***)')
+
+            nodes = await core.nodes('$form=inet:fqdn [ *$form=visi.com ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'visi.com'))
+
+            # test non-runtsafe invalid form deref node add
+            with self.raises(s_exc.NoSuchForm):
+                await core.callStorm('[ it:dev:str=hehe:haha ] $form=$node.value() [*$form=lol]')
+
+            async def sleeper():
+                await asyncio.sleep(2)
+            task = core.schedCoro(sleeper())
+            self.false(await s_coro.waittask(task, timeout=0.1))
 
     async def test_storm_pipe(self):
 
@@ -1701,7 +1725,7 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv, len(core.activecoros))
 
-                acoros = [cdef.get('task') for cdef in core.activecoros.values()]
+                tasks = [cdef.get('task') for cdef in core.activecoros.values()]
 
                 await core.callStorm('$lib.view.del($view0)', opts=opts)
                 await core.callStorm('$lib.view.del($view1)', opts=opts)
@@ -1711,17 +1735,8 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('$lib.layer.del($layr2)', opts=opts)
 
                 # Wait for the active coros to die
-                for acor in acoros:
-                    if acor is None or acor.done():
-                        continue
-                    try:
-                        await asyncio.wait_for(acor, timeout=5.0)
-                    except asyncio.CancelledError:
-                        pass
-                    except asyncio.TimeoutError:
-                        raise
-                    except Exception:
-                        pass
+                for task in [t for t in tasks if t is not None]:
+                    await s_coro.waittask(task, timeout=5)
 
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
