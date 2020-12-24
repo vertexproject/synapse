@@ -2689,10 +2689,11 @@ class Layer(s_nexus.Pusher):
 
                         yield (curoff, (buid, form, etyp, vals, meta))
 
+            await asyncio.sleep(0)
+
             count += 1
             if count % 1000 == 0:
                 yield (curoff, (None, None, EDIT_PROGRESS, (), ()))
-                await asyncio.sleep(0)
 
     async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''
