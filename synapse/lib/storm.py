@@ -2024,7 +2024,7 @@ class MergeCmd(Cmd):
                 runt.confirm(('node', 'add', form), gateiden=layr1)
 
                 if not self.opts.apply:
-                    valurepr = node.form.type.repr(valu)
+                    valurepr = node.form.type.repr(valu[0])
                     await runt.printf(f'{nodeiden} {form} = {valurepr}')
                 else:
                     adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
