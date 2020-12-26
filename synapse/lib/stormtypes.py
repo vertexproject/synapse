@@ -2531,6 +2531,7 @@ class List(Prim):
     def getObjLocals(self):
         return {
             'has': self._methListHas,
+            'pop': self._methListPop,
             'size': self._methListSize,
             'index': self._methListIndex,
             'length': self._methListLength,
@@ -2575,7 +2576,20 @@ class List(Prim):
 
         return prim in self.valu
 
+    async def _methListPop(self):
+        '''
+        Pop and return the last entry in the list.
+        '''
+        try:
+            return self.valu.pop()
+        except IndexError:
+            mesg = 'The list is empty.  Nothing to pop.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
     async def _methListAppend(self, valu):
+        '''
+        Append a value to the list.
+        '''
         self.valu.append(valu)
 
     async def _methListIndex(self, valu):
