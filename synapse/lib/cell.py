@@ -147,6 +147,12 @@ class CellApi(s_base.Base):
     def getCellIden(self):
         return self.cell.getCellIden()
 
+    async def isCellActive(self):
+        '''
+        Returns True if the cell is an active/leader cell.
+        '''
+        return await self.cell.isCellActive()
+
     @adminapi()
     def getNexsIndx(self):
         return self.cell.getNexsIndx()
@@ -982,6 +988,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if task is not None:
             task.cancel()
             await asyncio.sleep(0)
+
+    async def isCellActive(self):
+        return self.isactive
 
     async def setCellActive(self, active):
         self.isactive = active

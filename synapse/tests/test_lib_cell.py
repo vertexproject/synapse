@@ -241,6 +241,7 @@ class CellTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as prox:
                 user = await prox.getCellUser()
                 self.eq('root', user.get('name'))
+                self.true(await prox.isCellActive())
 
         # Explicit use of the unix:// handler
         async with self.getTestCore() as core:
