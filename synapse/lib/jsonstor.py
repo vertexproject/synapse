@@ -119,12 +119,13 @@ class JsonStor(s_base.Base):
         srcpkey = self._pathToPkey(srcpath)
         dstpkey = self._pathToPkey(dstpath)
 
-        if self.slab.get(srcpkey, db=self.pathdb):
-            raise s_exc.PathExists(path=srcpath)
-
         buid = self.slab.get(dstpkey, db=self.pathdb)
         if buid is None:
             raise s_exc.NoSuchPath(path=dstpath)
+
+        oldb = self.slab.pop(srcpkey, db=self.pathdb)
+        if oldb is not None:
+            self._incRefObj(oldb, valu=-1)
 
         self._incRefObj(buid, valu=1)
         self.slab.put(srcpkey, buid, db=self.pathdb)

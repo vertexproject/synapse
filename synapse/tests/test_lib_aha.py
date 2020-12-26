@@ -123,8 +123,9 @@ class AhaTest(s_test.SynTest):
 
             wait01 = aha.waiter(1, 'aha:svcadd')
             conf = {
-                'aha:name': '0.cryo.foo',
-                'aha:leader': 'cryo.foo',
+                'aha:name': '0.cryo',
+                'aha:leader': 'cryo',
+                'aha:network': 'foo',
                 'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
@@ -146,8 +147,9 @@ class AhaTest(s_test.SynTest):
 
                 async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
                     svcs = [x async for x in ahaproxy.getAhaSvcs('foo')]
-                    self.len(1, svcs)
-                    self.eq('cryo.foo', svcs[0]['name'])
+                    self.len(2, svcs)
+                    names = [s['name'] for s in svcs]
+                    self.sorteq(('cryo.foo', '0.cryo.foo'), names)
 
                     self.none(await ahaproxy.getCaCert('vertex.link'))
                     cacert0 = await ahaproxy.genCaCert('vertex.link')
@@ -173,3 +175,9 @@ class AhaTest(s_test.SynTest):
                     self.nn(usercert00)
                     self.nn(usercert01)
                     self.ne(usercert00, usercert01)
+
+            async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
+                await ahaproxy.delAhaSvc('cryo', network='foo')
+                await ahaproxy.delAhaSvc('0.cryo', network='foo')
+                self.none(await ahaproxy.getAhaSvc('cryo.foo'))
+                self.none(await ahaproxy.getAhaSvc('0.cryo.foo'))
