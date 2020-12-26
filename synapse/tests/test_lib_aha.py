@@ -181,3 +181,4 @@ class AhaTest(s_test.SynTest):
                 await ahaproxy.delAhaSvc('0.cryo', network='foo')
                 self.none(await ahaproxy.getAhaSvc('cryo.foo'))
                 self.none(await ahaproxy.getAhaSvc('0.cryo.foo'))
+                self.len(2, [s async for s in ahaproxy.getAhaSvcs()])
