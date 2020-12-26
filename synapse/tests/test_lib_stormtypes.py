@@ -738,6 +738,9 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.1)'))
             self.eq('foo', await core.callStorm('$foo = (foo, bar) return($foo."-2")'))
+            self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.pop())'))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$lib.list().pop()')
 
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
