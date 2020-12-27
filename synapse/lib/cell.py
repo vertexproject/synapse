@@ -572,6 +572,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'The AHA service name to claim as the active instance of a storm service.',
             'type': 'string',
         },
+        'aha:network': {
+            'description': 'The AHA service network. This makes aha:name/aha:leader relative names.',
+            'type': 'string',
+        },
         'aha:registry': {
             'description': 'The telepath URL of the aha service registry.',
             'type': ['string', 'array'],
@@ -821,6 +825,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return
 
         ahalead = self.conf.get('aha:leader')
+        ahanetw = self.conf.get('aha:network')
 
         ahainfo = self.conf.get('aha:svcinfo')
         if ahainfo is None and turl is not None:
@@ -840,9 +845,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahainfo = ahainfo
 
         async def onlink(proxy):
-            await proxy.addAhaSvc(ahaname, self.ahainfo)
+            await proxy.addAhaSvc(ahaname, self.ahainfo, network=ahanetw)
             if self.isactive and ahalead is not None:
-                await proxy.addAhaSvc(ahalead, self.ahainfo)
+                await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
 
         async def fini():
             await self.ahaclient.offlink(onlink)
@@ -903,8 +908,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await proxy.fini()
             return
 
+        ahanetw = self.conf.get('aha:network')
         try:
-            await proxy.addAhaSvc(ahalead, self.ahainfo)
+            await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
         except asyncio.CancelledError: # pragma: no cover
             raise
         except Exception as e: # pragma: no cover

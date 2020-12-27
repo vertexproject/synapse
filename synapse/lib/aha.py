@@ -16,19 +16,42 @@ class AhaApi(s_cell.CellApi):
         return self.cell.conf.get('aha:urls', ())
 
     async def getAhaSvc(self, name):
-        svcname, network = name.split('.', 1)
-        await self._reqUserAllowed(('aha', 'service', 'get', network))
-        return await self.cell.getAhaSvc(name)
+        '''
+        Return an AHA service description dictionary for a fully qualified service name.
+        '''
+        svcinfo = await self.cell.getAhaSvc(name)
+        if svcinfo is None:
+            return None
 
-    async def getAhaSvcs(self, network):
-        await self._reqUserAllowed(('aha', 'service', 'get', network))
+        svcnetw = svcinfo.get('svcnetw')
+        await self._reqUserAllowed(('aha', 'service', 'get', svcnetw))
+        return svcinfo
+
+    async def getAhaSvcs(self, network=None):
+        '''
+        Yield AHA svcinfo dictionaries.
+
+        Args:
+            network (str): Optionally specify a network to filter on.
+        '''
+        if network is None:
+            await self._reqUserAllowed(('aha', 'service', 'get'))
+        else:
+            await self._reqUserAllowed(('aha', 'service', 'get', network))
+
         async for info in self.cell.getAhaSvcs(network=network):
             yield info
 
-    async def addAhaSvc(self, name, info):
+    async def addAhaSvc(self, name, info, network=None):
+        '''
+        Register a service with the AHA discovery server.
 
-        svcname, network = name.split('.', 1)
-        await self._reqUserAllowed(('aha', 'service', 'add', network, svcname))
+        NOTE: In order for the service to remain marked "up" a caller
+              must maintain the telepath link.
+        '''
+        svcname, svcnetw, svcfull = self.cell._nameAndNetwork(name, network)
+
+        await self._reqUserAllowed(('aha', 'service', 'add', svcnetw, svcname))
 
         # dont disclose the real session...
         sess = s_common.guid(self.sess.iden)
@@ -40,11 +63,19 @@ class AhaApi(s_cell.CellApi):
             urlinfo.setdefault('host', host)
 
         async def fini():
-            await self.cell.setAhaSvcDown(name, sess)
+            await self.cell.setAhaSvcDown(name, sess, network=network)
 
         self.onfini(fini)
 
-        return await self.cell.addAhaSvc(name, info)
+        return await self.cell.addAhaSvc(name, info, network=network)
+
+    async def delAhaSvc(self, name, network=None):
+        '''
+        Remove an AHA service entry.
+        '''
+        svcname, svcnetw, svcfull = self.cell._nameAndNetwork(name, network)
+        await self._reqUserAllowed(('aha', 'service', 'del', svcnetw, svcname))
+        return await self.cell.delAhaSvc(name, network=network)
 
     async def getCaCert(self, network):
 
@@ -126,39 +157,72 @@ class AhaCell(s_cell.Cell):
 
         self.onfini(fini)
 
-    async def getAhaSvcs(self, network):
-        path = ('aha', 'services', network)
+    async def getAhaSvcs(self, network=None):
+        path = ('aha', 'services')
+        if network is not None:
+            path = path + (network,)
+
         async for path, item in self.jsonstor.getPathObjs(path):
             yield item
 
+    def _nameAndNetwork(self, name, network):
+
+        if network is None:
+            svcfull = name
+            svcname, svcnetw = name.split('.', 1)
+        else:
+            svcname = name
+            svcnetw = network
+            svcfull = f'{name}.{network}'
+
+        return svcname, svcnetw, svcfull
+
     @s_nexus.Pusher.onPushAuto('aha:svc:add')
-    async def addAhaSvc(self, name, info):
+    async def addAhaSvc(self, name, info, network=None):
 
-        logger.info('addAhaSvc %r %r' % (name, info))
+        svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
 
-        svcname, network = name.split('.', 1)
-        path = ('aha', 'services', network, svcname)
+        full = ('aha', 'svcfull', svcfull)
+        path = ('aha', 'services', svcnetw, svcname)
 
         svcinfo = {
-            'name': name,
+            'name': svcfull,
+            'svcname': svcname,
+            'svcnetw': svcnetw,
             'svcinfo': info,
         }
 
         await self.jsonstor.setPathObj(path, svcinfo)
+        await self.jsonstor.setPathLink(full, path)
 
         # mostly for testing...
         await self.fire('aha:svcadd', svcinfo=svcinfo)
 
+    @s_nexus.Pusher.onPushAuto('aha:svc:del')
+    async def delAhaSvc(self, name, network=None):
+
+        svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
+
+        full = ('aha', 'svcfull', svcfull)
+        path = ('aha', 'services', svcnetw, svcname)
+
+        await self.jsonstor.delPathObj(path)
+        await self.jsonstor.delPathObj(full)
+
+        # mostly for testing...
+        await self.fire('aha:svcdel', svcname=svcname, svcnetw=svcnetw)
+
     @s_nexus.Pusher.onPushAuto('aha:svc:down')
-    async def setAhaSvcDown(self, name, linkiden):
-        svcname, network = name.split('.', 1)
-        path = ('aha', 'services', network, svcname)
+    async def setAhaSvcDown(self, name, linkiden, network=None):
+        svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
+        path = ('aha', 'services', svcnetw, svcname)
         await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
 
     async def getAhaSvc(self, name):
-        svcname, network = name.split('.', 1)
-        path = ('aha', 'services', network, svcname)
-        return await self.jsonstor.getPathObj(path)
+        path = ('aha', 'svcfull', name)
+        svcinfo = await self.jsonstor.getPathObj(path)
+        if svcinfo is not None:
+            return svcinfo
 
     async def genCaCert(self, network):
 
