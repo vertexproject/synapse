@@ -4,6 +4,28 @@
 Synapse Changelog
 *****************
 
+v2.19.0 - 2020-12-27
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add APIs to remove decommissioned services from AHA servers.
+- Add (optional) explicit network parameters to AHA APIs.
+  (`#2029 <https://github.com/vertexproject/synapse/pull/2029>`_)
+
+- Add cell.isCellActive() API to differentiate leaders/mirrors.
+  (`#2028 <https://github.com/vertexproject/synapse/pull/2028>`_)
+
+- Add pop() method to Storm list objects.
+  (`#2027 <https://github.com/vertexproject/synapse/pull/2027>`_)
+
+Bugfixes
+--------
+
+- Fix bug in dry-run output of new merge command.
+  (`#2026 <https://github.com/vertexproject/synapse/pull/2026>`_)
+
 v2.18.1 - 2020-12-24
 ====================
 
