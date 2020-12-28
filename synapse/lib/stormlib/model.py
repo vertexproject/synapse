@@ -243,14 +243,13 @@ class LibModel(s_stormtypes.Lib):
 
 @s_stormtypes.registry.registerType
 class ModelForm(s_stormtypes.Prim):
-
+    '''
+    Implements the Storm API for a Form.
+    '''
     def __init__(self, form, path=None):
 
         s_stormtypes.Prim.__init__(self, form, path=path)
 
-        self.locls.update({
-            'name': form.name,
-        })
         self.locls.update(self.getObjLocals())
 
         self.ctors.update({
@@ -259,34 +258,69 @@ class ModelForm(s_stormtypes.Prim):
 
     def getObjLocals(self):
         return {
-            'prop': self._getFormProp
+            'prop': self._getFormProp,
+            'name': self._propFormName,
         }
+
+    @property
+    def _propFormName(self):
+        '''
+        The name of the Form.
+        '''
+        return self.valu.name
 
     def _ctorFormType(self, path=None):
         return ModelType(self.valu.type, path=path)
 
     def _getFormProp(self, name):
+        '''
+        Get a Property on the Form.
+
+        Args:
+            name (str): The property to retrieve.
+
+        Returns:
+            ModelProp instance if hte property if present on the Form, or ``$lib.null``.
+        '''
         prop = self.valu.prop(name)
         if prop is not None:
             return ModelProp(prop)
 
 @s_stormtypes.registry.registerType
 class ModelProp(s_stormtypes.Prim):
-
+    '''
+    Implemen the Storm API for a Property.
+    '''
     def __init__(self, prop, path=None):
 
         s_stormtypes.Prim.__init__(self, prop, path=path)
-
-        # Todo: Plumb name and full access via a @property and implement getObjLocals
-        self.locls.update({
-            'name': prop.name,
-            'full': prop.full,
-        })
 
         self.ctors.update({
             'form': self._ctorPropForm,
             'type': self._ctorPropType,
         })
+
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'full': self._propFull,
+            'name': self._propName,
+        }
+
+    @property
+    def _propName(self):
+        '''
+        The short name of the Property.
+        '''
+        return self.valu.name
+
+    @property
+    def _propFull(self):
+        '''
+        The full name of the Property.
+        '''
+        return self.valu.full
 
     def _ctorPropType(self, path=None):
         return ModelType(self.valu.type, path=path)
@@ -296,18 +330,30 @@ class ModelProp(s_stormtypes.Prim):
 
 @s_stormtypes.registry.registerType
 class ModelTagProp(s_stormtypes.Prim):
-
+    '''
+    Implements the Storm API for a Tag Property.
+    '''
     def __init__(self, tagprop, path=None):
 
         s_stormtypes.Prim.__init__(self, tagprop, path=path)
 
-        self.locls.update({
-            'name': tagprop.name,
-        })
-
         self.ctors.update({
             'type': self._ctorTagPropType,
         })
+
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'name': self._propName,
+        }
+
+    @property
+    def _propName(self):
+        '''
+        The name of the Tag Property.
+        '''
+        return self.valu.name
 
     def _ctorTagPropType(self, path=None):
         return ModelType(self.valu.type, path=path)
@@ -319,10 +365,6 @@ class ModelType(s_stormtypes.Prim):
     '''
     def __init__(self, valu, path=None):
         s_stormtypes.Prim.__init__(self, valu, path=path)
-        self.locls.update({
-            'name': valu.name,
-            'stortype': valu.stortype,
-        })
         self.locls.update(self.getObjLocals())
 
     # Todo: Plumb name access via a @property
@@ -330,7 +372,23 @@ class ModelType(s_stormtypes.Prim):
         return {
             'repr': self._methRepr,
             'norm': self._methNorm,
+            'name': self._propName,
+            'stortype': self._propStortype,
         }
+
+    @property
+    def _propName(self):
+        '''
+        The name of the Type.
+        '''
+        return self.valu.name
+
+    @property
+    def _propStortype(self):
+        '''
+        The storetype of the Type.
+        '''
+        return self.valu.stortype
 
     async def _methRepr(self, valu):
         nval = self.valu.norm(valu)
@@ -504,16 +562,16 @@ class LibModelDeprecated(s_stormtypes.Lib):
         return s_stormtypes.Dict(locks)
 
     async def _lock(self, name, locked):
-        # FIXME
         '''
-        Lock a
+        Set the locked property for model element.
 
         Args:
-            name:
-            locked:
+            name (str): The full path of the model element to lock.
+
+            locked (boolean): The lock status, True or False.
 
         Returns:
-
+            ``$lib.null``
         '''
         name = await s_stormtypes.tostr(name)
         locked = await s_stormtypes.tobool(locked)

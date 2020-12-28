@@ -1944,7 +1944,7 @@ class LibQueue(Lib):
 @registry.registerType
 class Queue(StormType):
     '''
-    A StormLib API instance of a named channel in the cortex multiqueue.
+    A StormLib API instance of a named channel in the Cortex multiqueue.
     '''
 
     def __init__(self, runt, name, info):
