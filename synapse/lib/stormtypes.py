@@ -4045,6 +4045,15 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
+        '''
+        Get node information for Edges in the View.
+
+        Args:
+            verb: Optional, the name of the Edges verb to iterate over.
+
+        Returns:
+            Yields the (source iden, verb, destination iden) tuples of information.
+        '''
         verb = await toprim(verb)
         todo = s_common.todo('getEdges', verb=verb)
         async for edge in self.viewDynIter(todo, ('view', 'read')):
@@ -4052,6 +4061,12 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methGetEdgeVerbs(self):
+        '''
+        Get the Edge verbs which exist in the View.
+
+        Returns:
+            Yields the edge verbs used by Layers which make up the View.
+        '''
         todo = s_common.todo('getEdgeVerbs')
         async for verb in self.viewDynIter(todo, ('view', 'read')):
             yield verb
@@ -4071,16 +4086,42 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, name, defv=None):
+        '''
+        Get a arbitrary value in the View definition.
+
+        Args:
+            name (str): Name of the value to get.
+
+            defv: The default value returned if the name is not set in the View.
+
+        Returns:
+            The value requested or the default value.
+        '''
         return self.valu.get(name, defv)
 
     async def _methViewSet(self, name, valu):
+        '''
+        Set a arbitrary value in the View definition.
+
+        Args:
+            name (str): The name to set.
+            valu: The value to set.
+
+        Returns:
+            ``$lib.null``
+        '''
         todo = s_common.todo('setViewInfo', name, valu)
         valu = await self.viewDynCall(todo, ('view', 'set', name))
         self.valu[name] = valu
 
     @stormfunc(readonly=True)
     async def _methViewRepr(self):
+        '''
+        Get a string representation of the View.
 
+        Returns:
+            List: A list of lines that can be printed, representing a View.
+        '''
         iden = self.valu.get('iden')
         name = self.valu.get('name', 'unnamed')
         creator = self.valu.get('creator')
@@ -4101,7 +4142,13 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methViewPack(self):
-        return self.valu
+        '''
+        Get the View definition.
+
+        Returns:
+            Dictionary contianing the View definition.
+        '''
+        return copy.deepcopy(self.valu)
 
     async def _methViewFork(self, name=None):
         '''
