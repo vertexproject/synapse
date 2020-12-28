@@ -112,11 +112,7 @@ class LibHttp(s_stormtypes.Lib):
         async with aiohttp.ClientSession(connector=connector) as sess:
             try:
                 async with sess.request(meth, url, headers=headers, json=json, data=body, **kwargs) as resp:
-                    info = {
-                        'code': resp.status,
-                        'body': await resp.content.read()
-                    }
-                    return HttpResp(info)
+                    return HttpResp(code=resp.status, body=await resp.content.read())
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
@@ -125,17 +121,41 @@ class LibHttp(s_stormtypes.Lib):
 
 @s_stormtypes.registry.registerType
 class HttpResp(s_stormtypes.StormType):
-
-    def __init__(self, locls):
+    '''
+    Implements the Storm API for a HTTP response.
+    '''
+    def __init__(self, code, body):
         s_stormtypes.StormType.__init__(self)
-        self.locls.update(locls)
+        self.code = code
+        self.body = body
         self.locls.update(self.getObjLocals())
 
     def getObjLocals(self):
         return {
+            'code': self._propHttpCode,
             'json': self._httpRespJson,
+            'body': self._propHttoRespBody,
         }
 
+    @property
+    def _propHttoRespBody(self):
+        '''
+        The raw HTTP response body as bytes.
+        '''
+        return self.body
+
+    @property
+    def _propHttpCode(self):
+        '''
+        The HTTP status code.
+        '''
+        return self.code
+
     async def _httpRespJson(self):
-        body = self.locls.get('body')
-        return json.loads(body)
+        '''
+        Get the JSON deserialized response.
+
+        Returns:
+            The JSON deserialized body.
+        '''
+        return json.loads(self.body)
