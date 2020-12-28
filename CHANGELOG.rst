@@ -4,6 +4,101 @@
 Synapse Changelog
 *****************
 
+v2.19.0 - 2020-12-27
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add APIs to remove decommissioned services from AHA servers.
+- Add (optional) explicit network parameters to AHA APIs.
+  (`#2029 <https://github.com/vertexproject/synapse/pull/2029>`_)
+
+- Add cell.isCellActive() API to differentiate leaders/mirrors.
+  (`#2028 <https://github.com/vertexproject/synapse/pull/2028>`_)
+
+- Add pop() method to Storm list objects.
+  (`#2027 <https://github.com/vertexproject/synapse/pull/2027>`_)
+
+Bugfixes
+--------
+
+- Fix bug in dry-run output of new merge command.
+  (`#2026 <https://github.com/vertexproject/synapse/pull/2026>`_)
+
+v2.18.1 - 2020-12-24
+====================
+
+Bugfixes
+--------
+
+- Make syncIndexEvents testing more resiliant
+- Make syncIndexEvents yield more often when filtering results
+  (`#2025 <https://github.com/vertexproject/synapse/pull/2025>`_)
+
+- Update push/pull tests to use new waittask() API
+- Raise clear errors in ambiguous use of node.tagglobs() API
+- Update model docs and examples for geo:latitude and geo:longitude
+- Support deref form names in storm node add expressions
+  (`#2024 <https://github.com/vertexproject/synapse/pull/2024>`_)
+
+- Update tests to normalize equality comparison values
+  (`#2023 <https://github.com/vertexproject/synapse/pull/2023>`_)
+
+v2.18.0 - 2020-12-23
+====================
+
+Features and Enhancements
+-------------------------
+
+- Added axon.size() API and storm plumbing
+  (`#2020 <https://github.com/vertexproject/synapse/pull/2020>`_)
+
+Bugfixes
+--------
+
+- Fix active coro issue uncovered with cluster testing
+  (`#2021 <https://github.com/vertexproject/synapse/pull/2021>`_)
+
+v2.17.1 - 2020-12-22
+====================
+
+Features and Enhancements
+-------------------------
+
+- Added (BETA) RST pre-processor to embed Storm output into RST docs.
+  (`#2009 <https://github.com/vertexproject/synapse/pull/2009>`_)
+
+- Updated storm package format to include a semver version string.
+  (`#2016 <https://github.com/vertexproject/synapse/pull/2016>`_)
+
+- Added telepath proxy getPipeline API to minimize round-trip delay.
+  (`#1615 <https://github.com/vertexproject/synapse/pull/1615>`_)
+
+- Added Node properties iteration and setitem APIs to storm.
+  (`#2011 <https://github.com/vertexproject/synapse/pull/2011>`_)
+
+
+Bugfixes
+--------
+
+- Fixes for active coro API and internal layer API name fixes.
+  (`#2018 <https://github.com/vertexproject/synapse/pull/2018>`_)
+
+- Allow :prop -+> * join syntax.
+  (`#2015 <https://github.com/vertexproject/synapse/pull/2015>`_)
+
+- Make getFormCount() API return a primitive dictionary.
+  (`#2014 <https://github.com/vertexproject/synapse/pull/2014>`_)
+
+- Make StormVarListError messages more user friendly.
+  (`#2013 <https://github.com/vertexproject/synapse/pull/2013>`_)
+
+v2.17.0 - 2020-12-22
+====================
+
+``2.17.0`` was not published due to CI issues.
+
 
 v2.16.1 - 2020-12-17
 ====================

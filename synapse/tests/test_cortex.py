@@ -1922,7 +1922,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Test the stormpkg apis
             otherpkg = {
                 'name': 'foosball',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'synapse_minversion': (2, 8, 0),
             }
             self.none(await proxy.addStormPkg(otherpkg))
@@ -1965,7 +1965,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # a storm service are displayed
             otherpkg = {
                 'name': 'foosball',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'synapse_minversion': (2, 8, 0),
                 'commands': ({
                     'name': 'testcmd',
@@ -3011,7 +3011,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.agenlen(0, layr.splices())
             await self.agenlen(0, layr.splicesBack())
             await self.agenlen(0, layr.syncNodeEdits(0))
-            self.eq(0, await layr.getNodeEditOffset())
+            self.eq(0, await layr.getEditIndx())
 
             self.nn(await core.stat())
 
@@ -4968,15 +4968,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(expectadd, item4)
 
             # Make sure progress every 1000 layer log entries works
-            await core.nodes('[inet:ipv4=192.168.1/22]')
+            await core.nodes('[inet:ipv4=192.168.1/20]')
 
             offsdict = {baselayr.iden: baseoffs + 1, layriden: baseoffs + 1}
 
             items = await alist(proxy.syncIndexEvents(mdef, offsdict=offsdict, wait=False))
 
-            expect = (baseoffs + 5 + 1000, baselayr.iden, s_cortex.SYNC_NODEEDIT,
+            expect = (9999, baselayr.iden, s_cortex.SYNC_NODEEDIT,
                       (None, None, s_layer.EDIT_PROGRESS, (), ()))
-            self.eq(expect, items[1])
+            self.eq(expect[1:], items[1][1:])
 
             # Make sure that genr wakes up if a new layer occurs after it is already waiting
             offs = await core.getNexsIndx()

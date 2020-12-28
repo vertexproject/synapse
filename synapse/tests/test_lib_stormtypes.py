@@ -738,6 +738,9 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.1)'))
             self.eq('foo', await core.callStorm('$foo = (foo, bar) return($foo."-2")'))
+            self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.pop())'))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$lib.list().pop()')
 
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
@@ -1529,6 +1532,9 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(text, opts=opts)
             self.len(2, nodes)
 
+            opts = {'vars': {'sha256': asdfhash_h}}
+            self.eq(8, await core.callStorm('return($lib.bytes.size($sha256))', opts=opts))
+
             self.eq(nodes[0].ndef, ('test:int', 8))
             self.eq(nodes[1].ndef, ('test:str', asdfhash_h))
 
@@ -1893,7 +1899,7 @@ class StormTypesTest(s_test.SynTest):
                 url = core2.getLocalUrl('*/layer')
 
                 layriden = core2.view.layers[0].iden
-                offs = await core2.view.layers[0].getNodeEditOffset()
+                offs = await core2.view.layers[0].getEditIndx()
 
                 layers = set(core.layers.keys())
                 q = f'layer.add --upstream {url}'
@@ -2584,7 +2590,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = f"cron.mod {guid[:6]} {{[graph:node='*' :type=m2]}}"
                 mesgs = await core.stormlist(q)
-                self.stormIsInPrint('Modified cron job', mesgs)
+                self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
 
                 q = f"cron.mod xxx {{[graph:node='*' :type=m2]}}"
                 mesgs = await core.stormlist(q)

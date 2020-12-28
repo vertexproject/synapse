@@ -13,12 +13,14 @@ import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
+import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
+import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -153,13 +155,13 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 '''
 
-reqValidPkgdef = s_config.getJsValidator({
+_reqValidPkgdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'name': {'type': 'string'},
         'version': {
-            'type': ['array', 'number'],
-            'items': {'type': 'number'}
+            'type': 'string',
+            'pattern': s_version.semverstr,
         },
         'synapse_minversion': {
             'type': ['array', 'null'],
@@ -224,6 +226,17 @@ reqValidPkgdef = s_config.getJsValidator({
         }
     }
 })
+def reqValidPkgdef(pkgdef):
+    '''
+    Require a valid storm package definition.
+
+    NOTE: This API may mutate the input dictionary to
+          provide inline updates to the package structure.
+    '''
+    version = pkgdef.get('version')
+    if isinstance(version, (tuple, list)):
+        pkgdef['version'] = '%d.%d.%d' % tuple(version)
+    return _reqValidPkgdef(pkgdef)
 
 reqValidDdef = s_config.getJsValidator({
     'type': 'object',
@@ -465,13 +478,9 @@ stormcmds = (
                 $pkg.url = $cmdopts.url
                 $pkg.loaded = $lib.time.now()
 
-                $lib.pkg.add($pkg)
+                $pkd = $lib.pkg.add($pkg)
 
-                $maj = $pkg.version.index(0)
-                $min = $pkg.version.index(1)
-                $rev = $pkg.version.index(2)
-
-                $lib.print("Loaded Package: {name} @{maj}.{min}.{rev}", name=$pkg.name, maj=$maj, min=$min, rev=$rev)
+                $lib.print("Loaded Package: {name} @{version}", name=$pkg.name, version=$pkg.version)
             }
         ''',
     },
@@ -1945,6 +1954,149 @@ class HelpCmd(Cmd):
                     await runt.printf('')
 
         await runt.printf('For detailed help on any command, use <cmd> --help')
+
+class MergeCmd(Cmd):
+    '''
+    Merge edits from the incoming nodes down to the next layer.
+
+    NOTE: This command requires the current view to be a fork.
+
+    Examples:
+
+        // Having tagged a new #cno.mal.redtree subgraph in a forked view...
+
+        #cno.mal.redtree | merge --apply
+
+        // Print out what the merge command *would* do but dont.
+
+        #cno.mal.redtree | merge
+
+    '''
+    name = 'merge'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--apply', default=False, action='store_true', help='Execute the merge changes.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if runt.snap.view.parent is None:
+            mesg = 'You may only merge nodes in forked views'
+            raise s_exc.CantMergeView(mesg=mesg)
+
+        layr0 = runt.snap.view.layers[0].iden
+        layr1 = runt.snap.view.layers[1].iden
+
+        async for node, path in genr:
+
+            # the timestamp for the adds/subs of each node merge will match
+            nodeiden = node.iden()
+            meta = {'user': runt.user.iden, 'time': s_common.now()}
+
+            sode = node.sodes[-1]
+
+            adds = []
+            subs = []
+
+            async def sync():
+
+                if not self.opts.apply:
+                    adds.clear()
+                    subs.clear()
+                    return
+
+                if adds:
+                    addedits = [(node.buid, node.form.name, adds)]
+                    await runt.snap.view.layers[1].storNodeEdits(addedits, meta=meta)
+                    adds.clear()
+
+                if subs:
+                    subedits = [(node.buid, node.form.name, subs)]
+                    await runt.snap.view.layers[0].storNodeEdits(subedits, meta=meta)
+                    subs.clear()
+
+            # check all node perms first
+            form = sode.get('form')
+            valu = sode.get('valu')
+            if valu is not None:
+                runt.confirm(('node', 'del', form), gateiden=layr0)
+                runt.confirm(('node', 'add', form), gateiden=layr1)
+
+                if not self.opts.apply:
+                    valurepr = node.form.type.repr(valu[0])
+                    await runt.printf(f'{nodeiden} {form} = {valurepr}')
+                else:
+                    adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
+                    subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
+
+            for name, (valu, stortype) in sode.get('props', {}).items():
+                full = node.form.prop(name).full
+                runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
+                runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+                if not self.opts.apply:
+                    valurepr = node.form.prop(name).type.repr(valu)
+                    await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
+                else:
+                    adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
+                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+
+            for tag, valu in sode.get('tags', {}).items():
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+                if not self.opts.apply:
+                    valurepr = ''
+                    if valu != (None, None):
+                        tagrepr = runt.model.type('ival').repr(valu)
+                        valurepr = f' = {tagrepr}'
+                    await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
+                else:
+                    adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
+                    subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
+
+            for (tag, prop), (valu, stortype) in sode.get('tagprops', {}).items():
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+                if not self.opts.apply:
+                    valurepr = repr(valu)
+                    await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                else:
+                    adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                    subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+
+            layr = runt.snap.view.layers[0]
+            async for name, valu in layr.iterNodeData(node.buid):
+                runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+                runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+                if not self.opts.apply:
+                    valurepr = repr(valu)
+                    await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
+                else:
+                    adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+                    subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
+                    if len(adds) >= 1000:
+                        await sync()
+
+            async for edge in layr.iterNodeEdgesN1(node.buid):
+                verb = edge[0]
+                runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+                runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+                if not self.opts.apply:
+                    name, dest = edge
+                    await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
+                else:
+                    adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
+                    subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                    if len(adds) >= 1000:
+                        await sync()
+
+            await sync()
+
+            # TODO API to clear one node from the snap cache?
+            runt.snap.livenodes.pop(node.buid, None)
+            yield await runt.snap.getNodeByBuid(node.buid), path
 
 class LimitCmd(Cmd):
     '''

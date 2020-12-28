@@ -38,8 +38,7 @@ class JsonStorTest(s_test.SynTest):
                     self.eq(items[0][1]['hehe'], 'haha')
                     self.eq(items[1][1]['hehe'], 'haha')
 
-                    with self.raises(s_exc.PathExists):
-                        await prox.setPathLink('foo/baz', 'foo/bar')
+                    await prox.setPathLink('foo/baz', 'foo/bar')
 
                     with self.raises(s_exc.NoSuchPath):
                         await prox.setPathLink('lol/lol', 'hehe/haha')

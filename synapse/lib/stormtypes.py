@@ -1198,6 +1198,7 @@ class LibBytes(Lib):
         return {
             'put': self._libBytesPut,
             'has': self._libBytesHas,
+            'size': self._libBytesSize,
             'upload': self._libBytesUpload,
         }
 
@@ -1242,6 +1243,25 @@ class LibBytes(Lib):
         '''
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('has', s_common.uhex(sha256))
+        ret = await self.dyncall('axon', todo)
+        return ret
+
+    async def _libBytesSize(self, sha256):
+        '''
+        Return the size of the bytes stored in the Axon for the given sha256.
+
+        Args:
+            sha256 (str): The sha256 value to check.
+
+        Examples:
+
+            $size = $lib.bytes.size($sha256)
+
+        Returns:
+            int: The size of the file or $lib.null if the file is not found.
+        '''
+        await self.runt.snap.core.getAxon()
+        todo = s_common.todo('size', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
 
@@ -2514,6 +2534,7 @@ class List(Prim):
     def getObjLocals(self):
         return {
             'has': self._methListHas,
+            'pop': self._methListPop,
             'size': self._methListSize,
             'index': self._methListIndex,
             'length': self._methListLength,
@@ -2558,7 +2579,20 @@ class List(Prim):
 
         return prim in self.valu
 
+    async def _methListPop(self):
+        '''
+        Pop and return the last entry in the list.
+        '''
+        try:
+            return self.valu.pop()
+        except IndexError:
+            mesg = 'The list is empty.  Nothing to pop.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
     async def _methListAppend(self, valu):
+        '''
+        Append a value to the list.
+        '''
         self.valu.append(valu)
 
     async def _methListIndex(self, valu):
@@ -3140,7 +3174,21 @@ class Node(Prim):
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
             'isform': self._methNodeIsForm,
+            'getByLayer': self.getByLayer,
+            'getStorNodes': self.getStorNodes,
         }
+
+    def getStorNodes(self):
+        '''
+        Return a list of "storage nodes" which were fused from the layers to make this node.
+        '''
+        return self.valu.getStorNodes()
+
+    def getByLayer(self):
+        '''
+        Return a dict you can use to lookup which props/tags came from which layers.
+        '''
+        return self.valu.getByLayer()
 
     def _ctorNodeData(self, path=None):
         return NodeData(self.valu, path=path)
@@ -3212,6 +3260,11 @@ class Node(Prim):
         Returns:
             The components of tags which match the wildcard component of a glob expression.
         '''
+        glob = await tostr(glob)
+        if glob.find('***') != -1:
+            mesg = f'Tag globs may not be adjacent: {glob}'
+            raise s_exc.BadArg(mesg=mesg)
+
         tags = list(self.valu.tags.keys())
         regx = s_cache.getTagGlobRegx(glob)
         ret = []
@@ -3584,6 +3637,7 @@ class Layer(Prim):
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
+            'getStorNodes': self.getStorNodes,
         }
 
     async def _addPull(self, url, offs=0):
@@ -3775,6 +3829,21 @@ class Layer(Prim):
             count += 1
             if size is not None and size == count:
                 break
+
+    async def getStorNodes(self):
+        '''
+        Yield (buid, sode) tuples represeting the data stored in this layer.
+
+        NOTE: "storage nodes" (or "sodes") represent *only* the data stored in
+              the layer and may not represent whole nodes.
+        '''
+        layriden = self.valu.get('iden')
+        self.runt.confirm(('layer', 'read'), gateiden=layriden)
+
+        todo = s_common.todo('getStorNodes')
+
+        async for item in self.runt.dyniter(layriden, todo):
+            yield item
 
     async def _methLayerGet(self, name, defv=None):
         return self.valu.get(name, defv)
@@ -5096,7 +5165,8 @@ class LibCron(Lib):
 
         todo = s_common.todo('updateCronJob', iden, query)
         gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
-        return await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        return iden
 
     async def _methCronList(self):
         '''

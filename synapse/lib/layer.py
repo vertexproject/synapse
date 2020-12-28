@@ -162,9 +162,12 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.splices(offs=offs, size=size):
             yield item
 
-    async def getNodeEditOffset(self):
+    async def getEditIndx(self):
+        '''
+        Returns what will be the *next* nodeedit log index.
+        '''
         await self._reqUserAllowed(self.liftperm)
-        return await self.layr.getNodeEditOffset()
+        return await self.layr.getEditIndx()
 
     async def getIden(self):
         await self._reqUserAllowed(self.liftperm)
@@ -1703,7 +1706,7 @@ class Layer(s_nexus.Pusher):
         flatedits = list(results.values())
 
         if edited:
-            nexsindx = nexsitem[0]
+            nexsindx = nexsitem[0] if nexsitem is not None else None
             await self.fire('layer:write', layer=self.iden, edits=flatedits, meta=meta, nexsindx=nexsindx)
 
             if self.logedits:
@@ -1794,6 +1797,7 @@ class Layer(s_nexus.Pusher):
         valt = sode.pop('valu', None)
         if valt is None:
             # TODO tombstone
+            self.mayDelBuid(buid, sode)
             return ()
 
         self.setSodeDirty(buid, sode, form)
@@ -1913,6 +1917,7 @@ class Layer(s_nexus.Pusher):
         valt = sode['props'].pop(prop, None)
         if valt is None:
             # FIXME tombstone
+            self.mayDelBuid(buid, sode)
             return ()
 
         self.setSodeDirty(buid, sode, form)
@@ -1984,6 +1989,7 @@ class Layer(s_nexus.Pusher):
         oldv = sode['tags'].pop(tag, None)
         if oldv is None:
             # TODO tombstone
+            self.mayDelBuid(buid, sode)
             return ()
 
         self.setSodeDirty(buid, sode, form)
@@ -2042,6 +2048,7 @@ class Layer(s_nexus.Pusher):
 
         oldv, oldt = sode['tagprops'].pop(tpkey, (None, None))
         if oldv is None:
+            self.mayDelBuid(buid, sode)
             return ()
 
         self.setSodeDirty(buid, sode, form)
@@ -2088,6 +2095,7 @@ class Layer(s_nexus.Pusher):
 
         oldb = self.dataslab.pop(buid + abrv, db=self.nodedata)
         if oldb is None:
+            self.mayDelBuid(buid, sode)
             return ()
 
         oldv = s_msgpack.un(oldb)
@@ -2134,6 +2142,7 @@ class Layer(s_nexus.Pusher):
         n2buid = s_common.uhex(n2iden)
 
         if not self.layrslab.delete(buid + venc, n2buid, db=self.edgesn1):
+            self.mayDelBuid(buid, sode)
             return ()
 
         self.layrslab.delete(venc, buid + n2buid, db=self.byverb)
@@ -2431,7 +2440,7 @@ class Layer(s_nexus.Pusher):
                     logger.warning(f'upstream sync connected ({s_urlhelp.sanitizeUrl(url)} offset={offs})')
 
                     if offs == 0:
-                        offs = await proxy.getNodeEditOffset()
+                        offs = await proxy.getEditIndx()
                         meta = {'time': s_common.now(),
                                 'user': creator,
                                 }
@@ -2512,6 +2521,24 @@ class Layer(s_nexus.Pusher):
     async def setModelVers(self, vers):
         await self.layrinfo.set('model:version', vers)
 
+    async def getStorNodes(self):
+        '''
+        Yield (buid, sode) tuples for all the nodes with props/tags/tagprops stored in this layer.
+        '''
+        done = set()
+
+        for buid, sode in list(self.dirty.items()):
+            done.add(buid)
+            yield buid, sode
+
+        for buid, byts in self.layrslab.scanByFull(db=self.bybuidv3):
+
+            if buid in done:
+                continue
+
+            yield buid, s_msgpack.un(byts)
+            await asyncio.sleep(0)
+
     async def splices(self, offs=None, size=None):
         '''
         Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
@@ -2553,7 +2580,7 @@ class Layer(s_nexus.Pusher):
             return
 
         if offs is None:
-            offs = (await self.getNodeEditOffset(), 0, 0)
+            offs = (await self.getEditIndx(), 0, 0)
 
         if size is not None:
 
@@ -2662,10 +2689,11 @@ class Layer(s_nexus.Pusher):
 
                         yield (curoff, (buid, form, etyp, vals, meta))
 
+            await asyncio.sleep(0)
+
             count += 1
             if count % 1000 == 0:
                 yield (curoff, (None, None, EDIT_PROGRESS, (), ()))
-                await asyncio.sleep(0)
 
     async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''
@@ -2794,20 +2822,27 @@ class Layer(s_nexus.Pusher):
 
             yield wind
 
-    async def getNodeEditOffset(self):
+    async def getEditIndx(self):
+        '''
+        Returns what will be the *next* (i.e. 1 past the last) nodeedit log index.
+        '''
         if not self.logedits:
             return 0
 
         return self.nodeeditlog.index()
 
-    async def getEditOffs(self, defv=None):
+    async def getEditOffs(self):
         '''
-        Return the offset of the last *recorded* log entry.
+        Return the offset of the last *recorded* log entry.  Returns -1 if nodeedit log is disabled or empty.
         '''
+        if not self.logedits:
+            return -1
+
         last = self.nodeeditlog.last()
         if last is not None:
             return last[0]
-        return defv
+
+        return -1
 
     async def waitEditOffs(self, offs, timeout=None):
         '''

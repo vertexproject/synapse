@@ -710,13 +710,13 @@ class AstTest(s_test.SynTest):
 
         otherpkg = {
             'name': 'foosball',
-            'version': (0, 0, 1),
+            'version': '0.0.1',
             'synapse_minversion': (2, 8, 0),
         }
 
         stormpkg = {
             'name': 'stormpkg',
-            'version': (1, 2, 3),
+            'version': '1.2.3',
             'synapse_minversion': (2, 8, 0),
         }
 
@@ -735,7 +735,7 @@ class AstTest(s_test.SynTest):
                     {n.ndef for n in nodes})
 
             msgs = await core.stormlist('pkg.list')
-            self.stormIsInPrint('foo                             : (0, 0, 1)', msgs)
+            self.stormIsInPrint('foo                             : 0.0.1', msgs)
 
             msgs = await core.stormlist('pkg.del asdf')
             self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
@@ -1736,11 +1736,13 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            evtl = asyncio.get_event_loop()
+            beforecount = len(evtl._asyncgens)
+
             await core.nodes('[ inet:fqdn=vertex.link ]')
 
             # Make sure commands don't leave generators around
-            evtl = asyncio.get_event_loop()
-            self.eq(1, len(evtl._asyncgens))
+            self.eq(beforecount, len(evtl._asyncgens))
 
             await core.nodes('''
                 $i=0
@@ -1752,4 +1754,4 @@ class AstTest(s_test.SynTest):
 
             # Wait a second for cleanup
             await asyncio.sleep(1)
-            self.eq(1, len(evtl._asyncgens))
+            self.eq(beforecount, len(evtl._asyncgens))
