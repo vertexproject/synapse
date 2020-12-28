@@ -1651,14 +1651,14 @@ class Layer(s_nexus.Pusher):
 
         for abrv, buid in self.dataslab.scanByDups(abrv, db=self.dataname):
 
-            sode = deepcopy(self._getStorNode(buid))
+            sode = self._getStorNode(buid).copy()
 
             byts = self.dataslab.get(buid + abrv, db=self.nodedata)
             if byts is not None:
                 item = s_msgpack.un(byts)
                 sode['nodedata'][name] = item
 
-            yield buid, sode
+            yield buid, deepcopy(sode)
 
     async def storNodeEdits(self, nodeedits, meta):
 
