@@ -3965,17 +3965,11 @@ class LibView(Lib):
 @registry.registerType
 class View(Prim):
     '''
-    Implements the STORM api for a view instance.
+    Implements the STORM api for a View instance.
     '''
     def __init__(self, runt, vdef, path=None):
         Prim.__init__(self, vdef, path=path)
         self.runt = runt
-
-        self.locls.update({
-            'iden': vdef.get('iden'),
-            'layers': [Layer(runt, ldef, path=path) for ldef in vdef.get('layers')],
-            'triggers': [Trigger(runt, tdef) for tdef in vdef.get('triggers')],
-        })
         self.locls.update(self.getObjLocals())
 
     # Todo plumb in iden/layers/triggers access via a property
@@ -3983,15 +3977,41 @@ class View(Prim):
         return {
             'set': self._methViewSet,
             'get': self._methViewGet,
+            'iden': self._propViewIden,
             'fork': self._methViewFork,
             'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
+            'layers': self._propViewLayers,
             'getEdges': self._methGetEdges,
+            'triggers': self._propViewTriggers,
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
         }
+
+    @property
+    def _propViewIden(self):
+        '''
+        The iden of the View.
+        '''
+        return self.valu.get('iden')
+
+    @property
+    def _propViewLayers(self):
+        '''
+        The Layer definitions associated with the View.
+        '''
+        layers = [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')]
+        return layers
+
+    @property
+    def _propViewTriggers(self):
+        '''
+        The Triggers associated with the View.
+        '''
+        triggers = [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')]
+        return triggers
 
     async def _methAddNodeEdits(self, edits):
 
