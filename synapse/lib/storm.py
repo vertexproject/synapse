@@ -1994,7 +1994,7 @@ class MergeCmd(Cmd):
             nodeiden = node.iden()
             meta = {'user': runt.user.iden, 'time': s_common.now()}
 
-            sode = node.sodes[-1]
+            sode = (await node.getStorNodes())[0]
 
             adds = []
             subs = []

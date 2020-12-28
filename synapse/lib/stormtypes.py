@@ -3044,11 +3044,11 @@ class Node(Prim):
             'getStorNodes': self.getStorNodes,
         }
 
-    def getStorNodes(self):
+    async def getStorNodes(self):
         '''
         Return a list of "storage nodes" which were fused from the layers to make this node.
         '''
-        return self.valu.getStorNodes()
+        return await self.valu.getStorNodes()
 
     def getByLayer(self):
         '''
