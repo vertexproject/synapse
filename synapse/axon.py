@@ -414,11 +414,9 @@ class Axon(s_cell.Cell):
 
                     async with await self.upload() as upload:
 
-                        byts = await resp.content.read(CHUNK_SIZE)
-                        while byts:
+                        async for byts in resp.content.iter_chunked(CHUNK_SIZE):
                             await upload.write(byts)
                             hashset.update(byts)
-                            byts = await resp.content.read(CHUNK_SIZE)
 
                         size, _ = await upload.save()
 
