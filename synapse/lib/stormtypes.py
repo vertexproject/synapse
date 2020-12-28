@@ -3566,10 +3566,29 @@ class StatTally(Prim):
         return len(self.counters)
 
     async def inc(self, name, valu=1):
+        '''
+        Increment a given counter.
+
+        Args:
+            name (str): The name of the counter to increment.
+            valu (int): The value to increment the counter by.
+
+        Returns:
+            ``$lib.null``
+        '''
         valu = await toint(valu)
         self.counters[name] += valu
 
     async def get(self, name):
+        '''
+        Get the value of a given counter.
+
+        Args:
+            name (str): The name of the counter to get.
+
+        Returns:
+            The value of the counter, or 0 if the counter does not exist.
+        '''
         return self.counters.get(name, 0)
 
     def value(self):
