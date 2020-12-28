@@ -2590,7 +2590,9 @@ class Set(Prim):
 
 @registry.registerType
 class List(Prim):
-
+    '''
+    Implements the Storm API for a List instance.
+    '''
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -2633,7 +2635,15 @@ class List(Prim):
         return len(self.valu)
 
     async def _methListHas(self, valu):
+        '''
+        Check it a value is in the List.
 
+        Args:
+            valu: The value to check.
+
+        Returns:
+            ``$lib.true`` if the value is present, ``$lib.false`` otherwise.
+        '''
         if valu in self.valu:
             return True
 
@@ -2689,9 +2699,9 @@ class List(Prim):
 @registry.registerType
 class Bool(Prim):
     '''
-    OMG SO COOL
+    Implements the Storm API for a List instance.
     '''
-
+    # TODO Example when we have the stormrst stable
     def __str__(self):
         return str(self.value()).lower()
 
