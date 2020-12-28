@@ -391,10 +391,28 @@ class ModelType(s_stormtypes.Prim):
         return self.valu.stortype
 
     async def _methRepr(self, valu):
+        '''
+        Get the repr of a value for the Type.
+
+        Args:
+            valu: The value to get the repr of.
+
+        Returns:
+            string: The string form of the value as represented by the type.
+        '''
         nval = self.valu.norm(valu)
         return self.valu.repr(nval[0])
 
     async def _methNorm(self, valu):
+        '''
+        Get the norm and info for the Type.
+
+        Args:
+            valu: The value to norm.
+
+        Returns:
+            tuple: A tuple of the normed value and its information dictionary.
+        '''
         return self.valu.norm(valu)
 
 
