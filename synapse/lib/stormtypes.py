@@ -2326,7 +2326,9 @@ class Str(Prim):
 
 @registry.registerType
 class Bytes(Prim):
-
+    '''
+    Implements the Storm API for a Bytes object.
+    '''
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -2411,7 +2413,10 @@ class Bytes(Prim):
 
 @registry.registerType
 class Dict(Prim):
-
+    '''
+    Implements the Storm API for a Dictionary object.
+    '''
+    # TODO Add inline examples here once we have the stormrst stable
     def __iter__(self):
         return self.valu.items()
 
@@ -2474,7 +2479,9 @@ class CmdOpts(Dict):
 
 @registry.registerType
 class Set(Prim):
-
+    '''
+    Implements the Storm API for a Set object.
+    '''
     def __init__(self, valu, path=None):
         Prim.__init__(self, set(valu), path=path)
         self.locls.update(self.getObjLocals())
@@ -2502,26 +2509,83 @@ class Set(Prim):
         return len(self.valu)
 
     async def _methSetSize(self):
+        '''
+        Get the size of the set.
+
+        Returns:
+            integer: The number of members in the set.
+        '''
         return len(self)
 
     async def _methSetHas(self, item):
+        '''
+        Check if a item is a member of the set.
+
+        Args:
+            item: The item to check for membership.
+
+        Returns:
+            ``$lib.true`` if the item is a member, ``$lib.false`` otherwise.
+        '''
         return item in self.valu
 
     async def _methSetAdd(self, *items):
+        '''
+        Add a item to the set. Each argument is added to the set.
+
+        Args:
+            *items: The items to add to the set.
+
+        Returns:
+            ``$lib.null``
+        '''
         [self.valu.add(i) for i in items]
 
     async def _methSetAdds(self, *items):
+        '''
+        Add the contents of a iterable item to the set.
+
+        Args:
+            *items: The iterables to add to the set.
+
+        Returns:
+            ``$lib.null``
+        '''
         for item in items:
             [self.valu.add(i) for i in item]
 
     async def _methSetRem(self, *items):
+        '''
+        Remove an item from the set.
+
+        Args:
+            *items: Items to be removed from the set.
+
+        Returns:
+            ```$lib.null``
+        '''
         [self.valu.discard(i) for i in items]
 
     async def _methSetRems(self, *items):
+        '''
+        Remove the contents of a iterable item from the set.
+
+        Args:
+            *items: The iterables to remove from the set.
+
+        Returns:
+            ```$lib.null``
+        '''
         for item in items:
             [self.valu.discard(i) for i in item]
 
     async def _methSetList(self):
+        '''
+        Get a list of the current members of the set.
+
+        Returns:
+            List: A list representing the members of the set.
+        '''
         return list(self.valu)
 
 @registry.registerType
