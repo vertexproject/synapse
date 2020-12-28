@@ -268,14 +268,11 @@ class Snap(s_base.Base):
             'tagprops': {},
         }
 
-        sodes = []
         for layr in self.layers:
 
             sode = cache.get(layr.iden)
             if sode is None:
                 sode = await layr.getStorNode(buid)
-
-            sodes.append(sode)
 
             form = sode.get('form')
             valt = sode.get('valu')
@@ -315,7 +312,7 @@ class Snap(s_base.Base):
             'tagprops': tagprops,
         })
 
-        node = s_node.Node(self, pode, bylayer=bylayer, sodes=sodes)
+        node = s_node.Node(self, pode, bylayer=bylayer)
         self.livenodes[buid] = node
         self.buidcache.append(node)
 
