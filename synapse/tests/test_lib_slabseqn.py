@@ -114,7 +114,6 @@ class SlabSeqn(s_t_utils.SynTest):
 
             await seqn.cull(8)
 
-            task = slab.schedCoro(getter())
-            self.eq(((9, 'bar'),), await asyncio.wait_for(task, timeout=3))
+            self.eq(((9, 'bar'), (10, None)), [x async for x in seqn.gets(8, wait=False)])
 
             await slab.fini()

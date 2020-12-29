@@ -157,7 +157,7 @@ class SlabSeqn:
             valu = s_msgpack.un(lval)
             yield indx, valu
 
-    async def gets(self, offs):
+    async def gets(self, offs, wait=True):
         '''
         '''
         while True:
@@ -165,6 +165,9 @@ class SlabSeqn:
             for (indx, valu) in self.iter(offs):
                 yield (indx, valu)
                 offs = indx + 1
+
+            if not wait:
+                return
 
             await self.waitForOffset(self.indx)
 
