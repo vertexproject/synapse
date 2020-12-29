@@ -5506,18 +5506,19 @@ class CronJob(Prim):
     def __init__(self, runt, cdef, path=None):
         Prim.__init__(self, cdef, path=path)
         self.runt = runt
-        self.locls.update({
-            'iden': cdef.get('iden'),
-        })
         self.locls.update(self.getObjLocals())
 
-    # Todo: Plumb iden access via a @property
     def getObjLocals(self):
         return {
-            'pack': self._methCronJobPack,
             'set': self._methCronJobSet,
+            'iden': self._propIden,
+            'pack': self._methCronJobPack,
             'pprint': self._methCronJobPprint,
         }
+
+    @property
+    def _propIden(self):
+        return self.valu.get('iden')
 
     async def _methCronJobSet(self, name, valu):
         '''
@@ -5536,7 +5537,13 @@ class CronJob(Prim):
         return self
 
     async def _methCronJobPack(self):
-        return self.valu
+        '''
+        Get the Cronjob definition.
+
+        Returns:
+            Dictionary containing the Cronjob definition.
+        '''
+        return copy.deepcopy(self.valu)
 
     @staticmethod
     def _formatTimestamp(ts):
@@ -5545,7 +5552,9 @@ class CronJob(Prim):
         return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
 
     async def _methCronJobPprint(self):
-
+        '''
+        Get a dictionary containing user friendly strings for printing the CronJob.
+        '''
         user = self.valu.get('username')
         laststart = self.valu.get('laststarttime')
         lastend = self.valu.get('lastfinishtime')
