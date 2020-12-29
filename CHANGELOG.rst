@@ -14,6 +14,7 @@ Features and Enhancements
   only the item at the specified index or the next entry in the Queue.
   This simplifies the intent behind the ``.pop()`` operation; and removes
   the ``cull`` and ``wait`` parameters which were previously on the method.
+  (`#2032 <https://github.com/vertexproject/synapse/pull/2032>`_)
 
 Bugfixes
 --------
