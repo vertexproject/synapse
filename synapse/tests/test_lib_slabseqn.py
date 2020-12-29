@@ -95,7 +95,7 @@ class SlabSeqn(s_t_utils.SynTest):
             self.true(state)
             await task
 
-            self.eq('foo', seqn.pop(0))
+            self.eq((0, 'foo'), seqn.pop(0))
             self.none(seqn.pop(0))
 
             async def getter():

@@ -34,7 +34,7 @@ class SlabSeqn:
         '''
         byts = self.slab.pop(s_common.int64en(offs), db=self.db)
         if byts is not None:
-            return s_msgpack.un(byts)
+            return (offs, s_msgpack.un(byts))
 
     async def cull(self, offs):
         '''
