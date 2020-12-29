@@ -3484,22 +3484,39 @@ class Path(Prim):
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
-        self.locls.update({
-            'vars': PathVars(path),
-        })
 
     # Todo: Plumb vars access via a @property
     def getObjLocals(self):
         return {
+            'vars': self._propVars,
             'idens': self._methPathIdens,
             'trace': self._methPathTrace,
             'listvars': self._methPathListVars,
         }
 
+    @property
+    def _propVars(self):
+        '''
+        The PathVars object for the Path.
+        '''
+        return PathVars(self.valu)
+
     async def _methPathIdens(self):
+        '''
+        The list of Node idens which this Path has bee forked from during pivot operations.
+
+        Returns:
+            List: A list of node idens.
+        '''
         return [n.iden() for n in self.valu.nodes]
 
     async def _methPathTrace(self):
+        '''
+        Make a trace object for the Path. This allows tracking pivots from a arbitrary location in a query.
+
+        Returns:
+            Trace: A Trace object.
+        '''
         trace = self.valu.trace()
         return Trace(trace)
 
@@ -3524,6 +3541,12 @@ class Trace(Prim):
         }
 
     async def _methTraceIdens(self):
+        '''
+        Get the idens in the current trace object.
+
+        Returns:
+            list: A List of Node idens.
+        '''
         return [n.iden() for n in self.valu.nodes]
 
 @registry.registerType
