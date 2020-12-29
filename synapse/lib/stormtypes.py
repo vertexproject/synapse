@@ -3942,6 +3942,7 @@ class Layer(Prim):
     async def _delPull(self, iden):
         '''
         Remove a pull config from the layer.
+
         Args:
             iden (str): The GUID of the push config to remove.
 
@@ -3964,6 +3965,7 @@ class Layer(Prim):
 
         Args:
             url (str): A telepath URL of the target layer/feed.
+
             offs (int): The local layer offset to begin pushing from (default: 0).
 
         Perms:
@@ -3999,6 +4001,7 @@ class Layer(Prim):
     async def _delPush(self, iden):
         '''
         Remove a push config from the layer.
+
         Args:
             iden (str): The GUID of the push config to remove.
 
@@ -4126,6 +4129,7 @@ class Layer(Prim):
 
         Args:
             name (str): The name to set.
+
             valu: The value to set.
 
         Returns:
