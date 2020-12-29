@@ -1184,6 +1184,33 @@ class LibAxon(Lib):
         axon = self.runt.snap.core.axon
         return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json)
 
+    async def urlfile(self, *args, **kwargs):
+        '''
+        Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
+
+        Args: see $lib.axon.wget()
+
+        Returns:
+            inet:urlfile node on success.  $lib.null on error.
+        '''
+        resp = await self.wget(*args, **kwargs)
+        code = resp.get('code')
+
+        if code != 200:
+            mesg = '$lib.axon.urlfile(): HTTP code {code} != 200'
+            await self.runt.warn(mesg, log=False)
+            return
+
+        hashes = resp.get('hashes')
+        props = {
+            'size': resp.get('size'),
+            'md5': hashes.get('md5'),
+            'sha1': hashes.get('sha1'),
+            'sha256': hashes.get('sha256'),
+        }
+        #props =
+        #addNode
+
 @registry.registerLib
 class LibBytes(Lib):
     '''

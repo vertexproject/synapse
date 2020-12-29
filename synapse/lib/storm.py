@@ -926,7 +926,37 @@ stormcmds = (
             $kild = $lib.ps.kill($cmdopts.iden)
             $lib.print("kill status: {kild}", kild=$kild)
         ''',
-    }
+    },
+    {
+        'name': 'wget',
+        'descr': 'Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.'
+        'cmdargs': (
+            ('urls', {'nargs': '*', 'help': 'URLs to download.'}),
+        ),
+        'storm': '''
+        init {
+            $count = (0)
+        }
+
+        if $node {
+            $count = ($count + 1)
+            if $cmdopts.urls {
+                $urls = $cmdopts.urls
+            } else {
+                if ($node.form() != "inet:url") {
+                    $lib.warn("wget can only take inet:url nodes as input without args.")
+                    $lib.exit()
+                }
+                $urls = ($node.value(),)
+            }
+
+            for $url in $urls {
+        }
+
+        if ($count = 0) {
+        }
+        ''',
+    },
 )
 
 class DmonManager(s_base.Base):
