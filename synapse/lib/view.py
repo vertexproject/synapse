@@ -113,6 +113,12 @@ class View(s_nexus.Pusher):  # type: ignore
         # isolate some initialization to easily override for SpawnView.
         await self._initViewLayers()
 
+    async def getStorNodes(self, buid):
+        '''
+        Return a list of storage nodes for the given buid in layer order.
+        '''
+        return await self.core._getStorNodes(buid, self.layers)
+
     def init2(self):
         '''
         We have a second round of initialization so the views can get a handle to their parents which might not

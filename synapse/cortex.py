@@ -1342,6 +1342,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.getStormQuery(cdef.get('storm'))
 
+    async def _getStorNodes(self, buid, layers):
+        # NOTE: This API lives here to make it easy to optimize
+        #       the cluster case to minimize round trips
+        return [await layr.getStorNode(buid) for layr in layers]
+
     async def _setStormCmd(self, cdef):
         '''
         Note:
