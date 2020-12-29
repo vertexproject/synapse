@@ -17,16 +17,11 @@ class Node:
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    # def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
-    def __init__(self, snap, sode, bylayer=None, sodes=None):
+    def __init__(self, snap, sode, bylayer=None):
         self.snap = snap
         self.sode = sode
 
         self.buid = sode[0]
-
-        # sodes are in *reverse* layer order due to a snap optimization
-        # (we'll leave them that way and reverse them JIT since it'll be rare)
-        self.sodes = sodes
 
         # Tracks which property is retrieved from which layer
         self.bylayer = bylayer
@@ -51,14 +46,11 @@ class Node:
         if self.nodedata is None:
             self.nodedata = {}
 
-    def getStorNodes(self):
+    async def getStorNodes(self):
         '''
         Return a list of the raw storage nodes for each layer.
         '''
-        s = copy.deepcopy(self.sodes)
-        # snap has layers reversed as a node construction optimization
-        s.reverse()
-        return s
+        return await self.snap.view.getStorNodes(self.buid)
 
     def getByLayer(self):
         '''

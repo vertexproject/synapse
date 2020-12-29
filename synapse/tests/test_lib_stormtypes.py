@@ -1458,6 +1458,20 @@ class StormTypesTest(s_test.SynTest):
                 with self.raises(s_exc.NoSuchName):
                     await core.nodes('$lib.queue.get(synq)')
 
+                await core.callStorm('$lib.queue.gen(poptest).puts((foo, bar, baz))')
+                self.eq((0, 'foo'), await core.callStorm('return($lib.queue.get(poptest).pop(0))'))
+                self.eq((1, 'bar'), await core.callStorm('return($lib.queue.get(poptest).pop(1))'))
+                self.eq((2, 'baz'), await core.callStorm('return($lib.queue.get(poptest).pop(2))'))
+                self.none(await core.callStorm('return($lib.queue.get(poptest).pop(2))'))
+                self.none(await core.callStorm('return($lib.queue.get(poptest).pop())'))
+                # Repopulate the queue, we now have data in index 3, 4, and 5
+                await core.callStorm('$lib.queue.gen(poptest).puts((foo, bar, baz))')
+                # Out of order pop() with a index does not cull.
+                self.eq((4, 'bar'), await core.callStorm('return($lib.queue.get(poptest).pop(4))'))
+                self.eq((3, 'foo'), await core.callStorm('return($lib.queue.get(poptest).pop())'))
+                self.eq((5, 'baz'), await core.callStorm('return($lib.queue.get(poptest).pop())'))
+                self.none(await core.callStorm('return($lib.queue.get(poptest).pop())'))
+
     async def test_storm_node_data(self):
 
         async with self.getTestCore() as core:

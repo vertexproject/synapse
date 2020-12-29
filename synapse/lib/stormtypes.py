@@ -2009,19 +2009,21 @@ class Queue(StormType):
 
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
-    async def _methQueuePop(self, offs=0, cull=True, wait=True):
+    async def _methQueuePop(self, offs=None):
 
-        offs = await toint(offs)
-        wait = await toint(wait)
-
-        todo = s_common.todo('coreQueueGet', self.name, offs, cull=cull, wait=wait)
+        offs = await toint(offs, noneok=True)
         gatekeys = self._getGateKeys('get')
 
-        valu = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
-        if valu is not None:
-            await self._methQueueCull(valu[0])
+        # emulate the old behavior on no argument
+        if offs is None:
+            todo = s_common.todo('coreQueueGets', self.name, 0, cull=True, wait=False)
+            async for item in self.runt.dyniter('cortex', todo, gatekeys=gatekeys):
+                await self._methQueueCull(item[0])
+                return item
+            return
 
-        return valu
+        todo = s_common.todo('coreQueuePop', self.name, offs)
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
@@ -3291,11 +3293,11 @@ class Node(Prim):
             'getStorNodes': self.getStorNodes,
         }
 
-    def getStorNodes(self):
+    async def getStorNodes(self):
         '''
         Return a list of "storage nodes" which were fused from the layers to make this node.
         '''
-        return self.valu.getStorNodes()
+        return await self.valu.getStorNodes()
 
     def getByLayer(self):
         '''

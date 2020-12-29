@@ -195,3 +195,11 @@ def dumpfile(item, path):
     '''
     with io.open(path, 'wb') as fd:
         fd.write(en(item))
+
+def deepcopy(item):
+    '''
+    Copy a msgpack serializable by packing then unpacking it.
+    For complex primitives, this runs in about 1/3 the time of
+    copy.deepcopy()
+    '''
+    return un(en(item))

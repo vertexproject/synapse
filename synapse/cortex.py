@@ -1185,6 +1185,10 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def coreQueueCull(self, name, offs):
         await self.multiqueue.cull(name, offs)
 
+    @s_nexus.Pusher.onPushAuto('queue:pop')
+    async def coreQueuePop(self, name, offs):
+        return await self.multiqueue.pop(name, offs)
+
     async def coreQueueSize(self, name):
         return self.multiqueue.size(name)
 
@@ -1341,6 +1345,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.BadCmdName(name=name)
 
         self.getStormQuery(cdef.get('storm'))
+
+    async def _getStorNodes(self, buid, layers):
+        # NOTE: This API lives here to make it easy to optimize
+        #       the cluster case to minimize round trips
+        return [await layr.getStorNode(buid) for layr in layers]
 
     async def _setStormCmd(self, cdef):
         '''

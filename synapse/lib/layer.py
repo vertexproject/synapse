@@ -84,6 +84,8 @@ import synapse.lib.config as s_config
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
+from synapse.lib.msgpack import deepcopy
+
 logger = logging.getLogger(__name__)
 
 import synapse.lib.msgpack as s_msgpack
@@ -1483,9 +1485,16 @@ class Layer(s_nexus.Pusher):
         self.dirty.clear()
 
     async def getStorNode(self, buid):
-        return self._getStorNode(buid)
+        return deepcopy(self._getStorNode(buid))
 
     def _getStorNode(self, buid):
+        '''
+        Return the storage node for the given buid.
+
+        NOTE: This API returns the *actual* storage node dict if it's
+              dirty. You must make a deep copy if you plan to return it
+              outside of the Layer.
+        '''
 
         # check the dirty nodes first
         sode = self.dirty.get(buid)
@@ -1542,7 +1551,7 @@ class Layer(s_nexus.Pusher):
             return
 
         for _, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
-            yield buid, self._getStorNode(buid)
+            yield buid, deepcopy(self._getStorNode(buid))
 
     async def liftByTagValu(self, tag, cmpr, valu, form=None):
 
@@ -1562,7 +1571,7 @@ class Layer(s_nexus.Pusher):
             # filter based on the ival value before lifting the node...
             valu = await self.getNodeTag(buid, tag)
             if filt(valu):
-                yield buid, self._getStorNode(buid)
+                yield buid, deepcopy(self._getStorNode(buid))
 
     async def hasTagProp(self, name):
         async for _ in self.liftTagProp(name):
@@ -1593,7 +1602,7 @@ class Layer(s_nexus.Pusher):
             return
 
         for _, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
-            yield buid, self._getStorNode(buid)
+            yield buid, deepcopy(self._getStorNode(buid))
 
     async def liftByTagPropValu(self, form, tag, prop, cmprvals):
         '''
@@ -1602,7 +1611,7 @@ class Layer(s_nexus.Pusher):
         for cmpr, valu, kind in cmprvals:
 
             async for buid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu):
-                yield buid, self._getStorNode(buid)
+                yield buid, deepcopy(self._getStorNode(buid))
 
     async def liftByProp(self, form, prop):
 
@@ -1613,25 +1622,25 @@ class Layer(s_nexus.Pusher):
             return
 
         for _, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
-            yield buid, self._getStorNode(buid)
+            yield buid, deepcopy(self._getStorNode(buid))
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals):
         for cmpr, valu, kind in cmprvals:
             async for buid in self.stortypes[kind].indxByForm(form, cmpr, valu):
-                yield buid, self._getStorNode(buid)
+                yield buid, deepcopy(self._getStorNode(buid))
 
     async def liftByPropValu(self, form, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
             async for buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu):
-                yield buid, self._getStorNode(buid)
+                yield buid, deepcopy(self._getStorNode(buid))
 
     async def liftByPropArray(self, form, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
             async for buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
-                yield buid, self._getStorNode(buid)
+                yield buid, deepcopy(self._getStorNode(buid))
 
     async def liftByDataName(self, name):
         try:
@@ -1649,7 +1658,7 @@ class Layer(s_nexus.Pusher):
                 item = s_msgpack.un(byts)
                 sode['nodedata'][name] = item
 
-            yield buid, sode
+            yield buid, deepcopy(sode)
 
     async def storNodeEdits(self, nodeedits, meta):
 
@@ -1657,8 +1666,8 @@ class Layer(s_nexus.Pusher):
 
         retn = []
         for buid, _, edits in results:
-            sode = self._getStorNode(buid)
-            retn.append((buid, sode.copy(), edits))
+            sode = deepcopy(self._getStorNode(buid))
+            retn.append((buid, sode, edits))
 
         return retn
 
