@@ -2184,7 +2184,9 @@ class Prim(StormType):
 
 @registry.registerType
 class Str(Prim):
-
+    '''
+    Implement the Storm API for a String object.
+    '''
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -2237,15 +2239,51 @@ class Str(Prim):
         return self.valu.split(text)
 
     async def _methStrEndswith(self, text):
+        '''
+        Check if a string ends with text.
+
+        Args:
+            text (str): The text to check.
+
+        Returns:
+            boolean: ``$lib.true`` if the string ends with the text, ``$lib.false`` otherwise.
+        '''
         return self.valu.endswith(text)
 
     async def _methStrStartswith(self, text):
+        '''
+        Check if a string starts with text.
+
+        Args:
+            text (str): The text to check.
+
+        Returns:
+            boolean: ``$lib.true`` if the string starts with the text, ``$lib.false`` otherwise.
+        '''
         return self.valu.startswith(text)
 
     async def _methStrRjust(self, size):
+        '''
+        Right justify the string.
+
+        Args:
+            size(int): The length of character to right justify.
+
+        Returns:
+            str: The right justified string.
+        '''
         return self.valu.rjust(await toint(size))
 
     async def _methStrLjust(self, size):
+        '''
+        Left justify the string.
+
+        Args:
+            size(int): The length of character to left justify.
+
+        Returns:
+            str: The left justified string.
+        '''
         return self.valu.ljust(await toint(size))
 
     async def _methStrReplace(self, oldv, newv, maxv=None):
@@ -4498,15 +4536,20 @@ class Trigger(Prim):
         Prim.__init__(self, tdef)
         self.runt = runt
 
-        self.locls.update({
-            'iden': tdef['iden'],
-        })
         self.locls.update(self.getObjLocals())
 
     def getObjLocals(self):
         return {
             'set': self.set,
+            'iden': self._propIden,
         }
+
+    @property
+    def _propIden(self):
+        '''
+        The trigger iden.
+        '''
+        return self.valu.get('iden')
 
     async def deref(self, name):
         valu = self.valu.get(name, s_common.novalu)
