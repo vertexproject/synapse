@@ -3653,10 +3653,27 @@ class Text(Prim):
         return len(self.valu)
 
     async def _methTextAdd(self, text, **kwargs):
+        '''
+        Add text to the Text object.
+
+        Args:
+            text(str): The text to add.
+
+            **kwargs: Keyword arguments used to format the text.
+
+        Returns:
+            ``$lib.null``
+        '''
         text = kwarg_format(text, **kwargs)
         self.valu += text
 
     async def _methTextStr(self):
+        '''
+        Get the text content as a string.
+
+        Returns:
+            string: A string.
+        '''
         return self.valu
 
 @registry.registerLib
@@ -4291,7 +4308,9 @@ class View(Prim):
         return triggers
 
     async def _methAddNodeEdits(self, edits):
-
+        '''
+        Add NodeEdits to the view.
+        '''
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
         layriden = self.valu.get('layers')[0].get('iden')
@@ -4675,7 +4694,9 @@ class LibTrigger(Lib):
 
 @registry.registerType
 class Trigger(Prim):
-
+    '''
+    Implements the Storm API for a Trigger.
+    '''
     def __init__(self, runt, tdef):
 
         Prim.__init__(self, tdef)
@@ -4704,6 +4725,17 @@ class Trigger(Prim):
         return self.locls.get(name)
 
     async def set(self, name, valu):
+        '''
+        Set information in the trigger.
+
+        Args:
+            name (str): Name of the key to set.
+
+            valu: The data to set.
+
+        Returns:
+            ``$lib.null``
+        '''
         trigiden = self.valu.get('iden')
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
@@ -4950,18 +4982,42 @@ class LibGates(Lib):
 
 @registry.registerType
 class Gate(Prim):
-
+    '''
+    Implements the Storm API for an AuthGate.
+    '''
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
         self.runt = runt
+        self.locls.update(self.getObjLocals())
 
-        # Todo: Plumb iden/role/users access via a @property and implement getObjLocals
-        self.locls.update({
-            'iden': valu.get('iden'),
-            'users': valu.get('users'),
-            'roles': valu.get('roles'),
-        })
+    def getObjLocals(self):
+        return {
+            'iden': self._propIden,
+            'users': self._propUsers,
+            'roles': self._propRoles,
+        }
+
+    @property
+    def _propIden(self):
+        '''
+        The iden of the AuthGate.
+        '''
+        return self.valu.get('iden')
+
+    @property
+    def _propUsers(self):
+        '''
+        The users which are a member of the Authgate.
+        '''
+        return self.valu.get('users')
+
+    @property
+    def _propRoles(self):
+        '''
+        The roles which are a member of the Authgate.
+        '''
+        return self.valu.get('roles')
 
 @registry.registerType
 class User(Prim):
