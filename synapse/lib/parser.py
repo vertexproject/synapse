@@ -336,7 +336,6 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
 
 QueryParser = lark.Lark(_grammar, regex=True, start='query', propagate_positions=True)
 LookupParser = lark.Lark(_grammar, regex=True, start='lookup', propagate_positions=True)
-StormCmdParser = lark.Lark(_grammar, regex=True, start='stormcmdargs', propagate_positions=True)
 CmdrParser = lark.Lark(_grammar, regex=True, start='cmdrargs', propagate_positions=True)
 
 _eofre = regex.compile(r'''Terminal\('(\w+)'\)''')
