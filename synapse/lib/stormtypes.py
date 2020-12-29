@@ -2006,10 +2006,20 @@ class Queue(StormType):
 
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
-    async def _methQueuePop(self, offs=0):
-        offs = await toint(offs)
-        todo = s_common.todo('coreQueuePop', self.name, offs)
+    async def _methQueuePop(self, offs=None):
+
+        offs = await toint(offs, noneok=True)
         gatekeys = self._getGateKeys('get')
+
+        # emulate the old behavior on no argument
+        if offs is None:
+            todo = s_common.todo('coreQueueGets', self.name, 0, cull=True, wait=False)
+            async for item in self.runt.dyniter('cortex', todo, gatekeys=gatekeys):
+                await self._methQueueCull(item[0])
+                return item
+            return
+
+        todo = s_common.todo('coreQueuePop', self.name, offs)
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueuePut(self, item):
