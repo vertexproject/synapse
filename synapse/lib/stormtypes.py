@@ -3482,7 +3482,9 @@ class PathVars(Prim):
 
 @registry.registerType
 class Path(Prim):
-
+    '''
+    Implements the Storm API for the Path object.
+    '''
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
@@ -4892,10 +4894,9 @@ class User(Prim):
 
         self.locls.update(self.getObjLocals())
 
-    # Todo: Plumb iden access via a @property
     def getObjLocals(self):
         return {
-            'iden': self._iden,
+            'iden': self._propIden,
             'get': self._methUserGet,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
@@ -4911,9 +4912,9 @@ class User(Prim):
         }
 
     @property
-    def _iden(self):
+    def _propIden(self):
         '''
-        Constant representing the user iden.
+        Constant representing the User iden.
 
         Returns:
             str: The user iden.
@@ -4926,21 +4927,23 @@ class User(Prim):
 
     async def _methUserGet(self, name):
         '''
+        Get a arbitrary property from the User definition.
 
         Args:
-            name:
+            name (str): The name of the property to return.
 
         Returns:
-
+            The requested value.
         '''
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return udef.get(name)
 
     async def _methUserRoles(self):
         '''
+        Get the Roles for the User.
 
         Returns:
-
+            List: A list of Role objects which the user is a member of.
         '''
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
@@ -5118,6 +5121,12 @@ class Role(Prim):
 
     @property
     def _propIden(self):
+        '''
+        Constant representing the User iden.
+
+        Returns:
+            str: The user iden.
+        '''
         return self.valu
 
     async def _derefGet(self, name):
@@ -5676,6 +5685,9 @@ class CronJob(Prim):
 
     @property
     def _propIden(self):
+        '''
+        The iden of the Cron job.
+        '''
         return self.valu.get('iden')
 
     async def _methCronJobSet(self, name, valu):
