@@ -1464,9 +1464,9 @@ class StormTypesTest(s_test.SynTest):
                     await core.nodes('$lib.queue.get(synq)')
 
                 await core.callStorm('$lib.queue.gen(poptest).puts((foo, bar, baz))')
-                self.eq('foo', await core.callStorm('return($lib.queue.get(poptest).pop(0))'))
-                self.eq('bar', await core.callStorm('return($lib.queue.get(poptest).pop(1))'))
-                self.none(await core.callStorm('return($lib.queue.get(poptest).pop(0))'))
+                self.eq((0, 'foo'), await core.callStorm('return($lib.queue.get(poptest).pop(0))'))
+                self.eq((1, 'bar'), await core.callStorm('return($lib.queue.get(poptest).pop(1))'))
+                self.eq((0, None), await core.callStorm('return($lib.queue.get(poptest).pop(0))'))
 
     async def test_storm_node_data(self):
 

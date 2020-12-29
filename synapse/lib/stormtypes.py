@@ -2020,7 +2020,8 @@ class Queue(StormType):
             return
 
         todo = s_common.todo('coreQueuePop', self.name, offs)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        item = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        return (offs, item)
 
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
