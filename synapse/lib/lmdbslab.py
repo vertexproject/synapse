@@ -357,6 +357,15 @@ class MultiQueue(s_base.Base):
             return itemoffs, item
         return -1, None
 
+    async def pop(self, name, offs):
+        '''
+        Pop a single entry from the named queue by offset.
+        '''
+        abrv = self.abrv.nameToAbrv(name)
+        byts = self.slab.pop(abrv + s_common.int64en(offs), db=self.qdata)
+        if byts is not None:
+            return s_msgpack.un(byts)
+
     async def put(self, name, item, reqid=None):
         return await self.puts(name, (item,), reqid=reqid)
 

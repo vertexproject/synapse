@@ -1185,6 +1185,10 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def coreQueueCull(self, name, offs):
         await self.multiqueue.cull(name, offs)
 
+    @s_nexus.Pusher.onPushAuto('queue:pop')
+    async def coreQueuePop(self, name, offs):
+        return await self.multiqueue.pop(name, offs)
+
     async def coreQueueSize(self, name):
         return self.multiqueue.size(name)
 

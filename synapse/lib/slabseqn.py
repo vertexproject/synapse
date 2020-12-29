@@ -28,6 +28,26 @@ class SlabSeqn:
             _, _, evnt = heapq.heappop(self.offsevents)
             evnt.set()
 
+    def pop(self, offs):
+        '''
+        Pop a single entry at the given offset.
+        '''
+        byts = self.slab.pop(s_common.int64en(offs), db=self.db)
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    async def cull(self, offs):
+        '''
+        Remove entries up to (and including) the given offset.
+        '''
+        for itemoffs, valu in self.iter(0):
+
+            if itemoffs > offs:
+                return
+
+            self.slab.delete(s_common.int64en(itemoffs), db=self.db)
+            await asyncio.sleep(0)
+
     def add(self, item, indx=None):
         '''
         Add a single item to the sequence.
@@ -136,6 +156,17 @@ class SlabSeqn:
             indx = s_common.int64un(lkey)
             valu = s_msgpack.un(lval)
             yield indx, valu
+
+    async def gets(self, offs):
+        '''
+        '''
+        while True:
+
+            for (indx, valu) in self.iter(offs):
+                yield (indx, valu)
+                offs = indx + 1
+
+            await self.waitForOffset(self.indx)
 
     def trim(self, offs):
         '''
