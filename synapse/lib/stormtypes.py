@@ -4985,41 +4985,86 @@ class User(Prim):
 
 @registry.registerType
 class Role(Prim):
-
+    '''
+    Implements the Storm API for a Role.
+    '''
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
         self.runt = runt
-        self.locls.update({
-            'iden': valu,
-        })
         self.locls.update(self.getObjLocals())
 
     def getObjLocals(self):
         return {
             'get': self._methRoleGet,
+            'iden': self._propIden,
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
             'setRules': self._methRoleSetRules,
         }
+
+    @property
+    def _propIden(self):
+        return self.valu
 
     async def _derefGet(self, name):
         rdef = await self.runt.snap.core.getRoleDef(self.valu)
         return rdef.get(name, s_common.novalu)
 
     async def _methRoleGet(self, name):
+        '''
+        Get a arbitrary property from the Role definition.
+
+        Args:
+            name (str): The name of the property to return.
+
+        Returns:
+            The requested value.
+        '''
         rdef = await self.runt.snap.core.getRoleDef(self.valu)
         return rdef.get(name)
 
     async def _methRoleSetRules(self, rules, gateiden=None):
+        '''
+        Replace the rules on the Role with new rules.
+
+        Args:
+            rules (list): A list of rules.
+            gateiden (str): Optional, the gate iden used for the rules.
+
+        Returns:
+            ``$lib.null``
+        '''
         self.runt.confirm(('auth', 'role', 'set', 'rules'))
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None):
+        '''
+        Add a rule to the Role.
+
+        Args:
+            rule (tuple): The rule tuple to add to the Role.
+
+            gateiden (str): Optional, the gate iden used for the rule.
+
+        Returns:
+            ``$lib.null``
+        '''
         self.runt.confirm(('auth', 'role', 'set', 'rules'))
         await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
+        '''
+        Remove a rule from the Role.
+
+        Args:
+            rule (tuple): The rule tuple to removed from the Role.
+
+            gateiden (str): Optional, the gate iden used for the rule.
+
+        Returns:
+            ``$lib.null``
+        '''
         self.runt.confirm(('auth', 'role', 'set', 'rules'))
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
 
