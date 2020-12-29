@@ -4,6 +4,29 @@
 Synapse Changelog
 *****************
 
+
+v2.20.0 - 2020-12-29
+====================
+
+Features and Enhancements
+-------------------------
+- Correct the StormType ``Queue.pop()`` API to properly pop and return
+  only the item at the specified index or the next entry in the Queue.
+  This simplifies the intent behind the ``.pop()`` operation; and removes
+  the ``cull`` and ``wait`` parameters which were previously on the method.
+
+Bugfixes
+--------
+- Use ``resp.iter_chunked`` in the Axon ``.wget()`` API to improve
+  compatibility with some third party libraries.
+  (`#2030 <https://github.com/vertexproject/synapse/pull/2030>`_)
+- Require the use of a msgpack based deepcopy operation in handling
+  storage nodes.
+  (`#2031 <https://github.com/vertexproject/synapse/pull/2031>`_)
+- Fix for ambiguous whitespace in Storm command argument parsing.
+  (`#2033 <https://github.com/vertexproject/synapse/pull/2033>`_)
+
+
 v2.19.0 - 2020-12-27
 ====================
 
@@ -67,6 +90,10 @@ Features and Enhancements
 -------------------------
 
 - Added (BETA) RST pre-processor to embed Storm output into RST docs.
+  (`#1988 <https://github.com/vertexproject/synapse/pull/1988>`_)
+
+- Added a ``merge`` command to allow per-node Layer merge operations to
+  be done.
   (`#2009 <https://github.com/vertexproject/synapse/pull/2009>`_)
 
 - Updated storm package format to include a semver version string.
