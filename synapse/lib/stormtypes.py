@@ -3772,16 +3772,13 @@ class Layer(Prim):
                 if url is not None:
                     pdef['url'] = s_urlhelp.sanitizeUrl(url)
 
-        self.locls.update({
-            'iden': ldef.get('iden'),
-        })
         self.locls.update(self.getObjLocals())
 
-    # Todo: Plumb iden access via a @property
     def getObjLocals(self):
         return {
             'set': self._methLayerSet,
             'get': self._methLayerGet,
+            'iden': self._propIden,
             'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
             'edits': self._methLayerEdits,
@@ -3794,6 +3791,13 @@ class Layer(Prim):
             'getFormCounts': self._methGetFormcount,
             'getStorNodes': self.getStorNodes,
         }
+
+    @property
+    def _propIden(self):
+        '''
+        The iden of the Layer.
+        '''
+        return self.valu.get('iden')
 
     async def _addPull(self, url, offs=0):
         '''
@@ -4001,9 +4005,30 @@ class Layer(Prim):
             yield item
 
     async def _methLayerGet(self, name, defv=None):
+        '''
+        Get a arbitrary value in the Layer definition.
+
+        Args:
+            name (str): Name of the value to get.
+
+            defv: The default value returned if the name is not set in the Layer.
+
+        Returns:
+            The value requested or the default value.
+        '''
         return self.valu.get(name, defv)
 
     async def _methLayerSet(self, name, valu):
+        '''
+        Set a arbitrary value in the Layer definition.
+
+        Args:
+            name (str): The name to set.
+            valu: The value to set.
+
+        Returns:
+            ``$lib.null``
+        '''
         useriden = self.runt.user.iden
         layriden = self.valu.get('iden')
         gatekeys = ((useriden, ('layer', 'set', name), layriden),)
@@ -4012,9 +4037,21 @@ class Layer(Prim):
         self.valu[name] = valu
 
     async def _methLayerPack(self):
-        return self.valu
+        '''
+        Get the Layer definition.
+
+        Returns:
+            Dictionary containing the Layer definition.
+        '''
+        return copy.deepcopy(self.valu)
 
     async def _methLayerRepr(self):
+        '''
+        Get a string representation of the Layer.
+
+        Returns:
+            List: A list of lines that can be printed, representing a Layer.
+        '''
         iden = self.valu.get('iden')
         name = self.valu.get('name', 'unnamed')
         creator = self.valu.get('creator')
@@ -4300,7 +4337,7 @@ class View(Prim):
         Get the View definition.
 
         Returns:
-            Dictionary contianing the View definition.
+            Dictionary containing the View definition.
         '''
         return copy.deepcopy(self.valu)
 
