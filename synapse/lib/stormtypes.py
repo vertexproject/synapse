@@ -4880,7 +4880,9 @@ class Gate(Prim):
 
 @registry.registerType
 class User(Prim):
-
+    '''
+    Implements the Storm API for a User.
+    '''
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
@@ -4921,39 +4923,120 @@ class User(Prim):
         return udef.get(name, s_common.novalu)
 
     async def _methUserGet(self, name):
+        '''
+
+        Args:
+            name:
+
+        Returns:
+
+        '''
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return udef.get(name)
 
     async def _methUserRoles(self):
+        '''
+
+        Returns:
+
+        '''
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
 
     async def _methUserAllowed(self, permname, gateiden=None):
+        '''
+
+        Args:
+            permname:
+            gateiden:
+
+        Returns:
+
+        '''
         perm = tuple(permname.split('.'))
         return await self.runt.snap.core.isUserAllowed(self.valu, perm, gateiden=gateiden)
 
     async def _methUserGrant(self, iden):
+        '''
+        Grant a Role to the User.
+
+        Args:
+            iden (str): The iden of the Role.
+
+        Returns:
+            ``$lib.null``
+        '''
         self.runt.confirm(('auth', 'user', 'grant'))
         await self.runt.snap.core.addUserRole(self.valu, iden)
 
     async def _methUserRevoke(self, iden):
+        '''
+        Remove a Role from the User.
+
+        Args:
+            iden (str): The iden of the Role.
+
+        Returns:
+            ``$lib.null``
+        '''
         self.runt.confirm(('auth', 'user', 'revoke'))
         await self.runt.snap.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
+        '''
+        Replace the rules on the User with new rules.
+
+        Args:
+            rules (list): A list of rules.
+            gateiden (str): Optional, the gate iden used for the rules.
+
+        Returns:
+            ``$lib.null``
+
+        '''
         self.runt.confirm(('auth', 'user', 'set', 'rules'))
         await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
 
     async def _methUserAddRule(self, rule, gateiden=None):
+        '''
+        Add a rule to the User.
+
+        Args:
+            rule (tuple): The rule tuple to add to the User.
+
+            gateiden (str): Optional, the gate iden used for the rule.
+
+        Returns:
+            ``$lib.null``
+        '''
         self.runt.confirm(('auth', 'user', 'set', 'rules'))
         await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
+        '''
+        Remove a rule from the User.
+
+        Args:
+            rule (tuple): The rule tuple to removed from the User.
+
+            gateiden (str): Optional, the gate iden used for the rule.
+
+        Returns:
+            ``$lib.null``
+        '''
         self.runt.confirm(('auth', 'user', 'set', 'rules'))
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserSetEmail(self, email):
+        '''
+        Set the email address of the User.
 
+        Args:
+            email (str): The email address to set for the User.
+
+        Returns:
+            ``$lib.null``
+        '''
         if self.runt.user.iden == self.valu:
             await self.runt.snap.core.setUserEmail(self.valu, email)
             return
@@ -4962,14 +5045,33 @@ class User(Prim):
         await self.runt.snap.core.setUserEmail(self.valu, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
+        '''
+        Set the Admin flag for the user.
 
+        Args:
+            admin (bool): True to make the User an admin, false to remove their admin status.
+
+            gateiden (str): Optional, the gate iden used for the operation.
+
+        Returns:
+            ```$lib.null``
+        '''
         self.runt.confirm(('auth', 'user', 'set', 'admin'))
         admin = await tobool(admin)
 
         await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
 
     async def _methUserSetPasswd(self, passwd):
+        '''
+        Set the Users password.
 
+        Args:
+            passwd (str): The new password for the user. This is best passed into the
+            runtime as a variable.
+
+        Returns:
+            ```$lib.null``
+        '''
         if self.runt.user.iden == self.valu:
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
@@ -4977,8 +5079,17 @@ class User(Prim):
         return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
     async def _methUserSetLocked(self, locked):
+        '''
+        Set the locked status for a user.
+
+        Args:
+            locked (bool): True to lock the user, false to unlock them.
+
+        Returns:
+            ``$lib.null``
+        '''
         self.runt.confirm(('auth', 'user', 'set', 'locked'))
-        return await self.runt.snap.core.setUserLocked(self.valu, await tobool(locked))
+        await self.runt.snap.core.setUserLocked(self.valu, await tobool(locked))
 
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)
