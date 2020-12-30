@@ -222,7 +222,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The security measured by the bar'}),
 
                     ('ival', ('ival', {}), {
-                        'doc': 'The the interval of measurement'}),
+                        'doc': 'The interval of measurement'}),
 
                     ('price:open', ('econ:price', {}), {
                         'doc': 'The opening price of the security'}),
