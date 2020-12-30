@@ -2014,6 +2014,7 @@ class MergeCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--apply', default=False, action='store_true', help='Execute the merge changes.')
+        pars.add_argument('--diff', default=False, action='store_true', help='Enumerate all changes in the current layer.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -2024,6 +2025,18 @@ class MergeCmd(Cmd):
 
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
+
+        if self.opts.diff:
+
+            async for node, path in genr:
+                yield node, path
+
+            async def diffgenr():
+                async for buid, sode in runt.snap.view.layers[0].getStorNodes():
+                    node = await runt.snap.getNodeByBuid(buid)
+                    yield node, runt.initPath(node)
+
+            genr = diffgenr()
 
         async for node, path in genr:
 
