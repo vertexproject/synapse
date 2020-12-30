@@ -1198,7 +1198,7 @@ class LibAxon(Lib):
         code = resp.get('code')
 
         if code != 200:
-            mesg = '$lib.axon.urlfile(): HTTP code {code} != 200'
+            mesg = f'$lib.axon.urlfile(): HTTP code {code} != 200'
             await self.runt.warn(mesg, log=False)
             return
 

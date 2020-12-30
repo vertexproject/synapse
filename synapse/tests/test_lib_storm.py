@@ -208,6 +208,9 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'file:bytes')
 
+            msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
+            self.stormIsInWarn('HTTP code 404', msgs)
+
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
             resp = await core.callStorm(wget, opts=opts)
             self.true(resp['ok'])
