@@ -189,7 +189,12 @@ class JsonStor(s_base.Base):
         step = item
         names = self._pathToTupl(prop)
         for name in names[:-1]:
-            step = step[name]
+            down = step.get(name)
+
+            if down is None:
+                down = step[name] = {}
+
+            step = down
 
         name = names[-1]
         if step.get(name, s_common.novalu) == valu:
