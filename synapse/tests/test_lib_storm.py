@@ -190,6 +190,27 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(wget, opts=opts)
 
+            # test wget runtsafe / per-node / per-node with cmdopt
+            nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            nodes = await core.nodes(f'inet:url=https://127.0.0.1:{port}/api/v1/active | wget')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            nodes = await core.nodes(f'inet:urlfile:url=https://127.0.0.1:{port}/api/v1/active | wget :url')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            # check that the file name got set...
+            nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'file:bytes')
+
+            msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
+            self.stormIsInWarn('HTTP code 404', msgs)
+
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
             resp = await core.callStorm(wget, opts=opts)
             self.true(resp['ok'])
