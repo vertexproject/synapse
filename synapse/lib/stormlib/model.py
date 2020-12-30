@@ -246,11 +246,19 @@ class ModelForm(s_stormtypes.Prim):
     '''
     Implements the Storm API for a Form.
     '''
+    dereflocals = {
+        'name': {
+            'desc': 'The name of the Form',
+            'type': 'str',
+        },
+    }
+    typename = 'storm:model:form'
     def __init__(self, form, path=None):
 
         s_stormtypes.Prim.__init__(self, form, path=path)
 
         self.locls.update(self.getObjLocals())
+        self.locls['name'] = self.valu.name
 
         self.ctors.update({
             'type': self._ctorFormType,
@@ -259,15 +267,7 @@ class ModelForm(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'prop': self._getFormProp,
-            'name': self._propFormName,
         }
-
-    @property
-    def _propFormName(self):
-        '''
-        The name of the Form.
-        '''
-        return self.valu.name
 
     def _ctorFormType(self, path=None):
         return ModelType(self.valu.type, path=path)
@@ -289,8 +289,19 @@ class ModelForm(s_stormtypes.Prim):
 @s_stormtypes.registry.registerType
 class ModelProp(s_stormtypes.Prim):
     '''
-    Implemen the Storm API for a Property.
+    Implements the Storm API for a Property.
     '''
+    dereflocals = {
+        'name': {
+            'desc': 'The short name of the Property.',
+            'type': 'str',
+        },
+        'full': {
+            'desc': 'The full name of the Property.',
+            'type': 'str',
+        }
+    }
+    typename = 'storm:model:tagprop'
     def __init__(self, prop, path=None):
 
         s_stormtypes.Prim.__init__(self, prop, path=path)
@@ -300,27 +311,8 @@ class ModelProp(s_stormtypes.Prim):
             'type': self._ctorPropType,
         })
 
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'full': self._propFull,
-            'name': self._propName,
-        }
-
-    @property
-    def _propName(self):
-        '''
-        The short name of the Property.
-        '''
-        return self.valu.name
-
-    @property
-    def _propFull(self):
-        '''
-        The full name of the Property.
-        '''
-        return self.valu.full
+        self.locls['name'] = self.valu.name
+        self.locls['full'] = self.valu.full
 
     def _ctorPropType(self, path=None):
         return ModelType(self.valu.type, path=path)
@@ -333,6 +325,13 @@ class ModelTagProp(s_stormtypes.Prim):
     '''
     Implements the Storm API for a Tag Property.
     '''
+    dereflocals = {
+        'name': {
+            'desc': 'The name of the Tag Property.',
+            'type': 'str',
+        }
+    }
+    typename = 'storm:model:tagprop'
     def __init__(self, tagprop, path=None):
 
         s_stormtypes.Prim.__init__(self, tagprop, path=path)
@@ -341,19 +340,7 @@ class ModelTagProp(s_stormtypes.Prim):
             'type': self._ctorTagPropType,
         })
 
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'name': self._propName,
-        }
-
-    @property
-    def _propName(self):
-        '''
-        The name of the Tag Property.
-        '''
-        return self.valu.name
+        self.locls['name'] = self.valu.name
 
     def _ctorTagPropType(self, path=None):
         return ModelType(self.valu.type, path=path)
@@ -363,32 +350,30 @@ class ModelType(s_stormtypes.Prim):
     '''
     A Storm types wrapper around a lib.types.Type
     '''
+    dereflocals = {
+        'name': {
+            'type': 'str',
+            'desc': 'The name of the Type.',
+        },
+        'stortype': {
+            'type': 'int',
+            'desc': 'The storetype of the Type.',
+        },
+    }
+    typename = 'storm:model:type'
+
     def __init__(self, valu, path=None):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
+        self.locls.update({'name': valu.name,
+                           'stortype': valu.stortype,
+                           })
 
-    # Todo: Plumb name access via a @property
     def getObjLocals(self):
         return {
             'repr': self._methRepr,
             'norm': self._methNorm,
-            'name': self._propName,
-            'stortype': self._propStortype,
         }
-
-    @property
-    def _propName(self):
-        '''
-        The name of the Type.
-        '''
-        return self.valu.name
-
-    @property
-    def _propStortype(self):
-        '''
-        The storetype of the Type.
-        '''
-        return self.valu.stortype
 
     async def _methRepr(self, valu):
         '''
@@ -414,7 +399,6 @@ class ModelType(s_stormtypes.Prim):
             tuple: A tuple of the normed value and its information dictionary.
         '''
         return self.valu.norm(valu)
-
 
 @s_stormtypes.registry.registerLib
 class LibModelEdge(s_stormtypes.Lib):
@@ -581,7 +565,7 @@ class LibModelDeprecated(s_stormtypes.Lib):
 
     async def _lock(self, name, locked):
         '''
-        Set the locked property for model element.
+        Set the locked property for a deprecated model element.
 
         Args:
             name (str): The full path of the model element to lock.

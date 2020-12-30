@@ -33,7 +33,7 @@ def parseNumber(x):
 
 class AstNode:
     '''
-    Base class for all nodes in the STORM abstract syntax tree.
+    Base class for all nodes in the Storm abstract syntax tree.
     '''
     def __init__(self, kids=()):
         self.kids = []

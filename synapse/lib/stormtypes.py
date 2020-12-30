@@ -131,6 +131,7 @@ class StormType:
     '''
     The base type for storm runtime value objects.
     '''
+    dereflocals = {}  # To be overriden for deref constants that need documentation
     def __init__(self, path=None):
         self.path = path
         self.ctors = {}
@@ -1498,7 +1499,9 @@ class LibRegx(Lib):
         return {
             'search': self.search,
             'matches': self.matches,
-            'flags': {'i': regex.I, 'm': regex.M},
+            'flags': {'i': regex.IGNORECASE,
+                      'm': regex.MULTILINE,
+                      },
         }
 
     async def _getRegx(self, pattern, flags):
@@ -2242,8 +2245,9 @@ class LibBase64(Lib):
 
 class Prim(StormType):
     '''
-    The base type for all STORM primitive values.
+    The base type for all Storm primitive values.
     '''
+    typename = None
     def __init__(self, valu, path=None):
         StormType.__init__(self, path=path)
         self.valu = valu
@@ -2268,7 +2272,7 @@ class Prim(StormType):
 @registry.registerType
 class Str(Prim):
     '''
-    Implement the Storm API for a String object.
+    Implements the Storm API for a String object.
     '''
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -3348,7 +3352,7 @@ class NodeData(Prim):
 @registry.registerType
 class Node(Prim):
     '''
-    Implements the STORM api for a node instance.
+    Implements the Storm api for a node instance.
     '''
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -3570,7 +3574,6 @@ class Path(Prim):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
 
-    # Todo: Plumb vars access via a @property
     def getObjLocals(self):
         return {
             'vars': self._propVars,
@@ -3853,7 +3856,7 @@ class LibLayer(Lib):
 @registry.registerType
 class Layer(Prim):
     '''
-    Implements the STORM api for a layer instance.
+    Implements the Storm api for a layer instance.
     '''
     def __init__(self, runt, ldef, path=None):
         Prim.__init__(self, ldef, path=path)
@@ -4263,7 +4266,7 @@ class LibView(Lib):
 @registry.registerType
 class View(Prim):
     '''
-    Implements the STORM api for a View instance.
+    Implements the Storm api for a View instance.
     '''
     def __init__(self, runt, vdef, path=None):
         Prim.__init__(self, vdef, path=path)
@@ -5033,7 +5036,8 @@ class User(Prim):
         Prim.__init__(self, valu, path=path)
         self.runt = runt
 
-        self.locls.update(self.getObjLocals())
+        locs = self.getObjLocals()
+        self.locls.update(locs)
 
     def getObjLocals(self):
         return {
@@ -5809,7 +5813,7 @@ class LibCron(Lib):
 @registry.registerType
 class CronJob(Prim):
     '''
-    Implements the STORM api for a cronjob instance.
+    Implements the Storm api for a cronjob instance.
     '''
     def __init__(self, runt, cdef, path=None):
         Prim.__init__(self, cdef, path=path)

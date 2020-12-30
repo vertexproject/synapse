@@ -757,6 +757,22 @@ def docStormLibs(libs):
 
     return page
 
+def getReturnLines(rtype):
+    lines = []
+    if isinstance(rtype, str):
+        lines.append(f"The type is ``{rtype}``.")
+    elif isinstance(rtype, list):
+        assert len(rtype) > 1
+        for obj in rtype:
+            assert isinstance(obj, str)
+        tdata = ', '.join([f'``{obj}``' for obj in rtype])
+        lines.append(f'The type may one one of the following: {tdata}.')
+    elif isinstance(rtype, dict):
+        logger.warning('Fully declarative return types are not yet supported.')
+        lines.append(f"The type is derived from the declarative type ``{rtype}``.")
+
+    return lines
+
 def docStormPrims(types):
     page = RstHelp()
 
@@ -771,8 +787,12 @@ def docStormPrims(types):
 
     for (sname, styp) in types:
 
-        typelink = f'.. _stormprims-{sname}:'
-        page.addHead(sname, lvl=1, link=typelink)
+        typename = getattr(styp, 'typename', None)
+        if typename:
+            sname = typename
+
+        typelink = f'.. _stormprims-{sname.replace(":", "-")}:'
+        page.addHead(sname.replace(':', '\\:'), lvl=1, link=typelink)
 
         typedoc = getDoc(styp, sname)
         lines = prepareRstLines(typedoc)
@@ -784,10 +804,11 @@ def docStormPrims(types):
         for (name, locl) in sorted(list(locls.items())):
 
             loclname = '.'.join((sname, name))
-            locldoc = getDoc(locl, loclname)
+            safe_loclname = loclname.replace(':', '\\:')
+            locldoc = getDoc(locl, safe_loclname)
 
-            header = loclname
-            link = f'.. _stormprims-{loclname.replace(".", "-")}:'
+            header = safe_loclname
+            link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
             lines = None
 
             if callable(locl):
@@ -796,7 +817,7 @@ def docStormPrims(types):
 
                 callsig = getCallsig(locl)
 
-                header = f'{loclname}{callsig}'
+                header = f'{name}{callsig}'
                 header = header.replace('*', r'\*')
 
             elif isinstance(locl, property):
@@ -809,6 +830,21 @@ def docStormPrims(types):
             if lines:
                 page.addHead(header, lvl=2, link=link)
                 page.addLines(*lines)
+
+        for (name, info) in sorted(list(styp.dereflocals.items())):
+            loclname = '.'.join((sname, name))
+            locldoc = info.get('desc')
+            rtype = info.get('type', s_common.novalu)
+            assert locldoc is not None
+            assert rtype is not None
+            lines = prepareRstLines(locldoc)
+
+            link = f'.. _stormprims-{loclname.replace(".", "-")}:'
+
+            lines.extend(getReturnLines(rtype))
+
+            page.addHead(name, lvl=2, link=link)
+            page.addLines(*lines)
 
     return page
 
