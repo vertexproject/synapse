@@ -929,14 +929,17 @@ stormcmds = (
     },
     {
         'name': 'wget',
-        'descr': 'Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.'
+        'descr': 'Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.',
         'cmdargs': (
             ('urls', {'nargs': '*', 'help': 'URLs to download.'}),
+            ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
         ),
         'storm': '''
         init {
             $count = (0)
         }
+
+        $ssl = (not $cmdopts.no_ssl_verify)
 
         if $node {
             $count = ($count + 1)
@@ -949,11 +952,15 @@ stormcmds = (
                 }
                 $urls = ($node.value(),)
             }
-
             for $url in $urls {
+                -> { yield $lib.axon.urlfile($url, ssl=$ssl) }
+            }
         }
 
         if ($count = 0) {
+            for $url in $cmdopts.urls {
+                yield $lib.axon.urlfile($url, ssl=$ssl)
+            }
         }
         ''',
     },

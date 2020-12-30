@@ -1140,6 +1140,7 @@ class LibAxon(Lib):
     def getObjLocals(self):
         return {
             'wget': self.wget,
+            'urlfile': self.urlfile,
         }
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True):
@@ -1201,15 +1202,29 @@ class LibAxon(Lib):
             await self.runt.warn(mesg, log=False)
             return
 
+        url = resp.get('url')
         hashes = resp.get('hashes')
         props = {
             'size': resp.get('size'),
             'md5': hashes.get('md5'),
             'sha1': hashes.get('sha1'),
             'sha256': hashes.get('sha256'),
+            '.seen': 'now',
         }
-        #props =
-        #addNode
+
+        sha256 = hashes.get('sha256')
+        filenode = await self.runt.snap.addNode('file:bytes', sha256, props=props)
+
+        if not filenode.get('name'):
+            info = s_urlhelp.chopurl(url)
+            base = info.get('path').strip('/').split('/')[-1]
+            if base:
+                await filenode.set('name', base)
+
+        props = {'.seen': 'now'}
+        urlfile = await self.runt.snap.addNode('inet:urlfile', (url, sha256), props=props)
+
+        return urlfile
 
 @registry.registerLib
 class LibBytes(Lib):
