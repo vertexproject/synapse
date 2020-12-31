@@ -60,6 +60,7 @@ class StormTypesRegistry:
     def addStormType(self, path, ctor):
         if path in self._TYPREG:
             raise Exception('cannot register a type twice')
+        assert ctor.typename is not None, f'{path=} {ctor=}'
         self._TYPREG[path] = ctor
 
     def delStormType(self, path):
@@ -1735,10 +1736,11 @@ class LibPipe(Lib):
         return pipe
 
 @registry.registerType
-class Pipe(StormType):
+class Pipe(StormType):  # FIXME prim?
     '''
     A Storm Pipe provides fast ephemeral queues.
     '''
+    typename = 'storm:pipe'
     def __init__(self, runt, size):
         StormType.__init__(self)
         self.runt = runt
@@ -1945,11 +1947,17 @@ class LibQueue(Lib):
         return retn
 
 @registry.registerType
-class Queue(StormType):
+class Queue(StormType):  # FIXME - why is this not a Prim?
     '''
     A StormLib API instance of a named channel in the Cortex multiqueue.
     '''
-
+    dereflocals = {
+        'name': {
+            'desc': 'The name of the Queue.',
+            'type': 'str',
+        }
+    }
+    typename = 'storm:queue'
     def __init__(self, runt, name, info):
 
         StormType.__init__(self)
@@ -1960,10 +1968,10 @@ class Queue(StormType):
         self.gateiden = f'queue:{name}'
 
         self.locls.update(self.getObjLocals())
+        self.locls['name'] = self.name
 
     def getObjLocals(self):
         return {
-            'name': self._propName,
             'get': self._methQueueGet,
             'pop': self._methQueuePop,
             'put': self._methQueuePut,
@@ -1972,13 +1980,6 @@ class Queue(StormType):
             'cull': self._methQueueCull,
             'size': self._methQueueSize,
         }
-
-    @property
-    def _propName(self):
-        '''
-        The name of the Queue.
-        '''
-        return self.name
 
     async def _methQueueCull(self, offs):
         '''
@@ -2274,6 +2275,7 @@ class Str(Prim):
     '''
     Implements the Storm API for a String object.
     '''
+    typename = 'str'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -2454,6 +2456,7 @@ class Bytes(Prim):
     '''
     Implements the Storm API for a Bytes object.
     '''
+    typename = 'bytes'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -2541,6 +2544,7 @@ class Dict(Prim):
     '''
     Implements the Storm API for a Dictionary object.
     '''
+    typename = 'dict'
     # TODO Add inline examples here once we have the stormrst stable
     def __iter__(self):
         return self.valu.items()
@@ -2575,6 +2579,7 @@ class CmdOpts(Dict):
     A dictionary like object that holds a reference to a command options namespace.
     ( This allows late-evaluation of command arguments rather than forcing capture )
     '''
+    typename = 'storm:cmdopts'
 
     def __iter__(self):
         valu = vars(self.valu.opts)
@@ -2607,6 +2612,7 @@ class Set(Prim):
     '''
     Implements the Storm API for a Set object.
     '''
+    typename = 'set'
     def __init__(self, valu, path=None):
         Prim.__init__(self, set(valu), path=path)
         self.locls.update(self.getObjLocals())
@@ -2718,6 +2724,7 @@ class List(Prim):
     '''
     Implements the Storm API for a List instance.
     '''
+    typename = 'list'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -2827,6 +2834,7 @@ class Bool(Prim):
     Implements the Storm API for a List instance.
     '''
     # TODO Example when we have the stormrst stable
+    typename = 'bool'
     def __str__(self):
         return str(self.value()).lower()
 
@@ -2851,14 +2859,14 @@ class LibUser(Lib):
     @property
     def _libUserVars(self):
         '''
-        OMG SO COOL
+        FIXME
         '''
         return StormHiveDict(self.runt, self.runt.user.vars)
 
     @property
     def _libUserProfile(self):
         '''
-        OMG SO COOL
+        FIMXME
         '''
         return StormHiveDict(self.runt, self.runt.user.profile)
 
@@ -2985,6 +2993,7 @@ class StormHiveDict(Prim):
     '''
     A Storm Primitive representing a HiveDict.
     '''
+    typename = 'storm:hive:dict'
     def __init__(self, runt, info):
         Prim.__init__(self, None)
         self.runt = runt
@@ -3134,6 +3143,7 @@ class Query(Prim):
     '''
     A storm primitive representing an embedded query.
     '''
+    typename = 'storm:query'
     def __init__(self, text, varz, runt, path=None):
 
         text = text.strip()
@@ -3195,6 +3205,7 @@ class NodeProps(Prim):
     '''
     A Storm Primitive representing the properties on a Node.
     '''
+    typename = 'storm:node:props'
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
@@ -3264,6 +3275,7 @@ class NodeData(Prim):
     '''
     A Storm Primitive representing the NodeData stored for a Node.
     '''
+    typename = 'storm:node:data'
     def __init__(self, node, path=None):
 
         Prim.__init__(self, node, path=path)
@@ -3354,6 +3366,7 @@ class Node(Prim):
     '''
     Implements the Storm api for a node instance.
     '''
+    typename = 'storm:node'
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
 
@@ -3536,7 +3549,7 @@ class PathVars(Prim):
     '''
     Put the storm deref/setitem/iter convention on top of path variables.
     '''
-
+    typename = 'storm:node:path:vars'
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
@@ -3570,24 +3583,24 @@ class Path(Prim):
     '''
     Implements the Storm API for the Path object.
     '''
+    dereflocals = {
+        'vars': {
+            'desc': 'The PathVars object for the Path.',
+            'type': 'path:vars',
+        },
+    }
+    typename = 'path'
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
+        self.locls['vars'] = PathVars(self.path)
 
     def getObjLocals(self):
         return {
-            'vars': self._propVars,
             'idens': self._methPathIdens,
             'trace': self._methPathTrace,
             'listvars': self._methPathListVars,
         }
-
-    @property
-    def _propVars(self):
-        '''
-        The PathVars object for the Path.
-        '''
-        return PathVars(self.valu)
 
     async def _methPathIdens(self):
         '''
@@ -3619,6 +3632,7 @@ class Trace(Prim):
     '''
     Storm API wrapper for the Path Trace object.
     '''
+    typename = 'storm:node:path:trace'
     def __init__(self, trace, path=None):
         Prim.__init__(self, trace, path=path)
         self.locls.update(self.getObjLocals())
@@ -3642,6 +3656,7 @@ class Text(Prim):
     '''
     A mutable text type for simple text construction.
     '''
+    typename = 'storm:text'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -3713,6 +3728,7 @@ class StatTally(Prim):
     }
 
     '''
+    typename = 'storm:stat:tally'
     def __init__(self, path=None):
         Prim.__init__(self, {}, path=path)
         self.counters = collections.defaultdict(int)
@@ -3858,6 +3874,13 @@ class Layer(Prim):
     '''
     Implements the Storm api for a layer instance.
     '''
+    dereflocals = {
+        'iden': {
+            'desc': 'The iden of the Layer.',
+            'type': 'str',
+        },
+    }
+    typename = 'storm:layer'
     def __init__(self, runt, ldef, path=None):
         Prim.__init__(self, ldef, path=path)
         self.runt = runt
@@ -3878,12 +3901,12 @@ class Layer(Prim):
                     pdef['url'] = s_urlhelp.sanitizeUrl(url)
 
         self.locls.update(self.getObjLocals())
+        self.locls['iden'] = self.valu.get('iden')
 
     def getObjLocals(self):
         return {
             'set': self._methLayerSet,
             'get': self._methLayerGet,
-            'iden': self._propIden,
             'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
             'edits': self._methLayerEdits,
@@ -3896,13 +3919,6 @@ class Layer(Prim):
             'getFormCounts': self._methGetFormcount,
             'getStorNodes': self.getStorNodes,
         }
-
-    @property
-    def _propIden(self):
-        '''
-        The iden of the Layer.
-        '''
-        return self.valu.get('iden')
 
     async def _addPull(self, url, offs=0):
         '''
@@ -4268,51 +4284,57 @@ class View(Prim):
     '''
     Implements the Storm api for a View instance.
     '''
+    # FIXME I wish i could use actual jsonschema to define the types here so
+    # I'm not certain quite how we want to handle this.
+    dereflocals = {
+        'iden': {
+            'desc': 'The iden of the View.',
+            'type': '',
+        },
+        'layers': {
+            'desc': 'The Layer definitions associated with the View.',
+            'type': {
+                'type': 'list',  # In JsonSchema this would be an array but out List type is list, not array.
+                'items': {
+                    'type': 'storm:layer',
+                }
+            },
+        },
+        'triggers': {
+            'desc': 'The Triggers associated with the View.',
+            'type': {
+                'type': 'list',
+                'items': {
+                    'type': 'storm:trigger',
+                }
+            },
+        },
+    }
+    typename = 'storm:view'
     def __init__(self, runt, vdef, path=None):
         Prim.__init__(self, vdef, path=path)
         self.runt = runt
         self.locls.update(self.getObjLocals())
+        self.locls.update({
+            'iden': self.valu.get('iden'),
+            'triggers': [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')],
+            'layers': [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')],
+        })
 
     # Todo plumb in iden/layers/triggers access via a property
     def getObjLocals(self):
         return {
             'set': self._methViewSet,
             'get': self._methViewGet,
-            'iden': self._propViewIden,
             'fork': self._methViewFork,
             'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
-            'layers': self._propViewLayers,
             'getEdges': self._methGetEdges,
-            'triggers': self._propViewTriggers,
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
         }
-
-    @property
-    def _propViewIden(self):
-        '''
-        The iden of the View.
-        '''
-        return self.valu.get('iden')
-
-    @property
-    def _propViewLayers(self):
-        '''
-        The Layer definitions associated with the View.
-        '''
-        layers = [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')]
-        return layers
-
-    @property
-    def _propViewTriggers(self):
-        '''
-        The Triggers associated with the View.
-        '''
-        triggers = [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')]
-        return triggers
 
     async def _methAddNodeEdits(self, edits):
         '''
@@ -4704,25 +4726,25 @@ class Trigger(Prim):
     '''
     Implements the Storm API for a Trigger.
     '''
+    dereflocals = {
+        'iden': {
+            'desc': 'The Trigger iden.',
+            'type': 'str',
+        },
+    }
+    typename = 'storm:trigger'
     def __init__(self, runt, tdef):
 
         Prim.__init__(self, tdef)
         self.runt = runt
 
         self.locls.update(self.getObjLocals())
+        self.locls['iden'] = self.valu.get('iden')
 
     def getObjLocals(self):
         return {
             'set': self.set,
-            'iden': self._propIden,
         }
-
-    @property
-    def _propIden(self):
-        '''
-        The trigger iden.
-        '''
-        return self.valu.get('iden')
 
     async def deref(self, name):
         valu = self.valu.get(name, s_common.novalu)
@@ -4992,56 +5014,63 @@ class Gate(Prim):
     '''
     Implements the Storm API for an AuthGate.
     '''
+    dereflocals = {
+        'iden': {
+            'desc': 'The iden of the AuthGate.',
+            'type': 'str',
+        },
+        'roles': {
+            'desc': 'The roles which are a member of the Authgate.',
+            'type': {
+                'type': 'list',
+                'items': {
+                    'type': 'str',
+                }
+            },
+        },
+        'users': {
+            'desc': 'The users which are a member of the Authgate.',
+            'type': {
+                'type': 'list',
+                'items': {
+                    'type': 'str',
+                }
+            },
+        },
+    }
+    typename = 'storm:auth:gate'
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
         self.runt = runt
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'iden': self._propIden,
-            'users': self._propUsers,
-            'roles': self._propRoles,
-        }
-
-    @property
-    def _propIden(self):
-        '''
-        The iden of the AuthGate.
-        '''
-        return self.valu.get('iden')
-
-    @property
-    def _propUsers(self):
-        '''
-        The users which are a member of the Authgate.
-        '''
-        return self.valu.get('users')
-
-    @property
-    def _propRoles(self):
-        '''
-        The roles which are a member of the Authgate.
-        '''
-        return self.valu.get('roles')
+        self.locls.update({
+            'iden': self.valu.get('iden'),
+            'roles': self.valu.get('roles', ()),
+            'users': self.valu.get('users', ()),
+        })
 
 @registry.registerType
 class User(Prim):
     '''
     Implements the Storm API for a User.
     '''
+    dereflocals = {
+        'iden': {
+            'desc': 'The User iden.',
+            'type': 'str',
+        },
+    }
+    typename = 'storm:auth:user'
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
         self.runt = runt
 
-        locs = self.getObjLocals()
-        self.locls.update(locs)
+        self.locls.update(self.getObjLocals())
+        self.locls['iden'] = self.valu
 
     def getObjLocals(self):
         return {
-            'iden': self._propIden,
             'get': self._methUserGet,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
@@ -5055,16 +5084,6 @@ class User(Prim):
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
         }
-
-    @property
-    def _propIden(self):
-        '''
-        Constant representing the User iden.
-
-        Returns:
-            str: The user iden.
-        '''
-        return self.valu
 
     async def _derefGet(self, name):
         udef = await self.runt.snap.core.getUserDef(self.valu)
@@ -5249,6 +5268,13 @@ class Role(Prim):
     '''
     Implements the Storm API for a Role.
     '''
+    dereflocals = {
+        'iden': {
+            'desc': 'The Role iden.',
+            'type': 'str',
+        }
+    }
+    typename = 'storm:auth:role'
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
@@ -5258,21 +5284,10 @@ class Role(Prim):
     def getObjLocals(self):
         return {
             'get': self._methRoleGet,
-            'iden': self._propIden,
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
             'setRules': self._methRoleSetRules,
         }
-
-    @property
-    def _propIden(self):
-        '''
-        Constant representing the User iden.
-
-        Returns:
-            str: The user iden.
-        '''
-        return self.valu
 
     async def _derefGet(self, name):
         rdef = await self.runt.snap.core.getRoleDef(self.valu)
@@ -5815,25 +5830,25 @@ class CronJob(Prim):
     '''
     Implements the Storm api for a cronjob instance.
     '''
+    dereflocals = {
+        'iden': {
+            'desc': 'The iden of the Cron job.',
+            'type': 'str',
+        },
+    }
+    typename = 'storm:cronjob'
     def __init__(self, runt, cdef, path=None):
         Prim.__init__(self, cdef, path=path)
         self.runt = runt
         self.locls.update(self.getObjLocals())
+        self.locls['iden'] = self.valu.get('iden')
 
     def getObjLocals(self):
         return {
             'set': self._methCronJobSet,
-            'iden': self._propIden,
             'pack': self._methCronJobPack,
             'pprint': self._methCronJobPprint,
         }
-
-    @property
-    def _propIden(self):
-        '''
-        The iden of the Cron job.
-        '''
-        return self.valu.get('iden')
 
     async def _methCronJobSet(self, name, valu):
         '''

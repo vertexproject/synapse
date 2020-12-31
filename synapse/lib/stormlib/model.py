@@ -301,7 +301,7 @@ class ModelProp(s_stormtypes.Prim):
             'type': 'str',
         }
     }
-    typename = 'storm:model:tagprop'
+    typename = 'storm:model:property'
     def __init__(self, prop, path=None):
 
         s_stormtypes.Prim.__init__(self, prop, path=path)

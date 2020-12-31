@@ -124,6 +124,7 @@ class HttpResp(s_stormtypes.StormType):
     '''
     Implements the Storm API for a HTTP response.
     '''
+    typename = 'storm:http:resp'
     def __init__(self, code, body):
         s_stormtypes.StormType.__init__(self)
         self.code = code

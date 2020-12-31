@@ -833,13 +833,14 @@ def docStormPrims(types):
 
         for (name, info) in sorted(list(styp.dereflocals.items())):
             loclname = '.'.join((sname, name))
+            safe_loclname = loclname.replace(':', '\\:')
             locldoc = info.get('desc')
             rtype = info.get('type', s_common.novalu)
             assert locldoc is not None
             assert rtype is not None
             lines = prepareRstLines(locldoc)
 
-            link = f'.. _stormprims-{loclname.replace(".", "-")}:'
+            link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
 
             lines.extend(getReturnLines(rtype))
 
