@@ -773,6 +773,9 @@ def getReturnLines(rtype):
 
     return lines
 
+def getArgLines(rtype, callsig):
+
+
 def docStormPrims(types):
     page = RstHelp()
 
@@ -834,19 +837,36 @@ def docStormPrims(types):
         for (name, info) in sorted(list(styp.dereflocals.items())):
             loclname = '.'.join((sname, name))
             # safe_loclname = loclname.replace(':', '\\:') # Unused for Types
-            locldoc = info.get('desc')
-            rtype = info.get('type', s_common.novalu)
+            desc = info.get('desc')
+            rtype = info.get('type')
             assert locldoc is not None
             assert rtype is not None
 
-            funcname = info.get('_funcname')
-            if funcname:
+            if isinstance(rtype, dict):
+                rname = rtype.get('name')
+                if rname != 'function':
+                    logger.warning(f'Unknown rname: {loclname=} {rname=}') # py38
+                    continue
+
+                funcname = rtype.get('_funcname')
 
                 locl = getattr(styp, funcname, None)
                 assert locl is not None, f'bad {funcname=} for {loclname=}'
+
+                locldoc = getDoc(locl, loclname)
+
+                # Generate lines
+                # 1. __doc__
+                # 2. desc
+                # 3. args
+                # 4. TBD examples?
+                # 5. return/yields
+
                 lines = prepareRstLines(locldoc, cleanargs=True)
 
                 callsig = getCallsig(locl)
+
+                arglines = getArgLines(rtype, callsig)
 
                 print(type(callsig), dir(callsig), callsig, locl)
                 header = f'{name}{callsig}'
@@ -854,7 +874,7 @@ def docStormPrims(types):
 
             else:
                 header = name
-                lines = prepareRstLines(locldoc)
+                lines = prepareRstLines(desc)
                 link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
                 lines.extend(getReturnLines(rtype))
 
