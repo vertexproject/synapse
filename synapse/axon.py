@@ -406,6 +406,7 @@ class Axon(s_cell.Cell):
 
                     info = {
                         'ok': True,
+                        'url': str(resp.url),
                         'code': resp.status,
                         'headers': dict(resp.headers),
                     }

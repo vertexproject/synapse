@@ -926,7 +926,44 @@ stormcmds = (
             $kild = $lib.ps.kill($cmdopts.iden)
             $lib.print("kill status: {kild}", kild=$kild)
         ''',
-    }
+    },
+    {
+        'name': 'wget',
+        'descr': 'Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.',
+        'cmdargs': (
+            ('urls', {'nargs': '*', 'help': 'URLs to download.'}),
+            ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
+        ),
+        'storm': '''
+        init {
+            $count = (0)
+        }
+
+        $ssl = (not $cmdopts.no_ssl_verify)
+
+        if $node {
+            $count = ($count + 1)
+            if $cmdopts.urls {
+                $urls = $cmdopts.urls
+            } else {
+                if ($node.form() != "inet:url") {
+                    $lib.warn("wget can only take inet:url nodes as input without args.")
+                    $lib.exit()
+                }
+                $urls = ($node.value(),)
+            }
+            for $url in $urls {
+                -> { yield $lib.axon.urlfile($url, ssl=$ssl) }
+            }
+        }
+
+        if ($count = 0) {
+            for $url in $cmdopts.urls {
+                yield $lib.axon.urlfile($url, ssl=$ssl)
+            }
+        }
+        ''',
+    },
 )
 
 class DmonManager(s_base.Base):
@@ -1977,6 +2014,7 @@ class MergeCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--apply', default=False, action='store_true', help='Execute the merge changes.')
+        pars.add_argument('--diff', default=False, action='store_true', help='Enumerate all changes in the current layer.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -1987,6 +2025,18 @@ class MergeCmd(Cmd):
 
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
+
+        if self.opts.diff:
+
+            async for node, path in genr:
+                yield node, path
+
+            async def diffgenr():
+                async for buid, sode in runt.snap.view.layers[0].getStorNodes():
+                    node = await runt.snap.getNodeByBuid(buid)
+                    yield node, runt.initPath(node)
+
+            genr = diffgenr()
 
         async for node, path in genr:
 
