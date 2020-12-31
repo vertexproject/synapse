@@ -1386,5 +1386,5 @@ class LayerTest(s_t_utils.SynTest):
             edits2 = [e async for e in layer.syncNodeEdits(0, wait=False)]
             self.gt(len(edits2), len(edits1))
 
-            with self.raises(s_exc.BadArg):
+            with self.raises(s_exc.BadOptValu):
                 await core.callStorm('$layer = $lib.layer.get() $layer.set(newp, hehe)')

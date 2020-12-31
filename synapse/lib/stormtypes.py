@@ -3687,7 +3687,7 @@ class Layer(Prim):
         elif name == 'logedits':
             valu = await tobool(valu)
         else:
-            mesg = 'Layer does not support setting: {name}'
+            mesg = f'Layer does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
 
         useriden = self.runt.user.iden
