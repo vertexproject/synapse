@@ -3679,6 +3679,17 @@ class Layer(Prim):
         return self.valu.get(name, defv)
 
     async def _methLayerSet(self, name, valu):
+
+        name = await tostr(name)
+
+        if name == 'name':
+            valu = await tostr(valu)
+        elif name == 'logedits':
+            valu = await tobool(valu)
+        else:
+            mesg = 'Layer does not support setting: {name}'
+            raise s_exc.BadArg(mesg=mesg)
+
         useriden = self.runt.user.iden
         layriden = self.valu.get('iden')
         gatekeys = ((useriden, ('layer', 'set', name), layriden),)

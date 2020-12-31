@@ -1366,3 +1366,25 @@ class LayerTest(s_t_utils.SynTest):
 
             rows = await alist(layr.iterTagPropRows('foo', 'score', stortype=s_layer.STOR_TYPE_I64, startvalu=42))
             self.eq(expect[1:], rows)
+
+    async def test_layer_setinfo(self):
+
+        async with self.getTestCore() as core:
+
+            layer = core.getView().layers[0]
+
+            self.eq('hehe', await core.callStorm('$layer = $lib.layer.get() $layer.set(name, hehe) return($layer.get(name))'))
+
+            self.eq(False, await core.callStorm('$layer = $lib.layer.get() $layer.set(logedits, $lib.false) return($layer.get(logedits))'))
+            edits0 = [e async for e in layer.syncNodeEdits(0, wait=False)]
+            await core.callStorm('[inet:ipv4=1.2.3.4]')
+            edits1 = [e async for e in layer.syncNodeEdits(0, wait=False)]
+            self.eq(len(edits0), len(edits1))
+
+            self.eq(True, await core.callStorm('$layer = $lib.layer.get() $layer.set(logedits, $lib.true) return($layer.get(logedits))'))
+            await core.callStorm('[inet:ipv4=5.5.5.5]')
+            edits2 = [e async for e in layer.syncNodeEdits(0, wait=False)]
+            self.gt(len(edits2), len(edits1))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$layer = $lib.layer.get() $layer.set(newp, hehe)')
