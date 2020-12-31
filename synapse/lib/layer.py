@@ -1406,11 +1406,17 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name',):
+        if name not in ('name', 'logedits'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
+
+        if name == 'logedits':
+            valu = bool(valu)
+            self.logedits = valu
+
         # TODO when we can set more props, we may need to parse values.
         await self.layrinfo.set(name, valu)
+
         return valu
 
     async def stat(self):
