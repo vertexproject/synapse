@@ -27,6 +27,10 @@ class JsonStorTest(s_test.SynTest):
                     self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/bar'))
                     self.true(await prox.getPathObjProp('foo/bar', 'zip/zop'))
 
+                    await prox.setPathObjProp('foo/bar', 'nested/nested2', 'a bird')
+                    self.eq({'hehe': 'haha', 'zip': {'zop': True}, 'nested': {'nested2': 'a bird'}}, await prox.getPathObj('foo/bar'))
+                    await prox.delPathObjProp('foo/bar', 'nested')
+
                     await prox.setPathLink('foo/baz', 'foo/bar')
                     self.eq({'hehe': 'haha', 'zip': {'zop': True}}, await prox.getPathObj('foo/baz'))
 

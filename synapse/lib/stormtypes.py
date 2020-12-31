@@ -118,15 +118,15 @@ def intify(x):
         mesg = f'Failed to make an integer from "{x}".'
         raise s_exc.BadCast(mesg=mesg) from e
 
-def kwarg_format(text, **kwargs):
+def kwarg_format(_text, **kwargs):
     '''
     Replaces instances curly-braced argument names in text with their values
     '''
     for name, valu in kwargs.items():
         temp = '{%s}' % (name,)
-        text = text.replace(temp, str(valu))
+        _text = _text.replace(temp, str(valu))
 
-    return text
+    return _text
 
 class StormType:
     '''
@@ -1145,6 +1145,7 @@ class LibAxon(Lib):
     def getObjLocals(self):
         return {
             'wget': self.wget,
+            'urlfile': self.urlfile,
         }
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True):
@@ -1188,6 +1189,47 @@ class LibAxon(Lib):
 
         axon = self.runt.snap.core.axon
         return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json)
+
+    async def urlfile(self, *args, **kwargs):
+        '''
+        Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
+
+        Args: see $lib.axon.wget()
+
+        Returns:
+            inet:urlfile node on success.  $lib.null on error.
+        '''
+        resp = await self.wget(*args, **kwargs)
+        code = resp.get('code')
+
+        if code != 200:
+            mesg = f'$lib.axon.urlfile(): HTTP code {code} != 200'
+            await self.runt.warn(mesg, log=False)
+            return
+
+        url = resp.get('url')
+        hashes = resp.get('hashes')
+        props = {
+            'size': resp.get('size'),
+            'md5': hashes.get('md5'),
+            'sha1': hashes.get('sha1'),
+            'sha256': hashes.get('sha256'),
+            '.seen': 'now',
+        }
+
+        sha256 = hashes.get('sha256')
+        filenode = await self.runt.snap.addNode('file:bytes', sha256, props=props)
+
+        if not filenode.get('name'):
+            info = s_urlhelp.chopurl(url)
+            base = info.get('path').strip('/').split('/')[-1]
+            if base:
+                await filenode.set('name', base)
+
+        props = {'.seen': 'now'}
+        urlfile = await self.runt.snap.addNode('inet:urlfile', (url, sha256), props=props)
+
+        return urlfile
 
 @registry.registerLib
 class LibBytes(Lib):
@@ -4241,6 +4283,17 @@ class Layer(Prim):
         Returns:
             ``$lib.null``
         '''
+
+        name = await tostr(name)
+
+        if name == 'name':
+            valu = await tostr(valu)
+        elif name == 'logedits':
+            valu = await tobool(valu)
+        else:
+            mesg = f'Layer does not support setting: {name}'
+            raise s_exc.BadOptValu(mesg=mesg)
+
         useriden = self.runt.user.iden
         layriden = self.valu.get('iden')
         gatekeys = ((useriden, ('layer', 'set', name), layriden),)

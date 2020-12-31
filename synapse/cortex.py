@@ -49,6 +49,7 @@ import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
+import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
 
 logger = logging.getLogger(__name__)
 

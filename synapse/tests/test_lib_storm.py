@@ -190,6 +190,27 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(wget, opts=opts)
 
+            # test wget runtsafe / per-node / per-node with cmdopt
+            nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            nodes = await core.nodes(f'inet:url=https://127.0.0.1:{port}/api/v1/active | wget')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            nodes = await core.nodes(f'inet:urlfile:url=https://127.0.0.1:{port}/api/v1/active | wget :url')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            # check that the file name got set...
+            nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'file:bytes')
+
+            msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
+            self.stormIsInWarn('HTTP code 404', msgs)
+
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
             resp = await core.callStorm(wget, opts=opts)
             self.true(resp['ok'])
@@ -312,6 +333,13 @@ class StormTest(s_t_utils.SynTest):
             self.ne(bylayer['props']['type'], layr)
 
             msgs = await core.stormlist('inet:ipv4=11.22.33.44 | merge', opts=opts)
+            self.stormIsInPrint('aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4:asn = 99', msgs)
+            self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4#foo = ('2020/01/01 00:00:00.000', '2020/01/01 00:00:00.001')", msgs)
+            self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4#foo:score = 100", msgs)
+            self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4 DATA foo = 'bar'", msgs)
+            self.stormIsInPrint('aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4 +(blahverb)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
+
+            msgs = await core.stormlist('ps:person | merge --diff', opts=opts)
             self.stormIsInPrint('aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4:asn = 99', msgs)
             self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4#foo = ('2020/01/01 00:00:00.000', '2020/01/01 00:00:00.001')", msgs)
             self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4#foo:score = 100", msgs)
