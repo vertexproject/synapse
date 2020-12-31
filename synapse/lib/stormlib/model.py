@@ -350,65 +350,67 @@ class ModelType(s_stormtypes.Prim):
     '''
     A Storm types wrapper around a lib.types.Type
     '''
-    dereflocals = {
-        'name': {
+    dereflocs = (
+        {
+            'name': 'name',
+            'desc': 'The name of the Type',
             'type': 'str',
-            'desc': 'The name of the Type.',
         },
-        'stortype': {
+        {
+            'name': 'stortype',
+            'desc': 'The storetype of the Type',
             'type': 'int',
-            'desc': 'The storetype of the Type.',
         },
-        'repr': {
-            'desc': '''
-            Get the repr of a value for the Type.
-
-            Args:
-                valu: The value to get the repr of.
-
-            Returns:
-                string: The string form of the value as represented by the type.
-            ''',
-            'type': 'str',
-            '_funcname': '_methRepr',
-            'argspec': {
-
+        {
+            'name': 'repr',
+            'desc': 'Get the repr of a value for the Type.',
+            'type': {
+                'name': 'function',
+                '_funcname': '_methRepr',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'desc': 'The value to get the repr of.',
+                        'type': 'any',
+                    },
+                ),
+                'returns': {
+                    'desc': 'The string form of the value as represented by the type.',
+                    'type': 'str',
+                }
             }
         },
-        'norm': {
-            'desc': '''
-                Get the norm and info for the Type.
-
-                Args:
-                    valu: The value to norm.
-
-                Returns:
-                    tuple: A tuple of the normed value and its information dictionary.
-            ''',
+        {
+            'name': 'norm',
+            'desc': 'Get the norm and info for the Type.',
             'type': {
-                'type': 'list',  # FIXME again - i want jsonschema
-                'items': [
+                'name': 'function',
+                '_funcname': '_methNorm',
+                'args': (
                     {
-                        'type': [
-                            'list',
-                            'dict',
-                            'int',
-                            'str',
-                            'bool',
-                        ]
+                        'name': 'valu',
+                        'desc': 'The value to norm.',
+                        'type': 'any',
                     },
-                    {
-                        'type': 'dict'
+                ),
+                'returns': {
+                    'desc': 'A tuple of the normed value and its information dictionary.',
+                    'type': {  # FIXME this is leaking from the outer envelope to jsonschema...
+                        'type': 'list',
+                        'items': [
+                            {
+                                'type': 'prim'
+                            },
+                            {
+                                'type': 'dict'
+                            }
+                        ],
+                        'additionalItems': False,
                     }
-                ],
-                'additionalItems': False,
-            },
-            '_funcname': '_methNorm',
-            'argspec': {
-
+                }
             }
         }
-    }
+    )
     typename = 'storm:model:type'
 
     def __init__(self, valu, path=None):

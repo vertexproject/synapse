@@ -686,7 +686,7 @@ def cleanArgsRst(doc):
         doc = doc.replace(new, old)
     return doc
 
-def getCallsig(func):
+def getCallsig(func) -> inspect.Signature:
     '''Get the callsig of a function, stripping self if present.'''
     callsig = inspect.signature(func)
     params = list(callsig.parameters.values())
@@ -848,6 +848,7 @@ def docStormPrims(types):
 
                 callsig = getCallsig(locl)
 
+                print(type(callsig), dir(callsig), callsig, locl)
                 header = f'{name}{callsig}'
                 header = header.replace('*', r'\*')
 

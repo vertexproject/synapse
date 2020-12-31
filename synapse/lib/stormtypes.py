@@ -1300,6 +1300,27 @@ class LibLift(Lib):
     '''
     A Storm Library for interacting with lift helpers.
     '''
+    dereflocals = (
+        {
+            'name': 'byNodeData',
+            'desc': 'Lift nodes which have a given nodedata name set on them.',
+            'type': {
+                'name': 'function',
+                '_funcname': '_byNodeData',
+                'args': (
+                    {
+                        'name': 'name',
+                        'desc': 'The name to of the nodedata key to lift by.',
+                        'type': 'str',
+                    },
+                ),
+                'yields': {
+                    'desc': 'Yields nodes to the pipeline. This must be used in conjunction with the ``yield`` keyword.',
+                    'type': 'storm:node'
+                }
+            }
+        },
+    )
     _storm_lib_path = ('lift',)
 
     def getObjLocals(self):
@@ -1309,13 +1330,13 @@ class LibLift(Lib):
 
     async def _byNodeData(self, name):
         '''
-        Lift nodes which have a given nodedata name set on them.
+
 
         Args:
-            name (str): The name to of the nodedata key to lift by.
+            name (str):
 
         Returns:
-            Yields nodes to the pipeline. This must be used in conjunction with the ``yield`` keyword.
+
         '''
         async for node in self.runt.snap.nodesByDataName(name):
             yield node
@@ -1325,6 +1346,53 @@ class LibTime(Lib):
     '''
     A Storm Library for interacting with timestamps.
     '''
+    dereflocals = (
+        {
+            'name': 'now',
+            'desc': 'Get the current epoch time in milliseconds.',
+            'type': {
+                'name': 'function',
+                '_funcname': '_now',
+                'returns': {
+                    'desc': 'Epoch time in milliseconds.',
+                    'type': 'int',
+                }
+            }
+        },
+        {
+            'name': 'ticker',
+            'desc': '''
+            Periodically pause the processing of data in the storm query.
+
+            Notes:
+                This has the effect of clearing the Snap's cache, so any node lifts performed
+                after each tick will be lifted directly from storage.
+            ''',
+            'type': {
+                'name': 'function',
+                '_funcname': '_ticker',
+                'args': (
+                    {
+                        'name': 'tick',
+                        'desc': 'The amount of time to wait between each tick, in seconds.',
+                        'type': 'int',
+                    },
+                ),
+                'kwargs': (
+                    {
+                        'name': 'count',
+                        'desc': 'The number of times to pause the query before exiting the loop. This defaults to None and will yield forever if not set.',
+                        'default': 'null',
+                        'type': 'int',
+                    }
+                ),
+                'yields': {
+                    'desc': 'This yields the current tick count after each time it wakes up.',
+                    'type': 'int',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('time',)
 
     def getObjLocals(self):
@@ -1340,10 +1408,10 @@ class LibTime(Lib):
     # TODO from other iso formats!
     def _now(self):
         '''
-        Get the current epoch time in milliseconds.
+
 
         Returns:
-            int: Epoch time in milliseconds.
+            int:
         '''
         return s_common.now()
 
@@ -1435,17 +1503,16 @@ class LibTime(Lib):
         Periodically pause the processing of data in the storm query.
 
         Args:
-            tick (int): The amount of time to wait between each tick, in seconds.
+            tick (int):
 
-            count (int): The number of times to pause the query before exiting the loop. This defaults to None and will
-            yield forever if not set.
+            count (int):
 
         Notes:
             This has the effect of clearing the Snap's cache, so any node lifts performed
             after each tick will be lifted directly from storage.
 
         Returns:
-            int: This yields the current tick count after each time it wakes up.
+            int:
         '''
 
         if count is not None:
@@ -3656,6 +3723,43 @@ class Text(Prim):
     '''
     A mutable text type for simple text construction.
     '''
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': 'Add text to the Text object.',
+            'type': {
+                'name': 'function',
+                '_funcname': '_methTextAdd',
+                'args': (
+                    {
+                        'name': 'text',
+                        'desc': 'The text to add.',
+                        'type': 'str',
+                    },
+                    {
+                        'name': '**kwargs',
+                        'desc': 'Keyword arguments used to format the text.',
+                        'type': 'any'
+                    }
+                ),
+                'returns': {
+                    'type': 'null'
+                },
+            }
+        },
+        {
+            'name': 'str',
+            'desc': 'Get the text content as a string.',
+            'type': {
+                'name': 'function',
+                '_funcname': '_methTextStr',
+                'returns': {
+                    'desc': 'The current string of the text object.',
+                    'type': 'str',
+                }
+            }
+        }
+    )
     typename = 'storm:text'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -3671,27 +3775,10 @@ class Text(Prim):
         return len(self.valu)
 
     async def _methTextAdd(self, text, **kwargs):
-        '''
-        Add text to the Text object.
-
-        Args:
-            text(str): The text to add.
-
-            **kwargs: Keyword arguments used to format the text.
-
-        Returns:
-            ``$lib.null``
-        '''
         text = kwarg_format(text, **kwargs)
         self.valu += text
 
     async def _methTextStr(self):
-        '''
-        Get the text content as a string.
-
-        Returns:
-            string: A string.
-        '''
         return self.valu
 
 @registry.registerLib
