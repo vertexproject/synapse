@@ -45,7 +45,7 @@ class LibModelExt(Lib):
 
     async def addUnivProp(self, propname, typedef, propinfo):
         '''
-        Add an extended univeral property definition to the data model.
+        Add an extended universal property definition to the data model.
         '''
         propname = await tostr(propname)
         typedef = await toprim(typedef)
