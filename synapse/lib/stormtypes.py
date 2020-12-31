@@ -117,15 +117,15 @@ def intify(x):
         mesg = f'Failed to make an integer from "{x}".'
         raise s_exc.BadCast(mesg=mesg) from e
 
-def kwarg_format(text, **kwargs):
+def kwarg_format(_text, **kwargs):
     '''
     Replaces instances curly-braced argument names in text with their values
     '''
     for name, valu in kwargs.items():
         temp = '{%s}' % (name,)
-        text = text.replace(temp, str(valu))
+        _text = _text.replace(temp, str(valu))
 
-    return text
+    return _text
 
 class StormType:
     '''
@@ -3721,6 +3721,17 @@ class Layer(Prim):
         return self.valu.get(name, defv)
 
     async def _methLayerSet(self, name, valu):
+
+        name = await tostr(name)
+
+        if name == 'name':
+            valu = await tostr(valu)
+        elif name == 'logedits':
+            valu = await tobool(valu)
+        else:
+            mesg = f'Layer does not support setting: {name}'
+            raise s_exc.BadOptValu(mesg=mesg)
+
         useriden = self.runt.user.iden
         layriden = self.valu.get('iden')
         gatekeys = ((useriden, ('layer', 'set', name), layriden),)
