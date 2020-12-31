@@ -833,18 +833,31 @@ def docStormPrims(types):
 
         for (name, info) in sorted(list(styp.dereflocals.items())):
             loclname = '.'.join((sname, name))
-            safe_loclname = loclname.replace(':', '\\:')
+            # safe_loclname = loclname.replace(':', '\\:') # Unused for Types
             locldoc = info.get('desc')
             rtype = info.get('type', s_common.novalu)
             assert locldoc is not None
             assert rtype is not None
-            lines = prepareRstLines(locldoc)
 
-            link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
+            funcname = info.get('_funcname')
+            if funcname:
 
-            lines.extend(getReturnLines(rtype))
+                locl = getattr(styp, funcname, None)
+                assert locl is not None, f'bad {funcname=} for {loclname=}'
+                lines = prepareRstLines(locldoc, cleanargs=True)
 
-            page.addHead(name, lvl=2, link=link)
+                callsig = getCallsig(locl)
+
+                header = f'{name}{callsig}'
+                header = header.replace('*', r'\*')
+
+            else:
+                header = name
+                lines = prepareRstLines(locldoc)
+                link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
+                lines.extend(getReturnLines(rtype))
+
+            page.addHead(header, lvl=2, link=link)
             page.addLines(*lines)
 
     return page

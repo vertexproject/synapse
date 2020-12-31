@@ -359,6 +359,55 @@ class ModelType(s_stormtypes.Prim):
             'type': 'int',
             'desc': 'The storetype of the Type.',
         },
+        'repr': {
+            'desc': '''
+            Get the repr of a value for the Type.
+
+            Args:
+                valu: The value to get the repr of.
+
+            Returns:
+                string: The string form of the value as represented by the type.
+            ''',
+            'type': 'str',
+            '_funcname': '_methRepr',
+            'argspec': {
+
+            }
+        },
+        'norm': {
+            'desc': '''
+                Get the norm and info for the Type.
+
+                Args:
+                    valu: The value to norm.
+
+                Returns:
+                    tuple: A tuple of the normed value and its information dictionary.
+            ''',
+            'type': {
+                'type': 'list',  # FIXME again - i want jsonschema
+                'items': [
+                    {
+                        'type': [
+                            'list',
+                            'dict',
+                            'int',
+                            'str',
+                            'bool',
+                        ]
+                    },
+                    {
+                        'type': 'dict'
+                    }
+                ],
+                'additionalItems': False,
+            },
+            '_funcname': '_methNorm',
+            'argspec': {
+
+            }
+        }
     }
     typename = 'storm:model:type'
 
@@ -366,38 +415,16 @@ class ModelType(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
         self.locls.update({'name': valu.name,
+                           'norm': self._methNorm,
+                           'repr': self._methRepr,
                            'stortype': valu.stortype,
                            })
 
-    def getObjLocals(self):
-        return {
-            'repr': self._methRepr,
-            'norm': self._methNorm,
-        }
-
     async def _methRepr(self, valu):
-        '''
-        Get the repr of a value for the Type.
-
-        Args:
-            valu: The value to get the repr of.
-
-        Returns:
-            string: The string form of the value as represented by the type.
-        '''
         nval = self.valu.norm(valu)
         return self.valu.repr(nval[0])
 
     async def _methNorm(self, valu):
-        '''
-        Get the norm and info for the Type.
-
-        Args:
-            valu: The value to norm.
-
-        Returns:
-            tuple: A tuple of the normed value and its information dictionary.
-        '''
         return self.valu.norm(valu)
 
 @s_stormtypes.registry.registerLib
