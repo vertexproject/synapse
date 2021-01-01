@@ -215,3 +215,8 @@ class FileTest(s_t_utils.SynTest):
 
             node = nodes[0]
             self.eq(node.ndef, ('file:ismime', (guid, 'text/plain')))
+
+    async def test_model_file_mime_ms(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ file:mime:msdoc=* :ole:title=woot ]')

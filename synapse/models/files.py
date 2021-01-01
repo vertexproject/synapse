@@ -183,6 +183,40 @@ class FileModule(s_module.CoreModule):
                     'ex': 'c:/windows/system32/calc.exe'}),
             ),
 
+            'interfaces': (
+                ('file:mime:meta', {
+                    'props': (
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file that the mime info was parsed from.'}),
+                        ('file:offs', ('int', {}), {
+                            'doc': 'The optional offset where the mime info was parsed from.'}),
+                        ('file:data', ('data', {}), {
+                            'doc': 'A mime specific arbitrary data structure for non-indexed data.',
+                        }),
+                    ),
+                }),
+                ('file:mime:olefile', {
+                    'props': (
+                        ('ole:title', ('str', {}), {
+                            'doc': 'The title extracted from OLE metadata.'}),
+                        ('ole:author', ('str', {}), {
+                            'doc': 'The author extracted from OLE metadata.'}),
+                        ('ole:subject', ('str', {}), {
+                            'doc': 'The subject extracted from OLE metadata.'}),
+                        ('ole:application', ('str', {}), {
+                            'doc': 'The creating_application extracted from OLE metadata.'}),
+                        ('ole:created', ('time', {}), {
+                            'doc': 'The create_time extracted from OLE metadata.'}),
+                        ('ole:lastsaved', ('time', {}), {
+                            'doc': 'The last_saved_time extracted from OLE metadata.'}),
+                        ('ole:streams', ('array', {'type': 'file:mime:ole:stream'}), {
+                            'doc': 'An array of streams extracted from the OLE file.'}),
+                    ),
+                    # yo dawg...
+                    'interfaces': ('file:mime:meta',),
+                }),
+            ),
+
             'types': (
 
                 ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
@@ -200,6 +234,29 @@ class FileModule(s_module.CoreModule):
 
                 ('file:ismime', ('comp', {'fields': (('file', 'file:bytes'), ('mime', 'file:mime'))}), {
                     'doc': 'Records one, of potentially multiple, mime types for a given file.',
+                }),
+
+                ('file:mime:ole:stream', ('comp', {'fields': (('path', 'file:path'), ('sha256', 'hash:sha256'))}), {
+                    'doc': 'A named stream contained within an OLE file or document zip file.',
+                }),
+
+                ('file:mime:msdoc', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a Microsoft Word file.',
+                    'interfaces': ('file:mime:olefile',),
+                }),
+
+                ('file:mime:msxls', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a Microsoft Excel file.',
+                    'interfaces': ('file:mime:olefile',),
+                }),
+
+                ('file:mime:msppt', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a Microsoft Powerpoint file.',
+                    'interfaces': ('file:mime:olefile',),
+                }),
+
+                ('file:mime:rtf', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a .rtf file. Typically guid(sha256).',
                 }),
 
                 ('file:mime:pe:section', ('comp', {'fields': (
@@ -310,6 +367,24 @@ class FileModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The mime type of the file.',
                     }),
+                )),
+
+                ('file:mime:msdoc', {}, (
+                )),
+
+                ('file:mime:msxls', {}, (
+                    ('sheets', ('array', {'type': 'str'}), {
+                        'doc': 'An array of worksheet names extracted from the file.'}),
+                )),
+
+                ('file:mime:msppt', {}, (
+                    ('slidecount', ('int', {}), {
+                        'doc': 'An array of worksheet names extracted from the file.'}),
+                )),
+
+                ('file:mime:rtf', {}, (
+                    ('guid', ('guid', {}), {
+                        'doc': 'The parsed GUID embedded in the .rtf file.'}),
                 )),
 
                 ('file:mime:pe:section', {}, (

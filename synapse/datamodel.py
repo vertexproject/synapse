@@ -254,6 +254,8 @@ class Form:
         self.type.form = self
 
         self.props = {}     # name: Prop()
+        self.ifaces = {}    # name: <ifacedef>
+
         self.refsout = None
 
         self.locked = False
@@ -419,6 +421,7 @@ class Model:
         self.types = {} # name: Type()
         self.forms = {} # name: Form()
         self.props = {} # (form,name): Prop() and full: Prop()
+        self.ifaces = {}  # name: <ifdef>
         self.tagprops = {} # name: TagProp()
         self.formabbr = {} # name: [Form(), ... ]
         self.modeldefs = []
@@ -427,6 +430,8 @@ class Model:
 
         self.propsbytype = collections.defaultdict(list) # name: Prop()
         self.arraysbytype = collections.defaultdict(list)
+        # TODO use this for <nodes> -> foo:iface
+        self.formsbyiface = collections.defaultdict(list)
 
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
@@ -560,6 +565,7 @@ class Model:
             'types': {},
             'forms': {},
             'tagprops': {},
+            'interfaces': {},
         }
 
         for tobj in self.types.values():
@@ -626,6 +632,11 @@ class Model:
                 typeinfo['custom'] = custom
                 self.addType(typename, basename, typeopts, typeinfo)
 
+        # load all the interfaces...
+        for _, mdef in mods:
+            for name, info in mdef.get('interfaces', ()):
+                self.addIface(name, info)
+
         # Load all the universal properties
         for _, mdef in mods:
             for univname, typedef, univinfo in mdef.get('univs', ()):
@@ -687,6 +698,11 @@ class Model:
             propname, typedef, propinfo = propdef
             self._addFormProp(form, propname, typedef, propinfo)
 
+        # interfaces are listed in typeinfo for the form to
+        # maintain backward compatibility for populated models
+        for ifname in form.type.info.get('interfaces', ()):
+            self._addFormIface(form, ifname)
+
         return form
 
     def delForm(self, formname):
@@ -698,8 +714,15 @@ class Model:
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name].remove(form)
 
+        for ifname in form.ifaces.names():
+            self.formsbyiface[ifname].remove(form)
+
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
+
+    def addIface(self, name, info):
+        # TODO should we add some meta-props here for queries?
+        self.ifaces[name] = info
 
     def delType(self, typename):
 
@@ -754,6 +777,24 @@ class Model:
 
         self.props[prop.full] = prop
         return prop
+
+    def _addFormIface(self, form, name):
+
+        iface = self.ifaces.get(name)
+
+        if iface is None:
+            mesg = f'Form {form.name} depends on non-existant interface: {name}'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        for propname, typedef, propinfo in iface.get('props', ()):
+            self._addFormProp(form, propname, typedef, propinfo)
+
+        # TODO use this to allow storm: +foo:iface
+        form.ifaces[name] = iface
+        self.formsbyiface[name].append(form)
+
+        for ifname in iface.get('interfaces', ()):
+            self._addFormIface(form, ifname)
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)
