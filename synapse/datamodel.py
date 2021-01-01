@@ -714,7 +714,7 @@ class Model:
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name].remove(form)
 
-        for ifname in form.ifaces.names():
+        for ifname in form.ifaces.keys():
             self.formsbyiface[ifname].remove(form)
 
         self.forms.pop(formname, None)
