@@ -256,7 +256,7 @@ class FileModule(s_module.CoreModule):
                 }),
 
                 ('file:mime:rtf', ('guid', {}), {
-                    'doc': 'The GUID of a set of mime metadata for a .rtf file. Typically guid(sha256).',
+                    'doc': 'The GUID of a set of mime metadata for a .rtf file.',
                 }),
 
                 ('file:mime:pe:section', ('comp', {'fields': (
