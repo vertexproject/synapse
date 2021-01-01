@@ -2404,6 +2404,15 @@ class Value(AstNode):
     async def compute(self, runt, path): # pragma: no cover
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
 
+    async def getLiftHints(self, runt, path):
+        return []
+
+    async def getCondEval(self, runt):
+        async def cond(node, path):
+            return await tobool(await self.compute(runt, path))
+
+        return cond
+
 class ArgvQuery(Value):
 
     def isRuntSafe(self, runt):
