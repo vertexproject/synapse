@@ -246,12 +246,13 @@ class ModelForm(s_stormtypes.Prim):
     '''
     Implements the Storm API for a Form.
     '''
-    dereflocals = {
-        'name': {
+    dereflocals = (
+        {
+            'name': 'name',
             'desc': 'The name of the Form',
             'type': 'str',
         },
-    }
+    )
     typename = 'storm:model:form'
     def __init__(self, form, path=None):
 
@@ -291,16 +292,18 @@ class ModelProp(s_stormtypes.Prim):
     '''
     Implements the Storm API for a Property.
     '''
-    dereflocals = {
-        'name': {
+    dereflocals = (
+        {
+            'name': 'name',
             'desc': 'The short name of the Property.',
             'type': 'str',
         },
-        'full': {
+        {
+            'name': 'full',
             'desc': 'The full name of the Property.',
             'type': 'str',
-        }
-    }
+        },
+    )
     typename = 'storm:model:property'
     def __init__(self, prop, path=None):
 
@@ -325,12 +328,13 @@ class ModelTagProp(s_stormtypes.Prim):
     '''
     Implements the Storm API for a Tag Property.
     '''
-    dereflocals = {
-        'name': {
+    dereflocals = (
+        {
+            'name': 'name',
             'desc': 'The name of the Tag Property.',
             'type': 'str',
-        }
-    }
+        },
+    )
     typename = 'storm:model:tagprop'
     def __init__(self, tagprop, path=None):
 

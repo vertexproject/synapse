@@ -773,8 +773,48 @@ def getReturnLines(rtype):
 
     return lines
 
-def getArgLines(rtype, callsig):
+def getTypeLine(rtype):
+    ret = ''
+    if isinstance(rtype, str):
+        ret = f"The type is ``{rtype}``."
+    elif isinstance(rtype, list):
+        assert len(rtype) > 1
+        for obj in rtype:
+            assert isinstance(obj, str)
+        tdata = ', '.join([f'``{obj}``' for obj in rtype])
+        ret = f'The type may one one of the following: {tdata}.'
+    elif isinstance(rtype, dict):
+        logger.warning('Fully declarative return types are not yet supported.')
+        ret = f"The type is derived from the declarative type ``{rtype}``."
 
+    return ret
+
+
+def getArgLines(rtype, callsig: inspect.Signature, errstr):
+    lines = []
+    args = rtype.get('args', ())
+    assert args is not None
+    callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
+    assert [d.get('name') for d in args] == callsig_args, f'args / callsig args mismatch for {errstr}'
+
+    if not callsig_args:
+        # Zero args
+        return lines
+
+    lines.append('Args:')
+    for arg in args:
+        name = arg.get('name')
+        desc = arg.get('desc', 'No argument description.')
+        atyp = arg.get('type')
+        assert name is not None
+        assert desc is not None
+        assert atyp is not None
+        line = f'    {name}: {desc}.'
+        typeline = getTypeLine(atyp)
+        line = ' '.join((line, typeline))
+        lines.extend((line, '\n'))
+
+    return lines
 
 def docStormPrims(types):
     page = RstHelp()
@@ -789,6 +829,8 @@ def docStormPrims(types):
     page.addLines(*lines)
 
     for (sname, styp) in types:
+
+        print(sname, styp)
 
         typename = getattr(styp, 'typename', None)
         if typename:
@@ -834,7 +876,8 @@ def docStormPrims(types):
                 page.addHead(header, lvl=2, link=link)
                 page.addLines(*lines)
 
-        for (name, info) in sorted(list(styp.dereflocals.items())):
+        for info in sorted(styp.dereflocals, key=lambda x: x.get('name')):
+            name = info.get('name')
             loclname = '.'.join((sname, name))
             # safe_loclname = loclname.replace(':', '\\:') # Unused for Types
             desc = info.get('desc')
@@ -845,7 +888,7 @@ def docStormPrims(types):
             if isinstance(rtype, dict):
                 rname = rtype.get('name')
                 if rname != 'function':
-                    logger.warning(f'Unknown rname: {loclname=} {rname=}') # py38
+                    logger.warning(f'Unknown rname: {loclname=} {rname=}')  # py38
                     continue
 
                 funcname = rtype.get('_funcname')
@@ -866,7 +909,7 @@ def docStormPrims(types):
 
                 callsig = getCallsig(locl)
 
-                arglines = getArgLines(rtype, callsig)
+                arglines = getArgLines(rtype, callsig, loclname)
 
                 print(type(callsig), dir(callsig), callsig, locl)
                 header = f'{name}{callsig}'

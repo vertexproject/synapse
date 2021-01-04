@@ -2060,12 +2060,13 @@ class Queue(StormType):  # FIXME - why is this not a Prim?
     '''
     A StormLib API instance of a named channel in the Cortex multiqueue.
     '''
-    dereflocals = {
-        'name': {
+    dereflocals = (
+        {
+            'name': 'name',
             'desc': 'The name of the Queue.',
             'type': 'str',
-        }
-    }
+        },
+    )
     typename = 'storm:queue'
     def __init__(self, runt, name, info):
 
@@ -3692,12 +3693,13 @@ class Path(Prim):
     '''
     Implements the Storm API for the Path object.
     '''
-    dereflocals = {
-        'vars': {
+    dereflocals = (
+        {
+            'name': 'vars',
             'desc': 'The PathVars object for the Path.',
             'type': 'path:vars',
         },
-    }
+    )
     typename = 'path'
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -4003,12 +4005,13 @@ class Layer(Prim):
     '''
     Implements the Storm api for a layer instance.
     '''
-    dereflocals = {
-        'iden': {
+    dereflocals = (
+        {
+            'name': 'iden',
             'desc': 'The iden of the Layer.',
             'type': 'str',
         },
-    }
+    )
     typename = 'storm:layer'
     def __init__(self, runt, ldef, path=None):
         Prim.__init__(self, ldef, path=path)
@@ -4426,12 +4429,14 @@ class View(Prim):
     '''
     # FIXME I wish i could use actual jsonschema to define the types here so
     # I'm not certain quite how we want to handle this.
-    dereflocals = {
-        'iden': {
+    dereflocals = (
+        {
+            'name': 'iden',
             'desc': 'The iden of the View.',
-            'type': '',
+            'type': 'str',
         },
-        'layers': {
+        {
+            'name': 'layers',
             'desc': 'The Layer definitions associated with the View.',
             'type': {
                 'type': 'list',  # In JsonSchema this would be an array but out List type is list, not array.
@@ -4440,7 +4445,8 @@ class View(Prim):
                 }
             },
         },
-        'triggers': {
+        {
+            'name': 'triggers',
             'desc': 'The Triggers associated with the View.',
             'type': {
                 'type': 'list',
@@ -4448,8 +4454,8 @@ class View(Prim):
                     'type': 'storm:trigger',
                 }
             },
-        },
-    }
+        }
+    )
     typename = 'storm:view'
     def __init__(self, runt, vdef, path=None):
         Prim.__init__(self, vdef, path=path)
@@ -4866,12 +4872,13 @@ class Trigger(Prim):
     '''
     Implements the Storm API for a Trigger.
     '''
-    dereflocals = {
-        'iden': {
+    dereflocals = (
+        {
+            'name': 'iden',
             'desc': 'The Trigger iden.',
             'type': 'str',
         },
-    }
+    )
     typename = 'storm:trigger'
     def __init__(self, runt, tdef):
 
@@ -5154,12 +5161,14 @@ class Gate(Prim):
     '''
     Implements the Storm API for an AuthGate.
     '''
-    dereflocals = {
-        'iden': {
+    dereflocals = (
+        {
+            'name': 'iden',
             'desc': 'The iden of the AuthGate.',
             'type': 'str',
         },
-        'roles': {
+        {
+            'name': 'roles',
             'desc': 'The roles which are a member of the Authgate.',
             'type': {
                 'type': 'list',
@@ -5168,7 +5177,8 @@ class Gate(Prim):
                 }
             },
         },
-        'users': {
+        {
+            'name': 'users',
             'desc': 'The users which are a member of the Authgate.',
             'type': {
                 'type': 'list',
@@ -5177,7 +5187,7 @@ class Gate(Prim):
                 }
             },
         },
-    }
+    )
     typename = 'storm:auth:gate'
     def __init__(self, runt, valu, path=None):
 
@@ -5194,12 +5204,13 @@ class User(Prim):
     '''
     Implements the Storm API for a User.
     '''
-    dereflocals = {
-        'iden': {
+    dereflocals = (
+        {
+            'name': 'iden',
             'desc': 'The User iden.',
             'type': 'str',
         },
-    }
+    )
     typename = 'storm:auth:user'
     def __init__(self, runt, valu, path=None):
 
@@ -5408,12 +5419,13 @@ class Role(Prim):
     '''
     Implements the Storm API for a Role.
     '''
-    dereflocals = {
-        'iden': {
+    dereflocals = (
+        {
+            'name': 'iden',
             'desc': 'The Role iden.',
             'type': 'str',
-        }
-    }
+        },
+    )
     typename = 'storm:auth:role'
     def __init__(self, runt, valu, path=None):
 
@@ -5970,12 +5982,13 @@ class CronJob(Prim):
     '''
     Implements the Storm api for a cronjob instance.
     '''
-    dereflocals = {
-        'iden': {
-            'desc': 'The iden of the Cron job.',
+    dereflocals = (
+        {
+            'name': 'iden',
+            'desc': 'The iden of the Cron Job.',
             'type': 'str',
         },
-    }
+    )
     typename = 'storm:cronjob'
     def __init__(self, runt, cdef, path=None):
         Prim.__init__(self, cdef, path=path)
