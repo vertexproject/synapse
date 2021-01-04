@@ -5,6 +5,15 @@ Synapse Changelog
 *****************
 
 
+v2.21.1 - 2021-01-04
+====================
+
+Bugfixes
+--------
+- Fix a variable scoping issue causing a race condition.
+  (`#2042 <https://github.com/vertexproject/synapse/pull/2042>`_)
+
+
 v2.21.0 - 2020-12-31
 ====================
 
