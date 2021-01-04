@@ -427,9 +427,13 @@ class FileModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The child file contained in the parent file.',
                     }),
-                    ('name', ('file:path', {}), {
+                    ('name', ('file:base', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated, please use the :path property.',
+                    }),
+                    ('path', ('file:path', {}), {
                         'doc': 'The path that the parent uses to refer to the child file.',
-                    })
+                    }),
                 )),
 
                 ('file:path', {}, (
