@@ -1837,13 +1837,46 @@ class PropPivot(PivotOper):
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
                 await runt.snap.fire('warn', mesg=mesg, **items)
 
-class Cond(AstNode):
+class Value(AstNode):
+    '''
+    The base class for all values and value expressions.
+    '''
+
+    def __init__(self, kids=()):
+        AstNode.__init__(self, kids=kids)
+
+    #def repr(self):
+        #return f'{self.__class__.__name__}: ds={self.kids}'
+
+    def __repr__(self):
+        return self.repr()
+
+    def isRuntSafe(self, runt):
+        return all(k.isRuntSafe(runt) for k in self.kids)
+
+    async def compute(self, runt, path): # pragma: no cover
+        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
 
     async def getLiftHints(self, runt, path):
         return []
 
-    async def getCondEval(self, runt): # pragma: no cover
-        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.getCondEval()')
+    async def getCondEval(self, runt):
+        '''
+        Return a function that may be used to evaluate the boolean truth
+        of the value expression using a runtime and optional node path.
+        '''
+        async def cond(node, path):
+            return await tobool(await self.compute(runt, path))
+
+        return cond
+
+class Cond(Value):
+    '''
+    A condition that is evaluted to filter nodes.
+    '''
+    # There are some potential future reasons to have Cond
+    # ( such as being able to presume per-node execution in
+    # any eventual compute() implementation )
 
 class SubqCond(Cond):
 
@@ -2384,35 +2417,6 @@ class FiltByArray(FiltOper):
     +:foo*[^=visi]
     '''
 
-class Value(AstNode):
-
-    '''
-    A fixed/constant value.
-    '''
-    def __init__(self, kids=()):
-        AstNode.__init__(self, kids=kids)
-
-    #def repr(self):
-        #return f'{self.__class__.__name__}: ds={self.kids}'
-
-    def __repr__(self):
-        return self.repr()
-
-    def isRuntSafe(self, runt):
-        return all(k.isRuntSafe(runt) for k in self.kids)
-
-    async def compute(self, runt, path): # pragma: no cover
-        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
-
-    async def getLiftHints(self, runt, path):
-        return []
-
-    async def getCondEval(self, runt):
-        async def cond(node, path):
-            return await tobool(await self.compute(runt, path))
-
-        return cond
-
 class ArgvQuery(Value):
 
     def isRuntSafe(self, runt):
@@ -2525,18 +2529,11 @@ class CallKwarg(CallArgs):
 class CallKwargs(CallArgs):
     pass
 
-class VarValue(Value, Cond):
+class VarValue(Value):
 
     def validate(self, runt):
         if runt.runtvars.get(self.name) is None:
             raise s_exc.NoSuchVar(name=self.name)
-
-    async def getCondEval(self, runt):
-
-        async def cond(node, path):
-            return await self.compute(runt, path)
-
-        return cond
 
     def prepare(self):
         assert isinstance(self.kids[0], Const)
@@ -2582,19 +2579,12 @@ class FuncCall(Value):
         with s_scope.enter({'runt': runt}):
             return await s_coro.ornot(func, *argv, **kwargs)
 
-class DollarExpr(Value, Cond):
+class DollarExpr(Value):
     '''
     Top level node for $(...) expressions
     '''
     async def compute(self, runt, path):
         return await self.kids[0].compute(runt, path)
-
-    async def getCondEval(self, runt):
-
-        async def cond(node, path):
-            return await self.compute(runt, path)
-
-        return cond
 
 async def expr_add(x, y):
     return await toint(x) + await toint(y)
