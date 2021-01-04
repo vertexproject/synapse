@@ -354,15 +354,15 @@ class ModelType(s_stormtypes.Prim):
     '''
     A Storm types wrapper around a lib.types.Type
     '''
-    dereflocs = (
+    dereflocals = (
         {
             'name': 'name',
-            'desc': 'The name of the Type',
+            'desc': 'The name of the Type.',
             'type': 'str',
         },
         {
             'name': 'stortype',
-            'desc': 'The storetype of the Type',
+            'desc': 'The storetype of the Type.',
             'type': 'int',
         },
         {

@@ -801,6 +801,7 @@ def getArgLines(rtype, callsig: inspect.Signature, errstr):
         # Zero args
         return lines
 
+    lines.append('\n')
     lines.append('Args:')
     for arg in args:
         name = arg.get('name')
@@ -809,9 +810,25 @@ def getArgLines(rtype, callsig: inspect.Signature, errstr):
         assert name is not None
         assert desc is not None
         assert atyp is not None
-        line = f'    {name}: {desc}.'
-        typeline = getTypeLine(atyp)
-        line = ' '.join((line, typeline))
+
+        if isinstance(atyp, str):
+            line = f'    {name} ({atyp}): {desc}'
+        elif isinstance(atyp, list):
+            assert len(atyp) > 1
+            for obj in atyp:
+                assert isinstance(obj, str)
+            tdata = ', '.join([f'``{obj}``' for obj in atyp])
+            rline = f'The input type may one one of the following: {tdata}.'
+            line = f'    {name}: {desc} {rline}'
+        elif isinstance(atyp, dict):
+            logger.warning('Fully declarative return types are not yet supported.')
+            rline = f"The input type is derived from the declarative type ``{atyp}``."
+            line = f'    {name}: {desc} {rline}'
+        else:
+            raise AssertionError(f'unknown argtype: {atyp}')
+        #
+        # typeline = getTypeLine(atyp)
+        # line = ' '.join((line, typeline))
         lines.extend((line, '\n'))
 
     return lines
@@ -882,7 +899,7 @@ def docStormPrims(types):
             # safe_loclname = loclname.replace(':', '\\:') # Unused for Types
             desc = info.get('desc')
             rtype = info.get('type')
-            assert locldoc is not None
+            assert desc is not None
             assert rtype is not None
 
             if isinstance(rtype, dict):
@@ -910,6 +927,8 @@ def docStormPrims(types):
                 callsig = getCallsig(locl)
 
                 arglines = getArgLines(rtype, callsig, loclname)
+
+                lines.extend(arglines)
 
                 print(type(callsig), dir(callsig), callsig, locl)
                 header = f'{name}{callsig}'
