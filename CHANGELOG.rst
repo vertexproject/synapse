@@ -5,6 +5,28 @@ Synapse Changelog
 *****************
 
 
+v2.21.0 - 2020-12-31
+====================
+
+Features and Enhancements
+-------------------------
+- Add a Storm ``wget`` command which will download a file from a URL using
+  the Cortex Axon and yield ``inet:urlfile`` nodes.
+  (`#2035 <https://github.com/vertexproject/synapse/pull/2035>`_)
+- Add a ``--diff`` option to the ``merge`` command to enumerate changes.
+  (`#2037 <https://github.com/vertexproject/synapse/pull/2037>`_)
+- Allow StormLib Layer API to dynamically update a Layer's logedits setting.
+  (`#2038 <https://github.com/vertexproject/synapse/pull/2038>`_)
+- Add StormLib APIs for adding and deleting extended model properties, forms
+  and tag properties.
+  (`#2039 <https://github.com/vertexproject/synapse/pull/2039>`_)
+
+Bugfixes
+--------
+- Fix an issue with the JsonStor not created nested entries properly.
+  (`#2036 <https://github.com/vertexproject/synapse/pull/2036>`_)
+
+
 v2.20.0 - 2020-12-29
 ====================
 
