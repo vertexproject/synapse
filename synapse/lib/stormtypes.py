@@ -132,7 +132,7 @@ class StormType:
     '''
     The base type for storm runtime value objects.
     '''
-    dereflocals = {}  # To be overriden for deref constants that need documentation
+    dereflocals = ()  # To be overriden for deref constants that need documentation
     def __init__(self, path=None):
         self.path = path
         self.ctors = {}
@@ -1347,7 +1347,7 @@ class LibLift(Lib):
             'name': 'byNodeData',
             'desc': 'Lift nodes which have a given nodedata name set on them.',
             'type': {
-                'name': 'function',
+                'type': 'function',
                 '_funcname': '_byNodeData',
                 'args': (
                     {
@@ -1393,7 +1393,7 @@ class LibTime(Lib):
             'name': 'now',
             'desc': 'Get the current epoch time in milliseconds.',
             'type': {
-                'name': 'function',
+                'type': 'function',
                 '_funcname': '_now',
                 'returns': {
                     'desc': 'Epoch time in milliseconds.',
@@ -1411,7 +1411,7 @@ class LibTime(Lib):
                 after each tick will be lifted directly from storage.
             ''',
             'type': {
-                'name': 'function',
+                'type': 'function',
                 '_funcname': '_ticker',
                 'args': (
                     {
@@ -3772,7 +3772,7 @@ class Text(Prim):
             'name': 'add',
             'desc': 'Add text to the Text object.',
             'type': {
-                'name': 'function',
+                'type': 'function',
                 '_funcname': '_methTextAdd',
                 'args': (
                     {
@@ -3795,7 +3795,7 @@ class Text(Prim):
             'name': 'str',
             'desc': 'Get the text content as a string.',
             'type': {
-                'name': 'function',
+                'type': 'function',
                 '_funcname': '_methTextStr',
                 'returns': {
                     'desc': 'The current string of the text object.',

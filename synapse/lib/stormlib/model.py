@@ -413,7 +413,7 @@ class ModelType(s_stormtypes.Prim):
                     }
                 }
             }
-        }
+        },
     )
     typename = 'storm:model:type'
 

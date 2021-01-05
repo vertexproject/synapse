@@ -42,6 +42,185 @@ rstlvls = [
     ('^', {}),
 ]
 
+dereflocals_schema = {
+    'type': 'array',
+    'items': [
+        {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'anyOf': [
+                        {'type': 'string'},  # local accessor with a single return type
+                        {'type': 'array',  # local accesor with multiple return types
+                         'items': [{'type': 'string'}]},
+                        {'type': 'object',  # function which may have args and a return type
+                         'properties': {
+                             'name': {'type': 'string'},
+                             'desc': {'type': 'string'},
+                             'args': {'type': 'array',
+                                      'default': [],
+                                      'items': [
+                                          {'type': 'object',
+                                           'properties': {
+                                               'name': {'type': 'string'},
+                                               'desc': {'type': 'string'},
+                                               'type': {
+                                                   'anyOf': [
+                                                       {'type': 'string'},  # single argument type
+                                                       {'type': 'array',  # mutliple argument type. object is ommitted.
+                                                        'items': [{'type': 'string'}]},
+                                                   ]
+                                               }
+                                           }
+                                           }
+                                      ],
+                                      },
+                             'returns': {
+                                 'type': 'object',
+                                 'properties': {
+                                     'desc': {'type': 'string'},
+                                     'type': {
+                                         'anyOf': [
+                                             {'type': 'string'},
+                                             {'type': 'array',
+                                              'items': [{'type': 'string'}]},
+                                             {'type': 'object'}
+                                             # returning arbitrarily shaped struct becomes a whole prose generator to describe....
+                                         ]
+                                     }
+                                 }
+                             },
+                             '_funcname': {'type': 'string'}
+                         },
+                         'required': ['name', 'desc', 'args', 'returns']
+                         }
+                    ],
+                },
+            },
+        }
+    ],
+}
+
+dereflocals_alt_schema = {
+    'type': 'array',
+    'items': [
+        {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'returns': {
+                    'type': 'object',
+                    'properties': {
+                        'desc': {'type': 'string'},
+                        'type': {
+                            'anyOf': [
+                                {'type': 'string'},
+                                {'type': 'array',
+                                 'items': [{'type': 'string'}]},
+                                {'type': 'object'}
+                                # returning arbitrarily shaped struct becomes a whole prose generator to describe....
+                            ]
+                        }
+                    }
+                },
+            },
+            'required': ['name', 'desc', 'returns'],
+            'additionalProperties': {
+                '_funcname': {'type': 'string'},
+                'args': {'type': 'array',
+                         'default': [],
+                         'items': [
+                             {'type': 'object',
+                              'properties': {
+                                  'name': {'type': 'string'},
+                                  'desc': {'type': 'string'},
+                                  'type': {
+                                      'anyOf': [
+                                          {'type': 'string'},  # single argument type
+                                          {'type': 'array',  # mutltiple argument type. object is ommitted.
+                                           'items': [{'type': 'string'}]},
+                                      ]
+                                  }
+                              }
+                              }
+                         ],
+                         },
+            }
+        }
+    ]
+}
+
+definition_schema = {
+    'definitions': {
+        'stormtype': {
+            'type': ['string', 'array', 'object'],
+            'items': {'type': 'string'},  # We can be a list of strings
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {'type': '#definitions/stormtype'}
+            },
+            'required': ['type'],  # we can not require name or desc since some uses may not have them.
+            'additionalProperties': {
+                'args': {
+                    'type': 'array',
+                    'items': {'type': '#definitions/stormtype'}
+                },
+                'returns': {
+                    'type': '#definitions/stormtype',
+                }
+            }
+        }
+    },
+
+    'type': 'array',
+    'items': {
+        'type': '#definitions/stormtype'
+    }
+
+}
+
+dereflocals_composition_schema = {
+    'definitions': {
+
+        'stormType': {
+            'type': ['string', 'array', 'object'],
+            'items': {'type': 'string'},
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {'$ref': '#/definitions/stormType'},
+                'args': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/stormType'}
+                },
+                'returns': {'$ref': '#/definitions/stormType'}
+            },
+            'required': ['type'],
+        },
+
+        'stormtypeDoc': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {'$ref': '#/definitions/stormType'}
+            }
+        },
+
+    },
+    'type': 'array',
+    'items': {
+        '$ref': '#/definitions/stormtypeDoc'
+    }
+}
+
+# dereflocals_validator = s_config.getJsValidator(dereflocals_schema)
+dereflocals_validator = s_config.getJsValidator(dereflocals_composition_schema)
+
 class DocHelp:
     '''
     Helper to pre-compute all doc strings hierarchically
@@ -789,7 +968,6 @@ def getTypeLine(rtype):
 
     return ret
 
-
 def getArgLines(rtype, callsig: inspect.Signature, errstr):
     lines = []
     args = rtype.get('args', ())
@@ -805,7 +983,7 @@ def getArgLines(rtype, callsig: inspect.Signature, errstr):
     lines.append('Args:')
     for arg in args:
         name = arg.get('name')
-        desc = arg.get('desc', 'No argument description.')
+        desc = arg.get('desc')
         atyp = arg.get('type')
         assert name is not None
         assert desc is not None
@@ -893,6 +1071,8 @@ def docStormPrims(types):
                 page.addHead(header, lvl=2, link=link)
                 page.addLines(*lines)
 
+        dereflocals_validator(styp.dereflocals)
+
         for info in sorted(styp.dereflocals, key=lambda x: x.get('name')):
             name = info.get('name')
             loclname = '.'.join((sname, name))
@@ -903,9 +1083,9 @@ def docStormPrims(types):
             assert rtype is not None
 
             if isinstance(rtype, dict):
-                rname = rtype.get('name')
+                rname = rtype.get('type')
                 if rname != 'function':
-                    logger.warning(f'Unknown rname: {loclname=} {rname=}')  # py38
+                    logger.warning(f'Unknown type: {loclname=} {rname=}')  # py38
                     continue
 
                 funcname = rtype.get('_funcname')
