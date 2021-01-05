@@ -1773,7 +1773,7 @@ class StormTest(s_t_utils.SynTest):
 
                 # Wait for the active coros to die
                 for task in [t for t in tasks if t is not None]:
-                    await s_coro.waittask(task, timeout=5)
+                    self.true(await s_coro.waittask(task, timeout=5))
 
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
