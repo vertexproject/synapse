@@ -21,6 +21,34 @@ import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
+class Scrubber:
+
+    def __init__(self, rules):
+        self.rules = rules
+        # TODO support props
+        # TODO support tagprops
+        # TODO support exclude rules
+        incs = rules.get('include', {})
+
+        self.hasinctags = incs.get('tags') is not None
+        self.inctags = set(incs.get('tags', ()))
+        self.inctagprefs = [f'{tag}.' for tag in incs.get('tags', ())]
+
+    def scrub(self, pode):
+
+        if self.hasinctags and pode[1].get('tags'):
+            pode[1]['tags'] = {k: v for (k, v) in pode[1]['tags'].items() if self._isTagInc(k)}
+
+        return pode
+
+    @s_cache.memoize()
+    def _isTagInc(self, tag):
+        if tag in self.inctags:
+            return True
+        if any(tag.startswith(pref) for pref in self.inctagprefs):
+            return True
+        return False
+
 class Snap(s_base.Base):
     '''
     A "snapshot" is a transaction across multiple Cortex layers.
@@ -123,13 +151,23 @@ class Snap(s_base.Base):
 
         self.core._logStormQuery(text, user)
 
+        scrubber = None
+        # NOTE: This option is still experimental and subject to change.
+        if opts.get('scrub') is not None:
+            scrubber = Scrubber(opts.get('scrub'))
+
         if opts is not None:
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
 
         async for node, path in self.storm(text, opts=opts, user=user):
+
             pode = node.pack(dorepr=dorepr)
             pode[1]['path'] = path.pack(path=dopath)
+
+            if scrubber is not None:
+                pode = scrubber.scrub(pode)
+
             yield pode
 
     @s_coro.genrhelp

@@ -96,3 +96,59 @@ class Set(Spooled):
             return
 
         self.realset.discard(valu)
+
+class Dict(Spooled):
+
+    async def __anit__(self, dirn=None, size=10000):
+
+        await Spooled.__anit__(self, dirn=dirn, size=size)
+        self.realdict = {}
+        self.len = 0
+
+    async def set(self, key, val):
+
+        if self.fallback:
+            self.slab.put(s_msgpack.en(key), s_msgpack.en(val))
+            return
+
+        self.realdict[key] = val
+
+        if len(self.realdict) >= self.size:
+            await self._initFallBack()
+            [self.slab.put(s_msgpack.en(k), s_msgpack.en(v)) for (k, v) in self.realdict.items()]
+            self.len = len(self.realdict)
+            self.realdict.clear()
+
+    def has(self, key):
+        if self.fallback:
+            return self.slab.has(s_msgpack.en(key))
+        return key in self.realdict
+
+    def get(self, key, defv=None):
+
+        if self.fallback:
+            byts = self.slab.get(s_msgpack.en(key))
+            if byts is None:
+                return defv
+            return s_msgpack.un(byts)
+
+        return self.realdict.get(key, defv)
+
+    def keys(self):
+
+        if self.fallback:
+            for lkey in self.slab.scanKeys():
+                yield s_msgpack.un(lkey)
+
+        # avoid edit while iter issues...
+        for key in list(self.realdict.keys()):
+            yield key
+
+    def items(self):
+
+        if self.fallback:
+            for lkey, lval in self.slab.scanByFull():
+                yield s_msgpack.un(lkey), s_msgpack.un(lval)
+
+        for item in list(self.realdict.items()):
+            yield item

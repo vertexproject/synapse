@@ -5029,3 +5029,27 @@ class CortexBasicTest(s_t_utils.SynTest):
             layr = core.getView().layers[0].iden
             visi = await core.auth.addUser('visi')
             visi.confirm(('layer', 'read'), gateiden=layr)
+
+    async def test_cortex_export(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:email=visi@vertex.link +#visi.woot +#foo.bar ]')
+            await core.nodes('[ inet:fqdn=hehe.com ]')
+            await core.nodes('[ media:news=* :title="Vertex Project Winning" +(refs)> { inet:email=visi@vertex.link inet:fqdn=hehe.com } ]')
+
+            async with core.getLocalProxy() as proxy:
+
+                opts = {'scrub': {'include': {'tags': ('visi',)}}}
+                podes = [p async for p in proxy.export('media:news inet:email', opts=opts)]
+
+                self.len(2, podes)
+                news = [p for p in podes if p[0][0] == 'media:news'][0]
+                email = [p for p in podes if p[0][0] == 'inet:email'][0]
+
+                self.nn(email[1]['tags']['visi'])
+                self.nn(email[1]['tags']['visi.woot'])
+                self.none(email[1]['tags'].get('foo'))
+                self.none(email[1]['tags'].get('foo.bar'))
+                self.len(1, news[1]['edges'])
+                self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))

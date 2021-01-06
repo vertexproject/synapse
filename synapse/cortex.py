@@ -32,6 +32,7 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
+import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
@@ -146,6 +147,22 @@ class CoreApi(s_cell.CellApi):
         '''
         opts = self._reqValidStormOpts(opts)
         return await self.cell.callStorm(text, opts=opts)
+
+    async def export(self, text, opts=None):
+        '''
+        Execute a storm query and package nodes for export/import.
+
+        NOTE: This API yields nodes after an initial complete lift
+              in order to limit exported edges.
+        '''
+        async for pode in self.cell.export(text, opts=opts):
+            yield pode
+
+    async def importFromAxon(self, sha256, opts=None):
+        '''
+        Import a msgpack .nodes file from the axon.
+        '''
+        for x in (): yield x
 
     async def addCronJob(self, cdef):
         '''
@@ -3672,6 +3689,39 @@ class Cortex(s_cell.Cell):  # type: ignore
         opts = self._initStormOpts(opts)
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
+
+    async def export(self, text, opts=None):
+        opts = self._initStormOpts(opts)
+        user = self._userFromOpts(opts)
+        view = self._viewFromOpts(opts)
+
+        spooldict = await s_spooled.Dict.anit()
+        async with await self.snap(user=user, view=view) as snap:
+
+            async for pode in snap.iterStormPodes(text, opts=opts):
+                await spooldict.set(pode[1]['iden'], pode)
+                await asyncio.sleep(0)
+
+            for iden, pode in spooldict.items():
+                await asyncio.sleep(0)
+
+                edges = []
+                async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                    await asyncio.sleep(0)
+
+                    if not spooldict.has(n2iden):
+                        continue
+
+                    edges.append((verb, n2iden))
+
+                if edges:
+                    pode[1]['edges'] = edges
+
+                yield pode
+
+    async def importFromAxon(self, sha256, opts=None):
+        # TODO use the "scrub" opts here as an inbound filter
+        for x in (): yield x
 
     async def nodes(self, text, opts=None):
         '''
