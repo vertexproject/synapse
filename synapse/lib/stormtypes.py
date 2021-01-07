@@ -8,11 +8,11 @@ import types
 import base64
 import pprint
 import asyncio
+import inspect
 import logging
 import binascii
 import datetime
 import calendar
-import functools
 import collections
 
 import synapse.exc as s_exc
@@ -87,7 +87,75 @@ class StormTypesRegistry:
     def iterTypes(self):
         return list(self._TYPREG.items())
 
+    def getLibDocs(self):
+        pass
+
+    def getTypeDocs(self):
+
+        types = self.iterTypes()
+        types.sort(key=lambda x: x[0])
+
+        docs = []
+        for (sname, styp) in self.iterTypes():
+            locs = []
+            tdoc = {
+                'info': {'typename': sname,
+                         'doc': getDoc(styp, sname),
+                         },
+                'locals': locs,
+                'path': (styp.typename,),
+            }
+            for info in sorted(styp.dereflocals, key=lambda x: x.get('name')):
+                # I just need to check rtype here and if its a function; then
+                # I need to double check the call parameters otherwise all is
+                # gonna be gucci to pas upward since stuff will end up getting
+                # shoved through the validator.
+
+                rtype = info.get('type')
+                if isinstance(rtype, dict):
+                    rname = rtype.get('type')
+                    assert rname == 'function', f'Dictionary return types must represent functions [{sname} {styp} {info.get("name")}].'
+                    funcname = rtype.get('_funcname')
+                    locl = getattr(styp, funcname, None)
+                    assert locl is not None, f'bad funcname={funcname} for {sname}{styp}'
+                    args = rtype.get('args', ())
+                    callsig = getCallSig(locl)
+                    # Assert the callsigs match
+                    callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
+                    assert [d.get('name') for d in args] == callsig_args, f'args / callsig args mismatch for {funcname} {sname} {styp}'
+                    # ensure default values are provided
+                    for parameter, argdef in zip(callsig.parameters.values(), args):
+                        pdef = parameter.default  # defaults to inspect._empty for undefined default values.
+                        adef = argdef.get('default', inspect._empty)
+                        assert pdef == adef, f'Default value mismatch for {styp} {funcname}, defvals {pdef} != {adef}'
+                        if pdef != inspect._empty:
+                            print(styp, info.get('name'), parameter, pdef)
+
+                locs.append(info)
+
+            docs.append(tdoc)
+
+        return docs
+
 registry = StormTypesRegistry()
+
+
+def getDoc(obj, errstr):
+    '''Helper to get __doc__'''
+    doc = getattr(obj, '__doc__')
+    if doc is None:
+        doc = f'No doc for {errstr}'
+        logger.warning(doc)
+    return doc
+
+def getCallSig(func) -> inspect.Signature:
+    '''Get the callsig of a function, stripping self if present.'''
+    callsig = inspect.signature(func)
+    params = list(callsig.parameters.values())
+    if params and params[0].name == 'self':
+        callsig = callsig.replace(parameters=params[1:])
+    return callsig
+
 
 def stormfunc(readonly=False):
     def wrap(f):
@@ -3700,7 +3768,7 @@ class Path(Prim):
             'type': 'path:vars',
         },
     )
-    typename = 'path'
+    typename = 'storm:path'
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
@@ -3860,6 +3928,33 @@ class StatTally(Prim):
 
     '''
     typename = 'storm:stat:tally'
+    dereflocals = (
+        {
+            'name': 'inc',
+            'desc': 'Increment a given counter.',
+            'type': {
+                'type': 'function',
+                '_funcname': 'inc',
+                'args': (
+                    {
+                        'name': 'name',
+                        'desc': 'The name of the counter to increment.',
+                        'type': 'str',
+                    },
+                    {
+                        'name': 'valu',
+                        'desc': 'The value to increment the counter by.',
+                        'type': 'int',
+                        'default': 1,
+                    },
+                ),
+                'returns': {
+                    'desc': '``$lib.null``.',
+                    'type': 'null',
+                },
+            },
+        },
+    )
     def __init__(self, path=None):
         Prim.__init__(self, {}, path=path)
         self.counters = collections.defaultdict(int)
@@ -3879,16 +3974,6 @@ class StatTally(Prim):
         return len(self.counters)
 
     async def inc(self, name, valu=1):
-        '''
-        Increment a given counter.
-
-        Args:
-            name (str): The name of the counter to increment.
-            valu (int): The value to increment the counter by.
-
-        Returns:
-            ``$lib.null``
-        '''
         valu = await toint(valu)
         self.counters[name] += valu
 
@@ -4437,23 +4522,13 @@ class View(Prim):
         },
         {
             'name': 'layers',
-            'desc': 'The Layer definitions associated with the View.',
-            'type': {
-                'type': 'list',  # In JsonSchema this would be an array but out List type is list, not array.
-                'items': {
-                    'type': 'storm:layer',
-                }
-            },
+            'desc': 'The ``storm:layer`` objects associated with the ``storm:view``.',
+            'type': 'list',
         },
         {
             'name': 'triggers',
-            'desc': 'The Triggers associated with the View.',
-            'type': {
-                'type': 'list',
-                'items': {
-                    'type': 'storm:trigger',
-                }
-            },
+            'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.',
+            'type': 'list',
         }
     )
     typename = 'storm:view'
@@ -5169,23 +5244,13 @@ class Gate(Prim):
         },
         {
             'name': 'roles',
-            'desc': 'The roles which are a member of the Authgate.',
-            'type': {
-                'type': 'list',
-                'items': {
-                    'type': 'str',
-                }
-            },
+            'desc': 'The role idens which are a member of the Authgate.',
+            'type': 'list',
         },
         {
             'name': 'users',
-            'desc': 'The users which are a member of the Authgate.',
-            'type': {
-                'type': 'list',
-                'items': {
-                    'type': 'str',
-                }
-            },
+            'desc': 'The user idens which are a member of the Authgate.',
+            'type': 'list',
         },
     )
     typename = 'storm:auth:gate'

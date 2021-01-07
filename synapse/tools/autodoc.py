@@ -56,7 +56,8 @@ dereflocals_composition_schema = {
                     'type': 'array',
                     'items': {'$ref': '#/definitions/stormType'}
                 },
-                'returns': {'$ref': '#/definitions/stormType'}
+                'returns': {'$ref': '#/definitions/stormType'},
+                'default': {'type': ['boolean', 'integer', 'string', 'null']},
             },
             'required': ['type'],
         },
@@ -71,10 +72,27 @@ dereflocals_composition_schema = {
         },
 
     },
-    'type': 'array',
-    'items': {
-        '$ref': '#/definitions/stormtypeDoc'
-    }
+    'type': 'object',
+    'properties': {
+        'path': {
+            'type': 'array',
+            'items': {
+                'type': 'string'
+            },
+            'minItems': 1,
+        },
+        'info': {
+            'type': 'object',
+            'properties': {
+                'doc': {'type': 'string'},
+                'typename': {'type': 'string'},
+            }
+        },
+        'locals': {
+            'type': 'array',
+            'items': {'$ref': '#/definitions/stormtypeDoc'},
+        }
+    },
 }
 
 dereflocals_validator = s_config.getJsValidator(dereflocals_composition_schema)

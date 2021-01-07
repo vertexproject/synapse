@@ -369,7 +369,7 @@ class ModelType(s_stormtypes.Prim):
             'name': 'repr',
             'desc': 'Get the repr of a value for the Type.',
             'type': {
-                'name': 'function',
+                'type': 'function',
                 '_funcname': '_methRepr',
                 'args': (
                     {
@@ -388,7 +388,7 @@ class ModelType(s_stormtypes.Prim):
             'name': 'norm',
             'desc': 'Get the norm and info for the Type.',
             'type': {
-                'name': 'function',
+                'type': 'function',
                 '_funcname': '_methNorm',
                 'args': (
                     {
@@ -399,18 +399,7 @@ class ModelType(s_stormtypes.Prim):
                 ),
                 'returns': {
                     'desc': 'A tuple of the normed value and its information dictionary.',
-                    'type': {  # FIXME this is leaking from the outer envelope to jsonschema...
-                        'type': 'list',
-                        'items': [
-                            {
-                                'type': 'prim'
-                            },
-                            {
-                                'type': 'dict'
-                            }
-                        ],
-                        'additionalItems': False,
-                    }
+                    'type': 'list'
                 }
             }
         },
