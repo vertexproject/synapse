@@ -808,6 +808,7 @@ class SetItemOper(Oper):
             valu = await self.kids[2].compute(runt, path)
 
             # TODO: ditch this when storm goes full heavy object
+            name = await tostr(name)
             await item.setitem(name, valu)
 
             yield node, path
@@ -2554,6 +2555,7 @@ class VarDeref(Value):
     async def compute(self, runt, path):
         base = await self.kids[0].compute(runt, path)
         name = await self.kids[1].compute(runt, path)
+        name = await tostr(name)
         valu = s_stormtypes.fromprim(base, path=path)
         return await valu.deref(name)
 

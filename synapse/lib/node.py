@@ -757,6 +757,7 @@ class Path:
 
         path = Path(self.vars.copy(), nodes)
         path.traces.extend(self.traces)
+        path.metadata.update(self.metadata)
 
         [t.addFork(path) for t in self.traces]
 

@@ -3204,6 +3204,35 @@ class Node(Prim):
         return self.valu.iden()
 
 @registry.registerType
+class PathMeta(Prim):
+    '''
+    Put the storm deref/setitem/iter convention on top of path variables.
+    '''
+
+    def __init__(self, path):
+        Prim.__init__(self, None, path=path)
+
+    async def deref(self, name):
+        print('DEREF: {name}={self.path.metadata.get(name)}')
+        return self.path.metadata.get(name)
+
+    async def setitem(self, name, valu):
+        if valu is undef:
+            self.path.metadata.pop(name, None)
+            return
+        self.path.meta(name, valu)
+
+    def __iter__(self):
+        # prevent "edit while iter" issues
+        for item in list(self.path.metadata.items()):
+            yield item
+
+    async def __aiter__(self):
+        # prevent "edit while iter" issues
+        for item in list(self.path.metadata.items()):
+            yield item
+
+@registry.registerType
 class PathVars(Prim):
     '''
     Put the storm deref/setitem/iter convention on top of path variables.
@@ -3245,6 +3274,7 @@ class Path(Prim):
         self.locls.update(self.getObjLocals())
         self.locls.update({
             'vars': PathVars(path),
+            'meta': PathMeta(path),
         })
 
     # Todo: Plumb vars access via a @property
