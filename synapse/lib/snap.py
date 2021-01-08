@@ -954,10 +954,8 @@ class Snap(s_base.Base):
                             for name, data in nodedata.items():
                                 await node.setData(name, data)
 
-                        edges = forminfo.get('edges')
-                        if edges is not None:
-                            for n2iden, edgeinfo in edges:
-                                await node.addEdge(edgeinfo.get('verb'), n2iden)
+                        for verb, n2iden in forminfo.get('edges', ()):
+                            await node.addEdge(verb, n2iden)
 
                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise

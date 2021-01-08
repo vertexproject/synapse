@@ -5034,6 +5034,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            altview = await core.callStorm('$layr = $lib.layer.add() return($lib.view.add(layers=($layr.iden,)).iden)')
+
             await core.nodes('[ inet:email=visi@vertex.link +#visi.woot +#foo.bar ]')
             await core.nodes('[ inet:fqdn=hehe.com ]')
             await core.nodes('[ media:news=* :title="Vertex Project Winning" +(refs)> { inet:email=visi@vertex.link inet:fqdn=hehe.com } ]')
@@ -5053,3 +5055,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(email[1]['tags'].get('foo.bar'))
                 self.len(1, news[1]['edges'])
                 self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
+
+                await core.addFeedData('syn.nodes', podes, viewiden=altview)
+                self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
