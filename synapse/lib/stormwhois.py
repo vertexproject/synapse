@@ -31,7 +31,8 @@ class LibWhois(s_stormtypes.Lib):
         Raises:
             StormRuntimeError: If form is not supported in this method
         '''
-
+        form = await s_stormtypes.tostr(form)
+        props = await s_stormtypes.toprim(props)
         if form == 'iprec':
             guid_props = ('net4', 'net6', 'asof', 'id')
         elif form == 'ipcontact':
