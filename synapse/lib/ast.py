@@ -1869,11 +1869,11 @@ class Value(AstNode):
 
 class Cond(Value):
     '''
-    A condition that is evaluted to filter nodes.
+    A condition that is evaluated to filter nodes.
     '''
     # Keeping the distinction of Cond as a subclass of Value
     # due to the fact that Cond instances may always presume
-    # they are being evaluated pe-node.
+    # they are being evaluated per node.
 
 class SubqCond(Cond):
 
