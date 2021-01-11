@@ -1845,9 +1845,6 @@ class Value(AstNode):
     def __init__(self, kids=()):
         AstNode.__init__(self, kids=kids)
 
-    #def repr(self):
-        #return f'{self.__class__.__name__}: ds={self.kids}'
-
     def __repr__(self):
         return self.repr()
 
@@ -1874,9 +1871,9 @@ class Cond(Value):
     '''
     A condition that is evaluted to filter nodes.
     '''
-    # There are some potential future reasons to have Cond
-    # ( such as being able to presume per-node execution in
-    # any eventual compute() implementation )
+    # Keeping the distinction of Cond as a subclass of Value
+    # due to the fact that Cond instances may always presume
+    # they are being evaluted pe-node.
 
 class SubqCond(Cond):
 
