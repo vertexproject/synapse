@@ -1873,7 +1873,7 @@ class Cond(Value):
     '''
     # Keeping the distinction of Cond as a subclass of Value
     # due to the fact that Cond instances may always presume
-    # they are being evaluted pe-node.
+    # they are being evaluated pe-node.
 
 class SubqCond(Cond):
 
