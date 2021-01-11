@@ -97,6 +97,7 @@ class StormTypesRegistry:
 
         docs = []
         for (sname, styp) in self.iterTypes():
+            print(sname, styp)
             locs = []
             tdoc = {
                 'info': {'typename': sname,

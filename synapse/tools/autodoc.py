@@ -844,14 +844,12 @@ def getTypeLine(rtype):
 
     return ret
 
-def getArgLines(rtype, callsig: inspect.Signature, errstr):
+def getArgLines(rtype):
     lines = []
     args = rtype.get('args', ())
     assert args is not None
-    callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
-    assert [d.get('name') for d in args] == callsig_args, f'args / callsig args mismatch for {errstr}'
 
-    if not callsig_args:
+    if args == ():
         # Zero args
         return lines
 
@@ -880,9 +878,7 @@ def getArgLines(rtype, callsig: inspect.Signature, errstr):
             line = f'    {name}: {desc} {rline}'
         else:
             raise AssertionError(f'unknown argtype: {atyp}')
-        #
-        # typeline = getTypeLine(atyp)
-        # line = ' '.join((line, typeline))
+
         lines.extend((line, '\n'))
 
     return lines
@@ -899,101 +895,193 @@ def docStormPrims(types):
     )
     page.addLines(*lines)
 
-    for (sname, styp) in types:
+    # for (sname, styp) in types:
+    #
+    #     print(sname, styp)
+    #
+    #     typename = getattr(styp, 'typename', None)
+    #     if typename:
+    #         sname = typename
+    #
+    #     typelink = f'.. _stormprims-{sname.replace(":", "-")}:'
+    #     page.addHead(sname.replace(':', '\\:'), lvl=1, link=typelink)
+    #
+    #     typedoc = getDoc(styp, sname)
+    #     lines = prepareRstLines(typedoc)
+    #
+    #     page.addLines(*lines)
+    #
+    #     locls = styp.getObjLocals(styp)
+    #
+    #     for (name, locl) in sorted(list(locls.items())):
+    #
+    #         loclname = '.'.join((sname, name))
+    #         safe_loclname = loclname.replace(':', '\\:')
+    #         locldoc = getDoc(locl, safe_loclname)
+    #
+    #         header = safe_loclname
+    #         link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
+    #         lines = None
+    #
+    #         if callable(locl):
+    #
+    #             lines = prepareRstLines(locldoc, cleanargs=True)
+    #
+    #             callsig = getCallsig(locl)
+    #
+    #             header = f'{name}{callsig}'
+    #             header = header.replace('*', r'\*')
+    #
+    #         elif isinstance(locl, property):
+    #
+    #             lines = prepareRstLines(locldoc)
+    #
+    #         else:  # pragma: no cover
+    #             logger.warning(f'Unknown constant found: {loclname} -> {locl}')
+    #
+    #         if lines:
+    #             page.addHead(header, lvl=2, link=link)
+    #             page.addLines(*lines)
+    #
+    #     dereflocals_validator(styp.dereflocals)
+    #
+    #     for info in sorted(styp.dereflocals, key=lambda x: x.get('name')):
+    #         name = info.get('name')
+    #         loclname = '.'.join((sname, name))
+    #         # safe_loclname = loclname.replace(':', '\\:') # Unused for Types
+    #         desc = info.get('desc')
+    #         rtype = info.get('type')
+    #         assert desc is not None
+    #         assert rtype is not None
+    #
+    #         if isinstance(rtype, dict):
+    #             rname = rtype.get('type')
+    #             if rname != 'function':
+    #                 logger.warning(f'Unknown type: {loclname=} {rname=}')  # py38
+    #                 continue
+    #
+    #             funcname = rtype.get('_funcname')
+    #
+    #             locl = getattr(styp, funcname, None)
+    #             assert locl is not None, f'bad {funcname=} for {loclname=}'
+    #
+    #             locldoc = getDoc(locl, loclname)
+    #
+    #             # Generate lines
+    #             # 1. __doc__
+    #             # 2. desc
+    #             # 3. args
+    #             # 4. TBD examples?
+    #             # 5. return/yields
+    #
+    #             lines = prepareRstLines(locldoc, cleanargs=True)
+    #
+    #             callsig = getCallsig(locl)
+    #
+    #             arglines = getArgLines(rtype, callsig, loclname)
+    #
+    #             lines.extend(arglines)
+    #
+    #             print(type(callsig), dir(callsig), callsig, locl)
+    #             header = f'{name}{callsig}'
+    #             header = header.replace('*', r'\*')
+    #
+    #         else:
+    #             header = name
+    #             lines = prepareRstLines(desc)
+    #             link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
+    #             lines.extend(getReturnLines(rtype))
+    #
+    #         page.addHead(header, lvl=2, link=link)
+    #         page.addLines(*lines)
 
-        print(sname, styp)
+    return page
 
-        typename = getattr(styp, 'typename', None)
-        if typename:
-            sname = typename
+def genCallsig(rtype):
+    items = []
 
+    args = rtype.get('args', ())
+    assert args is not None
+    for arg in args:
+        name = arg.get('name')
+        defv = arg.get('default', s_common.novalu)
+
+        item = name
+        if defv is not s_common.novalu:
+            item = f'{item}={defv}'
+
+        items.append(item)
+
+    ret = f"({', '.join(items)})"
+    return ret
+
+def docStormPrims2(docinfo):
+    page = RstHelp()
+
+    # XXX SO all this is custom FOR mainline types.
+    page.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
+
+    lines = (
+        '',
+        'Storm Objects are used as view objects for manipulating data in the Storm Runtime and in the Cortex itself.'
+        ''
+    )
+    page.addLines(*lines)
+
+    # Now we're into core RST town.
+
+    for info in docinfo:
+        info_info = info.get('info')  # yo dawg
+        print(info_info)
+
+        path = info.get('path')
+
+        assert len(path) == 1
+        sname = path[0]
+
+        # XXX Fixed link prefix
         typelink = f'.. _stormprims-{sname.replace(":", "-")}:'
         page.addHead(sname.replace(':', '\\:'), lvl=1, link=typelink)
 
-        typedoc = getDoc(styp, sname)
+        typedoc = info_info.get('doc')
         lines = prepareRstLines(typedoc)
 
         page.addLines(*lines)
 
-        locls = styp.getObjLocals(styp)
+        locls = info.get('locals')
+        locls.sort(key=lambda x: x.get('name'))
 
-        for (name, locl) in sorted(list(locls.items())):
+        for locl in locls:
 
-            loclname = '.'.join((sname, name))
-            safe_loclname = loclname.replace(':', '\\:')
-            locldoc = getDoc(locl, safe_loclname)
-
-            header = safe_loclname
-            link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
-            lines = None
-
-            if callable(locl):
-
-                lines = prepareRstLines(locldoc, cleanargs=True)
-
-                callsig = getCallsig(locl)
-
-                header = f'{name}{callsig}'
-                header = header.replace('*', r'\*')
-
-            elif isinstance(locl, property):
-
-                lines = prepareRstLines(locldoc)
-
-            else:  # pragma: no cover
-                logger.warning(f'Unknown constant found: {loclname} -> {locl}')
-
-            if lines:
-                page.addHead(header, lvl=2, link=link)
-                page.addLines(*lines)
-
-        dereflocals_validator(styp.dereflocals)
-
-        for info in sorted(styp.dereflocals, key=lambda x: x.get('name')):
-            name = info.get('name')
+            name = locl.get('name')
             loclname = '.'.join((sname, name))
             # safe_loclname = loclname.replace(':', '\\:') # Unused for Types
-            desc = info.get('desc')
-            rtype = info.get('type')
+            desc = locl.get('desc')
+            rtype = locl.get('type')
             assert desc is not None
             assert rtype is not None
 
+            link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
+
             if isinstance(rtype, dict):
                 rname = rtype.get('type')
-                if rname != 'function':
-                    logger.warning(f'Unknown type: {loclname=} {rname=}')  # py38
-                    continue
+                assert rname == 'function', f'Unknown type: {loclname=} {rname=}'  # FIXME py38
 
-                funcname = rtype.get('_funcname')
+                # XXX Localdoc to desc??????
 
-                locl = getattr(styp, funcname, None)
-                assert locl is not None, f'bad {funcname=} for {loclname=}'
-
-                locldoc = getDoc(locl, loclname)
-
-                # Generate lines
-                # 1. __doc__
-                # 2. desc
-                # 3. args
-                # 4. TBD examples?
-                # 5. return/yields
-
-                lines = prepareRstLines(locldoc, cleanargs=True)
-
-                callsig = getCallsig(locl)
-
-                arglines = getArgLines(rtype, callsig, loclname)
-
+                lines = prepareRstLines(desc, cleanargs=True)
+                arglines = getArgLines(rtype)
                 lines.extend(arglines)
 
-                print(type(callsig), dir(callsig), callsig, locl)
+                callsig = genCallsig(rtype)
+
                 header = f'{name}{callsig}'
                 header = header.replace('*', r'\*')
 
             else:
                 header = name
                 lines = prepareRstLines(desc)
-                link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
+
                 lines.extend(getReturnLines(rtype))
 
             page.addHead(header, lvl=2, link=link)
@@ -1010,7 +1098,10 @@ async def docStormTypes():
     types.sort(key=lambda x: x[0])
 
     libspage = docStormLibs(libs)  # type: RstHelp
-    typespage = docStormPrims(types)  # type: RstHelp
+    # typespage = docStormPrims(types)  # type: RstHelp
+
+    priminfo = registry.getTypeDocs()
+    typespage = docStormPrims2(priminfo)
 
     return libspage, typespage
 
