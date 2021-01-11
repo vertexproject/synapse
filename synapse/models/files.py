@@ -428,10 +428,12 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The child file contained in the parent file.',
                     }),
                     ('name', ('file:base', {}), {
-                        'doc': 'The name of the child file. Because a given set of bytes '
-                               'can have any number of arbitrary names, this field is '
-                               'used for display purposes only.'
-                    })
+                        'deprecated': True,
+                        'doc': 'Deprecated, please use the :path property.',
+                    }),
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path that the parent uses to refer to the child file.',
+                    }),
                 )),
 
                 ('file:path', {}, (
