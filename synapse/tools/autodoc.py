@@ -758,60 +758,6 @@ def prepareRstLines(doc, cleanargs=False):
     lines = ljuster(lines)
     return lines
 
-def docStormLibs(libs):
-    page = RstHelp()
-
-    page.addHead('Storm Libraries', lvl=0, link='.. _stormtypes-libs-header:')
-
-    lines = (
-        '',
-        'Storm Libraries represent powerful tools available inside of the Storm query language.',
-        ''
-    )
-    page.addLines(*lines)
-
-    basepath = 'lib'
-
-    for (path, lib) in libs:
-        libpath = '.'.join((basepath,) + path)
-        fulllibpath = f'${libpath}'
-
-        liblink = f'.. _stormlibs-{libpath.replace(".", "-")}:'
-        page.addHead(fulllibpath, lvl=1, link=liblink)
-
-        libdoc = getDoc(lib, fulllibpath)
-        lines = prepareRstLines(libdoc)
-
-        page.addLines(*lines)
-
-        for (name, locl) in sorted(list(lib.getObjLocals(lib).items())):  # python trick
-
-            loclpath = '.'.join((libpath, name))
-            locldoc = getDoc(locl, loclpath)
-
-            loclfullpath = f'${loclpath}'
-            header = loclfullpath
-            link = f'.. _stormlibs-{loclpath.replace(".", "-")}:'
-            lines = None
-
-            if callable(locl):
-                lines = prepareRstLines(locldoc, cleanargs=True)
-                callsig = getCallsig(locl)
-                header = f'{header}{callsig}'
-                header = header.replace('*', r'\*')
-
-            elif isinstance(locl, property):
-                lines = prepareRstLines(locldoc)
-
-            else:  # pragma: no cover
-                logger.warning(f'Unknown constant found: {loclfullpath} -> {locl}')
-
-            if lines:
-                page.addHead(header, lvl=2, link=link)
-                page.addLines(*lines)
-
-    return page
-
 def getReturnLines(rtype):
     lines = []
     if isinstance(rtype, str):
@@ -901,7 +847,7 @@ def genCallsig(rtype):
     ret = f"({', '.join(items)})"
     return ret
 
-def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, adddollar=False, fullpath=False):
+def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
 
     # Now we're into core RST town.
 
@@ -913,11 +859,10 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, adddollar=False, ful
 
         sname = '.'.join(path)
 
-        # XXX Fixed link prefix
-        typelink = f'.. _{linkprefix}-{sname.replace(":", "-")}:'  # XXX Rename to objlink or somethign
+        typelink = f'.. _{linkprefix}-{sname.replace(":", "-")}:'  # XXX Rename to objlink or something
 
         safesname = sname.replace(':', '\\:')
-        if adddollar:
+        if islib:
             page.addHead(f"${safesname}", lvl=1, link=typelink)
         else:
             page.addHead(safesname, lvl=1, link=typelink)
@@ -934,7 +879,6 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, adddollar=False, ful
 
             name = locl.get('name')
             loclname = '.'.join((sname, name))
-            # safe_loclname = loclname.replace(':', '\\:') # Unused for Types
             desc = locl.get('desc')
             rtype = locl.get('type')
             assert desc is not None
@@ -963,11 +907,8 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, adddollar=False, ful
 
                 lines.extend(getReturnLines(rtype))
 
-            if fullpath:
-                logger.warning(f'making new header: {header}')
+            if islib:
                 header = '.'.join((safesname, header))
-                logger.warning(f'now: {header}')
-            if adddollar:
                 header = f'${header}'
 
             page.addHead(header, lvl=2, link=link)
