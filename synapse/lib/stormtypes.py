@@ -87,8 +87,54 @@ class StormTypesRegistry:
     def iterTypes(self):
         return list(self._TYPREG.items())
 
+    def validateInfo(self, obj, info, name):
+        # I just need to check rtype here and if its a function; then
+        # I need to double check the call parameters otherwise all is
+        # gonna be gucci to pas upward since stuff will end up getting
+        # shoved through the validator.
+
+        rtype = info.get('type')
+        if isinstance(rtype, dict):
+            rname = rtype.get('type')
+            assert rname == 'function', f'Dictionary return types must represent functions [{name} {obj} {info.get("name")}].'
+            funcname = rtype.get('_funcname')
+            locl = getattr(obj, funcname, None)
+            assert locl is not None, f'bad funcname={funcname} for {name}{obj}'
+            args = rtype.get('args', ())
+            callsig = getCallSig(locl)
+            # Assert the callsigs match
+            callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
+            assert [d.get('name') for d in
+                    args] == callsig_args, f'args / callsig args mismatch for {funcname} {name} {styp}'
+            # ensure default values are provided
+            for parameter, argdef in zip(callsig.parameters.values(), args):
+                pdef = parameter.default  # defaults to inspect._empty for undefined default values.
+                adef = argdef.get('default', inspect._empty)
+                assert pdef == adef, f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef}'
+                if pdef != inspect._empty:
+                    print(obj, info.get('name'), parameter, pdef)
+
     def getLibDocs(self):
-        pass
+        libs = self.iterTypes()
+        libs.sort(key=lambda x: x[0])
+        docs = []
+        for (sname, slib) in libs:
+            locs = []
+            tdoc = {
+                'info': {'typename': sname,
+                         'doc': getDoc(slib, sname),
+                         },
+                'locals': locs,
+                'path': slib._storm_lib_path,
+            }
+
+            for info in sorted(slib.dereflocals, key=lambda x: x.get('name')):
+                self.validateInfo(slib, info, sname)
+                locs.append(info)
+
+            docs.append(tdoc)
+
+        return docs
 
     def getTypeDocs(self):
 
@@ -96,8 +142,7 @@ class StormTypesRegistry:
         types.sort(key=lambda x: x[0])
 
         docs = []
-        for (sname, styp) in self.iterTypes():
-            print(sname, styp)
+        for (sname, styp) in types:
             locs = []
             tdoc = {
                 'info': {'typename': sname,
@@ -107,30 +152,7 @@ class StormTypesRegistry:
                 'path': (styp.typename,),
             }
             for info in sorted(styp.dereflocals, key=lambda x: x.get('name')):
-                # I just need to check rtype here and if its a function; then
-                # I need to double check the call parameters otherwise all is
-                # gonna be gucci to pas upward since stuff will end up getting
-                # shoved through the validator.
-
-                rtype = info.get('type')
-                if isinstance(rtype, dict):
-                    rname = rtype.get('type')
-                    assert rname == 'function', f'Dictionary return types must represent functions [{sname} {styp} {info.get("name")}].'
-                    funcname = rtype.get('_funcname')
-                    locl = getattr(styp, funcname, None)
-                    assert locl is not None, f'bad funcname={funcname} for {sname}{styp}'
-                    args = rtype.get('args', ())
-                    callsig = getCallSig(locl)
-                    # Assert the callsigs match
-                    callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
-                    assert [d.get('name') for d in args] == callsig_args, f'args / callsig args mismatch for {funcname} {sname} {styp}'
-                    # ensure default values are provided
-                    for parameter, argdef in zip(callsig.parameters.values(), args):
-                        pdef = parameter.default  # defaults to inspect._empty for undefined default values.
-                        adef = argdef.get('default', inspect._empty)
-                        assert pdef == adef, f'Default value mismatch for {styp} {funcname}, defvals {pdef} != {adef}'
-                        if pdef != inspect._empty:
-                            print(styp, info.get('name'), parameter, pdef)
+                self.validateInfo(styp, info, sname)
 
                 locs.append(info)
 

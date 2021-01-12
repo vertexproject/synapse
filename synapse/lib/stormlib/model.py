@@ -427,6 +427,27 @@ class LibModelEdge(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with light edges and manipulating their key-value attributes.
     '''
+    dereflocals = (
+        {
+            'name': 'get',
+            'desc': 'Get the key-value data for a given Edge verb.',
+            'type': {
+                'type': 'function',
+                'args': [
+                    {
+                        'name': 'name',
+                        'desc': 'The Edge verb to look up.',
+                        'type': 'str',
+                    }
+                ],
+                '_funcname': '_methEdgeGet',
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'A dictionary representing the key-value data set on a verb.',
+                }
+            }
+        },
+    )
     # Note: The use of extprops in hive paths in this class is an artifact of the
     # original implementation which used extended property language which had a
     # very bad cognitive overload with the cortex extended properties, but we

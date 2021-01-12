@@ -1015,18 +1015,7 @@ def genCallsig(rtype):
     ret = f"({', '.join(items)})"
     return ret
 
-def docStormPrims2(docinfo):
-    page = RstHelp()
-
-    # XXX SO all this is custom FOR mainline types.
-    page.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
-
-    lines = (
-        '',
-        'Storm Objects are used as view objects for manipulating data in the Storm Runtime and in the Cortex itself.'
-        ''
-    )
-    page.addLines(*lines)
+def docStormPrims2(page: RstHelp, docinfo, linkprefix: str):
 
     # Now we're into core RST town.
 
@@ -1040,7 +1029,7 @@ def docStormPrims2(docinfo):
         sname = path[0]
 
         # XXX Fixed link prefix
-        typelink = f'.. _stormprims-{sname.replace(":", "-")}:'
+        typelink = f'.. _{linkprefix}-{sname.replace(":", "-")}:'
         page.addHead(sname.replace(':', '\\:'), lvl=1, link=typelink)
 
         typedoc = info_info.get('doc')
@@ -1061,7 +1050,7 @@ def docStormPrims2(docinfo):
             assert desc is not None
             assert rtype is not None
 
-            link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
+            link = f'.. _{linkprefix}-{loclname.replace(":", ".").replace(".", "-")}:'
 
             if isinstance(rtype, dict):
                 rname = rtype.get('type')
@@ -1101,7 +1090,18 @@ async def docStormTypes():
     # typespage = docStormPrims(types)  # type: RstHelp
 
     priminfo = registry.getTypeDocs()
-    typespage = docStormPrims2(priminfo)
+    typespage = RstHelp()
+
+    # XXX SO all this is custom FOR mainline types.
+    typespage.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
+
+    lines = (
+        '',
+        'Storm Objects are used as view objects for manipulating data in the Storm Runtime and in the Cortex itself.'
+        ''
+    )
+    typespage.addLines(*lines)
+    docStormPrims2(typespage, priminfo, linkprefix='stormtypes')
 
     return libspage, typespage
 
