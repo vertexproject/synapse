@@ -883,120 +883,6 @@ def getArgLines(rtype):
 
     return lines
 
-def docStormPrims(types):
-    page = RstHelp()
-
-    page.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
-
-    lines = (
-        '',
-        'Storm Objects are used as view objects for manipulating data in the Storm Runtime and in the Cortex itself.'
-        ''
-    )
-    page.addLines(*lines)
-
-    # for (sname, styp) in types:
-    #
-    #     print(sname, styp)
-    #
-    #     typename = getattr(styp, 'typename', None)
-    #     if typename:
-    #         sname = typename
-    #
-    #     typelink = f'.. _stormprims-{sname.replace(":", "-")}:'
-    #     page.addHead(sname.replace(':', '\\:'), lvl=1, link=typelink)
-    #
-    #     typedoc = getDoc(styp, sname)
-    #     lines = prepareRstLines(typedoc)
-    #
-    #     page.addLines(*lines)
-    #
-    #     locls = styp.getObjLocals(styp)
-    #
-    #     for (name, locl) in sorted(list(locls.items())):
-    #
-    #         loclname = '.'.join((sname, name))
-    #         safe_loclname = loclname.replace(':', '\\:')
-    #         locldoc = getDoc(locl, safe_loclname)
-    #
-    #         header = safe_loclname
-    #         link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
-    #         lines = None
-    #
-    #         if callable(locl):
-    #
-    #             lines = prepareRstLines(locldoc, cleanargs=True)
-    #
-    #             callsig = getCallsig(locl)
-    #
-    #             header = f'{name}{callsig}'
-    #             header = header.replace('*', r'\*')
-    #
-    #         elif isinstance(locl, property):
-    #
-    #             lines = prepareRstLines(locldoc)
-    #
-    #         else:  # pragma: no cover
-    #             logger.warning(f'Unknown constant found: {loclname} -> {locl}')
-    #
-    #         if lines:
-    #             page.addHead(header, lvl=2, link=link)
-    #             page.addLines(*lines)
-    #
-    #     dereflocals_validator(styp.dereflocals)
-    #
-    #     for info in sorted(styp.dereflocals, key=lambda x: x.get('name')):
-    #         name = info.get('name')
-    #         loclname = '.'.join((sname, name))
-    #         # safe_loclname = loclname.replace(':', '\\:') # Unused for Types
-    #         desc = info.get('desc')
-    #         rtype = info.get('type')
-    #         assert desc is not None
-    #         assert rtype is not None
-    #
-    #         if isinstance(rtype, dict):
-    #             rname = rtype.get('type')
-    #             if rname != 'function':
-    #                 logger.warning(f'Unknown type: {loclname=} {rname=}')  # py38
-    #                 continue
-    #
-    #             funcname = rtype.get('_funcname')
-    #
-    #             locl = getattr(styp, funcname, None)
-    #             assert locl is not None, f'bad {funcname=} for {loclname=}'
-    #
-    #             locldoc = getDoc(locl, loclname)
-    #
-    #             # Generate lines
-    #             # 1. __doc__
-    #             # 2. desc
-    #             # 3. args
-    #             # 4. TBD examples?
-    #             # 5. return/yields
-    #
-    #             lines = prepareRstLines(locldoc, cleanargs=True)
-    #
-    #             callsig = getCallsig(locl)
-    #
-    #             arglines = getArgLines(rtype, callsig, loclname)
-    #
-    #             lines.extend(arglines)
-    #
-    #             print(type(callsig), dir(callsig), callsig, locl)
-    #             header = f'{name}{callsig}'
-    #             header = header.replace('*', r'\*')
-    #
-    #         else:
-    #             header = name
-    #             lines = prepareRstLines(desc)
-    #             link = f'.. _stormprims-{loclname.replace(":", ".").replace(".", "-")}:'
-    #             lines.extend(getReturnLines(rtype))
-    #
-    #         page.addHead(header, lvl=2, link=link)
-    #         page.addLines(*lines)
-
-    return page
-
 def genCallsig(rtype):
     items = []
 
@@ -1015,7 +901,7 @@ def genCallsig(rtype):
     ret = f"({', '.join(items)})"
     return ret
 
-def docStormPrims2(page: RstHelp, docinfo, linkprefix: str):
+def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, adddollar=False, fullpath=False):
 
     # Now we're into core RST town.
 
@@ -1025,12 +911,16 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str):
 
         path = info.get('path')
 
-        assert len(path) == 1
-        sname = path[0]
+        sname = '.'.join(path)
 
         # XXX Fixed link prefix
-        typelink = f'.. _{linkprefix}-{sname.replace(":", "-")}:'
-        page.addHead(sname.replace(':', '\\:'), lvl=1, link=typelink)
+        typelink = f'.. _{linkprefix}-{sname.replace(":", "-")}:'  # XXX Rename to objlink or somethign
+
+        safesname = sname.replace(':', '\\:')
+        if adddollar:
+            page.addHead(f"${safesname}", lvl=1, link=typelink)
+        else:
+            page.addHead(safesname, lvl=1, link=typelink)
 
         typedoc = info_info.get('doc')
         lines = prepareRstLines(typedoc)
@@ -1073,6 +963,13 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str):
 
                 lines.extend(getReturnLines(rtype))
 
+            if fullpath:
+                logger.warning(f'making new header: {header}')
+                header = '.'.join((safesname, header))
+                logger.warning(f'now: {header}')
+            if adddollar:
+                header = f'${header}'
+
             page.addHead(header, lvl=2, link=link)
             page.addLines(*lines)
 
@@ -1080,14 +977,21 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str):
 
 async def docStormTypes():
     registry = s_stormtypes.registry
-    libs = registry.iterLibs()
-    types = registry.iterTypes()
 
-    libs.sort(key=lambda x: x[0])
-    types.sort(key=lambda x: x[0])
+    libsinfo = registry.getLibDocs()
 
-    libspage = docStormLibs(libs)  # type: RstHelp
-    # typespage = docStormPrims(types)  # type: RstHelp
+    libspage = RstHelp()
+
+    libspage.addHead('Storm Libraries', lvl=0, link='.. _stormtypes-libs-header:')
+
+    lines = (
+        '',
+        'Storm Libraries represent powerful tools available inside of the Storm query language.',
+        ''
+    )
+    libspage.addLines(*lines)
+
+    docStormPrims2(libspage, libsinfo, linkprefix='stormlibs', adddollar=True, fullpath=True)
 
     priminfo = registry.getTypeDocs()
     typespage = RstHelp()
@@ -1101,7 +1005,7 @@ async def docStormTypes():
         ''
     )
     typespage.addLines(*lines)
-    docStormPrims2(typespage, priminfo, linkprefix='stormtypes')
+    docStormPrims2(typespage, priminfo, linkprefix='stormprims')
 
     return libspage, typespage
 

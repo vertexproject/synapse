@@ -435,7 +435,7 @@ class LibModelEdge(s_stormtypes.Lib):
                 'type': 'function',
                 'args': [
                     {
-                        'name': 'name',
+                        'name': 'verb',
                         'desc': 'The Edge verb to look up.',
                         'type': 'str',
                     }

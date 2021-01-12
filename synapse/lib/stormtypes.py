@@ -105,7 +105,7 @@ class StormTypesRegistry:
             # Assert the callsigs match
             callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
             assert [d.get('name') for d in
-                    args] == callsig_args, f'args / callsig args mismatch for {funcname} {name} {styp}'
+                    args] == callsig_args, f'args / callsig args mismatch for {funcname} {name} {obj}'
             # ensure default values are provided
             for parameter, argdef in zip(callsig.parameters.values(), args):
                 pdef = parameter.default  # defaults to inspect._empty for undefined default values.
@@ -115,19 +115,21 @@ class StormTypesRegistry:
                     print(obj, info.get('name'), parameter, pdef)
 
     def getLibDocs(self):
-        libs = self.iterTypes()
+        libs = self.iterLibs()
         libs.sort(key=lambda x: x[0])
         docs = []
         for (sname, slib) in libs:
+            print(sname, slib)
+            sname = slib.__class__.__name__ # FIXME eww
             locs = []
             tdoc = {
                 'info': {'typename': sname,
                          'doc': getDoc(slib, sname),
                          },
                 'locals': locs,
-                'path': slib._storm_lib_path,
+                'path': ('lib',) + slib._storm_lib_path,
             }
-
+            print(tdoc.get('path'))
             for info in sorted(slib.dereflocals, key=lambda x: x.get('name')):
                 self.validateInfo(slib, info, sname)
                 locs.append(info)
@@ -1510,16 +1512,14 @@ class LibTime(Lib):
                         'desc': 'The amount of time to wait between each tick, in seconds.',
                         'type': 'int',
                     },
-                ),
-                'kwargs': (
                     {
                         'name': 'count',
                         'desc': 'The number of times to pause the query before exiting the loop. This defaults to None and will yield forever if not set.',
-                        'default': 'null',
+                        'default': None,
                         'type': 'int',
                     }
                 ),
-                'yields': {
+                'returns': {  # FIXME yield vs returns ?
                     'desc': 'This yields the current tick count after each time it wakes up.',
                     'type': 'int',
                 }
