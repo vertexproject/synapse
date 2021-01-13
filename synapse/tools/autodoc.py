@@ -14,6 +14,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.storm as s_storm
 import synapse.lib.config as s_config
 import synapse.lib.output as s_output
+import synapse.lib.autodoc as s_autodoc
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
@@ -33,14 +34,6 @@ info_ignores = (
 
 raw_back_slash_colon = r'\:'
 
-# TODO Ensure this is consistent with other documentation.
-rstlvls = [
-    ('#', {'over': True}),
-    ('*', {'over': True}),
-    ('=', {}),
-    ('-', {}),
-    ('^', {}),
-]
 
 dereflocals_composition_schema = {
     'definitions': {
@@ -135,38 +128,6 @@ class DocHelp:
             else:  # pragma: no cover
                 logger.warning(f'No ctor/type available for [{formname}]')
 
-class RstHelp:
-
-    def __init__(self):
-        self.lines = []
-
-    def addHead(self, name, lvl=0, link=None):
-        char, info = rstlvls[lvl]
-        under = char * len(name)
-
-        lines = []
-
-        lines.append('')
-
-        if link:
-            lines.append('')
-            lines.append(link)
-            lines.append('')
-
-        if info.get('over'):
-            lines.append(under)
-
-        lines.append(name)
-        lines.append(under)
-        lines.append('')
-
-        self.addLines(*lines)
-
-    def addLines(self, *lines):
-        self.lines.extend(lines)
-
-    def getRstText(self):
-        return '\n'.join(self.lines)
 
 def processCtors(rst, dochelp, ctors):
     '''
@@ -494,13 +455,13 @@ async def docModel(outp,
         if not node:  # pramga: no cover
             raise s_exc.SynErr(mesg='Unable to make a node from example.', form=form, example=example)
 
-    rst = RstHelp()
+    rst = s_autodoc.RstHelp()
     rst.addHead('Synapse Data Model - Types', lvl=0)
 
     processCtors(rst, dochelp, ctors)
     processTypes(rst, dochelp, types)
 
-    rst2 = RstHelp()
+    rst2 = s_autodoc.RstHelp()
     rst2.addHead('Synapse Data Model - Forms', lvl=0)
 
     processFormsProps(rst2, dochelp, forms, univ_names)
@@ -514,7 +475,7 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
     if not hasattr(cls, 'confdefs'):
         raise Exception('ctor must have a confdefs attr')
 
-    rst = RstHelp()
+    rst = s_autodoc.RstHelp()
 
     clsname = cls.__name__
     conf = cls.initCellConf()  # type: s_config.Config
@@ -609,7 +570,7 @@ async def docStormsvc(ctor):
     async with await cellapi.anit(s_common.novalu, DummyLink(), s_common.novalu) as obj:
         svcinfo = await obj.getStormSvcInfo()
 
-    rst = RstHelp()
+    rst = s_autodoc.RstHelp()
 
     # Disable default python highlighting
     rst.addLines('.. highlight:: none\n')
@@ -701,227 +662,12 @@ async def docStormsvc(ctor):
 
     return rst, clsname
 
-def ljuster(ilines):
-    '''Helper to lstrip lines of whitespace an appropriate amount.'''
-    baseline = ilines[0]
-    assert baseline != ''
-    newbaseline = baseline.lstrip()
-    assert newbaseline != ''
-    diff = len(baseline) - len(newbaseline)
-    assert diff >= 0
-    newlines = [line[diff:] for line in ilines]
-    return newlines
-
-def scrubLines(lines):
-    '''Remove any empty lines until we encounter non-empty linee'''
-    newlines = []
-    for line in lines:
-        if line == '' and not newlines:
-            continue
-        newlines.append(line)
-
-    return newlines
-
-def getDoc(obj, errstr):
-    '''Helper to get __doc__'''
-    doc = getattr(obj, '__doc__')
-    if doc is None:
-        doc = f'No doc for {errstr}'
-        logger.warning(doc)
-    return doc
-
-def cleanArgsRst(doc):
-    '''Clean up args strings to be RST friendly.'''
-    replaces = (('*args', '\\*args'),
-                ('*vals', '\\*vals'),
-                ('**info', '\\*\\*info'),
-                ('**kwargs', '\\*\\*kwargs'),
-                )
-    for (new, old) in replaces:
-        doc = doc.replace(new, old)
-    return doc
-
-def getCallsig(func) -> inspect.Signature:
-    '''Get the callsig of a function, stripping self if present.'''
-    callsig = inspect.signature(func)
-    params = list(callsig.parameters.values())
-    if params and params[0].name == 'self':
-        callsig = callsig.replace(parameters=params[1:])
-    return callsig
-
-def prepareRstLines(doc, cleanargs=False):
-    '''Prepare a __doc__ string for RST lines.'''
-    if cleanargs:
-        doc = cleanArgsRst(doc)
-    lines = doc.split('\n')
-    lines = scrubLines(lines)
-    lines = ljuster(lines)
-    return lines
-
-def getReturnLines(rtype):
-    lines = []
-    if isinstance(rtype, str):
-        lines.append(f"The type is ``{rtype}``.")
-    elif isinstance(rtype, list):
-        assert len(rtype) > 1
-        for obj in rtype:
-            assert isinstance(obj, str)
-        tdata = ', '.join([f'``{obj}``' for obj in rtype])
-        lines.append(f'The type may one one of the following: {tdata}.')
-    elif isinstance(rtype, dict):
-        logger.warning('Fully declarative return types are not yet supported.')
-        lines.append(f"The type is derived from the declarative type ``{rtype}``.")
-
-    return lines
-
-def getTypeLine(rtype):
-    ret = ''
-    if isinstance(rtype, str):
-        ret = f"The type is ``{rtype}``."
-    elif isinstance(rtype, list):
-        assert len(rtype) > 1
-        for obj in rtype:
-            assert isinstance(obj, str)
-        tdata = ', '.join([f'``{obj}``' for obj in rtype])
-        ret = f'The type may one one of the following: {tdata}.'
-    elif isinstance(rtype, dict):
-        logger.warning('Fully declarative return types are not yet supported.')
-        ret = f"The type is derived from the declarative type ``{rtype}``."
-
-    return ret
-
-def getArgLines(rtype):
-    lines = []
-    args = rtype.get('args', ())
-    assert args is not None
-
-    if args == ():
-        # Zero args
-        return lines
-
-    lines.append('\n')
-    lines.append('Args:')
-    for arg in args:
-        name = arg.get('name')
-        desc = arg.get('desc')
-        atyp = arg.get('type')
-        assert name is not None
-        assert desc is not None
-        assert atyp is not None
-
-        if isinstance(atyp, str):
-            line = f'    {name} ({atyp}): {desc}'
-        elif isinstance(atyp, list):
-            assert len(atyp) > 1
-            for obj in atyp:
-                assert isinstance(obj, str)
-            tdata = ', '.join([f'``{obj}``' for obj in atyp])
-            rline = f'The input type may one one of the following: {tdata}.'
-            line = f'    {name}: {desc} {rline}'
-        elif isinstance(atyp, dict):
-            logger.warning('Fully declarative return types are not yet supported.')
-            rline = f"The input type is derived from the declarative type ``{atyp}``."
-            line = f'    {name}: {desc} {rline}'
-        else:
-            raise AssertionError(f'unknown argtype: {atyp}')
-
-        lines.extend((line, '\n'))
-
-    return lines
-
-def genCallsig(rtype):
-    items = []
-
-    args = rtype.get('args', ())
-    assert args is not None
-    for arg in args:
-        name = arg.get('name')
-        defv = arg.get('default', s_common.novalu)
-
-        item = name
-        if defv is not s_common.novalu:
-            item = f'{item}={defv}'
-
-        items.append(item)
-
-    ret = f"({', '.join(items)})"
-    return ret
-
-def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
-
-    # Now we're into core RST town.
-
-    for info in docinfo:
-        info_info = info.get('info')  # yo dawg
-        print(info_info)
-
-        path = info.get('path')
-
-        sname = '.'.join(path)
-
-        typelink = f'.. _{linkprefix}-{sname.replace(":", "-")}:'  # XXX Rename to objlink or something
-
-        safesname = sname.replace(':', '\\:')
-        if islib:
-            page.addHead(f"${safesname}", lvl=1, link=typelink)
-        else:
-            page.addHead(safesname, lvl=1, link=typelink)
-
-        typedoc = info_info.get('doc')
-        lines = prepareRstLines(typedoc)
-
-        page.addLines(*lines)
-
-        locls = info.get('locals')
-        locls.sort(key=lambda x: x.get('name'))
-
-        for locl in locls:
-
-            name = locl.get('name')
-            loclname = '.'.join((sname, name))
-            desc = locl.get('desc')
-            rtype = locl.get('type')
-            assert desc is not None
-            assert rtype is not None
-
-            link = f'.. _{linkprefix}-{loclname.replace(":", ".").replace(".", "-")}:'
-
-            if isinstance(rtype, dict):
-                rname = rtype.get('type')
-                assert rname == 'function', f'Unknown type: {loclname=} {rname=}'  # FIXME py38
-
-                # XXX Localdoc to desc??????
-
-                lines = prepareRstLines(desc, cleanargs=True)
-                arglines = getArgLines(rtype)
-                lines.extend(arglines)
-
-                callsig = genCallsig(rtype)
-
-                header = f'{name}{callsig}'
-                header = header.replace('*', r'\*')
-
-            else:
-                header = name
-                lines = prepareRstLines(desc)
-
-                lines.extend(getReturnLines(rtype))
-
-            if islib:
-                header = '.'.join((safesname, header))
-                header = f'${header}'
-
-            page.addHead(header, lvl=2, link=link)
-            page.addLines(*lines)
-
-    return page
-
 async def docStormTypes():
     registry = s_stormtypes.registry
 
     libsinfo = registry.getLibDocs()
 
-    libspage = RstHelp()
+    libspage = s_autodoc.RstHelp()
 
     libspage.addHead('Storm Libraries', lvl=0, link='.. _stormtypes-libs-header:')
 
@@ -932,10 +678,10 @@ async def docStormTypes():
     )
     libspage.addLines(*lines)
 
-    docStormPrims2(libspage, libsinfo, linkprefix='stormlibs', adddollar=True, fullpath=True)
+    s_autodoc.docStormPrims2(libspage, libsinfo, linkprefix='stormlibs', islib=True)
 
     priminfo = registry.getTypeDocs()
-    typespage = RstHelp()
+    typespage = s_autodoc.RstHelp()
 
     # XXX SO all this is custom FOR mainline types.
     typespage.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
@@ -946,7 +692,7 @@ async def docStormTypes():
         ''
     )
     typespage.addLines(*lines)
-    docStormPrims2(typespage, priminfo, linkprefix='stormprims')
+    s_autodoc.docStormPrims2(typespage, priminfo, linkprefix='stormprims')
 
     return libspage, typespage
 
