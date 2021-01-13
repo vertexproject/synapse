@@ -22,24 +22,35 @@ stormtype_doc_schema = {
             'type': ['string', 'array', 'object'],
             'items': {'type': 'string'},
             'properties': {
-                'name': {'type': 'string'},
-                'desc': {'type': 'string'},
+                'name': {'type': 'string',
+                         'description': 'For a function argument, the name of the argument.'},
+                'desc': {'type': 'string',
+                         'description': 'For a function argument or return value, the description of the value.'},
                 'type': {'$ref': '#/definitions/stormType'},
                 'args': {
                     'type': 'array',
-                    'items': {'$ref': '#/definitions/stormType'}
+                    'items': {'$ref': '#/definitions/stormType'},
+                    'description': 'Arguments to document.',
                 },
-                'returns': {'$ref': '#/definitions/stormType'},
-                'default': {'type': ['boolean', 'integer', 'string', 'null']},
+                'returns': {'$ref': '#/definitions/stormType',
+                            'description': 'Function return types to document'},
+                'default': {'type': ['boolean', 'integer', 'string', 'null'],
+                            'description': 'For a function argument, the default value, if applicable.'},
             },
             'required': ['type'],
+            'description': 'A multi-purpose container for holding types information. If this '
+                           'is a string or list of strings, it represents simple return types.'
+                           ' If it is a object, it should represent a function to generate '
+                           'documentation for.',
         },
 
         'stormtypeDoc': {
             'type': 'object',
             'properties': {
-                'name': {'type': 'string'},
-                'desc': {'type': 'string'},
+                'name': {'type': 'string',
+                         'description': 'The name of the object.'},
+                'desc': {'type': 'string',
+                         'description': 'The docstring of the object.'},
                 'type': {'$ref': '#/definitions/stormType'}
             }
         },
@@ -53,16 +64,16 @@ stormtype_doc_schema = {
                 'type': 'string'
             },
             'minItems': 1,
+            'description': 'The path of the object.'
         },
         'desc': {
-            'type': 'string'
-        },
-        'typename': {
-            'type': 'string'
+            'type': 'string',
+            'description': 'The doc for the object itself.'
         },
         'locals': {
             'type': 'array',
             'items': {'$ref': '#/definitions/stormtypeDoc'},
+            'description': 'A list of attributes or functions to document.',
         }
     },
 }

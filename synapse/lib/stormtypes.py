@@ -119,17 +119,13 @@ class StormTypesRegistry:
         libs.sort(key=lambda x: x[0])
         docs = []
         for (sname, slib) in libs:
-            print(sname, slib)
-            sname = slib.__class__.__name__ # FIXME eww
+            sname = slib.__class__.__name__
             locs = []
             tdoc = {
-                'info': {'typename': sname,
-                         'doc': getDoc(slib, sname),
-                         },
+                'desc': getDoc(slib, sname),
                 'locals': locs,
                 'path': ('lib',) + slib._storm_lib_path,
             }
-            print(tdoc.get('path'))
             for info in sorted(slib.dereflocals, key=lambda x: x.get('name')):
                 self.validateInfo(slib, info, sname)
                 locs.append(info)
@@ -147,15 +143,12 @@ class StormTypesRegistry:
         for (sname, styp) in types:
             locs = []
             tdoc = {
-                'info': {'typename': sname,
-                         'doc': getDoc(styp, sname),
-                         },
+                'desc': getDoc(styp, sname),
                 'locals': locs,
                 'path': (styp.typename,),
             }
             for info in sorted(styp.dereflocals, key=lambda x: x.get('name')):
                 self.validateInfo(styp, info, sname)
-
                 locs.append(info)
 
             docs.append(tdoc)
