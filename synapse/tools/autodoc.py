@@ -35,61 +35,6 @@ info_ignores = (
 raw_back_slash_colon = r'\:'
 
 
-dereflocals_composition_schema = {
-    'definitions': {
-
-        'stormType': {
-            'type': ['string', 'array', 'object'],
-            'items': {'type': 'string'},
-            'properties': {
-                'name': {'type': 'string'},
-                'desc': {'type': 'string'},
-                'type': {'$ref': '#/definitions/stormType'},
-                'args': {
-                    'type': 'array',
-                    'items': {'$ref': '#/definitions/stormType'}
-                },
-                'returns': {'$ref': '#/definitions/stormType'},
-                'default': {'type': ['boolean', 'integer', 'string', 'null']},
-            },
-            'required': ['type'],
-        },
-
-        'stormtypeDoc': {
-            'type': 'object',
-            'properties': {
-                'name': {'type': 'string'},
-                'desc': {'type': 'string'},
-                'type': {'$ref': '#/definitions/stormType'}
-            }
-        },
-
-    },
-    'type': 'object',
-    'properties': {
-        'path': {
-            'type': 'array',
-            'items': {
-                'type': 'string'
-            },
-            'minItems': 1,
-        },
-        'info': {
-            'type': 'object',
-            'properties': {
-                'doc': {'type': 'string'},
-                'typename': {'type': 'string'},
-            }
-        },
-        'locals': {
-            'type': 'array',
-            'items': {'$ref': '#/definitions/stormtypeDoc'},
-        }
-    },
-}
-
-dereflocals_validator = s_config.getJsValidator(dereflocals_composition_schema)
-
 class DocHelp:
     '''
     Helper to pre-compute all doc strings hierarchically

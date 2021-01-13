@@ -2,6 +2,7 @@ import logging
 
 import synapse.common as s_common
 
+import synapse.lib.config as s_config
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,59 @@ rstlvls = [
     ('-', {}),
     ('^', {}),
 ]
+
+stormtype_doc_schema = {
+    'definitions': {
+
+        'stormType': {
+            'type': ['string', 'array', 'object'],
+            'items': {'type': 'string'},
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {'$ref': '#/definitions/stormType'},
+                'args': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/stormType'}
+                },
+                'returns': {'$ref': '#/definitions/stormType'},
+                'default': {'type': ['boolean', 'integer', 'string', 'null']},
+            },
+            'required': ['type'],
+        },
+
+        'stormtypeDoc': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {'$ref': '#/definitions/stormType'}
+            }
+        },
+
+    },
+    'type': 'object',
+    'properties': {
+        'path': {
+            'type': 'array',
+            'items': {
+                'type': 'string'
+            },
+            'minItems': 1,
+        },
+        'desc': {
+            'type': 'string'
+        },
+        'typename': {
+            'type': 'string'
+        },
+        'locals': {
+            'type': 'array',
+            'items': {'$ref': '#/definitions/stormtypeDoc'},
+        }
+    },
+}
+reqValidStormTypeDoc = s_config.getJsValidator(stormtype_doc_schema)
 
 class RstHelp:
 
@@ -172,25 +226,23 @@ def getReturnLines(rtype):
 
 def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
 
-    # Now we're into core RST town.
-
     for info in docinfo:
-        info_info = info.get('info')  # yo dawg
-        print(info_info)
+
+        reqValidStormTypeDoc(info)
 
         path = info.get('path')
 
         sname = '.'.join(path)
 
-        typelink = f'.. _{linkprefix}-{sname.replace(":", "-")}:'  # XXX Rename to objlink or something
+        link = f'.. _{linkprefix}-{sname.replace(":", "-")}:'  # XXX Rename to objlink or something
 
         safesname = sname.replace(':', '\\:')
         if islib:
-            page.addHead(f"${safesname}", lvl=1, link=typelink)
+            page.addHead(f"${safesname}", lvl=1, link=link)
         else:
-            page.addHead(safesname, lvl=1, link=typelink)
+            page.addHead(safesname, lvl=1, link=link)
 
-        typedoc = info_info.get('doc')
+        typedoc = info.get('desc')
         lines = prepareRstLines(typedoc)
 
         page.addLines(*lines)
