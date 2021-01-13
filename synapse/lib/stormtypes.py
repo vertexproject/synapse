@@ -111,8 +111,6 @@ class StormTypesRegistry:
                 pdef = parameter.default  # defaults to inspect._empty for undefined default values.
                 adef = argdef.get('default', inspect._empty)
                 assert pdef == adef, f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef}'
-                if pdef != inspect._empty:
-                    print(obj, info.get('name'), parameter, pdef)
 
     def getLibDocs(self):
         libs = self.iterLibs()
@@ -672,6 +670,31 @@ class LibBase(Lib):
     The Base Storm Library. This mainly contains utility functionality.
     '''
     _storm_lib_path = ()
+
+    dereflocals = (
+        {
+            'name': 'len',
+            'desc': '''Get the length of a item.
+
+        This could represent the size of a string, or the number of keys in
+        a dictionary, or the number of elements in an array.''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_len',
+                'args': (
+                    {
+                        'name': 'item',
+                        'desc': 'The item to get the length of.',
+                        'type': 'prim'
+                    },
+                ),
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The length of the item.',
+                }
+            }
+        },
+    )
 
     def getObjLocals(self):
         return {

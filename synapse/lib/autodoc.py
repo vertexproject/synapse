@@ -191,7 +191,7 @@ def getArgLines(rtype):
             rline = f'The input type may one one of the following: {tdata}.'
             line = f'    {name}: {desc} {rline}'
         elif isinstance(atyp, dict):
-            logger.warning('Fully declarative return types are not yet supported.')
+            logger.warning('Fully declarative input types are not yet supported.')
             rline = f"The input type is derived from the declarative type ``{atyp}``."
             line = f'    {name}: {desc} {rline}'
         else:
@@ -279,7 +279,8 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
                 lines = prepareRstLines(desc, cleanargs=True)
                 arglines = getArgLines(rtype)
                 lines.extend(arglines)
-
+                retlines = getReturnLines(rtype)
+                lines.extend(retlines)
                 callsig = genCallsig(rtype)
 
                 header = f'{name}{callsig}'
