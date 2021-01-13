@@ -1755,3 +1755,14 @@ class AstTest(s_test.SynTest):
             # Wait a second for cleanup
             await asyncio.sleep(1)
             self.eq(beforecount, len(evtl._asyncgens))
+
+    async def test_ast_condeval(self):
+        async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ] +$lib.true'))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4  +(#foo and $lib.false)'))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4  +(:asn + 20 >= 42)'))
+
+            opts = {'vars': {'asdf': b'asdf'}}
+            nodes = await core.nodes('[ file:bytes=$asdf ]', opts=opts)
+            await core.axon.put(b'asdf')
+            self.len(1, await core.nodes('file:bytes +$lib.bytes.has(:sha256)'))
