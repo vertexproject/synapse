@@ -5069,6 +5069,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 opts = {'view': altview, 'vars': {'sha256': sha256}}
                 self.eq(2, await proxy.callStorm('return($lib.feed.fromAxon($sha256))', opts=opts))
                 self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
+                self.eq(2, await proxy.feedFromAxon(sha256))
 
             async with self.getHttpSess(port=port, auth=('root', 'secret')) as sess:
                 body = {
@@ -5089,3 +5090,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(email[1]['tags'].get('foo.bar'))
                 self.len(1, news[1]['edges'])
                 self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
+
+                body = {'query': 'inet:ipv4=asdfasdf'}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)
+                retval = await resp.json()
+                self.eq('err', retval['status'])
+                self.eq('BadTypeValu', retval['code'])
+
+            async def boom(*args, **kwargs):
+                for x in (): yield x
+                raise s_exc.BadArg()
+
+            core.axon.iterMpkFile = boom
+            with self.raises(s_exc.BadArg):
+                await core.feedFromAxon(s_common.ehex(sha256b))

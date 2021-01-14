@@ -3739,6 +3739,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         async with await s_base.Base.anit() as base:
 
             async def fill():
+                nonlocal feedexc
                 try:
 
                     async for item in self.axon.iterMpkFile(sha256):

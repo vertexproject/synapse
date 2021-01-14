@@ -396,7 +396,7 @@ class StormExportV1(Handler):
     async def get(self):
 
         user, body = await self.getUserBody()
-        if body is s_common.novalu:
+        if body is s_common.novalu: # pragma: no cover
             return
 
         # dont allow a user to be specified
@@ -410,6 +410,7 @@ class StormExportV1(Handler):
             self.set_header('Content-Type', 'application/x-synapse-nodes')
             async for pode in self.cell.export(query, opts=opts):
                 self.write(s_msgpack.en(pode))
+
         except Exception as e:
             return self.sendRestExc(e)
 

@@ -3231,7 +3231,6 @@ class PathMeta(Prim):
         Prim.__init__(self, None, path=path)
 
     async def deref(self, name):
-        print('DEREF: {name}={self.path.metadata.get(name)}')
         return self.path.metadata.get(name)
 
     async def setitem(self, name, valu):
@@ -3239,11 +3238,6 @@ class PathMeta(Prim):
             self.path.metadata.pop(name, None)
             return
         self.path.meta(name, valu)
-
-    def __iter__(self):
-        # prevent "edit while iter" issues
-        for item in list(self.path.metadata.items()):
-            yield item
 
     async def __aiter__(self):
         # prevent "edit while iter" issues
