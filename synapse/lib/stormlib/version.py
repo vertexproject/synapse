@@ -9,7 +9,58 @@ class VersionLib(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with version information.
     '''
+    dereflocals = (
+        {
+            'name': 'version',
+            'desc': '''
+            The synapse version tuple for the local Cortex.
 
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_getSynVersion',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'The version triple.',
+                }
+            }
+        },
+        {
+            'name': 'matches',
+            'desc': '''
+            Check if the given version triple meets the requirements string.
+
+            Examples:
+                Check if the synapse version is in a range::
+
+                    $synver = $lib.version.synapse()
+                    if $lib.version.matches($synver, ">=2.9.0") {
+                        $dostuff()
+                    }
+
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': 'matches',
+                'args': (
+                    {
+                        'name': 'vertup',
+                        'type': 'list',
+                        'desc': 'Triple of major, minor, and patch version integers.',
+                    },
+                    {
+                        'name': 'reqstr',
+                        'type': 'str',
+                        'desc': 'The version string to compare against.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the version meets the requirements, False otherwise.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('version',)
 
     def getObjLocals(self):
@@ -19,28 +70,9 @@ class VersionLib(s_stormtypes.Lib):
         }
 
     async def _getSynVersion(self):
-        '''
-        Return the synapse version tuple for the local Cortex.
-
-        Returns:
-            tuple: A version tripple.
-        '''
         return s_version.version
 
     async def matches(self, vertup, reqstr):
-        '''
-        Return True if the given version tuple meets the requirements string.
-
-        Returns:
-            bool: True if the version meets the requirements.
-
-        Examples:
-            // Check if the synapse version is in a range
-            $synver = $lib.version.synapse()
-            if $lib.version.matches($synver, ">=2.9.0") {
-                $dostuff()
-            }
-        '''
         reqstr = await s_stormtypes.tostr(reqstr)
         vertup = tuple(await s_stormtypes.toprim(vertup))
         try:
