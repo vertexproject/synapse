@@ -447,6 +447,81 @@ class LibModelEdge(s_stormtypes.Lib):
                 }
             }
         },
+        {
+            'name': 'validkeys',
+            'desc': 'Get a list of the valid keys that can be set on an Edge verb.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methValidKeys',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of the valid keys.',
+                }
+            }
+        },
+        {
+            'name': 'set',
+            'desc': 'Set a key-value for a given Edge verb.',
+            'type': {
+                'type': 'function',
+                'args': (
+                    {
+                        'name': 'verb',
+                        'type': 'str',
+                        'desc': 'The Edge verb to set a value for.'
+                    },
+                    {
+                        'name': 'key',
+                        'type': 'str',
+                        'desc': 'The key to set.'
+                    },
+                    {
+                        'name': 'valu',
+                        'type': 'str',
+                        'desc': 'The value to set.'
+                    },
+                ),
+                '_funcname': '_methEdgeSet',
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Delete a key from the key-value store for a verb.',
+            'type': {
+                'type': 'function',
+                'args': (
+                    {
+                        'name': 'verb',
+                        'type': 'str',
+                        'desc': 'The name of the Edge verb to remove a key from.'
+                    },
+                    {
+                        'name': 'key',
+                        'type': 'str',
+                        'desc': 'The name of the key to remove from the key-value store.'
+                    },
+                ),
+                '_funcname': '_methEdgeDel',
+                'returns': {
+                    'type': 'none',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methEdgeList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of (str, dict) tuples for each verb in the current Cortex View.',
+                }
+            }
+        },
     )
     # Note: The use of extprops in hive paths in this class is an artifact of the
     # original implementation which used extended property language which had a
@@ -486,24 +561,9 @@ class LibModelEdge(s_stormtypes.Lib):
                                    name=key)
 
     def _methValidKeys(self):
-        '''
-        Get a list of the valid keys that can be set on an Edge verb.
-
-        Returns:
-            list: A list of the valid keys.
-        '''
         return self.validedgekeys
 
     async def _methEdgeGet(self, verb):
-        '''
-        Get the key-value data for a given Edge verb.
-
-        Args:
-            verb (str): The Edge verb to look up.
-
-        Returns:
-            dict: A dictionary representing the key-value data set on a verb.
-        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -511,19 +571,6 @@ class LibModelEdge(s_stormtypes.Lib):
         return await self.runt.snap.core.getHiveKey(path) or {}
 
     async def _methEdgeSet(self, verb, key, valu):
-        '''
-        Set a key-value for a given Edge verb.
-
-        Args:
-            verb (str): The Edge verb to set a value for.
-
-            key (str): The key to set.
-
-            valu (str): The value to set.
-
-        Returns:
-            None: Returns None.
-        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -539,17 +586,6 @@ class LibModelEdge(s_stormtypes.Lib):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeDel(self, verb, key):
-        '''
-        Delete a key from the key-value store for a verb.
-
-        Args:
-            verb (str): The name of the Edge verb to remove a key from.
-
-            key (str): The name of the key to remove from the key-value store.
-
-        Returns:
-            None: Returns None.
-        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -567,12 +603,6 @@ class LibModelEdge(s_stormtypes.Lib):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeList(self):
-        '''
-        Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.
-
-        Returns:
-            list: A list of (str, dict) tuples for each verb in the current Cortex View.
-        '''
         retn = []
         async for verb in self.runt.snap.view.getEdgeVerbs():
             path = self.hivepath + (verb, 'extprops')
@@ -586,6 +616,43 @@ class LibModelDeprecated(s_stormtypes.Lib):
     '''
     A storm library for interacting with the model deprecation mechanism.
     '''
+    dereflocals = (
+        {
+            'name': 'lock',
+            'desc': 'Set the locked property for a deprecated model element.',
+            'type': {
+                'type': 'function',
+                'args': (
+                    {
+                        'name': 'name',
+                        'desc': 'The full path of the model element to lock.',
+                        'type': 'str',
+                    },
+                    {
+                        'name': 'locked',
+                        'desc': 'The lock status.',
+                        'type': 'boolean',
+                    },
+                ),
+                '_funcname': '_lock',
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'locks',
+            'desc': 'Get a dictionary of the data model elements which are deprecated and their lock status in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_locks',
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'A dictionary of named elements to their boolean lock values.'
+                }
+            }
+        },
+    )
     _storm_lib_path = ('model', 'deprecated')
 
     def getObjLocals(self):
@@ -596,28 +663,11 @@ class LibModelDeprecated(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _locks(self):
-        '''
-        Get a dictionary of the data model elements which are deprecated and their lock status in the Cortex.
-
-        Returns:
-            Dict: A dictionary of named elements to their boolean lock values.
-        '''
         todo = s_common.todo('getDeprLocks')
         locks = await self.runt.dyncall('cortex', todo)
         return s_stormtypes.Dict(locks)
 
     async def _lock(self, name, locked):
-        '''
-        Set the locked property for a deprecated model element.
-
-        Args:
-            name (str): The full path of the model element to lock.
-
-            locked (boolean): The lock status, True or False.
-
-        Returns:
-            ``$lib.null``
-        '''
         name = await s_stormtypes.tostr(name)
         locked = await s_stormtypes.tobool(locked)
         todo = s_common.todo('setDeprLock', name, locked)
