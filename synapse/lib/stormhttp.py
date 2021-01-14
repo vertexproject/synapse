@@ -14,7 +14,148 @@ class LibHttp(s_stormtypes.Lib):
     '''
     A Storm Library exposing an HTTP client API.
     '''
-
+    dereflocals = (
+        {
+            'name': 'get',
+            'desc': 'Get the contents of a given URL.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_httpEasyGet',
+                'args': (
+                    {
+                        'name': 'url',
+                        'type': 'str',
+                        'desc': 'The URL to retrieve.',
+                    },
+                    {
+                        'name': 'headers',
+                        'type': 'dict',
+                        'desc': 'HTTP headers to send with the request.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'ssl_verify',
+                        'type': 'boolean',
+                        'desc': 'Perform SSL/TLS verification.',
+                        'default': True,
+                    },
+                    {
+                        'name': 'params',
+                        'type': 'dict',
+                        'desc': 'Optional parameters which may be passed to the request.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:http:resp',
+                    'desc': 'The response object.',
+                }
+            }
+        },
+        {
+            'name': 'post',
+            'desc': 'Post data to a given URL.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_httpPost',
+                'args': (
+                    {
+                        'name': 'url',
+                        'type': 'str',
+                        'desc': 'The URL to post to.',
+                    },
+                    {
+                        'name': 'headers',
+                        'type': 'dict',
+                        'desc': 'HTTP headers to send with the request.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'json',
+                        'type': 'prim',
+                        'desc': 'The data to post, as JSON object.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'body',
+                        'type': 'bytes',
+                        'desc': 'The data to post, as binary object.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'ssl_verify',
+                        'type': 'boolean',
+                        'desc': 'Perform SSL/TLS verification.',
+                        'default': True,
+                    },
+                    {
+                        'name': 'params',
+                        'type': 'dict',
+                        'desc': 'Optional parameters which may be passed to the request.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:http:resp',
+                    'desc': 'The response object.',
+                }
+            }
+        },
+        {
+            'name': 'request',
+            'desc': 'Make an HTTP request using the given HTTP method to the url.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_httpRequest',
+                'args': (
+                    {
+                        'name': 'meth',
+                        'type': 'str',
+                        'desc': 'The HTTP method. (ex. PUT)',
+                    },
+                    {
+                        'name': 'url',
+                        'type': 'str',
+                        'desc': 'The URL to send the request to.',
+                    },
+                    {
+                        'name': 'headers',
+                        'type': 'dict',
+                        'desc': 'HTTP headers to send with the request.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'json',
+                        'type': 'prim',
+                        'desc': 'The data to include in the body, as JSON object.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'body',
+                        'type': 'bytes',
+                        'desc': 'The data to include in the body, as binary object.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'ssl_verify',
+                        'type': 'boolean',
+                        'desc': 'Perform SSL/TLS verification.',
+                        'default': True,
+                    },
+                    {
+                        'name': 'params',
+                        'type': 'dict',
+                        'desc': 'Optional parameters which may be passed to the request.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:http:resp',
+                    'desc': 'The response object.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('inet', 'http')
 
     def getObjLocals(self):
@@ -25,70 +166,14 @@ class LibHttp(s_stormtypes.Lib):
         }
 
     async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None):
-        '''
-        Get the contents of a given URL.
-
-        Args:
-            url (str): The URL to retrieve.
-
-            headers (dict): HTTP headers to send with the request.
-
-            ssl_verify (bool): Perform SSL/TLS verification. Defaults to true.
-
-            params (dict): Optional parameters which may be passed to the request.
-
-        Returns:
-            HttpResp: A Storm HttpResp object.
-        '''
         return await self._httpRequest('get', url, headers=headers, ssl_verify=ssl_verify, params=params)
 
     async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None):
-        '''
-        Post data to a given URL.
-
-        Args:
-            url (str): The URL to post to.
-
-            headers (dict): HTTP headers to send with the request.
-
-            json: The data to post, as JSON object.
-
-            body: The data to post, as binary object.
-
-            ssl_verify (bool): Perform SSL/TLS verification. Defaults to true.
-
-            params (dict): Optional parameters which may be passed to the request.
-
-        Returns:
-            HttpResp: A Storm HttpResp object.
-        '''
         return await self._httpRequest('POST', url, headers=headers, json=json,
                                        body=body, ssl_verify=ssl_verify, params=params)
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None, ssl_verify=True,
                            params=None):
-        '''
-        Make an HTTP request using the given HTTP method to the url.
-
-        Args:
-            meth (str): The HTTP method. (ex. PUT)
-
-            url (str): The URL to post to.
-
-            headers (dict): HTTP headers to send with the request.
-
-            json: The data to post, as JSON object.
-
-            body: The data to post, as binary object.
-
-            ssl_verify (bool): Perform SSL/TLS verification. Defaults to true.
-
-            params (dict): Optional parameters which may be passed to the request.
-
-        Returns:
-            HttpResp: A Storm HttpResp object.
-        '''
-
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         json = await s_stormtypes.toprim(json)
@@ -124,39 +209,50 @@ class HttpResp(s_stormtypes.StormType):
     '''
     Implements the Storm API for a HTTP response.
     '''
+    dereflocals = (
+        {
+            'name': 'code',
+            'desc': 'The HTTP status code.',
+            'type': 'int',
+        },
+        {
+            'name': 'body',
+            'desc': 'The raw HTTP response body as bytes.',
+            'type': 'bytes',
+        },
+        {
+            'name': 'json',
+            'desc': 'Get the JSON deserialized response.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_httpRespJson',
+                'returns': {
+                    'type': 'prim',
+                }
+            }
+        },
+    )
     typename = 'storm:http:resp'
     def __init__(self, code, body):
         s_stormtypes.StormType.__init__(self)
         self.code = code
         self.body = body
         self.locls.update(self.getObjLocals())
+        self.locls['code'] = self.code
+        self.locls['body'] = self.body
 
     def getObjLocals(self):
         return {
-            'code': self._propHttpCode,
-            'json': self._httpRespJson,
             'body': self._propHttoRespBody,
         }
 
     @property
     def _propHttoRespBody(self):
-        '''
-        The raw HTTP response body as bytes.
-        '''
         return self.body
 
     @property
     def _propHttpCode(self):
-        '''
-        The HTTP status code.
-        '''
         return self.code
 
     async def _httpRespJson(self):
-        '''
-        Get the JSON deserialized response.
-
-        Returns:
-            The JSON deserialized body.
-        '''
         return json.loads(self.body)
