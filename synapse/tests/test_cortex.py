@@ -5035,6 +5035,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            await core.auth.rootuser.setPasswd('secret')
+
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
             altview = await core.callStorm('$layr = $lib.layer.add() return($lib.view.add(layers=($layr.iden,)).iden)')
@@ -5068,11 +5070,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(2, await proxy.callStorm('return($lib.feed.fromAxon($sha256))', opts=opts))
                 self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
 
-            async with self.getHttpSess() as sess:
+            async with self.getHttpSess(port=port, auth=('root', 'secret')) as sess:
                 body = {
                     'query': 'media:news inet:email',
                     'opts': {'scrub': {'include': {'tags': ('visi',)}}},
                 }
-                resp = await sess.post('https://127.0.0.1:{port}/api/v1/storm/export')
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)
                 byts = await resp.read()
-                print(repr(byts))
+
+                podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
+
+                news = [p for p in podes if p[0][0] == 'media:news'][0]
+                email = [p for p in podes if p[0][0] == 'inet:email'][0]
+
+                self.nn(email[1]['tags']['visi'])
+                self.nn(email[1]['tags']['visi.woot'])
+                self.none(email[1]['tags'].get('foo'))
+                self.none(email[1]['tags'].get('foo.bar'))
+                self.len(1, news[1]['edges'])
+                self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))

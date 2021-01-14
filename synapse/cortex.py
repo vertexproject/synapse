@@ -2530,6 +2530,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
+        self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/storm/vars/set', s_httpapi.StormVarsSetV1, {'cell': self})
