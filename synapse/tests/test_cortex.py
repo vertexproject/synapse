@@ -3029,7 +3029,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
             pack = node2.pack()
-            pack[1]['edges'] = [(node1.iden(), {'verb': 'refs'})]
+            pack[1]['edges'] = (('refs', node1.iden()), )
             podes.append(pack)
 
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
