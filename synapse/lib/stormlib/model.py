@@ -281,7 +281,7 @@ class ModelForm(s_stormtypes.Prim):
             name (str): The property to retrieve.
 
         Returns:
-            ModelProp instance if hte property if present on the Form, or ``$lib.null``.
+            ModelProp instance if the property if present on the Form, or ``$lib.null``.
         '''
         prop = self.valu.prop(name)
         if prop is not None:

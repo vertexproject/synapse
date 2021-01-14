@@ -87,7 +87,7 @@ class StormTypesRegistry:
     def iterTypes(self):
         return list(self._TYPREG.items())
 
-    def validateInfo(self, obj, info, name):
+    def _validateInfo(self, obj, info, name):
         # I just need to check rtype here and if its a function; then
         # I need to double check the call parameters otherwise all is
         # gonna be gucci to pas upward since stuff will end up getting
@@ -97,7 +97,7 @@ class StormTypesRegistry:
         if isinstance(rtype, dict):
             rname = rtype.get('type')
             assert rname == 'function', f'Dictionary return types must represent functions [{name} {obj} {info.get("name")}].'
-            funcname = rtype.get('_funcname')
+            funcname = rtype.pop('_funcname')
             locl = getattr(obj, funcname, None)
             assert locl is not None, f'bad funcname={funcname} for {name}{obj}'
             args = rtype.get('args', ())
@@ -125,7 +125,8 @@ class StormTypesRegistry:
                 'path': ('lib',) + slib._storm_lib_path,
             }
             for info in sorted(slib.dereflocals, key=lambda x: x.get('name')):
-                self.validateInfo(slib, info, sname)
+                info = s_msgpack.deepcopy(info)
+                self._validateInfo(slib, info, sname)
                 locs.append(info)
 
             docs.append(tdoc)
@@ -146,7 +147,8 @@ class StormTypesRegistry:
                 'path': (styp.typename,),
             }
             for info in sorted(styp.dereflocals, key=lambda x: x.get('name')):
-                self.validateInfo(styp, info, sname)
+                info = s_msgpack.deepcopy(info)
+                self._validateInfo(styp, info, sname)
                 locs.append(info)
 
             docs.append(tdoc)
@@ -1465,7 +1467,8 @@ class LibLift(Lib):
                         'type': 'str',
                     },
                 ),
-                'yields': {
+                'returns': {
+                    'name': 'Yields',
                     'desc': 'Yields nodes to the pipeline. This must be used in conjunction with the ``yield`` keyword.',
                     'type': 'storm:node'
                 }

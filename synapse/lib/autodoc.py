@@ -42,6 +42,7 @@ stormtype_doc_schema = {
                            'is a string or list of strings, it represents simple return types.'
                            ' If it is a object, it should represent a function to generate '
                            'documentation for.',
+            'additionalProperties': False,
         },
 
         'stormtypeDoc': {
@@ -52,7 +53,8 @@ stormtype_doc_schema = {
                 'desc': {'type': 'string',
                          'description': 'The docstring of the object.'},
                 'type': {'$ref': '#/definitions/stormType'}
-            }
+            },
+            'additionalProperties': False,
         },
 
     },
@@ -74,7 +76,8 @@ stormtype_doc_schema = {
             'type': 'array',
             'items': {'$ref': '#/definitions/stormtypeDoc'},
             'description': 'A list of attributes or functions to document.',
-        }
+        },
+        'additionalProperties': False,
     },
 }
 reqValidStormTypeDoc = s_config.getJsValidator(stormtype_doc_schema)
@@ -180,10 +183,10 @@ def getArgLines(rtype):
         assert name is not None
         assert desc is not None
         assert atyp is not None
-
+        name = name.replace('*', '\\*')
         if isinstance(atyp, str):
             line = f'    {name} ({atyp}): {desc}'
-        elif isinstance(atyp, list):
+        elif isinstance(atyp, (list, tuple)):
             assert len(atyp) > 1
             for obj in atyp:
                 assert isinstance(obj, str)
@@ -220,25 +223,54 @@ def genCallsig(rtype):
     return ret
 
 def getReturnLines(rtype):
-    lines = []
-    if isinstance(rtype, str):
-        lines.append(f"The type is ``{rtype}``.")
-    elif isinstance(rtype, list):
-        assert len(rtype) > 1
-        for obj in rtype:
-            assert isinstance(obj, str)
-        tdata = ', '.join([f'``{obj}``' for obj in rtype])
-        lines.append(f'The type may one one of the following: {tdata}.')
-    elif isinstance(rtype, dict):
-        logger.warning('Fully declarative return types are not yet supported.')
-        lines.append(f"The type is derived from the declarative type ``{rtype}``.")
+    # Allow someone to plumb in name=Yields as a return type.
+    lines = ['']
 
+    if isinstance(rtype, str):
+        lines.append('Returns:')
+        lines.append(f'    The type is ``{rtype}``.')
+    elif isinstance(rtype, (list, tuple)):
+        assert len(rtype) > 1
+        tdata = ', '.join([f'``{obj}``' for obj in rtype])
+        lines.append('Returns:')
+        lines.append(f'    The type may one one of the following: {tdata}.')
+    elif isinstance(rtype, dict):
+        returns = rtype.get('returns')
+        assert returns is not None, f'Invalid returns for {rtype}'
+        name = rtype.get('name', 'Returns')
+
+        desc = returns.get('desc')
+        rettype = returns.get('type')
+
+        lines.append(f'{name}:')
+        # Now switch on the type.
+
+        parts = ['   ']
+        if desc:
+            parts.append(desc)
+
+        if isinstance(rettype, str):
+            parts.append(f"The return type is ``{rettype}``.")
+        elif isinstance(rettype, (list, tuple)):
+            assert len(rettype) > 1
+            tdata = ', '.join([f'``{obj}``' for obj in rettype])
+            rline = f'The return type may one one of the following: {tdata}.'
+            parts.append(rline)
+        elif isinstance(rettype, dict):
+            logger.warning('Fully declarative input types are not yet supported.')
+            rline = f"The return type is derived from the declarative type ``{rettype}``."
+            parts.append(rline)
+        else:
+            raise AssertionError(f'unknown return type: {rettype}')
+        line = ' '.join(parts)
+        lines.append(line)
     return lines
+
 
 def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
 
     for info in docinfo:
-
+        print(info.get('path'))
         reqValidStormTypeDoc(info)
 
         path = info.get('path')
@@ -279,10 +311,11 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
                 lines = prepareRstLines(desc, cleanargs=True)
                 arglines = getArgLines(rtype)
                 lines.extend(arglines)
+
                 retlines = getReturnLines(rtype)
                 lines.extend(retlines)
-                callsig = genCallsig(rtype)
 
+                callsig = genCallsig(rtype)
                 header = f'{name}{callsig}'
                 header = header.replace('*', r'\*')
 
