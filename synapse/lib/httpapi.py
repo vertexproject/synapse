@@ -88,12 +88,15 @@ class HandlerBase:
         return self.loadJsonMesg(self.request.body)
 
     def sendRestErr(self, code, mesg):
+        self.set_header('Content-Type', 'application/json')
         return self.write({'status': 'err', 'code': code, 'mesg': mesg})
 
     def sendRestExc(self, e):
+        self.set_header('Content-Type', 'application/json')
         return self.sendRestErr(e.__class__.__name__, str(e))
 
     def sendRestRetn(self, valu):
+        self.set_header('Content-Type', 'application/json')
         return self.write({'status': 'ok', 'result': valu})
 
     def loadJsonMesg(self, byts):
@@ -383,6 +386,84 @@ class StormCallV1(Handler):
             return self.sendRestErr(e.__class__.__name__, mesg)
         else:
             return self.sendRestRetn(ret)
+
+class StormExportV1(Handler):
+
+    async def post(self):
+        return await self.get()
+
+    async def get(self):
+
+        user, body = await self.getUserBody()
+        if body is s_common.novalu:
+            return
+
+        # dont allow a user to be specified
+        opts = body.get('opts')
+        query = body.get('query')
+
+        # Maintain backwards compatibility with 0.1.x output
+        opts = await self._reqValidOpts(opts)
+
+        try:
+            self.set_header('Content-Type', 'application/x-synapse-nodes')
+            async for pode in self.cell.export(query, opts=opts):
+                self.write(s_msgpack.en(pode))
+        except Exception as e:
+            mesg = e.get('mesg', str(e))
+            return self.sendRestErr(e.__class__.__name__, mesg)
+
+#class StormImportV1(Handler):
+class StormImportV1(StreamHandler):
+
+    async def prepare(self):
+        self.upfd = None
+
+        if not await self.reqAuthAllowed(('axon', 'upload')):
+            await self.finish()
+
+        # max_body_size defaults to 100MB and requires a value
+        self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
+
+        self.upfd = await self.cell.upload()
+        self.hashset = s_hashset.HashSet()
+
+    async def data_received(self, chunk):
+        if chunk is not None:
+            await self.upfd.write(chunk)
+            self.hashset.update(chunk)
+            await asyncio.sleep(0)
+
+    def on_finish(self):
+        if self.upfd is not None and not self.upfd.isfini:
+            self.cell.schedCoroSafe(self.upfd.fini())
+
+    def on_connection_close(self):
+        self.on_finish()
+
+    async def _save(self):
+        size, sha256b = await self.upfd.save()
+
+        fhashes = {htyp: hasher.hexdigest() for htyp, hasher in self.hashset.hashes}
+
+        assert sha256b == s_common.uhex(fhashes.get('sha256'))
+        assert size == self.hashset.size
+
+        fhashes['size'] = size
+
+        return self.sendRestRetn(fhashes)
+
+    async def post(self):
+        '''
+        Called after all data has been read.
+        '''
+        await self._save()
+        return
+
+    async def put(self):
+        await self._save()
+        return
+
 
 class ReqValidStormV1(Handler):
 

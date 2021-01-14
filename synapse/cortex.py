@@ -155,14 +155,16 @@ class CoreApi(s_cell.CellApi):
         NOTE: This API yields nodes after an initial complete lift
               in order to limit exported edges.
         '''
+        opts = self._reqValidStormOpts(opts)
         async for pode in self.cell.export(text, opts=opts):
             yield pode
 
-    async def importFromAxon(self, sha256, opts=None):
+    async def feedFromAxon(self, sha256, opts=None):
         '''
         Import a msgpack .nodes file from the axon.
         '''
-        for x in (): yield x
+        opts = self._reqValidStormOpts(opts)
+        return await self.cell.feedFromAxon(sha256, opts=opts)
 
     async def addCronJob(self, cdef):
         '''
@@ -3719,9 +3721,49 @@ class Cortex(s_cell.Cell):  # type: ignore
 
                 yield pode
 
-    async def importFromAxon(self, sha256, opts=None):
-        # TODO use the "scrub" opts here as an inbound filter
-        for x in (): yield x
+    async def feedFromAxon(self, sha256, opts=None):
+
+        opts = self._initStormOpts(opts)
+        user = self._userFromOpts(opts)
+        view = self._viewFromOpts(opts)
+
+        await self.boss.promote('feeddata', user=user, info={'name': 'syn.nodes', 'sha256': sha256})
+
+        # ensure that the user can make all node edits in the layer
+        user.confirm(('node',), gateiden=view.layers[0].iden)
+
+        q = s_queue.Queue(maxsize=10000)
+        feedexc = None
+
+        async with await s_base.Base.anit() as base:
+
+            async def fill():
+                try:
+
+                    async for item in self.axon.iterMpkFile(sha256):
+                        await q.put(item)
+
+                except Exception as e:
+                    logger.exception(f'feedFromAxon.fill(): {e}')
+                    feedexc = e
+
+                finally:
+                    await q.close()
+
+            base.schedCoro(fill())
+
+            count = 0
+            async with await self.snap(user=user, view=view) as snap:
+
+                # feed the items directly to syn.nodes
+                async for items in q.slices(size=100):
+                    async for node in self._addSynNodes(snap, items):
+                        count += 1
+
+                if feedexc is not None:
+                    raise feedexc
+
+        return count
 
     async def nodes(self, text, opts=None):
         '''

@@ -12,6 +12,7 @@ import synapse.cortex as s_cortex
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.layer as s_layer
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
 import synapse.tools.backup as s_tools_backup
@@ -5034,6 +5035,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
             altview = await core.callStorm('$layr = $lib.layer.add() return($lib.view.add(layers=($layr.iden,)).iden)')
 
             await core.nodes('[ inet:email=visi@vertex.link +#visi.woot +#foo.bar ]')
@@ -5056,5 +5059,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, news[1]['edges'])
                 self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
 
-                await core.addFeedData('syn.nodes', podes, viewiden=altview)
+                # concat the bytes and add back to the axon
+                byts = b''.join(s_msgpack.en(p) for p in podes)
+                size, sha256b = await core.axon.put(byts)
+                sha256 = s_common.ehex(sha256b)
+
+                opts = {'view': altview, 'vars': {'sha256': sha256}}
+                self.eq(2, await proxy.callStorm('return($lib.feed.fromAxon($sha256))', opts=opts))
                 self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
+
+            async with self.getHttpSess() as sess:
+                body = {
+                    'query': 'media:news inet:email',
+                    'opts': {'scrub': {'include': {'tags': ('visi',)}}},
+                }
+                resp = await sess.post('https://127.0.0.1:{port}/api/v1/storm/export')
+                byts = await resp.read()
+                print(repr(byts))

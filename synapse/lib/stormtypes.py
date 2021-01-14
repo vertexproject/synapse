@@ -1637,7 +1637,25 @@ class LibFeed(Lib):
             'genr': self._libGenr,
             'list': self._libList,
             'ingest': self._libIngest,
+            'fromAxon': self._fromAxon,
         }
+
+    async def _fromAxon(self, sha256):
+        '''
+        Use the feed API to load a syn.nodes formatted export from the axon.
+
+        Args:
+            sha256 (str): The sha256 of the file saved in the axon.
+
+        Returns:
+            int: The number of nodes loaded.
+        '''
+        sha256 = await tostr(sha256)
+        opts = {
+            'user': self.runt.snap.user.iden,
+            'view': self.runt.snap.view.iden,
+        }
+        return await self.runt.snap.core.feedFromAxon(sha256, opts=opts)
 
     async def _libGenr(self, name, data):
         '''
