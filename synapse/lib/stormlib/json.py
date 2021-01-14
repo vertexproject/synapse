@@ -6,9 +6,48 @@ import json
 @s_stormtypes.registry.registerLib
 class JsonLib(s_stormtypes.Lib):
     '''
-    A Storm Library for interacting with version information.
+    A Storm Library for interacting with Json data.
     '''
-
+    dereflocals = (
+        {
+            'name': 'load',
+            'desc': 'Parse a JSON string and return the deserialized data.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_jsonLoad',
+                'args': (
+                    {
+                        'name': 'text',
+                        'type': 'str',
+                        'desc': 'The string to be deserialized.',
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The JSON deserialized object.',
+                }
+            }
+        },
+        {
+            'name': 'save',
+            'desc': 'Save an object as a JSON string.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_jsonSave',
+                'args': (
+                    {
+                        'name': 'item',
+                        'type': 'any',
+                        'desc': 'The item to be serialized as a JSON string.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The JSON serialized object.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('json',)
 
     def getObjLocals(self):
@@ -18,9 +57,6 @@ class JsonLib(s_stormtypes.Lib):
         }
 
     async def _jsonSave(self, item):
-        '''
-        Save an object as a JSON string.
-        '''
         try:
             item = await s_stormtypes.toprim(item)
             return json.dumps(item)
@@ -29,9 +65,6 @@ class JsonLib(s_stormtypes.Lib):
             raise s_exc.MustBeJsonSafe(mesg=mesg)
 
     async def _jsonLoad(self, text):
-        '''
-        Parse a JSON string and return an object.
-        '''
         text = await s_stormtypes.tostr(text)
         try:
             return json.loads(text, strict=True)
