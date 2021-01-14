@@ -246,13 +246,5 @@ class HttpResp(s_stormtypes.StormType):
             'body': self._propHttoRespBody,
         }
 
-    @property
-    def _propHttoRespBody(self):
-        return self.body
-
-    @property
-    def _propHttpCode(self):
-        return self.code
-
     async def _httpRespJson(self):
         return json.loads(self.body)
