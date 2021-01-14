@@ -168,6 +168,84 @@ class LibModel(s_stormtypes.Lib):
     A Storm Library for interacting with the Data Model in the Cortex.
     '''
     _storm_lib_path = ('model',)
+    dereflocals = (
+        {
+            'name': 'type',
+            'desc': 'Get a type object by name.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methType',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the type to retrieve.',
+                    },
+                ),
+                'returns': {
+                    'type': ['storm:model:type', 'null'],
+                    'desc': 'The ``storm:model:type`` instance if the type if present on the form or null.',
+                }
+            }
+        },
+        {
+            'name': 'prop',
+            'desc': 'Get a prop object by name.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methProp',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the prop to retrieve.',
+                    },
+                ),
+                'returns': {
+                    'type': ['storm:model:prop', 'null'],
+                    'desc': 'The ``storm:model:prop`` instance if the type if present or null.',
+                }
+            }
+        },
+        {
+            'name': 'form',
+            'desc': 'Get a form object by name.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methForm',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the form to retrieve.',
+                    },
+                ),
+                'returns': {
+                    'type': ['storm:model:form', 'null'],
+                    'desc': 'The ``storm:model:form`` instance if the form is present or null.',
+                }
+            }
+        },
+        {
+            'name': 'tagprop',
+            'desc': 'Get a tag property object by name.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methTagProp',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the tag prop to retrieve.',
+                    },
+                ),
+                'returns': {
+                    'type': ['storm:model:tagprop', 'null'],
+                    'desc': 'The ``storm:model:tagprop`` instance if the tag prop if present or null.',
+                }
+            }
+        },
+    )
 
     def __init__(self, runt, name=()):
         s_stormtypes.Lib.__init__(self, runt, name)
@@ -183,60 +261,24 @@ class LibModel(s_stormtypes.Lib):
 
     @s_cache.memoize(size=100)
     async def _methType(self, name):
-        '''
-        Get a ModelType by name.
-
-        Args:
-            name (str): The name of the type to retrieve.
-
-        Returns:
-            ModelType: A Storm ModelType object.
-        '''
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
 
     @s_cache.memoize(size=100)
     async def _methProp(self, name):
-        '''
-        Get a ModelProp by name.
-
-        Args:
-            name (str): The name of the prop to retrieve.
-
-        Returns:
-            ModelProp: A Storm ModelProp object.
-        '''
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
 
     @s_cache.memoize(size=100)
     async def _methForm(self, name):
-        '''
-        Get a ModelForm by name.
-
-        Args:
-            name (str): The name of the form to retrieve.
-
-        Returns:
-            ModelForm: A Storm ModelForm object.
-        '''
         form = self.model.form(name)
         if form is not None:
             return ModelForm(form)
 
     @s_cache.memoize(size=100)
     async def _methTagProp(self, name):
-        '''
-        Get a ModelTagProp by name.
-
-        Args:
-            name (str): The name of the tag property to retrieve.
-
-        Returns:
-            ModelTagProp: A Storm ModelTagProp object.
-        '''
         tagprop = self.model.getTagProp(name)
         if tagprop is not None:
             return ModelTagProp(tagprop)
@@ -252,6 +294,25 @@ class ModelForm(s_stormtypes.Prim):
             'desc': 'The name of the Form',
             'type': 'str',
         },
+        {
+            'name': 'prop',
+            'desc': 'Get a Property on the Form',
+            'type': {
+                'type': 'function',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The property to retrieve.',
+                    },
+                ),
+                '_funcname': '_getFormProp',
+                'returns': {
+                    'type': ['storm:model:prop', 'null'],
+                    'desc': 'The ``storm:model:prop`` instance if the property if present on the form or null.'
+                }
+            }
+        }
     )
     typename = 'storm:model:form'
     def __init__(self, form, path=None):
@@ -274,15 +335,6 @@ class ModelForm(s_stormtypes.Prim):
         return ModelType(self.valu.type, path=path)
 
     def _getFormProp(self, name):
-        '''
-        Get a Property on the Form.
-
-        Args:
-            name (str): The property to retrieve.
-
-        Returns:
-            ModelProp instance if the property if present on the Form, or ``$lib.null``.
-        '''
         prop = self.valu.prop(name)
         if prop is not None:
             return ModelProp(prop)

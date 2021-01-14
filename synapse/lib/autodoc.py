@@ -331,5 +331,3 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
 
             page.addHead(header, lvl=2, link=link)
             page.addLines(*lines)
-
-    return page
