@@ -933,6 +933,7 @@ stormcmds = (
         'cmdargs': (
             ('urls', {'nargs': '*', 'help': 'URLs to download.'}),
             ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
+            ('--timeout', {'default': 300, 'type': 'int', 'help': 'Configure the timeout for the download operation.'}),
         ),
         'storm': '''
         init {
@@ -940,6 +941,7 @@ stormcmds = (
         }
 
         $ssl = (not $cmdopts.no_ssl_verify)
+        $timeout = $cmdopts.timeout
 
         if $node {
             $count = ($count + 1)
@@ -953,13 +955,13 @@ stormcmds = (
                 $urls = ($node.value(),)
             }
             for $url in $urls {
-                -> { yield $lib.axon.urlfile($url, ssl=$ssl) }
+                -> { yield $lib.axon.urlfile($url, ssl=$ssl, timeout=$timeout) }
             }
         }
 
         if ($count = 0) {
             for $url in $cmdopts.urls {
-                yield $lib.axon.urlfile($url, ssl=$ssl)
+                yield $lib.axon.urlfile($url, ssl=$ssl, timeout=$timeout)
             }
         }
         ''',

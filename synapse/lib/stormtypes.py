@@ -1143,7 +1143,7 @@ class LibAxon(Lib):
             'urlfile': self.urlfile,
         }
 
-    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True):
+    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None):
         '''
         A method to download an HTTP(S) resource into the Cortex's Axon.
 
@@ -1155,6 +1155,7 @@ class LibAxon(Lib):
             json (dict): A JSON object to send as the body.
             body (bytes): A bytes to send as the body.
             ssl (bool): Set to False to disable SSL/TLS certificate verification.
+            timeout (int): Timeout for the download operation.
 
         Returns:
             dict: A status dictionary of metadata
@@ -1179,11 +1180,12 @@ class LibAxon(Lib):
         json = await toprim(json)
         params = await toprim(params)
         headers = await toprim(headers)
+        timeout = await toprim(timeout)
 
         await self.runt.snap.core.getAxon()
 
         axon = self.runt.snap.core.axon
-        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json)
+        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json, timeout=timeout)
 
     async def urlfile(self, *args, **kwargs):
         '''
@@ -1198,7 +1200,11 @@ class LibAxon(Lib):
         code = resp.get('code')
 
         if code != 200:
-            mesg = f'$lib.axon.urlfile(): HTTP code {code} != 200'
+            if code is None:
+                mesg = f'$lib.axon.urlfile(): {resp.get("mesg")}'
+            else:
+                mesg = f'$lib.axon.urlfile(): HTTP code {code} != 200'
+
             await self.runt.warn(mesg, log=False)
             return
 
