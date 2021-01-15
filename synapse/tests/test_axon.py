@@ -392,4 +392,4 @@ class AxonTest(s_t_utils.SynTest):
         async with self.getTestAxon(conf=conf) as axon:
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.wget('http://vertex.link')
-                self.ne(-1, resp['mesg'].find('Can not connect to proxy 127.0.0.1:1'))
+                self.ne(-1, resp['mesg']['errmsg'].find('Can not connect to proxy 127.0.0.1:1'))

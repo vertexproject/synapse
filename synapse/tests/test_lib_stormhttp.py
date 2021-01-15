@@ -163,6 +163,6 @@ class StormHttpTest(s_test.SynTest):
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestCore(conf=conf) as core:
             resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
-            self.ne(-1, resp['mesg'].find('Can not connect to proxy 127.0.0.1:1'))
+            self.ne(-1, resp['mesg']['errmsg'].find('Can not connect to proxy 127.0.0.1:1'))
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('return($lib.inet.http.get("http://vertex.link"))')
