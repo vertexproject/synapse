@@ -1388,6 +1388,93 @@ class LibStr(Lib):
     '''
     A Storm Library for interacting with strings.
     '''
+    dereflocals = (
+        {
+            'name': 'join',
+            'desc': '''
+            Join items into a string using a separator.
+
+            Examples:
+                Join together a list of strings with a dot separator::
+
+                    cli> storm $foo=$lib.str.join('.', ('rep', 'vtx', 'tag')) $lib.print($foo)
+
+                    rep.vtx.tag''',
+            'type': {
+                'type': 'function',
+                '_funcname': 'join',
+                'args': (
+                    {
+                        'name': 'sepr',
+                        'type': 'str',
+                        'desc': 'The separator used to join strings with.',
+                    },
+                    {
+                        'name': 'items',
+                        'type': 'list',
+                        'desc': 'A list of items to join together.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The joined string.',
+                }
+            }
+        },
+        {
+            'name': 'concat',
+            'desc': 'Concatenate a set of strings together.',
+            'type': {
+                'type': 'function',
+                '_funcname': 'concat',
+                'args': (
+                    {
+                        'name': '*args',
+                        'type': 'any',
+                        'desc': 'Items to join together.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The joined string.',
+                }
+            }
+        },
+        {
+            'name': 'format',
+            'desc': '''
+            Format a text string.
+
+            Examples:
+                Format a string with a fixed argument and a variable::
+
+                    cli> storm $list=(1,2,3,4)
+                         $str=$lib.str.format('Hello {name}, your list is {list}!', name='Reader', list=$list)
+                         $lib.print($str)
+
+                    Hello Reader, your list is ['1', '2', '3', '4']!''',
+            'type': {
+                'type': 'function',
+                '_funcname': 'format',
+                'args': (
+                    {
+                        'name': 'text',
+                        'type': 'str',
+                        'desc': 'The base text string.',
+                    },
+                    {
+                        'name': '**kwargs',
+                        'type': 'any',
+                        'desc': 'Keyword values which are substituted into the string.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The new string.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('str',)
 
     def getObjLocals(self):
@@ -1398,60 +1485,15 @@ class LibStr(Lib):
         }
 
     async def concat(self, *args):
-        '''
-        Concatenate a set of strings together.
-
-        Args:
-            *args: Items to join togther.
-
-        Returns:
-            str: The joined string.
-        '''
         strs = [str(a) for a in args]
         return ''.join(strs)
 
     async def format(self, text, **kwargs):
-        '''
-        Format a text string.
-
-        Args:
-            text: The base text string.
-            **kwargs: Keyword values which are substituted into the string.
-
-        Examples:
-            Format a string with a fixed argument and a variable::
-
-                cli> storm $list=(1,2,3,4)
-                     $str=$lib.str.format('Hello {name}, your list is {list}!', name='Reader', list=$list)
-                     $lib.print($str)
-
-                Hello Reader, your list is ['1', '2', '3', '4']!
-
-        Returns:
-            str: The new string.
-        '''
         text = kwarg_format(text, **kwargs)
 
         return text
 
     async def join(self, sepr, items):
-        '''
-        Join items into a string using a separator.
-
-        Args:
-            sepr (str): The separator used to join things with.
-            items (list): A list of items to join together.
-
-        Examples:
-            Join together a list of strings with a dot separator::
-
-                cli> storm $foo=$lib.str.join('.', ('rep', 'vtx', 'tag')) $lib.print($foo)
-
-                rep.vtx.tag
-
-        Returns:
-            str: The joined string.
-        '''
         strs = [str(item) for item in items]
         return sepr.join(strs)
 
