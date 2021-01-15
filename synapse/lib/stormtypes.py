@@ -110,7 +110,7 @@ class StormTypesRegistry:
             for parameter, argdef in zip(callsig.parameters.values(), args):
                 pdef = parameter.default  # defaults to inspect._empty for undefined default values.
                 adef = argdef.get('default', inspect._empty)
-                assert pdef == adef, f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef}'
+                assert pdef == adef, f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
 
     def getLibDocs(self):
         libs = self.iterLibs()
@@ -1502,6 +1502,103 @@ class LibAxon(Lib):
     '''
     A Storm library for interacting with the Cortex's Axon.
     '''
+    dereflocals = (
+        {
+            'name': 'wget',
+            'desc': """
+            A method to download an HTTP(S) resource into the Cortex's Axon.
+
+            Example:
+                Get the Vertex Project website::
+
+                    $headers = $lib.dict()
+                    $headers."User-Agent" = Foo/Bar
+
+                    $resp = $lib.axon.wget("http://vertex.link", method=GET, headers=$headers)
+                    if $resp.ok { $lib.print("Downloaded: {size} bytes", size=$resp.size) }
+            """,
+            'type': {
+                'type': 'function',
+                '_funcname': 'wget',
+                'args': (
+                    {
+                        'name': 'url',
+                        'type': 'str',
+                        'desc': 'The URL to download',
+                    },
+                    {
+                        'name': 'headers',
+                        'type': 'dict',
+                        'desc': 'An optional dictionary of HTTP headers to send.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'params',
+                        'type': 'dict',
+                        'desc': 'An optional dictionary of URL parameters to add.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'method',
+                        'type': 'str',
+                        'desc': 'The HTTP method to use.',
+                        'default': 'GET',
+                    },
+                    {
+                        'name': 'json',
+                        'type': 'dict',
+                        'desc': 'A JSON object to send as the body.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'body',
+                        'type': 'bytes',
+                        'desc': 'Bytes to send as the body.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'ssl',
+                        'type': 'boolean',
+                        'desc': 'Set to False to disable SSL/TLS certificate verification.',
+                        'default': True,
+                    },
+                ),
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'A status dictionary of metadata.',
+                }
+            }
+        },
+        {
+            'name': 'urlfile',
+            'desc': '''
+            Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
+
+            Notes:
+                This accepts the same arguments as ``$lib.axon.wget()``.
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': 'urlfile',
+                'args': (
+                    {
+                        'name': '*args',
+                        'type': 'any',
+                        'desc': 'Args from ``$lib.axon.wget()``.',
+                    },
+                    {
+                        'name': '**kwargs',
+                        'type': 'any',
+                        'desc': 'Args from ``$lib.axon.wget()``.',
+                    },
+                ),
+                'returns': {
+                    'type': ['node', 'boolean'],
+                    'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('axon',)
 
     def getObjLocals(self):
@@ -1512,27 +1609,8 @@ class LibAxon(Lib):
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True):
         '''
-        A method to download an HTTP(S) resource into the Cortex's Axon.
 
-        Args:
-            url (str): The URL to download
-            headers (dict): An optional dictionary of HTTP headers to send.
-            params (dict): An optional dictionary of URL parameters to add.
-            method (str): The HTTP method to use ( default: GET ).
-            json (dict): A JSON object to send as the body.
-            body (bytes): A bytes to send as the body.
-            ssl (bool): Set to False to disable SSL/TLS certificate verification.
 
-        Returns:
-            dict: A status dictionary of metadata
-
-        Example:
-
-            $headers = $lib.dict()
-            $headers."User-Agent" = Foo/Bar
-
-            $resp = $lib.axon.wget(http://vertex.link, method=GET, headers=$headers)
-            if $resp.ok { $lib.print("Downloaded: {size} bytes", size=$resp.size) }
 
         '''
 
@@ -1553,14 +1631,6 @@ class LibAxon(Lib):
         return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json)
 
     async def urlfile(self, *args, **kwargs):
-        '''
-        Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
-
-        Args: see $lib.axon.wget()
-
-        Returns:
-            inet:urlfile node on success.  $lib.null on error.
-        '''
         resp = await self.wget(*args, **kwargs)
         code = resp.get('code')
 
