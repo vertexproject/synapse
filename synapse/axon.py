@@ -17,7 +17,6 @@ import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
-import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -399,7 +398,6 @@ class Axon(s_cell.Cell):
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
-        timouet = await s_stormtypes.toint(timeout, noneok=True)
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
