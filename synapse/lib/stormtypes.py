@@ -866,7 +866,8 @@ class LibBase(Lib):
     dereflocals = (
         {
             'name': 'len',
-            'desc': '''Get the length of a item.
+            'desc': '''
+        Get the length of a item.
 
         This could represent the size of a string, or the number of keys in
         a dictionary, or the number of elements in an array.''',
@@ -1316,6 +1317,39 @@ class LibPs(Lib):
     '''
     A Storm Library for interacting with running tasks on the Cortex.
     '''
+    dereflocals = (
+        {
+            'name': 'kill',
+            'desc': 'Stop a running task on the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_kill',
+                'args': (
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': 'The prefix of the task to stop. Tasks will only be stopped if there is a single prefix match.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': ' True if the task was cancelled, False otherwise.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'List tasks the current user can access.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_list',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of task definitions.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('ps',)
 
     def getObjLocals(self):
@@ -1325,15 +1359,6 @@ class LibPs(Lib):
         }
 
     async def _kill(self, prefix):
-        '''
-        Stop a running task on the cortex.
-
-        Args:
-            prefix (str): The prefix of the task to stop. Tasks will only be stopped if there is a single prefix match.
-
-        Returns:
-            bool: True if the task was cancelled, false otherwise.
-        '''
         idens = []
 
         todo = s_common.todo('ps', self.runt.user)
@@ -1355,12 +1380,6 @@ class LibPs(Lib):
         return await self.dyncall('cell', todo)
 
     async def _list(self):
-        '''
-        List tasks the current user can access.
-
-        Returns:
-            list: A list of task dictionaries.
-        '''
         todo = s_common.todo('ps', self.runt.user)
         return await self.dyncall('cell', todo)
 
