@@ -2421,6 +2421,47 @@ class LibPipe(Lib):
     '''
     A Storm library for interacting with non-persistent queues.
     '''
+    dereflocals = (
+        {
+            'name': 'gen',
+            'desc': '''
+            Generate and return a Storm Pipe.
+
+            Notes:
+                The filler query is run in parallel with $pipe. This requires the permission
+                ``storm.pipe.gen`` to use.
+
+            Examples:
+                Fill a pipe with a query and consume it with another::
+
+                    $pipe = $lib.pipe.gen(${ $pipe.puts((1, 2, 3)) })
+
+                    for $items in $pipe.slices(size=2) {
+                        $dostuff($items)
+                    }
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '',
+                'args': (
+                    {
+                        'name': 'filler',
+                        'type': ['str', 'storm:query'],
+                        'desc': 'A Storm query to fill the Pipe.',
+                    },
+                    {
+                        'name': 'size',
+                        'type': 'int',
+                        'desc': 'Maximum size of the pipe.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:pipe',
+                    'desc': 'The pipe containing query results.',
+                }
+            }
+        },
+    )
 
     _storm_lib_path = ('pipe',)
 
@@ -2430,28 +2471,6 @@ class LibPipe(Lib):
         }
 
     async def _methPipeGen(self, filler, size=10000):
-        '''
-        Generate and return a Storm Pipe by name.
-
-        Args:
-            filler (storm): A storm query to fill the Pipe.
-            name (str): A name for the pipe (for IPC).
-
-        Perms:
-            storm.pipe.gen
-
-        Notes:
-            The filler query is run in parallel with $pipe.
-
-        Examples:
-
-            $pipe = $lib.pipe.gen(${ $pipe.puts((1, 2, 3)) })
-
-            for $items in $pipe.slices(size=2) {
-                $dostuff($items)
-            }
-        '''
-
         size = await toint(size)
         text = await tostr(filler)
 
@@ -2491,6 +2510,112 @@ class Pipe(StormType):  # FIXME prim?
     '''
     A Storm Pipe provides fast ephemeral queues.
     '''
+    dereflocals = (
+        {
+            'name': 'put',
+            'desc': 'Add a single item to the Pipe.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methPipePut',
+                'args': (
+                    {
+                        'name': 'item',
+                        'type': 'any',
+                        'desc': ' An object to add to the Pipe.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'puts',
+            'desc': 'Add a list of items to the Pipe.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methPipePuts',
+                'args': (
+                    {
+                        'name': 'items',
+                        'type': 'list',
+                        'desc': 'A list of items to add.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'slice',
+            'desc': 'Return a list of up to size items from the Pipe.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methPipeSlice',
+                'args': (
+                    {
+                        'name': 'size',
+                        'type': 'int',
+                        'desc': 'The max number of items to return (default 1000)',
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of at least 1 item from the Pipe.',
+                }
+            }
+        },
+        {
+            'name': 'slices',
+            'desc': '''
+            Yield lists of up to size items from the Pipe.
+
+            Notes:
+                The loop will exit when the Pipe is closed and empty.
+
+            Examples:
+                Operation on slices from a pipe one at a time::
+
+                    for $slice in $pipe.slices(1000) {
+                        for $item in $slice { $dostuff($item) }
+                    }
+
+                Operate on slices from a pipe in bulk::
+
+                    for $slice in $pipe.slices(1000) {
+                        $dostuff_batch($slice)
+                    }''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methPipeSlices',
+                'args': (
+                    {
+                        'name': 'size',
+                        'type': 'int',
+                        'desc': 'The max number of items to yield per slice.',
+                    },
+                ),
+                'returns': {
+                    'name': 'Yields',
+                    'type': 'any',
+                    'desc': 'Yields objects from the Pipe.',
+                }
+            }
+        },
+        {
+            'name': 'size',
+            'desc': 'Retrieve the number of items in the Pipe.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methPipeSize',
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The number of items in the Pipe.',
+                }
+            }
+        },
+    )
     typename = 'storm:pipe'
     def __init__(self, runt, size):
         StormType.__init__(self)
@@ -2509,22 +2634,10 @@ class Pipe(StormType):  # FIXME prim?
         }
 
     async def _methPipePuts(self, items):
-        '''
-        Add a list of items to the Pipe.
-
-        Args:
-            items (list): A list of items to add.
-        '''
         items = await toprim(items)
         return await self.queue.puts(items)
 
     async def _methPipePut(self, item):
-        '''
-        Add a single item to the Pipe.
-
-        Args:
-            item: An object to add to the Pipe.
-        '''
         item = await toprim(item)
         return await self.queue.put(item)
 
@@ -2536,24 +2649,10 @@ class Pipe(StormType):  # FIXME prim?
         await self.queue.close()
 
     async def _methPipeSize(self):
-        '''
-        Retrieve the number of items in the Pipe.
-
-        Returns:
-            int: The number of items in the Pipe.
-        '''
         return await self.queue.size()
 
     async def _methPipeSlice(self, size=1000):
-        '''
-        Return a list of up to size items from the Pipe.
 
-        Args:
-            size: The max number of items to return (default 1000)
-
-        Returns:
-            list: A list of at least 1 item from the Pipe.
-        '''
         size = await toint(size)
         if size < 1 or size > 10000:
             mesg = '$pipe.slice() size must be 1-10000'
@@ -2566,26 +2665,6 @@ class Pipe(StormType):  # FIXME prim?
         return List(items)
 
     async def _methPipeSlices(self, size=1000):
-        '''
-        Yield lists of up to size items from the Pipe.
-        The loop will exit when the Pipe is closed and empty.
-
-        Args:
-            size (int): The max number of items to yield per slice.
-
-        Returns:
-            generator
-
-        Examples:
-
-            for $slice in $pipe.slices(1000) {
-                for $item in $slice { $dostuff($item) }
-            }
-
-            for $slice in $pipe.slices(1000) {
-                $dostuff_batch($slice)
-            }
-        '''
         size = await toint(size)
         if size < 1 or size > 10000:
             mesg = '$pipe.slice() size must be 1-10000'
