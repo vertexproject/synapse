@@ -663,6 +663,126 @@ class LibService(Lib):
     '''
     A Storm Library for interacting with Storm Services.
     '''
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': 'Add a Storm Service to the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libSvcAdd',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the Storm Service to add.',
+                    },
+                    {
+                        'name': 'url',
+                        'type': 'str',
+                        'desc': 'The Telepath URL to the Storm Service.',
+                    },
+                ),
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'The Storm Service definition.',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Remove a Storm Service from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libSvcDel',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the service to remove.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a Storm Service definition.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libSvcGet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The local name, local iden, or remote name, of the service to get the definition for.',
+                    },
+                ),
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'A Storm Service definition.',
+                }
+            }
+        },
+        {
+            'name': 'has',
+            'desc': 'Check if a Storm Service is available in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libSvcHas',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The local name, local iden, or remote name, of the service to check for the existance of.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the service exists in the Cortex, False if it does not.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': '''
+            List the Storm Service definitions for the Cortex.
+
+            Notes:
+                The definition dictionaries have an additional ``ready`` key added to them to
+                indicate if the Cortex is currently connected to the Storm Service or not.
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libSvcList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of Storm Service definitions.',
+                }
+            }
+        },
+        {
+            'name': 'wait',
+            'desc': 'Wait for a given service to be ready.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libSvcWait',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name, or iden, of the service to wait for.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                    'desc': 'Returns null when the service is available.',
+                }
+            }
+        },
+
+    )
     _storm_lib_path = ('service',)
 
     def getObjLocals(self):
@@ -691,18 +811,6 @@ class LibService(Lib):
                 await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
 
     async def _libSvcAdd(self, name, url):
-        '''
-        Add a Storm Service to the Cortex.
-
-        Args:
-            name (str): Name of the Storm Service to add.
-
-            url (str): The Telepath URL to the Storm Service.
-
-        Returns:
-            dict: The Storm Service definition.
-        '''
-
         self.runt.confirm(('service', 'add'))
         sdef = {
             'name': name,
@@ -711,28 +819,10 @@ class LibService(Lib):
         return await self.runt.snap.core.addStormSvc(sdef)
 
     async def _libSvcDel(self, iden):
-        '''
-        Remove a Storm Service from the Cortex.
-
-        Args:
-            iden (str): The iden of the service to remove.
-
-        Returns:
-            None: Returns None.
-        '''
         self.runt.confirm(('service', 'del'))
         return await self.runt.snap.core.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
-        '''
-        Get a Storm Service definition.
-
-        Args:
-            name (str): The local name, local iden, or remote name, of the service to get the definition for.
-
-        Returns:
-            dict: A Storm Service definition.
-        '''
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
@@ -741,31 +831,12 @@ class LibService(Lib):
         return ssvc
 
     async def _libSvcHas(self, name):
-        '''
-        Check if a storm service is available in the Cortex.
-
-        Args:
-            name (str): The local name, local iden, or remote name, of the service to check for the existance of.
-
-        Returns:
-            bool: True if the service exists in the Cortex, False if it does not.
-        '''
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             return False
         return True
 
     async def _libSvcList(self):
-        '''
-        List the Storm Service definitions for the Cortex.
-
-        Notes:
-            The definition dictionaries have an additional ``ready`` key added to them to
-            indicate if the Cortex is currently connected to the Storm Service or not.
-
-        Returns:
-            list: A list of Storm Service definitions.
-        '''
         self.runt.confirm(('service', 'list'))
         retn = []
 
@@ -778,15 +849,6 @@ class LibService(Lib):
         return retn
 
     async def _libSvcWait(self, name):
-        '''
-        Wait for a given service to be ready.
-
-        Args:
-            name (str): The name, or iden, of the service to wait for.
-
-        Returns:
-            True: When the service is ready.
-        '''
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
