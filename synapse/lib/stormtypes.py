@@ -1668,6 +1668,112 @@ class LibBytes(Lib):
     '''
     A Storm Library for interacting with bytes storage.
     '''
+    dereflocals = (
+        {
+            'name': 'put',
+            'desc': 'Save the given bytes variable to the Axon the Cortex is configured to use.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libBytesPut',
+                'args': (
+                    {
+                        'name': 'byts',
+                        'type': 'bytes',
+                        'desc': 'The bytes to save.',
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A tuple of the file size and sha256 value.',
+                }
+            }
+        },
+        {
+            'name': 'has',
+            'desc': '''
+            Check if the Axon the Cortex is configured to use has a given sha256 value.
+
+            Examples:
+                Check if the Axon has a given file::
+
+                    # This example assumes the Axon does have the bytes
+                    cli> storm if $lib.bytes.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
+                            $lib.print("Has bytes")
+                        } else {
+                            $lib.print("Does not have bytes")
+                        }
+
+                    Has bytes
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libBytesHas',
+                'args': (
+                    {
+                        'name': 'sha256',
+                        'type': 'str',
+                        'desc': 'The sha256 value to check.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the Axon has the file, false if it does not.',
+                }
+            }
+        },
+        {
+            'name': 'size',
+            'desc': '''
+            Return the size of the bytes stored in the Axon for the given sha256.
+
+            Examples:
+                Get the size for a give variable named ``$sha256``::
+
+                    $size = $lib.bytes.size($sha256)
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libBytesSize',
+                'args': (
+                    {
+                        'name': 'sha256',
+                        'type': 'str',
+                        'desc': 'The sha256 value to check.',
+                    },
+                ),
+                'returns': {
+                    'type': ['int', 'null'],
+                    'desc': 'The size of the file or ``null`` if the file is not found.',
+                }
+            }
+        },
+        {
+            'name': 'upload',
+            'desc': '''
+            Upload a stream of bytes to the Axon as a file.
+
+            Examples:
+                Upload bytes from a generator::
+
+                    ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libBytesUpload',
+                'args': (
+                    {
+                        'name': 'genr',
+                        'type': 'generator',
+                        'desc': 'A generator which yields bytes.',
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A tuple of the file size and sha256 value.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('bytes',)
 
     def getObjLocals(self):
@@ -1679,15 +1785,6 @@ class LibBytes(Lib):
         }
 
     async def _libBytesUpload(self, genr):
-        '''
-        Upload a stream of bytes to the Axon as a file.
-
-        Examples:
-            ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
-
-        Returns:
-            (int, str): Returns a tuple of the file size and sha256.
-        '''
         await self.runt.snap.core.getAxon()
         async with await self.runt.snap.core.axon.upload() as upload:
             async for byts in s_coro.agen(genr):
@@ -1696,46 +1793,12 @@ class LibBytes(Lib):
             return size, s_common.ehex(sha256)
 
     async def _libBytesHas(self, sha256):
-        '''
-        Check if the Axon the Cortex is configured to use has a given sha256 value.
-
-        Args:
-            sha256 (str): The sha256 value to check.
-
-        Examples:
-            Check if the Axon has a given file::
-
-                # This example assumes the Axon does have the bytes
-                cli> storm if $lib.bytes.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
-                        $lib.print("Has bytes")
-                    } else {
-                        $lib.print("Does not have bytes")
-                    }
-
-                Has bytes
-
-        Returns:
-            bool: True if the Axon has the file, false if it does not.
-        '''
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('has', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
 
     async def _libBytesSize(self, sha256):
-        '''
-        Return the size of the bytes stored in the Axon for the given sha256.
-
-        Args:
-            sha256 (str): The sha256 value to check.
-
-        Examples:
-
-            $size = $lib.bytes.size($sha256)
-
-        Returns:
-            int: The size of the file or $lib.null if the file is not found.
-        '''
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('size', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
@@ -1743,10 +1806,10 @@ class LibBytes(Lib):
 
     async def _libBytesPut(self, byts):
         '''
-        Save the given bytes variable to the Axon the Cortex is configured to use.
+
 
         Args:
-            byts (bytes): The bytes to save.
+            byts (bytes):
 
         Examples:
             Save a base64 encoded buffer to the Axon::
@@ -1757,7 +1820,7 @@ class LibBytes(Lib):
                 size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 
         Returns:
-            (int, str): The size of the bytes and the sha256 hash for the bytes.
+            (int, str):
         '''
         if not isinstance(byts, bytes):
             mesg = '$lib.bytes.put() requires a bytes argument'
