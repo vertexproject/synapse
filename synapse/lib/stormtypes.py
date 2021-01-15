@@ -1867,15 +1867,6 @@ class LibLift(Lib):
         }
 
     async def _byNodeData(self, name):
-        '''
-
-
-        Args:
-            name (str):
-
-        Returns:
-
-        '''
         async for node in self.runt.snap.nodesByDataName(name):
             yield node
 
