@@ -2114,6 +2114,107 @@ class LibRegx(Lib):
     '''
     A Storm library for searching/matching with regular expressions.
     '''
+    dereflocals = (
+        {
+            'name': 'search',
+            'desc': '''
+            Search the given text for the pattern and return the matching groups.
+
+            Note:
+                In order to get the matching groups, patterns must use parentheses
+                to indicate the start and stop of the regex to return portions of.
+                If groups are not used, a successful match will return a empty list
+                and a unsuccessful match will return ``$lib.null``.
+
+            Example:
+                Extract the matching groups from a piece of text::
+
+                    $m = $lib.regex.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
+                    if $m {
+                        ($maj, $min, $pat) = $m
+                    }''',
+            'type': {
+                'type': 'function',
+                '_funcname': 'search',
+                'args': (
+                    {
+                        'name': 'pattern',
+                        'type': 'str',
+                        'desc': 'The regular expression pattern.',
+                    },
+                    {
+                        'name': 'text',
+                        'type': 'str',
+                        'desc': 'The text to match.',
+                    },
+                    {
+                        'name': 'flags',
+                        'type': 'int',
+                        'desc': 'Regex flags to control the match behavior.',
+                        'default': 0
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of strings for the matching groups in the pattern.',
+                }
+            }
+        },
+        {
+            'name': 'matches',
+            'desc': '''
+            Check if text matches a pattern.
+            Returns $lib.true if the text matches the pattern, otherwise $lib.false.
+
+            Notes:
+                This API requires the pattern to match at the start of the string.
+
+            Example:
+                Check if the variable matches a expression::
+
+                    if $lib.regex.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
+                        $lib.print("It's semver! ...probably")
+                    }
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': 'matches',
+                'args': (
+                    {
+                        'name': 'pattern',
+                        'type': 'str',
+                        'desc': 'The regular expression pattern.',
+                    },
+                    {
+                        'name': 'text',
+                        'type': 'str',
+                        'desc': 'The text to match.',
+                    },
+                    {
+                        'name': 'flags',
+                        'type': 'int',
+                        'desc': 'Regex flags to control the match behavior.',
+                        'default': 0
+                    },
+
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if there is a match, False otherwise.',
+                }
+            }
+        },
+        {
+            'name': 'flags.i',
+            'desc': 'Regex flag to indicate that case insensitive matches are allowed.',
+            'type': 'int',
+        },
+        {
+            'name': 'flags.m',
+            'desc': 'Regex flag to indicate that multiline matches are allowed.',
+            'type': 'int',
+        },
+    )
     _storm_lib_path = ('regex',)
 
     def __init__(self, runt, name=()):
@@ -2137,20 +2238,6 @@ class LibRegx(Lib):
         return regx
 
     async def matches(self, pattern, text, flags=0):
-        '''
-        Returns $lib.true if the text matches the pattern, otherwise $lib.false.
-
-        Notes:
-
-            This API requires the pattern to match at the start of the string.
-
-        Example:
-
-            if $lib.regex.matches("^[0-9]+.[0-9]+.[0-9]+$", $text) {
-                $lib.print("It's semver! ...probably")
-            }
-
-        '''
         text = await tostr(text)
         flags = await toint(flags)
         pattern = await tostr(pattern)
@@ -2159,21 +2246,6 @@ class LibRegx(Lib):
 
     async def search(self, pattern, text, flags=0):
         '''
-        Search the given text for the pattern and return the matching groups.
-
-        Note:
-
-            In order to get the matching groups, patterns must use parentheses
-            to indicate the start and stop of the regex to return portions of.
-            If groups are not used, a successful match will return a empty list
-            and a unsuccessful match will return ``$lib.null``.
-
-        Example:
-
-            $m = $lib.regex.search("^([0-9])+.([0-9])+.([0-9])+$", $text)
-            if $m {
-                ($maj, $min, $pat) = $m
-            }
 
         '''
         text = await tostr(text)
@@ -2192,6 +2264,32 @@ class LibCsv(Lib):
     '''
     A Storm Library for interacting with csvtool.
     '''
+    dereflocals = (
+        {
+            'name': 'emit',
+            'desc': 'Emit a ``csv:row`` event to the Storm runtime for the given args.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libCsvEmit',
+                'args': (
+                    {
+                        'name': '*args',
+                        'type': 'any',
+                        'desc': 'Items which are emitted as a ``csv:row`` event.',
+                    },
+                    {
+                        'name': 'table',
+                        'type': 'str',
+                        'desc': 'The name of the table to emit data too. Optional.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('csv',)
 
     def getObjLocals(self):
@@ -2200,17 +2298,6 @@ class LibCsv(Lib):
         }
 
     async def _libCsvEmit(self, *args, table=None):
-        '''
-        Emit a csv:row event for the given args.
-
-        Args:
-            *args: A list of items which are emitted as a ``csv:row`` event.
-
-            table (str): The name of the table to emit data too. Optional.
-
-        Returns:
-            None: Returns None.
-        '''
         row = [await toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
 
@@ -2219,6 +2306,84 @@ class LibFeed(Lib):
     '''
     A Storm Library for interacting with Cortex feed functions.
     '''
+    dereflocals = (
+        {
+            'name': 'genr',
+            'desc': '''
+            Yield nodes being added to the graph by adding data with a given ingest type.
+
+            Notes:
+                This is using the Runtimes's Snap to call addFeedNodes().
+                This only yields nodes if the feed function yields nodes.
+                If the generator is not entirely consumed there is no guarantee
+                that all of the nodes which should be made by the feed function
+                will be made.
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libGenr',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the ingest function to send data too.',
+                    },
+                    {
+                        'name': 'data',
+                        'type': 'prim',
+                        'desc': 'Data to send to the ingest function.',
+                    },
+                ),
+                'returns': {
+                    'name': 'Yields',
+                    'type': 'storm:node',
+                    'desc': 'Yields Nodes as they are created by the ingest function.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of feed functions.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of feed functions.',
+                }
+            }
+        },
+        {
+            'name': 'ingest',
+            'desc': '''
+            Add nodes to the graph with a given ingest type.
+
+            Notes:
+                This is using the Runtimes's Snap to call addFeedData(), after setting
+                the snap.strict mode to False. This will cause node creation and property
+                setting to produce warning messages, instead of causing the Storm Runtime
+                to be torn down.''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libIngest',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the ingest function to send data too.',
+                    },
+                    {
+                        'name': 'data',
+                        'type': 'prim',
+                        'desc': 'Data to send to the ingest function.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('feed',)
 
     def getObjLocals(self):
@@ -2229,24 +2394,6 @@ class LibFeed(Lib):
         }
 
     async def _libGenr(self, name, data):
-        '''
-        Yield nodes being added to the graph by adding data with a given ingest type.
-
-        Args:
-            name (str): Name of the ingest function to send data too.
-
-            data: Data to feed to the ingest function.
-
-        Notes:
-            This is using the Runtimes's Snap to call addFeedNodes().
-            This only yields nodes if the feed function yields nodes.
-            If the generator is not entirely consumed there is no guarantee
-            that all of the nodes which should be made by the feed function
-            will be made.
-
-        Returns:
-            s_node.Node: An async generator that yields nodes.
-        '''
         name = await tostr(name)
         data = await toprim(data)
 
@@ -2255,30 +2402,10 @@ class LibFeed(Lib):
             return self.runt.snap.addFeedNodes(name, data)
 
     async def _libList(self):
-        '''
-        Get a list of feed functions.
-
-        Returns:
-            list: A list of feed functions.
-        '''
         todo = ('getFeedFuncs', (), {})
         return await self.runt.dyncall('cortex', todo)
 
     async def _libIngest(self, name, data):
-        '''
-        Add nodes to the graph with a given ingest type.
-
-        Args:
-            name (str): Name of the ingest function to send data too.
-
-            data: Data to feed to the ingest function.
-
-        Notes:
-            This is using the Runtimes's Snap to call addFeedData(), after setting
-            the snap.strict mode to False. This will cause node creation and property
-            setting to produce warning messages, instead of causing the Storm Runtime
-            to be torn down.
-        '''
         name = await tostr(name)
         data = await toprim(data)
 
