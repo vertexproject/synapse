@@ -1889,14 +1889,130 @@ class LibTime(Lib):
             }
         },
         {
-            'name': 'ticker',
+            'name': 'fromunix',
             'desc': '''
-            Periodically pause the processing of data in the storm query.
+            Normalize a timestamp from a unix epoch time in seconds to milliseconds.
+
+            Examples:
+                Convert a timestamp from seconds to millis and format it::
+
+                    cli> storm $seconds=1594684800 $millis=$lib.time.fromunix($seconds)
+                         $str=$lib.time.format($millis, '%A %d, %B %Y') $lib.print($str)
+
+                    Tuesday 14, July 2020''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_fromunix',
+                'args': (
+                    {
+                        'name': 'secs',
+                        'type': 'int',
+                        'desc': 'Unix epoch time in seconds.',
+                    },
+                ),
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The normalized time in milliseconds.',
+                }
+            }
+        },
+        {
+            'name': 'parse',
+            'desc': '''
+            Parse a timestamp string using ``datetime.strptime()`` into an epoch timestamp.
+
+            Examples:
+                Parse a string as for its month/day/year value into a timestamp::
+
+                    cli> storm $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
+
+                    1590969600000''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_parse',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'type': 'str',
+                        'desc': 'The timestamp string to parse.',
+                    },
+                    {
+                        'name': 'format',
+                        'type': 'str',
+                        'desc': 'The format string to use for parsing.',
+                    },
+                ),
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The epoch timetsamp for the string.',
+                }
+            }
+        },
+        {
+            'name': 'format',
+            'desc': '''
+            Format a Synapse timestamp into a string value using ``datetime.strftime()``.
+
+            Examples:
+                Format a timestamp into a string::
+
+                    cli> storm $now=$lib.time.now() $str=$lib.time.format($now, '%A %d, %B %Y') $lib.print($str)
+
+                    Tuesday 14, July 2020''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_format',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'type': 'int',
+                        'desc': 'A timestamp in epoch milliseconds.',
+                    },
+                    {
+                        'name': 'format',
+                        'type': 'str',
+                        'desc': 'The strftime format string.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The formatted time string.',
+                }
+            }
+        },
+        {
+            'name': 'sleep',
+            'desc': '''
+            Pause the processing of data in the storm query.
 
             Notes:
                 This has the effect of clearing the Snap's cache, so any node lifts performed
-                after each tick will be lifted directly from storage.
+                after the ``$lib.time.sleep(...)`` executes will be lifted directly from storage.
             ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_sleep',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'type': 'int',
+                        'desc': 'The number of seconds to pause for.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'ticker',
+            'desc': '''
+        Periodically pause the processing of data in the storm query.
+
+        Notes:
+            This has the effect of clearing the Snap's cache, so any node lifts performed
+            after each tick will be lifted directly from storage.
+        ''',
             'type': {
                 'type': 'function',
                 '_funcname': '_ticker',
@@ -1913,7 +2029,8 @@ class LibTime(Lib):
                         'type': 'int',
                     }
                 ),
-                'returns': {  # FIXME yield vs returns ?
+                'returns': {
+                    'name': 'Yields',
                     'desc': 'This yields the current tick count after each time it wakes up.',
                     'type': 'int',
                 }
@@ -1932,34 +2049,10 @@ class LibTime(Lib):
             'ticker': self._ticker,
         }
 
-    # TODO from other iso formats!
     def _now(self):
-        '''
-
-
-        Returns:
-            int:
-        '''
         return s_common.now()
 
     async def _format(self, valu, format):
-        '''
-        Format a Synapse timestamp into a string value using ``datetime.strftime()``.
-
-        Args:
-            valu (int): A timestamp in epoch milliseconds.
-            format (str): The strftime format string.
-
-        Examples:
-            Format a timestamp into a string::
-
-                cli> storm $now=$lib.time.now() $str=$lib.time.format($now, '%A %d, %B %Y') $lib.print($str)
-
-                Tuesday 14, July 2020
-
-        Returns:
-            str: The formatted time string.
-        '''
         timetype = self.runt.snap.core.model.type('time')
         # Give a times string a shot at being normed prior to formating.
         try:
@@ -1983,23 +2076,6 @@ class LibTime(Lib):
         return ret
 
     async def _parse(self, valu, format):
-        '''
-        Parse a timestamp string using ``datetime.strptime()`` into an epoch timestamp.
-
-        Args:
-            valu (str): The timestamp string to parse.
-            format (str): The format string to use for parsing.
-
-        Examples:
-            Parse a string as for its month/day/year value into a timestamp::
-
-                cli> storm $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
-
-                1590969600000
-
-        Returns:
-            int: The epoch timetsamp for the string.
-        '''
         try:
             dt = datetime.datetime.strptime(valu, format)
         except ValueError as e:
@@ -2009,39 +2085,10 @@ class LibTime(Lib):
         return int((dt - s_time.EPOCH).total_seconds() * 1000)
 
     async def _sleep(self, valu):
-        '''
-        Pause the processing of data in the storm query.
-
-        Args:
-            valu (int): The number of seconds to pause for.
-
-        Notes:
-            This has the effect of clearing the Snap's cache, so any node lifts performed
-            after the ``$lib.time.sleep(...)`` executes will be lifted directly from storage.
-
-        Returns:
-
-        '''
         await self.runt.snap.waitfini(timeout=float(valu))
         await self.runt.snap.clearCache()
 
     async def _ticker(self, tick, count=None):
-        '''
-        Periodically pause the processing of data in the storm query.
-
-        Args:
-            tick (int):
-
-            count (int):
-
-        Notes:
-            This has the effect of clearing the Snap's cache, so any node lifts performed
-            after each tick will be lifted directly from storage.
-
-        Returns:
-            int:
-        '''
-
         if count is not None:
             count = await toint(count)
 
@@ -2059,23 +2106,6 @@ class LibTime(Lib):
                 break
 
     async def _fromunix(self, secs):
-        '''
-        Normalize a timestamp from a unix epoch time in seconds to milliseconds.
-
-        Args:
-            secs (int): Unix epoch time in seconds.
-
-        Examples:
-            Convert a timestamp from seconds to millis and format it::
-
-                cli> storm $seconds=1594684800 $millis=$lib.time.fromunix($seconds)
-                     $str=$lib.time.format($millis, '%A %d, %B %Y') $lib.print($str)
-
-                Tuesday 14, July 2020
-
-        Returns:
-            int: The normalized time in milliseconds.
-        '''
         secs = float(secs)
         return int(secs * 1000)
 
