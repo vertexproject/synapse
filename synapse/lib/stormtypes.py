@@ -403,6 +403,165 @@ class LibDmon(Lib):
     '''
     A Storm Library for interacting with StormDmons.
     '''
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': '''
+            Add a Storm Dmon to the Cortex.
+
+            Examples:
+                Add a dmon that executes a query::
+
+                    $lib.dmon.add(${ myquery }, name='example dmon')
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libDmonAdd',
+                'args': (
+                    {
+                        'name': 'text',
+                        'type': ['str', 'storm:query'],
+                        'desc': 'The Storm query to execute in the Dmon loop.',
+                    },
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the Dmon.',
+                        'default': 'noname',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The iden of the newly created Storm Dmon.',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a Storm Dmon definition by iden.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libDmonGet',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the Storm Dmon to get.',
+                    },
+                ),
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'A Storm Dmon definition dict.',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Delete a Storm Dmon by iden.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libDmonDel',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the Storm Dmon to delete.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'log',
+            'desc': 'Get the messages from a Storm Dmon.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libDmonLog',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the Storm Dmon to get logs for.',
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of messages from the StormDmon.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of Storm Dmons.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libDmonList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of Storm Dmon definitions.',
+                }
+            }
+        },
+        {
+            'name': 'bump',
+            'desc': 'Restart the Dmon.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libDmonBump',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The GUID of the dmon to restart.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the Dmon is restarted; False if the iden does not exist.',
+                }
+            }
+        },
+        {
+            'name': 'stop',
+            'desc': 'Stop a Storm Dmon.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libDmonStop',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The GUID of the Dmon to stop.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the Dmon is stopped; False if the iden does not exist.',
+                }
+            }
+        },
+        {
+            'name': 'start',
+            'desc': 'Start a storm dmon.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libDmonStart',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The GUID of the dmon to start.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'Returns True.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('dmon',)
 
     def getObjLocals(self):
@@ -418,15 +577,6 @@ class LibDmon(Lib):
         }
 
     async def _libDmonDel(self, iden):
-        '''
-        Delete a StormDmon by iden.
-
-        Args:
-            iden (str): The iden of the StormDmon to delete.
-
-        Returns:
-            None: Returns None.
-        '''
         dmon = await self.runt.snap.core.getStormDmon(iden)
         if dmon is None:
             mesg = f'No storm dmon with iden: {iden}'
@@ -438,56 +588,16 @@ class LibDmon(Lib):
         await self.runt.snap.core.delStormDmon(iden)
 
     async def _libDmonGet(self, iden):
-        '''
-        Return a Storm Dmon definition dict by iden.
-
-        Args:
-            iden (str): The iden of the Storm Dmon.
-
-        Returns:
-            (dict): A Storm daemon definition dict.
-        '''
         return await self.runt.snap.core.getStormDmon(iden)
 
     async def _libDmonList(self):
-        '''
-        Get a list of StormDmons.
-
-        Returns:
-            list: A list of StormDmons.
-        '''
         return await self.runt.snap.core.getStormDmons()
 
     async def _libDmonLog(self, iden):
-        '''
-        Get the messages from a StormDmon.
-
-        Args:
-            iden (str): The iden of the StormDmon to get logs for.
-
-        Returns:
-            list: A list of messages from the StormDmon.
-        '''
         self.runt.confirm(('dmon', 'log'))
         return await self.runt.snap.core.getStormDmonLog(iden)
 
     async def _libDmonAdd(self, text, name='noname'):
-        '''
-        Add a StormDmon to the Cortex.
-
-        Args:
-            text (str): The Storm query to execute.
-            name (str): The name of the Dmon.
-
-        Examples:
-
-            Add a dmon that executes a query::
-
-                $lib.dmon.add(${ myquery }, name='example dmon')
-
-        Returns:
-            str: The iden of the newly created StormDmon.
-        '''
         text = await tostr(text)
         varz = await toprim(self.runt.vars)
 
@@ -510,12 +620,6 @@ class LibDmon(Lib):
         return await self.runt.snap.core.addStormDmon(ddef)
 
     async def _libDmonBump(self, iden):
-        '''
-        Restart the daemon
-
-        Args:
-            iden (str): The GUID of the dmon to restart.
-        '''
         iden = await tostr(iden)
 
         ddef = await self.runt.snap.core.getStormDmon(iden)
@@ -529,12 +633,6 @@ class LibDmon(Lib):
         return True
 
     async def _libDmonStop(self, iden):
-        '''
-        Stop a storm dmon.
-
-        Args:
-            iden (str): The GUID of the dmon to stop.
-        '''
         iden = await tostr(iden)
 
         ddef = await self.runt.snap.core.getStormDmon(iden)
@@ -548,12 +646,6 @@ class LibDmon(Lib):
         return True
 
     async def _libDmonStart(self, iden):
-        '''
-        Start a storm dmon.
-
-        Args:
-            iden (str): The GUID of the dmon to start.
-        '''
         iden = await tostr(iden)
 
         ddef = await self.runt.snap.core.getStormDmon(iden)
