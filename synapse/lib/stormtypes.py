@@ -303,6 +303,75 @@ class LibPkg(Lib):
     '''
     A Storm Library for interacting with Storm Packages.
     '''
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': 'Add a Storm Package to the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libPkgAdd',
+                'args': (
+                    {
+                        'name': 'pkgdef',
+                        'type': 'dict',
+                        'desc': 'A Storm Package definition.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a Storm package from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libPkgGet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'A Storm Package name.',
+                    },
+                ),
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'The Storm package definition.',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Delete a Storm Package from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libPkgDel',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the package to delete.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of Storm Packages loaded in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libPkgList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of Storm Package definitions.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('pkg',)
 
     def getObjLocals(self):
@@ -314,52 +383,19 @@ class LibPkg(Lib):
         }
 
     async def _libPkgAdd(self, pkgdef):
-        '''
-        Add a Storm Package to the Cortex.
-
-        Args:
-            pkgdef (dict): A Storm Package definition.
-
-        Returns:
-            dict: The validated storm package definition.
-        '''
         self.runt.confirm(('pkg', 'add'), None)
         await self.runt.snap.core.addStormPkg(pkgdef)
 
     async def _libPkgGet(self, name):
-        '''
-        Get a Storm package from the Cortex.
-
-        Args:
-            name (str): A Storm Package name.
-
-        Returns:
-            dict: The Storm package definition.
-        '''
         name = await tostr(name)
         pkgdef = await self.runt.snap.core.getStormPkg(name)
         return Dict(pkgdef)
 
     async def _libPkgDel(self, name):
-        '''
-        Delete a Storm Package from the Cortex.
-
-        Args:
-            name (str): The name of the package to delete.
-
-        Returns:
-            None
-        '''
         self.runt.confirm(('pkg', 'del'), None)
         await self.runt.snap.core.delStormPkg(name)
 
     async def _libPkgList(self):
-        '''
-        Get a list of Storm Packages loaded in the Cortex.
-
-        Returns:
-            list: A list of Storm Package definitions.
-        '''
         return await self.runt.snap.core.getStormPkgs()
 
 @registry.registerLib
