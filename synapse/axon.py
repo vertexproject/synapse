@@ -432,7 +432,12 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
+                exc = s_common.excinfo(e)
+                mesg = exc.get('errmsg')
+                if not mesg:
+                    mesg = exc.get('err')
+
                 return {
                     'ok': False,
-                    'mesg': s_common.excinfo(e),
+                    'mesg': mesg,
                 }
