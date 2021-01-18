@@ -3528,6 +3528,119 @@ class Bytes(Prim):
     '''
     Implements the Storm API for a Bytes object.
     '''
+    dereflocals = (
+        {
+            'name': 'decode',
+            'desc': 'Decode bytes to a string.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methDecode',
+                'args': (
+                    {
+                        'name': 'encoding',
+                        'type': 'str',
+                        'desc': 'The encoding to use.',
+                        'default': 'utf8'
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The decoded string.',
+                }
+            }
+        },
+        {
+            'name': 'bunzip',
+            'desc': '''
+            Decompress the bytes using bzip2.
+
+            Example:
+                Decompress bytes with bzip2::
+
+                    $foo = $mybytez.bunzip()''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methBunzip',
+                'returns': {
+                    'type': 'bytes',
+                    'desc': 'Decompressed bytes.',
+                }
+            }
+        },
+        {
+            'name': 'gunzip',
+            'desc': '''
+            Decompress the bytes using gzip and return them.
+
+            Example:
+                Decompress bytes with bzip2::
+
+                $foo = $mybytez.gunzip()''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGunzip',
+                'returns': {
+                    'type': 'bytes',
+                    'desc': 'Decompressed bytes.',
+                }
+            }
+        },
+        {
+            'name': 'bzip',
+            'desc': '''
+            Compress the bytes using bzip2 and return them.
+
+            Example:
+                Compress bytes with bzip::
+
+                    $foo = $mybytez.bzip()''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methBzip',
+                'returns': {
+                    'type': 'bytes',
+                    'desc': 'The bzip2 compressed bytes.',
+                }
+            }
+        },
+        {
+            'name': 'gzip',
+            'desc': '''
+            Compress the bytes using gzip and return them.
+
+            Example:
+                Compress bytes with gzip::
+                    $foo = $mybytez.gzip()''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGzip',
+                'returns': {
+                    'type': 'bytes',
+                    'desc': 'The gzip compressed bytes.',
+                }
+            }
+        },
+        {
+            'name': 'json',
+            'desc': '''
+            Load JSON data from bytes.
+
+            Notes:
+                The bytes must be UTF8, UTF16 or UTF32 encoded.
+
+            Example:
+                Load bytes to a object::
+                    $foo = $mybytez.json()''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methJsonLoad',
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The deserialized object.',
+                }
+            }
+        },
+    )
     typename = 'bytes'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -3550,65 +3663,24 @@ class Bytes(Prim):
         return self.valu.decode()
 
     async def _methDecode(self, encoding='utf8'):
-        '''
-        Decode a bytes to a string.
-
-        Args:
-            encoding (str): The encoding to use when decoding the bytes.
-        '''
         try:
             return self.valu.decode(encoding)
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
 
     async def _methBunzip(self):
-        '''
-        Decompress the bytes using bzip2 and return them.
-
-        Example:
-
-            $foo = $mybytez.bunzip()
-        '''
         return bz2.decompress(self.valu)
 
     async def _methBzip(self):
-        '''
-        Compress the bytes using bzip2 and return them.
-
-        Example:
-
-            $foo = $mybytez.bzip()
-        '''
         return bz2.compress(self.valu)
 
     async def _methGunzip(self):
-        '''
-        Decompress the bytes using gzip and return them.
-
-        Example:
-
-            $foo = $mybytez.gunzip()
-        '''
         return gzip.decompress(self.valu)
 
     async def _methGzip(self):
-        '''
-        Compress the bytes using gzip and return them.
-
-        Example:
-
-            $foo = $mybytez.gzip()
-        '''
         return gzip.compress(self.valu)
 
     async def _methJsonLoad(self):
-        '''
-        Load JSON data from bytes.
-
-        Example:
-
-            $foo = $mybytez.json()
-        '''
         return json.loads(self.valu)
 
 @registry.registerType
