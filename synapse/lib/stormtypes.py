@@ -3168,7 +3168,7 @@ class Prim(StormType):
     '''
     The base type for all Storm primitive values.
     '''
-    typename = None
+    typename = None  # FixMe - Rename this to _storm_type
     def __init__(self, valu, path=None):
         StormType.__init__(self, path=path)
         self.valu = valu
@@ -3195,6 +3195,266 @@ class Str(Prim):
     '''
     Implements the Storm API for a String object.
     '''
+    dereflocals = (
+        {
+            'name': 'split',
+            'desc': '''
+            Split the string into multiple parts based on a separator.
+
+            Example:
+                Split a string on the colon character::
+
+                    ($foo, $bar) = $baz.split(":")''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methStrSplit',
+                'args': (
+                    {
+                        'name': 'text',
+                        'type': 'str',
+                        'desc': 'The text to split the string up with.',
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of parts representing the split string.',
+                }
+            }
+        },
+        {
+            'name': 'endswith',
+            'desc': 'Check if a string ends with text.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methStrEndswith',
+                'args': (
+                    {
+                        'name': 'text',
+                        'type': 'str',
+                        'desc': 'The text to check.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the text ends with the string, false otherwise.',
+                }
+            }
+        },
+        {
+            'name': 'startswith',
+            'desc': 'Check if a string starts with text.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methStrStartswith',
+                'args': (
+                    {
+                        'name': 'text',
+                        'type': 'str',
+                        'desc': 'The text to check.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the text starts with the string, false otherwise.',
+                }
+            }
+        },
+        {
+            'name': 'ljust',
+            'desc': 'Left justify the string.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methStrLjust',
+                'args': (
+                    {
+                        'name': 'size',
+                        'type': 'int',
+                        'desc': 'The length of character to left justify.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The left justified string.',
+                }
+            }
+        },
+        {
+            'name': 'rjust',
+            'desc': 'Right justify the string.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methStrRjust',
+                'args': (
+                    {
+                        'name': 'size',
+                        'type': 'int',
+                        'desc': 'The length of character to right justify.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The right justified string.',
+                }
+            }
+        },
+        {
+            'name': 'encode',
+            'desc': 'Encoding a string value to bytes.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methEncode',
+                'args': (
+                    {
+                        'name': 'encoding',
+                        'type': 'str',
+                        'desc': 'Encoding to use. Defaults to utf8.',
+                        'default': 'utf8',
+                    },
+                ),
+                'returns': {
+                    'type': 'bytes',
+                    'desc': 'The encoded string.',
+                }
+            }
+        },
+        {
+            'name': 'replace',
+            'desc': '''
+            Replace occurrences of a string with a new string, optionally restricting the number of replacements.
+
+            Example:
+                Replace instances of the string "bar" with the string "baz"::
+
+                    $foo.replace('bar', 'baz')''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methStrReplace',
+                'args': (
+                    {
+                        'name': 'oldv',
+                        'type': 'str',
+                        'desc': 'The value to replace.',
+                    },
+                    {
+                        'name': 'newv',
+                        'type': 'str',
+                        'desc': 'The value to add into the string.',
+                    },
+                    {
+                        'name': 'maxv',
+                        'type': 'int',
+                        'desc': 'The maximum number of occurances to replace.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': '',
+                    'desc': '',
+                }
+            }
+        },
+        {
+            'name': 'strip',
+            'desc': '''
+            Remove leading and trailing characters from a string.
+
+            Examples:
+                Removing whitespace and specific characters::
+
+                    $strippedFoo = $foo.strip()
+                    $strippedBar = $bar.strip(asdf)''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methStrStrip',
+                'args': (
+                    {
+                        'name': 'chars',
+                        'type': 'str',
+                        'desc': 'A list of characters to remove. If not specified, whitespace is stripped.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The stripped string.',
+                }
+            }
+        },
+        {
+            'name': 'lstrip',
+            'desc': '''
+            Remove leading characters from a string.
+
+            Examples:
+                Removing whitespace and specific characters::
+
+                    $strippedFoo = $foo.lstrip()
+                    $strippedBar = $bar.lstrip(w)''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methStrLstrip',
+                'args': (
+                    {
+                        'name': 'chars',
+                        'type': 'str',
+                        'desc': 'A list of characters to remove. If not specified, whitespace is stripped.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The stripped string.',
+                }
+            }
+        },
+        {
+            'name': 'rstrip',
+            'desc': '''
+            Remove trailing characters from a string.
+
+            Examples:
+                Removing whitespace and specific characters::
+
+                    $strippedFoo = $foo.rstrip()
+                    $strippedBar = $bar.rstrip(asdf)
+                ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methStrRstrip',
+                'args': (
+                    {
+                        'name': 'chars',
+                        'type': 'str',
+                        'desc': 'A list of characters to remove. If not specified, whitespace is stripped.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The stripped string.',
+                }
+            }
+        },
+        {
+            'name': 'lower',
+            'desc': '''
+            Get a lowercased copy the of the string.
+
+            Examples:
+                Printing a lowercased string::
+
+                    $foo="Duck"
+                    $lib.print($foo.lower())''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methStrLower',
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The lowercased string.',
+                }
+            }
+        },
+    )
     typename = 'str'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -3225,150 +3485,42 @@ class Str(Prim):
         return len(self.valu)
 
     async def _methEncode(self, encoding='utf8'):
-        '''
-        Encoding a text values to bytes.
-
-        Args:
-            encoding (str): Encoding to use. Defaults to utf8.
-        '''
         try:
             return self.valu.encode(encoding)
         except UnicodeEncodeError as e:
             raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
 
     async def _methStrSplit(self, text):
-        '''
-        Split the string into multiple parts based on a separator.
-
-        Example:
-
-            ($foo, $bar) = $baz.split(":")
-
-        '''
         return self.valu.split(text)
 
     async def _methStrEndswith(self, text):
-        '''
-        Check if a string ends with text.
-
-        Args:
-            text (str): The text to check.
-
-        Returns:
-            boolean: ``$lib.true`` if the string ends with the text, ``$lib.false`` otherwise.
-        '''
         return self.valu.endswith(text)
 
     async def _methStrStartswith(self, text):
-        '''
-        Check if a string starts with text.
-
-        Args:
-            text (str): The text to check.
-
-        Returns:
-            boolean: ``$lib.true`` if the string starts with the text, ``$lib.false`` otherwise.
-        '''
         return self.valu.startswith(text)
 
     async def _methStrRjust(self, size):
-        '''
-        Right justify the string.
-
-        Args:
-            size(int): The length of character to right justify.
-
-        Returns:
-            str: The right justified string.
-        '''
         return self.valu.rjust(await toint(size))
 
     async def _methStrLjust(self, size):
-        '''
-        Left justify the string.
-
-        Args:
-            size(int): The length of character to left justify.
-
-        Returns:
-            str: The left justified string.
-        '''
         return self.valu.ljust(await toint(size))
 
     async def _methStrReplace(self, oldv, newv, maxv=None):
-        '''
-        Replace occurrences of a string with a new string,
-        optionally restricting the number of replacements.
-
-        Example:
-            Replace instances of the string "bar" with the string "baz"::
-
-                $foo.replace('bar', 'baz')
-        '''
         if maxv is None:
             return self.valu.replace(oldv, newv)
         else:
             return self.valu.replace(oldv, newv, int(maxv))
 
     async def _methStrStrip(self, chars=None):
-        '''
-        Remove leading and trailing characters from a string.
-
-        Args:
-            chars (str): A list of characters to remove. If not specified, whitespace is stripped.
-
-        Examples:
-            Removing whitespace and specific characters::
-
-                $strippedFoo = $foo.strip()
-                $strippedBar = $bar.strip(asdf)
-
-        '''
         return self.valu.strip(chars)
 
     async def _methStrLstrip(self, chars=None):
-        '''
-        Remove leading characters from a string.
-
-        Args:
-            chars (str): A list of characters to remove. If not specified, whitespace is stripped.
-
-        Examples:
-            Removing whitespace and specific characters::
-
-                $strippedFoo = $foo.lstrip()
-                $strippedBar = $bar.lstrip(w)
-
-        '''
         return self.valu.lstrip(chars)
 
     async def _methStrRstrip(self, chars=None):
-        '''
-        Remove trailing characters from a string.
-
-        Args:
-            chars (str): A list of characters to remove. If not specified, whitespace is stripped.
-
-        Examples:
-            Removing whitespace and specific characters::
-
-                $strippedFoo = $foo.rstrip()
-                $strippedBar = $bar.rstrip(asdf)
-
-        '''
         return self.valu.rstrip(chars)
 
     async def _methStrLower(self):
-        '''
-        Get a lowercased the of the string.
-
-        Examples:
-            Printing a lowercased string::
-
-                $foo="Duck"
-                $lib.print($foo.lower())
-
-        '''
         return self.valu.lower()
 
 @registry.registerType
