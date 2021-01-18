@@ -1677,7 +1677,17 @@ class LibBytes(Lib):
     dereflocals = (
         {
             'name': 'put',
-            'desc': 'Save the given bytes variable to the Axon the Cortex is configured to use.',
+            'desc': '''
+            Save the given bytes variable to the Axon the Cortex is configured to use.
+
+            Examples:
+                Save a base64 encoded buffer to the Axon::
+
+                    cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.bytes.put($buf)
+                         $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
+
+                    size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+            ''',
             'type': {
                 'type': 'function',
                 '_funcname': '_libBytesPut',
@@ -1811,23 +1821,6 @@ class LibBytes(Lib):
         return ret
 
     async def _libBytesPut(self, byts):
-        '''
-
-
-        Args:
-            byts (bytes):
-
-        Examples:
-            Save a base64 encoded buffer to the Axon::
-
-                cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.bytes.put($buf)
-                     $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
-
-                size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
-
-        Returns:
-            (int, str):
-        '''
         if not isinstance(byts, bytes):
             mesg = '$lib.bytes.put() requires a bytes argument'
             raise s_exc.BadArg(mesg=mesg)
