@@ -1,4 +1,5 @@
 import io
+import asyncio
 import hashlib
 import logging
 import unittest.mock as mock
@@ -9,6 +10,8 @@ import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.telepath as s_telepath
+
+import synapse.lib.httpapi as s_httpapi
 
 import synapse.tests.utils as s_t_utils
 
@@ -387,6 +390,14 @@ class AxonTest(s_t_utils.SynTest):
 
                 resp = await proxy.wget(f'http://visi:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{sha2}')
                 self.false(resp['ok'])
+
+                async def timeout(self):
+                    await asyncio.sleep(2)
+
+                with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
+                    resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v1/active', timeout=1)
+                    self.eq(False, resp['ok'])
+                    self.eq('TimeoutError', resp['mesg'])
 
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestAxon(conf=conf) as axon:
