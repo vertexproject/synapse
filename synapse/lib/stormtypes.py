@@ -2442,7 +2442,7 @@ class LibPipe(Lib):
             ''',
             'type': {
                 'type': 'function',
-                '_funcname': '',
+                '_funcname': '_methPipeGen',
                 'args': (
                     {
                         'name': 'filler',
@@ -2453,6 +2453,7 @@ class LibPipe(Lib):
                         'name': 'size',
                         'type': 'int',
                         'desc': 'Maximum size of the pipe.',
+                        'default': 10000,
                     },
                 ),
                 'returns': {
@@ -2557,7 +2558,8 @@ class Pipe(StormType):  # FIXME prim?
                     {
                         'name': 'size',
                         'type': 'int',
-                        'desc': 'The max number of items to return (default 1000)',
+                        'desc': 'The max number of items to return.',
+                        'default': 1000,
                     },
                 ),
                 'returns': {
@@ -2594,6 +2596,7 @@ class Pipe(StormType):  # FIXME prim?
                         'name': 'size',
                         'type': 'int',
                         'desc': 'The max number of items to yield per slice.',
+                        'default': 1000,
                     },
                 ),
                 'returns': {
@@ -2678,6 +2681,93 @@ class LibQueue(Lib):
     '''
     A Storm Library for interacting with persistent Queues in the Cortex.
     '''
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': 'Add a Queue to the Cortex with a given name.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueueAdd',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the queue to add.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:queue',
+                }
+            }
+        },
+        {
+            'name': 'gen',
+            'desc': 'Add or get a Storm Queue in a single operation.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueueGen',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the Queue to add or get.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:queue',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Delete a given named Queue.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueueDel',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the queue to delete.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get an existing Storm Queue object.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueueGet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the Queue to get.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:queue',
+                    'desc': 'A ``storm:queue`` object.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of the Queues in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueueList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of queue definitions the current user is allowed to interact with.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('queue',)
 
     def getObjLocals(self):
@@ -2690,15 +2780,6 @@ class LibQueue(Lib):
         }
 
     async def _methQueueAdd(self, name):
-        '''
-        Add a Queue to the Cortex with a given name.
-
-        Args:
-            name (str): The name of the queue.
-
-        Returns:
-            Queue: A Storm Queue object.
-        '''
 
         info = {
             'time': s_common.now(),
@@ -2712,15 +2793,6 @@ class LibQueue(Lib):
         return Queue(self.runt, name, info)
 
     async def _methQueueGet(self, name):
-        '''
-        Get an existing Storm Queue object.
-
-        Args:
-            name (str): The name of the Queue to get.
-
-        Returns:
-            Queue: A Storm Queue object.
-        '''
         todo = s_common.todo('getCoreQueue', name)
         gatekeys = ((self.runt.user.iden, ('queue', 'get'), f'queue:{name}'),)
         info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -2728,41 +2800,17 @@ class LibQueue(Lib):
         return Queue(self.runt, name, info)
 
     async def _methQueueGen(self, name):
-        '''
-        Get/add a Storm Queue in a single operation.
-
-        Args:
-            name (str): The name of the Queue to get/add.
-
-        Returns:
-            Queue: A Storm Queue object.
-        '''
         try:
             return await self._methQueueGet(name)
         except s_exc.NoSuchName:
             return await self._methQueueAdd(name)
 
     async def _methQueueDel(self, name):
-        '''
-        Delete a given named Queue.
-
-        Args:
-            name (str): The name of the queue to delete.
-
-        Returns:
-            None: Returns None.
-        '''
         todo = s_common.todo('delCoreQueue', name)
         gatekeys = ((self.runt.user.iden, ('queue', 'del',), f'queue:{name}'), )
         await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueList(self):
-        '''
-        Get a list of the Queues in the Cortex.
-
-        Returns:
-            list: A list of queue definitions the current user is allowed to interact with.
-        '''
         retn = []
 
         todo = s_common.todo('listCoreQueues')
