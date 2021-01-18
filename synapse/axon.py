@@ -218,9 +218,9 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'upload'))
         return await UpLoadShare.anit(self.cell, self.link)
 
-    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True):
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
         await self._reqUserAllowed(('axon', 'wget'))
-        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl)
+        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
 
     async def metrics(self):
         await self._reqUserAllowed(('axon', 'has'))
@@ -389,7 +389,7 @@ class Axon(s_cell.Cell):
         '''
         return [s for s in sha256s if not await self.has(s)]
 
-    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True):
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
         '''
         Stream a file download directly into the axon.
         '''
@@ -398,7 +398,9 @@ class Axon(s_cell.Cell):
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
-        async with aiohttp.ClientSession(connector=connector) as sess:
+        atimeout = aiohttp.ClientTimeout(total=timeout)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
 
             try:
 
@@ -430,7 +432,12 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
+                exc = s_common.excinfo(e)
+                mesg = exc.get('errmsg')
+                if not mesg:
+                    mesg = exc.get('err')
+
                 return {
                     'ok': False,
-                    'mesg': str(e),
+                    'mesg': mesg,
                 }

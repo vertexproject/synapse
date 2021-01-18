@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -210,6 +211,14 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
             self.stormIsInWarn('HTTP code 404', msgs)
+
+            # test request timeout
+            async def timeout(self):
+                await asyncio.sleep(2)
+
+            with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
+                msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/active --timeout 1')
+                self.stormIsInWarn('TimeoutError', msgs)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
             resp = await core.callStorm(wget, opts=opts)
