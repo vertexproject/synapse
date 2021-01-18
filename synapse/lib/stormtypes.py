@@ -4124,43 +4124,74 @@ class LibUser(Lib):
     '''
     A Storm Library for interacting with data about the current user.
     '''
+    dereflocals = (
+        {
+            'name': 'name',
+            'desc': 'Get the name of the current runtime user.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libUserName',
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The username.',
+                }
+            }
+        },
+        {
+            'name': 'allowed',
+            'desc': 'Check if the current user has a given permission.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libUserAllowed',
+                'args': (
+                    {
+                        'name': 'permname',
+                        'type': 'str',
+                        'desc': 'The permission string to check.',
+                    },
+                    {
+                        'name': 'gateiden',
+                        'type': 'str',
+                        'desc': 'The authgate iden.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the user has the requested permission, false otherwise.',
+                }
+            }
+        },
+        {
+            'name': 'vars',
+            'desc': 'Get a Hive dictionary representing the current users persistent variables.',
+            'type': 'storm:hive:dict'
+        },
+        {
+            'name': 'profile',
+            'desc': 'Get a Hive dictionary representing the current users profile information.',
+            'type': 'storm:hive:dict'
+        },
+    )
     _storm_lib_path = ('user', )
 
     def getObjLocals(self):
         return {
-            'vars': self._libUserVars,
             'name': self._libUserName,
             'allowed': self._libUserAllowed,
-            'profile': self._libUserProfile,
         }
 
-    @property
-    def _libUserVars(self):
-        '''
-        FIXME
-        '''
-        return StormHiveDict(self.runt, self.runt.user.vars)
-
-    @property
-    def _libUserProfile(self):
-        '''
-        FIMXME
-        '''
-        return StormHiveDict(self.runt, self.runt.user.profile)
+    def addLibFuncs(self):
+        super().addLibFuncs()
+        self.locls.update({
+            'vars': StormHiveDict(self.runt, self.runt.user.vars),
+            'profile': StormHiveDict(self.runt, self.runt.user.profile),
+        })
 
     async def _libUserName(self):
-        '''
-        Get the name of the current runtime user.
-
-        Returns:
-            str: The name of the current user.
-        '''
         return self.runt.user.name
 
     async def _libUserAllowed(self, permname, gateiden=None):
-        '''
-        Return True/False if the current user has the given permission.
-        '''
         permname = await toprim(permname)
         gateiden = await tostr(gateiden, noneok=True)
 
