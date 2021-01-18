@@ -2999,6 +2999,27 @@ class LibTelepath(Lib):
     '''
     A Storm Library for making Telepath connections to remote services.
     '''
+    dereflocals = (
+        {
+            'name': 'open',
+            'desc': 'Open and return a Telepath RPC proxy.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methTeleOpen',
+                'args': (
+                    {
+                        'name': 'url',
+                        'type': 'str',
+                        'desc': 'The Telepath URL to connect to.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:proxy',
+                    'desc': 'A object representing a Telepath Proxy.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('telepath',)
 
     def getObjLocals(self):
@@ -3007,22 +3028,13 @@ class LibTelepath(Lib):
         }
 
     async def _methTeleOpen(self, url):
-        '''
-        Open and return a telepath RPC proxy.
-
-        Args:
-            url (str): The Telepath URL to connect to.
-
-        Returns:
-            Proxy: A Storm Proxy representing a Telepath Proxy.
-        '''
         url = await tostr(url)
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
         return Proxy(await self.runt.getTeleProxy(url))
 
 # @registry.registerType
-class Proxy(StormType):
+class Proxy(StormType):  # Fixme not a prim?
 
     def __init__(self, proxy, path=None):
         StormType.__init__(self, path=path)
@@ -3074,6 +3086,58 @@ class LibBase64(Lib):
     '''
     A Storm Library for encoding and decoding base64 data.
     '''
+    dereflocals = (
+        {
+            'name': 'encode',
+            'desc': 'Encode a bytes object to a base64 encoded string.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_encode',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'type': 'bytes',
+                        'desc': 'The object to encode.',
+                    },
+                    {
+                        'name': 'urlsafe',
+                        'type': 'boolean',
+                        'desc': 'Perform the encoding in a urlsafe manner if true.',
+                        'default': True,
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'A base64 encoded string.',
+                }
+            }
+        },
+        {
+            'name': 'decode',
+            'desc': 'Decode a base64 string into a bytes object.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_decode',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'type': 'str',
+                        'desc': 'The string to decode.',
+                    },
+                    {
+                        'name': 'urlsafe',
+                        'type': 'boolean',
+                        'desc': 'Perform the decoding in a urlsafe manner if true.',
+                        'default': True,
+                    },
+                ),
+                'returns': {
+                    'type': 'bytes',
+                    'desc': 'A bytes object for the decoded data.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('base64',)
 
     def getObjLocals(self):
@@ -3083,17 +3147,6 @@ class LibBase64(Lib):
         }
 
     async def _encode(self, valu, urlsafe=True):
-        '''
-        Encode a bytes object to a base64 encoded string.
-
-        Args:
-            valu (bytes): The object to encode.
-
-            urlsafe (bool): Perform the encoding in a urlsafe manner if true.
-
-        Returns:
-            str: A base64 encoded string.
-        '''
         try:
             if urlsafe:
                 return base64.urlsafe_b64encode(valu).decode('ascii')
@@ -3103,17 +3156,6 @@ class LibBase64(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
 
     async def _decode(self, valu, urlsafe=True):
-        '''
-        Decode a string into a bytes object.
-
-        Args:
-            valu (str): The string to decode.
-
-            urlsafe (bool): Perform the decoding in a urlsafe manner if true.
-
-        Returns:
-            bytes: A bytes object for the decoded data.
-        '''
         try:
             if urlsafe:
                 return base64.urlsafe_b64decode(valu)
