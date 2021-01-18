@@ -1562,6 +1562,12 @@ class LibAxon(Lib):
                         'desc': 'Set to False to disable SSL/TLS certificate verification.',
                         'default': True,
                     },
+                    {
+                        'name': 'timeout',
+                        'type': 'int',
+                        'desc': 'Timeout for the download operation.',
+                        'default': None,
+                    }
                 ),
                 'returns': {
                     'type': 'dict',
@@ -1607,12 +1613,7 @@ class LibAxon(Lib):
             'urlfile': self.urlfile,
         }
 
-    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True):
-        '''
-
-
-
-        '''
+    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None):
 
         self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
@@ -1624,18 +1625,23 @@ class LibAxon(Lib):
         json = await toprim(json)
         params = await toprim(params)
         headers = await toprim(headers)
+        timeout = await toprim(timeout)
 
         await self.runt.snap.core.getAxon()
 
         axon = self.runt.snap.core.axon
-        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json)
+        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json, timeout=timeout)
 
     async def urlfile(self, *args, **kwargs):
         resp = await self.wget(*args, **kwargs)
         code = resp.get('code')
 
         if code != 200:
-            mesg = f'$lib.axon.urlfile(): HTTP code {code} != 200'
+            if code is None:
+                mesg = f'$lib.axon.urlfile(): {resp.get("mesg")}'
+            else:
+                mesg = f'$lib.axon.urlfile(): HTTP code {code} != 200'
+
             await self.runt.warn(mesg, log=False)
             return
 

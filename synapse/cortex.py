@@ -3223,7 +3223,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                         alledits.clear()
 
                 if alledits:
-                    await layr1.storNodeEdits(edits, meta)
+                    await layr1.storNodeEdits(alledits, meta)
                     await self.setStormVar(gvar, offs)
 
     async def _checkNexsIndx(self):
