@@ -99,7 +99,7 @@ class StormTypesRegistry:
             assert rname == 'function', f'Dictionary return types must represent functions [{name} {obj} {info.get("name")}].'
             funcname = rtype.pop('_funcname')
             locl = getattr(obj, funcname, None)
-            assert locl is not None, f'bad funcname={funcname} for {name}{obj}'
+            assert locl is not None, f'bad funcname=[{funcname}] for {obj} {info.get("name")}'
             args = rtype.get('args', ())
             callsig = getCallSig(locl)
             # Assert the callsigs match
@@ -3756,6 +3756,125 @@ class Set(Prim):
     '''
     Implements the Storm API for a Set object.
     '''
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': 'Add a item to the set. Each argument is added to the set.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methSetAdd',
+                'args': (
+                    {
+                        'name': '*items',
+                        'type': 'any',
+                        'desc': 'The items to add to the set.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'has',
+            'desc': 'Check if a item is a member of the set.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methSetHas',
+                'args': (
+                    {
+                        'name': 'item',
+                        'type': 'any',
+                        'desc': 'The item to check the set for membership.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the item is in the set, false otherwise.',
+                }
+            }
+        },
+        {
+            'name': 'rem',
+            'desc': 'Remove an item from the set.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methSetRem',
+                'args': (
+                    {
+                        'name': '*items',
+                        'type': 'any',
+                        'desc': 'Items to be removed from the set.',
+                    },
+                ),
+                'returns': {
+                    'type': '',
+                    'desc': '',
+                }
+            }
+        },
+        {
+            'name': 'adds',
+            'desc': 'Add the contents of a iterable items to the set.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methSetAdds',
+                'args': (
+                    {
+                        'name': '*items',
+                        'type': 'any',
+                        'desc': 'Iterables items to add to the set.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'rems',
+            'desc': 'Remove the contents of a iterable object from the set.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methSetRems',
+                'args': (
+                    {
+                        'name': '*items',
+                        'type': 'any',
+                        'desc': 'Iterables items to remove from the set.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of the current members of the set.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methSetList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list containing the members of the set.',
+                }
+            }
+        },
+        {
+            'name': 'size',
+            'desc': 'Get the size of the set.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methSetSize',
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The size of the set.',
+                }
+            }
+        },
+
+    )
     typename = 'set'
     def __init__(self, valu, path=None):
         Prim.__init__(self, set(valu), path=path)
@@ -3784,83 +3903,26 @@ class Set(Prim):
         return len(self.valu)
 
     async def _methSetSize(self):
-        '''
-        Get the size of the set.
-
-        Returns:
-            integer: The number of members in the set.
-        '''
         return len(self)
 
     async def _methSetHas(self, item):
-        '''
-        Check if a item is a member of the set.
-
-        Args:
-            item: The item to check for membership.
-
-        Returns:
-            ``$lib.true`` if the item is a member, ``$lib.false`` otherwise.
-        '''
         return item in self.valu
 
     async def _methSetAdd(self, *items):
-        '''
-        Add a item to the set. Each argument is added to the set.
-
-        Args:
-            *items: The items to add to the set.
-
-        Returns:
-            ``$lib.null``
-        '''
         [self.valu.add(i) for i in items]
 
     async def _methSetAdds(self, *items):
-        '''
-        Add the contents of a iterable item to the set.
-
-        Args:
-            *items: The iterables to add to the set.
-
-        Returns:
-            ``$lib.null``
-        '''
         for item in items:
             [self.valu.add(i) for i in item]
 
     async def _methSetRem(self, *items):
-        '''
-        Remove an item from the set.
-
-        Args:
-            *items: Items to be removed from the set.
-
-        Returns:
-            ```$lib.null``
-        '''
         [self.valu.discard(i) for i in items]
 
     async def _methSetRems(self, *items):
-        '''
-        Remove the contents of a iterable item from the set.
-
-        Args:
-            *items: The iterables to remove from the set.
-
-        Returns:
-            ```$lib.null``
-        '''
         for item in items:
             [self.valu.discard(i) for i in item]
 
     async def _methSetList(self):
-        '''
-        Get a list of the current members of the set.
-
-        Returns:
-            List: A list representing the members of the set.
-        '''
         return list(self.valu)
 
 @registry.registerType
@@ -3868,6 +3930,100 @@ class List(Prim):
     '''
     Implements the Storm API for a List instance.
     '''
+    dereflocals = (
+        {
+            'name': 'has',
+            'desc': 'Check it a value is in the list.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methListHas',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'type': 'any',
+                        'desc': 'The value to check.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the item is in the list, false otherwise.',
+                }
+            }
+        },
+        {
+            'name': 'pop',
+            'desc': 'Pop and return the last entry in the list.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methListPop',
+                'returns': {
+                    'type': 'any',
+                    'desc': 'The last item from the list.',
+                }
+            }
+        },
+        {
+            'name': 'size',
+            'desc': 'Return the length of the list.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methListSize',
+                'returns': {
+                    'type': 'size',
+                    'desc': 'The size of the list.',
+                }
+            }
+        },
+        {
+            'name': 'index',
+            'desc': 'Return a single field from the list by index.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methListIndex',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'type': 'int',
+                        'desc': 'The list index value.',
+                    },
+                ),
+                'returns': {
+                    'type': 'any',
+                    'desc': 'The item present in the list at the index position.',
+                }
+            }
+        },
+        {
+            'name': 'length',
+            'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methListLength',
+                'returns': {
+                    'type': 'integer',
+                    'desc': 'The size of the list.',
+                }
+            }
+        },
+        {
+            'name': 'append',
+            'desc': 'Append a value to the list.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methListAppend',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'type': 'any',
+                        'desc': 'The item to append to the list.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+    )
     typename = 'list'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -3911,15 +4067,6 @@ class List(Prim):
         return len(self.valu)
 
     async def _methListHas(self, valu):
-        '''
-        Check it a value is in the List.
-
-        Args:
-            valu: The value to check.
-
-        Returns:
-            ``$lib.true`` if the value is present, ``$lib.false`` otherwise.
-        '''
         if valu in self.valu:
             return True
 
@@ -3930,9 +4077,6 @@ class List(Prim):
         return prim in self.valu
 
     async def _methListPop(self):
-        '''
-        Pop and return the last entry in the list.
-        '''
         try:
             return self.valu.pop()
         except IndexError:
@@ -3941,14 +4085,10 @@ class List(Prim):
 
     async def _methListAppend(self, valu):
         '''
-        Append a value to the list.
         '''
         self.valu.append(valu)
 
     async def _methListIndex(self, valu):
-        '''
-        Return a single field from the list by index.
-        '''
         indx = await toint(valu)
         try:
             return self.valu[indx]
@@ -3957,16 +4097,10 @@ class List(Prim):
                                           len=len(self.valu), indx=indx) from None
 
     async def _methListLength(self):
-        '''
-        Return the length of the list.
-        '''
         s_common.deprecated('StormType List.length()')
         return len(self)
 
     async def _methListSize(self):
-        '''
-        Return the length of the list.
-        '''
         return len(self)
 
     async def value(self):
