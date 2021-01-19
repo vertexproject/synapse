@@ -4204,6 +4204,94 @@ class LibGlobals(Lib):
     '''
     A Storm Library for interacting with global variables which are persistent across the Cortex.
     '''
+    dereflocals = (
+        {
+            'name': 'get',
+            'desc': 'Get a Cortex global variables.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the variable.',
+                    },
+                    {
+                        'name': 'default',
+                        'type': 'prim',
+                        'desc': 'Default value to return if the variable is not set.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The variable value.',
+                }
+            }
+        },
+        {
+            'name': 'pop',
+            'desc': 'Delete a variable value from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methPop',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the variable.',
+                    },
+                    {
+                        'name': 'default',
+                        'type': 'prim',
+                        'desc': 'Default value to return if the variable is not set.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The variable value.',
+                }
+            }
+        },
+        {
+            'name': 'set',
+            'desc': 'Set a variable value in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methSet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the variable to set.',
+                    },
+                    {
+                        'name': 'valu',
+                        'type': 'prim',
+                        'desc': 'The value to set.',
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The variable value.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of variable names and values.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of tuples with variable names and values that the user can access.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('globals', )
 
     def __init__(self, runt, name):
@@ -4223,17 +4311,6 @@ class LibGlobals(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
     async def _methGet(self, name, default=None):
-        '''
-        Get a Cortex global variables.
-
-        Args:
-            name (str): Name of the variable.
-
-            default: Default value to return if the variable is not set.
-
-        Returns:
-            The variable value.
-        '''
         self._reqStr(name)
 
         useriden = self.runt.user.iden
@@ -4242,17 +4319,6 @@ class LibGlobals(Lib):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methPop(self, name, default=None):
-        '''
-        Delete a variable value from the Cortex.
-
-        Args:
-            name (str): Name of the variable.
-
-            default: Default value to return if the variable is not set.
-
-        Returns:
-            The variable value.
-        '''
         self._reqStr(name)
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('globals', 'pop', name), None),)
@@ -4260,17 +4326,6 @@ class LibGlobals(Lib):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methSet(self, name, valu):
-        '''
-        Set a variable value in the Cortex.
-
-        Args:
-            name (str): Name of the variable.
-
-            valu: The value to set.
-
-        Returns:
-            The variable value.
-        '''
         self._reqStr(name)
         valu = await toprim(valu)
         useriden = self.runt.user.iden
@@ -4279,12 +4334,6 @@ class LibGlobals(Lib):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methList(self):
-        '''
-        Get a list of variable names and values.
-
-        Returns:
-            list: A list of variable names and values that the user can access.
-        '''
         ret = []
 
         # XXX DEAD CODE?
@@ -4302,6 +4351,94 @@ class StormHiveDict(Prim):
     '''
     A Storm Primitive representing a HiveDict.
     '''
+    dereflocals = (
+        {
+            'name': 'get',
+            'desc': 'Get the named value from the HiveDict.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_get',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the value.',
+                    },
+                    {
+                        'name': 'default',
+                        'type': 'prim',
+                        'desc': 'The default value to return if the name is not set.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The requested value.',
+                }
+            }
+        },
+        {
+            'name': 'pop',
+            'desc': 'Remove a value out of the HiveDict.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_pop',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the value.',
+                    },
+                    {
+                        'name': 'default',
+                        'type': 'prim',
+                        'desc': 'The default value to return if the name is not set.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The requested value.',
+                }
+            }
+        },
+        {
+            'name': 'set',
+            'desc': 'Set a value in the HiveDict.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_set',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the value to set',
+                    },
+                    {
+                        'name': 'valu',
+                        'type': 'prim',
+                        'desc': 'The value to store in the HiveDict',
+                    },
+                ),
+                'returns': {
+                    'type': ['null', 'prim'],
+                    'desc': 'Old value of the dictionary if the value was previously set, or none.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'List the keys and values in the HiveDict.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_list',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of tuples containing key, value pairs.',
+                }
+            }
+        },
+    )
     typename = 'storm:hive:dict'
     def __init__(self, runt, info):
         Prim.__init__(self, None)
@@ -4318,47 +4455,12 @@ class StormHiveDict(Prim):
         }
 
     async def _get(self, name, default=None):
-        '''
-        Get the named value from the HiveDict.
-
-        Args:
-            name (str): The name to retrieve.
-
-            default: The default value to return if the name is note set. This defaults to ``$lib.null``.
-
-        Returns:
-
-            The contents of the requested value.
-        '''
         return self.info.get(name, default)
 
     async def _pop(self, name, default=None):
-        '''
-        Pop (remove) a value out of the HiveDict.
-
-        Args:
-            name (str): The name to pop.
-
-            default: The default value to return if the name is note set. This defaults to ``$lib.null``.
-
-        Returns:
-
-            The contents of the removed value.
-        '''
         return await self.info.pop(name, default)
 
     async def _set(self, name, valu):
-        '''
-        Set a value in the HiveDict.
-
-        Args:
-            name (str): The name to set.
-
-            valu: The value to store in the HiveDict.
-
-        Returns:
-            ``$lib.null`` or the old value which was set for the name.
-        '''
         if not isinstance(name, str):
             mesg = 'The name of a variable must be a string.'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
@@ -4369,12 +4471,6 @@ class StormHiveDict(Prim):
         return await self.info.set(name, valu)
 
     def _list(self):
-        '''
-        List the keys and values in the HiveDict.
-
-        Returns:
-            A list of (key, value) tuples.
-        '''
         return list(self.info.items())
 
     def __iter__(self):
@@ -4388,6 +4484,86 @@ class LibVars(Lib):
     '''
     A Storm Library for interacting with runtime variables.
     '''
+    dereflocals = (
+        {
+            'name': 'get',
+            'desc': 'Get the value of a variable from the current Runtime.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libVarsGet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the variable to get.',
+                    },
+                    {
+                        'name': 'defv',
+                        'type': 'prim',
+                        'desc': 'The default value returned if the variable is not set in the runtime.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'any',
+                    'desc': 'The value of the variable.',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Unset a variable in the current Runtime.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libVarsDel',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The variable name to remove.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'set',
+            'desc': 'Set the value of a variable in the current Runtime.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libVarsSet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the variable to set.',
+                    },
+                    {
+                        'name': 'valu',
+                        'type': 'prim',
+                        'desc': 'The value to set the variable too.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of variables from the current Runtime.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libVarsList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of variable names and their values for the current Runtime.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('vars',)
 
     def getObjLocals(self):
@@ -4399,52 +4575,15 @@ class LibVars(Lib):
         }
 
     async def _libVarsGet(self, name, defv=None):
-        '''
-        Get the value of a variable from the current Runtime.
-
-        Args:
-            name (str): Name of the variable to get.
-
-            defv: The default value returned if the variable is not set in the runtime.
-
-        Returns:
-            The value of the variable.
-        '''
         return self.runt.getVar(name, defv=defv)
 
     async def _libVarsSet(self, name, valu):
-        '''
-        Set the value of a variable in the current Runtime.
-
-        Args:
-            name (str): Name of the variable to set.
-
-            valu: The value to set the variable too.
-
-        Returns:
-            None: Returns None.
-        '''
         self.runt.setVar(name, valu)
 
     async def _libVarsDel(self, name):
-        '''
-        Unset a variable in the current Runtime.
-
-        Args:
-            name (str): The variable name to remove.
-
-        Returns:
-            None: Returns None
-        '''
         self.runt.vars.pop(name, None)
 
     async def _libVarsList(self):
-        '''
-        Get a list of variables from the current Runtime.
-
-        Returns:
-            list: A list of variable names and their values for the current Runtime.
-        '''
         return list(self.runt.vars.items())
 
 @registry.registerType
@@ -4452,6 +4591,25 @@ class Query(Prim):
     '''
     A storm primitive representing an embedded query.
     '''
+    dereflocals = (
+        {
+            'name': 'exec',
+            'desc': '''
+            Execute the Query in a sub-runtime.
+
+            Notes:
+                The ``.exec()`` method can return a value if the Storm query
+                contains a ``return( ... )`` statement in it.''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueryExec',
+                'returns': {
+                    'type': ['none', 'any'],
+                    'desc': 'A value specified with a return statement, or none.',
+                }
+            }
+        },
+    )
     typename = 'storm:query'
     def __init__(self, text, varz, runt, path=None):
 
@@ -4489,16 +4647,6 @@ class Query(Prim):
             yield Node(node)
 
     async def _methQueryExec(self):
-        '''
-        Execute the Query in a sub-runtime.
-
-        Notes:
-            The ``.exec()`` method can return a value if the Storm query
-            contains a ``return( ... )`` statement in it.
-
-        Returns:
-            $lib.null or a value specified in a return statement.
-        '''
         logger.info(f'Executing storm query via exec() {{{self.text}}} as [{self.runt.user.name}]')
         try:
             async for item in self._getRuntGenr():
@@ -4514,6 +4662,39 @@ class NodeProps(Prim):
     '''
     A Storm Primitive representing the properties on a Node.
     '''
+    dereflocals = (
+        {
+            'name': 'get',
+            'desc': 'Get a specific property value by name.',
+            'type': {
+                'type': 'function',
+                '_funcname': 'get',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the property to return.',
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The requested value.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'List the properties and their values from the ``$node``.',
+            'type': {
+                'type': 'function',
+                '_funcname': 'list',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of (name, value) tuples.',
+                }
+            }
+        },
+    )
     typename = 'storm:node:props'
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -4552,27 +4733,12 @@ class NodeProps(Prim):
             yield item
 
     @stormfunc(readonly=True)
-    async def get(self, name, defv=None):
-        '''
-        Get a specific property value by name.
-
-        Args:
-            name (str): The name of the property to return.
-
-        Returns:
-            The requested value.
-        '''
+    async def get(self, name):
         # TODO defv is unused.
         return self.valu.get(name)
 
     @stormfunc(readonly=True)
     async def list(self):
-        '''
-        List the properties and their values from the ``$node``.
-
-        Returns:
-            A list of (name, value) tuples.
-        '''
         return list(self.valu.props.items())
 
     @stormfunc(readonly=True)
