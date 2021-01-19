@@ -4750,6 +4750,99 @@ class NodeData(Prim):
     '''
     A Storm Primitive representing the NodeData stored for a Node.
     '''
+    dereflocals = (
+        {
+            'name': 'get',
+            'desc': 'Get the Node data for a given name for the Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_getNodeData',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the data to get.',
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The stored node data.',
+                }
+            }
+        },
+        {
+            'name': 'pop',
+            'desc': ' Pop (remove) a the Node data from the Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_popNodeData',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the data to remove from the node.',
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The data removed.'
+                }
+            }
+        },
+        {
+            'name': 'set',
+            'desc': 'Set the Node data for a given name on the Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_setNodeData',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the data.',
+                    },
+                    {
+                        'name': 'valu',
+                        'type': 'prim',
+                        'desc': 'The data to store.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of the Node data names on the Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_listNodeData',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'List of the names of values stored on the node.',
+                }
+            }
+        },
+        {
+            'name': 'load',
+            'desc': 'Load the Node data onto the Node so that the Node data is packed and returned by the runtime.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_loadNodeData',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the data to load.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+    )
     typename = 'storm:node:data'
     def __init__(self, node, path=None):
 
@@ -4767,70 +4860,26 @@ class NodeData(Prim):
 
     @stormfunc(readonly=True)
     async def _getNodeData(self, name):
-        '''
-        Get the Node data for a given name for the Node.
-
-        Args:
-            name (str): Name of the data to get.
-
-        Returns:
-            The value stored for the name.
-        '''
         confirm(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
-        '''
-        Set the Node data for a given name on the Node.
-
-        Args:
-            name (str): The name of the data.
-
-            valu: The data to store.
-
-        Returns:
-            ```$lib.null``.
-        '''
         confirm(('node', 'data', 'set', name))
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
-        '''
-        Pop (remove) a the Node data from the Node.
-
-        Args:
-            name (str): The name of the data to remove from the node.
-
-        Returns:
-            The data removed from the node.
-        '''
         confirm(('node', 'data', 'pop', name))
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
     async def _listNodeData(self):
-        '''
-        Get a list of the Node data names on the Node.
-
-        Returns:
-            List: A list of strings.
-        '''
         confirm(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
     @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
-        '''
-        Load the Node data onto the Node so that the Node data is packed and returned by the runtime.
-
-        Args:
-            name (str): The name of the data to load.
-
-        Returns:
-            ``$lib.null``.
-        '''
         confirm(('node', 'data', 'get', name))
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent
@@ -4841,6 +4890,205 @@ class Node(Prim):
     '''
     Implements the Storm api for a node instance.
     '''
+    dereflocals = (
+        {
+            'name': 'form',
+            'desc': 'Get the form of the Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methNodeForm',
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The form of the Node.',
+                }
+            }
+        },
+        {
+            'name': 'iden',
+            'desc': 'Get the iden of the Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methNodeIden',
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The nodes iden.',
+                }
+            }
+        },
+        {
+            'name': 'ndef',
+            'desc': 'Get the form and primary property of the Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methNodeNdef',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A tuple of the form and primary property.',
+                }
+            }
+        },
+        {
+            'name': 'pack',
+            'desc': 'Return the serializable/packed version of the Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methNodePack',
+                'args': (
+                    {
+                        'name': 'dorepr',
+                        'type': 'boolean',
+                        'desc': 'Include repr information for human readable versions of properties.',
+                        'default': False,
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A tuple containing the ndef and property bag of the node.',
+                }
+            }
+        },
+        {
+            'name': 'repr',
+            'desc': 'Get the repr for the primary property or secondary property of a Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methNodeRepr',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the secondary property to get the repr for.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'defv',
+                        'type': 'str',
+                        'desc': 'The default value to return if the secondary property does not exist',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The string representation of the requested value.',
+                }
+            }
+        },
+        {
+            'name': 'tags',
+            'desc': 'Get a list of the tags on the Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methNodeTags',
+                'args': (
+                    {
+                        'name': 'glob',
+                        'type': 'str',
+                        'desc': 'A tag glob expression. If this is provided, only tags which match the expression are returned.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of tags on the node. If a glob match is provided, only matching tags are returned.',
+                }
+            }
+        },
+        {
+            'name': 'edges',
+            'desc': 'Yields the (verb, iden) tuples for this nodes edges.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methNodeEdges',
+                'args': (
+                    {
+                        'name': 'verb',
+                        'type': 'str',
+                        'desc': 'If provided, only return edges with this verb.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'name': 'Yields',
+                    'type': 'list',
+                    'desc': 'A tuple of (verb, iden) values for this nodes edges.',
+                }
+            }
+        },
+        {
+            'name': 'globtags',
+            'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methNodeGlobTags',
+                'args': (
+                    {
+                        'name': 'glob',
+                        'type': 'str',
+                        'desc': 'The glob expression to match.',
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'The components of tags which match the wildcard component of a glob expression.',
+                }
+            }
+        },
+        {
+            'name': 'isform',
+            'desc': 'Check if a Node is a given form.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methNodeIsForm',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The form to compare the Node against.',
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the form matches, false otherwise.',
+                }
+            }
+        },
+        {
+            'name': 'value',
+            'desc': 'Get the value of the primary property of the Node.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methNodeValue',
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The primary property.',
+                }
+            }
+        },
+        {
+            'name': 'getByLayer',
+            'desc': 'Return a dict you can use to lookup which props/tags came from which layers.',
+            'type': {
+                'type': 'function',
+                '_funcname': 'getByLayer',
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'property / tag lookup dictionary.',
+                }
+            }
+        },
+        {
+            'name': 'getStorNodes',
+            'desc': 'Return a list of "storage nodes" which were fused from the layers to make this node.',
+            'type': {
+                'type': 'function',
+                '_funcname': 'getStorNodes',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'List of storage node objects.',
+                }
+            }
+        },
+    )
     typename = 'storm:node'
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -4867,15 +5115,9 @@ class Node(Prim):
         }
 
     async def getStorNodes(self):
-        '''
-        Return a list of "storage nodes" which were fused from the layers to make this node.
-        '''
         return await self.valu.getStorNodes()
 
     def getByLayer(self):
-        '''
-        Return a dict you can use to lookup which props/tags came from which layers.
-        '''
         return self.valu.getByLayer()
 
     def _ctorNodeData(self, path=None):
@@ -4886,51 +5128,20 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodePack(self, dorepr=False):
-        '''
-        Return the serializable/packed version of the Node.
-
-        Args:
-            dorepr (bool): Include repr information for human readable versions of properties.
-
-        Returns:
-            (tuple): An (ndef, info) node tuple.
-        '''
         return self.valu.pack(dorepr=dorepr)
 
     @stormfunc(readonly=True)
     async def _methNodeEdges(self, verb=None):
-        '''
-        Yields the (verb, iden) tuples for this nodes edges.
-        '''
         verb = await toprim(verb)
         async for edge in self.valu.iterEdgesN1(verb=verb):
             yield edge
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
-        '''
-        Check if a Node is a given form.
-
-        Args:
-            name (str): The form to compare the Node against.
-
-        Returns:
-            ``$lib.true`` if the node matches the form; ``$lib.false`` otherwise.
-        '''
         return self.valu.form.name == name
 
     @stormfunc(readonly=True)
     async def _methNodeTags(self, glob=None):
-        '''
-        Get a list of the tags on the Node.
-
-        Args:
-            glob (str): Optional, a tag glob expression. If this is provided,
-            only tags which match the expression are returned.
-
-        Returns:
-            List of the tags.
-        '''
         tags = list(self.valu.tags.keys())
         if glob is not None:
             regx = s_cache.getTagGlobRegx(glob)
@@ -4939,15 +5150,6 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeGlobTags(self, glob):
-        '''
-        Get a list of the tag components from a Node which match a tag glob expression.
-
-        Args:
-            glob (str): A tag glob expression.
-
-        Returns:
-            The components of tags which match the wildcard component of a glob expression.
-        '''
         glob = await tostr(glob)
         if glob.find('***') != -1:
             mesg = f'Tag globs may not be adjacent: {glob}'
@@ -4972,51 +5174,22 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeValue(self):
-        '''
-        Get the value of the primary property of the Node.
-        '''
         return self.valu.ndef[1]
 
     @stormfunc(readonly=True)
     async def _methNodeForm(self):
-        '''
-        Get the form of the Node.
-        '''
         return self.valu.ndef[0]
 
     @stormfunc(readonly=True)
     async def _methNodeNdef(self):
-        '''
-        Get the form and primary property of the Node as a tuple.
-        '''
         return self.valu.ndef
 
     @stormfunc(readonly=True)
     async def _methNodeRepr(self, name=None, defv=None):
-        '''
-        Get the repr for the primary property or secondary propert of a Node.
-
-        Args:
-            name (str): Optional name of the secondary property to get the repr for.
-
-            defv (str): Optional default value to return if the secondary property does not exist.
-
-        Returns:
-            String repr for the property.
-
-        Raises:
-            s_exc.StormRuntimeError: If the secondary property does not exist for the Node form.
-        '''
         return self.valu.repr(name=name, defv=defv)
 
     @stormfunc(readonly=True)
     async def _methNodeIden(self):
-        '''
-        Get the iden of the Node.
-
-        Returns:
-            String value for the Node's iden.
-        '''
         return self.valu.iden()
 
 @registry.registerType
@@ -5108,6 +5281,20 @@ class Trace(Prim):
     '''
     Storm API wrapper for the Path Trace object.
     '''
+    dereflocals = (
+        {
+            'name': 'idens',
+            'desc': 'Get the idens in the current trace object.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methTraceIdens',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A List of Node idens.',
+                }
+            }
+        },
+    )
     typename = 'storm:node:path:trace'
     def __init__(self, trace, path=None):
         Prim.__init__(self, trace, path=path)
@@ -5119,12 +5306,6 @@ class Trace(Prim):
         }
 
     async def _methTraceIdens(self):
-        '''
-        Get the idens in the current trace object.
-
-        Returns:
-            list: A List of Node idens.
-        '''
         return [n.iden() for n in self.valu.nodes]
 
 @registry.registerType
@@ -5195,6 +5376,20 @@ class LibStats(Lib):
     '''
     A Storm Library for statistics related functionality.
     '''
+    dereflocals = (
+        {
+            'name': 'tally',
+            'desc': 'Get a Tally object.',
+            'type': {
+                'type': 'function',
+                '_funcname': 'tally',
+                'returns': {
+                    'type': 'storm:stat:tally',
+                    'desc': 'A new tally object.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('stats',)
 
     def getObjLocals(self):
@@ -5203,12 +5398,6 @@ class LibStats(Lib):
         }
 
     async def tally(self):
-        '''
-        Get a Tally object.
-
-        Returns:
-            Tally: A Storm Tally object.
-        '''
         return StatTally(path=self.path)
 
 @registry.registerType
@@ -5216,12 +5405,15 @@ class StatTally(Prim):
     '''
     A tally object.
 
-    $tally = $lib.stats.tally()
+    An example of using it::
 
-    $tally.inc(foo)
+        $tally = $lib.stats.tally()
 
-    for $name, $total in $tally {
-    }
+        $tally.inc(foo)
+
+        for $name, $total in $tally {
+            $doStuff($name, $total)
+        }
 
     '''
     typename = 'storm:stat:tally'
@@ -5251,6 +5443,25 @@ class StatTally(Prim):
                 },
             },
         },
+        {
+            'name': 'get',
+            'desc': 'Get the value of a given counter.',
+            'type': {
+                'type': 'function',
+                '_funcname': 'get',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the counter to get.',
+                    },
+                ),
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The value of the counter, or 0 if the counter does not exist.',
+                }
+            }
+        },
     )
     def __init__(self, path=None):
         Prim.__init__(self, {}, path=path)
@@ -5275,15 +5486,6 @@ class StatTally(Prim):
         self.counters[name] += valu
 
     async def get(self, name):
-        '''
-        Get the value of a given counter.
-
-        Args:
-            name (str): The name of the counter to get.
-
-        Returns:
-            The value of the counter, or 0 if the counter does not exist.
-        '''
         return self.counters.get(name, 0)
 
     def value(self):
@@ -5295,7 +5497,78 @@ class LibLayer(Lib):
     A Storm Library for interacting with Layers in the Cortex.
     '''
     _storm_lib_path = ('layer',)
-
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': 'Add a layer to the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libLayerAdd',
+                'args': (
+                    {
+                        'name': 'ldef',
+                        'type': 'dict',
+                        'desc': 'The layer definition dictionary.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:layer',
+                    'desc': 'A ``storm:layer`` object representing the new layer.',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Delete a layer from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libLayerDel',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the layer to delete.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a Layer from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libLayerGet',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the layer to get. If not set, this defaults to the default layer of the Cortex.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:layer',
+                    'desc': 'The storm layer object.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'List the layers in a Cortex',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libLayerList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'List of ``storm:layer`` objects.',
+                }
+            }
+        },
+    )
     def getObjLocals(self):
         return {
             'add': self._libLayerAdd,
@@ -5305,15 +5578,6 @@ class LibLayer(Lib):
         }
 
     async def _libLayerAdd(self, ldef=None):
-        '''
-        Add a layer to the Cortex.
-
-        Args:
-            ldef (dict): A Layer definition.
-
-        Returns:
-            Layer: A Storm Layer object.
-        '''
         if ldef is None:
             ldef = {}
         else:
@@ -5331,15 +5595,6 @@ class LibLayer(Lib):
         return Layer(self.runt, ldef, path=self.path)
 
     async def _libLayerDel(self, iden):
-        '''
-        Delete a layer from the Cortex.
-
-        Args:
-            iden (str): The iden of the layer to delete.
-
-        Returns:
-            None: Returns None.
-        '''
         todo = s_common.todo('getLayerDef', iden)
         ldef = await self.runt.dyncall('cortex', todo)
         if ldef is None:
@@ -5354,15 +5609,6 @@ class LibLayer(Lib):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _libLayerGet(self, iden=None):
-        '''
-        Get a Layer from the Cortex.
-
-        Args:
-            iden (str): The iden of the layer to get. If not set, this defaults to the default layer of the Cortex.
-
-        Returns:
-            Layer: A Storm Layer object.
-        '''
         todo = s_common.todo('getLayerDef', iden)
         ldef = await self.runt.dyncall('cortex', todo)
         if ldef is None:
@@ -5372,12 +5618,6 @@ class LibLayer(Lib):
         return Layer(self.runt, ldef, path=self.path)
 
     async def _libLayerList(self):
-        '''
-        List the layers in a Cortex:
-
-        Returns:
-            list: A list of Storm Layer objects.
-        '''
         todo = s_common.todo('getLayerDefs')
         defs = await self.runt.dyncall('cortex', todo)
         return [Layer(self.runt, ldef, path=self.path) for ldef in defs]
