@@ -207,19 +207,20 @@ class Lookup(Query):
 
             for kid in self.kids[0]:
                 tokn = await kid.compute(runt, None)
-                for form, _, _ in s_scrape.scrape_types:
-                    regx = s_scrape.regexes.get(form)
-                    if regx.match(tokn):
+                for form, valu in s_scrape.scrape(tokn):
+                    # restrict to only full matches
+                    if valu != tokn:
+                        continue
 
-                        if self.autoadd:
-                            node = await runt.snap.addNode(form, tokn)
+                    if self.autoadd:
+                        node = await runt.snap.addNode(form, tokn)
+                        yield node, runt.initPath(node)
+
+                    else:
+                        norm, info = runt.model.form(form).type.norm(tokn)
+                        node = await runt.snap.getNodeByNdef((form, norm))
+                        if node is not None:
                             yield node, runt.initPath(node)
-
-                        else:
-                            norm, info = runt.model.form(form).type.norm(tokn)
-                            node = await runt.snap.getNodeByNdef((form, norm))
-                            if node is not None:
-                                yield node, runt.initPath(node)
 
         realgenr = lookgenr()
         if len(self.kids) > 1:
