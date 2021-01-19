@@ -5029,3 +5029,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             layr = core.getView().layers[0].iden
             visi = await core.auth.addUser('visi')
             visi.confirm(('layer', 'read'), gateiden=layr)
+
+    async def test_cortex_lookup_mode(self):
+        async with self.getTestCoreAndProxy() as (_core, proxy):
+            retn = await proxy.count('[inet:email=foo.com@vertex.link]')
+            self.eq(1, retn)
+
+            opts = {'mode': 'lookup'}
+            retn = await proxy.count('foo.com@vertex.link', opts=opts)
+            self.eq(1, retn)
