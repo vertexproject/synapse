@@ -18,6 +18,13 @@ Features and Enhancements
   (`#2043 <https://github.com/vertexproject/synapse/pull/2043>`_)
 - Make the Axon ``wget()`` timeout a configurable parameter.
   (`#2047 <https://github.com/vertexproject/synapse/pull/2047>`_)
+- Add a ``Cortex.exportStorm()`` on the Cortex which allows for exporting
+  nodes from a Storm query which can be directly ingested with the
+  ``syn.nodes`` feed function. If the data is serialized using msgpack and
+  stored in a Axon, it can be added to a Cortex with the new
+  ``Cortex.feedFromAxon()`` API. A new HTTP API, ``/api/v1/storm/export``,
+  can be used to get a msgpacked file using this export interface.
+  (`#2045 <https://github.com/vertexproject/synapse/pull/2045>`_)
 
 Bugfixes
 --------
