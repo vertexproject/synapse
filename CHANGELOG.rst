@@ -5,6 +5,35 @@ Synapse Changelog
 *****************
 
 
+v2.22.0 - 2020-01-19
+====================
+
+Features and Enhancements
+-------------------------
+- Allow expression statments to be used in Storm filters.
+  (`#2041 <https://github.com/vertexproject/synapse/pull/2041>`_)
+- Add ``file:subfile:path`` secondary property to record the path a file was
+  stored in a parent file. The corresponding ``file:subfile:name`` property is
+  marked as deprecated.
+  (`#2043 <https://github.com/vertexproject/synapse/pull/2043>`_)
+- Make the Axon ``wget()`` timeout a configurable parameter.
+  (`#2047 <https://github.com/vertexproject/synapse/pull/2047>`_)
+
+Bugfixes
+--------
+- Fix issues in the Layer push and pull loop code.
+  (`#2044 <https://github.com/vertexproject/synapse/pull/2044>`_)
+  (`#2048 <https://github.com/vertexproject/synapse/pull/2048>`_)
+- Add missing ``toprim()`` and ``tostr()`` calls for the Stormtypes Whois
+  guid generation helpers.
+  (`#2046 <https://github.com/vertexproject/synapse/pull/2046>`_)
+- Fix behavior in the Storm lookup mode which failed to lookup some expected
+  results.
+  (`#2049 <https://github.com/vertexproject/synapse/pull/2049>`_)
+- Fix ``$lib.pkg.get()`` return value when the package is not present.
+  (`#2050 <https://github.com/vertexproject/synapse/pull/2050>`_)
+
+
 v2.21.1 - 2021-01-04
 ====================
 
