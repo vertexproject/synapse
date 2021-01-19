@@ -32,6 +32,7 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
+import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
@@ -146,6 +147,24 @@ class CoreApi(s_cell.CellApi):
         '''
         opts = self._reqValidStormOpts(opts)
         return await self.cell.callStorm(text, opts=opts)
+
+    async def exportStorm(self, text, opts=None):
+        '''
+        Execute a storm query and package nodes for export/import.
+
+        NOTE: This API yields nodes after an initial complete lift
+              in order to limit exported edges.
+        '''
+        opts = self._reqValidStormOpts(opts)
+        async for pode in self.cell.exportStorm(text, opts=opts):
+            yield pode
+
+    async def feedFromAxon(self, sha256, opts=None):
+        '''
+        Import a msgpack .nodes file from the axon.
+        '''
+        opts = self._reqValidStormOpts(opts)
+        return await self.cell.feedFromAxon(sha256, opts=opts)
 
     async def addCronJob(self, cdef):
         '''
@@ -482,13 +501,7 @@ class CoreApi(s_cell.CellApi):
             }
         }
 
-        tnfo = {'query': text}
-        if opts:
-            tnfo['opts'] = opts
-
-        await self.cell.boss.promote('storm:spawn',
-                                     user=self.user,
-                                     info=tnfo)
+        await self.cell.boss.promote('storm:spawn', user=self.user, info={'query': text})
         proc = None
         mesg = 'Spawn complete'
 
@@ -2511,6 +2524,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
+        self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/storm/vars/set', s_httpapi.StormVarsSetV1, {'cell': self})
@@ -3672,6 +3686,82 @@ class Cortex(s_cell.Cell):  # type: ignore
         opts = self._initStormOpts(opts)
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
+
+    async def exportStorm(self, text, opts=None):
+        opts = self._initStormOpts(opts)
+        user = self._userFromOpts(opts)
+        view = self._viewFromOpts(opts)
+
+        await self.boss.promote('storm:export', user=user, info={'query': text})
+
+        spooldict = await s_spooled.Dict.anit()
+        async with await self.snap(user=user, view=view) as snap:
+
+            async for pode in snap.iterStormPodes(text, opts=opts):
+                await spooldict.set(pode[1]['iden'], pode)
+                await asyncio.sleep(0)
+
+            for iden, pode in spooldict.items():
+                await asyncio.sleep(0)
+
+                edges = []
+                async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                    await asyncio.sleep(0)
+
+                    if not spooldict.has(n2iden):
+                        continue
+
+                    edges.append((verb, n2iden))
+
+                if edges:
+                    pode[1]['edges'] = edges
+
+                yield pode
+
+    async def feedFromAxon(self, sha256, opts=None):
+
+        opts = self._initStormOpts(opts)
+        user = self._userFromOpts(opts)
+        view = self._viewFromOpts(opts)
+
+        await self.boss.promote('feeddata', user=user, info={'name': 'syn.nodes', 'sha256': sha256})
+
+        # ensure that the user can make all node edits in the layer
+        user.confirm(('node',), gateiden=view.layers[0].iden)
+
+        q = s_queue.Queue(maxsize=10000)
+        feedexc = None
+
+        async with await s_base.Base.anit() as base:
+
+            async def fill():
+                nonlocal feedexc
+                try:
+
+                    async for item in self.axon.iterMpkFile(sha256):
+                        await q.put(item)
+
+                except Exception as e:
+                    logger.exception(f'feedFromAxon.fill(): {e}')
+                    feedexc = e
+
+                finally:
+                    await q.close()
+
+            base.schedCoro(fill())
+
+            count = 0
+            async with await self.snap(user=user, view=view) as snap:
+
+                # feed the items directly to syn.nodes
+                async for items in q.slices(size=100):
+                    async for node in self._addSynNodes(snap, items):
+                        count += 1
+
+                if feedexc is not None:
+                    raise feedexc
+
+        return count
 
     async def nodes(self, text, opts=None):
         '''

@@ -241,8 +241,7 @@ class View(s_nexus.Pusher):  # type: ignore
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE)
 
-        info = {'query': text, 'opts': opts}
-        synt = await self.core.boss.promote('storm', user=user, info=info)
+        synt = await self.core.boss.promote('storm', user=user, info={'query': text})
 
         show = opts.get('show', set())
 
@@ -352,8 +351,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def iterStormPodes(self, text, opts=None):
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
-        info = {'query': text, 'opts': opts}
-        await self.core.boss.promote('storm', user=user, info=info)
+        await self.core.boss.promote('storm', user=user, info={'query': text})
 
         async with await self.snap(user=user) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):

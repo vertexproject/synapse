@@ -61,3 +61,26 @@ class SpooledTest(s_test.SynTest):
                 await sset.add(30)
                 self.true(os.path.isdir(sset.slab.path))
                 self.true(os.path.abspath(sset.slab.path).startswith(dirn))
+
+    async def test_spooled_dict(self):
+
+        async def runtest(x):
+            await x.set(10, 'hehe')
+            self.eq(x.get(10), 'hehe')
+            self.eq(x.get(20, 'newp'), 'newp')
+            await x.set(20, 'haha')
+            await x.set(30, 'hoho')
+            self.eq(x.get(20), 'haha')
+            self.eq(x.get(40, 'newp'), 'newp')
+            self.len(3, x)
+            self.eq('hehe', x.get(10))
+            self.eq(list(x.items()), ((10, 'hehe'), (20, 'haha'), (30, 'hoho')))
+            self.eq(list(x.keys()), (10, 20, 30))
+            self.true(x.has(20))
+            self.false(x.has(99))
+
+        async with await s_spooled.Dict.anit(size=2) as sd0:
+            await runtest(sd0)
+
+        async with await s_spooled.Dict.anit(size=1000) as sd1:
+            await runtest(sd1)

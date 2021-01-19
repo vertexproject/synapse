@@ -2393,7 +2393,25 @@ class LibFeed(Lib):
             'genr': self._libGenr,
             'list': self._libList,
             'ingest': self._libIngest,
+            'fromAxon': self._fromAxon,
         }
+
+    async def _fromAxon(self, sha256):
+        '''
+        Use the feed API to load a syn.nodes formatted export from the axon.
+
+        Args:
+            sha256 (str): The sha256 of the file saved in the axon.
+
+        Returns:
+            int: The number of nodes loaded.
+        '''
+        sha256 = await tostr(sha256)
+        opts = {
+            'user': self.runt.snap.user.iden,
+            'view': self.runt.snap.view.iden,
+        }
+        return await self.runt.snap.core.feedFromAxon(sha256, opts=opts)
 
     async def _libGenr(self, name, data):
         name = await tostr(name)
@@ -5196,6 +5214,29 @@ class Node(Prim):
         return self.valu.iden()
 
 @registry.registerType
+class PathMeta(Prim):
+    '''
+    Put the storm deref/setitem/iter convention on top of path meta information.
+    '''
+    typename = 'storm:node:path:meta'
+    def __init__(self, path):
+        Prim.__init__(self, None, path=path)
+
+    async def deref(self, name):
+        return self.path.metadata.get(name)
+
+    async def setitem(self, name, valu):
+        if valu is undef:
+            self.path.metadata.pop(name, None)
+            return
+        self.path.meta(name, valu)
+
+    async def __aiter__(self):
+        # prevent "edit while iter" issues
+        for item in list(self.path.metadata.items()):
+            yield item
+
+@registry.registerType
 class PathVars(Prim):
     '''
     Put the storm deref/setitem/iter convention on top of path variables.
@@ -5245,7 +5286,10 @@ class Path(Prim):
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
-        self.locls['vars'] = PathVars(self.path)
+        self.locls.update({
+            'vars': PathVars(path),
+            'meta': PathMeta(path),
+        })
 
     def getObjLocals(self):
         return {

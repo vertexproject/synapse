@@ -15,6 +15,7 @@ import synapse.lib.const as s_const
 import synapse.lib.share as s_share
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -226,6 +227,11 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.metrics()
 
+    async def iterMpkFile(self, sha256):
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.iterMpkFile(sha256):
+            yield item
+
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
@@ -388,6 +394,15 @@ class Axon(s_cell.Cell):
         Given a list of sha256 bytes, returns a list of the hashes we want bytes for.
         '''
         return [s for s in sha256s if not await self.has(s)]
+
+    async def iterMpkFile(self, sha256):
+        '''
+        Yield items from a .mpk message pack stream file.
+        '''
+        unpk = s_msgpack.Unpk()
+        async for byts in self.get(s_common.uhex(sha256)):
+            for _, item in unpk.feed(byts):
+                yield item
 
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
         '''
