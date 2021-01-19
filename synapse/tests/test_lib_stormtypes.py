@@ -948,6 +948,25 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('testvar=test', msgs)
             self.stormIsInPrint('testkey=testvar', msgs)
 
+            async with core.getLocalProxy() as proxy:
+                msgs = await proxy.storm('''
+                    [ ps:contact=* ]
+                    $path.meta.foo = bar
+                    $path.meta.baz = faz
+                    $path.meta.baz = $lib.undef
+                    {
+                        for ($name, $valu) in $path.meta {
+                            $lib.print('meta: {name}={valu}', name=$name, valu=$valu)
+                        }
+                    }
+                    if $path.meta.foo { $lib.print(foofoofoo) }
+                ''').list()
+                self.stormIsInPrint('foofoofoo', msgs)
+                self.stormIsInPrint('meta: foo=bar', msgs)
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.len(1, pode[1]['path'])
+                self.eq('bar', pode[1]['path']['foo'])
+
     async def test_storm_trace(self):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')

@@ -12,6 +12,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_t_utils
 
@@ -172,6 +173,11 @@ class AxonTest(s_t_utils.SynTest):
         info = await axon.metrics()
         self.eq(67108899, info.get('size:bytes'))
         self.eq(6, info.get('file:count'))
+
+        byts = b''.join([s_msgpack.en('foo'), s_msgpack.en('bar'), s_msgpack.en('baz')])
+        size, sha256b = await axon.put(byts)
+        sha256 = s_common.ehex(sha256b)
+        self.eq(('foo', 'bar', 'baz'), [item async for item in axon.iterMpkFile(sha256)])
 
         # When testing a local axon, we want to ensure that the FD was in fact fini'd
         if isinstance(fd, s_axon.UpLoad):
