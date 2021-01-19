@@ -5104,3 +5104,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             core.axon.iterMpkFile = boom
             with self.raises(s_exc.BadArg):
                 await core.feedFromAxon(s_common.ehex(sha256b))
+
+    async def test_cortex_lookup_mode(self):
+        async with self.getTestCoreAndProxy() as (_core, proxy):
+            retn = await proxy.count('[inet:email=foo.com@vertex.link]')
+            self.eq(1, retn)
+
+            opts = {'mode': 'lookup'}
+            retn = await proxy.count('foo.com@vertex.link', opts=opts)
+            self.eq(1, retn)

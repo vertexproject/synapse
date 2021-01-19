@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -210,6 +211,14 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
             self.stormIsInWarn('HTTP code 404', msgs)
+
+            # test request timeout
+            async def timeout(self):
+                await asyncio.sleep(2)
+
+            with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
+                msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/active --timeout 1')
+                self.stormIsInWarn('TimeoutError', msgs)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
             resp = await core.callStorm(wget, opts=opts)
@@ -1707,10 +1716,18 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
-                offs = await core.layers.get(layr2).getEditOffs()
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await core.layers.get(layr2).waitEditOffs(offs + 1, timeout=3)
-                self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
+
+                # wait for first write so we can get the correct offset
+                await core.layers.get(layr2).waitEditOffs(0, timeout=3)
+                offs = await core.layers.get(layr2).getEditOffs()
+
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.layers.get(layr2).waitEditOffs(offs + 10, timeout=3)
+
+                self.len(3, await core.nodes('ps:contact', opts={'view': view1}))
+                self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
 
                 # remove and ensure no replay on restart
                 await core.nodes('ps:contact | delnode', opts={'view': view2})
@@ -1723,10 +1740,12 @@ class StormTest(s_t_utils.SynTest):
 
                 offs = await core.layers.get(layr2).getEditOffs()
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await core.layers.get(layr2).waitEditOffs(offs + 1, timeout=3)
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.layers.get(layr2).waitEditOffs(offs + 6, timeout=3)
 
                 # confirm we dont replay and get the old one back...
-                self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
+                self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
 
                 actv = len(core.activecoros)
                 # remove all pushes / pulls
