@@ -4,6 +4,9 @@
 #
 version: 2.1
 
+orbs:
+  gh-release: vertexproject/github-release@0.0.4
+
 commands:
   do_report_coverage:
     description: "Codecov report upload"
@@ -54,7 +57,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_cortex.py synapse/tests/test_lib_storm.py synapse/tests/test_lib_stormtypes.py synapse/tests/test_lib_view.py synapse/tests/test_lib_hiveauth.py synapse/tests/test_lib_cell.py synapse/tests/test_lib_layer.py synapse/tests/test_lib_spawn.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+            circleci tests glob synapse/tests/test_cortex.py synapse/tests/test_lib_storm.py synapse/tests/test_lib_stormtypes.py synapse/tests/test_lib_stormlib_macro.py synapse/tests/test_lib_stormlib_model.py synapse/tests/test_lib_view.py synapse/tests/test_lib_hiveauth.py synapse/tests/test_lib_cell.py synapse/tests/test_lib_layer.py synapse/tests/test_lib_spawn.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
   test_steps_doc:
     description: "Documentation test steps"
@@ -197,7 +200,14 @@ commands:
             - ./venv
           key: v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-      - do_test_execution
+      - run:
+          name: run tests
+          command: |
+            ulimit -Sn 4096
+            . venv/bin/activate
+            mkdir test-reports
+            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+
       - do_report_coverage
 
       - store_test_results:
@@ -206,8 +216,8 @@ commands:
       - store_artifacts:
           path: test-reports
 
-  deploy_to_pypi:
-    description: "Publish packages to pypi"
+  deploy_pypi_prologue:
+    description: "Common Pypi prologue"
     steps:
       - checkout
 
@@ -242,18 +252,84 @@ commands:
             echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
             echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
 
+  deploy_pypi_sdist_build:
+    description: "Build sdist packages for pypi"
+    steps:
       - run:
           name: create packages
           command: |
             . venv/bin/activate
             python setup.py sdist
-            python setup.py bdist_wheel --python-tag=py37
 
+      - run:
+          name: smoke packages
+          command: |
+            mkdir -p /tmp/sdisttest
+            python3 -m venv /tmp/sdisttest/venv
+            cp dist/*.tar.gz /tmp/sdisttest
+            cd /tmp/sdisttest
+            . ./venv/bin/activate
+            python3 -m pip install -U wheel pip
+            python3 -m pip install *.tar.gz
+            python3 -c "$PYPI_SMOKE_CODE"
+            deactivate
+
+  deploy_pypi_wheel_build:
+    description: "Build wheel packages for pypi"
+    steps:
+      - run:
+          name: create packages
+          command: |
+            . venv/bin/activate
+            python setup.py bdist_wheel --python-tag=$PYTHON_TAG
+
+      - run:
+          name: smoke packages
+          command: |
+            mkdir -p /tmp/wheeltest
+            python3 -m venv /tmp/wheeltest/venv
+            cp dist/*.whl /tmp/wheeltest
+            cd /tmp/wheeltest
+            . ./venv/bin/activate
+            python3 -m pip install -U wheel pip
+            python3 -m pip install *.whl
+            python3 -c "$PYPI_SMOKE_CODE"
+            deactivate
+
+  deploy_pypi_upload:
+    description: "Upload packages to pypi"
+    steps:
       - run:
           name: upload to pypi
           command: |
             . venv/bin/activate
             twine upload dist/*
+
+  check_docker_smoketests:
+    description: "Check docker smoke test results"
+    steps:
+      - run:
+          name: validate docker smoketest
+          command: |
+            sleep 60
+            docker ps
+            docker container ls -a
+            docker logs test01
+            docker logs test02
+            docker logs test03
+            dstatus01=`docker inspect test01 --format '{{.State.Health.Status}}'`
+            dstatus02=`docker inspect test02 --format '{{.State.Health.Status}}'`
+            dstatus03=`docker inspect test03 --format '{{.State.Health.Status}}'`
+            docker stop test01
+            docker stop test02
+            docker stop test03
+            docker rm test01
+            docker rm test02
+            docker rm test03
+            if [ $dstatus01 != "healthy" ]; then exit 1; fi
+            if [ $dstatus02 != "healthy" ]; then exit 1; fi
+            if [ $dstatus03 != "healthy" ]; then exit 1; fi
+            exit 0
 
   do_docker_login:
     description: "Login to docker"
@@ -272,20 +348,35 @@ commands:
       - run:
           name: build images
           command: |
-            docker build -t vertexproject/synapse:${CIRCLE_TAG} -f Dockerfile .
+            docker build -t vertexproject/synapse:${CIRCLE_TAG} -f docker/images/synapse/Dockerfile .
+            docker build -t vertexproject/synapse:${CIRCLE_TAG}-py37 -f docker/images/synapse/Dockerfile-py37 .
             docker build -t vertexproject/synapse-axon:${CIRCLE_TAG} -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:${CIRCLE_TAG} -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:${CIRCLE_TAG} -f docker/images/cryotank/Dockerfile .
       - run:
+          name: smoke test image
+          command: |
+            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_TAG} -m synapse.servers.cortex --help
+            dstatus00=$?
+            if [ $dstatus00 != "0" ]; then exit 1; fi
+            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_TAG}-py37 -m synapse.servers.cortex --help
+            dstatus01=$?
+            if [ $dstatus01 != "0" ]; then exit 1; fi
+            docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_TAG}
+            docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_TAG}
+            docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_TAG}
+      - check_docker_smoketests
+      - run:
           name: tag and push container
           command: |
             docker push vertexproject/synapse:${CIRCLE_TAG}
+            docker push vertexproject/synapse:${CIRCLE_TAG}-py37
             docker push vertexproject/synapse-axon:${CIRCLE_TAG}
             docker push vertexproject/synapse-cortex:${CIRCLE_TAG}
             docker push vertexproject/synapse-cryotank:${CIRCLE_TAG}
 
-  deploy_docker_02x:
-    description: "Deploy current release tag to docker as v0.2.x"
+  deploy_docker_2xx:
+    description: "Build current release tag to docker as v2.x.x"
     steps:
       - checkout
       - setup_remote_docker
@@ -293,17 +384,32 @@ commands:
       - run:
           name: build image
           command: |
-            docker build -t vertexproject/synapse:v0.2.x -f Dockerfile .
-            docker build -t vertexproject/synapse-axon:v0.2.x -f docker/images/axon/Dockerfile .
-            docker build -t vertexproject/synapse-cortex:v0.2.x -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:v0.2.x -f docker/images/cryotank/Dockerfile .
+            docker build -t vertexproject/synapse:v2.x.x -f docker/images/synapse/Dockerfile .
+            docker build -t vertexproject/synapse:v2.x.x-py37 -f docker/images/synapse/Dockerfile-py37 .
+            docker build -t vertexproject/synapse-axon:v2.x.x -f docker/images/axon/Dockerfile .
+            docker build -t vertexproject/synapse-cortex:v2.x.x -f docker/images/cortex/Dockerfile .
+            docker build -t vertexproject/synapse-cryotank:v2.x.x -f docker/images/cryotank/Dockerfile .
+      - run:
+          name: smoke test image
+          command: |
+            docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x -m synapse.servers.cortex --help
+            dstatus00=$?
+            if [ $dstatus00 != "0" ]; then exit 1; fi
+            docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x-py37 -m synapse.servers.cortex --help
+            dstatus01=$?
+            if [ $dstatus01 != "0" ]; then exit 1; fi
+            docker run -d --name test01 vertexproject/synapse-axon:v2.x.x
+            docker run -d --name test02 vertexproject/synapse-cortex:v2.x.x
+            docker run -d --name test03 vertexproject/synapse-cryotank:v2.x.x
+      - check_docker_smoketests
       - run:
           name: tag and push container
           command: |
-            docker push vertexproject/synapse:v0.2.x
-            docker push vertexproject/synapse-axon:v0.2.x
-            docker push vertexproject/synapse-cortex:v0.2.x
-            docker push vertexproject/synapse-cryotank:v0.2.x
+            docker push vertexproject/synapse:v2.x.x
+            docker push vertexproject/synapse:v2.x.x-py37
+            docker push vertexproject/synapse-axon:v2.x.x
+            docker push vertexproject/synapse-cortex:v2.x.x
+            docker push vertexproject/synapse-cryotank:v2.x.x
 
   deploy_docker_branches:
     description: "Deploy current branch images to docker"
@@ -314,27 +420,42 @@ commands:
       - run:
           name: build images
           command: |
-            docker build -t vertexproject/synapse:${CIRCLE_BRANCH} -f Dockerfile .
+            docker build -t vertexproject/synapse:${CIRCLE_BRANCH} -f docker/images/synapse/Dockerfile .
+            docker build -t vertexproject/synapse:${CIRCLE_BRANCH}-py37 -f docker/images/synapse/Dockerfile-py37 .
             docker build -t vertexproject/synapse-axon:${CIRCLE_BRANCH} -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:${CIRCLE_BRANCH} -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:${CIRCLE_BRANCH} -f docker/images/cryotank/Dockerfile .
       - run:
+          name: smoke test image
+          command: |
+            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH} -m synapse.servers.cortex --help
+            dstatus00=$?
+            if [ $dstatus00 != "0" ]; then exit 1; fi
+            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH}-py37 -m synapse.servers.cortex --help
+            dstatus01=$?
+            if [ $dstatus01 != "0" ]; then exit 1; fi
+            docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_BRANCH}
+            docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
+            docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
+      - check_docker_smoketests
+      - run:
           name: tag and push container
           command: |
             docker push vertexproject/synapse:${CIRCLE_BRANCH}
+            docker push vertexproject/synapse:${CIRCLE_BRANCH}-py37
             docker push vertexproject/synapse-axon:${CIRCLE_BRANCH}
             docker push vertexproject/synapse-cortex:${CIRCLE_BRANCH}
             docker push vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
 
 jobs:
 
-  osx37:
+  osx38:
     parallelism: 4
     macos:
-      xcode: "10.2.0"
+      xcode: "12.2.0"
 
     environment:
-      PYVERS: 3.7
+      PYVERS: 3.8
       CODECOV_FLAG: osx
       CODECOV_PREFIX: osx
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail
@@ -345,7 +466,7 @@ jobs:
       - test_steps_osx
 
   python37:
-    parallelism: 6
+    parallelism: 8
     docker:
       - image: circleci/python:3.7
         environment:
@@ -360,12 +481,45 @@ jobs:
     steps:
       - test_steps_python
 
+  python38:
+    parallelism: 8
+    docker:
+      - image: circleci/python:3.8
+        environment:
+          PYVERS: 3.8
+          RUN_SYNTAX: 1
+          CODECOV_FLAG: linux
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
   python37_replay:
-    parallelism: 4
+    parallelism: 6
     docker:
       - image: circleci/python:3.7
         environment:
           PYVERS: 3.7
+          RUN_SYNTAX: 1
+          CODECOV_FLAG: linux_replay
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          SYNDEV_NEXUS_REPLAY: 1
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python_replay
+
+  python38_replay:
+    parallelism: 6
+    docker:
+      - image: circleci/python:3.8
+        environment:
+          PYVERS: 3.8
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
@@ -391,10 +545,28 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.8
+        environment:
+          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
+          PYTHON_TAG: py38
 
     steps:
-      - deploy_to_pypi
+      - deploy_pypi_prologue
+      - deploy_pypi_wheel_build
+      - deploy_pypi_sdist_build
+      - deploy_pypi_upload
+
+  deploy_pypi_37:
+    docker:
+      - image: circleci/python:3.7
+        environment:
+          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
+          PYTHON_TAG: py37
+
+    steps:
+      - deploy_pypi_prologue
+      - deploy_pypi_wheel_build
+      - deploy_pypi_upload
 
   docker_tags:
     docker:
@@ -408,11 +580,11 @@ jobs:
     steps:
       - deploy_docker_branches
 
-  docker_tags_02x:
+  docker_tags_2xx:
     docker:
       - image: docker:18.05.0-ce
     steps:
-      - deploy_docker_02x
+      - deploy_docker_2xx
 
 workflows:
   version: 2
@@ -425,15 +597,21 @@ workflows:
             branches:
                only: /.*/
 
-#      - osx37:
-#          filters:
-#            tags:
-#              only: /.*/
-#            branches:
-#              only:
-#                - master
+      - osx38:
+          filters:
+            tags:
+              ignore: /.*/
+            branches:
+              ignore: /.*/
 
       - python37:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+
+      - python38:
           filters:
             tags:
               only: /.*/
@@ -445,15 +623,40 @@ workflows:
             tags:
               only: /.*/
             branches:
+              only:
+                - master
+
+      - python38_replay:
+          filters:
+            tags:
               only: /.*/
+            branches:
+              only:
+                - master
 
       - deploy_pypi:
           requires:
             - doctests
             - python37
+            - python38
+            - python37_replay
+            - python38_replay
           filters:
             tags:
-              only: /^v0\.2\.[0-9]+((a|b|rc)[0-9]*)?$/
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
+
+      - deploy_pypi_37:
+          requires:
+            - doctests
+            - python37
+            - python38
+            - python37_replay
+            - python38_replay
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 
@@ -461,28 +664,49 @@ workflows:
           requires:
             - doctests
             - python37
+            - python38
           filters:
             branches:
               only:
                 - master
 
+      - gh-release/dorelease:
+          requires:
+            - doctests
+            - python37
+            - python38
+            - python37_replay
+            - python38_replay
+          context: GithubMachine
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
+
       - docker_tags:
           requires:
             - doctests
             - python37
+            - python38
+            - python37_replay
+            - python38_replay
           filters:
             tags:
-              only: /^v0\.2\.[0-9]+((a|b|rc)[0-9]*)?$/
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 
-      - docker_tags_02x:
+      - docker_tags_2xx:
           requires:
             - doctests
             - python37
+            - python38
+            - python37_replay
+            - python38_replay
           filters:
             tags:
-              only: /^v0\.2\.[0-9]+((a|b|rc)[0-9]*)?$/
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 
@@ -493,8 +717,21 @@ workflows:
           filters:
             branches:
               only:
-                - 01x
                 - master
     jobs:
       - doctests
+      - python38
+      - python38_replay
+
+  weekly:
+    triggers:
+      - schedule:
+          cron: "0 12 1 * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - osx38
       - python37
+      - python37_replay

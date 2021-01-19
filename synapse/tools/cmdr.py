@@ -12,7 +12,7 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-reqver = '>=0.2.0,<0.3.0'
+reqver = '>=0.2.0,<3.0.0'
 
 async def runcmdr(argv, item):  # pragma: no cover
     cmdr = await s_cmdr.getItemCmdr(item)
@@ -34,6 +34,12 @@ async def main(argv):  # pragma: no cover
 
     s_common.setlogging(logger, 'WARNING')
 
+    path = s_common.getSynPath('telepath.yaml')
+    telefini = await s_telepath.loadTeleEnv(path)
+
+    # Ensure that SYN_DIR is available
+    _ = s_common.getSynDir()
+
     async with await s_telepath.openurl(argv[0]) as item:
         try:
             s_version.reqVersion(item._getSynVers(), reqver)
@@ -43,6 +49,10 @@ async def main(argv):  # pragma: no cover
             print(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
             return 1
         await runcmdr(argv, item)
+
+    if telefini is not None:
+        await telefini()
+
     return 0
 
 if __name__ == '__main__': # pragma: no cover

@@ -30,7 +30,8 @@ def make_core(dirn, conf, queries, queue, event):
             await core.addTagProp('added', ('time', {}), {})
             for q in queries:
                 await core.nodes(q)
-            core.view.layers[0].layrslab.forcecommit()
+
+            await core.view.layers[0].layrslab.sync()
 
             spawninfo = await core.getSpawnInfo()
             queue.put(spawninfo)
@@ -159,6 +160,7 @@ class CoreSpawnTest(s_test.SynTest):
             pkgdef = {
                 'name': 'spawn',
                 'version': (0, 0, 1),
+                'synapse_minversion': (2, 8, 0),
                 'commands': (
                     {
                         'name': 'passthrough',
@@ -200,7 +202,6 @@ class CoreSpawnTest(s_test.SynTest):
                 # make sure graph rules work
                 msgs = await prox.storm('inet:dns:a', opts={'spawn': True, 'graph': True}).list()
                 podes = [m[1] for m in msgs if m[0] == 'node']
-
                 ndefs = list(sorted(p[0] for p in podes))
 
                 self.eq(ndefs, (
@@ -216,6 +217,21 @@ class CoreSpawnTest(s_test.SynTest):
                 self.stormIsInPrint("testcmd: ('inet:ipv4', 16909060)", msgs)
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 self.len(1, podes)
+
+                # Test a macro execution
+                msgs = await prox.storm('macro.set macrotest ${ inet:ipv4 }', opts=opts).list()
+                self.stormIsInPrint('Set macro: macrotest', msgs)
+                msgs = await prox.storm('macro.list', opts=opts).list()
+                self.stormIsInPrint('macrotest', msgs)
+                self.stormIsInPrint('owner: root', msgs)
+                msgs = await prox.storm('macro.exec macrotest', opts=opts).list()
+                podes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(1, podes)
+                self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
+                msgs = await prox.storm('macro.del macrotest', opts=opts).list()
+                self.stormIsInPrint('Removed macro: macrotest', msgs)
+                msgs = await prox.storm('macro.exec macrotest', opts=opts).list()
+                self.stormIsInErr('Macro name not found: macrotest', msgs)
 
                 # Test a simple stormlib command
                 msgs = await prox.storm('$lib.print("hello")', opts=opts).list()
@@ -282,7 +298,7 @@ class CoreSpawnTest(s_test.SynTest):
                 n = 4
                 tasks = [taskfunc(i) for i in range(n)]
                 try:
-                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=40)
+                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=80)
                 except asyncio.TimeoutError:
                     self.fail('Timeout awaiting for spawn tasks to finish.')
 
@@ -310,16 +326,11 @@ class CoreSpawnTest(s_test.SynTest):
                 self.len(1, new_idens)
                 await prox.kill(new_idens[0])
 
-                # Ensure that opts were passed into the task data without spawn: True set
-                task = [task for task in tasks if task.get('iden') == new_idens[0]][0]
-                self.none(task.get('info').get('opts').get('spawn'))
-
                 # Ensure the task cancellation tore down the spawnproc
                 self.true(await victimproc.waitfini(6))
 
-                resp = await fut
-                self.true(resp)
-                # We did not get a fini messages since the proc was killed
+                await self.asyncraises(s_exc.LinkShutDown, fut)
+                # We did not get a fini message since the proc was killed
                 self.eq({m[0] for m in msgs.get('msgs')}, {'init', 'node'})
 
                 # test kill -9 ing a spawn proc
@@ -329,17 +340,19 @@ class CoreSpawnTest(s_test.SynTest):
                 victimpid = victimproc.proc.pid
                 sig = signal.SIGKILL
 
+                retn = []
+
                 async def taskfunc3():
-                    retn = await prox.storm('test:int=1 | sleep 15', opts=opts).list()
-                    return retn
+                    async for item in prox.storm('test:int=1 | sleep 15', opts=opts):
+                        retn.append(item)
 
                 fut = core.schedCoro(taskfunc3())
                 await asyncio.sleep(1)
                 os.kill(victimpid, sig)
                 self.true(await victimproc.waitfini(6))
-                msgs = await fut
+                await self.asyncraises(s_exc.LinkShutDown, fut)
                 # We did not get a fini messages since the proc was killed
-                self.eq({m[0] for m in msgs}, {'init', 'node'})
+                self.eq({m[0] for m in retn}, {'init', 'node'})
 
     async def test_queues(self):
         conf = {
@@ -390,7 +403,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                 msgs = await prox.storm('''
                     $q = $lib.queue.get(blah)
-                    for ($offs, $ipv4) in $q.gets(0, cull=0, wait=0) {
+                    for ($offs, $ipv4) in $q.gets(0, cull=$lib.false, wait=$lib.false) {
                         inet:ipv4=$ipv4
                     }
                 ''', opts=opts).list()
@@ -399,7 +412,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                 msgs = await prox.storm('''
                     $q = $lib.queue.get(blah)
-                    for ($offs, $ipv4) in $q.gets(wait=0) {
+                    for ($offs, $ipv4) in $q.gets(wait=$lib.false) {
                         inet:ipv4=$ipv4
                         $q.cull($offs)
                     }
@@ -465,7 +478,7 @@ class CoreSpawnTest(s_test.SynTest):
                     msgs = await prox.storm(q, opts=opts).list()
 
                     # Ensure that the data was put into the queue by the spawnproc
-                    q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=False, cull=False))'
+                    q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=$lib.false, cull=$lib.false))'
                     msgs = await core.stormlist(q)
                     self.stormIsInPrint("(0, 'bar')", msgs)
 
@@ -479,7 +492,7 @@ class CoreSpawnTest(s_test.SynTest):
                     rule = (True, ('queue', 'get'))
                     await woot.addRule(rule, gateiden='queue:synq')
 
-                    q = '$lib.print($lib.queue.get(synq).get(wait=False))'
+                    q = '$lib.print($lib.queue.get(synq).get(wait=$lib.false))'
                     msgs = await prox.storm(q, opts=opts).list()
                     self.stormIsInPrint("(0, 'bar')", msgs)
 
@@ -499,11 +512,13 @@ class CoreSpawnTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
         }
 
         stormpkg = {
             'name': 'stormpkg',
-            'version': (1, 2, 3)
+            'version': (1, 2, 3),
+            'synapse_minversion': (2, 8, 0),
         }
         conf = {
             'storm:log': True,
@@ -523,6 +538,10 @@ class CoreSpawnTest(s_test.SynTest):
 
                 async with core.getLocalProxy() as prox:
                     opts = {'spawn': True}
+
+                    # Ensure the spawncore loaded the service
+                    coro = prox.storm('$lib.service.wait(real)', opts).list()
+                    msgs = await asyncio.wait_for(coro, 30)
 
                     msgs = await prox.storm('help', opts=opts).list()
                     self.stormIsInPrint('foobar', msgs)
@@ -598,7 +617,7 @@ class CoreSpawnTest(s_test.SynTest):
         '''
         Copied from test-cortex_storm_lib_dmon_cmds
         '''
-        async with self.getTestCoreAndProxy() as (_, prox):
+        async with self.getTestCoreAndProxy() as (core, prox):
             opts = {'spawn': True}
             await prox.storm('''
                 $q = $lib.queue.add(visi)
@@ -621,7 +640,19 @@ class CoreSpawnTest(s_test.SynTest):
             msgs = await prox.storm('dmon.list', opts=opts).list()
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
-            msgs = await prox.storm('$lib.dmon.del($ddef.iden)').list()
+            dmon = list(core.stormdmons.dmons.values())[0]
+
+            # make the dmon blow up
+            q = '''$lib.queue.get(boom).put(hehe)
+            $q = $lib.queue.get(visi)
+            for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
+            '''
+            _ = await prox.storm(q, opts=opts).list()
+
+            self.true(await s_coro.event_wait(dmon.err_evnt, 6))
+
+            msgs = await prox.storm('dmon.list').list()
+            self.stormIsInPrint('(wootdmon            ): error', msgs)
 
     async def test_spawn_forked_view(self):
         async with self.getTestCoreAndProxy() as (core, prox):

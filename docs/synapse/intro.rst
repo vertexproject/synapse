@@ -48,17 +48,17 @@ A Cortex produces a stream of potentially reversible changes called **splices** 
 What's New?
 ===========
 
-The release of Synapse 0.2.0 represents a large leap forward in performance and scalability.  Please see the :ref:`changelog` for a full accounting of changes and the reasons behind them.
+The release of Synapse 2.0.0 represents a large leap forward in performance and scalability.  Please see the :ref:`200_changes` for a full accounting of changes and the reasons behind them.
 
 FAQ
 ===
 
-What's the state of interface stability for 0.2.x?
+What's the state of interface stability for 2.x.x?
 --------------------------------------------------
 
-Within Synapse, backward-incompatible changes are made at minor release numbers.  For example, the newly released ``0.2.0`` version of Synapse does contain some backward incompatible changes.  However, these types of changes are not made lightly and are only undertaken for tangible benefits to performance, scalability, and data modeling.  See :ref:`changelog` for a detailed breakdown of backward incompatible changes and the reasoning behind each.  Where possible, interfaces will be marked as deprecated in the previous minor release to provide situational awareness to developers.  Additionally, any backward incompatible changes to the Synapse data model will only occur at a minor release.  As such, minor releases may require Synapse components, such as a Cortex, to undergo a migration process.
+Within Synapse, backward-incompatible changes are made at major release numbers.  For example, the newly released 2.0.0 version of Synapse does contain some backward incompatible changes.  However, these types of changes are not made lightly and are only undertaken for tangible benefits to performance, scalability, and data modeling.  See :ref:`changelog` for a detailed breakdown of backward incompatible changes and the reasoning behind each.  Where possible, interfaces will be marked as deprecated in the previous minor release to provide situational awareness to developers.  Additionally, any backward incompatible changes to the Synapse data model will only occur at a minor release.  As such, minor releases may require Synapse components, such as a Cortex, to undergo a migration process.
 
-Within the Synapse 0.2.x release line, we are committed to maintaining a stable and backward-compatible release process.  Public-facing interfaces such as Storm, the HTTPS API, and the **Telepath** API will not be changed in any way that will break existing deployments.  The data model will only be updated with additions which do not change existing property names or relationships.
+Within the Synapse 2.x.x release line, we are committed to maintaining a stable and backward-compatible release process.  Public-facing interfaces such as Storm, the HTTPS API, and the **Telepath** API will not be changed in any way that will break existing deployments.  The data model will only be updated with additions which do not change existing property names or relationships.
 
 Performance, big-data, scalability, and best use?
 -------------------------------------------------
@@ -77,7 +77,7 @@ Did you consider SPARQL/GraphQL/etc rather than Storm?
 
 The short answer on this is *yes*.  After extensive review of the data languages and query languages available on several platforms, none met the ambitious requirements for simultaneously providing a terse analyst-friendly syntax and the expressive power needed for analysis within a hypergraph_.
 
-.. _Mandiant: https://www.fireeye.com/services.html 
+.. _Mandiant: https://www.fireeye.com/services.html
 .. _APT1_Report: https://www.fireeye.com/content/dam/fireeye-www/services/pdfs/mandiant-apt1-report.pdf
 .. _LMDB: https://symas.com/lmdb/
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph

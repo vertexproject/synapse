@@ -12,6 +12,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.grammar as s_grammar
 
@@ -21,6 +22,10 @@ class Type:
 
     _opt_defs = ()
     stortype: int = None  # type: ignore
+
+    # a fast-access way to determine if the type is an array
+    # ( due to hot-loop needs in the storm runtime )
+    isarray = False
 
     def __init__(self, modl, name, info, opts):
         '''
@@ -65,12 +70,15 @@ class Type:
             'range=': self._storLiftRange,
         }
 
+        self.locked = False
+        self.deprecated = bool(self.info.get('deprecated', False))
+
         self.postTypeInit()
 
     def _storLiftSafe(self, cmpr, valu):
         try:
             return self.storlifts['=']('=', valu)
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
         except Exception:
             return ()
@@ -378,10 +386,13 @@ class Bool(Type):
 
 class Array(Type):
 
+    isarray = True
+
     def postTypeInit(self):
 
         self.isuniq = self.opts.get('uniq', False)
         self.issorted = self.opts.get('sorted', False)
+        self.splitstr = self.opts.get('split', None)
 
         typename = self.opts.get('type')
         if typename is None:
@@ -395,10 +406,24 @@ class Array(Type):
             mesg = 'Array type of array values is not (yet) supported.'
             raise s_exc.BadTypeDef(mesg)
 
+        if self.arraytype.deprecated:
+            if self.info.get('custom'):
+                mesg = f'The Array type {self.name} is based on a deprecated type {self.arraytype.name} type which ' \
+                       f'which will be removed in 3.0.0'
+                logger.warning(mesg)
+
+        self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.stortype = s_layer.STOR_FLAG_ARRAY | self.arraytype.stortype
+
+    def _normPyStr(self, text):
+        if self.splitstr is None:
+            mesg = f'{self.name} type has no split-char defined.'
+            raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
+        parts = [p.strip() for p in text.split(self.splitstr)]
+        return self._normPyTuple(parts)
 
     def _normPyTuple(self, valu):
 
@@ -425,7 +450,10 @@ class Array(Type):
         return tuple(norms), {'adds': adds}
 
     def repr(self, valu):
-        return [self.arraytype.repr(v) for v in valu]
+        rval = [self.arraytype.repr(v) for v in valu]
+        if self.splitstr:
+            rval = self.splitstr.join(rval)
+        return rval
 
 class Comp(Type):
 
@@ -447,7 +475,7 @@ class Comp(Type):
         # calc and save field offsets...
         self.fieldoffs = {n: i for (i, (n, t)) in enumerate(fields)}
 
-        self.tcache = FieldHelper(self.modl, fields)
+        self.tcache = FieldHelper(self.modl, self.name, fields)
 
     def _normPyTuple(self, valu):
 
@@ -497,9 +525,10 @@ class FieldHelper(collections.defaultdict):
     '''
     Helper for Comp types. Performs Type lookup/creation upon first use.
     '''
-    def __init__(self, modl, fields):
+    def __init__(self, modl, tname, fields):
         collections.defaultdict.__init__(self)
         self.modl = modl
+        self.tname = tname
         self.fields = {name: tname for name, tname in fields}
 
     def __missing__(self, key):
@@ -517,6 +546,10 @@ class FieldHelper(collections.defaultdict):
             if not basetype:
                 raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
             _type = basetype.clone(opts)
+        if _type.deprecated:
+            mesg = f'The type {self.tname} field {key} uses a deprecated ' \
+                   f'type {_type.name} which will removed in 3.0.0'
+            logger.warning(mesg)
         self.setdefault(key, _type)
         return _type
 
@@ -566,6 +599,7 @@ class Hex(Type):
         self.setNormFunc(bytes, self._normPyBytes)
         self.storlifts.update({
             '=': self._storLiftEq,
+            '^=': self._storLiftPref,
         })
 
     def _storLiftEq(self, cmpr, valu):
@@ -577,6 +611,11 @@ class Hex(Type):
                 )
 
         return self._storLiftNorm(cmpr, valu)
+
+    def _storLiftPref(self, cmpr, valu):
+        return (
+            ('^=', valu.lower(), self.stortype),
+        )
 
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
@@ -601,6 +640,87 @@ intstors = {
     (16, False): s_layer.STOR_TYPE_U128,
 }
 
+hugemax = 170141183460469231731687
+class HugeNum(Type):
+
+    _opt_defs = (
+        ('norm', True),
+    )
+
+    stortype = s_layer.STOR_TYPE_HUGENUM
+
+    def __init__(self, modl, name, info, opts):
+
+        Type.__init__(self, modl, name, info, opts)
+
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+
+        self.storlifts.update({
+            '<': self._storLiftNorm,
+            '>': self._storLiftNorm,
+            '<=': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+            'range=': self._storLiftRange,
+        })
+
+    def norm(self, valu):
+
+        huge = s_common.hugenum(valu)
+        if huge > hugemax:
+            mesg = f'Value ({valu}) is too large for hugenum.'
+            raise s_exc.BadTypeValu(mesg)
+
+        if abs(huge) > hugemax:
+            mesg = f'Value ({valu}) is too small for hugenum.'
+            raise s_exc.BadTypeValu(mesg)
+
+        if self.opts.get('norm'):
+            huge.normalize(), {}
+        return huge.to_eng_string(), {}
+
+    def _ctorCmprEq(self, text):
+        base = s_common.hugenum(text)
+        def cmpr(valu):
+            valu = s_common.hugenum(valu)
+            return valu == base
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        base = s_common.hugenum(text)
+        def cmpr(valu):
+            valu = s_common.hugenum(valu)
+            return valu > base
+        return cmpr
+
+    def _ctorCmprLt(self, text):
+        base = s_common.hugenum(text)
+        def cmpr(valu):
+            valu = s_common.hugenum(valu)
+            return valu < base
+        return cmpr
+
+    def _ctorCmprGe(self, text):
+        base = s_common.hugenum(text)
+        def cmpr(valu):
+            valu = s_common.hugenum(valu)
+            return valu >= base
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        base = s_common.hugenum(text)
+        def cmpr(valu):
+            valu = s_common.hugenum(valu)
+            return valu <= base
+        return cmpr
+
+    def _storLiftRange(self, cmpr, valu):
+        minv, minfo = self.norm(valu[0])
+        maxv, maxfo = self.norm(valu[1])
+        return ((cmpr, (minv, maxv), self.stortype),)
+
 class IntBase(Type):
 
     def __init__(self, modl, name, info, opts):
@@ -609,7 +729,6 @@ class IntBase(Type):
 
         self.setCmprCtor('>=', self._ctorCmprGe)
         self.setCmprCtor('<=', self._ctorCmprLe)
-
         self.setCmprCtor('>', self._ctorCmprGt)
         self.setCmprCtor('<', self._ctorCmprLt)
 
@@ -1234,9 +1353,17 @@ class Data(Type):
 
     stortype = s_layer.STOR_TYPE_MSGP
 
+    def postTypeInit(self):
+        self.validator = None
+        schema = self.opts.get('schema')
+        if schema is not None:
+            self.validator = s_config.getJsValidator(schema)
+
     def norm(self, valu):
         try:
             s_common.reqjsonsafe(valu)
+            if self.validator is not None:
+                self.validator(valu)
         except s_exc.MustBeJsonSafe as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
         byts = s_msgpack.en(valu)
@@ -1323,6 +1450,7 @@ class Str(Type):
         ('regex', None),
         ('lower', False),
         ('strip', False),
+        ('replace', ()),
         ('onespace', False),
         ('globsuffix', False),
     )
@@ -1334,6 +1462,7 @@ class Str(Type):
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(bool, self._normPyBool)
 
         self.storlifts.update({
             '=': self._storLiftEq,
@@ -1374,6 +1503,9 @@ class Str(Type):
         if self.opts.get('lower'):
             valu = valu.lower()
 
+        for look, repl in self.opts.get('replace', ()):
+            valu = valu.replace(look, repl)
+
         # Only strip the left side of the string for prefix match
         if self.opts.get('strip'):
             valu = valu.lstrip()
@@ -1390,6 +1522,9 @@ class Str(Type):
     def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
 
+    def _normPyBool(self, valu):
+        return self._normPyStr(str(valu).lower())
+
     def _normPyInt(self, valu):
         return self._normPyStr(str(valu))
 
@@ -1400,6 +1535,9 @@ class Str(Type):
 
         if self.opts['lower']:
             norm = norm.lower()
+
+        for look, repl in self.opts.get('replace', ()):
+            norm = norm.replace(look, repl)
 
         if self.opts['strip']:
             norm = norm.strip()
@@ -1517,12 +1655,13 @@ class Time(IntBase):
         if valu == '?':
             return self.futsize, {}
 
-        # self contained relative time string
+        # parse timezone
+        valu, base = s_time.parsetz(valu)
 
         # we need to be pretty sure this is meant for us, otherwise it might
         # just be a slightly messy time parse
         unitcheck = [u for u in s_time.timeunits.keys() if u in valu]
-        if unitcheck and '-' in valu or '+' in valu:
+        if unitcheck and ('-' in valu or '+' in valu):
             splitter = '+'
             if '-' in valu:
                 splitter = '-'
@@ -1530,13 +1669,13 @@ class Time(IntBase):
             bgn, end = valu.split(splitter, 1)
             delt = s_time.delta(splitter + end)
             if bgn:
-                bgn = self._normPyStr(bgn)[0]
+                bgn = self._normPyStr(bgn)[0] + base
             else:
                 bgn = s_common.now()
 
             return self._normPyInt(delt + bgn)
 
-        valu = s_time.parse(valu)
+        valu = s_time.parse(valu, base=base)
         return self._normPyInt(valu)
 
     def _normPyInt(self, valu):

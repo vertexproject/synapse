@@ -21,6 +21,34 @@ import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
+class Scrubber:
+
+    def __init__(self, rules):
+        self.rules = rules
+        # TODO support props
+        # TODO support tagprops
+        # TODO support exclude rules
+        incs = rules.get('include', {})
+
+        self.hasinctags = incs.get('tags') is not None
+        self.inctags = set(incs.get('tags', ()))
+        self.inctagprefs = [f'{tag}.' for tag in incs.get('tags', ())]
+
+    def scrub(self, pode):
+
+        if self.hasinctags and pode[1].get('tags'):
+            pode[1]['tags'] = {k: v for (k, v) in pode[1]['tags'].items() if self._isTagInc(k)}
+
+        return pode
+
+    @s_cache.memoize()
+    def _isTagInc(self, tag):
+        if tag in self.inctags:
+            return True
+        if any(tag.startswith(pref) for pref in self.inctagprefs):
+            return True
+        return False
+
 class Snap(s_base.Base):
     '''
     A "snapshot" is a transaction across multiple Cortex layers.
@@ -77,6 +105,7 @@ class Snap(s_base.Base):
         # Keeps alive the most recently accessed node objects
         self.buidcache = collections.deque(maxlen=self._buidcachesize)
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
+        self._warnonce_keys = set()
 
         self.onfini(self.stack.close)
         self.changelog = []
@@ -102,12 +131,11 @@ class Snap(s_base.Base):
         return meta
 
     @contextlib.contextmanager
-    def getStormRuntime(self, opts=None, user=None):
+    def getStormRuntime(self, query, opts=None, user=None):
         if user is None:
             user = self.user
 
-        runt = s_storm.Runtime(self, opts=opts, user=user)
-        runt.isModuleRunt = True
+        runt = s_storm.Runtime(query, self, opts=opts, user=user)
 
         yield runt
 
@@ -123,13 +151,23 @@ class Snap(s_base.Base):
 
         self.core._logStormQuery(text, user)
 
+        scrubber = None
+        # NOTE: This option is still experimental and subject to change.
+        if opts.get('scrub') is not None:
+            scrubber = Scrubber(opts.get('scrub'))
+
         if opts is not None:
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
 
         async for node, path in self.storm(text, opts=opts, user=user):
+
             pode = node.pack(dorepr=dorepr)
             pode[1]['path'] = path.pack(path=dopath)
+
+            if scrubber is not None:
+                pode = scrubber.scrub(pode)
+
             yield pode
 
     @s_coro.genrhelp
@@ -140,9 +178,14 @@ class Snap(s_base.Base):
         if user is None:
             user = self.user
 
-        query = self.core.getStormQuery(text)
-        with self.getStormRuntime(opts=opts, user=user) as runt:
-            async for x in runt.iterStormQuery(query):
+        if opts is None:
+            opts = {}
+
+        mode = opts.get('mode', 'storm')
+
+        query = self.core.getStormQuery(text, mode=mode)
+        with self.getStormRuntime(query, opts=opts, user=user) as runt:
+            async for x in runt.execute():
                 yield x
 
     @s_coro.genrhelp
@@ -153,14 +196,19 @@ class Snap(s_base.Base):
         if user is None:
             user = self.user
 
+        if opts is None:
+            opts = {}
+
+        mode = opts.get('mode', 'storm')
+
         # maintained for backward compatibility
-        query = self.core.getStormQuery(text)
-        with self.getStormRuntime(opts=opts, user=user) as runt:
-            async for node, path in runt.iterStormQuery(query):
+        query = self.core.getStormQuery(text, mode=mode)
+        with self.getStormRuntime(query, opts=opts, user=user) as runt:
+            async for node, path in runt.execute():
                 yield node
 
     async def nodes(self, text, opts=None, user=None):
-        return [n async for n in self.eval(text, opts=opts, user=user)]
+        return [node async for (node, path) in self.storm(text, opts=opts, user=user)]
 
     async def clearCache(self):
         self.tagcache.clear()
@@ -174,6 +222,12 @@ class Snap(s_base.Base):
         if log:
             logger.warning(mesg)
         await self.fire('warn', mesg=mesg, **info)
+
+    async def warnonce(self, mesg, log=True, **info):
+        if mesg in self._warnonce_keys:
+            return
+        self._warnonce_keys.add(mesg)
+        await self.warn(mesg, log, **info)
 
     async def getNodeByBuid(self, buid):
         '''
@@ -240,7 +294,6 @@ class Snap(s_base.Base):
             return node
 
         ndef = None
-
         tags = {}
         props = {}
         nodedata = {}
@@ -259,36 +312,37 @@ class Snap(s_base.Base):
             if sode is None:
                 sode = await layr.getStorNode(buid)
 
-            info = sode[1]
-
-            storndef = info.get('ndef')
-            if storndef is not None:
-                ndef = storndef
+            form = sode.get('form')
+            valt = sode.get('valu')
+            if valt is not None:
+                ndef = (form, valt[0])
                 bylayer['ndef'] = layr
 
-            storprops = info.get('props')
+            storprops = sode.get('props')
             if storprops is not None:
-                props.update(storprops)
-                bylayer['props'].update({p: layr for p in storprops.keys()})
+                for prop, (valu, stype) in storprops.items():
+                    props[prop] = valu
+                    bylayer['props'][prop] = layr
 
-            stortags = info.get('tags')
+            stortags = sode.get('tags')
             if stortags is not None:
                 tags.update(stortags)
                 bylayer['tags'].update({p: layr for p in stortags.keys()})
 
-            stortagprops = info.get('tagprops')
+            stortagprops = sode.get('tagprops')
             if stortagprops is not None:
-                tagprops.update(stortagprops)
-                bylayer['tagprops'].update({p: layr for p in stortagprops.keys()})
+                for tagprop, (valu, stype) in stortagprops.items():
+                    tagprops[tagprop] = valu
+                    bylayer['tagprops'][tagprop] = layr
 
-            stordata = info.get('nodedata')
+            stordata = sode.get('nodedata')
             if stordata is not None:
                 nodedata.update(stordata)
 
         if ndef is None:
             return None
 
-        fullnode = (buid, {
+        pode = (buid, {
             'ndef': ndef,
             'tags': tags,
             'props': props,
@@ -296,19 +350,18 @@ class Snap(s_base.Base):
             'tagprops': tagprops,
         })
 
-        node = s_node.Node(self, fullnode, bylayer=bylayer)
+        node = s_node.Node(self, pode, bylayer=bylayer)
         self.livenodes[buid] = node
         self.buidcache.append(node)
 
-        # moved here from getNodeByBuid() to cover more
         await asyncio.sleep(0)
         return node
 
     async def _joinStorGenr(self, layr, genr):
         cache = {}
-        async for sode in genr:
+        async for buid, sode in genr:
             cache[layr.iden] = sode
-            node = await self._joinStorNode(sode[0], cache)
+            node = await self._joinStorNode(buid, cache)
             if node is not None:
                 yield node
 
@@ -351,6 +404,7 @@ class Snap(s_base.Base):
             for layr in self.layers:
                 genr = layr.liftByProp(None, prop.name)
                 async for node in self._joinStorGenr(layr, genr):
+                    # TODO should these type of filters yield?
                     if node.bylayer['props'].get(prop.name) != layr:
                         continue
                     yield node
@@ -494,6 +548,10 @@ class Snap(s_base.Base):
 
         async def _getadds(f, p, formnorm, forminfo, doaddnode=True):
 
+            if f.locked:
+                mesg = f'Form {f.full} is locked due to deprecation.'
+                raise s_exc.IsDeprLocked(mesg=mesg)
+
             edits = []  # Non-primary prop edits
             topsubedits = []  # Primary prop sub edits
 
@@ -508,7 +566,13 @@ class Snap(s_base.Base):
                 if prop is None:
                     continue
 
+                if prop.locked:
+                    mesg = f'Prop {prop.full} is locked due to deprecation.'
+                    raise s_exc.IsDeprLocked(mesg=mesg)
+
                 assert prop.type.stortype is not None
+
+                propnorm, typeinfo = prop.type.norm(propvalu)
 
                 if isinstance(prop.type, s_types.Ndef):
                     ndefname, ndefvalu = propvalu
@@ -528,7 +592,7 @@ class Snap(s_base.Base):
                 elif isinstance(prop.type, s_types.Array):
                     arrayform = self.core.model.form(prop.type.arraytype.name)
                     if arrayform is not None:
-                        for arrayvalu in propvalu:
+                        for arrayvalu in propnorm:
                             arraynorm, arrayinfo = arrayform.type.norm(arrayvalu)
 
                             if self.buidprefetch:
@@ -537,8 +601,6 @@ class Snap(s_base.Base):
                                     continue
 
                             subedits.extend([x async for x in _getadds(arrayform, {}, arraynorm, arrayinfo)])
-
-                propnorm, typeinfo = prop.type.norm(propvalu)
 
                 propsubs = typeinfo.get('subs')
                 if propsubs is not None:
@@ -585,6 +647,10 @@ class Snap(s_base.Base):
             else:
                 yield (buid, f.name, edits)
 
+        if self.core.maxnodes is not None and self.core.maxnodes <= self.core.nodecount:
+            mesg = f'Cortex is at node:count limit: {self.core.maxnodes}'
+            raise s_exc.HitLimit(mesg=mesg)
+
         if props is None:
             props = {}
 
@@ -606,7 +672,7 @@ class Snap(s_base.Base):
         meta = await self.getSnapMeta()
 
         todo = s_common.todo('storNodeEdits', edits, meta)
-        sodes = await self.core.dyncall(self.wlyr.iden, todo)
+        results = await self.core.dyncall(self.wlyr.iden, todo)
 
         wlyr = self.wlyr
         nodes = []
@@ -617,11 +683,11 @@ class Snap(s_base.Base):
         # and collect up all the callbacks to fire at once at the end.  It is
         # critical to fire all callbacks after applying all Node() changes.
 
-        for sode in sodes:
+        for buid, sode, postedits in results:
 
             cache = {wlyr.iden: sode}
 
-            node = await self._joinStorNode(sode[0], cache)
+            node = await self._joinStorNode(buid, cache)
 
             if node is None:
                 # We got part of a node but no ndef
@@ -629,10 +695,8 @@ class Snap(s_base.Base):
 
             nodes.append(node)
 
-            postedits = sode[1].get('edits', ())
-
             if postedits:
-                actualedits.append((sode[0], sode[1]['form'], postedits))
+                actualedits.append((buid, node.form.name, postedits))
 
             for edit in postedits:
 
@@ -766,7 +830,7 @@ class Snap(s_base.Base):
 
             adds = await self.getNodeAdds(form, valu, props=props)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
 
         except Exception as e:
@@ -776,6 +840,7 @@ class Snap(s_base.Base):
             raise
 
         nodes = await self.applyNodeEdits(adds)
+        assert len(nodes) >= 1
 
         # Adds is top-down, so the first node is what we want
         return nodes[0]
@@ -796,7 +861,7 @@ class Snap(s_base.Base):
         if func is None:
             raise s_exc.NoSuchName(name=name)
 
-        logger.info(f'adding feed nodes ({name}): {len(items)}')
+        logger.info(f'User ({self.user.name}) adding feed data ({name}): {len(items)}')
 
         genr = func(self, items)
         if not isinstance(genr, types.AsyncGeneratorType):
@@ -814,7 +879,7 @@ class Snap(s_base.Base):
         if func is None:
             raise s_exc.NoSuchName(name=name)
 
-        logger.info(f'adding feed data ({name}): {len(items)}')
+        logger.info(f'User ({self.user.name}) adding feed data ({name}): {len(items)}')
 
         retn = func(self, items)
 
@@ -843,7 +908,7 @@ class Snap(s_base.Base):
         Add/merge nodes in bulk.
 
         The addNodes API is designed for bulk adds which will
-        also set properties and add tags to existing nodes.
+        also set properties, add tags, add edges, and set nodedata to existing nodes.
         Nodes are specified as a list of the following tuples:
 
             ( (form, valu), {'props':{}, 'tags':{}})
@@ -884,6 +949,17 @@ class Snap(s_base.Base):
                                         logger.warning(mesg)
                                         continue
 
+                        nodedata = forminfo.get('nodedata')
+                        if nodedata is not None:
+                            for name, data in nodedata.items():
+                                await node.setData(name, data)
+
+                        for verb, n2iden in forminfo.get('edges', ()):
+                            await node.addEdge(verb, n2iden)
+
+                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                    raise
+
                 except Exception as e:
                     if not oldstrict:
                         await self.warn(f'addNodes failed on {formname}, {formvalu}, {forminfo}: {e}')
@@ -895,7 +971,7 @@ class Snap(s_base.Base):
 
                 yield node
 
-            except asyncio.CancelledError:  # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception:

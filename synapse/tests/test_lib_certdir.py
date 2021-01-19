@@ -432,7 +432,7 @@ class CertDirTest(s_t_utils.SynTest):
                 )
                 for ftype, fname in tests:
                     srcpath = s_common.genpath(testpath, fname)
-                    dstpath = s_common.genpath(cdir.path, ftype, fname)
+                    dstpath = s_common.genpath(cdir.certdirs[0], ftype, fname)
 
                     with s_common.genfile(srcpath) as fd:
                         fd.write(b'arbitrary data')
@@ -481,3 +481,16 @@ class CertDirTest(s_t_utils.SynTest):
             self.nn(cdir.valUserCert(byts, cacerts=(newpca,)))
             self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=(syntestca,))
             self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=())
+
+    def test_certdir_sslctx(self):
+
+        with self.getCertDir() as cdir:
+
+            with self.raises(s_exc.NoSuchCert):
+                cdir.getClientSSLContext(certname='newp')
+
+            with s_common.genfile(cdir.certdirs[0], 'users', 'newp.crt') as fd:
+                fd.write(b'asdf')
+
+            with self.raises(s_exc.NoCertKey):
+                cdir.getClientSSLContext(certname='newp')

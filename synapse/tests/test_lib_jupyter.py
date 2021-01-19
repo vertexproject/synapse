@@ -2,10 +2,35 @@ import os
 import json
 
 import synapse.common as s_common
-import synapse.lib.msgpack as s_msgpack
+
+import synapse.lib.cell as s_cell
 import synapse.lib.jupyter as s_jupyter
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tests.utils as s_t_utils
+
+class TstsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
+    _storm_svc_name = 'testsvc'
+    _storm_svc_pkgs = (
+        {
+            'name': 'testsvc',
+            'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
+            'commands': (
+                {
+                    'name': 'testsvc.magic',
+                    'storm': '[inet:ipv4=0]',
+                },
+            )
+        },
+    )
+
+    async def testmeth(self):
+        return 'shazam'
+
+class Tstsvc(s_cell.Cell):
+    cellapi = TstsvcApi
 
 class JupyterTest(s_t_utils.SynTest):
     testmods = ['synapse.tests.utils.TestModule']
@@ -29,6 +54,26 @@ class JupyterTest(s_t_utils.SynTest):
         self.eq(nodes[0][0], ('test:str', 'beep'))
         await prox.fini()
         self.true(prox.isfini)
+
+    async def test_tempcorecmdrstormsvc(self):
+        cmdrcore, svcprox = await s_jupyter.getTempCoreCmdrStormsvc('testsvc', Tstsvc.anit)
+
+        self.false(cmdrcore.isfini)
+        self.false(svcprox.isfini)
+
+        mesgs = await cmdrcore.storm('service.list')
+        self.true(any(['True (testsvc)' in str(mesg) for mesg in mesgs]))
+
+        nodes = await cmdrcore.eval('testsvc.magic')
+        self.len(1, nodes)
+
+        self.eq('shazam', await svcprox.testmeth())
+
+        await cmdrcore.fini()
+        self.true(cmdrcore.isfini)
+
+        await svcprox.fini()
+        self.true(svcprox.isfini)
 
     async def test_cmdrcore(self):
 
@@ -55,14 +100,15 @@ class JupyterTest(s_t_utils.SynTest):
                                             num=1, cmdr=False)
                 self.len(1, podes)
                 self.eq(podes[0][0], ('test:str', 'duck'))
+
                 # Opts does not work with cmdr=True - we have no way to plumb it through.
-                with self.getAsyncLoggerStream('synapse.cortex',
+                with self.getAsyncLoggerStream('synapse.lib.view',
                                                'Error during storm execution') as stream:
-                    ret = await cmdrcore.eval('[test:str=$foo]',
-                                              {'vars': {'foo': 'fowl'}},
+                    with self.raises(AssertionError):
+                        await cmdrcore.eval('[test:str=$foo]',
+                                              opts={'vars': {'foo': 'fowl'}},
                                               cmdr=True)
-                    await stream.wait(1)
-                    self.eq(ret, [])
+                    self.true(await stream.wait(6))
 
                 # Assertion based tests
                 podes = await cmdrcore.eval('test:int', num=0)
@@ -89,6 +135,28 @@ class JupyterTest(s_t_utils.SynTest):
                 await cmdrcore.runCmdLine('help')
                 self.true(outp.expect('cli> help'))
                 self.true(outp.expect('List commands and display help output.'))
+
+    async def test_log_supression(self):
+
+        async with self.getTestCoreAndProxy() as (realcore, core):
+
+            outp = self.getTestOutp()
+            async with await s_jupyter.CmdrCore.anit(core, outp=outp) as cmdrcore:
+                with self.getAsyncLoggerStream('synapse.lib.view') as stream:
+                    mesgs = await cmdrcore.storm('[test:int=beep]',
+                                                 num=0, cmdr=False,
+                                                 suppress_logging=True)
+                    self.stormIsInErr('invalid literal for int', mesgs)
+                stream.seek(0)
+                self.notin('Error during storm execution', stream.read())
+
+                with self.getAsyncLoggerStream('synapse.lib.view',
+                                                     'Error during storm execution') as stream:
+                    mesgs = await cmdrcore.storm('[test:int=beep]',
+                                                 num=0, cmdr=False,
+                                                 suppress_logging=False)
+                    self.true(await stream.wait(6))
+                    self.stormIsInErr('invalid literal for int', mesgs)
 
     def test_doc_data(self):
         with self.getTestDir() as dirn:

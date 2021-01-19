@@ -2,6 +2,7 @@ import os
 import ssl
 import shutil
 import socket
+import collections
 
 from OpenSSL import crypto  # type: ignore
 
@@ -45,15 +46,37 @@ class CertDir:
         self.crypto_numbits = 4096
         self.signing_digest = 'sha256'
 
+        self.certdirs = []
+        self.pathrefs = collections.defaultdict(int)
+
         if path is None:
-            path = defdir
+            path = (defdir,)
 
-        s_common.gendir(path, 'cas')
-        s_common.gendir(path, 'hosts')
-        s_common.gendir(path, 'users')
+        if not isinstance(path, (list, tuple)):
+            path = (path,)
 
-        self.certdir = s_common.reqdir(path)
-        self.path = path
+        for p in path:
+            self.addCertPath(p)
+
+    def addCertPath(self, *path):
+
+        fullpath = s_common.gendir(*path)
+        self.pathrefs[fullpath] += 1
+
+        if self.pathrefs[fullpath] == 1:
+
+            self.certdirs.append(fullpath)
+
+            s_common.gendir(fullpath, 'cas')
+            s_common.gendir(fullpath, 'hosts')
+            s_common.gendir(fullpath, 'users')
+
+    def delCertPath(self, *path):
+        fullpath = s_common.gendir(*path)
+        self.pathrefs[fullpath] -= 1
+        if self.pathrefs[fullpath] <= 0:
+            self.certdirs.remove(fullpath)
+            self.pathrefs.pop(fullpath, None)
 
     def genCaCert(self, name, signas=None, outp=None, save=True):
         '''
@@ -314,14 +337,16 @@ class CertDir:
         '''
         retn = []
 
-        path = s_common.genpath(self.certdir, 'cas')
+        for cdir in self.certdirs:
 
-        for name in os.listdir(path):
-            if not name.endswith('.crt'):
-                continue
+            path = s_common.genpath(cdir, 'cas')
 
-            full = s_common.genpath(self.certdir, 'cas', name)
-            retn.append(self._loadCertPath(full))
+            for name in os.listdir(path):
+                if not name.endswith('.crt'):
+                    continue
+
+                full = s_common.genpath(cdir, 'cas', name)
+                retn.append(self._loadCertPath(full))
 
         return retn
 
@@ -340,10 +365,10 @@ class CertDir:
         Returns:
             str: The path if exists.
         '''
-        path = s_common.genpath(self.certdir, 'cas', '%s.crt' % name)
-        if not os.path.isfile(path):
-            return None
-        return path
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'cas', '%s.crt' % name)
+            if os.path.isfile(path):
+                return path
 
     def getCaKey(self, name):
         '''
@@ -377,10 +402,10 @@ class CertDir:
         Returns:
             str: The path if exists.
         '''
-        path = s_common.genpath(self.certdir, 'cas', '%s.key' % name)
-        if not os.path.isfile(path):
-            return None
-        return path
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'cas', '%s.key' % name)
+            if os.path.isfile(path):
+                return path
 
     def getClientCert(self, name):
         '''
@@ -417,10 +442,10 @@ class CertDir:
         Returns:
             str: The path if exists.
         '''
-        path = s_common.genpath(self.certdir, 'users', '%s.p12' % name)
-        if not os.path.isfile(path):
-            return None
-        return path
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'users', '%s.p12' % name)
+            if os.path.isfile(path):
+                return path
 
     def getHostCaPath(self, name):
         '''
@@ -475,10 +500,10 @@ class CertDir:
         Returns:
             str: The path if exists.
         '''
-        path = s_common.genpath(self.certdir, 'hosts', '%s.crt' % name)
-        if not os.path.isfile(path):
-            return None
-        return path
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'hosts', '%s.crt' % name)
+            if os.path.isfile(path):
+                return path
 
     def getHostKey(self, name):
         '''
@@ -512,10 +537,10 @@ class CertDir:
         Returns:
             str: The path if exists.
         '''
-        path = s_common.genpath(self.certdir, 'hosts', '%s.key' % name)
-        if not os.path.isfile(path):
-            return None
-        return path
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'hosts', '%s.key' % name)
+            if os.path.isfile(path):
+                return path
 
     def getUserCaPath(self, name):
         '''
@@ -570,10 +595,10 @@ class CertDir:
         Returns:
             str: The path if exists.
         '''
-        path = s_common.genpath(self.certdir, 'users', '%s.crt' % name)
-        if not os.path.isfile(path):
-            return None
-        return path
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'users', '%s.crt' % name)
+            if os.path.isfile(path):
+                return path
 
     def getUserForHost(self, user, host):
         '''
@@ -629,10 +654,10 @@ class CertDir:
         Returns:
             str: The path if exists.
         '''
-        path = s_common.genpath(self.certdir, 'users', '%s.key' % name)
-        if not os.path.isfile(path):
-            return None
-        return path
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'users', '%s.key' % name)
+            if os.path.isfile(path):
+                return path
 
     def importFile(self, path, mode, outp=None):
         '''
@@ -664,7 +689,7 @@ class CertDir:
             mesg = 'importFile only supports .crt, .key, .p12 extensions'
             raise s_exc.BadFileExt(mesg=mesg, ext=ext)
 
-        newpath = s_common.genpath(self.certdir, mode, fname)
+        newpath = s_common.genpath(self.certdirs[0], mode, fname)
         if os.path.isfile(newpath):
             raise s_exc.FileExists('File already exists')
 
@@ -687,8 +712,7 @@ class CertDir:
         Returns:
             bool: True if the certificate is present, False otherwise.
         '''
-        crtpath = self._getPathJoin('cas', '%s.crt' % name)
-        return os.path.isfile(crtpath)
+        return self.getCaCertPath(name) is not None
 
     def isClientCert(self, name):
         '''
@@ -723,8 +747,7 @@ class CertDir:
         Returns:
             bool: True if the certificate is present, False otherwise.
         '''
-        crtpath = self._getPathJoin('hosts', '%s.crt' % name)
-        return os.path.isfile(crtpath)
+        return self.getHostCertPath(name) is not None
 
     def isUserCert(self, name):
         '''
@@ -741,8 +764,7 @@ class CertDir:
         Returns:
             bool: True if the certificate is present, False otherwise.
         '''
-        crtpath = self._getPathJoin('users', '%s.crt' % name)
-        return os.path.isfile(crtpath)
+        return self.getUserCertPath(name) is not None
 
     def signCertAs(self, cert, signas):
         '''
@@ -831,40 +853,86 @@ class CertDir:
         return self.genUserCert(name, csr=pkey, signas=signas, outp=outp)
 
     def _loadCasIntoSSLContext(self, ctx):
-        path = s_common.genpath(self.certdir, 'cas')
-        for name in os.listdir(path):
-            if name.endswith('.crt'):
-                ctx.load_verify_locations(os.path.join(path, name))
 
-    def getClientSSLContext(self):
+        for cdir in self.certdirs:
+
+            path = s_common.genpath(cdir, 'cas')
+            if not os.path.isdir(path):
+                continue
+
+            for name in os.listdir(path):
+                if name.endswith('.crt'):
+                    ctx.load_verify_locations(os.path.join(path, name))
+
+    def getClientSSLContext(self, certname=None):
         '''
         Returns an ssl.SSLContext appropriate for initiating a TLS session
+
+        Args:
+            certname:   If specified, use the user certificate with the matching
+                        name to authenticate to the remote service.
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         self._loadCasIntoSSLContext(sslctx)
 
+        if certname is not None:
+
+            username = certname
+            if username.find('@') != -1:
+                user, host = username.split('@', 1)
+                username = self.getUserForHost(user, host)
+
+            if username is None:
+                mesg = f'User certificate not found: {certname}'
+                raise s_exc.NoSuchCert(mesg=mesg)
+
+            certpath = self.getUserCertPath(username)
+            if certpath is None:
+                mesg = f'User certificate not found: {certname}'
+                raise s_exc.NoSuchCert(mesg=mesg)
+
+            keypath = self.getUserKeyPath(username)
+            if keypath is None:
+                mesg = f'User private key not found: {certname}'
+                raise s_exc.NoCertKey(mesg=mesg)
+
+            sslctx.load_cert_chain(certpath, keypath)
+
         return sslctx
 
-    def getServerSSLContext(self, hostname=None):
+    def getServerSSLContext(self, hostname=None, caname=None):
         '''
         Returns an ssl.SSLContext appropriate to listen on a socket
 
         Args:
+
             hostname:  if None, the value from socket.gethostname is used to find the key in the servers directory.
-            This name should match the not-suffixed part of two files ending in .key and .crt in the hosts subdirectory
+                       This name should match the not-suffixed part of two files ending in .key and .crt in the hosts
+                       subdirectory
+
+            caname: If not None, the given name is used to locate a CA certificate used to validate client SSL certs.
 
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         if hostname is None:
             hostname = socket.gethostname()
+
         certfile = self.getHostCertPath(hostname)
         if certfile is None:
-            raise s_exc.NoCertKey('Missing .crt for %s' % hostname)
+            mesg = f'Missing TLS certificate file for host: {hostname}'
+            raise s_exc.NoCertKey(mesg=mesg)
+
         keyfile = self.getHostKeyPath(hostname)
         if keyfile is None:
-            raise s_exc.NoCertKey('Missing .key for %s' % hostname)
+            mesg = f'Missing TLS key file for host: {hostname}'
+            raise s_exc.NoCertKey(mesg=mesg)
 
         sslctx.load_cert_chain(certfile, keyfile)
+
+        if caname is not None:
+            cafile = self.getCaCertPath(caname)
+            sslctx.verify_mode = ssl.VerifyMode.CERT_REQUIRED
+            sslctx.load_verify_locations(cafile=cafile)
 
         return sslctx
 
@@ -923,21 +991,20 @@ class CertDir:
         csrpath = self._getPathJoin(mode, '%s.csr' % name)
         self._checkDupFile(csrpath)
 
+        byts = crypto.dump_certificate_request(crypto.FILETYPE_PEM, xcsr)
+
         with s_common.genfile(csrpath) as fd:
             fd.truncate(0)
-            fd.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, xcsr))
+            fd.write(byts)
 
         if outp is not None:
             outp.printf('csr saved: %s' % (csrpath,))
 
+        return byts
+
     def _getCaPath(self, cert):
-
         subj = cert.get_issuer()
-        capath = self._getPathJoin('cas', '%s.crt' % subj.CN)
-        if not os.path.isfile(capath):
-            return None
-
-        return capath
+        return self.getCaCertPath(subj.CN)
 
     def _getPathBytes(self, path):
         if path is None:
@@ -945,7 +1012,7 @@ class CertDir:
         return s_common.getbytes(path)
 
     def _getPathJoin(self, *paths):
-        return s_common.genpath(self.certdir, *paths)
+        return s_common.genpath(self.certdirs[0], *paths)
 
     def _loadCertPath(self, path):
         byts = self._getPathBytes(path)
@@ -955,7 +1022,10 @@ class CertDir:
     def _loadCsrPath(self, path):
         byts = self._getPathBytes(path)
         if byts:
-            return crypto.load_certificate_request(crypto.FILETYPE_PEM, byts)
+            return self._loadCsrByts(byts)
+
+    def _loadCsrByts(self, byts):
+        return crypto.load_certificate_request(crypto.FILETYPE_PEM, byts)
 
     def _loadKeyPath(self, path):
         byts = self._getPathBytes(path)
@@ -973,9 +1043,15 @@ class CertDir:
 
         with s_common.genfile(path) as fd:
             fd.truncate(0)
-            fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+            fd.write(self._certToByts(cert))
 
         return path
+
+    def _certToByts(self, cert):
+        return crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+
+    def _pkeyToByts(self, pkey):
+        return crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey)
 
     def _savePkeyTo(self, pkey, *paths):
         path = self._getPathJoin(*paths)
@@ -983,7 +1059,7 @@ class CertDir:
 
         with s_common.genfile(path) as fd:
             fd.truncate(0)
-            fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
+            fd.write(self._pkeyToByts(pkey))
 
         return path
 
@@ -996,3 +1072,13 @@ class CertDir:
             fd.write(cert.export())
 
         return path
+
+certdir = CertDir()
+def getCertDir():
+    return certdir
+
+def addCertPath(path):
+    return certdir.addCertPath(path)
+
+def delCertPath(path):
+    return certdir.delCertPath(path)

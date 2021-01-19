@@ -121,8 +121,8 @@ dmonwrap = (
 
 async def t2call(link, meth, args, kwargs):
     '''
-    Call the given meth(*args, **kwargs) and handle the response
-    to provide telepath task v2 events to the given link.
+    Call the given ``meth(*args, **kwargs)`` and handle the response to provide
+    telepath task v2 events to the given link.
     '''
     try:
 
@@ -174,7 +174,7 @@ async def t2call(link, meth, args, kwargs):
                 await link.fini()
             return
 
-        except Exception as e:
+        except (asyncio.CancelledError, Exception) as e:
 
             if isinstance(e, asyncio.CancelledError):
                 logger.info('t2call task %s cancelled', meth.__name__)
@@ -206,7 +206,7 @@ async def t2call(link, meth, args, kwargs):
             await link.fini()
         return
 
-    except Exception as e:
+    except (asyncio.CancelledError, Exception) as e:
         logger.exception('error during task: %s', meth.__name__)
         if not link.isfini:
             retn = s_common.retnexc(e)
@@ -220,15 +220,17 @@ class Daemon(s_base.Base):
 
         self._shareLoopTasks = set()
 
-        self.certdir = s_certdir.CertDir(path=certdir)
+        if certdir is None:
+            certdir = s_certdir.getCertDir()
 
+        self.certdir = certdir
         self.televers = s_telepath.televers
 
         self.addr = None    # our main listen address
         self.cells = {}     # all cells are shared.  not all shared are cells.
         self.shared = {}    # objects provided by daemon
         self.listenservers = [] # the sockets we're listening on
-        self.connectedlinks = [] # the links we're currently connected on
+        self.links = set()
 
         self.sessions = {}
 
@@ -243,6 +245,15 @@ class Daemon(s_base.Base):
 
         self.onfini(self._onDmonFini)
 
+        # by default we are ready... ( backward compat )
+        self.dmonready = True
+
+    async def setReady(self, ready):
+        self.dmonready = ready
+        if not self.dmonready:
+            for link in list(self.links):
+                await link.fini()
+
     async def listen(self, url, **opts):
         '''
         Bind and listen on the given host/port with possible SSL.
@@ -251,7 +262,7 @@ class Daemon(s_base.Base):
             host (str): A hostname or IP address.
             port (int): The TCP port to bind.
         '''
-        info = s_urlhelp.chopurl(url, **opts)
+        info = s_telepath.chopurl(url, **opts)
         info.update(opts)
 
         scheme = info.get('scheme')
@@ -272,7 +283,11 @@ class Daemon(s_base.Base):
 
             sslctx = None
             if scheme == 'ssl':
-                sslctx = self.certdir.getServerSSLContext(hostname=host)
+
+                caname = info.get('ca')
+                hostname = info.get('hostname', host)
+
+                sslctx = self.certdir.getServerSSLContext(hostname=hostname, caname=caname)
 
             server = await s_link.listen(host, port, self._onLinkInit, ssl=sslctx)
 
@@ -317,7 +332,7 @@ class Daemon(s_base.Base):
         if finis:
             await asyncio.wait(finis)
 
-        finis = [link.fini() for link in self.connectedlinks]
+        finis = [link.fini() for link in self.links]
         if finis:
             await asyncio.wait(finis)
 
@@ -327,8 +342,19 @@ class Daemon(s_base.Base):
 
     async def _onLinkInit(self, link):
 
+        if not self.dmonready:
+            logger.warning(f'onLinkInit is not ready: {repr(link)}')
+            return await link.fini()
+
+        self.links.add(link)
+        async def fini():
+            self.links.discard(link)
+
+        link.onfini(fini)
+
         async def rxloop():
 
+            task = None
             while not link.isfini:
 
                 mesg = await link.rx()
@@ -336,10 +362,13 @@ class Daemon(s_base.Base):
                     await link.fini()
                     return
 
-                coro = self._onLinkMesg(link, mesg)
-                link.schedCoro(coro)
+                if task is not None:
+                    await task
 
-        self.schedCoro(rxloop())
+                coro = self._onLinkMesg(link, mesg)
+                task = link.schedCoro(coro)
+
+        link.schedCoro(rxloop())
 
     async def _onLinkMesg(self, link, mesg):
 
@@ -351,7 +380,7 @@ class Daemon(s_base.Base):
 
             await func(link, mesg)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError: # pragma: no cover  # TODO: remove once >= py 3.8 only
             raise
 
         except ConnectionResetError:
@@ -459,7 +488,6 @@ class Daemon(s_base.Base):
     async def _onTaskV2Init(self, link, mesg):
 
         # t2:init is used by the pool sockets on the client
-
         name = mesg[1].get('name')
         sidn = mesg[1].get('sess')
         todo = mesg[1].get('todo')
@@ -494,7 +522,7 @@ class Daemon(s_base.Base):
             if sessitem is not None:
                 sess.onfini(sessitem)
 
-        except Exception as e:
+        except (asyncio.CancelledError, Exception) as e:
             logger.exception('on t2:init: %r' % (mesg,))
             if not link.isfini:
                 retn = s_common.retnexc(e)
@@ -549,7 +577,7 @@ class Daemon(s_base.Base):
 
                 self.schedCoro(spinshareloop())
 
-        except Exception as e:
+        except (asyncio.CancelledError, Exception) as e:
 
             logger.exception('on task:init: %r', mesg)
 

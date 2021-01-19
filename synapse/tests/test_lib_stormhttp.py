@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 
 class StormHttpTest(s_test.SynTest):
@@ -8,21 +9,77 @@ class StormHttpTest(s_test.SynTest):
             addr, port = await core.addHttpsPort(0)
             root = await core.auth.getUserByName('root')
             await root.setPasswd('root')
-            text = '''
-                $hdr = (
+
+            core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url}}
+
+            # Header and params as dict
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar)
+            $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
-                )
-                $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/model", port=$port)
-
-                for ($name, $fdef) in $lib.inet.http.get($url, headers=$hdr, ssl_verify=$(0)).json().result.forms {
-                    [ test:str=$name ]
-                }
+            )
+            $resp = $lib.inet.http.get($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
             '''
-            opts = {'vars': {'port': port}}
-            nodes = await core.nodes(text, opts=opts)
-            self.len(1, await core.nodes('test:str=inet:ipv4'))
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('headers').get('User-Agent'), 'Storm HTTP Stuff')
 
-    async def test_storm_http_post_api(self):
+            # params as list of key/value pairs
+            q = '''
+            $params=((foo, bar), (key, valu))
+            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+
+            # params as a urlencoded string
+            q = '''
+            $params="foo=bar&key=valu&foo=baz"
+            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar', 'baz')})
+
+            # Bad param
+            q = '''
+            $params=(1138)
+            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInErr('Error during http get - Invalid query type', msgs)
+
+    async def test_storm_http_request(self):
+
+        async with self.getTestCore() as core:
+            addr, port = await core.addHttpsPort(0)
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+            core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url}}
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar)
+            $hdr = (
+                    ("User-Agent", "Storm HTTP Stuff"),
+            )
+            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('headers').get('User-Agent'), 'Storm HTTP Stuff')
+
+    async def test_storm_http_post(self):
 
         async with self.getTestCore() as core:
             addr, port = await core.addHttpsPort(0)
@@ -52,6 +109,19 @@ class StormHttpTest(s_test.SynTest):
             nodes = await core.nodes(adduser, opts=opts)
             self.len(1, nodes)
             self.assertIn('vertex', [u.name for u in core.auth.users()])
+
+            core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url, 'buf': b'1234'}}
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar)
+            $resp = $lib.inet.http.post($url, params=$params, body=$buf, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('body'), 'MTIzNA==')
 
     async def test_storm_http_post_file(self):
 
@@ -87,4 +157,12 @@ class StormHttpTest(s_test.SynTest):
             self.len(1, errs)
             err = errs[0]
             self.eq(err[0], 'StormRuntimeError')
-            self.isin('Error during http post - data and json parameters can not be used at the same time', err[1].get('mesg'))
+            self.isin('Error during http POST - data and json parameters can not be used at the same time', err[1].get('mesg'))
+
+    async def test_storm_http_proxy(self):
+        conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
+        async with self.getTestCore(conf=conf) as core:
+            resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
+            self.ne(-1, resp['mesg'].find('Can not connect to proxy 127.0.0.1:1'))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('return($lib.inet.http.get("http://vertex.link"))')

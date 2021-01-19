@@ -173,7 +173,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
             path = tuple(self.conf.get('auth:path').split('/'))
 
             node = await self.open(path)
-            self.auth = await s_hiveauth.Auth.anit(node)
+            self.auth = await s_hiveauth.Auth.anit(node, nexsroot=self.nexsroot)
             self.onfini(self.auth.fini)
 
         return self.auth
@@ -181,7 +181,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
     async def _onHiveFini(self):
         await self.root.fini()
 
-    async def get(self, full):
+    async def get(self, full, defv=None):
         '''
         Get the value of a node at a given path.
 
@@ -194,7 +194,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
 
         node = self.nodes.get(full)
         if node is None:
-            return None
+            return defv
 
         return node.valu
 
@@ -418,7 +418,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
 
         # passwd None always fails...
         passwd = info.get('passwd')
-        if not user.tryPasswd(passwd):
+        if not await user.tryPasswd(passwd):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return await HiveApi.anit(self, user)

@@ -5,7 +5,6 @@ Spawn is mechanism so that a cortex can execute different queries in separate pr
 import os
 import asyncio
 import logging
-import functools
 import threading
 import contextlib
 import collections
@@ -26,7 +25,6 @@ import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
 import synapse.lib.view as s_view
-import synapse.lib.storm as s_storm
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.hiveauth as s_hiveauth
 
@@ -318,7 +316,7 @@ class SpawnCore(s_base.Base):
         self.views = {}
         self.layers = {}
         self.nexsroot = None
-        self.isleader = False
+        self.isactive = False
         self.spawninfo = spawninfo
 
         self.conf = spawninfo.get('conf')
@@ -329,6 +327,7 @@ class SpawnCore(s_base.Base):
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
+        self.svcsbysvcname = {}
 
         self.stormcmds = {}
         self.storm_cmd_ctors = {}
@@ -387,10 +386,22 @@ class SpawnCore(s_base.Base):
         for view in self.views.values():
             view.init2()
 
+        # TODO maybe we should subclass telepath client
         self.addStormDmon = self.prox.addStormDmon
         self.delStormDmon = self.prox.delStormDmon
         self.getStormDmon = self.prox.getStormDmon
         self.getStormDmons = self.prox.getStormDmons
+
+        self.bumpStormDmon = self.prox.bumpStormDmon
+        self.enableStormDmon = self.prox.enableStormDmon
+        self.disableStormDmon = self.prox.disableStormDmon
+
+        # Cell specific apis
+        self.setHiveKey = self.prox.setHiveKey
+        self.getHiveKey = self.prox.getHiveKey
+        self.popHiveKey = self.prox.popHiveKey
+        self.getHiveKeys = self.prox.getHiveKeys
+        self.getUserDef = self.prox.getUserDef
 
     async def _initLayr(self, layrinfo):
         iden = layrinfo.get('iden')

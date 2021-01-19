@@ -1,3 +1,4 @@
+import copy
 import asyncio
 import logging
 
@@ -60,8 +61,10 @@ class Task(s_base.Base):
 
         try:
             await self.task
-        except Exception:
+        except asyncio.CancelledError:
             pass
+        except Exception:  # pragma:  no cover
+            logger.exception('Task completed with exception')
 
         if self.root is not None:
             self.root.kids.pop(self.iden)
@@ -84,7 +87,7 @@ class Task(s_base.Base):
         pask = {
             'iden': self.iden,
             'name': self.name,
-            'info': self.info,
+            'info': copy.deepcopy(self.info),
             'tick': self.tick,
             'user': 'root',
             'kids': {i: k.pack() for i, k in self.kids.items()},

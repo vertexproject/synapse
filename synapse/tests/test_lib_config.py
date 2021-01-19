@@ -1,4 +1,5 @@
 import os
+import regex
 import argparse
 
 import yaml
@@ -94,6 +95,9 @@ class ConfTest(s_test.SynTest):
                 pars.add_argument(optname, **optinfo)
             self.true(stream.wait(3))
         hmsg = pars.format_help()
+
+        # Undo pretty-printing
+        hmsg = regex.sub(r'\s\s+', ' ', hmsg)
 
         # Multiple types are supported for argparse and descriptions
         # are used to generate the argparse help
@@ -284,17 +288,57 @@ class ConfTest(s_test.SynTest):
         for optname, optinfo in conf.getArgParseArgs():
             pars.add_argument(optname, **optinfo)
 
+        # key:integer is not present in cmdline
         hmsg = pars.format_help()
         self.isin('--key-string', hmsg)
         self.notin('--key-integer', hmsg)
 
         s1 = yaml.safe_dump('We all float down here')
         i1 = yaml.safe_dump(8675309)
-        # Load data from envars next - this shows precedence as well
-        # where data already set won't be set again via this method.
+        # Load data from envars next - this shows that we won't
+        # set the key:integer value
         with self.setTstEnvars(KEY_STRING=s1,
                                KEY_INTEGER=i1,
                                ):
             conf.setConfFromEnvs()
         self.eq(conf.get('key:string'), 'We all float down here')
         self.none(conf.get('key:integer'))
+
+        # hidearg instead of hideconf
+        hide_schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "additionalProperties": False,
+            "properties": {
+                'key:string': {
+                    'description': 'Key String. I have a defval!',
+                    'type': 'string',
+                    'default': 'Default string!'
+                },
+                'key:integer': {
+                    'description': 'Key Integer',
+                    'type': 'integer',
+                    'arg': True,
+                    'hidecmdl': True,
+                },
+            }
+        }
+        conf = s_config.Config(hide_schema)
+        pars = argparse.ArgumentParser('synapse.tests.test_lib_config.test_hideconf')
+        for optname, optinfo in conf.getArgParseArgs():
+            pars.add_argument(optname, **optinfo)
+
+        # key:integer is not present in cmdline
+        hmsg = pars.format_help()
+        self.isin('--key-string', hmsg)
+        self.notin('--key-integer', hmsg)
+
+        s1 = yaml.safe_dump('We all float down here')
+        i1 = yaml.safe_dump(8675309)
+        # Load data from envars next - this shows we will
+        # set the key:integer value
+        with self.setTstEnvars(KEY_STRING=s1,
+                               KEY_INTEGER=i1,
+                               ):
+            conf.setConfFromEnvs()
+        self.eq(conf.get('key:string'), 'We all float down here')
+        self.eq(conf.get('key:integer'), 8675309)

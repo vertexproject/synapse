@@ -1,5 +1,7 @@
 import os
 
+import unittest.mock as mock
+
 import synapse.common as s_common
 import synapse.tests.utils as s_test
 
@@ -10,6 +12,25 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.tools.hive.save as s_hivesave
 
 class HiveSaveTest(s_test.SynTest):
+
+    async def test_tools_hivesave_vercheck(self):
+        with self.getTestDir() as dirn:
+
+            hivepath0 = os.path.join(dirn, 'hivesave0.mpk')
+
+            async with self.getTestHiveDmon() as dmon:
+                hurl = self.getTestUrl(dmon, 'hive')
+
+                argv = [hurl, hivepath0]
+
+                def _getOldSynVers(self):
+                    return (0, 0, 0)
+
+                with mock.patch('synapse.telepath.Proxy._getSynVers', _getOldSynVers):
+                    outp = self.getTestOutp()
+                    retn = await s_hivesave.main(argv, outp=outp)
+                    outp.expect('Hive version 0.0.0 is outside of the hive.save supported range')
+                    self.eq(1, retn)
 
     async def test_tools_hivesave(self):
 
@@ -25,7 +46,8 @@ class HiveSaveTest(s_test.SynTest):
 
                 hurl = self.getTestUrl(dmon, 'hive')
 
-                await s_hivesave.main([hurl, hivepath0])
+                retn = await s_hivesave.main([hurl, hivepath0])
+                self.eq(0, retn)
 
                 tree = s_msgpack.loadfile(hivepath0)
                 self.eq('visi', tree['kids']['baz']['kids']['faz']['value'])

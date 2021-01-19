@@ -1,3 +1,4 @@
+import regex
 import synapse.exc as s_exc
 
 def chopurl(url):
@@ -67,3 +68,20 @@ def chopurl(url):
 
     ret['path'] = pathrem
     return ret
+
+_url_re = regex.compile(r'^(?P<front>.+?://.+?:)[^/]+?(?=@)')
+
+def sanitizeUrl(url):
+    '''
+    Returns a URL with the password (if present) replaced with ****
+
+    RFC 3986 3.2.1 'Applications should not render as clear text any data after the first colon (":") character found
+    within a userinfo subcomponent unless the data after the colon is the empty string (indicating no password)'
+
+    Essentially, replace everything between the 2nd colon (if it exists) and the first succeeding at sign.  Return the
+    original string otherwise.
+
+    Note: this depends on this being a reasonably-well formatted URI that starts with a scheme (e.g. http) and '//:'
+    Failure of this condition yields the original string.
+    '''
+    return _url_re.sub(r'\g<front>****', url)

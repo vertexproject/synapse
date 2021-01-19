@@ -150,12 +150,12 @@ class ItModule(s_module.CoreModule):
         modl = {
             'ctors': (
                 ('it:semver', 'synapse.models.infotech.SemVer', {}, {
-                    'doc': 'Semantic Version type',
+                    'doc': 'Semantic Version type.',
                 }),
             ),
             'types': (
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
-                    'doc': 'The name of a host or sytsem',
+                    'doc': 'The name of a host or system.',
                 }),
                 ('it:host', ('guid', {}), {
                     'doc': 'A GUID that represents a host or system.'
@@ -191,10 +191,13 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A arbitrary, unversioned software product.',
                 }),
 
-                ('it:os:ios:idfa', ('str', {'lower': 1}), {
+                ('it:adid', ('str', {'lower': True, 'strip': True}), {
+                    'doc': 'An advertising identification string.'}),
+
+                ('it:os:ios:idfa', ('it:adid', {}), {
                     'doc': 'An iOS advertising identification string.'}),
 
-                ('it:os:android:aaid', ('str', {'lower': 1}), {
+                ('it:os:android:aaid', ('it:adid', {}), {
                     'doc': 'An android advertising identification string.'}),
 
                 ('it:os:android:perm', ('str', {}), {
@@ -247,7 +250,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A file that triggered an alert on a specific antivirus signature.',
                 }),
                 ('it:auth:passwdhash', ('guid', {}), {
-                    'doc': 'An instance of a password hash',
+                    'doc': 'An instance of a password hash.',
                 }),
                 ('it:exec:proc', ('guid', {}), {
                     'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
@@ -259,7 +262,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A named pipe created by a process at runtime.',
                 }),
                 ('it:exec:url', ('guid', {}), {
-                    'doc': 'A instance of a host requesting a URL.',
+                    'doc': 'An instance of a host requesting a URL.',
                 }),
                 ('it:exec:bind', ('guid', {}), {
                     'doc': 'An instance of a host binding a listening port.',
@@ -283,7 +286,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a host getting a registry key.',
                 }),
                 ('it:exec:reg:set', ('guid', {}), {
-                    'doc': 'An instance of a host creating or setting a registry key',
+                    'doc': 'An instance of a host creating or setting a registry key.',
                 }),
                 ('it:exec:reg:del', ('guid', {}), {
                     'doc': 'An instance of a host deleting a registry key.',
@@ -307,9 +310,12 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a function in an executable.',
                 }),
                 ('it:reveng:funcstr', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
+                    'deprecated': True,
                     'doc': 'A reference to a string inside a function.',
                 }),
-
+                ('it:reveng:impfunc', ('str', {'lower': 1}), {
+                    'doc': 'A function from an imported library.',
+                }),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
@@ -345,6 +351,12 @@ class ItModule(s_module.CoreModule):
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.',
                     }),
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'The operator of the host.',
+                    }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org that operates the given host.',
+                    }),
                 )),
                 ('it:hosturl', {}, (
                     ('host', ('it:host', {}), {
@@ -364,6 +376,7 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:cve', {}, (
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the CVE vulnerability.',
+                        'disp': {'hint': 'text'},
                     }),
                 )),
                 ('it:dev:int', {}, ()),
@@ -391,12 +404,13 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the software.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('desc:short', ('str', {'lower': True}), {
                         'doc': 'A short description of the software.',
                     }),
                     ('author:org', ('ou:org', {}), {
-                        'doc': 'Organization which authored the software',
+                        'doc': 'Organization which authored the software.',
                     }),
                     ('author:acct', ('inet:web:acct', {}), {
                         'doc': 'Web account of the software author.',
@@ -419,6 +433,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Set to True if the software is a library.'}),
                 )),
 
+                ('it:adid', {}, ()),
                 ('it:os:ios:idfa', {}, ()),
                 ('it:os:android:aaid', {}, ()),
                 ('it:os:android:perm', {}, ()),
@@ -464,7 +479,7 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:softver', {}, (
 
                     ('software', ('it:prod:soft', {}), {
-                        'doc': 'Software associated with this version instance',
+                        'doc': 'Software associated with this version instance.',
                     }),
                     ('software:name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name of the software at a particular version.',
@@ -476,7 +491,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Normalized version of the version string.',
                     }),
                     ('arch', ('it:dev:str', {}), {
-                        'doc': 'Software architecture',
+                        'doc': 'Software architecture.',
                     }),
                     ('semver', ('it:semver', {}), {
                         'doc': 'System normalized semantic version number.',
@@ -538,7 +553,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The signature name.'
                     }),
                     ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the signature',
+                        'doc': 'A free-form description of the signature.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'A reference URL for information about the signature.',
@@ -598,9 +614,10 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('cmd', ('str', {}), {
                         'doc': 'The command string used to launch the process, including any command line parameters.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('pid', ('int', {}), {
-                        'doc': 'The process ID',
+                        'doc': 'The process ID.',
                     }),
                     ('time', ('time', {}), {
                         'doc': 'The start time for the process.',
@@ -612,7 +629,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path to the executable of the process.',
                     }),
                     ('src:exe', ('file:path', {}), {
-                        'doc': 'The path to the executable which started the process',
+                        'doc': 'The path to the executable which started the process.',
                     }),
                     ('src:proc', ('it:exec:proc', {}), {
                         'doc': 'The process which created the process.'
@@ -923,7 +940,9 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:snort:rule', {}, (
                     ('text', ('str', {}), {
-                        'doc': 'The snort rule text.'}),
+                        'doc': 'The snort rule text.',
+                        'disp': {'hint': 'text'},
+                    }),
                     ('name', ('str', {}), {
                         'doc': 'The name of the snort rule.'}),
                     ('version', ('it:semver', {}), {
@@ -961,9 +980,13 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:yara:rule', {}, (
                     ('text', ('str', {}), {
-                        'doc': 'The yara rule text.'}),
+                        'doc': 'The yara rule text.',
+                        'disp': {'hint': 'text'},
+                    }),
                     ('name', ('str', {}), {
                         'doc': 'The name of the yara rule.'}),
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'Contact info for the author of the yara rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
                 )),
@@ -981,30 +1004,45 @@ class ItModule(s_module.CoreModule):
 
                 ('it:reveng:function', {}, (
                     ('name', ('str', {}), {
-                        'doc': 'The name of the function'}),
+                        'doc': 'The name of the function.'}),
                     ('description', ('str', {}), {
-                        'doc': 'Notes concerning the function'}),
+                        'doc': 'Notes concerning the function.'}),
+                    ('impcalls', ('array', {'type': 'it:reveng:impfunc'}), {
+                        'doc': 'Calls to imported library functions within the scope of the function.',
+                    }),
+                    ('strings', ('array', {'type': 'it:dev:str', 'uniq': True}), {
+                        'doc': 'An array of strings referenced within the function.',
+                    }),
                 )),
 
                 ('it:reveng:filefunc', {}, (
                     ('function', ('it:reveng:function', {}), {
                         'ro': True,
-                        'doc': 'The guid matching the function'}),
+                        'doc': 'The guid matching the function.'}),
                     ('file', ('file:bytes', {}), {
                         'ro': True,
                         'doc': 'The file that contains the function.'}),
                     ('va', ('int', {}), {
-                        'doc': 'The virtual address of the first codeblock of the function'}),
+                        'doc': 'The virtual address of the first codeblock of the function.'}),
+                    ('rank', ('int', {}), {
+                        'doc': 'The function rank score used to evaluate if it exhibits interesting behavior.'}),
+                    ('complexity', ('int', {}), {
+                        'doc': 'The complexity of the function.'}),
+                    ('funccalls', ('array', {'type': 'it:reveng:filefunc'}), {
+                        'doc': 'Other function calls within the scope of the function.',
+                    }),
                 )),
 
                 ('it:reveng:funcstr', {}, (
                     ('function', ('it:reveng:function', {}), {
                         'ro': True,
-                        'doc': 'The guid matching the function'}),
+                        'doc': 'The guid matching the function.'}),
                     ('string', ('str', {}), {
                         'ro': True,
                         'doc': 'The string that the function references.'}),
                 )),
+
+                ('it:reveng:impfunc', {}, ()),
 
             ),
         }

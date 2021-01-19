@@ -26,6 +26,12 @@ class StormWhoisTest(s_test.SynTest):
             guid_exp = s_common.guid(sorted((props['net4'], str(props['asof']), props['id'])))
             self.len(1, await core.nodes(f'inet:whois:iprec={guid_exp}'))
 
+            stormcmd = '''$props=$lib.dict(net4="10.0.0.0/28", asof=(2554869000000), id='NET-10-0-0-0-1', status=validated)
+            return ($lib.inet.whois.guid($props, 'iprec'))
+            '''
+            guid = await core.callStorm(stormcmd)
+            self.eq(guid_exp, guid)
+
             # contact
             pscontact = s_common.guid()
             props = {

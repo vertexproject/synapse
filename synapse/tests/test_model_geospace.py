@@ -12,6 +12,7 @@ geotestmodel = {
 
     'types': (
         ('test:latlong', ('geo:latlong', {}), {}),
+        ('test:distoff', ('geo:dist', {'baseoff': 1000}), {}),
     ),
 
     'forms': (
@@ -21,7 +22,90 @@ geotestmodel = {
             ('long', ('geo:longitude', {}), {}),
             ('dist', ('geo:dist', {}), {}),
         )),
+        ('test:distoff', {}, ()),
     ),
+}
+
+geojson0 = {
+  "type": "GeometryCollection",
+  "bbox": [-110, -45, 110, 45],
+  "geometries": [
+    {
+      "type": "Point",
+      "coordinates": [0, 0]
+    },
+    {
+      "type": "LineString",
+      "coordinates": [[-110, 45], [110, -45]]
+    },
+    {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [100.0, 0.0],
+          [101.0, 0.0],
+          [101.0, 1.0],
+          [100.0, 1.0],
+          [100.0, 0.0]
+        ],
+        [
+          [100.8, 0.8],
+          [100.8, 0.2],
+          [100.2, 0.2],
+          [100.2, 0.8],
+          [100.8, 0.8]
+        ]
+      ]
+    }
+  ]
+}
+
+geojson1 = {
+  "type": "MultiPolygon",
+  "coordinates": [
+    [
+      [
+        [102.0, 2.0, 10],
+        [103.0, 2.0, 10],
+        [103.0, 3.0, 10],
+        [102.0, 3.0, 10],
+        [102.0, 2.0, 10]
+      ]
+    ],
+    [
+      [
+        [100.0, 0.0, 20],
+        [101.0, 0.0, 20],
+        [101.0, 1.0, 20],
+        [100.0, 1.0, 20],
+        [100.0, 0.0, 20]
+      ],
+      [
+        [100.2, 0.2, 30],
+        [100.8, 0.2, 30],
+        [100.8, 0.8, 30],
+        [100.2, 0.8, 30],
+        [100.2, 0.2, 30]
+      ]
+    ]
+  ]
+}
+
+geojson2 = {
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "1",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [0, 0]
+      },
+      "properties": {
+        "name": "basic"
+      }
+    }
+  ]
 }
 
 class GeoTstModule(s_module.CoreModule):
@@ -136,12 +220,14 @@ class GeoTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
                 guid = s_common.guid()
+                fbyts = s_common.guid()
                 parent = s_common.guid()
                 props = {'name': 'Vertex  HQ',
                          'desc': 'The place where Vertex Project hangs out at!',
                          'address': '208 Datong Road, Pudong District, Shanghai, China',
                          'parent': parent,
                          'loc': 'us.hehe.haha',
+                         'photo': f'guid:{fbyts}',
                          'latlong': '34.1341, -118.3215',
                          'bbox': '2.11, 2.12, -4.88, -4.9',
                          'radius': '1.337km'}
@@ -154,6 +240,7 @@ class GeoTest(s_t_utils.SynTest):
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
                 self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
                 self.eq(node.get('parent'), parent)
+                self.eq(node.get('photo'), f'guid:{fbyts}')
 
                 self.eq(node.get('bbox'), (2.11, 2.12, -4.88, -4.9))
                 self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
@@ -162,7 +249,7 @@ class GeoTest(s_t_utils.SynTest):
                 nodes = await core.nodes('geo:place=$place', opts=opts)
                 self.len(1, nodes)
 
-            q = '[geo:place=(beep) :latlong=$latlong]'
+            q = '[geo:place=(beep,) :latlong=$latlong]'
             opts = {'vars': {'latlong': (11.38, 20.01)}}
             nodes = await core.nodes(q, opts)
             self.len(1, nodes)
@@ -295,6 +382,7 @@ class GeoTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
         async with self.getTestCore() as core:
+
             await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
             # Lift behavior for a node whose has a latlong as their primary property
             nodes = await core.nodes('[(test:latlong=(10, 10) :dist=10m) '
@@ -329,3 +417,31 @@ class GeoTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('test:latlong:dist*range=(8m, 10m)')
             self.len(1, nodes)
+
+    async def test_geojson(self):
+
+        async with self.getTestCore() as core:
+
+            with self.raises(s_exc.BadTypeValu):
+                opts = {'vars': {'geojson': {}}}
+                nodes = await core.nodes('[ geo:place=* :geojson=$geojson ]', opts=opts)
+
+            opts = {'vars': {'geojson': geojson0}}
+            nodes = await core.nodes('[ geo:place=* :geojson=$geojson ]', opts=opts)
+
+            opts = {'vars': {'geojson': geojson1}}
+            nodes = await core.nodes('[ geo:place=* :geojson=$geojson ]', opts=opts)
+
+            opts = {'vars': {'geojson': geojson2}}
+            nodes = await core.nodes('[ geo:place=* :geojson=$geojson ]', opts=opts)
+
+    async def test_geo_dist_offset(self):
+
+        async with self.getTestCore() as core:
+
+            await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
+            nodes = await core.nodes('[ test:distoff=-3cm ]')
+            self.eq(970, nodes[0].ndef[1])
+            self.eq('-3.0 cm', await core.callStorm('test:distoff return($node.repr())'))
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[ test:distoff=-3km ]')

@@ -22,12 +22,153 @@ distrepr = (
     (10.0, 'cm'),
 )
 
+geojsonschema = {
+
+    'definitions': {
+
+        'BoundingBox': {'type': 'array', 'minItems': 4, 'items': {'type': 'number'}},
+        'PointCoordinates': {'type': 'array', 'minItems': 2, 'items': {'type': 'number'}},
+        'LineStringCoordinates': {'type': 'array', 'minItems': 2, 'items': {'$ref': '#/definitions/PointCoordinates'}},
+        'LinearRingCoordinates': {'type': 'array', 'minItems': 4, 'items': {'$ref': '#/definitions/PointCoordinates'}},
+        'PolygonCoordinates': {'type': 'array', 'items': {'$ref': '#/definitions/LinearRingCoordinates'}},
+
+        'Point': {
+            'title': 'GeoJSON Point',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['Point']},
+                'coordinates': {'$ref': '#/definitions/PointCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+         },
+
+        'LineString': {
+            'title': 'GeoJSON LineString',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['LineString']},
+                'coordinates': {'$ref': '#/definitions/LineStringCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+         },
+
+        'Polygon': {
+            'title': 'GeoJSON Polygon',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['Polygon']},
+                'coordinates': {'$ref': '#/definitions/PolygonCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'MultiPoint': {
+            'title': 'GeoJSON MultiPoint',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiPoint']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/PointCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'MultiLineString': {
+            'title': 'GeoJSON MultiLineString',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiLineString']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/LineStringCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+         },
+
+        'MultiPolygon': {
+            'title': 'GeoJSON MultiPolygon',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiPolygon']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/PolygonCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'GeometryCollection': {
+            'title': 'GeoJSON GeometryCollection',
+            'type': 'object',
+            'required': ['type', 'geometries'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['GeometryCollection']},
+                'geometries': {'type': 'array', 'items': {'oneOf': [
+                    {'$ref': '#/definitions/Point'},
+                    {'$ref': '#/definitions/LineString'},
+                    {'$ref': '#/definitions/Polygon'},
+                    {'$ref': '#/definitions/MultiPoint'},
+                    {'$ref': '#/definitions/MultiLineString'},
+                    {'$ref': '#/definitions/MultiPolygon'},
+                ]}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'Feature': {
+            'title': 'GeoJSON Feature',
+            'type': 'object',
+            'required': ['type', 'properties', 'geometry'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['Feature']},
+                'geometry': {'oneOf': [
+                    {'type': 'null'},
+                    {'$ref': '#/definitions/Point'},
+                    {'$ref': '#/definitions/LineString'},
+                    {'$ref': '#/definitions/Polygon'},
+                    {'$ref': '#/definitions/MultiPoint'},
+                    {'$ref': '#/definitions/MultiLineString'},
+                    {'$ref': '#/definitions/MultiPolygon'},
+                    {'$ref': '#/definitions/GeometryCollection'},
+                ]},
+                'properties': {'oneOf': [{'type': 'null'}, {'type': 'object'}]},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'FeatureCollection': {
+            'title': 'GeoJSON FeatureCollection',
+            'type': 'object',
+            'required': ['type', 'features'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['FeatureCollection']},
+                'features': {'type': 'array', 'items': {'$ref': '#/definitions/Feature'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+    },
+
+    'oneOf': [
+        {'$ref': '#/definitions/Point'},
+        {'$ref': '#/definitions/LineString'},
+        {'$ref': '#/definitions/Polygon'},
+        {'$ref': '#/definitions/MultiPoint'},
+        {'$ref': '#/definitions/MultiLineString'},
+        {'$ref': '#/definitions/MultiPolygon'},
+        {'$ref': '#/definitions/GeometryCollection'},
+        {'$ref': '#/definitions/Feature'},
+        {'$ref': '#/definitions/FeatureCollection'},
+    ],
+}
+
 class Dist(s_types.Int):
 
     def postTypeInit(self):
         s_types.Int.postTypeInit(self)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
+        self.baseoff = self.opts.get('baseoff', 0)
 
     def _normPyInt(self, valu):
         return valu, {}
@@ -47,16 +188,33 @@ class Dist(s_types.Int):
             raise s_exc.BadTypeValu(valu=text, name=self.name,
                                     mesg='invalid/unknown dist unit: %s' % (unit,))
 
-        return int(valu * mult), {}
+        norm = int(valu * mult) + self.baseoff
+        if norm < 0:
+            mesg = 'A geo:dist may not be negative.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        return norm, {}
 
     def repr(self, norm):
 
-        for base, unit in distrepr:
-            if norm >= base:
-                size = norm / base
-                return '%s %s' % (size, unit)
+        valu = norm - self.baseoff
 
-        return '%d mm' % (norm,)
+        text = None
+
+        absv = abs(valu)
+        for base, unit in distrepr:
+            if absv >= base:
+                size = absv / base
+                text = '%s %s' % (size, unit)
+                break
+
+        if text is None:
+            text = '%d mm' % (absv,)
+
+        if valu < 0:
+            text = f'-{text}'
+
+        return text
 
 class LatLong(s_types.Type):
 
@@ -121,10 +279,10 @@ class GeoModule(s_module.CoreModule):
 
                 'ctors': (
                     ('geo:dist', 'synapse.models.geospace.Dist', {}, {
-                        'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'
+                        'doc': 'A geographic distance (base unit is mm).', 'ex': '10 km'
                     }),
                     ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
-                        'doc': 'A Lat/Long string specifying a point on Earth',
+                        'doc': 'A Lat/Long string specifying a point on Earth.',
                         'ex': '-12.45,56.78'
                     }),
                 ),
@@ -135,6 +293,10 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'Records a node latitude/longitude in space-time.'
                     }),
 
+                    ('geo:json', ('data', {'schema': geojsonschema}), {
+                        'doc': 'GeoJSON structured JSON data.',
+                    }),
+
                     ('geo:place', ('guid', {}), {
                         'doc': 'A GUID for a geographic place.'}),
 
@@ -142,9 +304,15 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'A street/mailing address string.',
                     }),
                     ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
-                                       'minisvalid': False, 'maxisvalid': True}), {}),
+                                       'minisvalid': False, 'maxisvalid': True}), {
+                        'ex': '31.337',
+                        'doc': 'A longitude in floating point notation.',
+                    }),
                     ('geo:latitude', ('float', {'min': -90.0, 'max': 90.0,
-                                      'minisvalid': True, 'maxisvalid': True}), {}),
+                                      'minisvalid': True, 'maxisvalid': True}), {
+                        'ex': '31.337',
+                        'doc': 'A latitude in floating point notation.',
+                    }),
 
                     ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
                                                 ('xmin', 'geo:longitude'),
@@ -153,6 +321,9 @@ class GeoModule(s_module.CoreModule):
                                                 ('ymax', 'geo:latitude'))}), {
                         'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.',
                     }),
+                    ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
+                        'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'
+                    }),
                 ),
 
                 'forms': (
@@ -160,7 +331,7 @@ class GeoModule(s_module.CoreModule):
                     ('geo:nloc', {}, (
 
                         ('ndef', ('ndef', {}), {'ro': True,
-                            'doc': 'The node with location in geo/time'}),
+                            'doc': 'The node with location in geospace and time.'}),
 
                         ('ndef:form', ('str', {}), {'ro': True,
                             'doc': 'The form of node referenced by the ndef.'}),
@@ -169,7 +340,7 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The latitude/longitude the node was observed.'}),
 
                         ('time', ('time', {}), {'ro': True,
-                            'doc': 'The time the node was observed at location'}),
+                            'doc': 'The time the node was observed at location.'}),
 
                         ('place', ('geo:place', {}), {
                             'doc': 'The place corresponding to the latlong property.'}),
@@ -196,6 +367,9 @@ class GeoModule(s_module.CoreModule):
                         ('address', ('geo:address', {}), {
                             'doc': 'The street/mailing address for the place.'}),
 
+                        ('geojson', ('geo:json', {}), {
+                            'doc': 'A GeoJSON representation of the place.'}),
+
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The lat/long position for the place.'}),
 
@@ -204,6 +378,9 @@ class GeoModule(s_module.CoreModule):
 
                         ('radius', ('geo:dist', {}), {
                             'doc': 'An approximate radius to use for bounding box calculation.'}),
+
+                        ('photo', ('file:bytes', {}), {
+                            'doc': 'The image file to use as the primary image of the place.'}),
                     )),
                 )
             }),

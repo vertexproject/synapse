@@ -1,5 +1,7 @@
 import os
 
+import unittest.mock as mock
+
 import synapse.common as s_common
 import synapse.tests.utils as s_test
 
@@ -29,6 +31,26 @@ htree1 = {
 
 class HiveLoadTest(s_test.SynTest):
 
+    async def test_tools_hiveload_vercheck(self):
+        with self.getTestDir() as dirn:
+
+            hivepath0 = os.path.join(dirn, 'hivesave0.mpk')
+            s_msgpack.dumpfile(htree0, hivepath0)
+
+            async with self.getTestHiveDmon() as dmon:
+                hurl = self.getTestUrl(dmon, 'hive')
+
+                argv = [hurl, hivepath0]
+
+                def _getOldSynVers(self):
+                    return (0, 0, 0)
+
+                with mock.patch('synapse.telepath.Proxy._getSynVers', _getOldSynVers):
+                    outp = self.getTestOutp()
+                    retn = await s_hiveload.main(argv, outp=outp)
+                    outp.expect('Hive version 0.0.0 is outside of the hive.load supported range')
+                    self.eq(1, retn)
+
     async def test_tools_hiveload(self):
 
         with self.getTestDir() as dirn:
@@ -46,21 +68,24 @@ class HiveLoadTest(s_test.SynTest):
                 hive = dmon.shared.get('hive')
                 hurl = self.getTestUrl(dmon, 'hive')
 
-                await s_hiveload.main([hurl, hivepath0])
+                retn = await s_hiveload.main([hurl, hivepath0])
+                self.eq(0, retn)
 
                 self.eq(20, await hive.get(('hehe',)))
                 self.eq(30, await hive.get(('haha',)))
                 self.eq('bar', await hive.get(('haha', 'foo')))
                 self.eq('faz', await hive.get(('haha', 'baz')))
 
-                await s_hiveload.main([hurl, hivepath1])
+                retn = await s_hiveload.main([hurl, hivepath1])
+                self.eq(0, retn)
 
                 self.eq(20, await hive.get(('hehe',)))
                 self.eq(30, await hive.get(('haha',)))
                 self.eq('bar', await hive.get(('haha', 'foo')))
                 self.eq('faz', await hive.get(('haha', 'baz')))
 
-                await s_hiveload.main(['--trim', hurl, hivepath1])
+                retn = await s_hiveload.main(['--trim', hurl, hivepath1])
+                self.eq(0, retn)
 
                 self.eq(20, await hive.get(('hehe',)))
                 self.eq(30, await hive.get(('haha',)))

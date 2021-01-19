@@ -5,7 +5,6 @@ import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.lmdbslab as s_lmdbslab
 
 class SlabSeqn:
     '''
@@ -15,7 +14,7 @@ class SlabSeqn:
         lenv (lmdb.Environment): The LMDB Environment.
         name (str): The name of the sequence.
     '''
-    def __init__(self, slab: s_lmdbslab.Slab, name: str) -> None:
+    def __init__(self, slab, name: str) -> None:
 
         self.slab = slab
         self.db = self.slab.initdb(name)
@@ -29,12 +28,40 @@ class SlabSeqn:
             _, _, evnt = heapq.heappop(self.offsevents)
             evnt.set()
 
-    def add(self, item):
+    def pop(self, offs):
+        '''
+        Pop a single entry at the given offset.
+        '''
+        byts = self.slab.pop(s_common.int64en(offs), db=self.db)
+        if byts is not None:
+            return (offs, s_msgpack.un(byts))
+
+    async def cull(self, offs):
+        '''
+        Remove entries up to (and including) the given offset.
+        '''
+        for itemoffs, valu in self.iter(0):
+
+            if itemoffs > offs:
+                return
+
+            self.slab.delete(s_common.int64en(itemoffs), db=self.db)
+            await asyncio.sleep(0)
+
+    def add(self, item, indx=None):
         '''
         Add a single item to the sequence.
         '''
+        if indx is not None:
+            self.slab.put(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
+            if indx >= self.indx:
+                self.indx = indx + 1
+                self._wake_waiters()
+            return indx
+
         indx = self.indx
-        self.slab.put(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
+        retn = self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
+        assert retn, "Not adding the largest index"
 
         self.indx += 1
 
@@ -83,8 +110,10 @@ class SlabSeqn:
 
             rows.append((lkey, byts))
 
-        self.slab.putmulti(rows, append=True, db=self.db)
+        retn = self.slab.putmulti(rows, append=True, db=self.db)
         took = s_common.now() - tick
+
+        assert retn, "Not adding the largest indices"
 
         origindx = self.indx
         self.indx = indx
@@ -106,12 +135,11 @@ class SlabSeqn:
         Returns:
             int: The next insert offset.
         '''
-        indx = 0
-        with s_lmdbslab.Scan(self.slab, self.db) as curs:
-            last_key = curs.last_key()
-            if last_key is not None:
-                indx = s_common.int64un(last_key) + 1
-        return indx
+        byts = self.slab.lastkey(db=self.db)
+        if byts is None:
+            return 0
+
+        return s_common.int64un(byts) + 1
 
     def iter(self, offs):
         '''
@@ -128,6 +156,20 @@ class SlabSeqn:
             indx = s_common.int64un(lkey)
             valu = s_msgpack.un(lval)
             yield indx, valu
+
+    async def gets(self, offs, wait=True):
+        '''
+        '''
+        while True:
+
+            for (indx, valu) in self.iter(offs):
+                yield (indx, valu)
+                offs = indx + 1
+
+            if not wait:
+                return
+
+            await self.waitForOffset(self.indx)
 
     def trim(self, offs):
         '''

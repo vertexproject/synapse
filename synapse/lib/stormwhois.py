@@ -4,15 +4,18 @@ import synapse.common as s_common
 
 import synapse.lib.stormtypes as s_stormtypes
 
+@s_stormtypes.registry.registerLib
 class LibWhois(s_stormtypes.Lib):
     '''
-    WHOIS / Registration Data client for Storm.
+    A Storm Library for providing a consistent way to generate guids for WHOIS / Registration Data in Storm.
     '''
 
-    def addLibFuncs(self):
-        self.locls.update({
-            'guid': self._whoisGuid,
-        })
+    _storm_lib_path = ('inet', 'whois')
+
+    def getObjLocals(self):
+        return {
+             'guid': self._whoisGuid,
+         }
 
     async def _whoisGuid(self, props, form):
         '''
@@ -28,7 +31,8 @@ class LibWhois(s_stormtypes.Lib):
         Raises:
             StormRuntimeError: If form is not supported in this method
         '''
-
+        form = await s_stormtypes.tostr(form)
+        props = await s_stormtypes.toprim(props)
         if form == 'iprec':
             guid_props = ('net4', 'net6', 'asof', 'id')
         elif form == 'ipcontact':

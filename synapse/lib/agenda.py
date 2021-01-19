@@ -26,6 +26,8 @@ reqValidCdef = s_config.getJsValidator({
     'properties': {
         'storm': {'type': 'string'},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'doc': {'type': 'string'},
         'incunit': {
             'oneOf': [
                 {'type': 'null'},
@@ -58,11 +60,11 @@ reqValidCdef = s_config.getJsValidator({
         'req': {
             'type': 'object',
             'properties': {
-                'minute': {'type': 'number'},
-                'hour': {'type': 'number'},
-                'dayofmonth': {'type': 'number'},
-                'month': {'type': 'number'},
-                'year': {'type': 'number'},
+                'minute': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'hour': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'dayofmonth': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'month': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'year': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
             }
         }
     }
@@ -93,6 +95,7 @@ class TimeUnit(enum.IntEnum):
     DAY = enum.auto()         # every day
     HOUR = enum.auto()
     MINUTE = enum.auto()
+    NOW = enum.auto()
 
     @classmethod
     def fromString(cls, s):
@@ -500,7 +503,7 @@ class Agenda(s_base.Base):
             return
         self._schedtask.cancel()
         for task in self._running_tasks:
-            task.cancel()
+            await task.fini()
 
         self.enabled = False
 
@@ -617,15 +620,22 @@ class Agenda(s_base.Base):
             reqs = [reqs]
 
         # Find all combinations of values in reqdict values and incvals values
+        nexttime = None
         recs = []  # type: ignore
         for req in reqs:
+            if TimeUnit.NOW in req:
+                if incunit is not None:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise ValueError(mesg)
+                nexttime = time.time()
+                continue
 
             reqdicts = self._dictproduct(req)
             if not isinstance(incvals, Iterable):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(self, iden, recur, indx, query, creator, recs)
+        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')

@@ -12,6 +12,7 @@ class OuModelTest(s_t_utils.SynTest):
             goal = s_common.guid()
             org0 = s_common.guid()
             camp = s_common.guid()
+            acto = s_common.guid()
 
             async with await core.snap() as snap:
 
@@ -41,6 +42,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'org': org0,
                     'goal': goal,
                     'goals': (goal,),
+                    'actors': (acto,),
                     'name': 'MyName',
                     'type': 'MyType',
                     'desc': 'MyDesc',
@@ -49,6 +51,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('goal'), goal)
                 self.eq(node.get('goals'), (goal,))
+                self.eq(node.get('actors'), (acto,))
                 self.eq(node.get('name'), 'MyName')
                 self.eq(node.get('type'), 'MyType')
                 self.eq(node.get('desc'), 'MyDesc')
@@ -87,6 +90,45 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(t.norm('HAHA1')[0], 'haha1')
             self.eq(t.norm('GOV_MFA')[0], 'gov_mfa')
 
+            # ou:position / ou:org:subs
+            orgiden = s_common.guid()
+            contact = s_common.guid()
+            position = s_common.guid()
+            subpos = s_common.guid()
+            suborg = s_common.guid()
+
+            opts = {'vars': {
+                'orgiden': orgiden,
+                'contact': contact,
+                'position': position,
+                'subpos': subpos,
+                'suborg': suborg,
+            }}
+
+            nodes = await core.nodes('''
+                [ ou:org=$orgiden :orgchart=$position ]
+                -> ou:position
+                [ :contact=$contact :title=ceo :org=$orgiden ]
+            ''', opts=opts)
+            self.eq('ceo', nodes[0].get('title'))
+            self.eq(orgiden, nodes[0].get('org'))
+            self.eq(contact, nodes[0].get('contact'))
+
+            nodes = await core.nodes('''
+                ou:org=$orgiden
+                -> ou:position
+                [ :reports+=$subpos ]
+                -> ou:position
+            ''', opts=opts)
+            self.eq(('ou:position', subpos), nodes[0].ndef)
+
+            nodes = await core.nodes('''
+                ou:org=$orgiden
+                [ :subs+=$suborg ]
+                -> ou:org
+            ''', opts=opts)
+            self.eq(('ou:org', suborg), nodes[0].ndef)
+
             async with await core.snap() as snap:
                 guid0 = s_common.guid()
                 name = '\u21f1\u21f2 Inc.'
@@ -96,6 +138,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'loc': 'US.CA',
                     'name': name,
                     'names': altnames,
+                    'logo': '*',
                     'alias': 'arrow',
                     'phone': '+15555555555',
                     'sic': '0119',
@@ -119,14 +162,16 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('founded'), 1420070400000)
                 self.eq(node.get('dissolved'), 1546300800000)
 
+                self.nn(node.get('logo'))
+
                 nodes = await snap.nodes('ou:name')
                 self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
 
                 nodes = await snap.nodes('ou:org:names*[=otheraltarrow]')
                 self.len(1, nodes)
 
-                opts = {'var': {'name': name}}
-                nodes = await snap.nodes('ou:org:names*contains=$name', opts=opts)
+                opts = {'vars': {'name': name}}
+                nodes = await snap.nodes('ou:org:names*[=$name]', opts=opts)
                 self.len(0, nodes)  # primary ou:org:name is not in ou:org:names
 
                 person0 = s_common.guid()
@@ -302,6 +347,112 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('departed'), 1519945200000)
                 self.eq(node.get('roles'), ('staff', 'speaker'))
 
+            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('org'))
+            self.eq('foobar', nodes[0].get('name'))
+
+            iden = await core.callStorm('ou:id:type return($node.value())')
+
+            opts = {'vars': {'type': iden}}
+            nodes = await core.nodes('[ ou:id:number=($type, visi) :status=woot :issued=202002 :expires=2021 ]', opts=opts)
+            self.len(1, nodes)
+            self.eq(('ou:id:number', (iden, 'visi')), nodes[0].ndef)
+            self.eq(iden, nodes[0].get('type'))
+            self.eq('visi', nodes[0].get('value'))
+            self.eq('woot', nodes[0].get('status'))
+            self.eq(1580515200000, nodes[0].get('issued'))
+            self.eq(1609459200000, nodes[0].get('expires'))
+
+            opts = {'vars': {'type': iden}}
+            nodes = await core.nodes('[ ou:id:update=* :number=($type, visi) :status=revoked :time=202003]', opts=opts)
+            self.len(1, nodes)
+            self.eq((iden, 'visi'), nodes[0].get('number'))
+            self.eq('revoked', nodes[0].get('status'))
+            self.eq(1583020800000, nodes[0].get('time'))
+
+            nodes = await core.nodes('[ ou:org=* :desc=hehe :hq=* :locations=(*, *) :dns:mx=(hehe.com, haha.com)]')
+            self.len(1, nodes)
+            self.eq('hehe', nodes[0].get('desc'))
+
+            opts = {'vars': {'iden': nodes[0].ndef[1]}}
+            self.len(3, await core.nodes('ou:org=$iden -> ps:contact', opts=opts))
+            self.len(1, await core.nodes('ou:org=$iden :hq -> ps:contact', opts=opts))
+            self.len(2, await core.nodes('ou:org=$iden :locations -> ps:contact', opts=opts))
+            self.len(2, await core.nodes('ou:org=$iden :dns:mx -> inet:fqdn', opts=opts))
+
+            nodes = await core.nodes('''[
+                ou:attendee=*
+                    :person=*
+                    :arrived=201202
+                    :departed=201203
+                    :meet=*
+                    :conference=*
+                    :conference:event=*
+                    :roles+=staff
+                    :roles+=STAFF
+            ]''')
+            self.len(1, nodes)
+            self.eq(('staff',), nodes[0].get('roles'))
+            self.eq(1328054400000, nodes[0].get('arrived'))
+            self.eq(1330560000000, nodes[0].get('departed'))
+
+            self.len(1, await core.nodes('ou:attendee -> ps:contact'))
+
+            self.len(1, await core.nodes('ou:attendee -> ou:meet'))
+            self.len(1, await core.nodes('ou:attendee -> ou:conference'))
+            self.len(1, await core.nodes('ou:attendee -> ou:conference:event'))
+
+            cont = s_common.guid()
+            nodes = await core.nodes(f'''[
+                ou:contest={cont}
+                    :name="defcon ctf 2020"
+                    :type="cyber ctf"
+                    :family="defcon ctf"
+                    :start=20200808
+                    :end=20200811
+
+                    :loc=us.nv.lasvegas
+                    :place=*
+                    :latlong=(20, 30)
+
+                    :conference=*
+                    :contests=(*,*)
+                    :sponsors=(*,)
+                    :organizers=(*,)
+                    :participants=(*,)
+
+            ]''')
+            self.len(1, nodes)
+            self.eq('defcon ctf 2020', nodes[0].get('name'))
+            self.eq('cyber ctf', nodes[0].get('type'))
+            self.eq('defcon ctf', nodes[0].get('family'))
+
+            self.eq(1596844800000, nodes[0].get('start'))
+            self.eq(1597104000000, nodes[0].get('end'))
+
+            self.eq((20, 30), nodes[0].get('latlong'))
+            self.eq('us.nv.lasvegas', nodes[0].get('loc'))
+
+            self.len(2, await core.nodes(f'ou:contest={cont} -> ou:contest'))
+            self.len(1, await core.nodes(f'ou:contest={cont} -> ou:conference'))
+            self.len(1, await core.nodes(f'ou:contest={cont} :sponsors -> ps:contact'))
+            self.len(1, await core.nodes(f'ou:contest={cont} :organizers -> ps:contact'))
+            self.len(1, await core.nodes(f'ou:contest={cont} :participants -> ps:contact'))
+
+            nodes = await core.nodes('''[
+                ou:contest:result=(*, *)
+                    :rank=1
+                    :score=20
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('contest'))
+            self.nn(nodes[0].get('participant'))
+            self.eq(1, nodes[0].get('rank'))
+            self.eq(20, nodes[0].get('score'))
+            self.len(1, await core.nodes('ou:contest:result -> ps:contact'))
+            self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
+
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
         guid1 = s_common.guid()
@@ -339,3 +490,56 @@ class OuModelTest(s_t_utils.SynTest):
 
                 nodes = await snap.nodes('ou:org:naics^=22112')
                 self.len(2, nodes)
+
+    async def test_ou_contract(self):
+
+        async with self.getTestCore() as core:
+            iden0 = await core.callStorm('[ ps:contact=* ] return($node.value())')
+            iden1 = await core.callStorm('[ ps:contact=* ] return($node.value())')
+            iden2 = await core.callStorm('[ ps:contact=* ] return($node.value())')
+
+            goal0 = await core.callStorm('[ ou:goal=* :name="world peace"] return($node.value())')
+            goal1 = await core.callStorm('[ ou:goal=* :name="whirled peas"] return($node.value())')
+
+            file0 = await core.callStorm('[ file:bytes=* ] return($node.value())')
+
+            nodes = await core.nodes(f'''
+            [ ou:contract=*
+                :title="Fullbright Scholarship"
+                :types="nda,grant"
+                :sponsor={iden0}
+                :award:price=20.00
+                :parties=({iden1}, {iden2})
+                :document={file0}
+                :signed=202001
+                :begins=202002
+                :expires=202003
+                :completed=202004
+                :terminated=202005
+                :requirements=({goal0},{goal1})
+            ]''')
+            self.len(1, nodes)
+            self.eq('Fullbright Scholarship', nodes[0].get('title'))
+            self.eq(iden0, nodes[0].get('sponsor'))
+            self.eq('20.00', nodes[0].get('award:price'))
+            self.eq(1577836800000, nodes[0].get('signed'))
+            self.eq(1580515200000, nodes[0].get('begins'))
+            self.eq(1583020800000, nodes[0].get('expires'))
+            self.eq(1585699200000, nodes[0].get('completed'))
+            self.eq(1588291200000, nodes[0].get('terminated'))
+            self.sorteq(('grant', 'nda'), nodes[0].get('types'))
+            self.sorteq((iden1, iden2), nodes[0].get('parties'))
+            self.sorteq((goal0, goal1), nodes[0].get('requirements'))
+
+    async def test_ou_industry(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ ou:industry=* :name=" Foo Bar " :subs=(*, *) :naics=(11111,22222) :sic="1234,5678" ]')
+            self.len(1, nodes)
+            self.eq('foo bar', nodes[0].get('name'))
+            self.sorteq(('1234', '5678'), nodes[0].get('sic'))
+            self.sorteq(('11111', '22222'), nodes[0].get('naics'))
+            self.len(2, nodes[0].get('subs'))
+
+            nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
+            self.len(3, nodes)

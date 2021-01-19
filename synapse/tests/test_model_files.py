@@ -28,6 +28,11 @@ class FileTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, fbyts.norm, 'helo:moto')
             self.raises(s_exc.BadTypeValu, fbyts.norm, f'sha256:{s_common.guid()}')
 
+            nodes = await core.nodes('[ file:bytes=$byts ]', opts={'vars': {'byts': b'visi'}})
+            pref = nodes[0].props.get('sha256')[:4]
+
+            self.len(1, await core.nodes('file:bytes:sha256^=$pref +file:bytes:sha256^=$pref', opts={'vars': {'pref': pref}}))
+
     async def test_model_filebytes_pe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:
@@ -177,11 +182,12 @@ class FileTest(s_t_utils.SynTest):
                 fake = await snap.addNode('file:bytes', '*')
                 self.true(fake.ndef[1].startswith('guid:'))
 
-                node = await snap.addNode('file:subfile', (node1.ndef[1], node2.ndef[1]), {'name': 'embed.BIN'})
+                node = await snap.addNode('file:subfile', (node1.ndef[1], node2.ndef[1]), {'name': 'embed.BIN', 'path': 'foo/embed.bin'})
                 self.eq(node.ndef[1], (node1.ndef[1], node2.ndef[1]))
                 self.eq(node.get('parent'), node1.ndef[1])
                 self.eq(node.get('child'), node2.ndef[1])
                 self.eq(node.get('name'), 'embed.bin')
+                self.eq(node.get('path'), 'foo/embed.bin')
 
                 fp = 'C:\\www\\woah\\really\\sup.exe'
                 node = await snap.addNode('file:filepath', (node0.ndef[1], fp))

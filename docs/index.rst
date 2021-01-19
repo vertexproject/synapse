@@ -1,5 +1,5 @@
-.. synapse documentation master file, created by
-   sphinx-quickstart on Tue Dec 11 22:15:02 2018.
+.. Synapse documentation master file, created by
+   sphinx-quickstart on Wed Jun 10 23:31:34 2020.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
@@ -11,6 +11,7 @@ Welcome to the Synapse documentation!
    :caption: Contents:
 
    synapse/intro
+
    synapse/quickstart
 
    synapse/userguide
@@ -22,9 +23,10 @@ Welcome to the Synapse documentation!
    synapse/apidocs
    synapse/httpapi
 
-   synapse/autodocs/datamodel_types
-   synapse/autodocs/datamodel_forms
+   synapse/datamodel
+   synapse/stormtypes
 
+   synapse/200_changes
    synapse/changelog
 
 Indices and tables

@@ -1,6 +1,5 @@
 // Grammar for the Storm Query Language (and miscellaneous bits)
 
-%import common.WS -> _WS
 %import common.ESCAPED_STRING
 
 // Lark Grammar Notes:
@@ -17,6 +16,7 @@
 
 // Entry point for an unadorned storm query
 query: [_WSCOMM? "|"] _WSCOMM? (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
+lookup: _WS? looklist _WS? [ "|" query ]
 
 // A query that starts with a command
 _querystartcommand: stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon | _querystartedit) ]
@@ -46,7 +46,7 @@ edittagdel: "-" tagname
 editpropset: relprop _WS? SETOPER _WS? _valu
 editpropdel: "-" relprop
 editunivset: univprop _WS? SETOPER _WS? _valu
-editnodeadd: ABSPROPNOUNIV _WS? SETOPER _WS? _valu
+editnodeadd: formname _WS? SETOPER _WS? _valu
 edittagpropset: "+" tagprop _WS? SETOPER _WS? _valu
 edittagpropdel: "-" tagprop
 SETOPER: "=" | "+=" | "-=" | _TRYSET
@@ -75,6 +75,7 @@ setitem: _varvalu "." (VARTOKN | "$" varvalue) _WS? "=" _WS? _valu
 forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _valu _WS? baresubquery
 whileloop: "while" _WS _valu _WS? baresubquery
 subquery: [YIELD _WS?] baresubquery
+argvquery: "{" query "}"
 baresubquery: "{" query "}"
 YIELD: "yield"
 switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) _WSCOMM? ":" _WSCOMM? baresubquery)* _WSCOMM? "}"
@@ -115,7 +116,7 @@ formjoinin.2: _LEFTJOIN _WS? "*" -> formjoinin_pivotin
           | _LEFTJOIN _WS? ABSPROP -> formjoinin_pivotinfrom
 
 operrelprop: relprop _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
-           | relprop _WS? _RIGHTJOIN _WS? ABSPROP -> operrelprop_join
+           | relprop _WS? _RIGHTJOIN _WS? ("*" | ABSPROP) -> operrelprop_join
 
 rawpivot: _RIGHTPIVOT _WS? "{" query "}"
 
@@ -174,12 +175,12 @@ funcargs: "(" _WS? (VARTOKN (_WS? "," _WS? VARTOKN)* _WS? )? ")"
 stormfunc: "function" _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 
 stormcmd: CMDNAME [_WS stormcmdargs]
-stormcmdargs: _WS? _cmdargv (("=" | _WS?) _cmdargv)*
+stormcmdargs: _cmdargv (("=" | _WS) _cmdargv)*
 CMDOPT: /-[a-zA-Z0-9_-]+/
-_cmdargv: baresubquery | CMDOPT | _toknvalu
+_cmdargv: argvquery | CMDOPT | _toknvalu
 
 // an argv parser for cmdr commands which may contain embedded queries
-cmdrargs: _WS? _cmdrargv (("=" | _WS?) _cmdrargv)*
+cmdrargs: _WS? _cmdrargv (("=" | _WS) _cmdrargv)*
 _cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN
 
 // A tag with either a variable reference or a tag name potentially with asterisks
@@ -195,7 +196,7 @@ _TAGSEGNOVAR: /\w+/
 // A comparison operator
 _cmpr: _by_cmpr | CMPR
 _by_cmpr: "*" BYNAME
-BYNAME: /[^=\s]*?=/
+BYNAME: /[^=\s]+=/
 CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
 
 _safe_cmpr: BYNAME | CMPR
@@ -207,25 +208,35 @@ _valu: _basevalu | NONQUOTEWORD
 _toknvalu: _basevalu | WORDTOKN
 _listvalu: _basevalu | LISTTOKN
 
-valulist: "(" [_WS? _listvalu (_WS? "," _WS? _listvalu)*] _WS? ["," _WS?] ")"
+// Just like _valu, but doesn't allow valu lists or unquoted strings
+_exprvalu: NUMBER | HEXNUMBER | BOOL | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
+    | SINGLEQUOTEDSTRING | dollarexpr
+
+_lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
+looklist: (_WS? _lookvalu)*
+
+valulist: "(" [_WS? _listvalu _WS? ((",")|("," _WS? _listvalu)+ [_WS? ","])] _WS? ")"
 tagvalu: tagname
 tagpropvalu: tagprop
-relpropvalu: relprop
+//relpropvalu: relprop
+relpropvalu: ":" BASEPROP | ":" _varvalu
 univpropvalu: univprop
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 
-// An unquoted storm string constant.  Must start with a word char, ?, or - and not contain certain punctuation
-NONQUOTEWORD: /[\w\-\+\?\*\/\\][^ \t\n),=\]}|]*/
+// An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
+NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*/
 
-// An unquoted string within a whitespace list
-WORDTOKN: /[\w\+\-\?\*\/\\][^ \t\r\n\=\|\}\)]*/
+// An unquoted string within a storm command argument list
+WORDTOKN: /(?!\/[\/\*])[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/
 
 // An unquoted string within a list syntax
 LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 
 // A white-space *only* delimited string immediate for use in legacy cmdr parser
 CMDRTOKN: /[^="'\s\{}][^\s\{}]*/
+
+WHITETOKN: /[^\s|]+/
 
 // A value consisting of a name then 0 or more derefs and function calls
 _varvalu: "$" _varvaluatom
@@ -241,7 +252,7 @@ DEREFMATCHNOSEP: (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
 _callargs: "(" [_WS? (kwarg | _valu) (_WS? "," _WS? (kwarg | _valu))*] _WS? ["," _WS?] ")"
-kwarg: VARTOKN "=" _valu
+kwarg: VARTOKN _WS? "=" _WS? _valu
 
 filtoper: FILTPREFIX _cond
 FILTPREFIX: "+" | "-"
@@ -255,7 +266,7 @@ _cond: notcond | "(" _WS? _condexpr _WS? ")"
     | condsubq | arraycond
     | _varvalu | dollarexpr
 
-notcond: "not" _WS? _cond
+notcond: "not" _WS _cond
 
 hasrelpropcond: relprop | univprop
 relpropcond.1: relpropvalue _WS? _cmpr _WS? _valu
@@ -274,12 +285,15 @@ condsubq: "{" query "}" [_WSCOMM? _cmpr _WSCOMM? _valu]
 arraycond: relprop _ARRAYCONDSTART _WS? _safe_cmpr _WS? _valu _WS? "]"
 _ARRAYCONDSTART: "*["
 
+// Filter boolean conditions
 _condexpr: _cond | orexpr | andexpr
-orexpr: _condexpr _WS? "or" _WS? _cond
-andexpr: _condexpr _WS? "and" _WS? _cond
+orexpr: _condexpr _WS "or" _WS _cond
+andexpr: _condexpr _WS "and" _WS _cond
 
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'/
+
+_WS: /[\s]/+
 
 // Whitespace or comments
 _WSCOMM: (CCOMMENT | CPPCOMMENT | _WS)+
@@ -301,41 +315,38 @@ univprop:  UNIVNAME | "." _varvalu
 PROPNAME: PROPS | UNIVNAME
 ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
+formname: PROPS | _DEREF _varvalu
 // A relative property
-relprop: RELNAME | ":" _varvalu
+relprop: ":" BASEPROP | ":" _varvalu
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
-RELNAME: /\:\.?[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
+RELNAME: /\:\.?[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]+)*/
 
 // Similar to PROPS but does not require a colon
-BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
+BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]+)*/
 
 // The name of a storm command
 CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
 
 // The entry point for a $(...) expression
-dollarexpr: _EXPRSTART _WSCOMM? expror _WSCOMM? ")"
-_EXPRSTART: "$("
-EXPRCMPR: /<=|>=|<|>|=|!=/
+dollarexpr: "$"? "(" _WSCOMM? expror _WSCOMM? ")"
+EXPRCMPR: /<=|>=|<|>|=|!=|~=|\^=/
 EXPRPLUS: "+"
 EXPRMINUS: "-"
 EXPRTIMES: "*"
 EXPRDIVIDE: "/"
 NUMBER: /-?\d+(\.\d*)?/
 HEXNUMBER: /-?0x[0-9a-fA-F]+/
+BOOL: /true|false/
 NOT: "not"
 OR: "or"
 AND: "and"
 
-// Expression rules in increasing order of precedence (modeled on Python's order)
-?expror: exprand | expror _WSCOMM? OR _WSCOMM? exprand
-?exprand: exprnot | exprand _WSCOMM? AND _WSCOMM? exprnot
-?exprnot: exprcmp | NOT _WSCOMM? exprcmp
+// $ expression rules in increasing order of precedence (modeled on Python's order)
+?expror: exprand | expror _WSCOMM OR _WSCOMM exprand
+?exprand: exprnot | exprand _WSCOMM AND _WSCOMM exprnot
+?exprnot: exprcmp | NOT _WSCOMM exprcmp
 ?exprcmp: exprsum | exprcmp _WSCOMM? EXPRCMPR _WSCOMM? exprsum
 ?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
 ?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
-_expratom: _exprvalu | "(" exprsum ")"
-
-// Just like _valu, but doesn't allow valu lists or unquoted strings
-_exprvalu: NUMBER | HEXNUMBER | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING | dollarexpr
+_expratom: _exprvalu | "(" _WSCOMM? expror _WSCOMM? ")"

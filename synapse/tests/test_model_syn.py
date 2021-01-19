@@ -11,6 +11,7 @@ class TestService(s_stormsvc.StormSvc):
         {
             'name': 'foo',
             'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
             'commands': (
                 {
                     'name': 'foobar',
@@ -22,6 +23,10 @@ class TestService(s_stormsvc.StormSvc):
                         ],
                         'output': [
                             'inet:fqdn',
+                        ],
+                        'nodedata': [
+                            ('foo', 'inet:ipv4'),
+                            ('bar', 'inet:fqdn'),
                         ],
                     },
                     'storm': '',
@@ -63,6 +68,8 @@ class SynModelTest(s_t_utils.SynTest):
             # which will attempt a syn:splice lift which will
             # yield no nodes.
             self.len(0, await core.nodes('syn:tag=foo.bar.baz <- *'))
+            nodes = await core.nodes('syn:tag=foo.bar.baz [ :doc:url="http://vertex.link" ]')
+            self.eq('http://vertex.link', nodes[0].get('doc:url'))
 
     async def test_syn_model_runts(self):
 
@@ -249,6 +256,13 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.ge(len(nodes), 7)
 
+            # Wildcard pivot out from a prop and ensure we got the form
+            q = 'syn:prop=test:comp -> * '
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq({('syn:form', 'test:comp'), ('syn:type', 'test:comp')},
+                    {n.ndef for n in nodes})
+
             # Some forms inherit from a single type
             nodes = await core.nodes('syn:type="inet:addr" -> syn:type:subof')
             self.ge(len(nodes), 2)
@@ -422,6 +436,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('doc'), 'foobar is a great service')
                 self.eq(nodes[0].get('input'), ('inet:ipv4', 'inet:ipv6'))
                 self.eq(nodes[0].get('output'), ('inet:fqdn',))
+                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
                 self.eq(nodes[0].get('package'), 'foo')
                 self.eq(nodes[0].get('svciden'), iden)
 
@@ -429,6 +444,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[1].get('doc'), 'No description')
                 self.none(nodes[1].get('input'))
                 self.eq(nodes[1].get('output'), ('inet:ipv4',))
+                self.none(nodes[1].get('nodedata'))
                 self.eq(nodes[1].get('package'), 'foo')
                 self.eq(nodes[1].get('svciden'), iden)
 
@@ -445,6 +461,11 @@ class SynModelTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(('syn:form', 'inet:fqdn'), nodes[0].ndef)
 
+                nodes = await core.nodes('syn:cmd=foobar :input -+> *')
+                self.len(3, nodes)
+                self.eq({('syn:form', 'inet:ipv4'), ('syn:form', 'inet:ipv6'), ('syn:cmd', 'foobar')},
+                        {n.ndef for n in nodes})
+
                 nodes = await core.nodes('syn:cmd +:input*[=inet:ipv4]')
                 self.len(1, nodes)
 
@@ -457,6 +478,15 @@ class SynModelTest(s_t_utils.SynTest):
                 # Check that runt nodes for the commands are gone
                 nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
+
+                # Check that testcmd sets form props
+                nodes = await core.nodes('syn:cmd=testcmd')
+                self.len(1, nodes)
+
+                self.eq(nodes[0].ndef, ('syn:cmd', 'testcmd'))
+                self.eq(nodes[0].get('input'), ('test:str', 'inet:ipv6'))
+                self.eq(nodes[0].get('output'), ('inet:fqdn',))
+                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
 
     async def test_syn_cron_runts(self):
 

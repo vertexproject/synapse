@@ -6,9 +6,6 @@ import synapse.models.crypto as s_m_crypto
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
-# 010 TODO / Fixme!
-# Test it:prod:softver by range!
-#
 
 class InfotechModelTest(s_t_utils.SynTest):
 
@@ -57,8 +54,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode('it:hostname', 'Bobs Computer')
                 self.eq(node.ndef[1], 'bobs computer')
+                org0 = s_common.guid()
                 host0 = s_common.guid()
                 sver0 = s_common.guid()
+                cont0 = s_common.guid()
                 hprops = {
                     'name': 'Bobs laptop',
                     'desc': 'Bobs paperweight',
@@ -70,6 +69,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'model': 'Lutitude 8249',
                     'serial': '111-222',
                     'loc': 'us.hehe.haha',
+                    'operator': cont0,
+                    'org': org0,
                 }
                 node = await snap.addNode('it:host', host0, hprops)
                 self.eq(node.ndef[1], host0)
@@ -80,6 +81,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('place'), place)
                 self.eq(node.get('os'), sver0)
                 self.eq(node.get('loc'), 'us.hehe.haha')
+                self.eq(node.get('org'), org0)
+                self.eq(node.get('operator'), cont0)
 
                 node = await snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
                 self.eq(node.ndef[1], (host0, 'http://vertex.ninja/cool.php'))
@@ -117,6 +120,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('hash:lm'), s_m_crypto.ex_md5)
                 self.eq(node.get('hash:ntlm'), s_m_crypto.ex_md5)
                 self.eq(node.get('passwd'), "I've got the same combination on my luggage!")
+
+            nodes = await core.nodes('[ it:adid=visi ]')
+            self.eq(('it:adid', 'visi'), nodes[0].ndef)
 
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
@@ -659,12 +665,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             rule = s_common.guid()
             opts = {'vars': {'rule': rule}}
 
-            nodes = await core.nodes('[ it:app:yara:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts)
+            nodes = await core.nodes('[ it:app:yara:rule=$rule :text=gronk :author=* :name=foo :version=1.2.3 ]', opts=opts)
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
             self.eq(0x10000200003, nodes[0].get('version'))
+
+            self.len(1, await core.nodes('it:app:yara:rule=$rule -> ps:contact', opts=opts))
 
             nodes = await core.nodes('[ it:app:yara:match=($rule, "*") :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)
@@ -713,28 +721,60 @@ class InfotechModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             baseFile = s_common.ehex(s_common.buid())
+            func = s_common.guid()
             fva = 0x404438
+            rank = 33
+            complexity = 60
+            funccalls = ((baseFile, func), )
             fopt = {'vars': {'file': baseFile,
-                             'func': s_common.guid(),
-                             'fva': fva}}
+                             'func': func,
+                             'fva': fva,
+                             'rank': rank,
+                             'cmplx': complexity,
+                             'funccalls': funccalls}}
             vstr = 'VertexBrandArtisanalBinaries'
-            sopt = {'vars': {'func': fopt['vars']['func'],
+            sopt = {'vars': {'func': func,
                              'string': vstr}}
-            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva]', opts=fopt)
+            name = "FunkyFunction"
+            descrp = "Test Function"
+            impcalls = ("libr.foo", "libr.foo2", "libr.foo3")
+            funcopt = {'vars': {'name': name,
+                                'descrp': descrp,
+                                'impcalls': impcalls}}
+
+            fnode = await core.nodes('[it:reveng:filefunc=($file, $func) :va=$fva :rank=$rank :complexity=$cmplx :funccalls=$funccalls]', opts=fopt)
             snode = await core.nodes('[it:reveng:funcstr=($func, $string)]', opts=sopt)
             self.len(1, fnode)
             self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
             self.eq(fva, fnode[0].get('va'))
+            self.eq(rank, fnode[0].get('rank'))
+            self.eq(complexity, fnode[0].get('complexity'))
+            self.eq((f'sha256:{baseFile}', func), fnode[0].get('funccalls')[0])
 
             self.len(1, snode)
             self.eq(fnode[0].get('function'), snode[0].get('function'))
             self.eq(vstr, snode[0].get('string'))
 
-            funcnode = await core.nodes('it:reveng:function [ :name="FunkyFunction" :description="Test Function" ]')
+            funcnode = await core.nodes('''
+                it:reveng:function [
+                    :name=$name
+                    :description=$descrp
+                    :impcalls=$impcalls
+                    :strings=(bar,foo,foo)
+            ]''', opts=funcopt)
             self.len(1, funcnode)
-            self.eq("FunkyFunction", funcnode[0].get('name'))
-            self.eq("Test Function", funcnode[0].get('description'))
+            self.eq(name, funcnode[0].get('name'))
+            self.eq(descrp, funcnode[0].get('description'))
+            self.len(len(impcalls), funcnode[0].get('impcalls'))
+            self.eq(impcalls[0], funcnode[0].get('impcalls')[0])
+            self.sorteq(('bar', 'foo'), funcnode[0].get('strings'))
+
+            nodes = await core.nodes('it:reveng:function -> it:dev:str')
+            self.len(2, nodes)
 
             nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function')
             self.len(1, nodes)
             self.eq(vstr, nodes[0].get('string'))
+
+            nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc -> it:reveng:function -> it:reveng:impfunc')
+            self.len(len(impcalls), nodes)

@@ -79,6 +79,23 @@ async def event_wait(event: asyncio.Event, timeout=None):
         return False
     return True
 
+async def waittask(task, timeout=None):
+    '''
+    Await a task without cancelling it when you time out.
+
+    Returns:
+        boolean: True if the task completed before the timeout.
+    '''
+    futu = asyncio.get_running_loop().create_future()
+    task.add_done_callback(futu.set_result)
+    try:
+        await asyncio.wait_for(futu, timeout=timeout)
+        return True
+    except asyncio.TimeoutError:
+        return False
+    finally:
+        task.remove_done_callback(futu.set_result)
+
 async def ornot(func, *args, **kwargs):
     '''
     Calls func and awaits it if a returns a coroutine.
@@ -148,7 +165,7 @@ async def spawn(todo, timeout=None, ctx=None):
     Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
 
     Args:
-        todo (tuple): A tuple of function, *args, and **kwargs.
+        todo (tuple): A tuple of function, ``*args``, and ``**kwargs``.
         timeout (int): The timeout to wait for the todo function to finish.
         ctx (multiprocess.Context): A optional multiprocessing context object.
 

@@ -1,6 +1,8 @@
 import os
 import asyncio
 
+import synapse.exc as s_exc
+
 import synapse.lib.coro as s_coro
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -24,7 +26,7 @@ class SlabSeqn(s_t_utils.SynTest):
             retn = tuple(seqn.iter(0))
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 
-            self.raises(TypeError, seqn.save, ({'set'},))
+            self.raises(s_exc.NotMsgpackSafe, seqn.save, ({'set'},))
             retn = tuple(seqn.iter(0))
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 
@@ -92,5 +94,26 @@ class SlabSeqn(s_t_utils.SynTest):
 
             self.true(state)
             await task
+
+            self.eq((0, 'foo'), seqn.pop(0))
+            self.none(seqn.pop(0))
+
+            async def getter():
+                retn = []
+                async for item in seqn.gets(8):
+                    if item[1] is None:
+                        return retn
+                    retn.append(item)
+                return retn
+
+            task = slab.schedCoro(getter())
+            await asyncio.sleep(0)
+            seqn.add(None)
+
+            self.eq(((8, 20), (9, 'bar')), await asyncio.wait_for(task, timeout=3))
+
+            await seqn.cull(8)
+
+            self.eq(((9, 'bar'), (10, None)), [x async for x in seqn.gets(8, wait=False)])
 
             await slab.fini()

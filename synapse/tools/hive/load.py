@@ -10,7 +10,7 @@ import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
-reqver = '>=0.2.0,<0.3.0'
+reqver = '>=0.2.0,<3.0.0'
 
 async def main(argv, outp=s_output.stdout):
 
@@ -53,6 +53,8 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(
                 f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
             return 1
+
+    return 0
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

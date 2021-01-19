@@ -15,3 +15,5 @@ COPY synapse/docker/start-cron.sh /start-cron.sh
 
 COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
 RUN /build/synapse/bootstrap.sh
+
+VOLUME /vertex/storage
