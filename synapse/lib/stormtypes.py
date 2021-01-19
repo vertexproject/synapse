@@ -250,6 +250,9 @@ class LibPkg(Lib):
         '''
         name = await tostr(name)
         pkgdef = await self.runt.snap.core.getStormPkg(name)
+        if pkgdef is None:
+            return None
+
         return Dict(pkgdef)
 
     async def _libPkgDel(self, name):
