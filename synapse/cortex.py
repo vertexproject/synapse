@@ -148,7 +148,7 @@ class CoreApi(s_cell.CellApi):
         opts = self._reqValidStormOpts(opts)
         return await self.cell.callStorm(text, opts=opts)
 
-    async def export(self, text, opts=None):
+    async def exportStorm(self, text, opts=None):
         '''
         Execute a storm query and package nodes for export/import.
 
@@ -156,7 +156,7 @@ class CoreApi(s_cell.CellApi):
               in order to limit exported edges.
         '''
         opts = self._reqValidStormOpts(opts)
-        async for pode in self.cell.export(text, opts=opts):
+        async for pode in self.cell.exportStorm(text, opts=opts):
             yield pode
 
     async def feedFromAxon(self, sha256, opts=None):
@@ -501,13 +501,7 @@ class CoreApi(s_cell.CellApi):
             }
         }
 
-        tnfo = {'query': text}
-        if opts:
-            tnfo['opts'] = opts
-
-        await self.cell.boss.promote('storm:spawn',
-                                     user=self.user,
-                                     info=tnfo)
+        await self.cell.boss.promote('storm:spawn', user=self.user, info={'query': text})
         proc = None
         mesg = 'Spawn complete'
 
@@ -3693,10 +3687,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
 
-    async def export(self, text, opts=None):
+    async def exportStorm(self, text, opts=None):
         opts = self._initStormOpts(opts)
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
+
+        await self.boss.promote('storm:export', user=user, info={'query': text})
 
         spooldict = await s_spooled.Dict.anit()
         async with await self.snap(user=user, view=view) as snap:

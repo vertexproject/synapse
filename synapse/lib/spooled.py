@@ -105,10 +105,16 @@ class Dict(Spooled):
         self.realdict = {}
         self.len = 0
 
+    def __len__(self):
+        if self.fallback:
+            return self.len
+        return len(self.realdict)
+
     async def set(self, key, val):
 
         if self.fallback:
-            self.slab.put(s_msgpack.en(key), s_msgpack.en(val))
+            if self.slab.replace(s_msgpack.en(key), s_msgpack.en(val)) is None:
+                self.len += 1
             return
 
         self.realdict[key] = val

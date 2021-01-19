@@ -68,6 +68,7 @@ class SpooledTest(s_test.SynTest):
             await x.set(10, 'hehe')
             await x.set(20, 'haha')
             await x.set(30, 'hoho')
+            self.len(3, x)
             self.eq('hehe', x.get(10))
             self.eq(list(x.items()), ((10, 'hehe'), (20, 'haha'), (30, 'hoho')))
             self.eq(list(x.keys()), (10, 20, 30))

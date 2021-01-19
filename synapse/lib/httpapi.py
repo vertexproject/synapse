@@ -408,7 +408,7 @@ class StormExportV1(Handler):
 
         try:
             self.set_header('Content-Type', 'application/x-synapse-nodes')
-            async for pode in self.cell.export(query, opts=opts):
+            async for pode in self.cell.exportStorm(query, opts=opts):
                 self.write(s_msgpack.en(pode))
 
         except Exception as e:
