@@ -5279,7 +5279,48 @@ class Path(Prim):
         {
             'name': 'vars',
             'desc': 'The PathVars object for the Path.',
-            'type': 'path:vars',
+            'type': 'storm:node:path:vars',
+        },
+        {
+            'name': 'meta',
+            'desc': 'The PathMeta object for the Path.',
+            'type': 'storm:node:path:meta',
+        },
+        {
+            'name': 'idens',
+            'desc': 'The list of Node idens which this Path has bee forked from during pivot operations.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methPathIdens',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of node idens.',
+                }
+            }
+        },
+        {
+            'name': 'trace',
+            'desc': 'Make a trace object for the Path. This allows tracking pivots from a arbitrary location in a query.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methPathTrace',
+                'returns': {
+                    'type': 'storm:node:path:trace',
+                    'desc': 'The trace object.',
+                }
+            }
+        },
+        {
+            'name': 'listvars',
+            'desc': 'List variables available in the path of a storm query.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methPathListVars',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'List of tuples containing the name and value of path variables.',
+                }
+            }
         },
     )
     typename = 'storm:path'
@@ -5299,17 +5340,11 @@ class Path(Prim):
         }
 
     async def _methPathIdens(self):
-        '''
-        The list of Node idens which this Path has bee forked from during pivot operations.
-
-        Returns:
-            List: A list of node idens.
-        '''
         return [n.iden() for n in self.valu.nodes]
 
     async def _methPathTrace(self):
         '''
-        Make a trace object for the Path. This allows tracking pivots from a arbitrary location in a query.
+
 
         Returns:
             Trace: A Trace object.
@@ -5318,9 +5353,6 @@ class Path(Prim):
         return Trace(trace)
 
     async def _methPathListVars(self):
-        '''
-        List variables available in the path of a storm query.
-        '''
         return list(self.path.vars.items())
 
 @registry.registerType
@@ -6001,6 +6033,83 @@ class LibView(Lib):
     A Storm Library for interacting with Views in the Cortex.
     '''
     _storm_lib_path = ('view',)
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': 'Add a View to the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methViewAdd',
+                'args': (
+                    {
+                        'name': 'layers',
+                        'type': 'list',
+                        'desc': 'A list of layer idens which make up the view.',
+                    },
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the view.',
+                        'default': None,
+                    }
+                ),
+                'returns': {
+                    'type': 'storm:view',
+                    'desc': 'A ``storm:view`` object representing the new View.',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Delete a View from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methViewDel',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the View to delete.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a View from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methViewGet',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the View to get. If not specified, returns the current View.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:view',
+                    'desc': 'The storm view object.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'List the Views in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methViewList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'List of ``storm:view`` objects.',
+                }
+            }
+        },
+    )
 
     def getObjLocals(self):
         return {
@@ -6011,17 +6120,6 @@ class LibView(Lib):
         }
 
     async def _methViewAdd(self, layers, name=None):
-        '''
-        Add a View to the Cortex.
-
-        Args:
-            layers (list): A list of idens which make up the view.
-
-            name (str): The name of the view.
-
-        Returns:
-            View: A Storm View object.
-        '''
         name = await tostr(name, noneok=True)
         layers = await toprim(layers)
 
@@ -6045,15 +6143,6 @@ class LibView(Lib):
         return View(self.runt, vdef, path=self.path)
 
     async def _methViewDel(self, iden):
-        '''
-        Delete a View from the Cortex.
-
-        Args:
-            iden (str): The iden of the view to delete.
-
-        Returns:
-            None: Returns None.
-        '''
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('view', 'del'), iden),)
         todo = ('delView', (iden,), {})
@@ -6061,15 +6150,6 @@ class LibView(Lib):
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, iden=None):
-        '''
-        Get a View from the Cortex.
-
-        Args:
-            iden (str): The iden of the View to get. If not specified, returns the current View.
-
-        Returns:
-            View: A Storm View object.
-        '''
         if iden is None:
             iden = self.runt.snap.view.iden
         todo = s_common.todo('getViewDef', iden)
@@ -6081,12 +6161,6 @@ class LibView(Lib):
 
     @stormfunc(readonly=True)
     async def _methViewList(self):
-        '''
-        List the Views in the Cortex.
-
-        Returns:
-            list: A list of Storm View objects.
-        '''
         todo = s_common.todo('getViewDefs')
         defs = await self.runt.dyncall('cortex', todo)
         return [View(self.runt, vdef, path=self.path) for vdef in defs]

@@ -83,7 +83,27 @@ def norm(z):
     return z
 
 class LibTst(s_stormtypes.Lib):
-
+    dereflocals = (
+        {
+            'name': 'beep',
+            'desc': 'Example storm func',
+            'type': {
+                'type': 'function',
+                '_funcname': 'beep',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'type': 'str',
+                        'desc': 'The value to beep.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The beeped string.',
+                }
+            }
+        },
+    )
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
