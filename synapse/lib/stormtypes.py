@@ -5865,7 +5865,7 @@ class LibLayer(Lib):
         defs = await self.runt.dyncall('cortex', todo)
         return [Layer(self.runt, ldef, path=self.path) for ldef in defs]
 
-@registry.registerType  # XXXTODO
+@registry.registerType
 class Layer(Prim):
     '''
     Implements the Storm api for a layer instance.
@@ -6508,8 +6508,6 @@ class View(Prim):
     '''
     Implements the Storm api for a View instance.
     '''
-    # FIXME I wish i could use actual jsonschema to define the types here so
-    # I'm not certain quite how we want to handle this.
     dereflocals = (
         {
             'name': 'iden',
@@ -6538,7 +6536,6 @@ class View(Prim):
             'layers': [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')],
         })
 
-    # Todo plumb in iden/layers/triggers access via a property
     def getObjLocals(self):
         return {
             'set': self._methViewSet,
@@ -7477,7 +7474,7 @@ class Gate(Prim):
             'users': self.valu.get('users', ()),
         })
 
-@registry.registerType  # XXXTODO
+@registry.registerType
 class User(Prim):
     '''
     Implements the Storm API for a User.
@@ -7487,6 +7484,248 @@ class User(Prim):
             'name': 'iden',
             'desc': 'The User iden.',
             'type': 'str',
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a arbitrary property from the User definition.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserGet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the property to return.',
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The requested value.',
+                }
+            }
+        },
+        {
+            'name': 'roles',
+            'desc': 'Get the Roles for the User.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserRoles',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of ``storm:auth:roles`` with the user is a member of.',
+                }
+            }
+        },
+        {
+            'name': 'allowed',
+            'desc': 'Check if the user has a given permission.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserAllowed',
+                'args': (
+                    {
+                        'name': 'permname',
+                        'type': 'str',
+                        'desc': 'The permission string to check.',
+                    },
+                    {
+                        'name': 'gateiden',
+                        'type': 'str',
+                        'desc': 'The authgate iden.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'boolean',
+                    'desc': 'True if the rule is allowed, False otherwise.',
+                }
+            }
+        },
+        {
+            'name': 'grant',
+            'desc': 'Grant a Role to the User.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserGrant',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the Role.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'revoke',
+            'desc': 'Remove a Role from the User',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserRevoke',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the Role.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'addRule',
+            'desc': 'Add a rule to the User.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserAddRule',
+                'args': (
+                    {
+                        'name': 'rule',
+                        'type': 'list',
+                        'desc': 'The rule tuple to add to the User.',
+                    },
+                    {
+                        'name': 'gateiden',
+                        'type': 'str',
+                        'desc': 'The gate iden used for the rule.',
+                        'default': None,
+                    }
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'delRule',
+            'desc': 'Remove a rule from the User.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserDelRule',
+                'args': (
+                    {
+                        'name': 'rule',
+                        'type': 'list',
+                        'desc': 'The rule tuple to removed from the User.',
+                    },
+                    {
+                        'name': 'gateiden',
+                        'type': 'str',
+                        'desc': 'The gate iden used for the rule.',
+                        'default': None,
+                    }
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'setRules',
+            'desc': 'Replace the rules on the User with new rules.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserSetRules',
+                'args': (
+                    {
+                        'name': 'rules',
+                        'type': 'list',
+                        'desc': 'A list of rule tuples.',
+                    },
+                    {
+                        'name': 'gateiden',
+                        'type': 'str',
+                        'desc': 'The gate iden used for the rules.',
+                        'default': None,
+                    }
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'setAdmin',
+            'desc': 'Set the Admin flag for the user.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserSetAdmin',
+                'args': (
+                    {
+                        'name': 'admin',
+                        'type': 'boolean',
+                        'desc': 'True to make the User an admin, false to remove their admin status.',
+                    },
+                    {
+                        'name': 'gateiden',
+                        'type': 'str',
+                        'desc': 'The gate iden used for the operation.',
+                        'default': None,
+                    }
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'setEmail',
+            'desc': 'Set the email address of the User.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserSetEmail',
+                'args': (
+                    {
+                        'name': 'email',
+                        'type': 'str',
+                        'desc': 'The email address to set for the User.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'setLocked',
+            'desc': 'Set the locked status for a user.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserSetLocked',
+                'args': (
+                    {
+                        'name': 'locked',
+                        'type': 'boolean',
+                        'desc': 'True to lock the user, false to unlock them.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'setPasswd',
+            'desc': 'Set the Users password.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUserSetPasswd',
+                'args': (
+                    {
+                        'name': 'passwd',
+                        'type': 'str',
+                        'desc': 'The new password for the user. This is best passed into the runtime as a variable.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
         },
     )
     typename = 'storm:auth:user'
@@ -7519,122 +7758,38 @@ class User(Prim):
         return udef.get(name, s_common.novalu)
 
     async def _methUserGet(self, name):
-        '''
-        Get a arbitrary property from the User definition.
-
-        Args:
-            name (str): The name of the property to return.
-
-        Returns:
-            The requested value.
-        '''
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return udef.get(name)
 
     async def _methUserRoles(self):
-        '''
-        Get the Roles for the User.
-
-        Returns:
-            List: A list of Role objects which the user is a member of.
-        '''
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
 
     async def _methUserAllowed(self, permname, gateiden=None):
-        '''
-
-        Args:
-            permname:
-            gateiden:
-
-        Returns:
-
-        '''
         perm = tuple(permname.split('.'))
         return await self.runt.snap.core.isUserAllowed(self.valu, perm, gateiden=gateiden)
 
     async def _methUserGrant(self, iden):
-        '''
-        Grant a Role to the User.
-
-        Args:
-            iden (str): The iden of the Role.
-
-        Returns:
-            ``$lib.null``
-        '''
         self.runt.confirm(('auth', 'user', 'grant'))
         await self.runt.snap.core.addUserRole(self.valu, iden)
 
     async def _methUserRevoke(self, iden):
-        '''
-        Remove a Role from the User.
-
-        Args:
-            iden (str): The iden of the Role.
-
-        Returns:
-            ``$lib.null``
-        '''
         self.runt.confirm(('auth', 'user', 'revoke'))
         await self.runt.snap.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
-        '''
-        Replace the rules on the User with new rules.
-
-        Args:
-            rules (list): A list of rules.
-            gateiden (str): Optional, the gate iden used for the rules.
-
-        Returns:
-            ``$lib.null``
-
-        '''
         self.runt.confirm(('auth', 'user', 'set', 'rules'))
         await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
 
     async def _methUserAddRule(self, rule, gateiden=None):
-        '''
-        Add a rule to the User.
-
-        Args:
-            rule (tuple): The rule tuple to add to the User.
-
-            gateiden (str): Optional, the gate iden used for the rule.
-
-        Returns:
-            ``$lib.null``
-        '''
         self.runt.confirm(('auth', 'user', 'set', 'rules'))
         await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
-        '''
-        Remove a rule from the User.
-
-        Args:
-            rule (tuple): The rule tuple to removed from the User.
-
-            gateiden (str): Optional, the gate iden used for the rule.
-
-        Returns:
-            ``$lib.null``
-        '''
         self.runt.confirm(('auth', 'user', 'set', 'rules'))
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserSetEmail(self, email):
-        '''
-        Set the email address of the User.
-
-        Args:
-            email (str): The email address to set for the User.
-
-        Returns:
-            ``$lib.null``
-        '''
         if self.runt.user.iden == self.valu:
             await self.runt.snap.core.setUserEmail(self.valu, email)
             return
@@ -7643,33 +7798,12 @@ class User(Prim):
         await self.runt.snap.core.setUserEmail(self.valu, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
-        '''
-        Set the Admin flag for the user.
-
-        Args:
-            admin (bool): True to make the User an admin, false to remove their admin status.
-
-            gateiden (str): Optional, the gate iden used for the operation.
-
-        Returns:
-            ```$lib.null``
-        '''
         self.runt.confirm(('auth', 'user', 'set', 'admin'))
         admin = await tobool(admin)
 
         await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
 
     async def _methUserSetPasswd(self, passwd):
-        '''
-        Set the Users password.
-
-        Args:
-            passwd (str): The new password for the user. This is best passed into the
-            runtime as a variable.
-
-        Returns:
-            ```$lib.null``
-        '''
         if self.runt.user.iden == self.valu:
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
@@ -7677,15 +7811,6 @@ class User(Prim):
         return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
     async def _methUserSetLocked(self, locked):
-        '''
-        Set the locked status for a user.
-
-        Args:
-            locked (bool): True to lock the user, false to unlock them.
-
-        Returns:
-            ``$lib.null``
-        '''
         self.runt.confirm(('auth', 'user', 'set', 'locked'))
         await self.runt.snap.core.setUserLocked(self.valu, await tobool(locked))
 
