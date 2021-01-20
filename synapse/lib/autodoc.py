@@ -270,7 +270,6 @@ def getReturnLines(rtype):
 def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
 
     for info in docinfo:
-        print(info.get('path'))
         reqValidStormTypeDoc(info)
 
         path = info.get('path')
