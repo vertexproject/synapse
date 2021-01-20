@@ -6391,6 +6391,139 @@ class LibTrigger(Lib):
     '''
     A Storm Library for interacting with Triggers in the Cortex.
     '''
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': 'Add a Trigger to the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methTriggerAdd',
+                'args': (
+                    {
+                        'name': 'tdef',
+                        'type': 'dict',
+                        'desc': 'A Trigger definition.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:trigger',
+                    'desc': 'The new trigger.',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Delete a Trigger from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methTriggerDel',
+                'args': (
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': 'A prefix to match in order to identify a trigger to delete. Only a single matching prefix will be deleted.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The iden of the deleted trigger which matched the prefix.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of Triggers in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methTriggerList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of ``storm:trigger`` objects the user is allowed to access.',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a Trigger in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methTriggerGet',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the Trigger to get.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:trigger',
+                    'desc': 'The requested ``storm:trigger`` object.',
+                }
+            }
+        },
+        {
+            'name': 'enable',
+            'desc': 'Enable a Trigger in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methTriggerEnable',
+                'args': (
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': 'A prefix to match in order to identify a trigger to enable. Only a single matching prefix will be enabled.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The iden of the trigger that was enabled.',
+                }
+            }
+        },
+        {
+            'name': 'disable',
+            'desc': 'Disable a Trigger in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methTriggerDisable',
+                'args': (
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': 'A prefix to match in order to identify a trigger to disable. Only a single matching prefix will be disabled.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The iden of the trigger that was disabled.',
+                }
+            }
+        },
+        {
+            'name': 'mode',
+            'desc': 'Modify an existing Trigger in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methTriggerMod',
+                'args': (
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': 'A prefix to match in order to identify a trigger to modify. Only a single matching prefix will be modified.',
+                    },
+                    {
+                        'name': 'query',
+                        'type': ['str', 'storm:query'],
+                        'desc': 'Thew new Storm query to set as the trigger query.'
+                    }
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The iden of the modified Trigger',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('trigger',)
 
     def getObjLocals(self):
@@ -6409,8 +6542,6 @@ class LibTrigger(Lib):
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        user = self.runt.user
-
         match = None
         trigs = await self.runt.snap.view.listTriggers()
 
@@ -6432,15 +6563,6 @@ class LibTrigger(Lib):
         return match
 
     async def _methTriggerAdd(self, tdef):
-        '''
-        Add a Trigger to the Cortex.
-
-        Args:
-            tdef (dict): A Trigger definition.
-
-        Returns:
-            Trigger: A Storm Trigger object.
-        '''
         tdef = await toprim(tdef)
 
         useriden = self.runt.user.iden
@@ -6479,16 +6601,6 @@ class LibTrigger(Lib):
         return Trigger(self.runt, tdef)
 
     async def _methTriggerDel(self, prefix):
-        '''
-        Delete a Trigger from the Cortex.
-
-        Args:
-            prefix (str): A prefix to match in order to identify a trigger to delete. Only a single matching prefix
-            will be deleted.
-
-        Returns:
-            str: The iden of the deleted trigger which matched the prefix.
-        '''
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
         trig = await self._matchIdens(prefix)
@@ -6501,18 +6613,6 @@ class LibTrigger(Lib):
         return iden
 
     async def _methTriggerMod(self, prefix, query):
-        '''
-        Modify an existing Trigger in the Cortex.
-
-        Args:
-            prefix (str): A prefix to match in order to identify a trigger to modify.
-            Only a single matching prefix will be modified.
-
-            query: The new Storm Query to set as the trigger query.
-
-        Returns:
-            str: The iden of the modified Trigger.
-        '''
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
@@ -6525,12 +6625,6 @@ class LibTrigger(Lib):
         return iden
 
     async def _methTriggerList(self):
-        '''
-        Get a list of Triggers in the Cortex.
-
-        Returns:
-            list: A List of trigger objects the user is allowed to access.
-        '''
         user = self.runt.user
         view = self.runt.snap.view
         triggers = []
@@ -6543,15 +6637,6 @@ class LibTrigger(Lib):
         return triggers
 
     async def _methTriggerGet(self, iden):
-        '''
-        Get a Trigger in the Cortex.
-
-        Args:
-            iden (str): The iden of the Trigger to get.
-
-        Returns:
-            Trigger: A Storm Trigger object.
-        '''
         trigger = await self.runt.snap.view.getTrigger(iden)
         if trigger is None:
             return None
@@ -6561,30 +6646,9 @@ class LibTrigger(Lib):
         return Trigger(self.runt, trigger.pack())
 
     async def _methTriggerEnable(self, prefix):
-        '''
-        Enable a Trigger in the Cortex.
-
-        Args:
-            prefix (str): A prefix to match in order to identify a trigger to modify.
-            Only a single matching prefix will be modified.
-
-        Returns:
-            str: The iden of the trigger that was enabled.
-        '''
         return await self._triggerendisable(prefix, True)
 
     async def _methTriggerDisable(self, prefix):
-        '''
-        Disable a Trigger in the Cortex.
-
-        Args:
-            prefix (str): A prefix to match in order to identify a trigger to modify.
-            Only a single matching prefix will be modified.
-
-        Returns:
-            str: The iden of the trigger that was disabled.
-
-        '''
         return await self._triggerendisable(prefix, False)
 
     async def _triggerendisable(self, prefix, state):
@@ -6594,7 +6658,6 @@ class LibTrigger(Lib):
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
-        todo = s_common.todo('enableTrigger', iden)
         todo = s_common.todo('setTriggerInfo', iden, 'enabled', state)
         await self.dyncall(viewiden, todo, gatekeys=gatekeys)
 
