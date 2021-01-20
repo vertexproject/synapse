@@ -5701,7 +5701,7 @@ class LibLayer(Lib):
         defs = await self.runt.dyncall('cortex', todo)
         return [Layer(self.runt, ldef, path=self.path) for ldef in defs]
 
-@registry.registerType
+@registry.registerType  # XXXTODO
 class Layer(Prim):
     '''
     Implements the Storm api for a layer instance.
@@ -6165,7 +6165,7 @@ class LibView(Lib):
         defs = await self.runt.dyncall('cortex', todo)
         return [View(self.runt, vdef, path=self.path) for vdef in defs]
 
-@registry.registerType
+@registry.registerType  # XXXTODO
 class View(Prim):
     '''
     Implements the Storm api for a View instance.
@@ -6678,11 +6678,33 @@ class LibAuth(Lib):
     '''
     A Storm Library for interacting with Auth in the Cortex.
     '''
+    dereflocals = (
+        {
+            'name': 'ruleFromText',
+            'desc': 'Get a rule tuple from a text string.',
+            'type': {
+                'type': 'function',
+                '_funcname': 'ruleFromText',
+                'args': (
+                    {
+                        'name': 'text',
+                        'type': 'str',
+                        'desc': 'The string to process.',
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A tuple containing a bool and a list of permission parts.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('auth',)
+    ruleFromText = ruleFromText
 
     def getObjLocals(self):
         return {
-            'ruleFromText': ruleFromText,
+            'ruleFromText': self.ruleFromText,
         }
 
 @registry.registerLib
@@ -6774,6 +6796,95 @@ class LibRoles(Lib):
     '''
     A Storm Library for interacting with Auth Roles in the Cortex.
     '''
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': 'Add a Role to the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methRolesAdd',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the role.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:auth:role',
+                    'desc': 'The new role object.',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Delete a Role from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methRolesDel',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the role to delete.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of Roles in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methRolesList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of ``storm:auth:role`` objects.',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a specific Role by iden.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methRolesGet',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the role to retrieve.',
+                    },
+                ),
+                'returns': {
+                    'type': ['null', 'storm:auth:role'],
+                    'desc': 'The ``storm:auth:role`` object; or null if the role does not exist.',
+                }
+            }
+        },
+        {
+            'name': 'byname',
+            'desc': 'Get a specific Role by name.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methRolesByName',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the role to retrieve.',
+                    },
+                ),
+                'returns': {
+                    'type': ['null', 'storm:auth:role'],
+                    'desc': '',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('auth', 'roles')
 
     def getObjLocals(self):
@@ -6786,66 +6897,24 @@ class LibRoles(Lib):
         }
 
     async def _methRolesList(self):
-        '''
-        Get a list of Roles in the Cortex.
-
-        Returns:
-            list: A list of Storm Role objects.
-        '''
         return [Role(self.runt, rdef['iden']) for rdef in await self.runt.snap.core.getRoleDefs()]
 
     async def _methRolesGet(self, iden):
-        '''
-        Get a specific Role by iden.
-
-        Args:
-            iden (str): The iden of the role to retrieve.
-
-        Returns:
-            Role: A Storm Role object; or None if the role does not exist.
-        '''
         rdef = await self.runt.snap.core.getRoleDef(iden)
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesByName(self, name):
-        '''
-        Get a specific Role by name.
-
-        Args:
-            name (str): The name of the role to retrieve.
-
-        Returns:
-            Role: A Storm Role object; or None if the role does not exist.
-        '''
         rdef = await self.runt.snap.core.getRoleDefByName(name)
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
-        '''
-        Add a Role to the Cortex.
-
-        Args:
-            name (str): The name of the role.
-
-        Returns:
-            Role: A Storm Role object for the new user.
-        '''
         self.runt.confirm(('auth', 'role', 'add'))
         rdef = await self.runt.snap.core.addRole(name)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):
-        '''
-        Delete a Role from the Cortex.
-
-        Args:
-            iden (str): The iden of the role to delete.
-
-        Returns:
-            None: Returns None.
-        '''
         self.runt.confirm(('auth', 'role', 'del'))
         await self.runt.snap.core.delRole(iden)
 
@@ -6854,6 +6923,39 @@ class LibGates(Lib):
     '''
     A Storm Library for interacting with Auth Gates in the Cortex.
     '''
+    dereflocals = (
+        {
+            'name': 'get',
+            'desc': 'Get a specific Gate by iden.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGatesGet',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the gate to retrieve.',
+                    },
+                ),
+                'returns': {
+                    'type': ['null', 'storm:auth:gate'],
+                    'desc': 'The ``storm:auth:gate`` if it exists, otherwise null.',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of Gates in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGatesList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of ``storm:auth:gate`` objects.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('auth', 'gates')
 
     def getObjLocals(self):
@@ -6863,26 +6965,11 @@ class LibGates(Lib):
         }
 
     async def _methGatesList(self):
-        '''
-        Get a list of Gates in the Cortex.
-
-        Returns:
-            list: A list of Storm Gate objects.
-        '''
         todo = s_common.todo('getAuthGates')
         gates = await self.runt.coreDynCall(todo)
         return [Gate(self.runt, g) for g in gates]
 
     async def _methGatesGet(self, iden):
-        '''
-        Get a specific Gate by iden.
-
-        Args:
-            iden (str): The iden of the role to retrieve.
-
-        Returns:
-            Role: A Storm Gate object; or None if the role does not exist.
-        '''
         iden = await toprim(iden)
         todo = s_common.todo('getAuthGate', iden)
         gate = await self.runt.coreDynCall(todo)
@@ -6922,7 +7009,7 @@ class Gate(Prim):
             'users': self.valu.get('users', ()),
         })
 
-@registry.registerType
+@registry.registerType  # XXXTODO
 class User(Prim):
     '''
     Implements the Storm API for a User.
@@ -7144,9 +7231,100 @@ class Role(Prim):
     '''
     dereflocals = (
         {
-            'name': 'iden',
+            'name': 'iden',  # XXXFIXME Add unit test
             'desc': 'The Role iden.',
             'type': 'str',
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a arbitrary property from the Role definition.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methRoleGet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the property to return.',
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The requested value.',
+                }
+            }
+        },
+        {
+            'name': 'addRule',
+            'desc': 'Add a rule to the Role',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methRoleAddRule',
+                'args': (
+                    {
+                        'name': 'rule',
+                        'type': 'list',
+                        'desc': 'The rule tuple to added to the Role.',
+                    },
+                    {
+                        'name': 'gateiden',
+                        'type': 'str',
+                        'desc': 'The gate iden used for the rule.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'delRule',
+            'desc': 'Remove a rule from the Role.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methRoleDelRule',
+                'args': (
+                    {
+                        'name': 'rule',
+                        'type': 'list',
+                        'desc': 'The rule tuple to removed from the Role.',
+                    },
+                    {
+                        'name': 'gateiden',
+                        'type': 'str',
+                        'desc': 'The gate iden used for the rule.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'setRules',
+            'desc': 'Replace the rules on the Role with new rules.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methRoleSetRules',
+                'args': (
+                    {
+                        'name': 'rules',
+                        'type': 'list',
+                        'desc': 'A list of rules to set on the Role.',
+                    },
+                    {
+                        'name': 'gateiden',
+                        'type': 'str',
+                        'desc': 'Ahe gate iden used for the rules.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
         },
     )
     typename = 'storm:auth:role'
@@ -7155,6 +7333,7 @@ class Role(Prim):
         Prim.__init__(self, valu, path=path)
         self.runt = runt
         self.locls.update(self.getObjLocals())
+        self.locls['iden'] = self.valu
 
     def getObjLocals(self):
         return {
@@ -7169,59 +7348,18 @@ class Role(Prim):
         return rdef.get(name, s_common.novalu)
 
     async def _methRoleGet(self, name):
-        '''
-        Get a arbitrary property from the Role definition.
-
-        Args:
-            name (str): The name of the property to return.
-
-        Returns:
-            The requested value.
-        '''
         rdef = await self.runt.snap.core.getRoleDef(self.valu)
         return rdef.get(name)
 
     async def _methRoleSetRules(self, rules, gateiden=None):
-        '''
-        Replace the rules on the Role with new rules.
-
-        Args:
-            rules (list): A list of rules.
-            gateiden (str): Optional, the gate iden used for the rules.
-
-        Returns:
-            ``$lib.null``
-        '''
         self.runt.confirm(('auth', 'role', 'set', 'rules'))
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None):
-        '''
-        Add a rule to the Role.
-
-        Args:
-            rule (tuple): The rule tuple to add to the Role.
-
-            gateiden (str): Optional, the gate iden used for the rule.
-
-        Returns:
-            ``$lib.null``
-        '''
         self.runt.confirm(('auth', 'role', 'set', 'rules'))
         await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
-        '''
-        Remove a rule from the Role.
-
-        Args:
-            rule (tuple): The rule tuple to removed from the Role.
-
-            gateiden (str): Optional, the gate iden used for the rule.
-
-        Returns:
-            ``$lib.null``
-        '''
         self.runt.confirm(('auth', 'role', 'set', 'rules'))
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
 
@@ -7233,6 +7371,156 @@ class LibCron(Lib):
     '''
     A Storm Library for interacting with Cron Jobs in the Cortex.
     '''
+    dereflocals = (
+        {
+            'name': 'at',
+            'desc': 'Add a non-recurring Cron Job to the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronAt',
+                'args': (
+                    {
+                        'name': '**kwargs',
+                        'type': 'any',
+                        'desc': 'Key-value parameters used to add the cron job.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:cronjob',
+                    'desc': 'The new Cron Job.',
+                }
+            }
+        },
+        {
+            'name': 'add',
+            'desc': 'Add a recurring Cron Job to the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronAdd',
+                'args': (
+                    {
+                        'name': '**kwargs',
+                        'type': 'any',
+                        'desc': 'Key-value parameters used to add the cron job.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:cronjob',
+                    'desc': 'The new Cron Job.',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Delete a CronJob from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronDel',
+                'args': (
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': 'A prefix to match in order to identify a cron job to delete. Only a single matching prefix will be deleted.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a CronJob in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronGet',
+                'args': (
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': 'A prefix to match in order to identify a cron job to get. Only a single matching prefix will be retrieved.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:cronjob',
+                    'desc': 'The requested cron job.',
+                }
+            }
+        },
+        {
+            'name': 'mod',
+            'desc': 'Modify the Storm query for a CronJob in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronMod',
+                'args': (
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': ' prefix to match in order to identify a cron job to modify. Only a single matching prefix will be modified.',
+                    },
+                    {
+                        'name': 'query',
+                        'type': ['str', 'storm:query'],
+                        'desc': 'The new Storm query for the Cron Job.'
+                    }
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'List CronJobs in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of ``storm:cronjob`` objects..',
+                }
+            }
+        },
+        {
+            'name': 'enable',
+            'desc': 'Enable a CronJob in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronEnable',
+                'args': (
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': ' A prefix to match in order to identify a cron job to enable. Only a single matching prefix will be enabled.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The iden of the CronJob which was enabled.',
+                }
+            }
+        },
+        {
+            'name': 'disable',
+            'desc': 'Disable a CronJob in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronDisable',
+                'args': (
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': ' A prefix to match in order to identify a cron job to disable. Only a single matching prefix will be disabled.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'The iden of the CronJob which was disabled.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('cron',)
 
     def getObjLocals(self):
@@ -7392,15 +7680,6 @@ class LibCron(Lib):
         return None
 
     async def _methCronAdd(self, **kwargs):
-        '''
-        Add a recurring cron job to the Cortex.
-
-        Args:
-            **kwargs: Key-value parameters used to add the cron job.
-
-        Returns:
-            CronJob: A Storm CronJob object.
-        '''
         incunit = None
         incval = None
         reqdict = {}
@@ -7519,15 +7798,6 @@ class LibCron(Lib):
         return CronJob(self.runt, cdef, path=self.path)
 
     async def _methCronAt(self, **kwargs):
-        '''
-        Add a non-recurring  cron job to the Cortex.
-
-        Args:
-            **kwargs: Key-value parameters used to add the cron job.
-
-        Returns:
-            CronJob: A Storm CronJob object.
-        '''
         tslist = []
         now = time.time()
 
@@ -7596,16 +7866,6 @@ class LibCron(Lib):
         return CronJob(self.runt, cdef, path=self.path)
 
     async def _methCronDel(self, prefix):
-        '''
-        Delete a CronJob from the Cortex.
-
-        Args:
-            prefix (str): A prefix to match in order to identify a cron job to delete.
-            Only a single matching prefix will be deleted.
-
-        Returns:
-            None: Returns None
-        '''
         cron = await self._matchIdens(prefix, ('cron', 'del'))
         iden = cron['iden']
 
@@ -7614,18 +7874,6 @@ class LibCron(Lib):
         return await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methCronMod(self, prefix, query):
-        '''
-        Modify the Storm query for a CronJob in the Cortex.
-
-        Args:
-            prefix (str): A prefix to match in order to identify a cron job to modify.
-            Only a single matching prefix will be modified.
-
-            query (str): The new Storm query for the cron job.
-
-        Returns:
-            None: Returns None.
-        '''
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
@@ -7635,12 +7883,6 @@ class LibCron(Lib):
         return iden
 
     async def _methCronList(self):
-        '''
-        List CronJobs in the Cortex.
-
-        Returns:
-            list: A list of CronJob Storm objects.
-        '''
         todo = s_common.todo('listCronJobs')
         gatekeys = ((self.runt.user.iden, ('cron', 'get'), None),)
         defs = await self.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -7648,31 +7890,11 @@ class LibCron(Lib):
         return [CronJob(self.runt, cdef, path=self.path) for cdef in defs]
 
     async def _methCronGet(self, prefix):
-        '''
-        Get a CronJob in the Cortex.
-
-        Args:
-            prefix (str): A prefix to match in order to identify a cron job to get.
-            Only a single matching prefix will be retrieved.
-
-        Returns:
-            CronJob: A Storm CronJob object.
-        '''
         cdef = await self._matchIdens(prefix, ('cron', 'get'))
 
         return CronJob(self.runt, cdef, path=self.path)
 
     async def _methCronEnable(self, prefix):
-        '''
-        Enable a CronJob in the Cortex.
-
-        Args:
-            prefix (str): A prefix to match in order to identify a cron job to enable.
-            Only a single matching prefix will be enabled.
-
-        Returns:
-            str: The iden of the CronJob which was enabled.
-        '''
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
@@ -7682,16 +7904,6 @@ class LibCron(Lib):
         return iden
 
     async def _methCronDisable(self, prefix):
-        '''
-        Disable a CronJob in the Cortex.
-
-        Args:
-            prefix (str): A prefix to match in order to identify a cron job to disable.
-            Only a single matching prefix will be enabled.
-
-        Returns:
-            str: The iden of the CronJob which was disabled.
-        '''
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
@@ -7711,6 +7923,61 @@ class CronJob(Prim):
             'desc': 'The iden of the Cron Job.',
             'type': 'str',
         },
+        {
+            'name': 'set',
+            'desc': '''
+            Set an editable field in the cron job definition.
+
+            Example:
+                Change the name of a cron job::
+
+                    $lib.cron.get($iden).set(name, "foo bar cron job")
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronJobSet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the field being set',
+                    },
+                    {
+                        'name': 'valu',
+                        'type': 'any',
+                        'desc': 'The value to set on the definition.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:cronjob',
+                    'desc': 'The ``storm:cronjob``',
+                }
+            }
+        },
+        {
+            'name': 'pack',
+            'desc': 'Get the Cronjob definition.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronJobPack',
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'The definition.',
+                }
+            }
+        },
+        {
+            'name': 'pprint',
+            'desc': 'Get a dictionary containing user friendly strings for printing the CronJob.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methCronJobPprint',
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'A dictionary containing structured data about a cronjob for display purposes.',
+                }
+            }
+        },
     )
     typename = 'storm:cronjob'
     def __init__(self, runt, cdef, path=None):
@@ -7727,12 +7994,6 @@ class CronJob(Prim):
         }
 
     async def _methCronJobSet(self, name, valu):
-        '''
-        Set an editable field in the cron job definition.
-
-        Example:
-            $lib.cron.get($iden).set(name, "foo bar cron job")
-        '''
         name = await tostr(name)
         valu = await toprim(valu)
         iden = self.valu.get('iden')
@@ -7743,12 +8004,6 @@ class CronJob(Prim):
         return self
 
     async def _methCronJobPack(self):
-        '''
-        Get the Cronjob definition.
-
-        Returns:
-            Dictionary containing the Cronjob definition.
-        '''
         return copy.deepcopy(self.valu)
 
     @staticmethod
@@ -7758,9 +8013,6 @@ class CronJob(Prim):
         return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
 
     async def _methCronJobPprint(self):
-        '''
-        Get a dictionary containing user friendly strings for printing the CronJob.
-        '''
         user = self.valu.get('username')
         laststart = self.valu.get('laststarttime')
         lastend = self.valu.get('lastfinishtime')
