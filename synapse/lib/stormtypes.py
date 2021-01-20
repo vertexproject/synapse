@@ -6523,7 +6523,180 @@ class View(Prim):
             'name': 'triggers',
             'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.',
             'type': 'list',
-        }
+        },
+        {
+            'name': 'set',
+            'desc': 'Set a arbitrary value in the View definition.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methViewSet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the value to set.',
+                    },
+                    {
+                        'name': 'valu',
+                        'type': 'prim',
+                        'desc': 'The value to set.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a arbitrary value in the View definition.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methViewGet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the value to get.',
+                    },
+                    {
+                        'name': 'defv',
+                        'type': 'prim',
+                        'desc': 'The default value returned if hte name is not set in the View.',
+                        'default': None,
+                    }
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The value requested or the default value.',
+                }
+            }
+        },
+        {
+            'name': 'fork',
+            'desc': 'Fork a View in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methViewFork',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the new view.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:view',
+                    'desc': 'The ``storm:view`` object for the new View.',
+                }
+            }
+        },
+        {
+            'name': 'pack',
+            'desc': 'Get the View definition.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methViewPack',
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'Dictionary continaing the View definition.',
+                }
+            }
+        },
+        {
+            'name': 'repr',
+            'desc': 'Get a string representation of the View.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methViewRepr',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of lines that can be printed, representing a View.',
+                }
+            }
+        },
+        {
+            'name': 'merge',
+            'desc': 'Merge a forked View back into its parent View.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methViewMerge',
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'getEdges',
+            'desc': 'Get node information for Edges in the View.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGetEdges',
+                'args': (
+                    {
+                        'name': 'verb',
+                        'type': 'str',
+                        'desc': 'The name of the Edges verb to iterate over.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'name': 'Yields',
+                    'type': 'list',
+                    'desc': 'Yields tuples containing the source iden, verb, and destination iden.',
+                }
+            }
+        },
+        {
+            'name': 'addNodeEdits',
+            'desc': 'Add NodeEdits to the view.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methAddNodeEdits',
+                'args': (
+                    {
+                        'name': 'edits',
+                        'type': 'list',
+                        'desc': 'A list of nodeedits.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'getEdgeVerbs',
+            'desc': 'Get the Edge verbs which exist in the View.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGetEdgeVerbs',
+                'returns': {
+                    'name': 'Yields',
+                    'type': 'str',
+                    'desc': 'Yields the edge verbs used by Layers which make up the View.',
+                }
+            }
+        },
+        {
+            'name': 'getFormCounts',
+            'desc': '''
+            Get the formcounts for the View.
+
+            Example:
+                Get the formcounts for the current View::
+
+                    $counts = $lib.view.get().getFormCounts()''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGetFormcount',
+                'returns': {
+                    'type': 'dict',
+                    'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.",
+                }
+            }
+        },
     )
     typename = 'storm:view'
     def __init__(self, runt, vdef, path=None):
@@ -6551,9 +6724,6 @@ class View(Prim):
         }
 
     async def _methAddNodeEdits(self, edits):
-        '''
-        Add NodeEdits to the view.
-        '''
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
         layriden = self.valu.get('layers')[0].get('iden')
@@ -6563,35 +6733,15 @@ class View(Prim):
 
         # ensure the user may make *any* node edits
         gatekeys = ((useriden, ('node',), layriden),)
-        return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
-        '''
-        Get the formcounts for the View.
-
-        Example:
-            Get the formcounts for the current View::
-
-                $counts = $lib.view.get().getFormCounts()
-
-        Returns:
-            Dictionary containing form names and the count of the nodes in the View's Layers.
-        '''
         todo = s_common.todo('getFormCounts')
         return await self.viewDynCall(todo, ('view', 'read'))
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
-        '''
-        Get node information for Edges in the View.
-
-        Args:
-            verb: Optional, the name of the Edges verb to iterate over.
-
-        Returns:
-            Yields the (source iden, verb, destination iden) tuples of information.
-        '''
         verb = await toprim(verb)
         todo = s_common.todo('getEdges', verb=verb)
         async for edge in self.viewDynIter(todo, ('view', 'read')):
@@ -6599,12 +6749,6 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methGetEdgeVerbs(self):
-        '''
-        Get the Edge verbs which exist in the View.
-
-        Returns:
-            Yields the edge verbs used by Layers which make up the View.
-        '''
         todo = s_common.todo('getEdgeVerbs')
         async for verb in self.viewDynIter(todo, ('view', 'read')):
             yield verb
@@ -6624,42 +6768,15 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, name, defv=None):
-        '''
-        Get a arbitrary value in the View definition.
-
-        Args:
-            name (str): Name of the value to get.
-
-            defv: The default value returned if the name is not set in the View.
-
-        Returns:
-            The value requested or the default value.
-        '''
         return self.valu.get(name, defv)
 
     async def _methViewSet(self, name, valu):
-        '''
-        Set a arbitrary value in the View definition.
-
-        Args:
-            name (str): The name to set.
-            valu: The value to set.
-
-        Returns:
-            ``$lib.null``
-        '''
         todo = s_common.todo('setViewInfo', name, valu)
         valu = await self.viewDynCall(todo, ('view', 'set', name))
         self.valu[name] = valu
 
     @stormfunc(readonly=True)
     async def _methViewRepr(self):
-        '''
-        Get a string representation of the View.
-
-        Returns:
-            List: A list of lines that can be printed, representing a View.
-        '''
         iden = self.valu.get('iden')
         name = self.valu.get('name', 'unnamed')
         creator = self.valu.get('creator')
@@ -6680,17 +6797,11 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methViewPack(self):
-        '''
-        Get the View definition.
-
-        Returns:
-            Dictionary containing the View definition.
-        '''
         return copy.deepcopy(self.valu)
 
     async def _methViewFork(self, name=None):
         '''
-        Fork a view in the cortex.
+
         '''
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
@@ -6719,7 +6830,7 @@ class View(Prim):
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
         todo = s_common.todo('merge', useriden=useriden)
-        return await self.runt.dyncall(viewiden, todo)
+        await self.runt.dyncall(viewiden, todo)
 
 @registry.registerLib
 class LibTrigger(Lib):
