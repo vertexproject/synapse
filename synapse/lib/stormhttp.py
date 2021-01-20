@@ -197,7 +197,14 @@ class LibHttp(s_stormtypes.Lib):
         async with aiohttp.ClientSession(connector=connector) as sess:
             try:
                 async with sess.request(meth, url, headers=headers, json=json, data=body, **kwargs) as resp:
-                    return HttpResp(code=resp.status, body=await resp.content.read())
+                    info = {
+                        'code': resp.status,
+                        'headers': dict(resp.headers),
+                        'url': str(resp.url),
+                        'body': await resp.read(),
+                    }
+                    return HttpResp(info)
+                    # return HttpResp(code=resp.status, body=await resp.content.read())
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
@@ -205,7 +212,7 @@ class LibHttp(s_stormtypes.Lib):
                 raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body, params=params) from None
 
 @s_stormtypes.registry.registerType
-class HttpResp(s_stormtypes.StormType):
+class HttpResp(s_stormtypes.Prim):
     '''
     Implements the Storm API for a HTTP response.
     '''
@@ -233,18 +240,17 @@ class HttpResp(s_stormtypes.StormType):
         },
     )
     typename = 'storm:http:resp'
-    def __init__(self, code, body):
-        s_stormtypes.StormType.__init__(self)
-        self.code = code
-        self.body = body
+    def __init__(self, valu, path=None):
+        super().__init__(valu, path=path)
         self.locls.update(self.getObjLocals())
-        self.locls['code'] = self.code
-        self.locls['body'] = self.body
+        self.locls['code'] = self.valu.get('code')
+        self.locls['body'] = self.valu.get('body')
+        self.locls['headers'] = self.valu.get('headers')
 
     def getObjLocals(self):
         return {
-            'body': self._propHttoRespBody,
+            'json': self._httpRespJson,
         }
 
     async def _httpRespJson(self):
-        return json.loads(self.body)
+        return json.loads(self.valu.get('body'))
