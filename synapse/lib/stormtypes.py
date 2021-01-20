@@ -870,10 +870,10 @@ class LibBase(Lib):
         {
             'name': 'len',
             'desc': '''
-        Get the length of a item.
+            Get the length of a item.
 
-        This could represent the size of a string, or the number of keys in
-        a dictionary, or the number of elements in an array.''',
+            This could represent the size of a string, or the number of keys in
+            a dictionary, or the number of elements in an array.''',
             'type': {
                 'type': 'function',
                 '_funcname': '_len',
@@ -890,6 +890,414 @@ class LibBase(Lib):
                 }
             }
         },
+        {
+            'name': 'min',
+            'desc': 'Get the minimum value in a list of arguments.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_min',
+                'args': (
+                    {
+                        'name': '*args',
+                        'type': 'any',
+                        'desc': 'List of arguments to evaluate.',
+                    },
+                ),
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The smallest argument.',
+                }
+            }
+        },
+        {
+            'name': 'max',
+            'desc': 'Get the maximum value in a list of arguments.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_max',
+                'args': (
+                    {
+                        'name': '*args',
+                        'type': 'any',
+                        'desc': 'List of arguments to evaluate.',
+                    },
+                ),
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The largest argument.',
+                }
+            }
+        },
+        {
+            'name': 'set',
+            'desc': 'Get a Storm Set object.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_set',
+                'args': (
+                    {
+                        'name': '*vals',
+                        'type': 'any',
+                        'desc': 'Initial values to place in the set.',
+                    },
+                ),
+                'returns': {
+                    'type': 'set',
+                    'desc': 'The new set.',
+                }
+            }
+        },
+        {
+            'name': 'dict',
+            'desc': 'Get a Storm Dict object.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_dict',
+                'args': (
+                    {
+                        'name': '**kwargs',
+                        'type': 'any',
+                        'desc': 'Initial set of keyword argumetns to place into the dict.',
+                    },
+                ),
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'A dictionary object.',
+                }
+            }
+        },
+        {
+            'name': 'exit',
+            'desc': 'Cause a Storm Runtime to stop running.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_exit',
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'guid',
+            'desc': 'Get a random guid, or generate a guid from the arguments.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_guid',
+                'args': (
+                    {
+                        'name': '*args',
+                        'type': 'prim',
+                        'desc': 'Arguments which are hashed to create a guid.',
+                    },
+                ),
+                'returns': {
+                    'type': 'str',
+                    'desc': 'A guid.',
+                }
+            }
+        },
+        {
+            'name': 'fire',
+            'desc': '''
+            Fire an event onto the runtime.
+
+            Notes:
+                This fires events as ``storm:fire`` event types. The name of the event is placed into a ``type`` key,
+                and any additional keyword arguments are added to a dictionary under the ``data`` key.
+
+            Examples:
+                Fire an event called ``demo`` with some data::
+
+                    cli> storm $foo='bar' $lib.fire('demo', foo=$foo, knight='ni')
+                    ...
+                    ('storm:fire', {'type': 'demo', 'data': {'foo': 'bar', 'knight': 'ni'}})
+                    ...
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_fire',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the event to fire.',
+                    },
+                    {
+                        'name': '**info',
+                        'type': 'any',
+                        'desc': 'Additional keyword arguments containing data to add to the event.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a Storm List object.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_list',
+                'args': (
+                    {
+                        'name': '*vals',
+                        'type': 'any',
+                        'desc': 'Initial values to place in the list.',
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A new list object.',
+                }
+            }
+        },
+        {
+            'name': 'null',
+            'desc': '''
+            This constant represents a value of None that can be used in Storm.
+
+            Examples:
+                Create a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
+
+                    cli> storm $d=$lib.dict(key=$lib.null) $lib.fire('demo', d=$d)
+                    ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
+            ''',
+            'type': 'null'
+        },
+        {
+            'name': 'undef',
+            'desc': '''
+            This constant can be used to unset variables and derefs.
+
+            Examples:
+                Unset the variable $foo::
+
+                    $foo = $lib.undef
+
+                Remove a dictionary key bar::
+
+                    $foo.bar = $lib.undef
+
+                Remove a list index of 0::
+
+                    $foo.0 = $lib.undef
+            ''',
+            'type': 'undef',
+        },
+        {
+            'name': 'true',
+            'desc': '''
+            This constant represents a value of True that can be used in Storm.
+
+            Examples:
+                Conditionally print a statement based on the constant value::
+
+                    cli> storm if $lib.true { $lib.print('Is True') } else { $lib.print('Is False') }
+                    Is True
+                ''',
+            'type': 'boolean',
+        },
+        {
+            'name': 'false',
+            'desc': '''
+            This constant represents a value of False that can be used in Storm.
+
+            Examples:
+                Conditionally print a statement based on the constant value::
+
+                    cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
+                    Is False''',
+            'type': 'boolean',
+        },
+        {
+            'name': 'text',
+            'desc': 'Get a Storm Text object.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_text',
+                'args': (
+                    {
+                        'name': '*args',
+                        'type': 'str',
+                        'desc': '*args: An initial set of values to place in the Text. These values are joined together with an empty string.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:text',
+                    'desc': 'The new Text object.',
+                }
+            }
+        },
+        {
+            'name': 'cast',
+            'desc': 'Normalize a value as a Synapse Data Model Type.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_cast',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the model type to normalize the value as.',
+                    },
+                    {
+                        'name': 'valu',
+                        'type': 'any',
+                        'desc': 'The value to normalize.',
+                    },
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The normalized value.',
+                }
+            }
+        },
+        {
+            'name': 'warn',
+            'desc': '''
+            Print a warning message to the runtime.
+
+            Notes:
+                Arbitrary objects can be warned as well. They will have their Python __repr()__ printed.
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_warn',
+                'args': (
+                    {
+                        'name': 'mesg',
+                        'type': 'str',
+                        'desc': 'String to warn.',
+                    },
+                    {
+                        'name': '**kwargs',
+                        'type': 'any',
+                        'desc': 'Keyword arguments to substitute into the mesg.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'print',
+            'desc': '''
+            Print a message to the runtime.
+
+            Examples:
+                Print a simple string::
+
+                    cli> storm $lib.print("Hello world!")
+                    Hello world!
+
+                Format and print string based on variables::
+
+                    cli> storm $d=$lib.dict(key1=(1), key2="two")
+                         for ($key, $value) in $d { $lib.print('{k} => {v}', k=$key, v=$value) }
+                    key1 => 1
+                    key2 => two
+
+                Use values off of a node to format and print string::
+
+                    cli> storm inet:ipv4:asn
+                         $lib.print("node: {ndef}, asn: {asn}", ndef=$node.ndef(), asn=:asn) | spin
+                    node: ('inet:ipv4', 16909060), asn: 1138
+
+            Notes:
+                Arbitrary objects can be printed as well. They will have their Python __repr()__ printed.
+
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_print',
+                'args': (
+                    {
+                        'name': 'mesg',
+                        'type': 'str',
+                        'desc': 'String to print.',
+                    },
+                    {
+                        'name': '**kwargs',
+                        'type': 'any',
+                        'desc': 'Keyword argumetns to substitue into the mesg.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'pprint',
+            'desc': 'The pprint API should not be considered a stable interface.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_pprint',
+                'args': (
+                    {
+                        'name': 'item',
+                        'type': 'any',
+                        'desc': 'Item to pprint',
+                    },
+                    {
+                        'name': 'prefix',
+                        'type': 'str',
+                        'desc': 'Line prefix.',
+                        'default': '',
+                    },
+                    {
+                        'name': 'clamp',
+                        'type': 'int',
+                        'desc': 'Line clamping length.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'sorted',
+            'desc': 'Yield sorted values.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_sorted',
+                'args': (
+                    {
+                        'name': 'valu',
+                        'type': 'any',
+                        'desc': 'An iterable object to sort.',
+                    },
+                ),
+                'returns': {
+                    'name': 'Yields',
+                    'type': 'any',
+                    'desc': 'Yields the sorted output.',
+                }
+            }
+        },
+        {
+            'name': 'import',
+            'desc': 'Import a Storm Package.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_libBaseImport',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the package to import.',
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:lib',
+                    'desc': 'A ``storm:lib`` instance representing the imported package.',
+                }
+            }
+        },
     )
 
     def getObjLocals(self):
@@ -903,10 +1311,10 @@ class LibBase(Lib):
             'guid': self._guid,
             'fire': self._fire,
             'list': self._list,
-            'null': self._null,
-            'undef': self._undef,
-            'true': self._true,
-            'false': self._false,
+            'null': None,
+            'undef': undef,
+            'true': True,
+            'false': False,
             'text': self._text,
             'cast': self._cast,
             'warn': self._warn,
@@ -916,80 +1324,8 @@ class LibBase(Lib):
             'import': self._libBaseImport,
         }
 
-    @property
-    def _undef(self):
-        '''
-        This constant can be used to unset variables and derefs.
-
-        Examples:
-
-            // Unset the variable $foo
-            $foo = $lib.undef
-
-            // Remove a dictionary key bar
-            $foo.bar = $lib.undef
-
-            // Remove a list index of 0
-            $foo.0 = $lib.undef
-        '''
-        return undef
-
-    @property
-    def _true(self):
-        '''
-        This constant represents a value of True that can be used in Storm. It is not called like a function, it can
-        be directly used.
-
-        Examples:
-            Conditionally print a statement based on the constant value::
-
-                cli> storm if $lib.true { $lib.print('Is True') } else { $lib.print('Is False') }
-                Is True
-
-        '''
-        return True
-
-    @property
-    def _false(self):
-        '''
-        This constant represents a value of True that can be used in Storm. It is not called like a function, it can
-        be directly used.
-
-        Examples:
-            Conditionally print a statement based on the constant value::
-
-                cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
-                Is False
-
-        '''
-        return False
-
-    @property
-    def _null(self):
-        '''
-        This constant represents a value of None that can be used in Storm. It is not called like a function, it can
-        be directly used.
-
-        Examples:
-            Create a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
-
-                cli> storm $d=$lib.dict(key=$lib.null) $lib.fire('demo', d=$d)
-                ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
-
-        '''
-        return None
-
     @stormfunc(readonly=True)
     async def _libBaseImport(self, name):
-        '''
-        Import a Storm Package.
-
-        Args:
-            name (str): Name of the package to import.
-
-        Returns:
-            Lib: A StormLib instance representing the imported Package.
-        '''
         mdef = await self.runt.snap.core.getStormMod(name)
         if mdef is None:
             mesg = f'No storm module named {name}.'
@@ -1021,17 +1357,6 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _cast(self, name, valu):
-        '''
-        Normalize a value as a Synapse Data Model Type.
-
-        Args:
-            name (str): The name of the model type to normalize the value as.
-            valu: The value to normalize.
-
-        Returns:
-            A object representing the normalized value.
-        '''
-
         name = await toprim(name)
         valu = await toprim(valu)
 
@@ -1047,93 +1372,32 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _exit(self):
-        '''
-        Cause a Storm Runtime to stop running.
-        '''
         raise s_stormctrl.StormExit()
 
     @stormfunc(readonly=True)
     async def _sorted(self, valu):
-        '''
-        Yield sorted values.
-
-        Args:
-            valu: An iterable oject to sort.
-
-        Returns:
-            Yields the sorted output.
-        '''
         valu = await toiter(valu)
         for item in sorted(valu):
             yield item
 
     async def _set(self, *vals):
-        '''
-        Get a Storm Set object.
-
-        Args:
-            *vals: Initial values to place in the set.
-
-        Returns:
-            Set: A Storm Set object.
-        '''
         return Set(set(vals))
 
     async def _list(self, *vals):
-        '''
-        Get a Storm List object.
-
-        Args:
-            *vals: Initial values to place in the list.
-
-        Returns:
-            List: A Storm List object.
-        '''
         return List(list(vals))
 
     async def _text(self, *args):
-        '''
-        Get a Storm Text object.
-
-        Args:
-            *args: An initial set of values to place in the Text. These values are joined together with an empty string.
-
-        Returns:
-            Text: A Storm Text object.
-
-        '''
         valu = ''.join(args)
         return Text(valu)
 
     @stormfunc(readonly=True)
     async def _guid(self, *args):
-        '''
-        Get a random guid, or generate a guid from the arguments.
-
-        Args:
-            *args: Arguments which are hashed to create a guid.
-
-        Returns:
-            str: A guid.
-        '''
         if args:
             return s_common.guid(args)
         return s_common.guid()
 
     @stormfunc(readonly=True)
     async def _len(self, item):
-        '''
-        Get the length of a item.
-
-        This could represent the size of a string, or the number of keys in
-        a dictionary, or the number of elements in an array.
-
-        Args:
-            item: The item to get the length of.
-
-        Returns:
-            int: The length.
-        '''
         try:
             return len(item)
         except TypeError:
@@ -1145,15 +1409,6 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _min(self, *args):
-        '''
-        Get the minimum value in a list of arguments
-
-        Args:
-            *args: List of arguments to evaluate.
-
-        Returns:
-            The smallest argument.
-        '''
         # allow passing in a list of ints
         vals = []
         for arg in args:
@@ -1167,15 +1422,6 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _max(self, *args):
-        '''
-        Get the maximum value in a list of arguments
-
-        Args:
-            *args: List of arguments to evaluate.
-
-        Returns:
-            The largest argument.
-        '''
         # allow passing in a list of ints
         vals = []
         for arg in args:
@@ -1197,47 +1443,11 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _print(self, mesg, **kwargs):
-        '''
-        Print a message to the runtime.
-
-        Args:
-            mesg (str): String to print.
-
-            **kwargs: Keyword arguments to substitute into the mesg.
-
-        Examples:
-            Print a simple string::
-
-                cli> storm $lib.print("Hello world!")
-                Hello world!
-
-            Format and print string based on variables::
-
-                cli> storm $d=$lib.dict(key1=(1), key2="two")
-                     for ($key, $value) in $d { $lib.print('{k} => {v}', k=$key, v=$value) }
-                key1 => 1
-                key2 => two
-
-            Use values off of a node to format and print string::
-
-                cli> storm inet:ipv4:asn
-                     $lib.print("node: {ndef}, asn: {asn}", ndef=$node.ndef(), asn=:asn) | spin
-                node: ('inet:ipv4', 16909060), asn: 1138
-
-        Notes:
-            Arbitrary objects can be printed as well. They will have their Python __repr()__ printed.
-
-        Returns:
-            None: Returns None.
-        '''
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
 
     @stormfunc(readonly=True)
     async def _pprint(self, item, prefix='', clamp=None):
-        '''
-        The pprint API should not be considered a stable interface.
-        '''
         if clamp is not None:
             clamp = await toint(clamp)
 
@@ -1256,61 +1466,15 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _warn(self, mesg, **kwargs):
-        '''
-        Print a warning message to the runtime.
-
-        Args:
-            mesg (str): String to warn.
-
-            **kwargs: Keyword arguments to substitute into the mesg.
-
-        Notes:
-            Arbitrary objects can be warned as well. They will have their Python __repr()__ printed.
-
-        Returns:
-            None: Returns None.
-        '''
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.warn(mesg, log=False)
 
     @stormfunc(readonly=True)
     async def _dict(self, **kwargs):
-        '''
-        Get a Storm Dict object.
-
-        Args:
-            **kwargs: An initial set of keyword arguments to place in the Dict.
-
-        Returns:
-            Dict: A Storm Dict object.
-        '''
         return Dict(kwargs)
 
     @stormfunc(readonly=True)
     async def _fire(self, name, **info):
-        '''
-        Fire an event onto the runtime.
-
-        Args:
-            name: The type of the event to fire.
-
-            **info: Additional keyword arguments containing data to add to the event.
-
-        Notes:
-            This fires events as ``storm:fire`` event types. The name of the event is placed into a ``type`` key,
-            and any additional keyword arguments are added to a dictionary under the ``data`` key.
-
-        Examples:
-            Fire an event called ``demo`` with some data::
-
-                cli> storm $foo='bar' $lib.fire('demo', foo=$foo, knight='ni')
-                ...
-                ('storm:fire', {'type': 'demo', 'data': {'foo': 'bar', 'knight': 'ni'}})
-                ...
-
-        Returns:
-            None: Returns None
-        '''
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
