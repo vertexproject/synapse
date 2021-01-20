@@ -6611,6 +6611,29 @@ class Trigger(Prim):
             'desc': 'The Trigger iden.',
             'type': 'str',
         },
+        {
+            'name': 'set',
+            'desc': 'Set information in the trigger.',
+            'type': {
+                'type': 'function',
+                '_funcname': 'set',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the key to set.',
+                    },
+                    {
+                        'name': 'valu',
+                        'type': 'prim',
+                        'desc': 'The data to set'
+                    }
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
     )
     typename = 'storm:trigger'
     def __init__(self, runt, tdef):
@@ -6634,17 +6657,6 @@ class Trigger(Prim):
         return self.locls.get(name)
 
     async def set(self, name, valu):
-        '''
-        Set information in the trigger.
-
-        Args:
-            name (str): Name of the key to set.
-
-            valu: The data to set.
-
-        Returns:
-            ``$lib.null``
-        '''
         trigiden = self.valu.get('iden')
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
@@ -6712,6 +6724,107 @@ class LibUsers(Lib):
     '''
     A Storm Library for interacting with Auth Users in the Cortex.
     '''
+    dereflocals = (
+        {
+            'name': 'add',
+            'desc': 'Add a User to the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUsersAdd',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the user.',
+                    },
+                    {
+                        'name': 'passwd',
+                        'type': 'str',
+                        'desc': 'The users password.',
+                        'default': None,
+                    },
+                    {
+                        'name': 'email',
+                        'type': 'str',
+                        'desc': 'The users email address.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'storm:auth:user',
+                    'desc': 'The ``storm:auth:user`` object for the new user.',
+                }
+            }
+        },
+        {
+            'name': 'del',
+            'desc': 'Delete a User from the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUsersDel',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the user to delete.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'list',
+            'desc': 'Get a list of Users in the Cortex.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUsersList',
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A list of ``storm:auth:user`` objects.',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a specific User by iden.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUsersGet',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the user to retrieve.',
+                    },
+                ),
+                'returns': {
+                    'type': ['null', 'storm:auth:user'],
+                    'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.',
+                }
+            }
+        },
+        {
+            'name': 'byname',
+            'desc': 'Get a specific user by name.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methUsersByName',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name of the user to retrieve.',
+                    },
+                ),
+                'returns': {
+                    'type': ['', 'storm:auth:user'],
+                    'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.',
+                }
+            }
+        },
+    )
     _storm_lib_path = ('auth', 'users')
 
     def getObjLocals(self):
@@ -6724,70 +6837,24 @@ class LibUsers(Lib):
         }
 
     async def _methUsersList(self):
-        '''
-        Get a list of Users in the Cortex.
-
-        Returns:
-            list: A list of Storm User objects.
-        '''
         return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
 
     async def _methUsersGet(self, iden):
-        '''
-        Get a specific User by iden.
-
-        Args:
-            iden (str): The iden of the user to retrieve.
-
-        Returns:
-            User: A Storm User object; or None if the user does not exist.
-        '''
         udef = await self.runt.snap.core.getUserDef(iden)
         if udef is not None:
             return User(self.runt, udef['iden'])
 
     async def _methUsersByName(self, name):
-        '''
-        Get a specific user by name.
-
-        Args:
-            name (str): The name of the user to retrieve.
-
-        Returns:
-            User: A Storm User object; or None if the user does not exist.
-        '''
         udef = await self.runt.snap.core.getUserDefByName(name)
         if udef is not None:
             return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None):
-        '''
-        Add a User to the Cortex.
-
-        Args:
-            name (str): The name of the user.
-
-            passwd (str): The users password. This is optional.
-
-            email (str): The user's email address. This is optional.
-
-        Returns:
-            User: A Storm User object for the new user.
-        '''
         self.runt.confirm(('auth', 'user', 'add'))
         udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email)
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
-        '''
-        Delete a User from the Cortex.
-
-        Args:
-            iden (str): The iden of the user to delete.
-
-        Returns:
-            None: Returns None.
-        '''
         self.runt.confirm(('auth', 'user', 'del'))
         await self.runt.snap.core.delUser(iden)
 
