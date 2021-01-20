@@ -955,6 +955,11 @@ class Snap(s_base.Base):
                                 await node.setData(name, data)
 
                         for verb, n2iden in forminfo.get('edges', ()):
+                            # check for embedded ndef rather than n2iden
+                            if isinstance(n2iden, (list, tuple)):
+                                n2form, n2valu = n2iden
+                                n2node = await self.addNode(n2form, n2valu)
+                                n2iden = n2node.iden()
                             await node.addEdge(verb, n2iden)
 
                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
