@@ -6,7 +6,7 @@ class BackupLib(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with the backup APIs in the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'run',
             'desc': 'Run a Cortex backup.',

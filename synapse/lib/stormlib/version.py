@@ -9,7 +9,7 @@ class VersionLib(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with version information.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'version',
             'desc': '''

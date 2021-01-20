@@ -14,7 +14,7 @@ class LibHttp(s_stormtypes.Lib):
     '''
     A Storm Library exposing an HTTP client API.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'get',
             'desc': 'Get the contents of a given URL.',
@@ -209,7 +209,7 @@ class HttpResp(s_stormtypes.StormType):
     '''
     Implements the Storm API for a HTTP response.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'code',
             'desc': 'The HTTP status code.',

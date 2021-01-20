@@ -168,7 +168,7 @@ class LibModel(s_stormtypes.Lib):
     A Storm Library for interacting with the Data Model in the Cortex.
     '''
     _storm_lib_path = ('model',)
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'type',
             'desc': 'Get a type object by name.',
@@ -479,7 +479,7 @@ class LibModelEdge(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with light edges and manipulating their key-value attributes.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'get',
             'desc': 'Get the key-value data for a given Edge verb.',
@@ -668,7 +668,7 @@ class LibModelDeprecated(s_stormtypes.Lib):
     '''
     A storm library for interacting with the model deprecation mechanism.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'lock',
             'desc': 'Set the locked property for a deprecated model element.',

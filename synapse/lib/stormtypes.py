@@ -124,7 +124,7 @@ class StormTypesRegistry:
                 'locals': locs,
                 'path': ('lib',) + slib._storm_lib_path,
             }
-            for info in sorted(slib.dereflocals, key=lambda x: x.get('name')):
+            for info in sorted(slib._storm_locals, key=lambda x: x.get('name')):
                 info = s_msgpack.deepcopy(info)
                 self._validateInfo(slib, info, sname)
                 locs.append(info)
@@ -146,7 +146,7 @@ class StormTypesRegistry:
                 'locals': locs,
                 'path': (styp.typename,),
             }
-            for info in sorted(styp.dereflocals, key=lambda x: x.get('name')):
+            for info in sorted(styp._storm_locals, key=lambda x: x.get('name')):
                 info = s_msgpack.deepcopy(info)
                 self._validateInfo(styp, info, sname)
                 locs.append(info)
@@ -218,7 +218,7 @@ class StormType:
     '''
     The base type for storm runtime value objects.
     '''
-    dereflocals = ()  # To be overriden for deref constants that need documentation
+    _storm_locals = ()  # To be overriden for deref constants that need documentation
     def __init__(self, path=None):
         self.path = path
         self.ctors = {}
@@ -303,7 +303,7 @@ class LibPkg(Lib):
     '''
     A Storm Library for interacting with Storm Packages.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': 'Add a Storm Package to the Cortex.',
@@ -406,7 +406,7 @@ class LibDmon(Lib):
     '''
     A Storm Library for interacting with StormDmons.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': '''
@@ -666,7 +666,7 @@ class LibService(Lib):
     '''
     A Storm Library for interacting with Storm Services.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': 'Add a Storm Service to the Cortex.',
@@ -866,7 +866,7 @@ class LibBase(Lib):
     '''
     _storm_lib_path = ()
 
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'len',
             'desc': '''
@@ -1484,7 +1484,7 @@ class LibPs(Lib):
     '''
     A Storm Library for interacting with running tasks on the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'kill',
             'desc': 'Stop a running task on the Cortex.',
@@ -1555,7 +1555,7 @@ class LibStr(Lib):
     '''
     A Storm Library for interacting with strings.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'join',
             'desc': '''
@@ -1669,7 +1669,7 @@ class LibAxon(Lib):
     '''
     A Storm library for interacting with the Cortex's Axon.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'wget',
             'desc': """
@@ -1841,7 +1841,7 @@ class LibBytes(Lib):
     '''
     A Storm Library for interacting with bytes storage.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'put',
             'desc': '''
@@ -2003,7 +2003,7 @@ class LibLift(Lib):
     '''
     A Storm Library for interacting with lift helpers.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'byNodeData',
             'desc': 'Lift nodes which have a given nodedata name set on them.',
@@ -2041,7 +2041,7 @@ class LibTime(Lib):
     '''
     A Storm Library for interacting with timestamps.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'now',
             'desc': 'Get the current epoch time in milliseconds.',
@@ -2280,7 +2280,7 @@ class LibRegx(Lib):
     '''
     A Storm library for searching/matching with regular expressions.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'search',
             'desc': '''
@@ -2430,7 +2430,7 @@ class LibCsv(Lib):
     '''
     A Storm Library for interacting with csvtool.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'emit',
             'desc': 'Emit a ``csv:row`` event to the Storm runtime for the given args.',
@@ -2472,7 +2472,7 @@ class LibFeed(Lib):
     '''
     A Storm Library for interacting with Cortex feed functions.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'genr',
             'desc': '''
@@ -2605,7 +2605,7 @@ class LibPipe(Lib):
     '''
     A Storm library for interacting with non-persistent queues.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'gen',
             'desc': '''
@@ -2695,7 +2695,7 @@ class Pipe(StormType):  # FIXME prim?
     '''
     A Storm Pipe provides fast ephemeral queues.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'put',
             'desc': 'Add a single item to the Pipe.',
@@ -2865,7 +2865,7 @@ class LibQueue(Lib):
     '''
     A Storm Library for interacting with persistent Queues in the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': 'Add a Queue to the Cortex with a given name.',
@@ -3013,7 +3013,7 @@ class Queue(StormType):  # FIXME - why is this not a Prim?
     '''
     A StormLib API instance of a named channel in the Cortex multiqueue.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'name',
             'desc': 'The name of the Queue.',
@@ -3184,7 +3184,7 @@ class LibTelepath(Lib):
     '''
     A Storm Library for making Telepath connections to remote services.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'open',
             'desc': 'Open and return a Telepath RPC proxy.',
@@ -3271,7 +3271,7 @@ class LibBase64(Lib):
     '''
     A Storm Library for encoding and decoding base64 data.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'encode',
             'desc': 'Encode a bytes object to a base64 encoded string.',
@@ -4309,7 +4309,7 @@ class LibUser(Lib):
     '''
     A Storm Library for interacting with data about the current user.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'name',
             'desc': 'Get the name of the current runtime user.',
@@ -4389,7 +4389,7 @@ class LibGlobals(Lib):
     '''
     A Storm Library for interacting with global variables which are persistent across the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'get',
             'desc': 'Get a Cortex global variables.',
@@ -4669,7 +4669,7 @@ class LibVars(Lib):
     '''
     A Storm Library for interacting with runtime variables.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'get',
             'desc': 'Get the value of a variable from the current Runtime.',
@@ -5619,7 +5619,7 @@ class LibStats(Lib):
     '''
     A Storm Library for statistics related functionality.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'tally',
             'desc': 'Get a Tally object.',
@@ -5740,7 +5740,7 @@ class LibLayer(Lib):
     A Storm Library for interacting with Layers in the Cortex.
     '''
     _storm_lib_path = ('layer',)
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': 'Add a layer to the Cortex.',
@@ -6371,7 +6371,7 @@ class LibView(Lib):
     A Storm Library for interacting with Views in the Cortex.
     '''
     _storm_lib_path = ('view',)
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': 'Add a View to the Cortex.',
@@ -6837,7 +6837,7 @@ class LibTrigger(Lib):
     '''
     A Storm Library for interacting with Triggers in the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': 'Add a Trigger to the Cortex.',
@@ -7199,7 +7199,7 @@ class LibAuth(Lib):
     '''
     A Storm Library for interacting with Auth in the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'ruleFromText',
             'desc': 'Get a rule tuple from a text string.',
@@ -7233,7 +7233,7 @@ class LibUsers(Lib):
     '''
     A Storm Library for interacting with Auth Users in the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': 'Add a User to the Cortex.',
@@ -7372,7 +7372,7 @@ class LibRoles(Lib):
     '''
     A Storm Library for interacting with Auth Roles in the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': 'Add a Role to the Cortex.',
@@ -7499,7 +7499,7 @@ class LibGates(Lib):
     '''
     A Storm Library for interacting with Auth Gates in the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'get',
             'desc': 'Get a specific Gate by iden.',
@@ -8075,7 +8075,7 @@ class LibCron(Lib):
     '''
     A Storm Library for interacting with Cron Jobs in the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'at',
             'desc': 'Add a non-recurring Cron Job to the Cortex.',

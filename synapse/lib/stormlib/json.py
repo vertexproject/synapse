@@ -8,7 +8,7 @@ class JsonLib(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with Json data.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'load',
             'desc': 'Parse a JSON string and return the deserialized data.',

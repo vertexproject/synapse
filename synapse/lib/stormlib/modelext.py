@@ -5,7 +5,7 @@ class LibModelExt(Lib):
     '''
     A Storm library for manipulating extended model elements.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'addForm',
             'desc': 'Add an extended form definition to the data model.',

@@ -9,7 +9,7 @@ class LibWhois(s_stormtypes.Lib):
     '''
     A Storm Library for providing a consistent way to generate guids for WHOIS / Registration Data in Storm.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'guid',
             'desc': '''

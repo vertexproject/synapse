@@ -125,7 +125,7 @@ class LibMacro(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with the Storm Macros in the Cortex.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'set',
             'desc': 'Add or modify an existing Storm Macro in the Cortex.',
