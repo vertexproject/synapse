@@ -5876,6 +5876,289 @@ class Layer(Prim):
             'desc': 'The iden of the Layer.',
             'type': 'str',
         },
+        {
+            'name': 'set',
+            'desc': 'Set a arbitrary value in the Layer definition.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methLayerSet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'The name to set.',
+                    },
+                    {
+                        'name': 'valu',
+                        'type': 'any',
+                        'desc': 'The value to set.'
+                    }
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'get',
+            'desc': 'Get a arbitrary value in the Layer definition.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methLayerGet',
+                'args': (
+                    {
+                        'name': 'name',
+                        'type': 'str',
+                        'desc': 'Name of the value to get.',
+                    },
+                    {
+                        'name': 'defv',
+                        'type': 'prim',
+                        'desc': 'The default value returned if the name is not set in the Layer.',
+                        'default': None,
+                    }
+                ),
+                'returns': {
+                    'type': 'prim',
+                    'desc': 'The value requested or the default value.',
+                }
+            }
+        },
+        {
+            'name': 'pack',
+            'desc': 'Get the Layer definition.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methLayerPack',
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'Dictionary containing the Layer definition.',
+                }
+            }
+        },
+        {
+            'name': 'repr',
+            'desc': 'Get a string representation of the Layer.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methLayerRepr',
+                'returns': {
+                    'type': 'str',
+                    'desc': 'A string that can be printed, representing a Layer.',
+                }
+            }
+        },
+        {
+            'name': 'edits',
+            'desc': 'Yield (offs, nodeedits) tuples from the given offset.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methLayerEdits',
+                'args': (
+                    {
+                        'name': 'offs',
+                        'type': 'int',
+                        'desc': 'Offset to start getting nodeedits from the layer at.',
+                        'default': 0,
+                    },
+                    {
+                        'name': 'wait',
+                        'type': 'boolean',
+                        'desc': 'If true, wait for new edits, otherwise exit the generator when there are no more edits.',
+                        'default': True,
+                    },
+                    {
+                        'name': 'size',
+                        'type': 'int',
+                        'desc': 'The maximum number of nodeedits to yield.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'name': 'Yields',
+                    'type': 'list',
+                    'desc': 'Yields offset, nodeedit tuples from a given offset.',
+                }
+            }
+        },
+        {
+            'name': 'addPush',
+            'desc': 'Configure the layer to push edits to a remote layer/feed.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_addPush',
+                'args': (
+                    {
+                        'name': 'url',
+                        'type': 'str',
+                        'desc': 'A telepath URL of the target layer/feed.',
+                    },
+                    {
+                        'name': 'offs',
+                        'type': 'int',
+                        'desc': 'The local layer offset to begin pushing from',
+                        'default': 0,
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'delPush',
+            'desc': 'Remove a push config from the layer.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_delPush',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the push config to remove.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'addPull',
+            'desc': 'Configure the layer to pull edits from a remote layer/feed.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_addPull',
+                'args': (
+                    {
+                        'name': 'url',
+                        'type': 'str',
+                        'desc': 'The telepath URL to a layer/feed.',
+                    },
+                    {
+                        'name': 'offs',
+                        'type': 'int',
+                        'desc': 'The offset to begin from.',
+                        'default': 0,
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'delPull',
+            'desc': 'Remove a pull config from the layer.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_delPull',
+                'args': (
+                    {
+                        'name': 'iden',
+                        'type': 'str',
+                        'desc': 'The iden of the push config to remove.',
+                    },
+                ),
+                'returns': {
+                    'type': '',
+                    'desc': '',
+                }
+            }
+        },
+        {
+            'name': 'getTagCount',
+            'desc': '''
+            Return the number of tag rows in the layer for the given tag and optional form.
+
+            Examples:
+                Get the number of ``inet:ipv4`` nodes with the ``$foo.bar`` tag::
+
+                    $count = $lib.layer.get().getTagCount(foo.bar, formname=inet:ipv4)''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGetTagCount',
+                'args': (
+                    {
+                        'name': 'tagname',
+                        'type': 'str',
+                        'desc': 'The name of the tag to look up.',
+                    },
+                    {
+                        'name': 'formname',
+                        'type': 'str',
+                        'desc': 'The form to constrain the look up by.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The count of tag rows.',
+                }
+            }
+        },
+        {
+            'name': 'getPropCount',
+            'desc': 'Get the number of property rows in the layer for the given full form or property name.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGetPropCount',
+                'args': (
+                    {
+                        'name': 'propname',
+                        'type': 'str',
+                        'desc': 'The property or form name to look up.',
+                    },
+                    {
+                        'name': 'maxsize',
+                        'type': 'int',
+                        'desc': 'The maximum number of rows to look up.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The count of rows.',
+                }
+            }
+        },
+        {
+            'name': 'GetFormcount',
+            'desc': '''
+            Get the formcounts for the Layer.
+
+            Example:
+                Get the formcounts for the current :ayer::
+
+                    $counts = $lib.layer.get().getFormCounts()''',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methGetFormcount',
+                'returns': {
+                    'type': 'dict',
+                    'desc': 'Dictionary containing form names and the count of the nodes in the Layer.',
+                }
+            }
+        },
+        {
+            'name': 'getStorNodes',
+            'desc': '''
+            Get buid, sode tuples representing the data stored in the layer.
+
+            Notes:
+                The storage nodes represent **only** the data stored in the layer
+                and may not represent whole nodes.
+            ''',
+            'type': {
+                'type': 'function',
+                '_funcname': 'getStorNodes',
+                'returns': {
+                    'name': 'Yields',
+                    'type': 'list',
+                    'desc': 'Tuple of buid, sode values.',
+                }
+            }
+        },
     )
     typename = 'storm:layer'
     def __init__(self, runt, ldef, path=None):
@@ -5918,17 +6201,6 @@ class Layer(Prim):
         }
 
     async def _addPull(self, url, offs=0):
-        '''
-        Configure the layer to pull edits from a remote layer/feed.
-
-        Args:
-            url (str): The telepath URL to a layer/feed.
-            offs (int): The (optional) offset to begin from.
-
-        Perms:
-            - admin privs are required on the layer.
-            - lib.telepath.open.<scheme>
-        '''
         url = await tostr(url)
         offs = await toint(offs)
 
@@ -5956,15 +6228,6 @@ class Layer(Prim):
         await self.runt.dyncall('cortex', todo)
 
     async def _delPull(self, iden):
-        '''
-        Remove a pull config from the layer.
-
-        Args:
-            iden (str): The GUID of the push config to remove.
-
-        Perms:
-            - admin privs are required on the layer.
-        '''
         iden = await tostr(iden)
 
         layriden = self.valu.get('iden')
@@ -5976,18 +6239,6 @@ class Layer(Prim):
         await self.runt.dyncall('cortex', todo)
 
     async def _addPush(self, url, offs=0):
-        '''
-        Configure the layer to push edits to a remote layer/feed.
-
-        Args:
-            url (str): A telepath URL of the target layer/feed.
-
-            offs (int): The local layer offset to begin pushing from (default: 0).
-
-        Perms:
-            - admin privs are required on the layer.
-            - lib.telepath.open.<scheme>
-        '''
         url = await tostr(url)
         offs = await toint(offs)
 
@@ -6015,15 +6266,6 @@ class Layer(Prim):
         await self.runt.dyncall('cortex', todo)
 
     async def _delPush(self, iden):
-        '''
-        Remove a push config from the layer.
-
-        Args:
-            iden (str): The GUID of the push config to remove.
-
-        Perms:
-            - admin privs are required on the layer.
-        '''
         iden = await tostr(iden)
         layriden = self.valu.get('iden')
 
@@ -6036,29 +6278,12 @@ class Layer(Prim):
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
-        '''
-        Get the formcounts for the Layer.
-
-        Example:
-            Get the formcounts for the current :ayer::
-
-                $counts = $lib.layer.get().getFormCounts()
-
-        Returns:
-            Dictionary containing form names and the count of the nodes in the Layer.
-        '''
         layriden = self.valu.get('iden')
         gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
         todo = s_common.todo('getFormCounts')
         return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
     async def _methGetTagCount(self, tagname, formname=None):
-        '''
-        Return the number of tag rows in the layer for the given tag name and optional form name.
-
-        Example:
-            $count = $lib.layer.get().getTagCount(foo.bar, formname=inet:ipv4)
-        '''
         tagname = await tostr(tagname)
         formname = await tostr(formname, noneok=True)
         layriden = self.valu.get('iden')
@@ -6067,12 +6292,6 @@ class Layer(Prim):
         return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
     async def _methGetPropCount(self, propname, maxsize=None):
-        '''
-        Return the number of property rows in the layer for the given full form/property name.
-
-        Example:
-            $count = $lib.layer.get().getPropCount(inet:ipv4:asn)
-        '''
         propname = await tostr(propname)
         maxsize = await toint(maxsize, noneok=True)
 
@@ -6091,10 +6310,6 @@ class Layer(Prim):
         return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
 
     async def _methLayerEdits(self, offs=0, wait=True, size=None):
-        '''
-        Yield (offs, nodeedits) tuples from the given offset.
-        If wait=True, also consume them in real-time once caught up.
-        '''
         offs = await toint(offs)
         wait = await tobool(wait)
         layriden = self.valu.get('iden')
@@ -6111,12 +6326,6 @@ class Layer(Prim):
                 break
 
     async def getStorNodes(self):
-        '''
-        Yield (buid, sode) tuples represeting the data stored in this layer.
-
-        NOTE: "storage nodes" (or "sodes") represent *only* the data stored in
-              the layer and may not represent whole nodes.
-        '''
         layriden = self.valu.get('iden')
         self.runt.confirm(('layer', 'read'), gateiden=layriden)
 
@@ -6126,32 +6335,9 @@ class Layer(Prim):
             yield item
 
     async def _methLayerGet(self, name, defv=None):
-        '''
-        Get a arbitrary value in the Layer definition.
-
-        Args:
-            name (str): Name of the value to get.
-
-            defv: The default value returned if the name is not set in the Layer.
-
-        Returns:
-            The value requested or the default value.
-        '''
         return self.valu.get(name, defv)
 
     async def _methLayerSet(self, name, valu):
-        '''
-        Set a arbitrary value in the Layer definition.
-
-        Args:
-            name (str): The name to set.
-
-            valu: The value to set.
-
-        Returns:
-            ``$lib.null``
-        '''
-
         name = await tostr(name)
 
         if name == 'name':
@@ -6170,21 +6356,9 @@ class Layer(Prim):
         self.valu[name] = valu
 
     async def _methLayerPack(self):
-        '''
-        Get the Layer definition.
-
-        Returns:
-            Dictionary containing the Layer definition.
-        '''
         return copy.deepcopy(self.valu)
 
     async def _methLayerRepr(self):
-        '''
-        Get a string representation of the Layer.
-
-        Returns:
-            List: A list of lines that can be printed, representing a Layer.
-        '''
         iden = self.valu.get('iden')
         name = self.valu.get('name', 'unnamed')
         creator = self.valu.get('creator')
