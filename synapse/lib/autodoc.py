@@ -276,7 +276,7 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
 
         sname = '.'.join(path)
 
-        link = f'.. _{linkprefix}-{sname.replace(":", "-")}:'  # XXX Rename to objlink or something
+        link = f'.. _{linkprefix}-{sname.replace(":", ".").replace(".", "-")}:'  # XXX Rename to objlink or something
 
         safesname = sname.replace(':', '\\:')
         if islib:
