@@ -2043,6 +2043,15 @@ class InetModule(s_module.CoreModule):
                         ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address of the action.'
                         }),
+                        ('loc', ('loc', {}), {
+                            'doc': 'The location of the user executing the web action.',
+                        }),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The latlong of the user when executing the web action.',
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place of the user when executing the web action.',
+                        }),
                     )),
 
                     ('inet:web:chprofile', {}, (
@@ -2206,7 +2215,16 @@ class InetModule(s_module.CoreModule):
                         ('logout', ('time', {}), {
                             'ro': True,
                             'doc': 'The date and time the account logged out of the service.'
-                        })
+                        }),
+                        ('loc', ('loc', {}), {
+                            'doc': 'The location of the user executing the logon.',
+                        }),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The latlong of the user executing the logon.',
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place of the user executing the logon.',
+                        }),
                     )),
 
                     ('inet:web:memb', {}, (

@@ -234,7 +234,8 @@ class FileModule(s_module.CoreModule):
                 ('file:string', ('comp', {'fields': (
                         ('file', 'file:bytes'),
                         ('string', 'str'))}), {
-                    'doc': 'The fused knowledge of a file:bytes node containing a string.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use the edge -(refs)> it:dev:str.',
                 }),
 
                 ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
