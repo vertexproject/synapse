@@ -3380,7 +3380,7 @@ class Str(Prim):
     '''
     Implements the Storm API for a String object.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'split',
             'desc': '''
@@ -3713,7 +3713,7 @@ class Bytes(Prim):
     '''
     Implements the Storm API for a Bytes object.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'decode',
             'desc': 'Decode bytes to a string.',
@@ -3941,7 +3941,7 @@ class Set(Prim):
     '''
     Implements the Storm API for a Set object.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': 'Add a item to the set. Each argument is added to the set.',
@@ -4115,7 +4115,7 @@ class List(Prim):
     '''
     Implements the Storm API for a List instance.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'has',
             'desc': 'Check it a value is in the list.',
@@ -4536,7 +4536,7 @@ class StormHiveDict(Prim):
     '''
     A Storm Primitive representing a HiveDict.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'get',
             'desc': 'Get the named value from the HiveDict.',
@@ -4776,7 +4776,7 @@ class Query(Prim):
     '''
     A storm primitive representing an embedded query.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'exec',
             'desc': '''
@@ -4847,7 +4847,7 @@ class NodeProps(Prim):
     '''
     A Storm Primitive representing the properties on a Node.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'get',
             'desc': 'Get a specific property value by name.',
@@ -4935,7 +4935,7 @@ class NodeData(Prim):
     '''
     A Storm Primitive representing the NodeData stored for a Node.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'get',
             'desc': 'Get the Node data for a given name for the Node.',
@@ -5075,7 +5075,7 @@ class Node(Prim):
     '''
     Implements the Storm api for a node instance.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'form',
             'desc': 'Get the form of the Node.',
@@ -5439,7 +5439,7 @@ class Path(Prim):
     '''
     Implements the Storm API for the Path object.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'vars',
             'desc': 'The PathVars object for the Path.',
@@ -5524,7 +5524,7 @@ class Trace(Prim):
     '''
     Storm API wrapper for the Path Trace object.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'idens',
             'desc': 'Get the idens in the current trace object.',
@@ -5556,7 +5556,7 @@ class Text(Prim):
     '''
     A mutable text type for simple text construction.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'add',
             'desc': 'Add text to the Text object.',
@@ -5660,7 +5660,7 @@ class StatTally(Prim):
 
     '''
     typename = 'storm:stat:tally'
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'inc',
             'desc': 'Increment a given counter.',
@@ -5870,7 +5870,7 @@ class Layer(Prim):
     '''
     Implements the Storm api for a layer instance.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'iden',
             'desc': 'The iden of the Layer.',
@@ -6508,7 +6508,7 @@ class View(Prim):
     '''
     Implements the Storm api for a View instance.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'iden',
             'desc': 'The iden of the View.',
@@ -7114,7 +7114,7 @@ class Trigger(Prim):
     '''
     Implements the Storm API for a Trigger.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'iden',
             'desc': 'The Trigger iden.',
@@ -7221,12 +7221,15 @@ class LibAuth(Lib):
         },
     )
     _storm_lib_path = ('auth',)
-    ruleFromText = ruleFromText
 
     def getObjLocals(self):
         return {
             'ruleFromText': self.ruleFromText,
         }
+
+    @staticmethod
+    def ruleFromText(text):
+        return ruleFromText(text)
 
 @registry.registerLib
 class LibUsers(Lib):
@@ -7557,7 +7560,7 @@ class Gate(Prim):
     '''
     Implements the Storm API for an AuthGate.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'iden',
             'desc': 'The iden of the AuthGate.',
@@ -7590,7 +7593,7 @@ class User(Prim):
     '''
     Implements the Storm API for a User.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'iden',
             'desc': 'The User iden.',
@@ -7933,7 +7936,7 @@ class Role(Prim):
     '''
     Implements the Storm API for a Role.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'iden',  # XXXFIXME Add unit test
             'desc': 'The Role iden.',
@@ -8621,7 +8624,7 @@ class CronJob(Prim):
     '''
     Implements the Storm api for a cronjob instance.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'iden',
             'desc': 'The iden of the Cron Job.',

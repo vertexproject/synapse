@@ -288,7 +288,7 @@ class ModelForm(s_stormtypes.Prim):
     '''
     Implements the Storm API for a Form.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'name',
             'desc': 'The name of the Form',
@@ -344,7 +344,7 @@ class ModelProp(s_stormtypes.Prim):
     '''
     Implements the Storm API for a Property.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'name',
             'desc': 'The short name of the Property.',
@@ -380,7 +380,7 @@ class ModelTagProp(s_stormtypes.Prim):
     '''
     Implements the Storm API for a Tag Property.
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'name',
             'desc': 'The name of the Tag Property.',
@@ -406,7 +406,7 @@ class ModelType(s_stormtypes.Prim):
     '''
     A Storm types wrapper around a lib.types.Type
     '''
-    dereflocals = (
+    _storm_locals = (
         {
             'name': 'name',
             'desc': 'The name of the Type.',
