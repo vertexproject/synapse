@@ -124,6 +124,11 @@ class CoreApi(s_cell.CellApi):
     async def getModelDefs(self):
         return await self.cell.getModelDefs()
 
+    async def getStormDocs(self):
+        # TODO should this be permission gated in the event that we ever
+        # self-host storm package documentation from inside of the Cortex?
+        return await self.cell.getStormDocs()
+
     def getCoreInfo(self):
         '''
         Return static generic information about the cortex including model definition
@@ -3862,6 +3867,22 @@ class Cortex(s_cell.Cell):  # type: ignore
             'modeldef': self.model.getModelDefs(),
             'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
         }
+
+    def getStormDocs(self):
+        '''
+        Get a struct containing the Storm Types documentation.
+
+        Returns:
+            dict: A Dictionary of storm documentation information.
+        '''
+
+        ret = {
+            'version': synapse.version,
+            'libraries': s_stormtypes.registry.getLibDocs(),
+            'types': s_stormtypes.registry.getTypeDocs(),
+            # 'packages': ...  # TODO - Support inline documentation for packages?
+        }
+        return ret
 
     async def addNodes(self, nodedefs, view=None):
         '''
