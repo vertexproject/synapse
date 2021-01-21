@@ -958,7 +958,13 @@ class Snap(s_base.Base):
                             # check for embedded ndef rather than n2iden
                             if isinstance(n2iden, (list, tuple)):
                                 n2form, n2valu = n2iden
-                                n2node = await self.addNode(n2form, n2valu)
+                                try:
+                                    n2node = await self.addNode(n2form, n2valu)
+                                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                                    raise
+                                except:
+                                    logger.warning(f'Failed to make n2 edge node for {n2iden}')
+                                    continue
                                 n2iden = n2node.iden()
                             await node.addEdge(verb, n2iden)
 
