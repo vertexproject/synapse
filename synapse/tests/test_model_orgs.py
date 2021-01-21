@@ -86,8 +86,12 @@ class OuModelTest(s_t_utils.SynTest):
 
             # ou:isic
             t = core.model.type('ou:isic')
-            norm, subs = t.norm('C1393')
-            self.eq(norm, 'C1393')
+            self.eq('C', t.norm('C')[0])
+            self.eq('C13', t.norm('C13')[0])
+            self.eq('C139', t.norm('C139')[0])
+            self.eq('C1393', t.norm('C1393')[0])
+            self.raises(s_exc.BadTypeValu, t.norm, 'C1')
+            self.raises(s_exc.BadTypeValu, t.norm, 'C12345')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
             self.raises(s_exc.BadTypeValu, t.norm, 1000000)
 
