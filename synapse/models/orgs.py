@@ -58,7 +58,8 @@ class OuModule(s_module.CoreModule):
                     'ex': 'acme corporation',
                 }),
                 ('ou:member', ('comp', {'fields': (('org', 'ou:org'), ('person', 'ps:person'))}), {
-                    'doc': 'A person who is (or was) a member of an organization.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:position.',
                 }),
                 ('ou:position', ('guid', {}), {
                     'doc': 'A position within an org.  May be organized into an org chart.',

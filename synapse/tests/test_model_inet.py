@@ -1371,11 +1371,15 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_web_action(self):
         formname = 'inet:web:action'
         valu = 32 * 'a'
+        place = s_common.guid()
         input_props = {
             'act': 'Did a Thing',
             'acct': ('vertex.link', 'vertexmc'),
             'time': 0,
-            'client': '0.0.0.0'
+            'client': '0.0.0.0',
+            'loc': 'ru',
+            'latlong': '30,30',
+            'place': place,
         }
         expected_props = {
             'act': 'did a thing',
@@ -1384,7 +1388,10 @@ class InetModelTest(s_t_utils.SynTest):
             'acct:user': 'vertexmc',
             'time': 0,
             'client': 'tcp://0.0.0.0',
-            'client:ipv4': 0
+            'client:ipv4': 0,
+            'loc': 'ru',
+            'latlong': (30.0, 30.0),
+            'place': place,
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
@@ -1499,11 +1506,15 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_web_logon(self):
         formname = 'inet:web:logon'
         valu = 32 * 'a'
+        place = s_common.guid()
         input_props = {
             'acct': ('vertex.link', 'vertexmc'),
             'time': 0,
             'client': '::',
             'logout': 1,
+            'loc': 'ru',
+            'latlong': '30,30',
+            'place': place,
         }
         expected_props = {
             'acct': ('vertex.link', 'vertexmc'),
@@ -1513,6 +1524,9 @@ class InetModelTest(s_t_utils.SynTest):
             'client': 'tcp://::',
             'client:ipv6': '::',
             'logout': 1,
+            'loc': 'ru',
+            'latlong': (30.0, 30.0),
+            'place': place,
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
