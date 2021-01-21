@@ -22,7 +22,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The five or six digit North American Industry Classification System code.',
                     'ex': '541715',
                 }),
-                ('ou:isic', ('str', {'regex': r'^[A-Z][0-9]{4}$'}), {
+                ('ou:isic', ('str', {'regex': r'^[A-Z]([0-9]{2}[0-9]{0,2})?$'}), {
                     'doc': 'An International Standard Industrial Classification of All Economic Activities (ISIC) code.',
                     'ex': 'C1393',
                 }),
