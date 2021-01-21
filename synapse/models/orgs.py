@@ -22,6 +22,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The five or six digit North American Industry Classification System code.',
                     'ex': '541715',
                 }),
+                ('ou:isic', ('str', {'regex': r'^[A-Z][0-9]{4}$'}), {
+                    'doc': 'An International Standard Industrial Classification of All Economic Activities (ISIC) code.',
+                    'ex': 'C1393',
+                }),
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit.',
                 }),
@@ -342,6 +346,8 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of SIC codes that map to the industry.'}),
                     ('naics', ('array', {'type': 'ou:naics', 'uniq': True, 'split': ','}), {
                         'doc': 'An array of NAICS codes that map to the industry.'}),
+                    ('isic', ('array', {'type': 'ou:isic', 'uniq': True, 'split': ','}), {
+                        'doc': 'An array of ISIC codes that map to the industry.'}),
                 )),
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
