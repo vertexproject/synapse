@@ -59,7 +59,7 @@ class StormTypesRegistry:
     def addStormType(self, path, ctor):
         if path in self._TYPREG:
             raise Exception('cannot register a type twice')
-        assert ctor.typename is not None, f'{path=} {ctor=}'
+        assert ctor.typename is not None, f'path={path} ctor={ctor}'
         self._TYPREG[path] = ctor
 
     def delStormType(self, path):
