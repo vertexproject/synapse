@@ -136,14 +136,6 @@ def scrubLines(lines):
 
     return newlines
 
-def getDoc(obj, errstr):
-    '''Helper to get __doc__'''
-    doc = getattr(obj, '__doc__')
-    if doc is None:
-        doc = f'No doc for {errstr}'
-        logger.warning(doc)
-    return doc
-
 def cleanArgsRst(doc):
     '''Clean up args strings to be RST friendly.'''
     replaces = (('*args', '\\*args'),
@@ -233,11 +225,11 @@ def getReturnLines(rtype):
         assert len(rtype) > 1
         tdata = ', '.join([f'``{obj}``' for obj in rtype])
         lines.append('Returns:')
-        lines.append(f'    The type may one one of the following: {tdata}.')
+        lines.append(f'    The type may be one of the following: {tdata}.')
     elif isinstance(rtype, dict):
         returns = rtype.get('returns')
         assert returns is not None, f'Invalid returns for {rtype}'
-        name = rtype.get('name', 'Returns')
+        name = returns.get('name', 'Returns')
 
         desc = returns.get('desc')
         rettype = returns.get('type')
@@ -254,7 +246,7 @@ def getReturnLines(rtype):
         elif isinstance(rettype, (list, tuple)):
             assert len(rettype) > 1
             tdata = ', '.join([f'``{obj}``' for obj in rettype])
-            rline = f'The return type may one one of the following: {tdata}.'
+            rline = f'The return type may be one of the following: {tdata}.'
             parts.append(rline)
         elif isinstance(rettype, dict):
             logger.warning('Fully declarative input types are not yet supported.')
