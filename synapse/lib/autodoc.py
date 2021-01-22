@@ -268,6 +268,17 @@ def getReturnLines(rtype):
 
 
 def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
+    '''
+
+    Args:
+        page (RstHelp): The RST page.
+        docinfo (dict): A Stormtypes Doc.
+        linkprefix (str): The RST link prefix string to use.
+        islib (bool): Treat the data as a library.
+
+    Returns:
+
+    '''
 
     for info in docinfo:
         reqValidStormTypeDoc(info)
