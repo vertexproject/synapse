@@ -107,8 +107,8 @@ shave'''
                 example stuff
         '''
         lines = s_autodoc.prepareRstLines(text)
-        self.eq(lines, ['Hello', '', 'Notes:', '    Beep beep goes the docs', '    ', 'Examples:',
-                        '    Words!::', '    ', '        example stuff', ''])
+        self.eq(lines, ['Hello', '', 'Notes:', '    Beep beep goes the docs', '', 'Examples:',
+                        '    Words!::', '', '        example stuff', ''])
 
         # Whole thing
         libtst = s_t_utils.LibTst
