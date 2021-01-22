@@ -6,7 +6,6 @@ import synapse.lib.config as s_config
 
 logger = logging.getLogger(__name__)
 
-# TODO Ensure this is consistent with other documentation.
 rstlvls = [
     ('#', {'over': True}),
     ('*', {'over': True}),
