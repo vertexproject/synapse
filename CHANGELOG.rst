@@ -5,6 +5,28 @@ Synapse Changelog
 *****************
 
 
+v2.23.0 - 2020-01-21
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for ndef based light edge definitions in the ``syn.nodes``
+  feed API.
+  (`#2051 <https://github.com/vertexproject/synapse/pull/2051>`_)
+  (`#2053 <https://github.com/vertexproject/synapse/pull/2053>`_)
+- Add ISIC codes to the ``ou:industry`` form.
+  (`#2054 <https://github.com/vertexproject/synapse/pull/2054>`_)
+  (`#2055 <https://github.com/vertexproject/synapse/pull/2055>`_)
+- Add secondary properties ``:loc``, ``:latlong``, and ``:place`` to the
+  ``inet:web:action`` and ``inet:web:logon:: forms.
+  (`#2052 <https://github.com/vertexproject/synapse/pull/2052>`_)
+- Add secondary property ``:enabled`` to the form ``it:app:yara:rule``.
+  (`#2052 <https://github.com/vertexproject/synapse/pull/2052>`_)
+- Deprecate the ``file:string`` and ``ou:member`` forms, in favor of
+  using light edges for storing those relationships.
+  (`#2052 <https://github.com/vertexproject/synapse/pull/2052>`_)
+
+
 v2.22.0 - 2020-01-19
 ====================
 

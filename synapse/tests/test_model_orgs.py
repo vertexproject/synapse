@@ -84,6 +84,17 @@ class OuModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 111)
             self.raises(s_exc.BadTypeValu, t.norm, 10000)
 
+            # ou:isic
+            t = core.model.type('ou:isic')
+            self.eq('C', t.norm('C')[0])
+            self.eq('C13', t.norm('C13')[0])
+            self.eq('C139', t.norm('C139')[0])
+            self.eq('C1393', t.norm('C1393')[0])
+            self.raises(s_exc.BadTypeValu, t.norm, 'C1')
+            self.raises(s_exc.BadTypeValu, t.norm, 'C12345')
+            self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            self.raises(s_exc.BadTypeValu, t.norm, 1000000)
+
             # ou:alias
             t = core.model.type('ou:alias')
             self.raises(s_exc.BadTypeValu, t.norm, 'asdf.asdf.asfd')
@@ -534,11 +545,12 @@ class OuModelTest(s_t_utils.SynTest):
     async def test_ou_industry(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ou:industry=* :name=" Foo Bar " :subs=(*, *) :naics=(11111,22222) :sic="1234,5678" ]')
+            nodes = await core.nodes('[ ou:industry=* :name=" Foo Bar " :subs=(*, *) :naics=(11111,22222) :sic="1234,5678" :isic=C1393 ]')
             self.len(1, nodes)
             self.eq('foo bar', nodes[0].get('name'))
             self.sorteq(('1234', '5678'), nodes[0].get('sic'))
             self.sorteq(('11111', '22222'), nodes[0].get('naics'))
+            self.sorteq(('C1393', ), nodes[0].get('isic'))
             self.len(2, nodes[0].get('subs'))
 
             nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
