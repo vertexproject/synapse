@@ -27,7 +27,6 @@ import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.urlhelp as s_urlhelp
-import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 
@@ -1120,7 +1119,7 @@ class LibBase(Lib):
                     {
                         'name': '*args',
                         'type': 'str',
-                        'desc': '*args: An initial set of values to place in the Text. These values are joined together with an empty string.',
+                        'desc': 'An initial set of values to place in the Text. These values are joined together with an empty string.',
                     },
                 ),
                 'returns': {
@@ -3533,8 +3532,8 @@ class Str(Prim):
                     },
                 ),
                 'returns': {
-                    'type': '',
-                    'desc': '',
+                    'type': 'str',
+                    'desc': 'The new string with replaced instances.',
                 }
             }
         },
@@ -3993,8 +3992,7 @@ class Set(Prim):
                     },
                 ),
                 'returns': {
-                    'type': '',
-                    'desc': '',
+                    'type': 'null',
                 }
             }
         },
@@ -6061,8 +6059,7 @@ class Layer(Prim):
                     },
                 ),
                 'returns': {
-                    'type': '',
-                    'desc': '',
+                    'type': 'null',
                 }
             }
         },
@@ -7331,7 +7328,7 @@ class LibUsers(Lib):
                     },
                 ),
                 'returns': {
-                    'type': ['', 'storm:auth:user'],
+                    'type': ['null', 'storm:auth:user'],
                     'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.',
                 }
             }

@@ -136,26 +136,12 @@ def scrubLines(lines):
 
     return newlines
 
-def cleanArgsRst(doc):
-    '''Clean up args strings to be RST friendly.'''
-    replaces = (('*args', '\\*args'),
-                ('*vals', '\\*vals'),
-                ('**info', '\\*\\*info'),
-                ('**kwargs', '\\*\\*kwargs'),
-                )
-    for (new, old) in replaces:
-        doc = doc.replace(new, old)
-    return doc
-
-def prepareRstLines(doc, cleanargs=False):
-    '''Prepare a __doc__ string for RST lines.'''
-    if cleanargs:
-        doc = cleanArgsRst(doc)
+def prepareRstLines(doc):
+    '''Prepare a desc string for RST lines.'''
     lines = doc.split('\n')
     lines = scrubLines(lines)
     lines = ljuster(lines)
     return lines
-
 
 def getArgLines(rtype):
     lines = []
@@ -293,7 +279,7 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
         page.addLines(*lines)
 
         locls = info.get('locals')
-        locls.sort(key=lambda x: x.get('name'))
+        locls = sorted(locls, key=lambda x: x.get('name'))
 
         for locl in locls:
 
@@ -310,7 +296,7 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
                 rname = rtype.get('type')
                 assert rname == 'function', f'Unknown type: {loclname=} {rname=}'  # FIXME py38
 
-                lines = prepareRstLines(desc, cleanargs=True)
+                lines = prepareRstLines(desc)
                 arglines = getArgLines(rtype)
                 lines.extend(arglines)
 

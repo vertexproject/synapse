@@ -83,10 +83,17 @@ def norm(z):
     return z
 
 class LibTst(s_stormtypes.Lib):
+    '''
+    LibTst for testing!
+    '''
     _storm_locals = (
         {
             'name': 'beep',
-            'desc': 'Example storm func',
+            'desc': '''
+            Example storm func.
+
+            Notes:
+                It beeps strings!''',
             'type': {
                 'type': 'function',
                 '_funcname': 'beep',
@@ -104,6 +111,7 @@ class LibTst(s_stormtypes.Lib):
             }
         },
     )
+    _storm_lib_path = ('test',)
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
