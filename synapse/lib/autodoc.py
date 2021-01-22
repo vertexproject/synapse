@@ -293,7 +293,7 @@ def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
 
             if isinstance(rtype, dict):
                 rname = rtype.get('type')
-                assert rname == 'function', f'Unknown type: {loclname=} {rname=}'  # FIXME py38
+                assert rname == 'function', f'Unknown type: loclname={loclname} rname={rname}'
 
                 lines = prepareRstLines(desc)
                 arglines = getArgLines(rtype)
