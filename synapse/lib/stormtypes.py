@@ -87,10 +87,10 @@ class StormTypesRegistry:
         return list(self._TYPREG.items())
 
     def _validateInfo(self, obj, info, name):
-        # I just need to check rtype here and if its a function; then
-        # I need to double check the call parameters otherwise all is
-        # gonna be gucci to pas upward since stuff will end up getting
-        # shoved through the validator.
+        # Check the rtype of the info to see if its a dict; and  if so,
+        # validate it has the _funcname key pointing to the to a
+        # callable on the obj, and that the documented arguments match
+        # those of the callable. The _funcname key is removed.
 
         rtype = info.get('type')
         if isinstance(rtype, dict):
@@ -2690,7 +2690,7 @@ class LibPipe(Lib):
         return pipe
 
 @registry.registerType
-class Pipe(StormType):  # FIXME prim?
+class Pipe(StormType):
     '''
     A Storm Pipe provides fast ephemeral queues.
     '''
@@ -3008,7 +3008,7 @@ class LibQueue(Lib):
         return retn
 
 @registry.registerType
-class Queue(StormType):  # FIXME - why is this not a Prim?
+class Queue(StormType):
     '''
     A StormLib API instance of a named channel in the Cortex multiqueue.
     '''
@@ -3218,7 +3218,7 @@ class LibTelepath(Lib):
         return Proxy(await self.runt.getTeleProxy(url))
 
 # @registry.registerType
-class Proxy(StormType):  # Fixme not a prim?
+class Proxy(StormType):
 
     def __init__(self, proxy, path=None):
         StormType.__init__(self, path=path)
@@ -4294,7 +4294,6 @@ class Bool(Prim):
     '''
     Implements the Storm API for a List instance.
     '''
-    # TODO Example when we have the stormrst stable
     typename = 'bool'
     def __str__(self):
         return str(self.value()).lower()
@@ -4518,9 +4517,6 @@ class LibGlobals(Lib):
 
     async def _methList(self):
         ret = []
-
-        # XXX DEAD CODE?
-        user = self.runt.user
 
         todo = ('itemsStormVar', (), {})
 
@@ -4917,7 +4913,6 @@ class NodeProps(Prim):
 
     @stormfunc(readonly=True)
     async def get(self, name):
-        # TODO defv is unused.
         return self.valu.get(name)
 
     @stormfunc(readonly=True)
@@ -5505,12 +5500,6 @@ class Path(Prim):
         return [n.iden() for n in self.valu.nodes]
 
     async def _methPathTrace(self):
-        '''
-
-
-        Returns:
-            Trace: A Trace object.
-        '''
         trace = self.valu.trace()
         return Trace(trace)
 
@@ -6120,7 +6109,7 @@ class Layer(Prim):
             }
         },
         {
-            'name': 'GetFormcount',
+            'name': 'getFormCounts',
             'desc': '''
             Get the formcounts for the Layer.
 
@@ -6500,7 +6489,7 @@ class LibView(Lib):
         defs = await self.runt.dyncall('cortex', todo)
         return [View(self.runt, vdef, path=self.path) for vdef in defs]
 
-@registry.registerType  # XXXTODO
+@registry.registerType
 class View(Prim):
     '''
     Implements the Storm api for a View instance.
@@ -6797,9 +6786,6 @@ class View(Prim):
         return copy.deepcopy(self.valu)
 
     async def _methViewFork(self, name=None):
-        '''
-
-        '''
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
 
@@ -7456,7 +7442,7 @@ class LibRoles(Lib):
                 ),
                 'returns': {
                     'type': ['null', 'storm:auth:role'],
-                    'desc': '',
+                    'desc': 'The role by name, or null if it does not exist.',
                 }
             }
         },

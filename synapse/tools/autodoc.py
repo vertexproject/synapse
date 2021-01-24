@@ -628,7 +628,6 @@ async def docStormTypes():
     priminfo = registry.getTypeDocs()
     typespage = s_autodoc.RstHelp()
 
-    # XXX SO all this is custom FOR mainline types.
     typespage.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
 
     lines = (
