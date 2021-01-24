@@ -1369,6 +1369,9 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Storm queue list:', msgs)
             self.stormIsInPrint('visi', msgs)
 
+            name = await core.callStorm('$q = $lib.queue.get(visi) return ($q.name)')
+            self.eq(name, 'visi')
+
             nodes = await core.nodes('$q = $lib.queue.get(visi) [ inet:ipv4=1.2.3.4 ] $q.put( $node.repr() )')
             nodes = await core.nodes('$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4')
             self.len(1, nodes)
@@ -3022,6 +3025,8 @@ class StormTypesTest(s_test.SynTest):
 
             self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
             self.nn(await core.callStorm('return($lib.auth.users.byname(visi))'))
+
+            self.eq(await core.callStorm('return($lib.auth.roles.byname(all).name)'), 'all')
 
             self.none(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}}))
             self.none(await core.callStorm('return($lib.auth.roles.get($iden))', opts={'vars': {'iden': 'newp'}}))
