@@ -244,7 +244,7 @@ def getReturnLines(rtype):
     return lines
 
 
-def docStormPrims2(page: RstHelp, docinfo, linkprefix: str, islib=False):
+def docStormTypes(page: RstHelp, docinfo, linkprefix: str, islib=False):
     '''
 
     Args:

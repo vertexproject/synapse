@@ -124,7 +124,7 @@ shave'''
         page = s_autodoc.RstHelp()
         page.addHead('Test')
         page.addLines('I am a line.')
-        s_autodoc.docStormPrims2(page, (doc,), linkprefix='test')
+        s_autodoc.docStormTypes(page, (doc,), linkprefix='test')
         text = page.getRstText()
         expected = '''
 ####
@@ -168,7 +168,7 @@ Returns:
         page = s_autodoc.RstHelp()
         page.addHead('Test')
         page.addLines('I am a line.')
-        s_autodoc.docStormPrims2(page, (doc,), linkprefix='test', islib=True)
+        s_autodoc.docStormTypes(page, (doc,), linkprefix='test', islib=True)
         text = page.getRstText()
         expected = '''
 ####

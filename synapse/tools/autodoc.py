@@ -623,7 +623,7 @@ async def docStormTypes():
     )
     libspage.addLines(*lines)
 
-    s_autodoc.docStormPrims2(libspage, libsinfo, linkprefix='stormlibs', islib=True)
+    s_autodoc.docStormTypes(libspage, libsinfo, linkprefix='stormlibs', islib=True)
 
     priminfo = registry.getTypeDocs()
     typespage = s_autodoc.RstHelp()
@@ -636,7 +636,7 @@ async def docStormTypes():
         ''
     )
     typespage.addLines(*lines)
-    s_autodoc.docStormPrims2(typespage, priminfo, linkprefix='stormprims')
+    s_autodoc.docStormTypes(typespage, priminfo, linkprefix='stormprims')
 
     return libspage, typespage
 
