@@ -3217,9 +3217,32 @@ class LibTelepath(Lib):
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
         return Proxy(await self.runt.getTeleProxy(url))
 
-# @registry.registerType
+@registry.registerType
 class Proxy(StormType):
+    '''
+    Implements the Storm API for a Telepath proxy.
 
+    These can be created via ``$lib.telepath.open()``. Storm Service objects
+    are also Telepath proxy objects.
+
+    Methods called off of these objects are executed like regular Telepath RMI
+    calls.
+
+    An example of calling a method which returns data::
+
+        $prox = $lib.telepath.open($url)
+        $result = $prox.doWork($data)
+        return ( $result )
+
+    An example of calling a method which is a generator::
+
+        $prox = $lib.telepath.open($url)
+        for $item in = $prox.genrStuff($data) {
+            $doStuff($item)
+        }
+
+    '''
+    _storm_typename = 'storm:proxy'
     def __init__(self, proxy, path=None):
         StormType.__init__(self, path=path)
         self.proxy = proxy
