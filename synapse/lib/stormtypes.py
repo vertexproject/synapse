@@ -59,7 +59,7 @@ class StormTypesRegistry:
     def addStormType(self, path, ctor):
         if path in self._TYPREG:
             raise Exception('cannot register a type twice')
-        assert ctor.typename is not None, f'path={path} ctor={ctor}'
+        assert ctor._storm_typename is not None, f'path={path} ctor={ctor}'
         self._TYPREG[path] = ctor
 
     def delStormType(self, path):
@@ -143,7 +143,7 @@ class StormTypesRegistry:
             tdoc = {
                 'desc': getDoc(styp, sname),
                 'locals': locs,
-                'path': (styp.typename,),
+                'path': (styp._storm_typename,),
             }
             for info in sorted(styp._storm_locals, key=lambda x: x.get('name')):
                 info = s_msgpack.deepcopy(info)
@@ -2802,7 +2802,7 @@ class Pipe(StormType):
             }
         },
     )
-    typename = 'storm:pipe'
+    _storm_typename = 'storm:pipe'
     def __init__(self, runt, size):
         StormType.__init__(self)
         self.runt = runt
@@ -3019,7 +3019,7 @@ class Queue(StormType):
             'type': 'str',
         },
     )
-    typename = 'storm:queue'
+    _storm_typename = 'storm:queue'
     def __init__(self, runt, name, info):
 
         StormType.__init__(self)
@@ -3352,7 +3352,7 @@ class Prim(StormType):
     '''
     The base type for all Storm primitive values.
     '''
-    typename = None  # FixMe - Rename this to _storm_type
+    _storm_typename = None
     def __init__(self, valu, path=None):
         StormType.__init__(self, path=path)
         self.valu = valu
@@ -3639,7 +3639,7 @@ class Str(Prim):
             }
         },
     )
-    typename = 'str'
+    _storm_typename = 'str'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -3825,7 +3825,7 @@ class Bytes(Prim):
             }
         },
     )
-    typename = 'bytes'
+    _storm_typename = 'bytes'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -3872,7 +3872,7 @@ class Dict(Prim):
     '''
     Implements the Storm API for a Dictionary object.
     '''
-    typename = 'dict'
+    _storm_typename = 'dict'
     # TODO Add inline examples here once we have the stormrst stable
     def __iter__(self):
         return self.valu.items()
@@ -3907,7 +3907,7 @@ class CmdOpts(Dict):
     A dictionary like object that holds a reference to a command options namespace.
     ( This allows late-evaluation of command arguments rather than forcing capture )
     '''
-    typename = 'storm:cmdopts'
+    _storm_typename = 'storm:cmdopts'
 
     def __iter__(self):
         valu = vars(self.valu.opts)
@@ -4058,7 +4058,7 @@ class Set(Prim):
         },
 
     )
-    typename = 'set'
+    _storm_typename = 'set'
     def __init__(self, valu, path=None):
         Prim.__init__(self, set(valu), path=path)
         self.locls.update(self.getObjLocals())
@@ -4207,7 +4207,7 @@ class List(Prim):
             }
         },
     )
-    typename = 'list'
+    _storm_typename = 'list'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -4294,7 +4294,7 @@ class Bool(Prim):
     '''
     Implements the Storm API for a List instance.
     '''
-    typename = 'bool'
+    _storm_typename = 'bool'
     def __str__(self):
         return str(self.value()).lower()
 
@@ -4618,7 +4618,7 @@ class StormHiveDict(Prim):
             }
         },
     )
-    typename = 'storm:hive:dict'
+    _storm_typename = 'storm:hive:dict'
     def __init__(self, runt, info):
         Prim.__init__(self, None)
         self.runt = runt
@@ -4789,7 +4789,7 @@ class Query(Prim):
             }
         },
     )
-    typename = 'storm:query'
+    _storm_typename = 'storm:query'
     def __init__(self, text, varz, runt, path=None):
 
         text = text.strip()
@@ -4874,7 +4874,7 @@ class NodeProps(Prim):
             }
         },
     )
-    typename = 'storm:node:props'
+    _storm_typename = 'storm:node:props'
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
@@ -5021,7 +5021,7 @@ class NodeData(Prim):
             }
         },
     )
-    typename = 'storm:node:data'
+    _storm_typename = 'storm:node:data'
     def __init__(self, node, path=None):
 
         Prim.__init__(self, node, path=path)
@@ -5267,7 +5267,7 @@ class Node(Prim):
             }
         },
     )
-    typename = 'storm:node'
+    _storm_typename = 'storm:node'
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
 
@@ -5375,7 +5375,7 @@ class PathMeta(Prim):
     '''
     Put the storm deref/setitem/iter convention on top of path meta information.
     '''
-    typename = 'storm:node:path:meta'
+    _storm_typename = 'storm:node:path:meta'
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
@@ -5398,7 +5398,7 @@ class PathVars(Prim):
     '''
     Put the storm deref/setitem/iter convention on top of path variables.
     '''
-    typename = 'storm:node:path:vars'
+    _storm_typename = 'storm:node:path:vars'
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
@@ -5480,7 +5480,7 @@ class Path(Prim):
             }
         },
     )
-    typename = 'storm:path'
+    _storm_typename = 'storm:path'
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
@@ -5525,7 +5525,7 @@ class Trace(Prim):
             }
         },
     )
-    typename = 'storm:node:path:trace'
+    _storm_typename = 'storm:node:path:trace'
     def __init__(self, trace, path=None):
         Prim.__init__(self, trace, path=path)
         self.locls.update(self.getObjLocals())
@@ -5580,7 +5580,7 @@ class Text(Prim):
             }
         }
     )
-    typename = 'storm:text'
+    _storm_typename = 'storm:text'
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -5646,7 +5646,7 @@ class StatTally(Prim):
         }
 
     '''
-    typename = 'storm:stat:tally'
+    _storm_typename = 'storm:stat:tally'
     _storm_locals = (
         {
             'name': 'inc',
@@ -6146,7 +6146,7 @@ class Layer(Prim):
             }
         },
     )
-    typename = 'storm:layer'
+    _storm_typename = 'storm:layer'
     def __init__(self, runt, ldef, path=None):
         Prim.__init__(self, ldef, path=path)
         self.runt = runt
@@ -6684,7 +6684,7 @@ class View(Prim):
             }
         },
     )
-    typename = 'storm:view'
+    _storm_typename = 'storm:view'
     def __init__(self, runt, vdef, path=None):
         Prim.__init__(self, vdef, path=path)
         self.runt = runt
@@ -7127,7 +7127,7 @@ class Trigger(Prim):
             }
         },
     )
-    typename = 'storm:trigger'
+    _storm_typename = 'storm:trigger'
     def __init__(self, runt, tdef):
 
         Prim.__init__(self, tdef)
@@ -7560,7 +7560,7 @@ class Gate(Prim):
             'type': 'list',
         },
     )
-    typename = 'storm:auth:gate'
+    _storm_typename = 'storm:auth:gate'
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
@@ -7825,7 +7825,7 @@ class User(Prim):
             }
         },
     )
-    typename = 'storm:auth:user'
+    _storm_typename = 'storm:auth:user'
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
@@ -8017,7 +8017,7 @@ class Role(Prim):
             }
         },
     )
-    typename = 'storm:auth:role'
+    _storm_typename = 'storm:auth:role'
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
@@ -8669,7 +8669,7 @@ class CronJob(Prim):
             }
         },
     )
-    typename = 'storm:cronjob'
+    _storm_typename = 'storm:cronjob'
     def __init__(self, runt, cdef, path=None):
         Prim.__init__(self, cdef, path=path)
         self.runt = runt

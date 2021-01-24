@@ -239,7 +239,7 @@ class HttpResp(s_stormtypes.Prim):
             }
         },
     )
-    typename = 'storm:http:resp'
+    _storm_typename = 'storm:http:resp'
     def __init__(self, valu, path=None):
         super().__init__(valu, path=path)
         self.locls.update(self.getObjLocals())

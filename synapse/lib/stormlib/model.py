@@ -314,7 +314,7 @@ class ModelForm(s_stormtypes.Prim):
             }
         }
     )
-    typename = 'storm:model:form'
+    _storm_typename = 'storm:model:form'
     def __init__(self, form, path=None):
 
         s_stormtypes.Prim.__init__(self, form, path=path)
@@ -356,7 +356,7 @@ class ModelProp(s_stormtypes.Prim):
             'type': 'str',
         },
     )
-    typename = 'storm:model:property'
+    _storm_typename = 'storm:model:property'
     def __init__(self, prop, path=None):
 
         s_stormtypes.Prim.__init__(self, prop, path=path)
@@ -387,7 +387,7 @@ class ModelTagProp(s_stormtypes.Prim):
             'type': 'str',
         },
     )
-    typename = 'storm:model:tagprop'
+    _storm_typename = 'storm:model:tagprop'
     def __init__(self, tagprop, path=None):
 
         s_stormtypes.Prim.__init__(self, tagprop, path=path)
@@ -456,7 +456,7 @@ class ModelType(s_stormtypes.Prim):
             }
         },
     )
-    typename = 'storm:model:type'
+    _storm_typename = 'storm:model:type'
 
     def __init__(self, valu, path=None):
         s_stormtypes.Prim.__init__(self, valu, path=path)
