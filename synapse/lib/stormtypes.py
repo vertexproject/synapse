@@ -4752,8 +4752,7 @@ class StormHiveDict(Prim):
             mesg = 'The name of a variable must be a string.'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
-        # FIXME - This is an API change if we use it.
-        # valu = await toprim(valu)
+        valu = await toprim(valu)
 
         return await self.info.set(name, valu)
 
