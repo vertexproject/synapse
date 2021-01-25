@@ -2664,26 +2664,27 @@ class Layer(s_nexus.Pusher):
         Yield (offs, (buid, form, ETYPE, VALS, META)) tuples from the nodeedit log starting from the given offset.
         Only edits that match the filter in matchdef will be yielded.
 
-        ETYPE is an constant EDIT_* above.  VALS is a tuple whose format depends on ETYPE, outlined in the comment
-        next to the constant.  META is a dict that may contain keys 'user' and 'time' to represent the iden of the user
-        that initiated the change, and the time that it took place, respectively.
+        Notes:
 
-        Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
+            ETYPE is an constant EDIT_* above.  VALS is a tuple whose format depends on ETYPE, outlined in the comment
+            next to the constant.  META is a dict that may contain keys 'user' and 'time' to represent the iden of the
+            user that initiated the change, and the time that it took place, respectively.
 
-        Args:
-            offs(int): starting nexus/editlog offset
-            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
-            wait(bool):  whether to pend and stream value until this layer is fini'd
+            Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
 
-        The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a sequence
-        of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
+            The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a
+            sequence of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
             forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
             props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
             tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
             tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop or tag:prop.
 
-        Note:
             Will not yield any values if this layer was not created with logedits enabled
+
+        Args:
+            offs(int): starting nexus/editlog offset
+            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
+            wait(bool):  whether to pend and stream value until this layer is fini'd
         '''
 
         formm = set(matchdef.get('forms', ()))

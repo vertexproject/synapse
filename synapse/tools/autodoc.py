@@ -220,6 +220,7 @@ def processTypes(rst, dochelp, types):
                     json_lines = json.dumps(valu, indent=1, sort_keys=True)
                     json_lines = ['   ' + line for line in json_lines.split('\n')]
                     lines.extend(json_lines)
+                    lines.append('\n')
                     rst.addLines(*lines)
                 else:
                     rst.addLines(f' * {key}: ``{valu}``')

@@ -273,7 +273,7 @@ Bugfixes
 --------
 - Properly handle whitespace in keyword arguments when calling functions in
   Storm.
-  (`#1999 <https://github.com/vertexproject/synapse/pull/1997>`_)
+  (`#1997 <https://github.com/vertexproject/synapse/pull/1997>`_)
 - Fix some garbage collection issues causing periodic pauses in a Cortex due
   to failing to close some generators used in the Storm Command AST node.
   (`#2001 <https://github.com/vertexproject/synapse/pull/2001>`_)
