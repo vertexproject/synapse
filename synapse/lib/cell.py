@@ -752,7 +752,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahaurl = self.conf.get('aha:registry')
         if ahaurl is not None:
 
-            self.ahaclient = await s_telepath.addAhaUrl(ahaurl)
+            info = await s_telepath.addAhaUrl(ahaurl)
+            self.ahaclient = info.get('client')
+            if self.ahaclient is None:
+                self.ahaclient = await s_telepath.Client.anit(info.get('url'))
+                self.ahaclient._fini_atexit = True
+                info['client'] = self.ahaclient
 
             async def finiaha():
                 await s_telepath.delAhaUrl(ahaurl)

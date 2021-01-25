@@ -28,7 +28,7 @@ televers = (3, 0)
 
 aha_clients = {}
 
-async def addAhaUrl(url, anit=True):
+async def addAhaUrl(url):
     '''
     Add (incref) an aha registry URL.
 
@@ -38,15 +38,10 @@ async def addAhaUrl(url, anit=True):
 
     info = aha_clients.get(hkey)
     if info is None:
-        client = None
-        if anit:
-            client = await Client.anit(url)
-            client._fini_atexit = True
-
-        info = aha_clients[hkey] = {'refs': 0, 'client': client, 'url': url}
+        info = aha_clients[hkey] = {'refs': 0, 'client': None, 'url': url}
 
     info['refs'] += 1
-    return info.get('client')
+    return info
 
 async def delAhaUrl(url):
     '''
@@ -183,7 +178,7 @@ async def loadTeleEnv(path):
     cdirs = conf.get('certdirs', ())
 
     for a in ahas:
-        await addAhaUrl(a, anit=False)
+        await addAhaUrl(a)
 
     for p in cdirs:
         s_certdir.addCertPath(p)
