@@ -1727,8 +1727,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             coreinfo = await prox.getCoreInfo()
 
-            for field in ('version', 'modeldef', 'stormcmds'):
+            for field in ('version', 'modeldef', 'stormcmds', 'stormdocs'):
                 self.isin(field, coreinfo)
+
+            docs = coreinfo.get('stormdocs')
+            self.isin('types', docs)
+            self.isin('libraries', docs)
 
             layers = list(core.listLayers())
             self.len(1, layers)
