@@ -244,9 +244,13 @@ def getReturnLines(rtype):
     return lines
 
 
-def docStormTypes(page: RstHelp, docinfo, linkprefix: str, islib=False, lvl=1):
+def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1):
     '''
     Process a list of StormTypes doc information to add them to a a RstHelp object.
+
+    Notes
+        This will create internal hyperlink link targets for each header item. The
+        link prefix string must be given with the ``linkprefix`` argument.
 
     Args:
         page (RstHelp): The RST page to add .

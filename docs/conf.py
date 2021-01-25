@@ -244,7 +244,7 @@ def convert_ipynb(_):
             dirs.remove('.ipynb_checkpoints')
         for fn in fns:
             if fn.endswith('.ipynb'):
-                # if 'httpapi' not in fn:
+                # if 'storm' not in fn:
                 #     continue
                 tick = s_common.now()
                 fp = os.path.join(fdir, fn)
@@ -258,5 +258,5 @@ def setup(app):
     app.connect('builder-inited', run_apidoc)
     app.connect('builder-inited', run_modeldoc)
     app.connect('builder-inited', run_confdocs)
-    # app.connect('builder-inited', convert_ipynb)
+    app.connect('builder-inited', convert_ipynb)
     app.connect('builder-inited', run_stormtypes)

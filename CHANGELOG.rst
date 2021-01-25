@@ -908,7 +908,7 @@ Features and Enhancements
   (`#1844 <https://github.com/vertexproject/synapse/pull/1844>`_)
 - Add support for Cron name and doc fields to be editable.
   (`#1848 <https://github.com/vertexproject/synapse/pull/1848>`_)
-- Add support for Runtime-only (``runt``) nodes in the PivotOut operation (``-> * ``).
+- Add support for Runtime-only (``runt``) nodes in the PivotOut operation (``-> *``).
   (`#1851 <https://github.com/vertexproject/synapse/pull/1851>`_)
 - Add ``:nicks`` and ``:names`` secondary properties to ``ps:person`` and ``ps:persona`` types.
   (`#1852 <https://github.com/vertexproject/synapse/pull/1852>`_)
