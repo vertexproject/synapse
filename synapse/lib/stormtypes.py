@@ -3018,6 +3018,166 @@ class Queue(StormType):
             'desc': 'The name of the Queue.',
             'type': 'str',
         },
+        {
+            'name': 'get',
+            'desc': 'Get a particular item from the Queue.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueueGet',
+                'args': (
+                    {
+                        'name': 'offs',
+                        'type': 'int',
+                        'desc': 'The offset to retrieve an item from.',
+                        'default': 0,
+                    },
+                    {
+                        'name': 'cull',
+                        'type': 'boolean',
+                        'desc': 'Culls items up to, but not including, the specified offset.',
+                        'default': True,
+                    },
+                    {
+                        'name': 'wait',
+                        'type': 'boolean',
+                        'desc': 'Wait for the offset to be available before returning the item.',
+                        'default': True,
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'A tuple of the offset and the item from the queue. If wait is false and the offset '
+                            'is not present, null is returned.',
+                }
+            }
+        },
+        {
+            'name': 'pop',
+            'desc': 'Pop a item from the Queue at a specific offset.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueuePop',
+                'args': (
+                    {
+                        'name': 'offs',
+                        'type': 'int',
+                        'desc': 'Offset to pop the item from. If not specified, the first item in the queue will be'
+                                ' popped.',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'type': 'list',
+                    'desc': 'The offset and item popped from the queue. If there is no item at the offset or the'
+                            ' queue is empty, it returns null.',
+                }
+            }
+        },
+        {
+            'name': 'put',
+            'desc': 'Put an item into the queue.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueuePut',
+                'args': (
+                    {
+                        'name': 'item',
+                        'type': 'prim',
+                        'desc': 'The item being put into the queue.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'puts',
+            'desc': 'Put multiple items into the Queue.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueuePuts',
+                'args': (
+                    {
+                        'name': 'items',
+                        'type': 'list',
+                        'desc': 'The items to put into the Queue.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'gets',
+            'desc': 'Get multiple items from the Queue as a iterator.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueueGets',
+                'args': (
+                    {
+                        'name': 'offs',
+                        'type': 'int',
+                        'desc': 'The offset to retrieve an items from.',
+                        'default': 0,
+                    },
+                    {
+                        'name': 'wait',
+                        'type': 'boolean',
+                        'desc': 'Wait for the offset to be available before returning the item.',
+                        'default': True,
+                    },
+                    {
+                        'name': 'cull',
+                        'type': 'boolean',
+                        'desc': 'Culls items up to, but not including, the specified offset.',
+                        'default': False
+                    },
+                    {
+                        'name': 'size',
+                        'type': 'int',
+                        'desc': 'The maximum number of items to yield',
+                        'default': None,
+                    },
+                ),
+                'returns': {
+                    'name': 'Yields',
+                    'type': 'list',
+                    'desc': 'Yields tuples of the offset and item.',
+                }
+            }
+        },
+        {
+            'name': 'cull',
+            'desc': 'Remove items from the queue up to, and including, the offset.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueueCull',
+                'args': (
+                    {
+                        'name': 'offs',
+                        'type': 'int',
+                        'desc': 'The offset which to cull records from the queue.',
+                    },
+                ),
+                'returns': {
+                    'type': 'null',
+                }
+            }
+        },
+        {
+            'name': 'size',
+            'desc': 'Get the number of items in the Queue.',
+            'type': {
+                'type': 'function',
+                '_funcname': '_methQueueSize',
+                'returns': {
+                    'type': 'int',
+                    'desc': 'The number of items in the Queue.',
+                }
+            }
+        },
     )
     _storm_typename = 'storm:queue'
     def __init__(self, runt, name, info):
@@ -3044,47 +3204,17 @@ class Queue(StormType):
         }
 
     async def _methQueueCull(self, offs):
-        '''
-        Remove items from the queue up to, and including, the offset.
-
-        Args:
-            offs (int): The offset which to cull records from the queue.
-
-        Returns:
-            ``$lib.null``
-        '''
         offs = await toint(offs)
         todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
         await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueSize(self):
-        '''
-        Get the number of items in the Queue.
-
-        Returns:
-            integer: The number of items in the Queue.
-        '''
         todo = s_common.todo('coreQueueSize', self.name)
         gatekeys = self._getGateKeys('get')
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
-        '''
-        Get multiple items from the Queue as a iterator.
-
-        Args:
-            offs (int): The offset to retrieve an items from.
-
-            wait (bool): Wait for the offset to be available before returning the item.
-
-            cull (bool): Culls items up to, but not including, the specified offset.
-
-            size (int): Optional, the maximum number of items to yield.
-
-        Returns:
-            Yields tuples of the offset and item.
-        '''
         wait = await toint(wait)
         offs = await toint(offs)
 
@@ -3098,36 +3228,12 @@ class Queue(StormType):
             yield item
 
     async def _methQueuePuts(self, items):
-        '''
-        Put multiple items into the Queue.
-
-        Args:
-            items: The items to put into the Queue.
-
-        Returns:
-            ``$lib.null``
-        '''
         items = await toprim(items)
         todo = s_common.todo('coreQueuePuts', self.name, items)
         gatekeys = self._getGateKeys('put')
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
-        '''
-        Get a particular item from the Queue.
-
-        Args:
-            offs (int): Optional, The offset to retrieve an item from.
-
-            cull (bool): Culls items up to, but not including, the specified offset.
-
-            wait (bool): Wait for the offset to be available before returning the item.
-
-        Returns:
-            A tuple of the offset and item. If wait is False and the offset is not
-            present, ``$lib.null`` is returned.
-        '''
-
         offs = await toint(offs)
         wait = await toint(wait)
 
@@ -3137,18 +3243,6 @@ class Queue(StormType):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueuePop(self, offs=None):
-        '''
-        Pop a item from the Queue at a specific offset.
-
-        Args:
-            offs (int): Optional, offset to pop the item from. If not specified,
-            the first item in the queue will be popped.
-
-        Returns:
-            tuple: The offset and the item. If there is no item at the offset or
-            the queue is empty, it returns ``$lib.null``.
-        '''
-
         offs = await toint(offs, noneok=True)
         gatekeys = self._getGateKeys('get')
 
@@ -3164,15 +3258,6 @@ class Queue(StormType):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueuePut(self, item):
-        '''
-        Put an item into the queue.
-
-        Args:
-            item: The item being put into the queue.
-
-        Returns:
-            ``$lib.null``
-        '''
         return await self._methQueuePuts((item,))
 
     def _getGateKeys(self, perm):
