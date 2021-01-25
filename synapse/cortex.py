@@ -1231,6 +1231,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             tagname (str): The name of the tag.
             name (str): The name of the property.
             valu (object): The value of the property.
+
+        Tag Model Properties:
+            regex - A list of None or regular expression strings to match each tag level.
+
+        Examples:
+            await core.setTagModel("cno.cve", "regex", (None, None, "[0-9]{4}", "[0-9]{5}"))
+
         '''
         meta = self.taghive.get(tagname)
         if meta is None:
@@ -1323,9 +1330,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         retn = self.taghive.get(tagname)
         if retn is not None:
             return dict(retn)
-
-    #async def getTagModels(self, tagname):
-        #return [await self.getTagModel(tag) for tag in s_chop.tags(tagname)]
 
     async def listTagModel(self):
         '''
