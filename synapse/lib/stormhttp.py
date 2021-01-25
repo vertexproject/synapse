@@ -217,26 +217,13 @@ class HttpResp(s_stormtypes.Prim):
     Implements the Storm API for a HTTP response.
     '''
     _storm_locals = (
-        {
-            'name': 'code',
-            'desc': 'The HTTP status code.',
-            'type': 'int',
-        },
-        {
-            'name': 'body',
-            'desc': 'The raw HTTP response body as bytes.',
-            'type': 'bytes',
-        },
-        {
-            'name': 'json',
-            'desc': 'Get the JSON deserialized response.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_httpRespJson',
-                'returns': {
-                    'type': 'prim',
-                }
-            }
+        {'name': 'code', 'desc': 'The HTTP status code.', 'type': 'int', },
+        {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
+        {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
+        {'name': 'json', 'desc': 'Get the JSON deserialized response.',
+            'type': {'type': 'function', '_funcname': '_httpRespJson',
+                     'returns': {'type': 'prim'}
+                     }
         },
     )
     _storm_typename = 'storm:http:resp'
