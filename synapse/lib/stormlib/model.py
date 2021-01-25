@@ -163,6 +163,45 @@ stormcmds = [
 ]
 
 @s_stormtypes.registry.registerLib
+class LibModelTags(s_stormtypes.Lib):
+    '''
+    A Storm Library for interacting with the Data Model in the Cortex.
+    '''
+    _storm_lib_path = ('model', 'tags', 'meta')
+
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name)
+
+    def getObjLocals(self):
+        return {
+            'get': self._getTagMeta,
+            'set': self._setTagMeta,
+            'pop': self._popTagMeta,
+            'del': self._delTagMeta,
+        }
+
+    async def _delTagMeta(self, tagname):
+        tagname = await s_stormtypes.tostr(tagname)
+
+    async def _getTagMeta(self, tagname):
+        tagname = await s_stormtypes.tostr(tagname)
+        todo = s_common.todo('getTagMeta', tagname)
+        return await self.runt.dyncall('cortex', todo)
+
+    async def _popTagMeta(self, tagname, name):
+        name = await s_stormtypes.tostr(name)
+        tagname = await s_stormtypes.tostr(tagname)
+        todo = s_common.todo('popTagMeta', tagname, name)
+        return await self.runt.dyncall('cortex', todo)
+
+    async def _setTagMeta(self, tagname, name, valu):
+        name = await s_stormtypes.tostr(name)
+        valu = await s_stormtypes.toprim(valu)
+        tagname = await s_stormtypes.tostr(tagname)
+        todo = s_common.todo('setTagMeta', tagname, name, valu)
+        return await self.runt.dyncall('cortex', todo)
+
+@s_stormtypes.registry.registerLib
 class LibModel(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with the Data Model in the Cortex.
