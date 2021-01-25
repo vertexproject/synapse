@@ -850,8 +850,3 @@ async def merggenr(genrs, cmprkey):
         yield nextvalu
 
         curvs[nextindx] = await genrnext(genrs[nextindx])
-
-def iterTagDown(fqdn):
-    levs = fqdn.split('.')
-    for i in range(len(levs)):
-        yield '.'.join(levs[i:])

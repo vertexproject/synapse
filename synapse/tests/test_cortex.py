@@ -5127,6 +5127,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.len(0, await core.callStorm('return($lib.model.tags.list())'))
 
+            self.none(await core.callStorm('return($lib.model.tags.get(foo.bar))'))
+            self.none(await core.callStorm('return($lib.model.tags.pop(foo.bar, regex))'))
+
             with self.raises(s_exc.SchemaViolation):
                 await core.nodes('$lib.model.tags.set(cno.cve, newp, newp)')
 
@@ -5161,6 +5164,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq((None, None, '[0-9]{4}', '[0-9]{5}'), await core.callStorm('''
                 return($lib.model.tags.pop(cno.cve, regex))
             '''))
+
+            self.none(await core.callStorm('return($lib.model.tags.pop(cno.cve, regex))'))
 
             await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.hehe ]')
 
