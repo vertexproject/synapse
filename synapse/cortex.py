@@ -83,7 +83,7 @@ reqValidPush = s_config.getJsValidator({
 })
 reqValidPull = reqValidPush
 
-reqValidTagMeta = s_config.getJsValidator({
+reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         #'prune': {'type': 'boolean'},
@@ -1222,15 +1222,22 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def coreQueueSize(self, name):
         return self.multiqueue.size(name)
 
-    @s_nexus.Pusher.onPushAuto('tag:meta:set')
-    async def setTagMeta(self, tagname, name, valu):
+    @s_nexus.Pusher.onPushAuto('tag:model:set')
+    async def setTagModel(self, tagname, name, valu):
+        '''
+        Set a model specification property for a tag.
 
+        Arguments:
+            tagname (str): The name of the tag.
+            name (str): The name of the property.
+            valu (object): The value of the property.
+        '''
         meta = self.taghive.get(tagname)
         if meta is None:
             meta = {}
 
         meta[name] = valu
-        reqValidTagMeta(meta)
+        reqValidTagModel(meta)
 
         await self.taghive.set(tagname, meta)
 
@@ -1238,13 +1245,29 @@ class Cortex(s_cell.Cell):  # type: ignore
         if name == 'regex':
             self.tagvalid.clear()
 
-    @s_nexus.Pusher.onPushAuto('tag:meta:del')
-    async def delTagMeta(self, tagname):
+    @s_nexus.Pusher.onPushAuto('tag:model:del')
+    async def delTagModel(self, tagname):
+        '''
+        Delete all the model specification properties for a tag.
+
+        Arguments:
+            tagname (str): The name of the tag.
+        '''
         await self.taghive.pop(tagname)
         self.tagvalid.clear()
 
-    @s_nexus.Pusher.onPushAuto('tag:meta:pop')
-    async def popTagMeta(self, tagname, name):
+    @s_nexus.Pusher.onPushAuto('tag:model:pop')
+    async def popTagModel(self, tagname, name):
+        '''
+        Pop a property from the model specification of a tag.
+
+        Arguments:
+            tagname (str): The name of the tag.
+            name (str): The name of the specification property.
+
+        Returns:
+            (object): The current value of the property.
+        '''
 
         meta = self.taghive.get(tagname)
         if meta is None:
@@ -1259,6 +1282,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         return retn
 
     async def isTagValid(self, tagname):
+        '''
+        Check if a tag name is valid according to tag model regular expressions.
+
+        Returns:
+            (bool): True if the tag is valid.
+        '''
         return await self.tagvalid.aget(tagname)
 
     async def _isTagValid(self, tagname):
@@ -1284,11 +1313,28 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return True
 
-    async def getTagMeta(self, tagname):
-        return dict(self.taghive.get(tagname))
+    async def getTagModel(self, tagname):
+        '''
+        Retrieve the tag model specification for a tag.
 
-    async def getTagMetas(self, tagname):
-        return [self.getTagMeta(tag) for tag in s_chop.tags(tagname)]
+        Returns:
+            (dict): The tag model specification or None.
+        '''
+        retn = self.taghive.get(tagname)
+        if retn is not None:
+            return dict(retn)
+
+    #async def getTagModels(self, tagname):
+        #return [await self.getTagModel(tag) for tag in s_chop.tags(tagname)]
+
+    async def listTagModel(self):
+        '''
+        Retrieve a list of the tag model specifications.
+
+        Returns:
+            ([(str, dict), ...]): A list of tag model specification tuples.
+        '''
+        return list(self.taghive.items())
 
     async def getSpawnInfo(self):
 
