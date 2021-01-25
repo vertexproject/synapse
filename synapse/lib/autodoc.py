@@ -244,17 +244,20 @@ def getReturnLines(rtype):
     return lines
 
 
-def docStormTypes(page: RstHelp, docinfo, linkprefix: str, islib=False):
+def docStormTypes(page: RstHelp, docinfo, linkprefix: str, islib=False, lvl=1):
     '''
+    Process a list of StormTypes doc information to add them to a a RstHelp object.
 
     Args:
-        page (RstHelp): The RST page.
+        page (RstHelp): The RST page to add .
         docinfo (dict): A Stormtypes Doc.
         linkprefix (str): The RST link prefix string to use.
-        islib (bool): Treat the data as a library.
+        islib (bool): Treat the data as a library. This will preface the header and
+            attribute values with ``$`` and use full paths for attributes.
+        lvl (int): The base header level to use when adding headers to the page.
 
     Returns:
-
+        None
     '''
 
     for info in docinfo:
@@ -268,9 +271,9 @@ def docStormTypes(page: RstHelp, docinfo, linkprefix: str, islib=False):
 
         safesname = sname.replace(':', '\\:')
         if islib:
-            page.addHead(f"${safesname}", lvl=1, link=link)
+            page.addHead(f"${safesname}", lvl=lvl, link=link)
         else:
-            page.addHead(safesname, lvl=1, link=link)
+            page.addHead(safesname, lvl=lvl, link=link)
 
         typedoc = info.get('desc')
         lines = prepareRstLines(typedoc)
@@ -316,5 +319,5 @@ def docStormTypes(page: RstHelp, docinfo, linkprefix: str, islib=False):
                 header = '.'.join((safesname, header))
                 header = f'${header}'
 
-            page.addHead(header, lvl=2, link=link)
+            page.addHead(header, lvl=lvl + 1, link=link)
             page.addLines(*lines)
