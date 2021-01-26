@@ -5245,6 +5245,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
             self.eq([], rows)
 
+            rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4'))
+            self.eq(expect, rows)
+
+            rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4', starttupl=(expect[1][0],
+                                                'inet:ipv4')))
+            self.eq(expect[1:], rows)
+
             expect = [
                 (buid2, 41,),
                 (buid1, 42,),
