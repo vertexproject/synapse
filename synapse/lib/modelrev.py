@@ -1,6 +1,9 @@
 import logging
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
+import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,7 @@ class ModelRev:
             return tuple({v: True for v in valu}.keys())
 
         async def save():
-            await layr.storNodeEdits(nodeedits)
+            await layr.storNodeEdits(nodeedits, meta)
             nodeedits.clear()
 
         stortype = s_layer.STOR_TYPE_GUID | s_layer.STOR_TYPE_ARRAY
