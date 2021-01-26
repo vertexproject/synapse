@@ -5181,7 +5181,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_iterrows(self):
 
-
         async with self.getTestCoreAndProxy() as (core, prox):
             await core.addTagProp('score', ('int', {}), {})
 
