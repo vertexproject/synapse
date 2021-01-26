@@ -2228,7 +2228,8 @@ class Layer(s_nexus.Pusher):
         Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
 
         Args:
-            prop (str):  A universal property name.
+            form (str):  A form name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
@@ -2248,7 +2249,9 @@ class Layer(s_nexus.Pusher):
         Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalu.
 
         Args:
+            form (str):  A form name.
             prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
@@ -2269,6 +2272,7 @@ class Layer(s_nexus.Pusher):
 
         Args:
             prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
@@ -2342,6 +2346,7 @@ class Layer(s_nexus.Pusher):
             prop (str):  prop name
             form (Optional[str]):  optional form name
             stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
             AsyncIterator[Tuple(buid, valu)]
