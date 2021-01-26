@@ -6,6 +6,7 @@ import aiohttp.client_exceptions as a_exc
 import synapse.cortex as s_cortex
 
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_tests
 
@@ -577,6 +578,44 @@ class HttpApiTest(s_tests.SynTest):
                         msgs.append(json.loads(byts))
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 self.eq(podes[0][0], ('inet:ipv4', 0x05050505))
+
+    async def test_http_coreinfo(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            await visi.setAdmin(True)
+            await visi.setPasswd('secret')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            async with self.getHttpSess() as sess:
+
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('visi', retn['result']['name'])
+
+                async with sess.get(f'https://localhost:{port}/api/v1/core/info') as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    coreinfo = retn.get('result')
+
+                self.eq(coreinfo.get('version'), s_version.version)
+
+                self.nn(coreinfo.get('modeldict'))
+
+                docs = coreinfo.get('stormdocs')
+                self.isin('types', docs)
+                self.isin('libraries', docs)
+
+            # Auth failures
+            conn = aiohttp.TCPConnector(ssl=False)
+            async with aiohttp.ClientSession(connector=conn) as sess:
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/core/info') as resp:
+                    retn = await resp.json()
+                    self.eq('err', retn.get('status'))
 
     async def test_http_model(self):
 
