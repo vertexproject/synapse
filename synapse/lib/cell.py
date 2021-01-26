@@ -1056,6 +1056,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             task.add_done_callback(functools.partial(done, self))
 
             if wait:
+                logger.info(f'Waiting for backup to complete [{name}]')
                 await task
 
             return name
@@ -1070,6 +1071,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         A task that backs up the cell to the target directory
         '''
+        logger.info(f'Starting backup to [{dirn}]')
+
         await self.boss.promote('backup', self.auth.rootuser)
         slabs = s_lmdbslab.Slab.getSlabsInDir(self.dirn)
         assert slabs
@@ -1113,11 +1116,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if proc.exitcode:
                     raise s_exc.SpawnExit(code=proc.exitcode)
 
-            return await s_coro.executor(waitforproc)
+            retn = await s_coro.executor(waitforproc)
 
         except (asyncio.CancelledError, Exception):
+            logger.exception('Error performing backup to [{dirn}]')
             proc.terminate()
             raise
+
+        else:
+            logger.info(f'Backup completed to [{dirn}]')
+            return retn
 
     @staticmethod
     def _backupProc(pipe, srcdir, dstdir, lmdbpaths):
@@ -1147,8 +1155,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not os.path.isfile(cellguid):
             mesg = 'Specified backup path has no cell.guid file.'
             raise s_exc.BadArg(mesg=mesg)
-
+        logger.info(f'Removing backup for [{path}]')
         await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+        logger.info(f'Backup removed from [{path}]')
 
     async def getBackups(self):
         self._reqBackConf()
