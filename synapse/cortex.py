@@ -4501,8 +4501,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
 
         Args:
-            layr (str):  Iden of the layer to retrieve the nodes
-            prop (str):  A universal property name.
+            layriden (str):  Iden of the layer to retrieve the nodes
+            form (str):  A form name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
@@ -4521,7 +4522,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
+            form (str):  A form name.
             prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
@@ -4541,6 +4544,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
             prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
@@ -4587,6 +4591,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             prop (str):  prop name
             form (Optional[str]):  optional form name
             stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
             AsyncIterator[Tuple(buid, valu)]
