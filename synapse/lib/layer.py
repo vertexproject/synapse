@@ -2224,6 +2224,17 @@ class Layer(s_nexus.Pusher):
             yield verb, s_common.ehex(n1buid)
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):
+        '''
+        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
+
+        Args:
+            form (str):  A form name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
         try:
             indxby = IndxByForm(self, form)
 
@@ -2234,6 +2245,18 @@ class Layer(s_nexus.Pusher):
             yield item
 
     async def iterPropRows(self, form, prop, stortype=None, startvalu=None):
+        '''
+        Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalu.
+
+        Args:
+            form (str):  A form name.
+            prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
         try:
             indxby = IndxByProp(self, form, prop)
 
@@ -2245,8 +2268,15 @@ class Layer(s_nexus.Pusher):
 
     async def iterUnivRows(self, prop, stortype=None, startvalu=None):
         '''
+        Yields buid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalu.
+
         Args:
-            startvalu (Any): The value to start at.  May only be not None if stortype is not None.
+            prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
         '''
         try:
             indxby = IndxByProp(self, None, prop)
@@ -2259,10 +2289,12 @@ class Layer(s_nexus.Pusher):
 
     async def iterTagRows(self, tag, form=None, starttupl=None):
         '''
+        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+
         Args:
-            tag(str): the tag to match
-            form(Optional[str]):  if present, only yields buids of nodes that match the form
-            starttupl(Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there
+            tag (str): the tag to match
+            form (Optional[str]):  if present, only yields buids of nodes that match the form.
+            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
 
         Returns:
             AsyncIterator[Tuple(buid, (valu, form))]
@@ -2307,10 +2339,14 @@ class Layer(s_nexus.Pusher):
 
     async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''
-        Yields (buid, valu) that match a tag:prop
+        Yields (buid, valu) that match a tag:prop, optionally (re)starting at startvalu.
 
         Args:
-            form:  may be None
+            tag (str):  tag name
+            prop (str):  prop name
+            form (Optional[str]):  optional form name
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
             AsyncIterator[Tuple(buid, valu)]
