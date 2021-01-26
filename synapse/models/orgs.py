@@ -627,6 +627,9 @@ class OuModule(s_module.CoreModule):
                         'ex': 'the capture-the-flag event hosted at defcon 2020',
                         'disp': {'hint': 'text'},
                     }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The contest website URL.'
+                    }),
                     ('start', ('time', {}), {
                         'doc': 'The contest start date / time.',
                     }),

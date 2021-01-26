@@ -422,6 +422,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :family="defcon ctf"
                     :start=20200808
                     :end=20200811
+                    :url=http://vertex.link/contest
 
                     :loc=us.nv.lasvegas
                     :place=*
@@ -441,6 +442,8 @@ class OuModelTest(s_t_utils.SynTest):
 
             self.eq(1596844800000, nodes[0].get('start'))
             self.eq(1597104000000, nodes[0].get('end'))
+
+            self.eq('http://vertex.link/contest', nodes[0].get('url'))
 
             self.eq((20, 30), nodes[0].get('latlong'))
             self.eq('us.nv.lasvegas', nodes[0].get('loc'))
