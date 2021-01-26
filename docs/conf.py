@@ -244,8 +244,8 @@ def convert_ipynb(_):
             dirs.remove('.ipynb_checkpoints')
         for fn in fns:
             if fn.endswith('.ipynb'):
-                # if 'httpapi' not in fn:
-                #     continue
+                if 'tools' not in fn:
+                    continue
                 tick = s_common.now()
                 fp = os.path.join(fdir, fn)
                 args = ['--execute', '--template', './vertex.tpl', '--to', 'rst', fp]

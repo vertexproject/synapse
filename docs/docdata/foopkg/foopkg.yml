@@ -1,0 +1,47 @@
+name: foopkg
+version: 1.0.0
+synapse_minversion: [2, 23, 0]
+
+onload: $lib.import(foomod).onload()
+
+modules:
+  - name: foomod
+    modconf:
+      srcguid: f751f9ad20e75547be230ae1a425fb9f
+
+commands:
+  - name: foocmd
+    descr: |
+      One line description on the first line.
+      Followed by a more detailed description talking about what the command does and any
+      useful additional information.
+
+      Examples:
+        # A couple examples of the command
+        inet:ipv4 | foocmd
+        inet:ipv4 | limit 1 | foocmd --yield
+    asroot: true
+    cmdargs:
+      - - --debug
+        - default: false
+          action: store_true
+          help: Show verbose debug output.
+
+      - - --yield
+        - default: false
+          action: store_true
+          help: Yield the newly created nodes.
+
+      - - --timeout
+        - default: 0
+          type: int
+          help: Specify a timeout in seconds.
+    cmdconf:
+      srcguid: f751f9ad20e75547be230ae1a425fb9f
+    forms:
+      input:
+        - inet:ipv4
+      output:
+        - inet:ipv4
+      nodedata:
+        - [ foodata, file:bytes ]
