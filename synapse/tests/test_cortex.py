@@ -5181,6 +5181,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_iterrows(self):
 
+
         async with self.getTestCoreAndProxy() as (core, prox):
             await core.addTagProp('score', ('int', {}), {})
 
@@ -5208,15 +5209,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 node = await snap.addNode('test:str', 'z' * 500)
 
+            badiden = 'xxx'
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterPropRows(badiden, 'inet:ipv4', 'asn'))
+
             # rows are (buid, valu) tuples
             layriden = core.view.layers[0].iden
             rows = await alist(prox.iterPropRows(layriden, 'inet:ipv4', 'asn'))
 
             self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
-            styp = core.model.form('inet:ipv4').prop('asn').type.stortype
-            rows = await alist(prox.iterPropRows(layriden, 'inet:ipv4', 'asn', styp))
-            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterUnivRows(badiden, '.seen'))
 
             # rows are (buid, valu) tuples
             rows = await alist(prox.iterUnivRows(layriden, '.seen'))
@@ -5226,6 +5228,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
             # iterFormRows
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterFormRows(badiden, 'inet:ipv4'))
+
             rows = await alist(prox.iterFormRows(layriden, 'inet:ipv4'))
             self.eq([(buid1, 1), (buid2, 2), (buid3, 3)], rows)
 
@@ -5237,6 +5241,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     (buid3, (tm('2018', '2020'), 'inet:ipv4')),
                 ], key=lambda x: x[0])
 
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform',
+                                                                      starttupl=(expect[1][0], 'newpform')))
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
             self.eq([], rows)
 
@@ -5245,6 +5251,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 (buid1, 42,),
                 (buid3, 99,),
             ]
+
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagPropRows(badiden, 'foo', 'score', form='inet:ipv4',
+                                                                          stortype=s_layer.STOR_TYPE_I64,
+                                                                          startvalu=42))
 
             rows = await alist(prox.iterTagPropRows(layriden, 'foo', 'score', form='inet:ipv4',
                                                     stortype=s_layer.STOR_TYPE_I64, startvalu=42))
