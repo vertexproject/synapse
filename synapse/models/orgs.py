@@ -266,7 +266,7 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'The North American Industry Classification System code for the organization.',
                     }),
-                    ('industries', ('array', {'type': 'ou:industry'}), {
+                    ('industries', ('array', {'type': 'ou:industry', 'uniq': True}), {
                         'doc': 'The industries associated with the org.',
                     }),
                     ('us:cage', ('gov:us:cage', {}), {

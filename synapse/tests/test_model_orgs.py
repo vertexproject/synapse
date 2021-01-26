@@ -464,6 +464,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:contest:result -> ps:contact'))
             self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
 
+            opts = {'vars': {'ind': s_common.guid()}}
+            nodes = await core.nodes('[ ou:org=* :industries=($ind, $ind) ]', opts=opts)
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('industries'))
+
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
         guid1 = s_common.guid()
