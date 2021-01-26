@@ -2225,7 +2225,7 @@ class Layer(s_nexus.Pusher):
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalue
+        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
 
         Args:
             prop (str):  A universal property name.
@@ -2245,7 +2245,7 @@ class Layer(s_nexus.Pusher):
 
     async def iterPropRows(self, form, prop, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalue
+        Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalu.
 
         Args:
             prop (str):  A universal property name.
@@ -2265,7 +2265,7 @@ class Layer(s_nexus.Pusher):
 
     async def iterUnivRows(self, prop, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalue
+        Yields buid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalu.
 
         Args:
             prop (str):  A universal property name.

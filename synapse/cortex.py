@@ -4493,7 +4493,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalue
+        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
 
         Args:
             layr (str):  Iden of the layer to retrieve the nodes
@@ -4512,7 +4512,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def iterPropRows(self, layriden, form, prop, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalue
+        Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalu.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
@@ -4531,7 +4531,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def iterUnivRows(self, layriden, prop, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalue
+        Yields buid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalu.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
