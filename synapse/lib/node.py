@@ -426,6 +426,10 @@ class Node:
 
         name = '.'.join(path)
 
+        if not await self.snap.core.isTagValid(name):
+            mesg = f'The tag does not meet the regex for the tree.'
+            raise s_exc.BadTag(mesg=mesg)
+
         tagnode = await self.snap.addTagNode(name)
 
         # implement tag renames...
