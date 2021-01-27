@@ -163,6 +163,101 @@ stormcmds = [
 ]
 
 @s_stormtypes.registry.registerLib
+class LibModelTags(s_stormtypes.Lib):
+    '''
+    A Storm Library for interacting with tag specifications in the Cortex Data Model.
+    '''
+    _storm_lib_path = ('model', 'tags', )
+
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name)
+
+    def getObjLocals(self):
+        return {
+            'get': self._getTagModel,
+            'set': self._setTagModel,
+            'pop': self._popTagModel,
+            'del': self._delTagModel,
+            'list': self._listTagModel,
+        }
+
+    async def _delTagModel(self, tagname):
+        '''
+        Delete a tag model specification.
+
+        Arguments:
+            tagname (str): The name of the tag.
+
+        Examples:
+            $lib.model.tag.del(cno.threat)
+        '''
+        tagname = await s_stormtypes.tostr(tagname)
+        self.runt.confirm(('model', 'tag', 'set'))
+        return await self.runt.snap.core.delTagModel(tagname)
+
+    async def _getTagModel(self, tagname):
+        '''
+        Retrieve a tag model specification.
+
+        Examples:
+            $dict = $lib.model.tag.get(cno.threat)
+        '''
+        tagname = await s_stormtypes.tostr(tagname)
+        return await self.runt.snap.core.getTagModel(tagname)
+
+    async def _listTagModel(self):
+        '''
+        List all tag model specifications.
+
+        Returns:
+            [(str, dict), ...]: A list of tag model specification tuples.
+
+        Examples:
+            for ($name, $info) in $lib.model.tag.list() {
+
+            }
+        '''
+        return await self.runt.snap.core.listTagModel()
+
+    async def _popTagModel(self, tagname, propname):
+        '''
+        Pop and return a tag model property.
+
+        Arguments:
+            tagname (str): The name of the tag.
+            propname (str): The name of the tag model property.
+
+        Returns:
+            (object): The value of the property.
+
+        Examples:
+            $regxlist = $lib.model.tag.pop(cno.threat, regex)
+        '''
+        tagname = await s_stormtypes.tostr(tagname)
+        propname = await s_stormtypes.tostr(propname)
+        self.runt.confirm(('model', 'tag', 'set'))
+        return await self.runt.snap.core.popTagModel(tagname, propname)
+
+    async def _setTagModel(self, tagname, propname, propvalu):
+        '''
+        Set a tag model property for a tag.
+
+        Arguments:
+            tagname (str): The name of the tag.
+            propname (str): The name of the property.
+            propvalu (object): The value of the property.
+
+        Examples:
+            $regx = ($lib.null, $lib.null, "[0-9]{4}", "[0-9]{5}")
+            $lib.model.tag.set(cno.cve, regex, $regx)
+        '''
+        tagname = await s_stormtypes.tostr(tagname)
+        propname = await s_stormtypes.tostr(propname)
+        propvalu = await s_stormtypes.toprim(propvalu)
+        self.runt.confirm(('model', 'tag', 'set'))
+        await self.runt.snap.core.setTagModel(tagname, propname, propvalu)
+
+@s_stormtypes.registry.registerLib
 class LibModel(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with the Data Model in the Cortex.
