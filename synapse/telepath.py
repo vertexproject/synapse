@@ -38,12 +38,10 @@ async def addAhaUrl(url):
 
     info = aha_clients.get(hkey)
     if info is None:
-        client = await Client.anit(url)
-        client._fini_atexit = True
-        info = aha_clients[hkey] = {'refs': 0, 'client': client}
+        info = aha_clients[hkey] = {'refs': 0, 'client': None, 'url': url}
 
     info['refs'] += 1
-    return info.get('client')
+    return info
 
 async def delAhaUrl(url):
     '''
@@ -62,7 +60,10 @@ async def delAhaUrl(url):
     refs = info['refs']
 
     if refs == 0:
-        await info.get('client').fini()
+        client = info.get('client')
+        if client is not None:
+            await client.fini()
+
         aha_clients.pop(hkey, None)
 
     return refs
@@ -128,6 +129,11 @@ async def getAhaProxy(urlinfo):
     laste = None
     for ahaurl, cnfo in list(aha_clients.items()):
         client = cnfo.get('client')
+        if client is None:
+            client = await Client.anit(cnfo.get('url'))
+            client._fini_atexit = True
+            cnfo['client'] = client
+
         try:
             proxy = await client.proxy(timeout=10)
 
