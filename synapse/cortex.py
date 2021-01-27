@@ -142,6 +142,12 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.getCoreInfo()
 
+    async def getCoreInfoV2(self):
+        '''
+        Return static generic information about the cortex including model definition
+        '''
+        return await self.cell.getCoreInfoV2()
+
     def _reqValidStormOpts(self, opts):
 
         if opts is None:
@@ -2761,6 +2767,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/model', s_httpapi.ModelV1, {'cell': self})
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
+        self.addHttpApi('/api/v1/core/info', s_httpapi.CoreInfoV1, {'cell': self})
+
     async def getCellApi(self, link, user, path):
 
         if not path:
@@ -4084,11 +4092,35 @@ class Cortex(s_cell.Cell):  # type: ignore
             return await snap.getNodeByBuid(buid)
 
     def getCoreInfo(self):
+        s_common.deprecated('Cortex.getCoreInfo')
         return {
             'version': synapse.version,
             'modeldef': self.model.getModelDefs(),
             'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
         }
+
+    async def getCoreInfoV2(self):
+        return {
+            'version': synapse.version,
+            'modeldict': await self.getModelDict(),
+            'stormdocs': await self.getStormDocs(),
+        }
+
+    async def getStormDocs(self):
+        '''
+        Get a struct containing the Storm Types documentation.
+
+        Returns:
+            dict: A Dictionary of storm documentation information.
+        '''
+
+        ret = {
+            'libraries': s_stormtypes.registry.getLibDocs(),
+            'types': s_stormtypes.registry.getTypeDocs(),
+            # 'cmds': ...  # TODO - support cmd docs
+            # 'packages': ...  # TODO - Support inline information for packages?
+        }
+        return ret
 
     async def addNodes(self, nodedefs, view=None):
         '''

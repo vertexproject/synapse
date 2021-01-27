@@ -618,7 +618,7 @@ class HiveRuler(s_base.Base):
         return await self._setRulrInfo('rules', rules, gateiden=gateiden, nexs=nexs)
 
     async def addRule(self, rule, indx=None, gateiden=None, nexs=True):
-
+        reqValidRules((rule,))
         rules = self.getRules(gateiden=gateiden)
 
         if indx is None:
@@ -629,7 +629,7 @@ class HiveRuler(s_base.Base):
         await self.setRules(rules, gateiden=gateiden, nexs=nexs)
 
     async def delRule(self, rule, gateiden=None):
-
+        reqValidRules((rule,))
         rules = self.getRules(gateiden=gateiden)
         if rule not in rules:
             return False

@@ -939,3 +939,16 @@ class OnePassIssueV1(Handler):
         await self.cell.auth.setUserInfo(useriden, 'onepass', onepass)
 
         return self.sendRestRetn(passwd)
+
+class CoreInfoV1(Handler):
+    '''
+    /api/v1/core/info
+    '''
+
+    async def get(self):
+
+        if not await self.reqAuthUser():
+            return
+
+        resp = await self.cell.getCoreInfoV2()
+        return self.sendRestRetn(resp)

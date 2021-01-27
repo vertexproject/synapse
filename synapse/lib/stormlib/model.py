@@ -167,6 +167,72 @@ class LibModelTags(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with tag specifications in the Cortex Data Model.
     '''
+    # XXX FIXME This requires new docs
+    _storm_locals = (
+        {'name': 'get', 'desc': '''
+        Retrieve a tag model specification.
+
+        Examples:
+            Get the tag model specification for ``cno.threat``::
+
+                $dict = $lib.model.tag.get(cno.threat)''',
+         'type': {'type': 'function', '_funcname': '_getTagModel',
+                  'args': (
+                    {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
+                  ),
+                  'returns': {'type': '', 'desc': '', }}},
+        {'name': 'set', 'desc': '''
+        Set a tag model property for a tag.
+
+        Examples:
+            Create a tag model for the ``cno.cve`` tag::
+
+                $regx = ($lib.null, $lib.null, "[0-9]{4}", "[0-9]{5}")
+                $lib.model.tag.set(cno.cve, regex, $regx)''',
+         'type': {'type': 'function', '_funcname': '_setTagModel',
+                  'args': (
+                      {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The name of the tag model property.', },
+                      {'name': 'propvalu', 'type': 'prim', 'desc': 'The value to set.', },
+                  ),
+                  'returns': {'type': '', 'desc': '', }}},
+        {'name': 'pop', 'desc': '''
+            Pop and return a tag model property.
+
+            Examples:
+                Remove the regex list from the ``cno.threat`` tag model::
+
+                    $regxlist = $lib.model.tag.pop(cno.threat, regex)''',
+         'type': {'type': 'function', '_funcname': '_popTagModel',
+                  'args': (
+                      {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The name of the tag model property.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The value of the property.', }}},
+        {'name': 'del', 'desc': '''
+        Delete a tag model specification.
+
+        Examples:
+            Delete the tag model specification for ``cno.threat``::
+
+                $lib.model.tag.del(cno.threat)''',
+         'type': {'type': 'function', '_funcname': '_delTagModel',
+                  'args': (
+                      {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
+                  ),
+                  'returns': {'type': '', 'desc': '', }}},
+        {'name': 'list', 'desc': '''
+        List all tag model specifications.
+
+        Examples:
+            Iterate over the tag model specifications in the Cortex::
+
+                for ($name, $info) in $lib.model.tag.list() {
+                    ...
+                }''',
+         'type': {'type': 'function', '_funcname': '_listTagModel',
+                  'returns': {'type': 'list', 'desc': 'List of tuples containing the tag name and model definition', }}},
+    )
     _storm_lib_path = ('model', 'tags', )
 
     def __init__(self, runt, name=()):
@@ -182,75 +248,24 @@ class LibModelTags(s_stormtypes.Lib):
         }
 
     async def _delTagModel(self, tagname):
-        '''
-        Delete a tag model specification.
-
-        Arguments:
-            tagname (str): The name of the tag.
-
-        Examples:
-            $lib.model.tag.del(cno.threat)
-        '''
         tagname = await s_stormtypes.tostr(tagname)
         self.runt.confirm(('model', 'tag', 'set'))
         return await self.runt.snap.core.delTagModel(tagname)
 
     async def _getTagModel(self, tagname):
-        '''
-        Retrieve a tag model specification.
-
-        Examples:
-            $dict = $lib.model.tag.get(cno.threat)
-        '''
         tagname = await s_stormtypes.tostr(tagname)
         return await self.runt.snap.core.getTagModel(tagname)
 
     async def _listTagModel(self):
-        '''
-        List all tag model specifications.
-
-        Returns:
-            [(str, dict), ...]: A list of tag model specification tuples.
-
-        Examples:
-            for ($name, $info) in $lib.model.tag.list() {
-
-            }
-        '''
         return await self.runt.snap.core.listTagModel()
 
     async def _popTagModel(self, tagname, propname):
-        '''
-        Pop and return a tag model property.
-
-        Arguments:
-            tagname (str): The name of the tag.
-            propname (str): The name of the tag model property.
-
-        Returns:
-            (object): The value of the property.
-
-        Examples:
-            $regxlist = $lib.model.tag.pop(cno.threat, regex)
-        '''
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         self.runt.confirm(('model', 'tag', 'set'))
         return await self.runt.snap.core.popTagModel(tagname, propname)
 
     async def _setTagModel(self, tagname, propname, propvalu):
-        '''
-        Set a tag model property for a tag.
-
-        Arguments:
-            tagname (str): The name of the tag.
-            propname (str): The name of the property.
-            propvalu (object): The value of the property.
-
-        Examples:
-            $regx = ($lib.null, $lib.null, "[0-9]{4}", "[0-9]{5}")
-            $lib.model.tag.set(cno.cve, regex, $regx)
-        '''
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         propvalu = await s_stormtypes.toprim(propvalu)
@@ -263,6 +278,40 @@ class LibModel(s_stormtypes.Lib):
     A Storm Library for interacting with the Data Model in the Cortex.
     '''
     _storm_lib_path = ('model',)
+    _storm_locals = (
+        {'name': 'type', 'desc': 'Get a type object by name.',
+         'type': {'type': 'function', '_funcname': '_methType',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the type to retrieve.', },
+                  ),
+                  'returns': {'type': ['storm:model:type', 'null'],
+                              'desc': 'The ``storm:model:type`` instance if the type if present on the form or null.',
+                              }}},
+        {'name': 'prop', 'desc': 'Get a prop object by name.',
+         'type': {'type': 'function', '_funcname': '_methProp',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the prop to retrieve.', },
+                  ),
+                  'returns': {'type': ['storm:model:prop', 'null'],
+                              'desc': 'The ``storm:model:prop`` instance if the type if present or null.',
+                              }}},
+        {'name': 'form', 'desc': 'Get a form object by name.',
+         'type': {'type': 'function', '_funcname': '_methForm',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the form to retrieve.', },
+                  ),
+                  'returns': {'type': ['storm:model:form', 'null'],
+                              'desc': 'The ``storm:model:form`` instance if the form is present or null.',
+                              }}},
+        {'name': 'tagprop', 'desc': 'Get a tag property object by name.',
+         'type': {'type': 'function', '_funcname': '_methTagProp',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the tag prop to retrieve.', },
+                  ),
+                  'returns': {'type': ['storm:model:tagprop', 'null'],
+                              'desc': 'The ``storm:model:tagprop`` instance if the tag prop if present or null.',
+                              }}},
+    )
 
     def __init__(self, runt, name=()):
         s_stormtypes.Lib.__init__(self, runt, name)
@@ -278,75 +327,51 @@ class LibModel(s_stormtypes.Lib):
 
     @s_cache.memoize(size=100)
     async def _methType(self, name):
-        '''
-        Get a ModelType by name.
-
-        Args:
-            name (str): The name of the type to retrieve.
-
-        Returns:
-            ModelType: A Storm ModelType object.
-        '''
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
 
     @s_cache.memoize(size=100)
     async def _methProp(self, name):
-        '''
-        Get a ModelProp by name.
-
-        Args:
-            name (str): The name of the prop to retrieve.
-
-        Returns:
-            ModelProp: A Storm ModelProp object.
-        '''
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
 
     @s_cache.memoize(size=100)
     async def _methForm(self, name):
-        '''
-        Get a ModelForm by name.
-
-        Args:
-            name (str): The name of the form to retrieve.
-
-        Returns:
-            ModelForm: A Storm ModelForm object.
-        '''
         form = self.model.form(name)
         if form is not None:
             return ModelForm(form)
 
     @s_cache.memoize(size=100)
     async def _methTagProp(self, name):
-        '''
-        Get a ModelTagProp by name.
-
-        Args:
-            name (str): The name of the tag property to retrieve.
-
-        Returns:
-            ModelTagProp: A Storm ModelTagProp object.
-        '''
         tagprop = self.model.getTagProp(name)
         if tagprop is not None:
             return ModelTagProp(tagprop)
 
 @s_stormtypes.registry.registerType
 class ModelForm(s_stormtypes.Prim):
-
+    '''
+    Implements the Storm API for a Form.
+    '''
+    _storm_locals = (
+        {'name': 'name', 'desc': 'The name of the Form', 'type': 'str', },
+        {'name': 'prop', 'desc': 'Get a Property on the Form',
+         'type': {'type': 'function', '_funcname': '_getFormProp',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The property to retrieve.', },
+                  ),
+                  'returns': {'type': ['storm:model:prop', 'null'],
+                              'desc': 'The ``storm:model:prop`` instance if the property if present on the form or null.'
+                              }}},
+    )
+    _storm_typename = 'storm:model:form'
     def __init__(self, form, path=None):
 
         s_stormtypes.Prim.__init__(self, form, path=path)
 
-        self.locls.update({
-            'name': form.name,
-        })
         self.locls.update(self.getObjLocals())
+        self.locls['name'] = self.valu.name
 
         self.ctors.update({
             'type': self._ctorFormType,
@@ -354,7 +379,7 @@ class ModelForm(s_stormtypes.Prim):
 
     def getObjLocals(self):
         return {
-            'prop': self._getFormProp
+            'prop': self._getFormProp,
         }
 
     def _ctorFormType(self, path=None):
@@ -367,21 +392,25 @@ class ModelForm(s_stormtypes.Prim):
 
 @s_stormtypes.registry.registerType
 class ModelProp(s_stormtypes.Prim):
-
+    '''
+    Implements the Storm API for a Property.
+    '''
+    _storm_locals = (
+        {'name': 'name', 'desc': 'The short name of the Property.', 'type': 'str', },
+        {'name': 'full', 'desc': 'The full name of the Property.', 'type': 'str', },
+    )
+    _storm_typename = 'storm:model:property'
     def __init__(self, prop, path=None):
 
         s_stormtypes.Prim.__init__(self, prop, path=path)
-
-        # Todo: Plumb name and full access via a @property and implement getObjLocals
-        self.locls.update({
-            'name': prop.name,
-            'full': prop.full,
-        })
 
         self.ctors.update({
             'form': self._ctorPropForm,
             'type': self._ctorPropType,
         })
+
+        self.locls['name'] = self.valu.name
+        self.locls['full'] = self.valu.full
 
     def _ctorPropType(self, path=None):
         return ModelType(self.valu.type, path=path)
@@ -391,18 +420,22 @@ class ModelProp(s_stormtypes.Prim):
 
 @s_stormtypes.registry.registerType
 class ModelTagProp(s_stormtypes.Prim):
-
+    '''
+    Implements the Storm API for a Tag Property.
+    '''
+    _storm_locals = (
+        {'name': 'name', 'desc': 'The name of the Tag Property.', 'type': 'str', },
+    )
+    _storm_typename = 'storm:model:tagprop'
     def __init__(self, tagprop, path=None):
 
         s_stormtypes.Prim.__init__(self, tagprop, path=path)
 
-        self.locls.update({
-            'name': tagprop.name,
-        })
-
         self.ctors.update({
             'type': self._ctorTagPropType,
         })
+
+        self.locls['name'] = self.valu.name
 
     def _ctorTagPropType(self, path=None):
         return ModelType(self.valu.type, path=path)
@@ -412,20 +445,32 @@ class ModelType(s_stormtypes.Prim):
     '''
     A Storm types wrapper around a lib.types.Type
     '''
+    _storm_locals = (
+        {'name': 'name', 'desc': 'The name of the Type.', 'type': 'str', },
+        {'name': 'stortype', 'desc': 'The storetype of the Type.', 'type': 'int', },
+        {'name': 'repr', 'desc': 'Get the repr of a value for the Type.',
+         'type': {'type': 'function', '_funcname': '_methRepr',
+                  'args': (
+                      {'name': 'valu', 'desc': 'The value to get the repr of.', 'type': 'any', },
+                  ),
+                  'returns': {'desc': 'The string form of the value as represented by the type.', 'type': 'str', }}},
+        {'name': 'norm', 'desc': 'Get the norm and info for the Type.',
+         'type': {'type': 'function', '_funcname': '_methNorm',
+                  'args': (
+                      {'name': 'valu', 'desc': 'The value to norm.', 'type': 'any', },
+                  ),
+                  'returns': {'desc': 'A tuple of the normed value and its information dictionary.', 'type': 'list'}}},
+    )
+    _storm_typename = 'storm:model:type'
+
     def __init__(self, valu, path=None):
         s_stormtypes.Prim.__init__(self, valu, path=path)
-        self.locls.update({
-            'name': valu.name,
-            'stortype': valu.stortype,
-        })
         self.locls.update(self.getObjLocals())
-
-    # Todo: Plumb name access via a @property
-    def getObjLocals(self):
-        return {
-            'repr': self._methRepr,
-            'norm': self._methNorm,
-        }
+        self.locls.update({'name': valu.name,
+                           'norm': self._methNorm,
+                           'repr': self._methRepr,
+                           'stortype': valu.stortype,
+                           })
 
     async def _methRepr(self, valu):
         nval = self.valu.norm(valu)
@@ -434,12 +479,42 @@ class ModelType(s_stormtypes.Prim):
     async def _methNorm(self, valu):
         return self.valu.norm(valu)
 
-
 @s_stormtypes.registry.registerLib
 class LibModelEdge(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with light edges and manipulating their key-value attributes.
     '''
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Get the key-value data for a given Edge verb.',
+         'type': {'type': 'function', '_funcname': '_methEdgeGet',
+                  'args': (
+                      {'name': 'verb', 'desc': 'The Edge verb to look up.', 'type': 'str', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary representing the key-value data set on a verb.', }}},
+        {'name': 'validkeys', 'desc': 'Get a list of the valid keys that can be set on an Edge verb.',
+         'type': {'type': 'function', '_funcname': '_methValidKeys',
+                  'returns': {'type': 'list', 'desc': 'A list of the valid keys.', }
+                  }
+        },
+        {'name': 'set', 'desc': 'Set a key-value for a given Edge verb.',
+         'type': {'type': 'function', '_funcname': '_methEdgeSet',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'desc': 'The Edge verb to set a value for.', },
+                      {'name': 'key', 'type': 'str', 'desc': 'The key to set.', },
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to set.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'del', 'desc': 'Delete a key from the key-value store for a verb.',
+         'type': {'type': 'function', '_funcname': '_methEdgeDel',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'desc': 'The name of the Edge verb to remove a key from.', },
+                      {'name': 'key', 'type': 'str', 'desc': 'The name of the key to remove from the key-value store.', },
+                  ),
+                  'returns': {'type': 'none', }}},
+        {'name': 'list', 'desc': 'Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.',
+         'type': {'type': 'function', '_funcname': '_methEdgeList',
+                  'returns': {'type': 'list', 'desc': 'A list of (str, dict) tuples for each verb in the current Cortex View.', }}},
+    )
     # Note: The use of extprops in hive paths in this class is an artifact of the
     # original implementation which used extended property language which had a
     # very bad cognitive overload with the cortex extended properties, but we
@@ -478,24 +553,9 @@ class LibModelEdge(s_stormtypes.Lib):
                                    name=key)
 
     def _methValidKeys(self):
-        '''
-        Get a list of the valid keys that can be set on an Edge verb.
-
-        Returns:
-            list: A list of the valid keys.
-        '''
         return self.validedgekeys
 
     async def _methEdgeGet(self, verb):
-        '''
-        Get the key-value data for a given Edge verb.
-
-        Args:
-            verb (str): The Edge verb to look up.
-
-        Returns:
-            dict: A dictionary representing the key-value data set on a verb.
-        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -503,19 +563,6 @@ class LibModelEdge(s_stormtypes.Lib):
         return await self.runt.snap.core.getHiveKey(path) or {}
 
     async def _methEdgeSet(self, verb, key, valu):
-        '''
-        Set a key-value for a given Edge verb.
-
-        Args:
-            verb (str): The Edge verb to set a value for.
-
-            key (str): The key to set.
-
-            valu (str): The value to set.
-
-        Returns:
-            None: Returns None.
-        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -531,17 +578,6 @@ class LibModelEdge(s_stormtypes.Lib):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeDel(self, verb, key):
-        '''
-        Delete a key from the key-value store for a verb.
-
-        Args:
-            verb (str): The name of the Edge verb to remove a key from.
-
-            key (str): The name of the key to remove from the key-value store.
-
-        Returns:
-            None: Returns None.
-        '''
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -559,12 +595,6 @@ class LibModelEdge(s_stormtypes.Lib):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeList(self):
-        '''
-        Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.
-
-        Returns:
-            list: A list of (str, dict) tuples for each verb in the current Cortex View.
-        '''
         retn = []
         async for verb in self.runt.snap.view.getEdgeVerbs():
             path = self.hivepath + (verb, 'extprops')
@@ -578,6 +608,18 @@ class LibModelDeprecated(s_stormtypes.Lib):
     '''
     A storm library for interacting with the model deprecation mechanism.
     '''
+    _storm_locals = (
+        {'name': 'lock', 'desc': 'Set the locked property for a deprecated model element.',
+         'type': {'type': 'function', '_funcname': '_lock',
+                  'args': (
+                      {'name': 'name', 'desc': 'The full path of the model element to lock.', 'type': 'str', },
+                      {'name': 'locked', 'desc': 'The lock status.', 'type': 'boolean', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'locks', 'desc': 'Get a dictionary of the data model elements which are deprecated and their lock status in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_locks',
+                  'returns': {'type': 'dict', 'desc': 'A dictionary of named elements to their boolean lock values.', }}},
+    )
     _storm_lib_path = ('model', 'deprecated')
 
     def getObjLocals(self):
