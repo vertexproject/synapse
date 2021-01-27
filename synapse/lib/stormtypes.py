@@ -374,7 +374,7 @@ class LibDmon(Lib):
                      'desc': 'The Storm query to execute in the Dmon loop.', },
                     {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname', },
                 ),
-                'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.', }}},
+                  'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.', }}},
         {'name': 'get', 'desc': 'Get a Storm Dmon definition by iden.',
          'type': {'type': 'function', '_funcname': '_libDmonGet',
                   'args': (
@@ -463,8 +463,7 @@ class LibDmon(Lib):
 
         opts = {'vars': varz, 'view': viewiden}
 
-        ddef = {
-            'name': name,
+        ddef = {'name': name,
             'user': self.runt.user.iden,
             'storm': text,
             'enabled': True,
@@ -591,8 +590,7 @@ class LibService(Lib):
 
     async def _libSvcAdd(self, name, url):
         self.runt.confirm(('service', 'add'))
-        sdef = {
-            'name': name,
+        sdef = {'name': name,
             'url': url,
         }
         return await self.runt.snap.core.addStormSvc(sdef)
@@ -671,7 +669,7 @@ class LibBase(Lib):
                       {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the set.', },
                   ),
                   'returns': {'type': 'set', 'desc': 'The new set.', }
-            }
+            },
         },
         {'name': 'dict', 'desc': 'Get a Storm Dict object.',
          'type': {'type': 'function', '_funcname': '_dict',
@@ -681,7 +679,7 @@ class LibBase(Lib):
                   'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
         {'name': 'exit', 'desc': 'Cause a Storm Runtime to stop running.',
         'type': {'type': 'function', '_funcname': '_exit',
-                'returns': {'type': 'null', }}},
+                  'returns': {'type': 'null', }}},
         {'name': 'guid', 'desc': 'Get a random guid, or generate a guid from the arguments.',
          'type': {'type': 'function', '_funcname': '_guid',
                   'args': (
@@ -703,7 +701,7 @@ class LibBase(Lib):
                     ('storm:fire', {'type': 'demo', 'data': {'foo': 'bar', 'knight': 'ni'}})
                     ...
             ''',
-            'type': {'type': 'function', '_funcname': '_fire',
+         'type': {'type': 'function', '_funcname': '_fire',
                      'args': (
                          {'name': 'name', 'type': 'str', 'desc': 'The name of the event to fire.', },
                          {'name': '**info', 'type': 'any', 'desc': 'Additional keyword arguments containing data to add to the event.', },
@@ -1145,9 +1143,7 @@ class LibAxon(Lib):
     A Storm library for interacting with the Cortex's Axon.
     '''
     _storm_locals = (
-        {
-            'name': 'wget',
-            'desc': """
+        {'name': 'wget', 'desc': """
             A method to download an HTTP(S) resource into the Cortex's Axon.
 
             Example:
@@ -1159,93 +1155,31 @@ class LibAxon(Lib):
                     $resp = $lib.axon.wget("http://vertex.link", method=GET, headers=$headers)
                     if $resp.ok { $lib.print("Downloaded: {size} bytes", size=$resp.size) }
             """,
-            'type': {
-                'type': 'function',
-                '_funcname': 'wget',
-                'args': (
-                    {
-                        'name': 'url',
-                        'type': 'str',
-                        'desc': 'The URL to download',
-                    },
-                    {
-                        'name': 'headers',
-                        'type': 'dict',
-                        'desc': 'An optional dictionary of HTTP headers to send.',
-                        'default': None,
-                    },
-                    {
-                        'name': 'params',
-                        'type': 'dict',
-                        'desc': 'An optional dictionary of URL parameters to add.',
-                        'default': None,
-                    },
-                    {
-                        'name': 'method',
-                        'type': 'str',
-                        'desc': 'The HTTP method to use.',
-                        'default': 'GET',
-                    },
-                    {
-                        'name': 'json',
-                        'type': 'dict',
-                        'desc': 'A JSON object to send as the body.',
-                        'default': None,
-                    },
-                    {
-                        'name': 'body',
-                        'type': 'bytes',
-                        'desc': 'Bytes to send as the body.',
-                        'default': None,
-                    },
-                    {
-                        'name': 'ssl',
-                        'type': 'boolean',
-                        'desc': 'Set to False to disable SSL/TLS certificate verification.',
-                        'default': True,
-                    },
-                    {
-                        'name': 'timeout',
-                        'type': 'int',
-                        'desc': 'Timeout for the download operation.',
-                        'default': None,
-                    }
-                ),
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'A status dictionary of metadata.',
-                }
-            }
-        },
-        {
-            'name': 'urlfile',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': 'wget',
+                  'args': (
+                      {'name': 'url', 'type': 'str', 'desc': 'The URL to download', },
+                      {'name': 'headers', 'type': 'dict', 'desc': 'An optional dictionary of HTTP headers to send.', 'default': None, },
+                      {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.', 'default': None, },
+                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'GET', },
+                      {'name': 'json', 'type': 'dict', 'desc': 'A JSON object to send as the body.', 'default': None, },
+                      {'name': 'body', 'type': 'bytes', 'desc': 'Bytes to send as the body.', 'default': None, },
+                      {'name': 'ssl', 'type': 'boolean', 'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True, },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.', 'default': None, }
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.', }}},
+        {'name': 'urlfile', 'desc': '''
             Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
 
             Notes:
                 This accepts the same arguments as ``$lib.axon.wget()``.
-            ''',
-            'type': {
-                'type': 'function',
-                '_funcname': 'urlfile',
-                'args': (
-                    {
-                        'name': '*args',
-                        'type': 'any',
-                        'desc': 'Args from ``$lib.axon.wget()``.',
-                    },
-                    {
-                        'name': '**kwargs',
-                        'type': 'any',
-                        'desc': 'Args from ``$lib.axon.wget()``.',
-                    },
-                ),
-                'returns': {
-                    'type': ['node', 'boolean'],
-                    'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.',
-                }
-            }
-        },
+                ''',
+         'type': {'type': 'function', '_funcname': 'urlfile',
+                  'args': (
+                      {'name': '*args', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.', },
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.', },
+                  ),
+                  'returns': {'type': ['storm:node', 'null '],
+                              'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.', }}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1317,9 +1251,7 @@ class LibBytes(Lib):
     A Storm Library for interacting with bytes storage.
     '''
     _storm_locals = (
-        {
-            'name': 'put',
-            'desc': '''
+        {'name': 'put', 'desc': '''
             Save the given bytes variable to the Axon the Cortex is configured to use.
 
             Examples:
@@ -1328,27 +1260,13 @@ class LibBytes(Lib):
                     cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.bytes.put($buf)
                          $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
 
-                    size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
-            ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libBytesPut',
-                'args': (
-                    {
-                        'name': 'byts',
-                        'type': 'bytes',
-                        'desc': 'The bytes to save.',
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A tuple of the file size and sha256 value.',
-                }
-            }
-        },
-        {
-            'name': 'has',
-            'desc': '''
+                    size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
+         'type': {'type': 'function', '_funcname': '_libBytesPut',
+                  'args': (
+                      {'name': 'byts', 'type': 'bytes', 'desc': 'The bytes to save.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
+        {'name': 'has', 'desc': '''
             Check if the Axon the Cortex is configured to use has a given sha256 value.
 
             Examples:
@@ -1363,25 +1281,12 @@ class LibBytes(Lib):
 
                     Has bytes
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libBytesHas',
-                'args': (
-                    {
-                        'name': 'sha256',
-                        'type': 'str',
-                        'desc': 'The sha256 value to check.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the Axon has the file, false if it does not.',
-                }
-            }
-        },
-        {
-            'name': 'size',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_libBytesHas',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the Axon has the file, false if it does not.', }}},
+        {'name': 'size', 'desc': '''
             Return the size of the bytes stored in the Axon for the given sha256.
 
             Examples:
@@ -1389,25 +1294,12 @@ class LibBytes(Lib):
 
                     $size = $lib.bytes.size($sha256)
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libBytesSize',
-                'args': (
-                    {
-                        'name': 'sha256',
-                        'type': 'str',
-                        'desc': 'The sha256 value to check.',
-                    },
-                ),
-                'returns': {
-                    'type': ['int', 'null'],
-                    'desc': 'The size of the file or ``null`` if the file is not found.',
-                }
-            }
-        },
-        {
-            'name': 'upload',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_libBytesSize',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
+                  ),
+                  'returns': {'type': ['int', 'null'], 'desc': 'The size of the file or ``null`` if the file is not found.', }}},
+        {'name': 'upload', 'desc': '''
             Upload a stream of bytes to the Axon as a file.
 
             Examples:
@@ -1415,22 +1307,11 @@ class LibBytes(Lib):
 
                     ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libBytesUpload',
-                'args': (
-                    {
-                        'name': 'genr',
-                        'type': 'generator',
-                        'desc': 'A generator which yields bytes.',
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A tuple of the file size and sha256 value.',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': '_libBytesUpload',
+                  'args': (
+                      {'name': 'genr', 'type': 'generator', 'desc': 'A generator which yields bytes.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('bytes',)
 
@@ -1479,26 +1360,13 @@ class LibLift(Lib):
     A Storm Library for interacting with lift helpers.
     '''
     _storm_locals = (
-        {
-            'name': 'byNodeData',
-            'desc': 'Lift nodes which have a given nodedata name set on them.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_byNodeData',
-                'args': (
-                    {
-                        'name': 'name',
-                        'desc': 'The name to of the nodedata key to lift by.',
-                        'type': 'str',
-                    },
-                ),
-                'returns': {
-                    'name': 'Yields',
-                    'desc': 'Yields nodes to the pipeline. This must be used in conjunction with the ``yield`` keyword.',
-                    'type': 'storm:node'
-                }
-            }
-        },
+        {'name': 'byNodeData', 'desc': 'Lift nodes which have a given nodedata name set on them.',
+         'type': {'type': 'function', '_funcname': '_byNodeData',
+                  'args': (
+                      {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'storm:node',
+                              'desc': 'Yields nodes to the pipeline. This must be used in conjunction with the ``yield`` keyword.', }}},
     )
     _storm_lib_path = ('lift',)
 
@@ -1517,21 +1385,12 @@ class LibTime(Lib):
     A Storm Library for interacting with timestamps.
     '''
     _storm_locals = (
-        {
-            'name': 'now',
-            'desc': 'Get the current epoch time in milliseconds.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_now',
-                'returns': {
-                    'desc': 'Epoch time in milliseconds.',
-                    'type': 'int',
-                }
-            }
-        },
-        {
-            'name': 'fromunix',
-            'desc': '''
+        {'name': 'now', 'desc': 'Get the current epoch time in milliseconds.',
+         'type': {
+             'type': 'function', '_funcname': '_now',
+             'returns': {'desc': 'Epoch time in milliseconds.', 'type': 'int', }}},
+        {'name': 'fromunix',
+         'desc': '''
             Normalize a timestamp from a unix epoch time in seconds to milliseconds.
 
             Examples:
@@ -1541,25 +1400,12 @@ class LibTime(Lib):
                          $str=$lib.time.format($millis, '%A %d, %B %Y') $lib.print($str)
 
                     Tuesday 14, July 2020''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_fromunix',
-                'args': (
-                    {
-                        'name': 'secs',
-                        'type': 'int',
-                        'desc': 'Unix epoch time in seconds.',
-                    },
-                ),
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The normalized time in milliseconds.',
-                }
-            }
-        },
-        {
-            'name': 'parse',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_fromunix',
+                  'args': (
+                      {'name': 'secs', 'type': 'int', 'desc': 'Unix epoch time in seconds.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The normalized time in milliseconds.', }}},
+        {'name': 'parse', 'desc': '''
             Parse a timestamp string using ``datetime.strptime()`` into an epoch timestamp.
 
             Examples:
@@ -1568,30 +1414,13 @@ class LibTime(Lib):
                     cli> storm $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
 
                     1590969600000''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_parse',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'type': 'str',
-                        'desc': 'The timestamp string to parse.',
-                    },
-                    {
-                        'name': 'format',
-                        'type': 'str',
-                        'desc': 'The format string to use for parsing.',
-                    },
-                ),
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The epoch timetsamp for the string.',
-                }
-            }
-        },
-        {
-            'name': 'format',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_parse',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The timestamp string to parse.', },
+                      {'name': 'format', 'type': 'str', 'desc': 'The format string to use for parsing.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The epoch timetsamp for the string.', }}},
+        {'name': 'format', 'desc': '''
             Format a Synapse timestamp into a string value using ``datetime.strftime()``.
 
             Examples:
@@ -1600,83 +1429,39 @@ class LibTime(Lib):
                     cli> storm $now=$lib.time.now() $str=$lib.time.format($now, '%A %d, %B %Y') $lib.print($str)
 
                     Tuesday 14, July 2020''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_format',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'type': 'int',
-                        'desc': 'A timestamp in epoch milliseconds.',
-                    },
-                    {
-                        'name': 'format',
-                        'type': 'str',
-                        'desc': 'The strftime format string.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The formatted time string.',
-                }
-            }
-        },
-        {
-            'name': 'sleep',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_format',
+                  'args': (
+                      {'name': 'valu', 'type': 'int', 'desc': 'A timestamp in epoch milliseconds.', },
+                      {'name': 'format', 'type': 'str', 'desc': 'The strftime format string.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The formatted time string.', }}},
+        {'name': 'sleep', 'desc': '''
             Pause the processing of data in the storm query.
 
             Notes:
                 This has the effect of clearing the Snap's cache, so any node lifts performed
                 after the ``$lib.time.sleep(...)`` executes will be lifted directly from storage.
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_sleep',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'type': 'int',
-                        'desc': 'The number of seconds to pause for.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'ticker',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_sleep',
+                  'args': (
+                      {'name': 'valu', 'type': 'int', 'desc': 'The number of seconds to pause for.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'ticker', 'desc': '''
         Periodically pause the processing of data in the storm query.
 
         Notes:
             This has the effect of clearing the Snap's cache, so any node lifts performed
             after each tick will be lifted directly from storage.
         ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_ticker',
-                'args': (
-                    {
-                        'name': 'tick',
-                        'desc': 'The amount of time to wait between each tick, in seconds.',
-                        'type': 'int',
-                    },
-                    {
-                        'name': 'count',
-                        'desc': 'The number of times to pause the query before exiting the loop. This defaults to None and will yield forever if not set.',
-                        'default': None,
-                        'type': 'int',
-                    }
-                ),
-                'returns': {
-                    'name': 'Yields',
-                    'desc': 'This yields the current tick count after each time it wakes up.',
-                    'type': 'int',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': '_ticker',
+                  'args': (
+                      {'name': 'tick', 'desc': 'The amount of time to wait between each tick, in seconds.', 'type': 'int', },
+                      {'name': 'count', 'default': None, 'type': 'int',
+                       'desc': 'The number of times to pause the query before exiting the loop. This defaults to None and will yield forever if not set.', }
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'int',
+                              'desc': 'This yields the current tick count after each time it wakes up.', }}},
     )
     _storm_lib_path = ('time',)
 
@@ -1756,9 +1541,7 @@ class LibRegx(Lib):
     A Storm library for searching/matching with regular expressions.
     '''
     _storm_locals = (
-        {
-            'name': 'search',
-            'desc': '''
+        {'name': 'search', 'desc': '''
             Search the given text for the pattern and return the matching groups.
 
             Note:
@@ -1774,36 +1557,14 @@ class LibRegx(Lib):
                     if $m {
                         ($maj, $min, $pat) = $m
                     }''',
-            'type': {
-                'type': 'function',
-                '_funcname': 'search',
-                'args': (
-                    {
-                        'name': 'pattern',
-                        'type': 'str',
-                        'desc': 'The regular expression pattern.',
-                    },
-                    {
-                        'name': 'text',
-                        'type': 'str',
-                        'desc': 'The text to match.',
-                    },
-                    {
-                        'name': 'flags',
-                        'type': 'int',
-                        'desc': 'Regex flags to control the match behavior.',
-                        'default': 0
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of strings for the matching groups in the pattern.',
-                }
-            }
-        },
-        {
-            'name': 'matches',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': 'search',
+                  'args': (
+                      {'name': 'pattern', 'type': 'str', 'desc': 'The regular expression pattern.', },
+                      {'name': 'text', 'type': 'str', 'desc': 'The text to match.', },
+                      {'name': 'flags', 'type': 'int', 'desc': 'Regex flags to control the match behavior.', 'default': 0},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of strings for the matching groups in the pattern.', }}},
+        {'name': 'matches', 'desc': '''
             Check if text matches a pattern.
             Returns $lib.true if the text matches the pattern, otherwise $lib.false.
 
@@ -1817,44 +1578,15 @@ class LibRegx(Lib):
                         $lib.print("It's semver! ...probably")
                     }
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': 'matches',
-                'args': (
-                    {
-                        'name': 'pattern',
-                        'type': 'str',
-                        'desc': 'The regular expression pattern.',
-                    },
-                    {
-                        'name': 'text',
-                        'type': 'str',
-                        'desc': 'The text to match.',
-                    },
-                    {
-                        'name': 'flags',
-                        'type': 'int',
-                        'desc': 'Regex flags to control the match behavior.',
-                        'default': 0
-                    },
-
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if there is a match, False otherwise.',
-                }
-            }
-        },
-        {
-            'name': 'flags.i',
-            'desc': 'Regex flag to indicate that case insensitive matches are allowed.',
-            'type': 'int',
-        },
-        {
-            'name': 'flags.m',
-            'desc': 'Regex flag to indicate that multiline matches are allowed.',
-            'type': 'int',
-        },
+         'type': {'type': 'function', '_funcname': 'matches',
+                  'args': (
+                      {'name': 'pattern', 'type': 'str', 'desc': 'The regular expression pattern.', },
+                      {'name': 'text', 'type': 'str', 'desc': 'The text to match.', },
+                      {'name': 'flags', 'type': 'int', 'desc': 'Regex flags to control the match behavior.', 'default': 0, },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if there is a match, False otherwise.', }}},
+        {'name': 'flags.i', 'desc': 'Regex flag to indicate that case insensitive matches are allowed.', 'type': 'int', },
+        {'name': 'flags.m', 'desc': 'Regex flag to indicate that multiline matches are allowed.', 'type': 'int', },
     )
     _storm_lib_path = ('regex',)
 
@@ -1906,30 +1638,14 @@ class LibCsv(Lib):
     A Storm Library for interacting with csvtool.
     '''
     _storm_locals = (
-        {
-            'name': 'emit',
-            'desc': 'Emit a ``csv:row`` event to the Storm runtime for the given args.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libCsvEmit',
-                'args': (
-                    {
-                        'name': '*args',
-                        'type': 'any',
-                        'desc': 'Items which are emitted as a ``csv:row`` event.',
-                    },
-                    {
-                        'name': 'table',
-                        'type': 'str',
-                        'desc': 'The name of the table to emit data too. Optional.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
+        {'name': 'emit', 'desc': 'Emit a ``csv:row`` event to the Storm runtime for the given args.',
+         'type': {'type': 'function', '_funcname': '_libCsvEmit',
+                  'args': (
+                      {'name': '*args', 'type': 'any', 'desc': 'Items which are emitted as a ``csv:row`` event.', },
+                      {'name': 'table', 'type': 'str', 'default': None,
+                       'desc': 'The name of the table to emit data too. Optional.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('csv',)
 
@@ -1948,9 +1664,7 @@ class LibFeed(Lib):
     A Storm Library for interacting with Cortex feed functions.
     '''
     _storm_locals = (
-        {
-            'name': 'genr',
-            'desc': '''
+        {'name': 'genr', 'desc': '''
             Yield nodes being added to the graph by adding data with a given ingest type.
 
             Notes:
@@ -1960,43 +1674,17 @@ class LibFeed(Lib):
                 that all of the nodes which should be made by the feed function
                 will be made.
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libGenr',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the ingest function to send data too.',
-                    },
-                    {
-                        'name': 'data',
-                        'type': 'prim',
-                        'desc': 'Data to send to the ingest function.',
-                    },
-                ),
-                'returns': {
-                    'name': 'Yields',
-                    'type': 'storm:node',
-                    'desc': 'Yields Nodes as they are created by the ingest function.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of feed functions.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of feed functions.',
-                }
-            }
-        },
-        {
-            'name': 'ingest',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_libGenr',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the ingest function to send data too.', },
+                      {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'storm:node',
+                              'desc': 'Yields Nodes as they are created by the ingest function.', }}},
+        {'name': 'list', 'desc': 'Get a list of feed functions.',
+         'type': {'type': 'function', '_funcname': '_libList',
+                  'returns': {'type': 'list', 'desc': 'A list of feed functions.', }}},
+        {'name': 'ingest', 'desc': '''
             Add nodes to the graph with a given ingest type.
 
             Notes:
@@ -2004,26 +1692,12 @@ class LibFeed(Lib):
                 the snap.strict mode to False. This will cause node creation and property
                 setting to produce warning messages, instead of causing the Storm Runtime
                 to be torn down.''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libIngest',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the ingest function to send data too.',
-                    },
-                    {
-                        'name': 'data',
-                        'type': 'prim',
-                        'desc': 'Data to send to the ingest function.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': '_libIngest',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the ingest function to send data too.', },
+                      {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('feed',)
 
@@ -2081,9 +1755,7 @@ class LibPipe(Lib):
     A Storm library for interacting with non-persistent queues.
     '''
     _storm_locals = (
-        {
-            'name': 'gen',
-            'desc': '''
+        {'name': 'gen', 'desc': '''
             Generate and return a Storm Pipe.
 
             Notes:
@@ -2099,28 +1771,14 @@ class LibPipe(Lib):
                         $dostuff($items)
                     }
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methPipeGen',
-                'args': (
-                    {
-                        'name': 'filler',
-                        'type': ['str', 'storm:query'],
-                        'desc': 'A Storm query to fill the Pipe.',
-                    },
-                    {
-                        'name': 'size',
-                        'type': 'int',
-                        'desc': 'Maximum size of the pipe.',
-                        'default': 10000,
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:pipe',
-                    'desc': 'The pipe containing query results.',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': '_methPipeGen',
+                  'args': (
+                      {'name': 'filler', 'type': ['str', 'storm:query'],
+                       'desc': 'A Storm query to fill the Pipe.', },
+                      {'name': 'size', 'type': 'int', 'default': 10000,
+                        'desc': 'Maximum size of the pipe.', },
+                  ),
+                  'returns': {'type': 'storm:pipe', 'desc': 'The pipe containing query results.', }}},
     )
 
     _storm_lib_path = ('pipe',)
@@ -2171,65 +1829,26 @@ class Pipe(StormType):
     A Storm Pipe provides fast ephemeral queues.
     '''
     _storm_locals = (
-        {
-            'name': 'put',
-            'desc': 'Add a single item to the Pipe.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methPipePut',
-                'args': (
-                    {
-                        'name': 'item',
-                        'type': 'any',
-                        'desc': ' An object to add to the Pipe.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'puts',
-            'desc': 'Add a list of items to the Pipe.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methPipePuts',
-                'args': (
-                    {
-                        'name': 'items',
-                        'type': 'list',
-                        'desc': 'A list of items to add.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'slice',
-            'desc': 'Return a list of up to size items from the Pipe.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methPipeSlice',
-                'args': (
-                    {
-                        'name': 'size',
-                        'type': 'int',
-                        'desc': 'The max number of items to return.',
-                        'default': 1000,
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of at least 1 item from the Pipe.',
-                }
-            }
-        },
-        {
-            'name': 'slices',
-            'desc': '''
+        {'name': 'put', 'desc': 'Add a single item to the Pipe.',
+         'type': {'type': 'function', '_funcname': '_methPipePut',
+                  'args': (
+                      {'name': 'item', 'type': 'any', 'desc': ' An object to add to the Pipe.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'puts', 'desc': 'Add a list of items to the Pipe.',
+         'type': {'type': 'function', '_funcname': '_methPipePuts',
+                  'args': (
+                      {'name': 'items', 'type': 'list', 'desc': 'A list of items to add.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'slice', 'desc': 'Return a list of up to size items from the Pipe.',
+         'type': {'type': 'function', '_funcname': '_methPipeSlice',
+                  'args': (
+                      {'name': 'size', 'type': 'int', 'default': 1000,
+                       'desc': 'The max number of items to return.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of at least 1 item from the Pipe.', }}},
+        {'name': 'slices', 'desc': '''
             Yield lists of up to size items from the Pipe.
 
             Notes:
@@ -2247,36 +1866,15 @@ class Pipe(StormType):
                     for $slice in $pipe.slices(1000) {
                         $dostuff_batch($slice)
                     }''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methPipeSlices',
-                'args': (
-                    {
-                        'name': 'size',
-                        'type': 'int',
-                        'desc': 'The max number of items to yield per slice.',
-                        'default': 1000,
-                    },
-                ),
-                'returns': {
-                    'name': 'Yields',
-                    'type': 'any',
-                    'desc': 'Yields objects from the Pipe.',
-                }
-            }
-        },
-        {
-            'name': 'size',
-            'desc': 'Retrieve the number of items in the Pipe.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methPipeSize',
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The number of items in the Pipe.',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': '_methPipeSlices',
+                  'args': (
+                      {'name': 'size', 'type': 'int', 'default': 1000,
+                       'desc': 'The max number of items to yield per slice.', },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'any', 'desc': 'Yields objects from the Pipe.', }}},
+        {'name': 'size', 'desc': 'Retrieve the number of items in the Pipe.',
+         'type': {'type': 'function', '_funcname': '_methPipeSize',
+                  'returns': {'type': 'int', 'desc': 'The number of items in the Pipe.', }}},
     )
     _storm_typename = 'storm:pipe'
     def __init__(self, runt, size):
@@ -2341,91 +1939,34 @@ class LibQueue(Lib):
     A Storm Library for interacting with persistent Queues in the Cortex.
     '''
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': 'Add a Queue to the Cortex with a given name.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueueAdd',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the queue to add.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:queue',
-                }
-            }
-        },
-        {
-            'name': 'gen',
-            'desc': 'Add or get a Storm Queue in a single operation.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueueGen',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the Queue to add or get.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:queue',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a given named Queue.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueueDel',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the queue to delete.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get an existing Storm Queue object.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueueGet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the Queue to get.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:queue',
-                    'desc': 'A ``storm:queue`` object.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of the Queues in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueueList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of queue definitions the current user is allowed to interact with.',
-                }
-            }
-        },
+        {'name': 'add', 'desc': 'Add a Queue to the Cortex with a given name.',
+         'type': {'type': 'function', '_funcname': '_methQueueAdd',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to add.', },
+                  ),
+                  'returns': {'type': 'storm:queue', }}},
+        {'name': 'gen', 'desc': 'Add or get a Storm Queue in a single operation.',
+         'type': {'type': 'function', '_funcname': '_methQueueGen',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add or get.', },
+                  ),
+                  'returns': {'type': 'storm:queue', }}},
+        {'name': 'del', 'desc': 'Delete a given named Queue.',
+         'type': {'type': 'function', '_funcname': '_methQueueDel',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to delete.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get an existing Storm Queue object.',
+         'type': {'type': 'function', '_funcname': '_methQueueGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.', },
+                  ),
+                  'returns': {'type': 'storm:queue', 'desc': 'A ``storm:queue`` object.', }}},
+        {'name': 'list', 'desc': 'Get a list of the Queues in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methQueueList',
+                  'returns': {'type': 'list',
+                              'desc': 'A list of queue definitions the current user is allowed to interact with.', }}},
     )
     _storm_lib_path = ('queue',)
 
@@ -2489,171 +2030,61 @@ class Queue(StormType):
     A StormLib API instance of a named channel in the Cortex multiqueue.
     '''
     _storm_locals = (
-        {
-            'name': 'name',
-            'desc': 'The name of the Queue.',
-            'type': 'str',
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a particular item from the Queue.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueueGet',
-                'args': (
-                    {
-                        'name': 'offs',
-                        'type': 'int',
-                        'desc': 'The offset to retrieve an item from.',
-                        'default': 0,
-                    },
-                    {
-                        'name': 'cull',
-                        'type': 'boolean',
-                        'desc': 'Culls items up to, but not including, the specified offset.',
-                        'default': True,
-                    },
-                    {
-                        'name': 'wait',
-                        'type': 'boolean',
-                        'desc': 'Wait for the offset to be available before returning the item.',
-                        'default': True,
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A tuple of the offset and the item from the queue. If wait is false and the offset '
-                            'is not present, null is returned.',
-                }
-            }
-        },
-        {
-            'name': 'pop',
-            'desc': 'Pop a item from the Queue at a specific offset.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueuePop',
-                'args': (
-                    {
-                        'name': 'offs',
-                        'type': 'int',
+        {'name': 'name', 'desc': 'The name of the Queue.', 'type': 'str', },
+        {'name': 'get', 'desc': 'Get a particular item from the Queue.',
+         'type': {'type': 'function', '_funcname': '_methQueueGet',
+                  'args': (
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve an item from.', 'default': 0, },
+                      {'name': 'cull', 'type': 'boolean', 'default': True,
+                       'desc': 'Culls items up to, but not including, the specified offset.', },
+                      {'name': 'wait', 'type': 'boolean', 'default': True,
+                       'desc': 'Wait for the offset to be available before returning the item.', },
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'A tuple of the offset and the item from the queue. If wait is false and '
+                                      'the offset is not present, null is returned.', }}},
+        {'name': 'pop', 'desc': 'Pop a item from the Queue at a specific offset.',
+         'type': {'type': 'function', '_funcname': '_methQueuePop',
+                  'args': (
+                      {'name': 'offs', 'type': 'int', 'default': None,
                         'desc': 'Offset to pop the item from. If not specified, the first item in the queue will be'
-                                ' popped.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'The offset and item popped from the queue. If there is no item at the offset or the'
-                            ' queue is empty, it returns null.',
-                }
-            }
-        },
-        {
-            'name': 'put',
-            'desc': 'Put an item into the queue.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueuePut',
-                'args': (
-                    {
-                        'name': 'item',
-                        'type': 'prim',
-                        'desc': 'The item being put into the queue.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'puts',
-            'desc': 'Put multiple items into the Queue.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueuePuts',
-                'args': (
-                    {
-                        'name': 'items',
-                        'type': 'list',
-                        'desc': 'The items to put into the Queue.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'gets',
-            'desc': 'Get multiple items from the Queue as a iterator.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueueGets',
-                'args': (
-                    {
-                        'name': 'offs',
-                        'type': 'int',
-                        'desc': 'The offset to retrieve an items from.',
-                        'default': 0,
-                    },
-                    {
-                        'name': 'wait',
-                        'type': 'boolean',
-                        'desc': 'Wait for the offset to be available before returning the item.',
-                        'default': True,
-                    },
-                    {
-                        'name': 'cull',
-                        'type': 'boolean',
-                        'desc': 'Culls items up to, but not including, the specified offset.',
-                        'default': False
-                    },
-                    {
-                        'name': 'size',
-                        'type': 'int',
-                        'desc': 'The maximum number of items to yield',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'name': 'Yields',
-                    'type': 'list',
-                    'desc': 'Yields tuples of the offset and item.',
-                }
-            }
-        },
-        {
-            'name': 'cull',
-            'desc': 'Remove items from the queue up to, and including, the offset.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueueCull',
-                'args': (
-                    {
-                        'name': 'offs',
-                        'type': 'int',
-                        'desc': 'The offset which to cull records from the queue.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'size',
-            'desc': 'Get the number of items in the Queue.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueueSize',
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The number of items in the Queue.',
-                }
-            }
-        },
+                                ' popped.', },
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'The offset and item popped from the queue. If there is no item at the '
+                                      'offset or the  queue is empty, it returns null.', }}},
+        {'name': 'put', 'desc': 'Put an item into the queue.',
+         'type': {'type': 'function', '_funcname': '_methQueuePut',
+                  'args': (
+                      {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the queue.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'puts', 'desc': 'Put multiple items into the Queue.',
+         'type': {'type': 'function', '_funcname': '_methQueuePuts',
+                  'args': (
+                      {'name': 'items', 'type': 'list', 'desc': 'The items to put into the Queue.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'gets', 'desc': 'Get multiple items from the Queue as a iterator.',
+         'type': {'type': 'function', '_funcname': '_methQueueGets',
+                  'args': (
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to retrieve an items from.', 'default': 0, },
+                      {'name': 'wait', 'type': 'boolean', 'default': True,
+                       'desc': 'Wait for the offset to be available before returning the item.', },
+                      {'name': 'cull', 'type': 'boolean', 'default': False,
+                       'desc': 'Culls items up to, but not including, the specified offset.', },
+                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield', 'default': None, },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Yields tuples of the offset and item.', }}},
+        {'name': 'cull', 'desc': 'Remove items from the queue up to, and including, the offset.',
+         'type': {'type': 'function', '_funcname': '_methQueueCull',
+                  'args': (
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset which to cull records from the queue.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'size', 'desc': 'Get the number of items in the Queue.',
+         'type': {'type': 'function', '_funcname': '_methQueueSize',
+                  'returns': {'type': 'int', 'desc': 'The number of items in the Queue.', }}},
     )
     _storm_typename = 'storm:queue'
     def __init__(self, runt, name, info):
@@ -2745,25 +2176,12 @@ class LibTelepath(Lib):
     A Storm Library for making Telepath connections to remote services.
     '''
     _storm_locals = (
-        {
-            'name': 'open',
-            'desc': 'Open and return a Telepath RPC proxy.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTeleOpen',
-                'args': (
-                    {
-                        'name': 'url',
-                        'type': 'str',
-                        'desc': 'The Telepath URL to connect to.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:proxy',
-                    'desc': 'A object representing a Telepath Proxy.',
-                }
-            }
-        },
+        {'name': 'open', 'desc': 'Open and return a Telepath RPC proxy.',
+         'type': {'type': 'function', '_funcname': '_methTeleOpen',
+                  'args': (
+                      {'name': 'url', 'type': 'str', 'desc': 'The Telepath URL to connect to.', },
+                  ),
+                  'returns': {'type': 'storm:proxy', 'desc': 'A object representing a Telepath Proxy.', }}},
     )
     _storm_lib_path = ('telepath',)
 
@@ -2855,56 +2273,22 @@ class LibBase64(Lib):
     A Storm Library for encoding and decoding base64 data.
     '''
     _storm_locals = (
-        {
-            'name': 'encode',
-            'desc': 'Encode a bytes object to a base64 encoded string.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_encode',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'type': 'bytes',
-                        'desc': 'The object to encode.',
-                    },
-                    {
-                        'name': 'urlsafe',
-                        'type': 'boolean',
-                        'desc': 'Perform the encoding in a urlsafe manner if true.',
-                        'default': True,
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'A base64 encoded string.',
-                }
-            }
-        },
-        {
-            'name': 'decode',
-            'desc': 'Decode a base64 string into a bytes object.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_decode',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'type': 'str',
-                        'desc': 'The string to decode.',
-                    },
-                    {
-                        'name': 'urlsafe',
-                        'type': 'boolean',
-                        'desc': 'Perform the decoding in a urlsafe manner if true.',
-                        'default': True,
-                    },
-                ),
-                'returns': {
-                    'type': 'bytes',
-                    'desc': 'A bytes object for the decoded data.',
-                }
-            }
-        },
+        {'name': 'encode', 'desc': 'Encode a bytes object to a base64 encoded string.',
+         'type': {'type': 'function', '_funcname': '_encode',
+                  'args': (
+                      {'name': 'valu', 'type': 'bytes', 'desc': 'The object to encode.', },
+                      {'name': 'urlsafe', 'type': 'boolean', 'default': True,
+                        'desc': 'Perform the encoding in a urlsafe manner if true.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'A base64 encoded string.', }}},
+        {'name': 'decode', 'desc': 'Decode a base64 string into a bytes object.',
+         'type': {'type': 'function', '_funcname': '_decode',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The string to decode.', },
+                      {'name': 'urlsafe', 'type': 'boolean', 'default': True,
+                        'desc': 'Perform the decoding in a urlsafe manner if true.', },
+                  ),
+                  'returns': {'type': 'bytes', 'desc': 'A bytes object for the decoded data.', }}},
     )
     _storm_lib_path = ('base64',)
 
@@ -2964,166 +2348,64 @@ class Str(Prim):
     Implements the Storm API for a String object.
     '''
     _storm_locals = (
-        {
-            'name': 'split',
-            'desc': '''
+        {'name': 'split', 'desc': '''
             Split the string into multiple parts based on a separator.
 
             Example:
                 Split a string on the colon character::
 
                     ($foo, $bar) = $baz.split(":")''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methStrSplit',
-                'args': (
-                    {
-                        'name': 'text',
-                        'type': 'str',
-                        'desc': 'The text to split the string up with.',
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of parts representing the split string.',
-                }
-            }
-        },
-        {
-            'name': 'endswith',
-            'desc': 'Check if a string ends with text.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methStrEndswith',
-                'args': (
-                    {
-                        'name': 'text',
-                        'type': 'str',
-                        'desc': 'The text to check.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the text ends with the string, false otherwise.',
-                }
-            }
-        },
-        {
-            'name': 'startswith',
-            'desc': 'Check if a string starts with text.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methStrStartswith',
-                'args': (
-                    {
-                        'name': 'text',
-                        'type': 'str',
-                        'desc': 'The text to check.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the text starts with the string, false otherwise.',
-                }
-            }
-        },
-        {
-            'name': 'ljust',
-            'desc': 'Left justify the string.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methStrLjust',
-                'args': (
-                    {
-                        'name': 'size',
-                        'type': 'int',
-                        'desc': 'The length of character to left justify.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The left justified string.',
-                }
-            }
-        },
-        {
-            'name': 'rjust',
-            'desc': 'Right justify the string.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methStrRjust',
-                'args': (
-                    {
-                        'name': 'size',
-                        'type': 'int',
-                        'desc': 'The length of character to right justify.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The right justified string.',
-                }
-            }
-        },
-        {
-            'name': 'encode',
-            'desc': 'Encoding a string value to bytes.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methEncode',
-                'args': (
-                    {
-                        'name': 'encoding',
-                        'type': 'str',
-                        'desc': 'Encoding to use. Defaults to utf8.',
-                        'default': 'utf8',
-                    },
-                ),
-                'returns': {
-                    'type': 'bytes',
-                    'desc': 'The encoded string.',
-                }
-            }
-        },
-        {
-            'name': 'replace',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methStrSplit',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text to split the string up with.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of parts representing the split string.', }}},
+        {'name': 'endswith', 'desc': 'Check if a string ends with text.',
+         'type': {'type': 'function', '_funcname': '_methStrEndswith',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text to check.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the text ends with the string, false otherwise.', }}},
+        {'name': 'startswith', 'desc': 'Check if a string starts with text.',
+         'type': {'type': 'function', '_funcname': '_methStrStartswith',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text to check.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the text starts with the string, false otherwise.', }}},
+        {'name': 'ljust', 'desc': 'Left justify the string.',
+         'type': {'type': 'function', '_funcname': '_methStrLjust',
+                  'args': (
+                      {'name': 'size', 'type': 'int', 'desc': 'The length of character to left justify.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The left justified string.', }}},
+        {'name': 'rjust', 'desc': 'Right justify the string.',
+         'type': {'type': 'function', '_funcname': '_methStrRjust',
+                  'args': (
+                      {'name': 'size', 'type': 'int', 'desc': 'The length of character to right justify.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The right justified string.', }}},
+        {'name': 'encode', 'desc': 'Encoding a string value to bytes.',
+         'type': {'type': 'function', '_funcname': '_methEncode',
+                  'args': (
+                      {'name': 'encoding', 'type': 'str', 'desc': 'Encoding to use. Defaults to utf8.', 'default': 'utf8', },
+                  ),
+                  'returns': {'type': 'bytes', 'desc': 'The encoded string.', }}},
+        {'name': 'replace', 'desc': '''
             Replace occurrences of a string with a new string, optionally restricting the number of replacements.
 
             Example:
                 Replace instances of the string "bar" with the string "baz"::
 
                     $foo.replace('bar', 'baz')''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methStrReplace',
-                'args': (
-                    {
-                        'name': 'oldv',
-                        'type': 'str',
-                        'desc': 'The value to replace.',
-                    },
-                    {
-                        'name': 'newv',
-                        'type': 'str',
-                        'desc': 'The value to add into the string.',
-                    },
-                    {
-                        'name': 'maxv',
-                        'type': 'int',
-                        'desc': 'The maximum number of occurances to replace.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The new string with replaced instances.',
-                }
-            }
-        },
-        {
-            'name': 'strip',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methStrReplace',
+                  'args': (
+                      {'name': 'oldv', 'type': 'str', 'desc': 'The value to replace.', },
+                      {'name': 'newv', 'type': 'str', 'desc': 'The value to add into the string.', },
+                      {'name': 'maxv', 'type': 'int', 'desc': 'The maximum number of occurances to replace.',
+                       'default': None, },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The new string with replaced instances.', }}},
+        {'name': 'strip', 'desc': '''
             Remove leading and trailing characters from a string.
 
             Examples:
@@ -3131,26 +2413,13 @@ class Str(Prim):
 
                     $strippedFoo = $foo.strip()
                     $strippedBar = $bar.strip(asdf)''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methStrStrip',
-                'args': (
-                    {
-                        'name': 'chars',
-                        'type': 'str',
-                        'desc': 'A list of characters to remove. If not specified, whitespace is stripped.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The stripped string.',
-                }
-            }
-        },
-        {
-            'name': 'lstrip',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methStrStrip',
+                  'args': (
+                      {'name': 'chars', 'type': 'str', 'default': None,
+                       'desc': 'A list of characters to remove. If not specified, whitespace is stripped.', },
+                  ),
+                  'returns': {'type': 'str', : 'The stripped string.', }}},
+        {'name': 'lstrip', 'desc': '''
             Remove leading characters from a string.
 
             Examples:
@@ -3158,26 +2427,13 @@ class Str(Prim):
 
                     $strippedFoo = $foo.lstrip()
                     $strippedBar = $bar.lstrip(w)''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methStrLstrip',
-                'args': (
-                    {
-                        'name': 'chars',
-                        'type': 'str',
-                        'desc': 'A list of characters to remove. If not specified, whitespace is stripped.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The stripped string.',
-                }
-            }
-        },
-        {
-            'name': 'rstrip',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methStrLstrip',
+                  'args': (
+                      {'name': 'chars', 'type': 'str', 'default': None,
+                       'desc': 'A list of characters to remove. If not specified, whitespace is stripped.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The stripped string.', }}},
+        {'name': 'rstrip', 'desc': '''
             Remove trailing characters from a string.
 
             Examples:
@@ -3186,26 +2442,13 @@ class Str(Prim):
                     $strippedFoo = $foo.rstrip()
                     $strippedBar = $bar.rstrip(asdf)
                 ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methStrRstrip',
-                'args': (
-                    {
-                        'name': 'chars',
-                        'type': 'str',
-                        'desc': 'A list of characters to remove. If not specified, whitespace is stripped.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The stripped string.',
-                }
-            }
-        },
-        {
-            'name': 'lower',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methStrRstrip',
+                  'args': (
+                      {'name': 'chars', 'type': 'str', 'default': None,
+                       'desc': 'A list of characters to remove. If not specified, whitespace is stripped.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The stripped string.', }}},
+        {'name': 'lower', 'desc': '''
             Get a lowercased copy the of the string.
 
             Examples:
@@ -3213,15 +2456,8 @@ class Str(Prim):
 
                     $foo="Duck"
                     $lib.print($foo.lower())''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methStrLower',
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The lowercased string.',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': '_methStrLower',
+                  'returns': {'type': 'str', 'desc': 'The lowercased string.', }}},
     )
     _storm_typename = 'str'
     def __init__(self, valu, path=None):
@@ -3297,100 +2533,48 @@ class Bytes(Prim):
     Implements the Storm API for a Bytes object.
     '''
     _storm_locals = (
-        {
-            'name': 'decode',
-            'desc': 'Decode bytes to a string.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methDecode',
-                'args': (
-                    {
-                        'name': 'encoding',
-                        'type': 'str',
-                        'desc': 'The encoding to use.',
-                        'default': 'utf8'
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The decoded string.',
-                }
-            }
-        },
-        {
-            'name': 'bunzip',
-            'desc': '''
+        {'name': 'decode', 'desc': 'Decode bytes to a string.',
+         'type': {'type': 'function', '_funcname': '_methDecode',
+                  'args': (
+                      {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
+        {'name': 'bunzip', 'desc': '''
             Decompress the bytes using bzip2.
 
             Example:
                 Decompress bytes with bzip2::
 
                     $foo = $mybytez.bunzip()''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methBunzip',
-                'returns': {
-                    'type': 'bytes',
-                    'desc': 'Decompressed bytes.',
-                }
-            }
-        },
-        {
-            'name': 'gunzip',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methBunzip',
+                  'returns': {'type': 'bytes', 'desc': 'Decompressed bytes.', }}},
+        {'name': 'gunzip', 'desc': '''
             Decompress the bytes using gzip and return them.
 
             Example:
                 Decompress bytes with bzip2::
 
                 $foo = $mybytez.gunzip()''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGunzip',
-                'returns': {
-                    'type': 'bytes',
-                    'desc': 'Decompressed bytes.',
-                }
-            }
-        },
-        {
-            'name': 'bzip',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methGunzip',
+                  'returns': {'type': 'bytes', 'desc': 'Decompressed bytes.', }}},
+        {'name': 'bzip', 'desc': '''
             Compress the bytes using bzip2 and return them.
 
             Example:
                 Compress bytes with bzip::
 
                     $foo = $mybytez.bzip()''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methBzip',
-                'returns': {
-                    'type': 'bytes',
-                    'desc': 'The bzip2 compressed bytes.',
-                }
-            }
-        },
-        {
-            'name': 'gzip',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methBzip',
+                  'returns': {'type': 'bytes', 'desc': 'The bzip2 compressed bytes.', }}},
+        {'name': 'gzip', 'desc': '''
             Compress the bytes using gzip and return them.
 
             Example:
                 Compress bytes with gzip::
                     $foo = $mybytez.gzip()''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGzip',
-                'returns': {
-                    'type': 'bytes',
-                    'desc': 'The gzip compressed bytes.',
-                }
-            }
-        },
-        {
-            'name': 'json',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methGzip',
+                  'returns': {'type': 'bytes', 'desc': 'The gzip compressed bytes.', }}},
+        {'name': 'json', 'desc': '''
             Load JSON data from bytes.
 
             Notes:
@@ -3399,15 +2583,8 @@ class Bytes(Prim):
             Example:
                 Load bytes to a object::
                     $foo = $mybytez.json()''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methJsonLoad',
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The deserialized object.',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': '_methJsonLoad',
+                  'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
     )
     _storm_typename = 'bytes'
     def __init__(self, valu, path=None):
@@ -3525,122 +2702,42 @@ class Set(Prim):
     Implements the Storm API for a Set object.
     '''
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': 'Add a item to the set. Each argument is added to the set.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methSetAdd',
-                'args': (
-                    {
-                        'name': '*items',
-                        'type': 'any',
-                        'desc': 'The items to add to the set.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'has',
-            'desc': 'Check if a item is a member of the set.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methSetHas',
-                'args': (
-                    {
-                        'name': 'item',
-                        'type': 'any',
-                        'desc': 'The item to check the set for membership.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the item is in the set, false otherwise.',
-                }
-            }
-        },
-        {
-            'name': 'rem',
-            'desc': 'Remove an item from the set.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methSetRem',
-                'args': (
-                    {
-                        'name': '*items',
-                        'type': 'any',
-                        'desc': 'Items to be removed from the set.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'adds',
-            'desc': 'Add the contents of a iterable items to the set.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methSetAdds',
-                'args': (
-                    {
-                        'name': '*items',
-                        'type': 'any',
-                        'desc': 'Iterables items to add to the set.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'rems',
-            'desc': 'Remove the contents of a iterable object from the set.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methSetRems',
-                'args': (
-                    {
-                        'name': '*items',
-                        'type': 'any',
-                        'desc': 'Iterables items to remove from the set.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of the current members of the set.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methSetList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list containing the members of the set.',
-                }
-            }
-        },
-        {
-            'name': 'size',
-            'desc': 'Get the size of the set.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methSetSize',
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The size of the set.',
-                }
-            }
-        },
-
+        {'name': 'add', 'desc': 'Add a item to the set. Each argument is added to the set.',
+         'type': {'type': 'function', '_funcname': '_methSetAdd',
+                  'args': (
+                      {'name': '*items', 'type': 'any', 'desc': 'The items to add to the set.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'has', 'desc': 'Check if a item is a member of the set.',
+         'type': {'type': 'function', '_funcname': '_methSetHas',
+                  'args': (
+                      {'name': 'item', 'type': 'any', 'desc': 'The item to check the set for membership.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the item is in the set, false otherwise.', }}},
+        {'name': 'rem', 'desc': 'Remove an item from the set.',
+         'type': {'type': 'function', '_funcname': '_methSetRem',
+                  'args': (
+                      {'name': '*items', 'type': 'any', 'desc': 'Items to be removed from the set.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'adds', 'desc': 'Add the contents of a iterable items to the set.',
+         'type': {'type': 'function', '_funcname': '_methSetAdds',
+                  'args': (
+                      {'name': '*items', 'type': 'any', 'desc': 'Iterables items to add to the set.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'rems', 'desc': 'Remove the contents of a iterable object from the set.',
+         'type': {'type': 'function', '_funcname': '_methSetRems',
+                  'args': (
+                      {'name': '*items', 'type': 'any', 'desc': 'Iterables items to remove from the set.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'list', 'desc': 'Get a list of the current members of the set.',
+         'type': {'type': 'function', '_funcname': '_methSetList',
+                  'returns': {'type': 'list', 'desc': 'A list containing the members of the set.', }}},
+        {'name': 'size', 'desc': 'Get the size of the set.',
+         'type': {'type': 'function', '_funcname': '_methSetSize',
+                  'returns': {'type': 'int', 'desc': 'The size of the set.', }}},
     )
     _storm_typename = 'set'
     def __init__(self, valu, path=None):
@@ -3698,98 +2795,33 @@ class List(Prim):
     Implements the Storm API for a List instance.
     '''
     _storm_locals = (
-        {
-            'name': 'has',
-            'desc': 'Check it a value is in the list.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methListHas',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'type': 'any',
-                        'desc': 'The value to check.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the item is in the list, false otherwise.',
-                }
-            }
-        },
-        {
-            'name': 'pop',
-            'desc': 'Pop and return the last entry in the list.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methListPop',
-                'returns': {
-                    'type': 'any',
-                    'desc': 'The last item from the list.',
-                }
-            }
-        },
-        {
-            'name': 'size',
-            'desc': 'Return the length of the list.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methListSize',
-                'returns': {
-                    'type': 'size',
-                    'desc': 'The size of the list.',
-                }
-            }
-        },
-        {
-            'name': 'index',
-            'desc': 'Return a single field from the list by index.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methListIndex',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'type': 'int',
-                        'desc': 'The list index value.',
-                    },
-                ),
-                'returns': {
-                    'type': 'any',
-                    'desc': 'The item present in the list at the index position.',
-                }
-            }
-        },
-        {
-            'name': 'length',
-            'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methListLength',
-                'returns': {
-                    'type': 'integer',
-                    'desc': 'The size of the list.',
-                }
-            }
-        },
-        {
-            'name': 'append',
-            'desc': 'Append a value to the list.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methListAppend',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'type': 'any',
-                        'desc': 'The item to append to the list.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
+        {'name': 'has', 'desc': 'Check it a value is in the list.',
+         'type': {'type': 'function', '_funcname': '_methListHas',
+                  'args': (
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value to check.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the item is in the list, false otherwise.', }}},
+        {'name': 'pop', 'desc': 'Pop and return the last entry in the list.',
+         'type': {'type': 'function', '_funcname': '_methListPop',
+                  'returns': {'type': 'any', 'desc': 'The last item from the list.', }}},
+        {'name': 'size', 'desc': 'Return the length of the list.',
+         'type': {'type': 'function', '_funcname': '_methListSize',
+                  'returns': {'type': 'size', 'desc': 'The size of the list.', }}},
+        {'name': 'index', 'desc': 'Return a single field from the list by index.',
+         'type': {'type': 'function', '_funcname': '_methListIndex',
+                  'args': (
+                      {'name': 'valu', 'type': 'int', 'desc': 'The list index value.', },
+                  ),
+                  'returns': {'type': 'any', 'desc': 'The item present in the list at the index position.', }}},
+        {'name': 'length', 'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
+         'type': {'type': 'function', '_funcname': '_methListLength',
+                  'returns': {'type': 'integer', 'desc': 'The size of the list.', }}},
+        {'name': 'append', 'desc': 'Append a value to the list.',
+         'type': {'type': 'function', '_funcname': '_methListAppend',
+                  'args': (
+                      {'name': 'valu', 'type': 'any', 'desc': 'The item to append to the list.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'list'
     def __init__(self, valu, path=None):
@@ -3891,59 +2923,25 @@ class LibUser(Lib):
     A Storm Library for interacting with data about the current user.
     '''
     _storm_locals = (
-        {
-            'name': 'name',
-            'desc': 'Get the name of the current runtime user.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libUserName',
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The username.',
-                }
-            }
-        },
-        {
-            'name': 'allowed',
-            'desc': 'Check if the current user has a given permission.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libUserAllowed',
-                'args': (
-                    {
-                        'name': 'permname',
-                        'type': 'str',
-                        'desc': 'The permission string to check.',
-                    },
-                    {
-                        'name': 'gateiden',
-                        'type': 'str',
-                        'desc': 'The authgate iden.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the user has the requested permission, false otherwise.',
-                }
-            }
-        },
-        {
-            'name': 'vars',
-            'desc': 'Get a Hive dictionary representing the current users persistent variables.',
-            'type': 'storm:hive:dict'
-        },
-        {
-            'name': 'profile',
-            'desc': 'Get a Hive dictionary representing the current users profile information.',
-            'type': 'storm:hive:dict'
-        },
+        {'name': 'name', 'desc': 'Get the name of the current runtime user.',
+         'type': {'type': 'function', '_funcname': '_libUserName',
+                  'returns': {'type': 'str', 'desc': 'The username.', }}},
+        {'name': 'allowed', 'desc': 'Check if the current user has a given permission.',
+         'type': {'type': 'function', '_funcname': '_libUserAllowed',
+                  'args': (
+                      {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the user has the requested permission, false otherwise.', }}},
+        {'name': 'vars', 'desc': 'Get a Hive dictionary representing the current users persistent variables.',
+         'type': 'storm:hive:dict', },
+        {'name': 'profile', 'desc': 'Get a Hive dictionary representing the current users profile information.',
+         'type': 'storm:hive:dict', },
     )
     _storm_lib_path = ('user', )
 
     def getObjLocals(self):
-        return {
-            'name': self._libUserName,
+        return {'name': self._libUserName,
             'allowed': self._libUserAllowed,
         }
 
@@ -3971,92 +2969,32 @@ class LibGlobals(Lib):
     A Storm Library for interacting with global variables which are persistent across the Cortex.
     '''
     _storm_locals = (
-        {
-            'name': 'get',
-            'desc': 'Get a Cortex global variables.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the variable.',
-                    },
-                    {
-                        'name': 'default',
-                        'type': 'prim',
-                        'desc': 'Default value to return if the variable is not set.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The variable value.',
-                }
-            }
-        },
-        {
-            'name': 'pop',
-            'desc': 'Delete a variable value from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methPop',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the variable.',
-                    },
-                    {
-                        'name': 'default',
-                        'type': 'prim',
-                        'desc': 'Default value to return if the variable is not set.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The variable value.',
-                }
-            }
-        },
-        {
-            'name': 'set',
-            'desc': 'Set a variable value in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methSet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the variable to set.',
-                    },
-                    {
-                        'name': 'valu',
-                        'type': 'prim',
-                        'desc': 'The value to set.',
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The variable value.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of variable names and values.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of tuples with variable names and values that the user can access.',
-                }
-            }
-        },
+        {'name': 'get', 'desc': 'Get a Cortex global variables.',
+         'type': {'type': 'function', '_funcname': '_methGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable.', },
+                      {'name': 'default', 'type': 'prim', 'default': None,
+                       'desc': 'Default value to return if the variable is not set.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
+        {'name': 'pop', 'desc': 'Delete a variable value from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methPop',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable.', },
+                      {'name': 'default', 'type': 'prim', 'default': None,
+                       'desc': 'Default value to return if the variable is not set.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
+        {'name': 'set', 'desc': 'Set a variable value in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methSet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the variable to set.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
+        {'name': 'list', 'desc': 'Get a list of variable names and values.',
+         'type': {'type': 'function', '_funcname': '_methList',
+                  'returns': {'type': 'list', 'desc': 'A list of tuples with variable names and values that the user can access.', }}},
     )
     _storm_lib_path = ('globals', )
 
@@ -4115,92 +3053,33 @@ class StormHiveDict(Prim):
     A Storm Primitive representing a HiveDict.
     '''
     _storm_locals = (
-        {
-            'name': 'get',
-            'desc': 'Get the named value from the HiveDict.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_get',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the value.',
-                    },
-                    {
-                        'name': 'default',
-                        'type': 'prim',
-                        'desc': 'The default value to return if the name is not set.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The requested value.',
-                }
-            }
-        },
-        {
-            'name': 'pop',
-            'desc': 'Remove a value out of the HiveDict.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_pop',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the value.',
-                    },
-                    {
-                        'name': 'default',
-                        'type': 'prim',
-                        'desc': 'The default value to return if the name is not set.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The requested value.',
-                }
-            }
-        },
-        {
-            'name': 'set',
-            'desc': 'Set a value in the HiveDict.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_set',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the value to set',
-                    },
-                    {
-                        'name': 'valu',
-                        'type': 'prim',
-                        'desc': 'The value to store in the HiveDict',
-                    },
-                ),
-                'returns': {
-                    'type': ['null', 'prim'],
-                    'desc': 'Old value of the dictionary if the value was previously set, or none.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'List the keys and values in the HiveDict.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_list',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of tuples containing key, value pairs.',
-                }
-            }
-        },
+        {'name': 'get', 'desc': 'Get the named value from the HiveDict.',
+         'type': {'type': 'function', '_funcname': '_get',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the value.', },
+                      {'name': 'default', 'type': 'prim', 'default': None,
+                       'desc': 'The default value to return if the name is not set.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'pop', 'desc': 'Remove a value out of the HiveDict.',
+         'type': {'type': 'function', '_funcname': '_pop',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the value.', },
+                      {'name': 'default', 'type': 'prim', 'default': None,
+                       'desc': 'The default value to return if the name is not set.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'set', 'desc': 'Set a value in the HiveDict.',
+         'type': {'type': 'function', '_funcname': '_set',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the value to set', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to store in the HiveDict', },
+                  ),
+                  'returns': {'type': ['null', 'prim'],
+                              'desc': 'Old value of the dictionary if the value was previously set, or none.', }}},
+        {'name': 'list', 'desc': 'List the keys and values in the HiveDict.',
+         'type': {'type': 'function', '_funcname': '_list',
+                  'returns': {'type': 'list', 'desc': 'A list of tuples containing key, value pairs.', }}},
     )
     _storm_typename = 'storm:hive:dict'
     def __init__(self, runt, info):
@@ -4247,84 +3126,30 @@ class LibVars(Lib):
     A Storm Library for interacting with runtime variables.
     '''
     _storm_locals = (
-        {
-            'name': 'get',
-            'desc': 'Get the value of a variable from the current Runtime.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libVarsGet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the variable to get.',
-                    },
-                    {
-                        'name': 'defv',
-                        'type': 'prim',
-                        'desc': 'The default value returned if the variable is not set in the runtime.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'any',
-                    'desc': 'The value of the variable.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Unset a variable in the current Runtime.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libVarsDel',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The variable name to remove.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'set',
-            'desc': 'Set the value of a variable in the current Runtime.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libVarsSet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the variable to set.',
-                    },
-                    {
-                        'name': 'valu',
-                        'type': 'prim',
-                        'desc': 'The value to set the variable too.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of variables from the current Runtime.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libVarsList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of variable names and their values for the current Runtime.',
-                }
-            }
-        },
+        {'name': 'get', 'desc': 'Get the value of a variable from the current Runtime.',
+         'type': {'type': 'function', '_funcname': '_libVarsGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable to get.', },
+                      {'name': 'defv', 'type': 'prim', 'default': None,
+                       'desc': 'The default value returned if the variable is not set in the runtime.', },
+                  ),
+                  'returns': {'type': 'any', 'desc': 'The value of the variable.', }}},
+        {'name': 'del', 'desc': 'Unset a variable in the current Runtime.',
+         'type': {'type': 'function', '_funcname': '_libVarsDel',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The variable name to remove.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'set', 'desc': 'Set the value of a variable in the current Runtime.',
+         'type': {'type': 'function', '_funcname': '_libVarsSet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable to set.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set the variable too.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'list', 'desc': 'Get a list of variables from the current Runtime.',
+         'type': {'type': 'function', '_funcname': '_libVarsList',
+                  'returns': {'type': 'list', 'desc': 'A list of variable names and their values for the current Runtime.', }}},
     )
     _storm_lib_path = ('vars',)
 
@@ -4354,23 +3179,14 @@ class Query(Prim):
     A storm primitive representing an embedded query.
     '''
     _storm_locals = (
-        {
-            'name': 'exec',
-            'desc': '''
+        {'name': 'exec', 'desc': '''
             Execute the Query in a sub-runtime.
 
             Notes:
                 The ``.exec()`` method can return a value if the Storm query
                 contains a ``return( ... )`` statement in it.''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methQueryExec',
-                'returns': {
-                    'type': ['none', 'any'],
-                    'desc': 'A value specified with a return statement, or none.',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': '_methQueryExec',
+                  'returns': {'type': ['none', 'any'], 'desc': 'A value specified with a return statement, or none.', }}},
     )
     _storm_typename = 'storm:query'
     def __init__(self, text, varz, runt, path=None):
@@ -4425,37 +3241,15 @@ class NodeProps(Prim):
     A Storm Primitive representing the properties on a Node.
     '''
     _storm_locals = (
-        {
-            'name': 'get',
-            'desc': 'Get a specific property value by name.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'get',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the property to return.',
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The requested value.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'List the properties and their values from the ``$node``.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'list',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of (name, value) tuples.',
-                }
-            }
-        },
+        {'name': 'get', 'desc': 'Get a specific property value by name.',
+         'type': {'type': 'function', '_funcname': 'get',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'list', 'desc': 'List the properties and their values from the ``$node``.',
+         'type': {'type': 'function', '_funcname': 'list',
+                  'returns': {'type': 'list', 'desc': 'A list of (name, value) tuples.', }}},
     )
     _storm_typename = 'storm:node:props'
     def __init__(self, node, path=None):
@@ -4512,97 +3306,34 @@ class NodeData(Prim):
     A Storm Primitive representing the NodeData stored for a Node.
     '''
     _storm_locals = (
-        {
-            'name': 'get',
-            'desc': 'Get the Node data for a given name for the Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_getNodeData',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the data to get.',
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The stored node data.',
-                }
-            }
-        },
-        {
-            'name': 'pop',
-            'desc': ' Pop (remove) a the Node data from the Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_popNodeData',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the data to remove from the node.',
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The data removed.'
-                }
-            }
-        },
-        {
-            'name': 'set',
-            'desc': 'Set the Node data for a given name on the Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_setNodeData',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the data.',
-                    },
-                    {
-                        'name': 'valu',
-                        'type': 'prim',
-                        'desc': 'The data to store.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of the Node data names on the Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_listNodeData',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'List of the names of values stored on the node.',
-                }
-            }
-        },
-        {
-            'name': 'load',
-            'desc': 'Load the Node data onto the Node so that the Node data is packed and returned by the runtime.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_loadNodeData',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the data to load.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
+        {'name': 'get', 'desc': 'Get the Node data for a given name for the Node.',
+         'type': {'type': 'function', '_funcname': '_getNodeData',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the data to get.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The stored node data.', }}},
+        {'name': 'pop', 'desc': ' Pop (remove) a the Node data from the Node.',
+         'type': {'type': 'function', '_funcname': '_popNodeData',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the data to remove from the node.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The data removed.', }}},
+        {'name': 'set', 'desc': 'Set the Node data for a given name on the Node.',
+         'type': {'type': 'function', '_funcname': '_setNodeData',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the data.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'list', 'desc': 'Get a list of the Node data names on the Node.',
+         'type': {'type': 'function', '_funcname': '_listNodeData',
+                  'returns': {'type': 'list', 'desc': 'List of the names of values stored on the node.', }}},
+        {'name': 'load', 'desc': 'Load the Node data onto the Node so that the Node data is packed and returned by the runtime.',
+         'type': {'type': 'function', '_funcname': '_loadNodeData',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the data to load.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:node:data'
     def __init__(self, node, path=None):
@@ -4652,203 +3383,63 @@ class Node(Prim):
     Implements the Storm api for a node instance.
     '''
     _storm_locals = (
-        {
-            'name': 'form',
-            'desc': 'Get the form of the Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNodeForm',
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The form of the Node.',
-                }
-            }
-        },
-        {
-            'name': 'iden',
-            'desc': 'Get the iden of the Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNodeIden',
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The nodes iden.',
-                }
-            }
-        },
-        {
-            'name': 'ndef',
-            'desc': 'Get the form and primary property of the Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNodeNdef',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A tuple of the form and primary property.',
-                }
-            }
-        },
-        {
-            'name': 'pack',
-            'desc': 'Return the serializable/packed version of the Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNodePack',
-                'args': (
-                    {
-                        'name': 'dorepr',
-                        'type': 'boolean',
-                        'desc': 'Include repr information for human readable versions of properties.',
-                        'default': False,
-                    },
+        {'name': 'form', 'desc': 'Get the form of the Node.',
+         'type': {'type': 'function', '_funcname': '_methNodeForm',
+                  'returns': {'type': 'str', 'desc': 'The form of the Node.', }}},
+        {'name': 'iden', 'desc': 'Get the iden of the Node.',
+         'type': {'type': 'function', '_funcname': '_methNodeIden',
+                  'returns': {'type': 'str', 'desc': 'The nodes iden.', }}},
+        {'name': 'ndef', 'desc': 'Get the form and primary property of the Node.',
+         'type': {'type': 'function', '_funcname': '_methNodeNdef',
+                  'returns': {'type': 'list', 'desc': 'A tuple of the form and primary property.', }}},
+        {'name': 'pack', 'desc': 'Return the serializable/packed version of the Node.',
+         'type': {'type': 'function', '_funcname': '_methNodePack',
+                  'args': (
+                      {'name': 'dorepr', 'type': 'boolean', 'default': False,
+                       'desc': 'Include repr information for human readable versions of properties.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A tuple containing the ndef and property bag of the node.', }}},
+        {'name': 'repr', 'desc': 'Get the repr for the primary property or secondary property of a Node.',
+         'type': {'type': 'function', '_funcname': '_methNodeRepr',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the secondary property to get the repr for.', 'default': None, },
+                      {'name': 'defv', 'type': 'str', 'desc': 'The default value to return if the secondary property does not exist', 'default': None, },
                 ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A tuple containing the ndef and property bag of the node.',
-                }
-            }
-        },
-        {
-            'name': 'repr',
-            'desc': 'Get the repr for the primary property or secondary property of a Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNodeRepr',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the secondary property to get the repr for.',
-                        'default': None,
-                    },
-                    {
-                        'name': 'defv',
-                        'type': 'str',
-                        'desc': 'The default value to return if the secondary property does not exist',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The string representation of the requested value.',
-                }
-            }
-        },
-        {
-            'name': 'tags',
-            'desc': 'Get a list of the tags on the Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNodeTags',
-                'args': (
-                    {
-                        'name': 'glob',
-                        'type': 'str',
-                        'desc': 'A tag glob expression. If this is provided, only tags which match the expression are returned.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of tags on the node. If a glob match is provided, only matching tags are returned.',
-                }
-            }
-        },
-        {
-            'name': 'edges',
-            'desc': 'Yields the (verb, iden) tuples for this nodes edges.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNodeEdges',
-                'args': (
-                    {
-                        'name': 'verb',
-                        'type': 'str',
-                        'desc': 'If provided, only return edges with this verb.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'name': 'Yields',
-                    'type': 'list',
-                    'desc': 'A tuple of (verb, iden) values for this nodes edges.',
-                }
-            }
-        },
-        {
-            'name': 'globtags',
-            'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNodeGlobTags',
-                'args': (
-                    {
-                        'name': 'glob',
-                        'type': 'str',
-                        'desc': 'The glob expression to match.',
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'The components of tags which match the wildcard component of a glob expression.',
-                }
-            }
-        },
-        {
-            'name': 'isform',
-            'desc': 'Check if a Node is a given form.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNodeIsForm',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The form to compare the Node against.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the form matches, false otherwise.',
-                }
-            }
-        },
-        {
-            'name': 'value',
-            'desc': 'Get the value of the primary property of the Node.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNodeValue',
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The primary property.',
-                }
-            }
-        },
-        {
-            'name': 'getByLayer',
-            'desc': 'Return a dict you can use to lookup which props/tags came from which layers.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'getByLayer',
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'property / tag lookup dictionary.',
-                }
-            }
-        },
-        {
-            'name': 'getStorNodes',
-            'desc': 'Return a list of "storage nodes" which were fused from the layers to make this node.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'getStorNodes',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'List of storage node objects.',
-                }
-            }
-        },
+                  'returns': {'type': 'str', 'desc': 'The string representation of the requested value.', }}},
+        {'name': 'tags', 'desc': 'Get a list of the tags on the Node.',
+         'type': {'type': 'function', '_funcname': '_methNodeTags',
+                  'args': (
+                      {'name': 'glob', 'type': 'str', 'default': None,
+                       'desc': 'A tag glob expression. If this is provided, only tags which match the expression are returned.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of tags on the node. If a glob match is provided, only matching tags are returned.', }}},
+        {'name': 'edges', 'desc': 'Yields the (verb, iden) tuples for this nodes edges.',
+         'type': {'type': 'function', '_funcname': '_methNodeEdges',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'desc': 'If provided, only return edges with this verb.', 'default': None, },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'A tuple of (verb, iden) values for this nodes edges.', }}},
+        {'name': 'globtags', 'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
+         'type': {'type': 'function', '_funcname': '_methNodeGlobTags',
+                  'args': (
+                      {'name': 'glob', 'type': 'str', 'desc': 'The glob expression to match.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The components of tags which match the wildcard component of a glob expression.', }}},
+        {'name': 'isform', 'desc': 'Check if a Node is a given form.',
+         'type': {'type': 'function', '_funcname': '_methNodeIsForm',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The form to compare the Node against.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the form matches, false otherwise.', }}},
+        {'name': 'value', 'desc': 'Get the value of the primary property of the Node.',
+         'type': {'type': 'function', '_funcname': '_methNodeValue',
+                  'returns': {'type': 'prim', 'desc': 'The primary property.', }}},
+        {'name': 'getByLayer', 'desc': 'Return a dict you can use to lookup which props/tags came from which layers.',
+         'type': {'type': 'function', '_funcname': 'getByLayer',
+                  'returns': {'type': 'dict', 'desc': 'property / tag lookup dictionary.', }}},
+        {'name': 'getStorNodes', 'desc': 'Return a list of "storage nodes" which were fused from the layers to make this node.',
+         'type': {'type': 'function', '_funcname': 'getStorNodes',
+                  'returns': {'type': 'list', 'desc': 'List of storage node objects.', }}},
     )
     _storm_typename = 'storm:node'
     def __init__(self, node, path=None):
@@ -5016,52 +3607,17 @@ class Path(Prim):
     Implements the Storm API for the Path object.
     '''
     _storm_locals = (
-        {
-            'name': 'vars',
-            'desc': 'The PathVars object for the Path.',
-            'type': 'storm:node:path:vars',
-        },
-        {
-            'name': 'meta',
-            'desc': 'The PathMeta object for the Path.',
-            'type': 'storm:node:path:meta',
-        },
-        {
-            'name': 'idens',
-            'desc': 'The list of Node idens which this Path has bee forked from during pivot operations.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methPathIdens',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of node idens.',
-                }
-            }
-        },
-        {
-            'name': 'trace',
-            'desc': 'Make a trace object for the Path. This allows tracking pivots from a arbitrary location in a query.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methPathTrace',
-                'returns': {
-                    'type': 'storm:node:path:trace',
-                    'desc': 'The trace object.',
-                }
-            }
-        },
-        {
-            'name': 'listvars',
-            'desc': 'List variables available in the path of a storm query.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methPathListVars',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'List of tuples containing the name and value of path variables.',
-                }
-            }
-        },
+        {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'storm:node:path:vars', },
+        {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'storm:node:path:meta', },
+        {'name': 'idens', 'desc': 'The list of Node idens which this Path has bee forked from during pivot operations.',
+         'type': {'type': 'function', '_funcname': '_methPathIdens',
+                  'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
+        {'name': 'trace', 'desc': 'Make a trace object for the Path. This allows tracking pivots from a arbitrary location in a query.',
+         'type': {'type': 'function', '_funcname': '_methPathTrace',
+                  'returns': {'type': 'storm:node:path:trace', 'desc': 'The trace object.', }}},
+        {'name': 'listvars', 'desc': 'List variables available in the path of a storm query.',
+         'type': {'type': 'function', '_funcname': '_methPathListVars',
+                  'returns': {'type': 'list', 'desc': 'List of tuples containing the name and value of path variables.', }}},
     )
     _storm_typename = 'storm:path'
     def __init__(self, node, path=None):
@@ -5095,18 +3651,9 @@ class Trace(Prim):
     Storm API wrapper for the Path Trace object.
     '''
     _storm_locals = (
-        {
-            'name': 'idens',
-            'desc': 'Get the idens in the current trace object.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTraceIdens',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A List of Node idens.',
-                }
-            }
-        },
+        {'name': 'idens', 'desc': 'Get the idens in the current trace object.',
+         'type': {'type': 'function', '_funcname': '_methTraceIdens',
+                  'returns': {'type': 'list', 'desc': 'A List of Node idens.', }}},
     )
     _storm_typename = 'storm:node:path:trace'
     def __init__(self, trace, path=None):
@@ -5127,41 +3674,16 @@ class Text(Prim):
     A mutable text type for simple text construction.
     '''
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': 'Add text to the Text object.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTextAdd',
-                'args': (
-                    {
-                        'name': 'text',
-                        'desc': 'The text to add.',
-                        'type': 'str',
-                    },
-                    {
-                        'name': '**kwargs',
-                        'desc': 'Keyword arguments used to format the text.',
-                        'type': 'any'
-                    }
-                ),
-                'returns': {
-                    'type': 'null'
-                },
-            }
-        },
-        {
-            'name': 'str',
-            'desc': 'Get the text content as a string.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTextStr',
-                'returns': {
-                    'desc': 'The current string of the text object.',
-                    'type': 'str',
-                }
-            }
-        }
+        {'name': 'add', 'desc': 'Add text to the Text object.',
+         'type': {'type': 'function', '_funcname': '_methTextAdd',
+                  'args': (
+                      {'name': 'text', 'desc': 'The text to add.', 'type': 'str', },
+                      {'name': '**kwargs', 'desc': 'Keyword arguments used to format the text.', 'type': 'any', }
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'str', 'desc': 'Get the text content as a string.',
+         'type': {'type': 'function', '_funcname': '_methTextStr',
+                  'returns': {'desc': 'The current string of the text object.', 'type': 'str', }}},
     )
     _storm_typename = 'storm:text'
     def __init__(self, valu, path=None):
@@ -5190,18 +3712,9 @@ class LibStats(Lib):
     A Storm Library for statistics related functionality.
     '''
     _storm_locals = (
-        {
-            'name': 'tally',
-            'desc': 'Get a Tally object.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'tally',
-                'returns': {
-                    'type': 'storm:stat:tally',
-                    'desc': 'A new tally object.',
-                }
-            }
-        },
+        {'name': 'tally', 'desc': 'Get a Tally object.',
+         'type': {'type': 'function', '_funcname': 'tally',
+                  'returns': {'type': 'storm:stat:tally', 'desc': 'A new tally object.', }}},
     )
     _storm_lib_path = ('stats',)
 
@@ -5231,50 +3744,19 @@ class StatTally(Prim):
     '''
     _storm_typename = 'storm:stat:tally'
     _storm_locals = (
-        {
-            'name': 'inc',
-            'desc': 'Increment a given counter.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'inc',
-                'args': (
-                    {
-                        'name': 'name',
-                        'desc': 'The name of the counter to increment.',
-                        'type': 'str',
-                    },
-                    {
-                        'name': 'valu',
-                        'desc': 'The value to increment the counter by.',
-                        'type': 'int',
-                        'default': 1,
-                    },
-                ),
-                'returns': {
-                    'desc': '``$lib.null``.',
-                    'type': 'null',
-                },
-            },
-        },
-        {
-            'name': 'get',
-            'desc': 'Get the value of a given counter.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'get',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the counter to get.',
-                    },
-                ),
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The value of the counter, or 0 if the counter does not exist.',
-                }
-            }
-        },
+        {'name': 'inc', 'desc': 'Increment a given counter.',
+         'type': {'type': 'function', '_funcname': 'inc',
+                  'args': (
+                      {'name': 'name', 'desc': 'The name of the counter to increment.', 'type': 'str', },
+                      {'name': 'valu', 'desc': 'The value to increment the counter by.', 'type': 'int', 'default': 1, },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get the value of a given counter.',
+         'type': {'type': 'function', '_funcname': 'get',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the counter to get.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
     )
     def __init__(self, path=None):
         Prim.__init__(self, {}, path=path)
@@ -5311,76 +3793,28 @@ class LibLayer(Lib):
     '''
     _storm_lib_path = ('layer',)
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': 'Add a layer to the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libLayerAdd',
-                'args': (
-                    {
-                        'name': 'ldef',
-                        'type': 'dict',
-                        'desc': 'The layer definition dictionary.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:layer',
-                    'desc': 'A ``storm:layer`` object representing the new layer.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a layer from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libLayerDel',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the layer to delete.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a Layer from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libLayerGet',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the layer to get. If not set, this defaults to the default layer of the Cortex.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:layer',
-                    'desc': 'The storm layer object.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'List the layers in a Cortex',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libLayerList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'List of ``storm:layer`` objects.',
-                }
-            }
-        },
+        {'name': 'add', 'desc': 'Add a layer to the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libLayerAdd',
+                  'args': (
+                      {'name': 'ldef', 'type': 'dict', 'desc': 'The layer definition dictionary.', 'default': None, },
+                  ),
+                  'returns': {'type': 'storm:layer', 'desc': 'A ``storm:layer`` object representing the new layer.', }}},
+        {'name': 'del', 'desc': 'Delete a layer from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libLayerDel',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the layer to delete.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get a Layer from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libLayerGet',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'default': None,
+                       'desc': 'The iden of the layer to get. If not set, this defaults to the default layer of the Cortex.', },
+                  ),
+                  'returns': {'type': 'storm:layer', 'desc': 'The storm layer object.', }}},
+        {'name': 'list', 'desc': 'List the layers in a Cortex',
+         'type': {'type': 'function', '_funcname': '_libLayerList',
+                  'returns': {'type': 'list', 'desc': 'List of ``storm:layer`` objects.', }}},
     )
     def getObjLocals(self):
         return {
@@ -5441,293 +3875,103 @@ class Layer(Prim):
     Implements the Storm api for a layer instance.
     '''
     _storm_locals = (
-        {
-            'name': 'iden',
-            'desc': 'The iden of the Layer.',
-            'type': 'str',
-        },
-        {
-            'name': 'set',
-            'desc': 'Set a arbitrary value in the Layer definition.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methLayerSet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name to set.',
-                    },
-                    {
-                        'name': 'valu',
-                        'type': 'any',
-                        'desc': 'The value to set.'
-                    }
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a arbitrary value in the Layer definition.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methLayerGet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the value to get.',
-                    },
-                    {
-                        'name': 'defv',
-                        'type': 'prim',
-                        'desc': 'The default value returned if the name is not set in the Layer.',
-                        'default': None,
-                    }
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The value requested or the default value.',
-                }
-            }
-        },
-        {
-            'name': 'pack',
-            'desc': 'Get the Layer definition.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methLayerPack',
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'Dictionary containing the Layer definition.',
-                }
-            }
-        },
-        {
-            'name': 'repr',
-            'desc': 'Get a string representation of the Layer.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methLayerRepr',
-                'returns': {
-                    'type': 'str',
-                    'desc': 'A string that can be printed, representing a Layer.',
-                }
-            }
-        },
-        {
-            'name': 'edits',
-            'desc': 'Yield (offs, nodeedits) tuples from the given offset.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methLayerEdits',
-                'args': (
-                    {
-                        'name': 'offs',
-                        'type': 'int',
-                        'desc': 'Offset to start getting nodeedits from the layer at.',
-                        'default': 0,
-                    },
-                    {
-                        'name': 'wait',
-                        'type': 'boolean',
-                        'desc': 'If true, wait for new edits, otherwise exit the generator when there are no more edits.',
-                        'default': True,
-                    },
-                    {
-                        'name': 'size',
-                        'type': 'int',
-                        'desc': 'The maximum number of nodeedits to yield.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'name': 'Yields',
-                    'type': 'list',
-                    'desc': 'Yields offset, nodeedit tuples from a given offset.',
-                }
-            }
-        },
-        {
-            'name': 'addPush',
-            'desc': 'Configure the layer to push edits to a remote layer/feed.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_addPush',
-                'args': (
-                    {
-                        'name': 'url',
-                        'type': 'str',
-                        'desc': 'A telepath URL of the target layer/feed.',
-                    },
-                    {
-                        'name': 'offs',
-                        'type': 'int',
-                        'desc': 'The local layer offset to begin pushing from',
-                        'default': 0,
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'delPush',
-            'desc': 'Remove a push config from the layer.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_delPush',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the push config to remove.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'addPull',
-            'desc': 'Configure the layer to pull edits from a remote layer/feed.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_addPull',
-                'args': (
-                    {
-                        'name': 'url',
-                        'type': 'str',
-                        'desc': 'The telepath URL to a layer/feed.',
-                    },
-                    {
-                        'name': 'offs',
-                        'type': 'int',
-                        'desc': 'The offset to begin from.',
-                        'default': 0,
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'delPull',
-            'desc': 'Remove a pull config from the layer.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_delPull',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the push config to remove.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'getTagCount',
-            'desc': '''
+        {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str', },
+        {'name': 'set', 'desc': 'Set a arbitrary value in the Layer definition.',
+         'type': {'type': 'function', '_funcname': '_methLayerSet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name to set.', },
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value to set.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get a arbitrary value in the Layer definition.',
+         'type': {'type': 'function', '_funcname': '_methLayerGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the value to get.', },
+                      {'name': 'defv', 'type': 'prim', 'default': None,
+                       'desc': 'The default value returned if the name is not set in the Layer.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The value requested or the default value.', }}},
+        {'name': 'pack', 'desc': 'Get the Layer definition.',
+         'type': {'type': 'function', '_funcname': '_methLayerPack',
+                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the Layer definition.', }}},
+        {'name': 'repr', 'desc': 'Get a string representation of the Layer.',
+         'type': {'type': 'function', '_funcname': '_methLayerRepr',
+                  'returns': {'type': 'str', 'desc': 'A string that can be printed, representing a Layer.', }}},
+        {'name': 'edits', 'desc': 'Yield (offs, nodeedits) tuples from the given offset.',
+         'type': {'type': 'function', '_funcname': '_methLayerEdits',
+                  'args': (
+                      {'name': 'offs', 'type': 'int', 'desc': 'Offset to start getting nodeedits from the layer at.',
+                       'default': 0, },
+                      {'name': 'wait', 'type': 'boolean', 'default': True,
+                       'desc': 'If true, wait for new edits, otherwise exit the generator when there are no more edits.', },
+                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of nodeedits to yield.', 'default': None, },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Yields offset, nodeedit tuples from a given offset.', }}},
+        {'name': 'addPush', 'desc': 'Configure the layer to push edits to a remote layer/feed.',
+         'type': {'type': 'function', '_funcname': '_addPush',
+                  'args': (
+                      {'name': 'url', 'type': 'str', 'desc': 'A telepath URL of the target layer/feed.', },
+                      {'name': 'offs', 'type': 'int', 'desc': 'The local layer offset to begin pushing from', 'default': 0, },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'delPush', 'desc': 'Remove a push config from the layer.',
+         'type': {'type': 'function', '_funcname': '_delPush',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the push config to remove.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'addPull', 'desc': 'Configure the layer to pull edits from a remote layer/feed.',
+         'type': {'type': 'function', '_funcname': '_addPull',
+                  'args': (
+                      {'name': 'url', 'type': 'str', 'desc': 'The telepath URL to a layer/feed.', },
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to begin from.', 'default': 0, },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'delPull', 'desc': 'Remove a pull config from the layer.',
+         'type': {'type': 'function', '_funcname': '_delPull',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the push config to remove.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'getTagCount', 'desc': '''
             Return the number of tag rows in the layer for the given tag and optional form.
 
             Examples:
                 Get the number of ``inet:ipv4`` nodes with the ``$foo.bar`` tag::
 
                     $count = $lib.layer.get().getTagCount(foo.bar, formname=inet:ipv4)''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGetTagCount',
-                'args': (
-                    {
-                        'name': 'tagname',
-                        'type': 'str',
-                        'desc': 'The name of the tag to look up.',
-                    },
-                    {
-                        'name': 'formname',
-                        'type': 'str',
-                        'desc': 'The form to constrain the look up by.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The count of tag rows.',
-                }
-            }
-        },
-        {
-            'name': 'getPropCount',
-            'desc': 'Get the number of property rows in the layer for the given full form or property name.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGetPropCount',
-                'args': (
-                    {
-                        'name': 'propname',
-                        'type': 'str',
-                        'desc': 'The property or form name to look up.',
-                    },
-                    {
-                        'name': 'maxsize',
-                        'type': 'int',
-                        'desc': 'The maximum number of rows to look up.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The count of rows.',
-                }
-            }
-        },
-        {
-            'name': 'getFormCounts',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methGetTagCount',
+                  'args': (
+                      {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag to look up.', },
+                      {'name': 'formname', 'type': 'str', 'desc': 'The form to constrain the look up by.', 'default': None, },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of tag rows.', }}},
+        {'name': 'getPropCount', 'desc': 'Get the number of property rows in the layer for the given full form or property name.',
+         'type': {'type': 'function', '_funcname': '_methGetPropCount',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
+                      {'name': 'maxsize', 'type': 'int', 'desc': 'The maximum number of rows to look up.', 'default': None, },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
+        {'name': 'getFormCounts', 'desc': '''
             Get the formcounts for the Layer.
 
             Example:
                 Get the formcounts for the current :ayer::
 
                     $counts = $lib.layer.get().getFormCounts()''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGetFormcount',
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'Dictionary containing form names and the count of the nodes in the Layer.',
-                }
-            }
-        },
-        {
-            'name': 'getStorNodes',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_methGetFormcount',
+                  'returns': {'type': 'dict',
+                              'desc': 'Dictionary containing form names and the count of the nodes in the Layer.', }}},
+        {'name': 'getStorNodes', 'desc': '''
             Get buid, sode tuples representing the data stored in the layer.
 
             Notes:
                 The storage nodes represent **only** the data stored in the layer
                 and may not represent whole nodes.
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': 'getStorNodes',
-                'returns': {
-                    'name': 'Yields',
-                    'type': 'list',
-                    'desc': 'Tuple of buid, sode values.',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': 'getStorNodes',
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
     )
     _storm_typename = 'storm:layer'
     def __init__(self, runt, ldef, path=None):
@@ -5941,81 +4185,29 @@ class LibView(Lib):
     '''
     _storm_lib_path = ('view',)
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': 'Add a View to the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methViewAdd',
-                'args': (
-                    {
-                        'name': 'layers',
-                        'type': 'list',
-                        'desc': 'A list of layer idens which make up the view.',
-                    },
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the view.',
-                        'default': None,
-                    }
-                ),
-                'returns': {
-                    'type': 'storm:view',
-                    'desc': 'A ``storm:view`` object representing the new View.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a View from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methViewDel',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the View to delete.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a View from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methViewGet',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the View to get. If not specified, returns the current View.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:view',
-                    'desc': 'The storm view object.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'List the Views in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methViewList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'List of ``storm:view`` objects.',
-                }
-            }
-        },
+        {'name': 'add', 'desc': 'Add a View to the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methViewAdd',
+                  'args': (
+                      {'name': 'layers', 'type': 'list', 'desc': 'A list of layer idens which make up the view.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the view.', 'default': None, }
+                  ),
+                  'returns': {'type': 'storm:view', 'desc': 'A ``storm:view`` object representing the new View.', }}},
+        {'name': 'del', 'desc': 'Delete a View from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methViewDel',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the View to delete.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get a View from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methViewGet',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'default': None,
+                        'desc': 'The iden of the View to get. If not specified, returns the current View.', },
+                  ),
+                  'returns': {'type': 'storm:view', 'desc': 'The storm view object.', }}},
+        {'name': 'list', 'desc': 'List the Views in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methViewList',
+                  'returns': {'type': 'list', 'desc': 'List of ``storm:view`` objects.', }}},
     )
 
     def getObjLocals(self):
@@ -6078,194 +4270,64 @@ class View(Prim):
     Implements the Storm api for a View instance.
     '''
     _storm_locals = (
-        {
-            'name': 'iden',
-            'desc': 'The iden of the View.',
-            'type': 'str',
-        },
-        {
-            'name': 'layers',
-            'desc': 'The ``storm:layer`` objects associated with the ``storm:view``.',
-            'type': 'list',
-        },
-        {
-            'name': 'triggers',
-            'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.',
-            'type': 'list',
-        },
-        {
-            'name': 'set',
-            'desc': 'Set a arbitrary value in the View definition.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methViewSet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the value to set.',
-                    },
-                    {
-                        'name': 'valu',
-                        'type': 'prim',
-                        'desc': 'The value to set.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a arbitrary value in the View definition.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methViewGet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the value to get.',
-                    },
-                    {
-                        'name': 'defv',
-                        'type': 'prim',
-                        'desc': 'The default value returned if hte name is not set in the View.',
-                        'default': None,
-                    }
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The value requested or the default value.',
-                }
-            }
-        },
-        {
-            'name': 'fork',
-            'desc': 'Fork a View in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methViewFork',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the new view.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:view',
-                    'desc': 'The ``storm:view`` object for the new View.',
-                }
-            }
-        },
-        {
-            'name': 'pack',
-            'desc': 'Get the View definition.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methViewPack',
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'Dictionary continaing the View definition.',
-                }
-            }
-        },
-        {
-            'name': 'repr',
-            'desc': 'Get a string representation of the View.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methViewRepr',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of lines that can be printed, representing a View.',
-                }
-            }
-        },
-        {
-            'name': 'merge',
-            'desc': 'Merge a forked View back into its parent View.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methViewMerge',
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'getEdges',
-            'desc': 'Get node information for Edges in the View.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGetEdges',
-                'args': (
-                    {
-                        'name': 'verb',
-                        'type': 'str',
-                        'desc': 'The name of the Edges verb to iterate over.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'name': 'Yields',
-                    'type': 'list',
-                    'desc': 'Yields tuples containing the source iden, verb, and destination iden.',
-                }
-            }
-        },
-        {
-            'name': 'addNodeEdits',
-            'desc': 'Add NodeEdits to the view.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methAddNodeEdits',
-                'args': (
-                    {
-                        'name': 'edits',
-                        'type': 'list',
-                        'desc': 'A list of nodeedits.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'getEdgeVerbs',
-            'desc': 'Get the Edge verbs which exist in the View.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGetEdgeVerbs',
-                'returns': {
-                    'name': 'Yields',
-                    'type': 'str',
-                    'desc': 'Yields the edge verbs used by Layers which make up the View.',
-                }
-            }
-        },
-        {
-            'name': 'getFormCounts',
-            'desc': '''
+        {'name': 'iden', 'desc': 'The iden of the View.', 'type': 'str', },
+        {'name': 'layers', 'desc': 'The ``storm:layer`` objects associated with the ``storm:view``.', 'type': 'list', },
+        {'name': 'triggers', 'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.', 'type': 'list', },
+        {'name': 'set', 'desc': 'Set a arbitrary value in the View definition.',
+         'type': {'type': 'function', '_funcname': '_methViewSet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the value to set.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get a arbitrary value in the View definition.',
+         'type': {'type': 'function', '_funcname': '_methViewGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the value to get.', },
+                      {'name': 'defv', 'type': 'prim', 'default': None,
+                       'desc': 'The default value returned if hte name is not set in the View.', }
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The value requested or the default value.', }}},
+        {'name': 'fork', 'desc': 'Fork a View in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methViewFork',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the new view.', 'default': None, },
+                  ),
+                  'returns': {'type': 'storm:view', 'desc': 'The ``storm:view`` object for the new View.', }}},
+        {'name': 'pack', 'desc': 'Get the View definition.',
+         'type': {'type': 'function', '_funcname': '_methViewPack',
+                  'returns': {'type': 'dict', 'desc': 'Dictionary continaing the View definition.', }}},
+        {'name': 'repr', 'desc': 'Get a string representation of the View.',
+         'type': {'type': 'function', '_funcname': '_methViewRepr',
+                  'returns': {'type': 'list', 'desc': 'A list of lines that can be printed, representing a View.', }}},
+        {'name': 'merge', 'desc': 'Merge a forked View back into its parent View.',
+         'type': {'type': 'function', '_funcname': '_methViewMerge',
+                  'returns': {'type': 'null', }}},
+        {'name': 'getEdges', 'desc': 'Get node information for Edges in the View.',
+         'type': {'type': 'function', '_funcname': '_methGetEdges',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'desc': 'The name of the Edges verb to iterate over.', 'default': None, },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields tuples containing the source iden, verb, and destination iden.', }}},
+        {'name': 'addNodeEdits', 'desc': 'Add NodeEdits to the view.',
+         'type': {'type': 'function', '_funcname': '_methAddNodeEdits',
+                  'args': (
+                      {'name': 'edits', 'type': 'list', 'desc': 'A list of nodeedits.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'getEdgeVerbs', 'desc': 'Get the Edge verbs which exist in the View.',
+         'type': {'type': 'function', '_funcname': '_methGetEdgeVerbs',
+                  'returns': {'name': 'Yields', 'type': 'str', 'desc': 'Yields the edge verbs used by Layers which make up the View.', }}},
+        {'name': 'getFormCounts', 'desc': '''
             Get the formcounts for the View.
 
             Example:
                 Get the formcounts for the current View::
 
                     $counts = $lib.view.get().getFormCounts()''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGetFormcount',
-                'returns': {
-                    'type': 'dict',
-                    'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.",
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': '_methGetFormcount',
+                  'returns': {'type': 'dict', 'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.", }}},
     )
     _storm_typename = 'storm:view'
     def __init__(self, runt, vdef, path=None):
@@ -6404,137 +4466,50 @@ class LibTrigger(Lib):
     A Storm Library for interacting with Triggers in the Cortex.
     '''
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': 'Add a Trigger to the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTriggerAdd',
-                'args': (
-                    {
-                        'name': 'tdef',
-                        'type': 'dict',
-                        'desc': 'A Trigger definition.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:trigger',
-                    'desc': 'The new trigger.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a Trigger from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTriggerDel',
-                'args': (
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': 'A prefix to match in order to identify a trigger to delete. Only a single matching prefix will be deleted.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The iden of the deleted trigger which matched the prefix.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of Triggers in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTriggerList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of ``storm:trigger`` objects the user is allowed to access.',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a Trigger in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTriggerGet',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the Trigger to get.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:trigger',
-                    'desc': 'The requested ``storm:trigger`` object.',
-                }
-            }
-        },
-        {
-            'name': 'enable',
-            'desc': 'Enable a Trigger in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTriggerEnable',
-                'args': (
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': 'A prefix to match in order to identify a trigger to enable. Only a single matching prefix will be enabled.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The iden of the trigger that was enabled.',
-                }
-            }
-        },
-        {
-            'name': 'disable',
-            'desc': 'Disable a Trigger in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTriggerDisable',
-                'args': (
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': 'A prefix to match in order to identify a trigger to disable. Only a single matching prefix will be disabled.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The iden of the trigger that was disabled.',
-                }
-            }
-        },
-        {
-            'name': 'mode',
-            'desc': 'Modify an existing Trigger in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTriggerMod',
-                'args': (
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': 'A prefix to match in order to identify a trigger to modify. Only a single matching prefix will be modified.',
-                    },
-                    {
-                        'name': 'query',
-                        'type': ['str', 'storm:query'],
-                        'desc': 'Thew new Storm query to set as the trigger query.'
-                    }
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The iden of the modified Trigger',
-                }
-            }
-        },
+        {'name': 'add', 'desc': 'Add a Trigger to the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methTriggerAdd',
+                  'args': (
+                      {'name': 'tdef', 'type': 'dict', 'desc': 'A Trigger definition.', },
+                  ),
+                  'returns': {'type': 'storm:trigger', 'desc': 'The new trigger.', }}},
+        {'name': 'del', 'desc': 'Delete a Trigger from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methTriggerDel',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': 'A prefix to match in order to identify a trigger to delete. Only a single matching prefix will be deleted.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the deleted trigger which matched the prefix.', }}},
+        {'name': 'list', 'desc': 'Get a list of Triggers in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methTriggerList',
+                  'returns': {'type': 'list', 'desc': 'A list of ``storm:trigger`` objects the user is allowed to access.', }}},
+        {'name': 'get', 'desc': 'Get a Trigger in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methTriggerGet',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Trigger to get.', },
+                  ),
+                  'returns': {'type': 'storm:trigger', 'desc': 'The requested ``storm:trigger`` object.', }}},
+        {'name': 'enable', 'desc': 'Enable a Trigger in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methTriggerEnable',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': 'A prefix to match in order to identify a trigger to enable. Only a single matching prefix will be enabled.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the trigger that was enabled.', }}},
+        {'name': 'disable', 'desc': 'Disable a Trigger in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methTriggerDisable',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': 'A prefix to match in order to identify a trigger to disable. Only a single matching prefix will be disabled.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the trigger that was disabled.', }}},
+        {'name': 'mode', 'desc': 'Modify an existing Trigger in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methTriggerMod',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': 'A prefix to match in order to identify a trigger to modify. Only a single matching prefix will be modified.', },
+                      {'name': 'query', 'type': ['str', 'storm:query'], 'desc': 'Thew new Storm query to set as the trigger query.', }
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the modified Trigger', }}},
     )
     _storm_lib_path = ('trigger',)
 
@@ -6681,34 +4656,14 @@ class Trigger(Prim):
     Implements the Storm API for a Trigger.
     '''
     _storm_locals = (
-        {
-            'name': 'iden',
-            'desc': 'The Trigger iden.',
-            'type': 'str',
-        },
-        {
-            'name': 'set',
-            'desc': 'Set information in the trigger.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'set',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the key to set.',
-                    },
-                    {
-                        'name': 'valu',
-                        'type': 'prim',
-                        'desc': 'The data to set'
-                    }
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
+        {'name': 'iden', 'desc': 'The Trigger iden.', 'type': 'str', },
+        {'name': 'set', 'desc': 'Set information in the trigger.',
+         'type': {'type': 'function', '_funcname': 'set',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the key to set.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The data to set', }
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:trigger'
     def __init__(self, runt, tdef):
@@ -6766,25 +4721,12 @@ class LibAuth(Lib):
     A Storm Library for interacting with Auth in the Cortex.
     '''
     _storm_locals = (
-        {
-            'name': 'ruleFromText',
-            'desc': 'Get a rule tuple from a text string.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'ruleFromText',
-                'args': (
-                    {
-                        'name': 'text',
-                        'type': 'str',
-                        'desc': 'The string to process.',
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A tuple containing a bool and a list of permission parts.',
-                }
-            }
-        },
+        {'name': 'ruleFromText', 'desc': 'Get a rule tuple from a text string.',
+         'type': {'type': 'function', '_funcname': 'ruleFromText',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The string to process.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A tuple containing a bool and a list of permission parts.', }}},
     )
     _storm_lib_path = ('auth',)
 
@@ -6803,105 +4745,37 @@ class LibUsers(Lib):
     A Storm Library for interacting with Auth Users in the Cortex.
     '''
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': 'Add a User to the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUsersAdd',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the user.',
-                    },
-                    {
-                        'name': 'passwd',
-                        'type': 'str',
-                        'desc': 'The users password.',
-                        'default': None,
-                    },
-                    {
-                        'name': 'email',
-                        'type': 'str',
-                        'desc': 'The users email address.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:auth:user',
-                    'desc': 'The ``storm:auth:user`` object for the new user.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a User from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUsersDel',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the user to delete.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of Users in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUsersList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of ``storm:auth:user`` objects.',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a specific User by iden.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUsersGet',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the user to retrieve.',
-                    },
-                ),
-                'returns': {
-                    'type': ['null', 'storm:auth:user'],
-                    'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.',
-                }
-            }
-        },
-        {
-            'name': 'byname',
-            'desc': 'Get a specific user by name.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUsersByName',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the user to retrieve.',
-                    },
-                ),
-                'returns': {
-                    'type': ['null', 'storm:auth:user'],
-                    'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.',
-                }
-            }
-        },
+        {'name': 'add', 'desc': 'Add a User to the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methUsersAdd',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the user.', },
+                      {'name': 'passwd', 'type': 'str', 'desc': 'The users password.', 'default': None, },
+                      {'name': 'email', 'type': 'str', 'desc': 'The users email address.', 'default': None, },
+                  ),
+                  'returns': {'type': 'storm:auth:user', 'desc': 'The ``storm:auth:user`` object for the new user.', }}},
+        {'name': 'del', 'desc': 'Delete a User from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methUsersDel',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the user to delete.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'list', 'desc': 'Get a list of Users in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methUsersList',
+                  'returns': {'type': 'list', 'desc': 'A list of ``storm:auth:user`` objects.', }}},
+        {'name': 'get', 'desc': 'Get a specific User by iden.',
+         'type': {'type': 'function', '_funcname': '_methUsersGet',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the user to retrieve.', },
+                  ),
+                  'returns': {'type': ['null', 'storm:auth:user'],
+                              'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.', }}},
+        {'name': 'byname', 'desc': 'Get a specific user by name.',
+         'type': {'type': 'function', '_funcname': '_methUsersByName',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the user to retrieve.', },
+                  ),
+                  'returns': {'type': ['null', 'storm:auth:user'],
+                              'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.', }}},
     )
     _storm_lib_path = ('auth', 'users')
 
@@ -6942,93 +4816,34 @@ class LibRoles(Lib):
     A Storm Library for interacting with Auth Roles in the Cortex.
     '''
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': 'Add a Role to the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methRolesAdd',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the role.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:auth:role',
-                    'desc': 'The new role object.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a Role from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methRolesDel',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the role to delete.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of Roles in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methRolesList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of ``storm:auth:role`` objects.',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a specific Role by iden.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methRolesGet',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the role to retrieve.',
-                    },
-                ),
-                'returns': {
-                    'type': ['null', 'storm:auth:role'],
-                    'desc': 'The ``storm:auth:role`` object; or null if the role does not exist.',
-                }
-            }
-        },
-        {
-            'name': 'byname',
-            'desc': 'Get a specific Role by name.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methRolesByName',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the role to retrieve.',
-                    },
-                ),
-                'returns': {
-                    'type': ['null', 'storm:auth:role'],
-                    'desc': 'The role by name, or null if it does not exist.',
-                }
-            }
-        },
+        {'name': 'add', 'desc': 'Add a Role to the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methRolesAdd',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the role.', },
+                  ),
+                  'returns': {'type': 'storm:auth:role', 'desc': 'The new role object.', }}},
+        {'name': 'del', 'desc': 'Delete a Role from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methRolesDel',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the role to delete.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'list', 'desc': 'Get a list of Roles in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methRolesList',
+                  'returns': {'type': 'list', 'desc': 'A list of ``storm:auth:role`` objects.', }}},
+        {'name': 'get', 'desc': 'Get a specific Role by iden.',
+         'type': {'type': 'function', '_funcname': '_methRolesGet',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the role to retrieve.', },
+                  ),
+                  'returns': {'type': ['null', 'storm:auth:role'],
+                               'desc': 'The ``storm:auth:role`` object; or null if the role does not exist.', }}},
+        {'name': 'byname', 'desc': 'Get a specific Role by name.',
+         'type': {'type': 'function', '_funcname': '_methRolesByName',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the role to retrieve.', },
+                  ),
+                  'returns': {'type': ['null', 'storm:auth:role'], 'desc': 'The role by name, or null if it does not exist.', }}},
     )
     _storm_lib_path = ('auth', 'roles')
 
@@ -7069,37 +4884,15 @@ class LibGates(Lib):
     A Storm Library for interacting with Auth Gates in the Cortex.
     '''
     _storm_locals = (
-        {
-            'name': 'get',
-            'desc': 'Get a specific Gate by iden.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGatesGet',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the gate to retrieve.',
-                    },
-                ),
-                'returns': {
-                    'type': ['null', 'storm:auth:gate'],
-                    'desc': 'The ``storm:auth:gate`` if it exists, otherwise null.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of Gates in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methGatesList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of ``storm:auth:gate`` objects.',
-                }
-            }
-        },
+        {'name': 'get', 'desc': 'Get a specific Gate by iden.',
+         'type': {'type': 'function', '_funcname': '_methGatesGet',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the gate to retrieve.', },
+                  ),
+                  'returns': {'type': ['null', 'storm:auth:gate'], 'desc': 'The ``storm:auth:gate`` if it exists, otherwise null.', }}},
+        {'name': 'list', 'desc': 'Get a list of Gates in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methGatesList',
+                  'returns': {'type': 'list', 'desc': 'A list of ``storm:auth:gate`` objects.', }}},
     )
     _storm_lib_path = ('auth', 'gates')
 
@@ -7127,21 +4920,9 @@ class Gate(Prim):
     Implements the Storm API for an AuthGate.
     '''
     _storm_locals = (
-        {
-            'name': 'iden',
-            'desc': 'The iden of the AuthGate.',
-            'type': 'str',
-        },
-        {
-            'name': 'roles',
-            'desc': 'The role idens which are a member of the Authgate.',
-            'type': 'list',
-        },
-        {
-            'name': 'users',
-            'desc': 'The user idens which are a member of the Authgate.',
-            'type': 'list',
-        },
+        {'name': 'iden', 'desc': 'The iden of the AuthGate.', 'type': 'str', },
+        {'name': 'roles', 'desc': 'The role idens which are a member of the Authgate.', 'type': 'list', },
+        {'name': 'users', 'desc': 'The user idens which are a member of the Authgate.', 'type': 'list', },
     )
     _storm_typename = 'storm:auth:gate'
     def __init__(self, runt, valu, path=None):
@@ -7160,253 +4941,82 @@ class User(Prim):
     Implements the Storm API for a User.
     '''
     _storm_locals = (
-        {
-            'name': 'iden',
-            'desc': 'The User iden.',
-            'type': 'str',
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a arbitrary property from the User definition.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserGet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the property to return.',
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The requested value.',
-                }
-            }
-        },
-        {
-            'name': 'roles',
-            'desc': 'Get the Roles for the User.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserRoles',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of ``storm:auth:roles`` with the user is a member of.',
-                }
-            }
-        },
-        {
-            'name': 'allowed',
-            'desc': 'Check if the user has a given permission.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserAllowed',
-                'args': (
-                    {
-                        'name': 'permname',
-                        'type': 'str',
-                        'desc': 'The permission string to check.',
-                    },
-                    {
-                        'name': 'gateiden',
-                        'type': 'str',
-                        'desc': 'The authgate iden.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the rule is allowed, False otherwise.',
-                }
-            }
-        },
-        {
-            'name': 'grant',
-            'desc': 'Grant a Role to the User.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserGrant',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the Role.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'revoke',
-            'desc': 'Remove a Role from the User',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserRevoke',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the Role.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'addRule',
-            'desc': 'Add a rule to the User.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserAddRule',
-                'args': (
-                    {
-                        'name': 'rule',
-                        'type': 'list',
-                        'desc': 'The rule tuple to add to the User.',
-                    },
-                    {
-                        'name': 'gateiden',
-                        'type': 'str',
-                        'desc': 'The gate iden used for the rule.',
-                        'default': None,
-                    }
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'delRule',
-            'desc': 'Remove a rule from the User.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserDelRule',
-                'args': (
-                    {
-                        'name': 'rule',
-                        'type': 'list',
-                        'desc': 'The rule tuple to removed from the User.',
-                    },
-                    {
-                        'name': 'gateiden',
-                        'type': 'str',
-                        'desc': 'The gate iden used for the rule.',
-                        'default': None,
-                    }
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'setRules',
-            'desc': 'Replace the rules on the User with new rules.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserSetRules',
-                'args': (
-                    {
-                        'name': 'rules',
-                        'type': 'list',
-                        'desc': 'A list of rule tuples.',
-                    },
-                    {
-                        'name': 'gateiden',
-                        'type': 'str',
-                        'desc': 'The gate iden used for the rules.',
-                        'default': None,
-                    }
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'setAdmin',
-            'desc': 'Set the Admin flag for the user.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserSetAdmin',
-                'args': (
-                    {
-                        'name': 'admin',
-                        'type': 'boolean',
-                        'desc': 'True to make the User an admin, false to remove their admin status.',
-                    },
-                    {
-                        'name': 'gateiden',
-                        'type': 'str',
-                        'desc': 'The gate iden used for the operation.',
-                        'default': None,
-                    }
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'setEmail',
-            'desc': 'Set the email address of the User.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserSetEmail',
-                'args': (
-                    {
-                        'name': 'email',
-                        'type': 'str',
-                        'desc': 'The email address to set for the User.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'setLocked',
-            'desc': 'Set the locked status for a user.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserSetLocked',
-                'args': (
-                    {
-                        'name': 'locked',
-                        'type': 'boolean',
-                        'desc': 'True to lock the user, false to unlock them.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'setPasswd',
-            'desc': 'Set the Users password.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methUserSetPasswd',
-                'args': (
-                    {
-                        'name': 'passwd',
-                        'type': 'str',
-                        'desc': 'The new password for the user. This is best passed into the runtime as a variable.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
+        {'name': 'iden', 'desc': 'The User iden.', 'type': 'str', },
+        {'name': 'get', 'desc': 'Get a arbitrary property from the User definition.',
+         'type': {'type': 'function', '_funcname': '_methUserGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'roles', 'desc': 'Get the Roles for the User.',
+         'type': {'type': 'function', '_funcname': '_methUserRoles',
+                  'returns': {'type': 'list', 'desc': 'A list of ``storm:auth:roles`` with the user is a member of.', }}},
+        {'name': 'allowed', 'desc': 'Check if the user has a given permission.',
+         'type': {'type': 'function', '_funcname': '_methUserAllowed',
+                  'args': (
+                      {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the rule is allowed, False otherwise.', }}},
+        {'name': 'grant', 'desc': 'Grant a Role to the User.',
+         'type': {'type': 'function', '_funcname': '_methUserGrant',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'revoke', 'desc': 'Remove a Role from the User',
+         'type': {'type': 'function', '_funcname': '_methUserRevoke',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'addRule', 'desc': 'Add a rule to the User.',
+         'type': {'type': 'function', '_funcname': '_methUserAddRule',
+                  'args': (
+                      {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to add to the User.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'delRule', 'desc': 'Remove a rule from the User.',
+         'type': {'type': 'function', '_funcname': '_methUserDelRule',
+                  'args': (
+                      {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to removed from the User.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'setRules', 'desc': 'Replace the rules on the User with new rules.',
+         'type': {'type': 'function', '_funcname': '_methUserSetRules',
+                  'args': (
+                      {'name': 'rules', 'type': 'list', 'desc': 'A list of rule tuples.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rules.', 'default': None, }
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'setAdmin', 'desc': 'Set the Admin flag for the user.',
+         'type': {'type': 'function', '_funcname': '_methUserSetAdmin',
+                  'args': (
+                      {'name': 'admin', 'type': 'boolean', 'desc': 'True to make the User an admin, false to remove their admin status.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the operation.', 'default': None, }
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'setEmail', 'desc': 'Set the email address of the User.',
+         'type': {'type': 'function', '_funcname': '_methUserSetEmail',
+                  'args': (
+                      {'name': 'email', 'type': 'str', 'desc': 'The email address to set for the User.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'setLocked', 'desc': 'Set the locked status for a user.',
+         'type': {'type': 'function', '_funcname': '_methUserSetLocked',
+                  'args': (
+                      {'name': 'locked', 'type': 'boolean', 'desc': 'True to lock the user, false to unlock them.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'setPasswd', 'desc': 'Set the Users password.',
+         'type': {'type': 'function', '_funcname': '_methUserSetPasswd',
+                  'args': (
+                      {'name': 'passwd', 'type': 'str',
+                       'desc': 'The new password for the user. This is best passed into the runtime as a variable.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:auth:user'
     def __init__(self, runt, valu, path=None):
@@ -7503,102 +5113,35 @@ class Role(Prim):
     Implements the Storm API for a Role.
     '''
     _storm_locals = (
-        {
-            'name': 'iden',  # XXXFIXME Add unit test
-            'desc': 'The Role iden.',
-            'type': 'str',
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a arbitrary property from the Role definition.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methRoleGet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the property to return.',
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The requested value.',
-                }
-            }
-        },
-        {
-            'name': 'addRule',
-            'desc': 'Add a rule to the Role',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methRoleAddRule',
-                'args': (
-                    {
-                        'name': 'rule',
-                        'type': 'list',
-                        'desc': 'The rule tuple to added to the Role.',
-                    },
-                    {
-                        'name': 'gateiden',
-                        'type': 'str',
-                        'desc': 'The gate iden used for the rule.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'delRule',
-            'desc': 'Remove a rule from the Role.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methRoleDelRule',
-                'args': (
-                    {
-                        'name': 'rule',
-                        'type': 'list',
-                        'desc': 'The rule tuple to removed from the Role.',
-                    },
-                    {
-                        'name': 'gateiden',
-                        'type': 'str',
-                        'desc': 'The gate iden used for the rule.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'setRules',
-            'desc': 'Replace the rules on the Role with new rules.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methRoleSetRules',
-                'args': (
-                    {
-                        'name': 'rules',
-                        'type': 'list',
-                        'desc': 'A list of rules to set on the Role.',
-                    },
-                    {
-                        'name': 'gateiden',
-                        'type': 'str',
-                        'desc': 'Ahe gate iden used for the rules.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
+        {'name': 'iden', 'desc': 'The Role iden.', 'type': 'str', },
+        {'name': 'get', 'desc': 'Get a arbitrary property from the Role definition.',
+         'type': {'type': 'function', '_funcname': '_methRoleGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'addRule', 'desc': 'Add a rule to the Role',
+         'type': {'type': 'function', '_funcname': '_methRoleAddRule',
+                  'args': (
+                      {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to added to the Role.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'delRule', 'desc': 'Remove a rule from the Role.',
+         'type': {'type': 'function', '_funcname': '_methRoleDelRule',
+                  'args': (
+                      {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to removed from the Role.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, },
+                  ),
+                  'returns': {'type': 'null', }
+                  }},
+        {'name': 'setRules', 'desc': 'Replace the rules on the Role with new rules.',
+         'type': {'type': 'function', '_funcname': '_methRoleSetRules',
+                  'args': (
+                      {'name': 'rules', 'type': 'list', 'desc': 'A list of rules to set on the Role.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'Ahe gate iden used for the rules.', 'default': None, },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:auth:role'
     def __init__(self, runt, valu, path=None):
@@ -7645,154 +5188,57 @@ class LibCron(Lib):
     A Storm Library for interacting with Cron Jobs in the Cortex.
     '''
     _storm_locals = (
-        {
-            'name': 'at',
-            'desc': 'Add a non-recurring Cron Job to the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronAt',
-                'args': (
-                    {
-                        'name': '**kwargs',
-                        'type': 'any',
-                        'desc': 'Key-value parameters used to add the cron job.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:cronjob',
-                    'desc': 'The new Cron Job.',
-                }
-            }
-        },
-        {
-            'name': 'add',
-            'desc': 'Add a recurring Cron Job to the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronAdd',
-                'args': (
-                    {
-                        'name': '**kwargs',
-                        'type': 'any',
-                        'desc': 'Key-value parameters used to add the cron job.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:cronjob',
-                    'desc': 'The new Cron Job.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a CronJob from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronDel',
-                'args': (
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': 'A prefix to match in order to identify a cron job to delete. Only a single matching prefix will be deleted.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a CronJob in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronGet',
-                'args': (
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': 'A prefix to match in order to identify a cron job to get. Only a single matching prefix will be retrieved.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:cronjob',
-                    'desc': 'The requested cron job.',
-                }
-            }
-        },
-        {
-            'name': 'mod',
-            'desc': 'Modify the Storm query for a CronJob in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronMod',
-                'args': (
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': ' prefix to match in order to identify a cron job to modify. Only a single matching prefix will be modified.',
-                    },
-                    {
-                        'name': 'query',
-                        'type': ['str', 'storm:query'],
-                        'desc': 'The new Storm query for the Cron Job.'
-                    }
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'List CronJobs in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of ``storm:cronjob`` objects..',
-                }
-            }
-        },
-        {
-            'name': 'enable',
-            'desc': 'Enable a CronJob in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronEnable',
-                'args': (
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': ' A prefix to match in order to identify a cron job to enable. Only a single matching prefix will be enabled.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The iden of the CronJob which was enabled.',
-                }
-            }
-        },
-        {
-            'name': 'disable',
-            'desc': 'Disable a CronJob in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronDisable',
-                'args': (
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': ' A prefix to match in order to identify a cron job to disable. Only a single matching prefix will be disabled.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The iden of the CronJob which was disabled.',
-                }
-            }
-        },
+        {'name': 'at', 'desc': 'Add a non-recurring Cron Job to the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methCronAt',
+                  'args': (
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Key-value parameters used to add the cron job.', },
+                  ),
+                  'returns': {'type': 'storm:cronjob', 'desc': 'The new Cron Job.', }}},
+        {'name': 'add', 'desc': 'Add a recurring Cron Job to the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methCronAdd',
+                  'args': (
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Key-value parameters used to add the cron job.', },
+                  ),
+                  'returns': {'type': 'storm:cronjob', 'desc': 'The new Cron Job.', }}},
+        {'name': 'del', 'desc': 'Delete a CronJob from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methCronDel',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': 'A prefix to match in order to identify a cron job to delete. Only a single matching prefix will be deleted.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get a CronJob in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methCronGet',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': 'A prefix to match in order to identify a cron job to get. Only a single matching prefix will be retrieved.', },
+                  ),
+                  'returns': {'type': 'storm:cronjob', 'desc': 'The requested cron job.', }}},
+        {'name': 'mod', 'desc': 'Modify the Storm query for a CronJob in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methCronMod',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': ' prefix to match in order to identify a cron job to modify. Only a single matching prefix will be modified.', },
+                      {'name': 'query', 'type': ['str', 'storm:query'], 'desc': 'The new Storm query for the Cron Job.', }
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methCronList',
+                  'returns': {'type': 'list', 'desc': 'A list of ``storm:cronjob`` objects..', }}},
+        {'name': 'enable', 'desc': 'Enable a CronJob in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methCronEnable',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': ' A prefix to match in order to identify a cron job to enable. Only a single matching prefix will be enabled.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was enabled.', }}},
+        {'name': 'disable', 'desc': 'Disable a CronJob in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methCronDisable',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': ' A prefix to match in order to identify a cron job to disable. Only a single matching prefix will be disabled.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was disabled.', }}},
     )
     _storm_lib_path = ('cron',)
 
@@ -8191,66 +5637,26 @@ class CronJob(Prim):
     Implements the Storm api for a cronjob instance.
     '''
     _storm_locals = (
-        {
-            'name': 'iden',
-            'desc': 'The iden of the Cron Job.',
-            'type': 'str',
-        },
-        {
-            'name': 'set',
-            'desc': '''
+        {'name': 'iden', 'desc': 'The iden of the Cron Job.', 'type': 'str', },
+        {'name': 'set', 'desc': '''
             Set an editable field in the cron job definition.
 
             Example:
                 Change the name of a cron job::
 
-                    $lib.cron.get($iden).set(name, "foo bar cron job")
-            ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronJobSet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the field being set',
-                    },
-                    {
-                        'name': 'valu',
-                        'type': 'any',
-                        'desc': 'The value to set on the definition.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:cronjob',
-                    'desc': 'The ``storm:cronjob``',
-                }
-            }
-        },
-        {
-            'name': 'pack',
-            'desc': 'Get the Cronjob definition.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronJobPack',
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'The definition.',
-                }
-            }
-        },
-        {
-            'name': 'pprint',
-            'desc': 'Get a dictionary containing user friendly strings for printing the CronJob.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methCronJobPprint',
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'A dictionary containing structured data about a cronjob for display purposes.',
-                }
-            }
-        },
+                    $lib.cron.get($iden).set(name, "foo bar cron job")''',
+         'type': {'type': 'function', '_funcname': '_methCronJobSet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the field being set', },
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value to set on the definition.', },
+                  ),
+                  'returns': {'type': 'storm:cronjob', 'desc': 'The ``storm:cronjob``', }}},
+        {'name': 'pack', 'desc': 'Get the Cronjob definition.',
+         'type': {'type': 'function', '_funcname': '_methCronJobPack',
+                  'returns': {'type': 'dict', 'desc': 'The definition.', }}},
+        {'name': 'pprint', 'desc': 'Get a dictionary containing user friendly strings for printing the CronJob.',
+         'type': {'type': 'function', '_funcname': '_methCronJobPprint',
+                  'returns': {'type': 'dict', 'desc': 'A dictionary containing structured data about a cronjob for display purposes.', }}},
     )
     _storm_typename = 'storm:cronjob'
     def __init__(self, runt, cdef, path=None):
