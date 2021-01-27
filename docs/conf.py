@@ -244,7 +244,7 @@ def convert_ipynb(_):
             dirs.remove('.ipynb_checkpoints')
         for fn in fns:
             if fn.endswith('.ipynb'):
-                # if 'storm' not in fn:
+                # if 'httpapi' not in fn:
                 #     continue
                 tick = s_common.now()
                 fp = os.path.join(fdir, fn)
