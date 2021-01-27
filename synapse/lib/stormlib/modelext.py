@@ -6,205 +6,66 @@ class LibModelExt(Lib):
     A Storm library for manipulating extended model elements.
     '''
     _storm_locals = (
-        {
-            'name': 'addForm',
-            'desc': 'Add an extended form definition to the data model.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'addForm',
-                'args': (
-                    {
-                        'name': 'formname',
-                        'type': 'str',
-                        'desc': 'The name of the form to add.',
-                    },
-                    {
-                        'name': 'basetype',
-                        'type': 'str',
-                        'desc': 'The base type the form is derived from.',
-                    },
-                    {
-                        'name': 'typeopts',
-                        'type': 'dict',
-                        'desc': 'A Synapse type opts dictionary.',
-                    },
-                    {
-                        'name': 'typeinfo',
-                        'type': 'dict',
-                        'desc': 'A Synapse form info dictionary.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'addFormProp',
-            'desc': 'Add an extended property definition to the data model.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'addFormProp',
-                'args': (
-                    {
-                        'name': 'formname',
-                        'type': 'str',
-                        'desc': 'The name of the form to add the property to.',
-                    },
-                    {
-                        'name': 'propname',
-                        'type': 'str',
-                        'desc': 'The name of the extended property.',
-                    },
-                    {
-                        'name': 'typedef',
-                        'type': 'list',
-                        'desc': 'A Synapse type definition tuple.',
-                    },
-                    {
-                        'name': 'propinfo',
-                        'type': 'dict',
-                        'desc': 'A synapse property definition dictionary.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'addUnivProp',
-            'desc': 'Add an extended universal property definition to the data model.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'addUnivProp',
-                'args': (
-                    {
-                        'name': 'propname',
-                        'type': 'str',
-                        'desc': 'The name of the universal property.',
-                    },
-                    {
-                        'name': 'typedef',
-                        'type': 'list',
-                        'desc': 'A Synapse type definition tuple.',
-                    },
-                    {
-                        'name': 'propinfo',
-                        'type': 'dict',
-                        'desc': 'A synapse property definition dictionary.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'addTagProp',
-            'desc': 'Add an extended tag property definition to the data model.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'addTagProp',
-                'args': (
-                    {
-                        'name': 'propname',
-                        'type': 'str',
-                        'desc': 'The name of the tag property.',
-                    },
-                    {
-                        'name': 'typedef',
-                        'type': 'list',
-                        'desc': 'A Synapse type definition tuple.',
-                    },
-                    {
-                        'name': 'propinfo',
-                        'type': 'dict',
-                        'desc': 'A synapse property definition dictionary.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'delForm',
-            'desc': 'Remove an extended form definition from the model.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'delForm',
-                'args': (
-                    {
-                        'name': 'formname',
-                        'type': 'str',
-                        'desc': 'The extended form to remove.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'delFormProp',
-            'desc': 'Remove an extended property definition from the model.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'delFormProp',
-                'args': (
-                    {
-                        'name': 'formname',
-                        'type': 'str',
-                        'desc': 'The form with the extended property.',
-                    },
-                    {
-                        'name': 'propname',
-                        'type': 'str',
-                        'desc': 'The extended property to remove.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'delUnivProp',
-            'desc': 'Remove an extended universal property definition from the model.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'delUnivProp',
-                'args': (
-                    {
-                        'name': 'propname',
-                        'type': 'str',
-                        'desc': 'Name of the universal property to remove.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'delTagProp',
-            'desc': 'Remove an extended tag property definition from the model.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'delTagProp',
-                'args': (
-                    {
-                        'name': 'propname',
-                        'type': 'str',
-                        'desc': 'Name of the tag propert to remove.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
+        {'name': 'addForm', 'desc': 'Add an extended form definition to the data model.',
+         'type': {'type': 'function', '_funcname': 'addForm',
+                  'args': (
+                      {'name': 'formname', 'type': 'str', 'desc': 'The name of the form to add.', },
+                      {'name': 'basetype', 'type': 'str', 'desc': 'The base type the form is derived from.', },
+                      {'name': 'typeopts', 'type': 'dict', 'desc': 'A Synapse type opts dictionary.', },
+                      {'name': 'typeinfo', 'type': 'dict', 'desc': 'A Synapse form info dictionary.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'addFormProp', 'desc': 'Add an extended property definition to the data model.',
+         'type': {'type': 'function', '_funcname': 'addFormProp',
+                  'args': (
+                      {'name': 'formname', 'type': 'str', 'desc': 'The name of the form to add the property to.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The name of the extended property.', },
+                      {'name': 'typedef', 'type': 'list', 'desc': 'A Synapse type definition tuple.', },
+                      {'name': 'propinfo', 'type': 'dict', 'desc': 'A synapse property definition dictionary.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'addUnivProp', 'desc': 'Add an extended universal property definition to the data model.',
+         'type': {'type': 'function', '_funcname': 'addUnivProp',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The name of the universal property.', },
+                      {'name': 'typedef', 'type': 'list', 'desc': 'A Synapse type definition tuple.', },
+                      {'name': 'propinfo', 'type': 'dict', 'desc': 'A synapse property definition dictionary.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'addTagProp', 'desc': 'Add an extended tag property definition to the data model.',
+         'type': {'type': 'function', '_funcname': 'addTagProp',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The name of the tag property.', },
+                      {'name': 'typedef', 'type': 'list', 'desc': 'A Synapse type definition tuple.', },
+                      {'name': 'propinfo', 'type': 'dict', 'desc': 'A synapse property definition dictionary.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'delForm', 'desc': 'Remove an extended form definition from the model.',
+         'type': {'type': 'function', '_funcname': 'delForm',
+                  'args': (
+                      {'name': 'formname', 'type': 'str', 'desc': 'The extended form to remove.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'delFormProp', 'desc': 'Remove an extended property definition from the model.',
+         'type': {'type': 'function', '_funcname': 'delFormProp',
+                  'args': (
+                      {'name': 'formname', 'type': 'str', 'desc': 'The form with the extended property.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The extended property to remove.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'delUnivProp',
+         'desc': 'Remove an extended universal property definition from the model.',
+         'type': {'type': 'function', '_funcname': 'delUnivProp',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'Name of the universal property to remove.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'delTagProp', 'desc': 'Remove an extended tag property definition from the model.',
+         'type': {'type': 'function', '_funcname': 'delTagProp',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'Name of the tag propert to remove.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('model', 'ext')
 

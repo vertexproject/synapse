@@ -167,6 +167,7 @@ class LibModelTags(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with tag specifications in the Cortex Data Model.
     '''
+    # XXX FIXME This requires new docs
     _storm_lib_path = ('model', 'tags', )
 
     def __init__(self, runt, name=()):
@@ -264,82 +265,38 @@ class LibModel(s_stormtypes.Lib):
     '''
     _storm_lib_path = ('model',)
     _storm_locals = (
-        {
-            'name': 'type',
-            'desc': 'Get a type object by name.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methType',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the type to retrieve.',
-                    },
-                ),
-                'returns': {
-                    'type': ['storm:model:type', 'null'],
-                    'desc': 'The ``storm:model:type`` instance if the type if present on the form or null.',
-                }
-            }
-        },
-        {
-            'name': 'prop',
-            'desc': 'Get a prop object by name.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methProp',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the prop to retrieve.',
-                    },
-                ),
-                'returns': {
-                    'type': ['storm:model:prop', 'null'],
-                    'desc': 'The ``storm:model:prop`` instance if the type if present or null.',
-                }
-            }
-        },
-        {
-            'name': 'form',
-            'desc': 'Get a form object by name.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methForm',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the form to retrieve.',
-                    },
-                ),
-                'returns': {
-                    'type': ['storm:model:form', 'null'],
-                    'desc': 'The ``storm:model:form`` instance if the form is present or null.',
-                }
-            }
-        },
-        {
-            'name': 'tagprop',
-            'desc': 'Get a tag property object by name.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methTagProp',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the tag prop to retrieve.',
-                    },
-                ),
-                'returns': {
-                    'type': ['storm:model:tagprop', 'null'],
-                    'desc': 'The ``storm:model:tagprop`` instance if the tag prop if present or null.',
-                }
-            }
-        },
+        {'name': 'type', 'desc': 'Get a type object by name.',
+         'type': {'type': 'function', '_funcname': '_methType',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the type to retrieve.', },
+                  ),
+                  'returns': {'type': ['storm:model:type', 'null'],
+                              'desc': 'The ``storm:model:type`` instance if the type if present on the form or null.',
+                              }}},
+        {'name': 'prop', 'desc': 'Get a prop object by name.',
+         'type': {'type': 'function', '_funcname': '_methProp',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the prop to retrieve.', },
+                  ),
+                  'returns': {'type': ['storm:model:prop', 'null'],
+                              'desc': 'The ``storm:model:prop`` instance if the type if present or null.',
+                              }}},
+        {'name': 'form', 'desc': 'Get a form object by name.',
+         'type': {'type': 'function', '_funcname': '_methForm',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the form to retrieve.', },
+                  ),
+                  'returns': {'type': ['storm:model:form', 'null'],
+                              'desc': 'The ``storm:model:form`` instance if the form is present or null.',
+                              }}},
+        {'name': 'tagprop', 'desc': 'Get a tag property object by name.',
+         'type': {'type': 'function', '_funcname': '_methTagProp',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the tag prop to retrieve.', },
+                  ),
+                  'returns': {'type': ['storm:model:tagprop', 'null'],
+                              'desc': 'The ``storm:model:tagprop`` instance if the tag prop if present or null.',
+                              }}},
     )
 
     def __init__(self, runt, name=()):
@@ -384,30 +341,15 @@ class ModelForm(s_stormtypes.Prim):
     Implements the Storm API for a Form.
     '''
     _storm_locals = (
-        {
-            'name': 'name',
-            'desc': 'The name of the Form',
-            'type': 'str',
-        },
-        {
-            'name': 'prop',
-            'desc': 'Get a Property on the Form',
-            'type': {
-                'type': 'function',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The property to retrieve.',
-                    },
-                ),
-                '_funcname': '_getFormProp',
-                'returns': {
-                    'type': ['storm:model:prop', 'null'],
-                    'desc': 'The ``storm:model:prop`` instance if the property if present on the form or null.'
-                }
-            }
-        }
+        {'name': 'name', 'desc': 'The name of the Form', 'type': 'str', },
+        {'name': 'prop', 'desc': 'Get a Property on the Form',
+         'type': {'type': 'function', '_funcname': '_getFormProp',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The property to retrieve.', },
+                  ),
+                  'returns': {'type': ['storm:model:prop', 'null'],
+                              'desc': 'The ``storm:model:prop`` instance if the property if present on the form or null.'
+                              }}},
     )
     _storm_typename = 'storm:model:form'
     def __init__(self, form, path=None):
@@ -440,16 +382,8 @@ class ModelProp(s_stormtypes.Prim):
     Implements the Storm API for a Property.
     '''
     _storm_locals = (
-        {
-            'name': 'name',
-            'desc': 'The short name of the Property.',
-            'type': 'str',
-        },
-        {
-            'name': 'full',
-            'desc': 'The full name of the Property.',
-            'type': 'str',
-        },
+        {'name': 'name', 'desc': 'The short name of the Property.', 'type': 'str', },
+        {'name': 'full', 'desc': 'The full name of the Property.', 'type': 'str', },
     )
     _storm_typename = 'storm:model:property'
     def __init__(self, prop, path=None):
@@ -476,11 +410,7 @@ class ModelTagProp(s_stormtypes.Prim):
     Implements the Storm API for a Tag Property.
     '''
     _storm_locals = (
-        {
-            'name': 'name',
-            'desc': 'The name of the Tag Property.',
-            'type': 'str',
-        },
+        {'name': 'name', 'desc': 'The name of the Tag Property.', 'type': 'str', },
     )
     _storm_typename = 'storm:model:tagprop'
     def __init__(self, tagprop, path=None):
@@ -502,54 +432,20 @@ class ModelType(s_stormtypes.Prim):
     A Storm types wrapper around a lib.types.Type
     '''
     _storm_locals = (
-        {
-            'name': 'name',
-            'desc': 'The name of the Type.',
-            'type': 'str',
-        },
-        {
-            'name': 'stortype',
-            'desc': 'The storetype of the Type.',
-            'type': 'int',
-        },
-        {
-            'name': 'repr',
-            'desc': 'Get the repr of a value for the Type.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methRepr',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'desc': 'The value to get the repr of.',
-                        'type': 'any',
-                    },
-                ),
-                'returns': {
-                    'desc': 'The string form of the value as represented by the type.',
-                    'type': 'str',
-                }
-            }
-        },
-        {
-            'name': 'norm',
-            'desc': 'Get the norm and info for the Type.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methNorm',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'desc': 'The value to norm.',
-                        'type': 'any',
-                    },
-                ),
-                'returns': {
-                    'desc': 'A tuple of the normed value and its information dictionary.',
-                    'type': 'list'
-                }
-            }
-        },
+        {'name': 'name', 'desc': 'The name of the Type.', 'type': 'str', },
+        {'name': 'stortype', 'desc': 'The storetype of the Type.', 'type': 'int', },
+        {'name': 'repr', 'desc': 'Get the repr of a value for the Type.',
+         'type': {'type': 'function', '_funcname': '_methRepr',
+                  'args': (
+                      {'name': 'valu', 'desc': 'The value to get the repr of.', 'type': 'any', },
+                  ),
+                  'returns': {'desc': 'The string form of the value as represented by the type.', 'type': 'str', }}},
+        {'name': 'norm', 'desc': 'Get the norm and info for the Type.',
+         'type': {'type': 'function', '_funcname': '_methNorm',
+                  'args': (
+                      {'name': 'valu', 'desc': 'The value to norm.', 'type': 'any', },
+                  ),
+                  'returns': {'desc': 'A tuple of the normed value and its information dictionary.', 'type': 'list'}}},
     )
     _storm_typename = 'storm:model:type'
 
@@ -575,100 +471,35 @@ class LibModelEdge(s_stormtypes.Lib):
     A Storm Library for interacting with light edges and manipulating their key-value attributes.
     '''
     _storm_locals = (
-        {
-            'name': 'get',
-            'desc': 'Get the key-value data for a given Edge verb.',
-            'type': {
-                'type': 'function',
-                'args': [
-                    {
-                        'name': 'verb',
-                        'desc': 'The Edge verb to look up.',
-                        'type': 'str',
-                    }
-                ],
-                '_funcname': '_methEdgeGet',
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'A dictionary representing the key-value data set on a verb.',
-                }
-            }
+        {'name': 'get', 'desc': 'Get the key-value data for a given Edge verb.',
+         'type': {'type': 'function', '_funcname': '_methEdgeGet',
+                  'args': (
+                      {'name': 'verb', 'desc': 'The Edge verb to look up.', 'type': 'str', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary representing the key-value data set on a verb.', }}},
+        {'name': 'validkeys', 'desc': 'Get a list of the valid keys that can be set on an Edge verb.',
+         'type': {'type': 'function', '_funcname': '_methValidKeys',
+                  'returns': {'type': 'list', 'desc': 'A list of the valid keys.', }
+                  }
         },
-        {
-            'name': 'validkeys',
-            'desc': 'Get a list of the valid keys that can be set on an Edge verb.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methValidKeys',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of the valid keys.',
-                }
-            }
-        },
-        {
-            'name': 'set',
-            'desc': 'Set a key-value for a given Edge verb.',
-            'type': {
-                'type': 'function',
-                'args': (
-                    {
-                        'name': 'verb',
-                        'type': 'str',
-                        'desc': 'The Edge verb to set a value for.'
-                    },
-                    {
-                        'name': 'key',
-                        'type': 'str',
-                        'desc': 'The key to set.'
-                    },
-                    {
-                        'name': 'valu',
-                        'type': 'str',
-                        'desc': 'The value to set.'
-                    },
-                ),
-                '_funcname': '_methEdgeSet',
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a key from the key-value store for a verb.',
-            'type': {
-                'type': 'function',
-                'args': (
-                    {
-                        'name': 'verb',
-                        'type': 'str',
-                        'desc': 'The name of the Edge verb to remove a key from.'
-                    },
-                    {
-                        'name': 'key',
-                        'type': 'str',
-                        'desc': 'The name of the key to remove from the key-value store.'
-                    },
-                ),
-                '_funcname': '_methEdgeDel',
-                'returns': {
-                    'type': 'none',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_methEdgeList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of (str, dict) tuples for each verb in the current Cortex View.',
-                }
-            }
-        },
+        {'name': 'set', 'desc': 'Set a key-value for a given Edge verb.',
+         'type': {'type': 'function', '_funcname': '_methEdgeSet',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'desc': 'The Edge verb to set a value for.', },
+                      {'name': 'key', 'type': 'str', 'desc': 'The key to set.', },
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to set.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'del', 'desc': 'Delete a key from the key-value store for a verb.',
+         'type': {'type': 'function', '_funcname': '_methEdgeDel',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'desc': 'The name of the Edge verb to remove a key from.', },
+                      {'name': 'key', 'type': 'str', 'desc': 'The name of the key to remove from the key-value store.', },
+                  ),
+                  'returns': {'type': 'none', }}},
+        {'name': 'list', 'desc': 'Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.',
+         'type': {'type': 'function', '_funcname': '_methEdgeList',
+                  'returns': {'type': 'list', 'desc': 'A list of (str, dict) tuples for each verb in the current Cortex View.', }}},
     )
     # Note: The use of extprops in hive paths in this class is an artifact of the
     # original implementation which used extended property language which had a
@@ -764,41 +595,16 @@ class LibModelDeprecated(s_stormtypes.Lib):
     A storm library for interacting with the model deprecation mechanism.
     '''
     _storm_locals = (
-        {
-            'name': 'lock',
-            'desc': 'Set the locked property for a deprecated model element.',
-            'type': {
-                'type': 'function',
-                'args': (
-                    {
-                        'name': 'name',
-                        'desc': 'The full path of the model element to lock.',
-                        'type': 'str',
-                    },
-                    {
-                        'name': 'locked',
-                        'desc': 'The lock status.',
-                        'type': 'boolean',
-                    },
-                ),
-                '_funcname': '_lock',
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'locks',
-            'desc': 'Get a dictionary of the data model elements which are deprecated and their lock status in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_locks',
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'A dictionary of named elements to their boolean lock values.'
-                }
-            }
-        },
+        {'name': 'lock', 'desc': 'Set the locked property for a deprecated model element.',
+         'type': {'type': 'function', '_funcname': '_lock',
+                  'args': (
+                      {'name': 'name', 'desc': 'The full path of the model element to lock.', 'type': 'str', },
+                      {'name': 'locked', 'desc': 'The lock status.', 'type': 'boolean', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'locks', 'desc': 'Get a dictionary of the data model elements which are deprecated and their lock status in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_locks',
+                  'returns': {'type': 'dict', 'desc': 'A dictionary of named elements to their boolean lock values.', }}},
     )
     _storm_lib_path = ('model', 'deprecated')
 
