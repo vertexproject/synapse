@@ -17,37 +17,39 @@ class ModelRev:
             ((0, 2, 1), self.revModel20210126),
         )
 
-    async def revModel20210126(self, layr):
+    async def revModel20210126(self, layers):
 
-        nodeedits = []
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+        for layr in layers:
 
-        # uniq values of some array types....
-        def uniq(valu):
-            return tuple({v: True for v in valu}.keys())
+            nodeedits = []
+            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
-        async def save():
-            await layr.storNodeEdits(nodeedits, meta)
-            nodeedits.clear()
+            # uniq values of some array types....
+            def uniq(valu):
+                return tuple({v: True for v in valu}.keys())
 
-        stortype = s_layer.STOR_TYPE_GUID | s_layer.STOR_FLAG_ARRAY
-        async for buid, propvalu in layr.iterPropRows('ou:org', 'industries'):
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
 
-            uniqvalu = uniq(propvalu)
-            if uniqvalu == propvalu:
-                continue
+            stortype = s_layer.STOR_TYPE_GUID | s_layer.STOR_FLAG_ARRAY
+            async for buid, propvalu in layr.iterPropRows('ou:org', 'industries'):
 
-            nodeedits.append((
-                (buid, 'ou:org', (
-                    (s_layer.EDIT_PROP_SET, ('industries', uniqvalu, propvalu, stortype), ()),
-                )),
-            ))
+                uniqvalu = uniq(propvalu)
+                if uniqvalu == propvalu:
+                    continue
 
-            if len(nodeedits) >= 1000:
+                nodeedits.append(
+                    (buid, 'ou:org', (
+                        (s_layer.EDIT_PROP_SET, ('industries', uniqvalu, propvalu, stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:
+                    await save()
+
+            if nodeedits:
                 await save()
-
-        if nodeedits:
-            await save()
 
     async def revCoreLayers(self):
 

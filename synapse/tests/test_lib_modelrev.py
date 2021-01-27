@@ -53,3 +53,9 @@ class ModelRevTest(s_tests.SynTest):
 
                 self.true(layr.woot)
                 self.eq((9999, 9999, 9999), await layr.getModelVers())
+
+    async def test_modelrev_2_0_1(self):
+        async with self.getRegrCore('model-2.0.1') as core:
+            nodes = await core.nodes('ou:org')
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('industries'))
