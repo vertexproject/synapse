@@ -30,7 +30,7 @@ class ModelRev:
             await layr.storNodeEdits(nodeedits, meta)
             nodeedits.clear()
 
-        stortype = s_layer.STOR_TYPE_GUID | s_layer.STOR_TYPE_ARRAY
+        stortype = s_layer.STOR_TYPE_GUID | s_layer.STOR_FLAG_ARRAY
         async for buid, propvalu in layr.iterPropRows('ou:org', 'industries'):
 
             uniqvalu = uniq(propvalu)
