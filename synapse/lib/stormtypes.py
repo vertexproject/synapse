@@ -2418,7 +2418,7 @@ class Str(Prim):
                       {'name': 'chars', 'type': 'str', 'default': None,
                        'desc': 'A list of characters to remove. If not specified, whitespace is stripped.', },
                   ),
-                  'returns': {'type': 'str', : 'The stripped string.', }}},
+                  'returns': {'type': 'str', 'desc': 'The stripped string.', }}},
         {'name': 'lstrip', 'desc': '''
             Remove leading characters from a string.
 

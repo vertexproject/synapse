@@ -168,6 +168,71 @@ class LibModelTags(s_stormtypes.Lib):
     A Storm Library for interacting with tag specifications in the Cortex Data Model.
     '''
     # XXX FIXME This requires new docs
+    _storm_locals = (
+        {'name': 'get', 'desc': '''
+        Retrieve a tag model specification.
+
+        Examples:
+            Get the tag model specification for ``cno.threat``::
+
+                $dict = $lib.model.tag.get(cno.threat)''',
+         'type': {'type': 'function', '_funcname': '_getTagModel',
+                  'args': (
+                    {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
+                  ),
+                  'returns': {'type': '', 'desc': '', }}},
+        {'name': 'set', 'desc': '''
+        Set a tag model property for a tag.
+
+        Examples:
+            Create a tag model for the ``cno.cve`` tag::
+
+                $regx = ($lib.null, $lib.null, "[0-9]{4}", "[0-9]{5}")
+                $lib.model.tag.set(cno.cve, regex, $regx)''',
+         'type': {'type': 'function', '_funcname': '_setTagModel',
+                  'args': (
+                      {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The name of the tag model property.', },
+                      {'name': 'propvalu', 'type': 'prim', 'desc': 'The value to set.', },
+                  ),
+                  'returns': {'type': '', 'desc': '', }}},
+        {'name': 'pop', 'desc': '''
+            Pop and return a tag model property.
+
+            Examples:
+                Remove the regex list from the ``cno.threat`` tag model::
+
+                    $regxlist = $lib.model.tag.pop(cno.threat, regex)''',
+         'type': {'type': 'function', '_funcname': '_popTagModel',
+                  'args': (
+                      {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The name of the tag model property.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The value of the property.', }}},
+        {'name': 'del', 'desc': '''
+        Delete a tag model specification.
+
+        Examples:
+            Delete the tag model specification for ``cno.threat``::
+
+                $lib.model.tag.del(cno.threat)''',
+         'type': {'type': 'function', '_funcname': '_delTagModel',
+                  'args': (
+                      {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
+                  ),
+                  'returns': {'type': '', 'desc': '', }}},
+        {'name': 'list', 'desc': '''
+        List all tag model specifications.
+
+        Examples:
+            Iterate over the tag model specifications in the Cortex::
+
+                for ($name, $info) in $lib.model.tag.list() {
+                    ...
+                }''',
+         'type': {'type': 'function', '_funcname': '_listTagModel',
+                  'returns': {'type': 'list', 'desc': 'List of tuples containing the tag name and model definition', }}},
+    )
     _storm_lib_path = ('model', 'tags', )
 
     def __init__(self, runt, name=()):
@@ -183,75 +248,24 @@ class LibModelTags(s_stormtypes.Lib):
         }
 
     async def _delTagModel(self, tagname):
-        '''
-        Delete a tag model specification.
-
-        Arguments:
-            tagname (str): The name of the tag.
-
-        Examples:
-            $lib.model.tag.del(cno.threat)
-        '''
         tagname = await s_stormtypes.tostr(tagname)
         self.runt.confirm(('model', 'tag', 'set'))
         return await self.runt.snap.core.delTagModel(tagname)
 
     async def _getTagModel(self, tagname):
-        '''
-        Retrieve a tag model specification.
-
-        Examples:
-            $dict = $lib.model.tag.get(cno.threat)
-        '''
         tagname = await s_stormtypes.tostr(tagname)
         return await self.runt.snap.core.getTagModel(tagname)
 
     async def _listTagModel(self):
-        '''
-        List all tag model specifications.
-
-        Returns:
-            [(str, dict), ...]: A list of tag model specification tuples.
-
-        Examples:
-            for ($name, $info) in $lib.model.tag.list() {
-
-            }
-        '''
         return await self.runt.snap.core.listTagModel()
 
     async def _popTagModel(self, tagname, propname):
-        '''
-        Pop and return a tag model property.
-
-        Arguments:
-            tagname (str): The name of the tag.
-            propname (str): The name of the tag model property.
-
-        Returns:
-            (object): The value of the property.
-
-        Examples:
-            $regxlist = $lib.model.tag.pop(cno.threat, regex)
-        '''
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         self.runt.confirm(('model', 'tag', 'set'))
         return await self.runt.snap.core.popTagModel(tagname, propname)
 
     async def _setTagModel(self, tagname, propname, propvalu):
-        '''
-        Set a tag model property for a tag.
-
-        Arguments:
-            tagname (str): The name of the tag.
-            propname (str): The name of the property.
-            propvalu (object): The value of the property.
-
-        Examples:
-            $regx = ($lib.null, $lib.null, "[0-9]{4}", "[0-9]{5}")
-            $lib.model.tag.set(cno.cve, regex, $regx)
-        '''
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         propvalu = await s_stormtypes.toprim(propvalu)
