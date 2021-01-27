@@ -182,3 +182,36 @@ class AhaTest(s_test.SynTest):
                 self.none(await ahaproxy.getAhaSvc('cryo.foo'))
                 self.none(await ahaproxy.getAhaSvc('0.cryo.foo'))
                 self.len(2, [s async for s in ahaproxy.getAhaSvcs()])
+
+    async def test_lib_aha_loadenv(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestAha() as aha:
+                host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
+                await aha.auth.rootuser.setPasswd('hehehaha')
+
+                conf = {
+                    'version': 1,
+                    'aha:servers': [
+                        f'tcp://root:hehehaha@127.0.0.1:{port}/',
+                    ],
+                }
+
+                path = s_common.genpath(dirn, 'telepath.yaml')
+                s_common.yamlsave(conf, path)
+
+                fini = await s_telepath.loadTeleEnv(path)
+
+                # Should be one uninitialized aha client
+                self.len(1, s_telepath.aha_clients)
+                [info] = s_telepath.aha_clients.values()
+                self.none(info.get('client'))
+
+                with self.raises(s_exc.NoSuchName):
+                    await s_telepath.openurl('aha://visi@foo.bar.com')
+
+                # Connecting to an aha url should have initialized the client
+                self.len(1, s_telepath.aha_clients)
+                self.nn(info.get('client'))
+                await fini()

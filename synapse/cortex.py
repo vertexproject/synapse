@@ -1,5 +1,6 @@
 import os
 import copy
+import regex
 import asyncio
 import logging
 import contextlib
@@ -16,6 +17,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
@@ -80,6 +82,16 @@ reqValidPush = s_config.getJsValidator({
     'required': ['iden', 'url', 'user', 'time'],
 })
 reqValidPull = reqValidPush
+
+reqValidTagModel = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        # 'prune': {'type': 'boolean'},
+        'regex': {'type': 'array', 'items': {'type': ['string', 'null']}},
+    },
+    'additionalProperties': False,
+    'required': [],
+})
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -823,6 +835,99 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.syncIndexEvents(matchdef, offsdict=offsdict, wait=wait):
             yield item
 
+    async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
+        '''
+        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalue
+
+        Args:
+            layriden (str):  Iden of the layer to retrieve the nodes
+            form(str):  A form name
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
+        self.user.confirm(('layer', 'lift', layriden))
+        async for item in self.cell.iterFormRows(layriden, form, stortype=stortype, startvalu=startvalu):
+            yield item
+
+    async def iterPropRows(self, layriden, form, prop, stortype=None, startvalu=None):
+        '''
+        Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalue
+
+        Args:
+            layriden (str):  Iden of the layer to retrieve the nodes
+            form(str):  A form name.
+            prop (str):  A secondary property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
+        self.user.confirm(('layer', 'lift', layriden))
+        async for item in self.cell.iterPropRows(layriden, form, prop, stortype=stortype, startvalu=startvalu):
+            yield item
+
+    async def iterUnivRows(self, layriden, prop, stortype=None, startvalu=None):
+        '''
+        Yields buid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalue
+
+        Args:
+            layriden (str):  Iden of the layer to retrieve the nodes
+            prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
+        self.user.confirm(('layer', 'lift', layriden))
+        async for item in self.cell.iterUnivRows(layriden, prop, stortype=stortype, startvalu=startvalu):
+            yield item
+
+    async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
+        '''
+        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+
+        Args:
+            layriden (str):  Iden of the layer to retrieve the nodes
+            tag (str): the tag to match
+            form (Optional[str]):  if present, only yields buids of nodes that match the form.
+            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
+
+        Returns:
+            AsyncIterator[Tuple(buid, (valu, form))]
+
+        Note:
+            This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
+            call by feeding the last value retrieved into starttupl
+        '''
+        self.user.confirm(('layer', 'lift', layriden))
+        async for item in self.cell.iterTagRows(layriden, tag, form=form, starttupl=starttupl):
+            yield item
+
+    async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):
+        '''
+        Yields (buid, valu) that match a tag:prop, optionally (re)starting at startvalu.
+
+        Args:
+            layriden (str):  Iden of the layer to retrieve the nodes
+            tag (str):  tag name
+            prop (str):  prop name
+            form (Optional[str]):  optional form name
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
+        self.user.confirm(('layer', 'lift', layriden))
+        async for item in self.cell.iterTagPropRows(layriden, tag, prop, form=form, stortype=stortype,
+                                                    startvalu=startvalu):
+            yield item
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -957,6 +1062,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.ontagaddglobs = s_cache.TagGlobs()
         self.ontagdelglobs = s_cache.TagGlobs()
 
+        self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
+
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
@@ -1008,10 +1115,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self._initRuntFuncs()
 
+        taghive = await self.hive.open(('cortex', 'tagmeta'))
         cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
         pkghive = await self.hive.open(('cortex', 'storm', 'packages'))
         svchive = await self.hive.open(('cortex', 'storm', 'services'))
 
+        self.taghive = await taghive.dict()
         self.cmdhive = await cmdhive.dict()
         self.pkghive = await pkghive.dict()
         self.svchive = await svchive.dict()
@@ -1205,6 +1314,124 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def coreQueueSize(self, name):
         return self.multiqueue.size(name)
+
+    @s_nexus.Pusher.onPushAuto('tag:model:set')
+    async def setTagModel(self, tagname, name, valu):
+        '''
+        Set a model specification property for a tag.
+
+        Arguments:
+            tagname (str): The name of the tag.
+            name (str): The name of the property.
+            valu (object): The value of the property.
+
+        Tag Model Properties:
+            regex - A list of None or regular expression strings to match each tag level.
+
+        Examples:
+            await core.setTagModel("cno.cve", "regex", (None, None, "[0-9]{4}", "[0-9]{5}"))
+
+        '''
+        meta = self.taghive.get(tagname)
+        if meta is None:
+            meta = {}
+
+        meta[name] = valu
+        reqValidTagModel(meta)
+
+        await self.taghive.set(tagname, meta)
+
+        # clear cached entries
+        if name == 'regex':
+            self.tagvalid.clear()
+
+    @s_nexus.Pusher.onPushAuto('tag:model:del')
+    async def delTagModel(self, tagname):
+        '''
+        Delete all the model specification properties for a tag.
+
+        Arguments:
+            tagname (str): The name of the tag.
+        '''
+        await self.taghive.pop(tagname)
+        self.tagvalid.clear()
+
+    @s_nexus.Pusher.onPushAuto('tag:model:pop')
+    async def popTagModel(self, tagname, name):
+        '''
+        Pop a property from the model specification of a tag.
+
+        Arguments:
+            tagname (str): The name of the tag.
+            name (str): The name of the specification property.
+
+        Returns:
+            (object): The current value of the property.
+        '''
+
+        meta = self.taghive.get(tagname)
+        if meta is None:
+            return None
+
+        retn = meta.pop(name, None)
+        await self.taghive.set(name, meta)
+
+        if name == 'regex':
+            self.tagvalid.clear()
+
+        return retn
+
+    async def isTagValid(self, tagname):
+        '''
+        Check if a tag name is valid according to tag model regular expressions.
+
+        Returns:
+            (bool): True if the tag is valid.
+        '''
+        return await self.tagvalid.aget(tagname)
+
+    async def _isTagValid(self, tagname):
+
+        parts = s_chop.tagpath(tagname)
+        for tag in s_chop.tags(tagname):
+
+            meta = self.taghive.get(tag)
+            if meta is None:
+                continue
+
+            regx = meta.get('regex')
+            if regx is None:
+                continue
+
+            for i in range(min(len(regx), len(parts))):
+
+                if regx[i] is None:
+                    continue
+
+                if not regex.fullmatch(regx[i], parts[i]):
+                    return False
+
+        return True
+
+    async def getTagModel(self, tagname):
+        '''
+        Retrieve the tag model specification for a tag.
+
+        Returns:
+            (dict): The tag model specification or None.
+        '''
+        retn = self.taghive.get(tagname)
+        if retn is not None:
+            return dict(retn)
+
+    async def listTagModel(self):
+        '''
+        Retrieve a list of the tag model specifications.
+
+        Returns:
+            ([(str, dict), ...]): A list of tag model specification tuples.
+        '''
+        return list(self.taghive.items())
 
     async def getSpawnInfo(self):
 
@@ -4268,6 +4495,113 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if self.conf.get('trigger:enable'):
             self.trigson = True
+
+    async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
+        '''
+        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
+
+        Args:
+            layriden (str):  Iden of the layer to retrieve the nodes
+            form (str):  A form name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
+        layr = self.getLayer(layriden)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=layriden)
+
+        async for item in layr.iterFormRows(form, stortype=stortype, startvalu=startvalu):
+            yield item
+
+    async def iterPropRows(self, layriden, form, prop, stortype=None, startvalu=None):
+        '''
+        Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalu.
+
+        Args:
+            layriden (str):  Iden of the layer to retrieve the nodes
+            form (str):  A form name.
+            prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
+        layr = self.getLayer(layriden)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=layriden)
+
+        async for item in layr.iterPropRows(form, prop, stortype=stortype, startvalu=startvalu):
+            yield item
+
+    async def iterUnivRows(self, layriden, prop, stortype=None, startvalu=None):
+        '''
+        Yields buid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalu.
+
+        Args:
+            layriden (str):  Iden of the layer to retrieve the nodes
+            prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
+        layr = self.getLayer(layriden)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=layriden)
+
+        async for item in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
+            yield item
+
+    async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
+        '''
+        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+
+        Args:
+            layriden (str):  Iden of the layer to retrieve the nodes
+            tag (str): the tag to match
+            form (Optional[str]):  if present, only yields buids of nodes that match the form.
+            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
+
+        Returns:
+            AsyncIterator[Tuple(buid, (valu, form))]
+
+        Note:
+            This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
+            call by feeding the last value retrieved into starttupl
+        '''
+        layr = self.getLayer(layriden)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=layriden)
+
+        async for item in layr.iterTagRows(tag, form=form, starttupl=starttupl):
+            yield item
+
+    async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):
+        '''
+        Yields (buid, valu) that match a tag:prop, optionally (re)starting at startvalu.
+
+        Args:
+            layriden (str):  Iden of the layer to retrieve the nodes
+            tag (str):  tag name
+            prop (str):  prop name
+            form (Optional[str]):  optional form name
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
+        layr = self.getLayer(layriden)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=layriden)
+
+        async for item in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
+            yield item
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
