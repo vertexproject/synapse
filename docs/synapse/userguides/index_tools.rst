@@ -17,3 +17,4 @@ users to perform specific tasks. These tools are documented below.
     syn_tools_pullfile
     syn_tools_feed
     syn_tools_csvtool
+    syn_tools_genpkg
