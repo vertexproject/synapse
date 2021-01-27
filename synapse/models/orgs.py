@@ -266,7 +266,7 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'The North American Industry Classification System code for the organization.',
                     }),
-                    ('industries', ('array', {'type': 'ou:industry'}), {
+                    ('industries', ('array', {'type': 'ou:industry', 'uniq': True}), {
                         'doc': 'The industries associated with the org.',
                     }),
                     ('us:cage', ('gov:us:cage', {}), {
@@ -626,6 +626,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A description of the contest.',
                         'ex': 'the capture-the-flag event hosted at defcon 2020',
                         'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The contest website URL.'
                     }),
                     ('start', ('time', {}), {
                         'doc': 'The contest start date / time.',

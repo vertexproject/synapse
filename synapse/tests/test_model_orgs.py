@@ -422,6 +422,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :family="defcon ctf"
                     :start=20200808
                     :end=20200811
+                    :url=http://vertex.link/contest
 
                     :loc=us.nv.lasvegas
                     :place=*
@@ -441,6 +442,8 @@ class OuModelTest(s_t_utils.SynTest):
 
             self.eq(1596844800000, nodes[0].get('start'))
             self.eq(1597104000000, nodes[0].get('end'))
+
+            self.eq('http://vertex.link/contest', nodes[0].get('url'))
 
             self.eq((20, 30), nodes[0].get('latlong'))
             self.eq('us.nv.lasvegas', nodes[0].get('loc'))
@@ -463,6 +466,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(20, nodes[0].get('score'))
             self.len(1, await core.nodes('ou:contest:result -> ps:contact'))
             self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
+
+            opts = {'vars': {'ind': s_common.guid()}}
+            nodes = await core.nodes('[ ou:org=* :industries=($ind, $ind) ]', opts=opts)
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('industries'))
 
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
