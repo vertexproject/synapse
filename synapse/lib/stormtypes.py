@@ -303,73 +303,27 @@ class LibPkg(Lib):
     A Storm Library for interacting with Storm Packages.
     '''
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': 'Add a Storm Package to the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libPkgAdd',
-                'args': (
-                    {
-                        'name': 'pkgdef',
-                        'type': 'dict',
-                        'desc': 'A Storm Package definition.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a Storm package from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libPkgGet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'A Storm Package name.',
-                    },
-                ),
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'The Storm package definition.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a Storm Package from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libPkgDel',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the package to delete.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of Storm Packages loaded in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libPkgList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of Storm Package definitions.',
-                }
-            }
-        },
+        {'name': 'add', 'desc': 'Add a Storm Package to the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libPkgAdd',
+                  'args': (
+                      {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get a Storm package from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libPkgGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'A Storm Package name.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The Storm package definition.', }}},
+        {'name': 'del', 'desc': 'Delete a Storm Package from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libPkgDel',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the package to delete.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'list', 'desc': 'Get a list of Storm Packages loaded in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libPkgList',
+                  'returns': {'type': 'list', 'desc': 'A list of Storm Package definitions.', }}},
     )
     _storm_lib_path = ('pkg',)
 
@@ -406,163 +360,61 @@ class LibDmon(Lib):
     A Storm Library for interacting with StormDmons.
     '''
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': '''
-            Add a Storm Dmon to the Cortex.
+        {'name': 'add', 'desc': '''
+        Add a Storm Dmon to the Cortex.
 
-            Examples:
-                Add a dmon that executes a query::
+        Examples:
+            Add a dmon that executes a query::
 
-                    $lib.dmon.add(${ myquery }, name='example dmon')
-            ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libDmonAdd',
-                'args': (
-                    {
-                        'name': 'text',
-                        'type': ['str', 'storm:query'],
-                        'desc': 'The Storm query to execute in the Dmon loop.',
-                    },
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the Dmon.',
-                        'default': 'noname',
-                    },
+                $lib.dmon.add(${ myquery }, name='example dmon')
+                ''',
+         'type': {'type': 'function', '_funcname': '_libDmonAdd',
+                  'args': (
+                    {'name': 'text', 'type': ['str', 'storm:query'],
+                     'desc': 'The Storm query to execute in the Dmon loop.', },
+                    {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname', },
                 ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The iden of the newly created Storm Dmon.',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a Storm Dmon definition by iden.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libDmonGet',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the Storm Dmon to get.',
-                    },
-                ),
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'A Storm Dmon definition dict.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a Storm Dmon by iden.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libDmonDel',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the Storm Dmon to delete.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'log',
-            'desc': 'Get the messages from a Storm Dmon.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libDmonLog',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the Storm Dmon to get logs for.',
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of messages from the StormDmon.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of Storm Dmons.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libDmonList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of Storm Dmon definitions.',
-                }
-            }
-        },
-        {
-            'name': 'bump',
-            'desc': 'Restart the Dmon.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libDmonBump',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The GUID of the dmon to restart.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the Dmon is restarted; False if the iden does not exist.',
-                }
-            }
-        },
-        {
-            'name': 'stop',
-            'desc': 'Stop a Storm Dmon.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libDmonStop',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The GUID of the Dmon to stop.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the Dmon is stopped; False if the iden does not exist.',
-                }
-            }
-        },
-        {
-            'name': 'start',
-            'desc': 'Start a storm dmon.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libDmonStart',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The GUID of the dmon to start.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'Returns True.',
-                }
-            }
-        },
+                'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.', }}},
+        {'name': 'get', 'desc': 'Get a Storm Dmon definition by iden.',
+         'type': {'type': 'function', '_funcname': '_libDmonGet',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to get.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A Storm Dmon definition dict.', }}},
+        {'name': 'del', 'desc': 'Delete a Storm Dmon by iden.',
+         'type': {'type': 'function', '_funcname': '_libDmonDel',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to delete.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'log', 'desc': 'Get the messages from a Storm Dmon.',
+         'type': {'type': 'function', '_funcname': '_libDmonLog',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to get logs for.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of messages from the StormDmon.', }}},
+        {'name': 'list', 'desc': 'Get a list of Storm Dmons.',
+         'type': {
+             'type': 'function', '_funcname': '_libDmonList',
+             'returns': {'type': 'list', 'desc': 'A list of Storm Dmon definitions.', }}},
+        {'name': 'bump', 'desc': 'Restart the Dmon.',
+         'type': {'type': 'function', '_funcname': '_libDmonBump',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to restart.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the Dmon is restarted; False if the iden does not exist.', }}},
+        {'name': 'stop', 'desc': 'Stop a Storm Dmon.',
+         'type': {'type': 'function', '_funcname': '_libDmonStop',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the Dmon to stop.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the Dmon is stopped; False if the iden does not exist.', }}},
+        {'name': 'start', 'desc': 'Start a storm dmon.',
+         'type': {'type': 'function', '_funcname': '_libDmonStart',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to start.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Returns True.', }}},
     )
     _storm_lib_path = ('dmon',)
 
@@ -666,124 +518,49 @@ class LibService(Lib):
     A Storm Library for interacting with Storm Services.
     '''
     _storm_locals = (
-        {
-            'name': 'add',
-            'desc': 'Add a Storm Service to the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libSvcAdd',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the Storm Service to add.',
-                    },
-                    {
-                        'name': 'url',
-                        'type': 'str',
-                        'desc': 'The Telepath URL to the Storm Service.',
-                    },
-                ),
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'The Storm Service definition.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Remove a Storm Service from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libSvcDel',
-                'args': (
-                    {
-                        'name': 'iden',
-                        'type': 'str',
-                        'desc': 'The iden of the service to remove.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a Storm Service definition.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libSvcGet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The local name, local iden, or remote name, of the service to get the definition for.',
-                    },
-                ),
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'A Storm Service definition.',
-                }
-            }
-        },
-        {
-            'name': 'has',
-            'desc': 'Check if a Storm Service is available in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libSvcHas',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The local name, local iden, or remote name, of the service to check for the existance of.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the service exists in the Cortex, False if it does not.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': '''
+        {'name': 'add', 'desc': 'Add a Storm Service to the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libSvcAdd',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the Storm Service to add.', },
+                      {'name': 'url', 'type': 'str', 'desc': 'The Telepath URL to the Storm Service.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The Storm Service definition.', }}},
+        {'name': 'del', 'desc': 'Remove a Storm Service from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libSvcDel',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the service to remove.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get a Storm Service definition.',
+         'type': {'type': 'function', '_funcname': '_libSvcGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The local name, local iden, or remote name, of the service to get the definition for.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A Storm Service definition.', }}},
+        {'name': 'has', 'desc': 'Check if a Storm Service is available in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libSvcHas',
+                  'args': (
+                    {'name': 'name', 'type': 'str',
+                     'desc': 'The local name, local iden, or remote name, of the service to check for the existance of.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the service exists in the Cortex, False if it does not.', }}},
+        {'name': 'list',
+         'desc': '''
             List the Storm Service definitions for the Cortex.
 
             Notes:
                 The definition dictionaries have an additional ``ready`` key added to them to
                 indicate if the Cortex is currently connected to the Storm Service or not.
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libSvcList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of Storm Service definitions.',
-                }
-            }
-        },
-        {
-            'name': 'wait',
-            'desc': 'Wait for a given service to be ready.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libSvcWait',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name, or iden, of the service to wait for.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                    'desc': 'Returns null when the service is available.',
-                }
-            }
-        },
-
+         'type': {'type': 'function', '_funcname': '_libSvcList',
+                  'returns': {'type': 'list', 'desc': 'A list of Storm Service definitions.', }}},
+        {'name': 'wait', 'desc': 'Wait for a given service to be ready.',
+         'type': {'type': 'function', '_funcname': '_libSvcWait',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name, or iden, of the service to wait for.', },
+                  ),
+                  'returns': {'type': 'null', 'desc': 'Returns null when the service is available.', }}},
     )
     _storm_lib_path = ('service',)
 
@@ -866,138 +643,52 @@ class LibBase(Lib):
     _storm_lib_path = ()
 
     _storm_locals = (
-        {
-            'name': 'len',
-            'desc': '''
+        {'name': 'len', 'desc': '''
             Get the length of a item.
 
             This could represent the size of a string, or the number of keys in
             a dictionary, or the number of elements in an array.''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_len',
-                'args': (
-                    {
-                        'name': 'item',
-                        'desc': 'The item to get the length of.',
-                        'type': 'prim'
-                    },
-                ),
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The length of the item.',
-                }
+         'type': {'type': 'function', '_funcname': '_len',
+                  'args': (
+                      {'name': 'item', 'desc': 'The item to get the length of.', 'type': 'prim', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The length of the item.', }}},
+        {'name': 'min', 'desc': 'Get the minimum value in a list of arguments.',
+         'type': {'type': 'function', '_funcname': '_min',
+                  'args': (
+                      {'name': '*args', 'type': 'any', 'desc': 'List of arguments to evaluate.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The smallest argument.', }}},
+        {'name': 'max', 'desc': 'Get the maximum value in a list of arguments.',
+         'type': {'type': 'function', '_funcname': '_max',
+                  'args': (
+                      {'name': '*args', 'type': 'any', 'desc': 'List of arguments to evaluate.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The largest argument.', }}},
+        {'name': 'set', 'desc': 'Get a Storm Set object.',
+         'type': {'type': 'function', '_funcname': '_set',
+                  'args': (
+                      {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the set.', },
+                  ),
+                  'returns': {'type': 'set', 'desc': 'The new set.', }
             }
         },
-        {
-            'name': 'min',
-            'desc': 'Get the minimum value in a list of arguments.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_min',
-                'args': (
-                    {
-                        'name': '*args',
-                        'type': 'any',
-                        'desc': 'List of arguments to evaluate.',
-                    },
-                ),
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The smallest argument.',
-                }
-            }
-        },
-        {
-            'name': 'max',
-            'desc': 'Get the maximum value in a list of arguments.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_max',
-                'args': (
-                    {
-                        'name': '*args',
-                        'type': 'any',
-                        'desc': 'List of arguments to evaluate.',
-                    },
-                ),
-                'returns': {
-                    'type': 'int',
-                    'desc': 'The largest argument.',
-                }
-            }
-        },
-        {
-            'name': 'set',
-            'desc': 'Get a Storm Set object.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_set',
-                'args': (
-                    {
-                        'name': '*vals',
-                        'type': 'any',
-                        'desc': 'Initial values to place in the set.',
-                    },
-                ),
-                'returns': {
-                    'type': 'set',
-                    'desc': 'The new set.',
-                }
-            }
-        },
-        {
-            'name': 'dict',
-            'desc': 'Get a Storm Dict object.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_dict',
-                'args': (
-                    {
-                        'name': '**kwargs',
-                        'type': 'any',
-                        'desc': 'Initial set of keyword argumetns to place into the dict.',
-                    },
-                ),
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'A dictionary object.',
-                }
-            }
-        },
-        {
-            'name': 'exit',
-            'desc': 'Cause a Storm Runtime to stop running.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_exit',
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'guid',
-            'desc': 'Get a random guid, or generate a guid from the arguments.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_guid',
-                'args': (
-                    {
-                        'name': '*args',
-                        'type': 'prim',
-                        'desc': 'Arguments which are hashed to create a guid.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'A guid.',
-                }
-            }
-        },
-        {
-            'name': 'fire',
-            'desc': '''
+        {'name': 'dict', 'desc': 'Get a Storm Dict object.',
+         'type': {'type': 'function', '_funcname': '_dict',
+                  'args': (
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Initial set of keyword argumetns to place into the dict.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
+        {'name': 'exit', 'desc': 'Cause a Storm Runtime to stop running.',
+        'type': {'type': 'function', '_funcname': '_exit',
+                'returns': {'type': 'null', }}},
+        {'name': 'guid', 'desc': 'Get a random guid, or generate a guid from the arguments.',
+         'type': {'type': 'function', '_funcname': '_guid',
+                  'args': (
+                      {'name': '*args', 'type': 'prim', 'desc': 'Arguments which are hashed to create a guid.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'A guid.', }}},
+        {'name': 'fire', 'desc': '''
             Fire an event onto the runtime.
 
             Notes:
@@ -1012,48 +703,19 @@ class LibBase(Lib):
                     ('storm:fire', {'type': 'demo', 'data': {'foo': 'bar', 'knight': 'ni'}})
                     ...
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_fire',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the event to fire.',
-                    },
-                    {
-                        'name': '**info',
-                        'type': 'any',
-                        'desc': 'Additional keyword arguments containing data to add to the event.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a Storm List object.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_list',
-                'args': (
-                    {
-                        'name': '*vals',
-                        'type': 'any',
-                        'desc': 'Initial values to place in the list.',
-                    },
-                ),
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A new list object.',
-                }
-            }
-        },
-        {
-            'name': 'null',
-            'desc': '''
+            'type': {'type': 'function', '_funcname': '_fire',
+                     'args': (
+                         {'name': 'name', 'type': 'str', 'desc': 'The name of the event to fire.', },
+                         {'name': '**info', 'type': 'any', 'desc': 'Additional keyword arguments containing data to add to the event.', },
+                     ),
+                     'returns': {'type': 'null', }}},
+        {'name': 'list', 'desc': 'Get a Storm List object.',
+         'type': {'type': 'function', '_funcname': '_list',
+                  'args': (
+                      {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the list.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A new list object.', }}},
+        {'name': 'null', 'desc': '''
             This constant represents a value of None that can be used in Storm.
 
             Examples:
@@ -1062,11 +724,8 @@ class LibBase(Lib):
                     cli> storm $d=$lib.dict(key=$lib.null) $lib.fire('demo', d=$d)
                     ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
             ''',
-            'type': 'null'
-        },
-        {
-            'name': 'undef',
-            'desc': '''
+            'type': 'null', },
+        {'name': 'undef', 'desc': '''
             This constant can be used to unset variables and derefs.
 
             Examples:
@@ -1082,11 +741,8 @@ class LibBase(Lib):
 
                     $foo.0 = $lib.undef
             ''',
-            'type': 'undef',
-        },
-        {
-            'name': 'true',
-            'desc': '''
+            'type': 'undef', },
+        {'name': 'true', 'desc': '''
             This constant represents a value of True that can be used in Storm.
 
             Examples:
@@ -1095,11 +751,8 @@ class LibBase(Lib):
                     cli> storm if $lib.true { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is True
                 ''',
-            'type': 'boolean',
-        },
-        {
-            'name': 'false',
-            'desc': '''
+         'type': 'boolean', },
+        {'name': 'false', 'desc': '''
             This constant represents a value of False that can be used in Storm.
 
             Examples:
@@ -1107,82 +760,35 @@ class LibBase(Lib):
 
                     cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is False''',
-            'type': 'boolean',
-        },
-        {
-            'name': 'text',
-            'desc': 'Get a Storm Text object.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_text',
-                'args': (
-                    {
-                        'name': '*args',
-                        'type': 'str',
-                        'desc': 'An initial set of values to place in the Text. These values are joined together with an empty string.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:text',
-                    'desc': 'The new Text object.',
-                }
-            }
-        },
-        {
-            'name': 'cast',
-            'desc': 'Normalize a value as a Synapse Data Model Type.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_cast',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the model type to normalize the value as.',
-                    },
-                    {
-                        'name': 'valu',
-                        'type': 'any',
-                        'desc': 'The value to normalize.',
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The normalized value.',
-                }
-            }
-        },
-        {
-            'name': 'warn',
-            'desc': '''
+         'type': 'boolean', },
+        {'name': 'text', 'desc': 'Get a Storm Text object.',
+         'type': {'type': 'function', '_funcname': '_text',
+                  'args': (
+                      {'name': '*args', 'type': 'str',
+                       'desc': 'An initial set of values to place in the Text. These values are joined together with an empty string.', },
+                  ),
+                  'returns': {'type': 'storm:text', 'desc': 'The new Text object.', }}},
+        {'name': 'cast', 'desc': 'Normalize a value as a Synapse Data Model Type.',
+         'type': {'type': 'function', '_funcname': '_cast',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the model type to normalize the value as.', },
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value to normalize.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The normalized value.', }}},
+        {'name': 'warn',
+         'desc': '''
             Print a warning message to the runtime.
 
             Notes:
                 Arbitrary objects can be warned as well. They will have their Python __repr()__ printed.
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_warn',
-                'args': (
-                    {
-                        'name': 'mesg',
-                        'type': 'str',
-                        'desc': 'String to warn.',
-                    },
-                    {
-                        'name': '**kwargs',
-                        'type': 'any',
-                        'desc': 'Keyword arguments to substitute into the mesg.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'print',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': '_warn',
+                  'args': (
+                      {'name': 'mesg', 'type': 'str', 'desc': 'String to warn.', },
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'print', 'desc': '''
             Print a message to the runtime.
 
             Examples:
@@ -1208,95 +814,32 @@ class LibBase(Lib):
                 Arbitrary objects can be printed as well. They will have their Python __repr()__ printed.
 
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_print',
-                'args': (
-                    {
-                        'name': 'mesg',
-                        'type': 'str',
-                        'desc': 'String to print.',
-                    },
-                    {
-                        'name': '**kwargs',
-                        'type': 'any',
-                        'desc': 'Keyword argumetns to substitue into the mesg.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'pprint',
-            'desc': 'The pprint API should not be considered a stable interface.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_pprint',
-                'args': (
-                    {
-                        'name': 'item',
-                        'type': 'any',
-                        'desc': 'Item to pprint',
-                    },
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': 'Line prefix.',
-                        'default': '',
-                    },
-                    {
-                        'name': 'clamp',
-                        'type': 'int',
-                        'desc': 'Line clamping length.',
-                        'default': None,
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'sorted',
-            'desc': 'Yield sorted values.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_sorted',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'type': 'any',
-                        'desc': 'An iterable object to sort.',
-                    },
-                ),
-                'returns': {
-                    'name': 'Yields',
-                    'type': 'any',
-                    'desc': 'Yields the sorted output.',
-                }
-            }
-        },
-        {
-            'name': 'import',
-            'desc': 'Import a Storm Package.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_libBaseImport',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the package to import.',
-                    },
-                ),
-                'returns': {
-                    'type': 'storm:lib',
-                    'desc': 'A ``storm:lib`` instance representing the imported package.',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': '_print',
+                  'args': (
+                      {'name': 'mesg', 'type': 'str', 'desc': 'String to print.', },
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword argumetns to substitue into the mesg.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'pprint', 'desc': 'The pprint API should not be considered a stable interface.',
+         'type': {'type': 'function', '_funcname': '_pprint',
+                  'args': (
+                      {'name': 'item', 'type': 'any', 'desc': 'Item to pprint', },
+                      {'name': 'prefix', 'type': 'str', 'desc': 'Line prefix.', 'default': '', },
+                      {'name': 'clamp', 'type': 'int', 'desc': 'Line clamping length.', 'default': None, },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'sorted', 'desc': 'Yield sorted values.',
+         'type': {'type': 'function', '_funcname': '_sorted',
+                  'args': (
+                      {'name': 'valu', 'type': 'any', 'desc': 'An iterable object to sort.', },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'any', 'desc': 'Yields the sorted output.', }}},
+        {'name': 'import', 'desc': 'Import a Storm Package.',
+         'type': {'type': 'function', '_funcname': '_libBaseImport',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the package to import.', },
+                  ),
+                  'returns': {'type': 'storm:lib', 'desc': 'A ``storm:lib`` instance representing the imported package.', }}},
     )
 
     def getObjLocals(self):
@@ -1484,37 +1027,17 @@ class LibPs(Lib):
     A Storm Library for interacting with running tasks on the Cortex.
     '''
     _storm_locals = (
-        {
-            'name': 'kill',
-            'desc': 'Stop a running task on the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_kill',
-                'args': (
-                    {
-                        'name': 'prefix',
-                        'type': 'str',
-                        'desc': 'The prefix of the task to stop. Tasks will only be stopped if there is a single prefix match.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': ' True if the task was cancelled, False otherwise.',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'List tasks the current user can access.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_list',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of task definitions.',
-                }
-            }
-        },
+        {'name': 'kill', 'desc': 'Stop a running task on the Cortex.',
+         'type': {'type': 'function', '_funcname': '_kill',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': 'The prefix of the task to stop. Tasks will only be stopped if there is a single prefix match.',
+                      },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': ' True if the task was cancelled, False otherwise.', }}},
+        {'name': 'list', 'desc': 'List tasks the current user can access.',
+         'type': {'type': 'function', '_funcname': '_list',
+                  'returns': {'type': 'list', 'desc': 'A list of task definitions.', }}},
     )
     _storm_lib_path = ('ps',)
 
@@ -1555,9 +1078,7 @@ class LibStr(Lib):
     A Storm Library for interacting with strings.
     '''
     _storm_locals = (
-        {
-            'name': 'join',
-            'desc': '''
+        {'name': 'join', 'desc': '''
             Join items into a string using a separator.
 
             Examples:
@@ -1566,49 +1087,19 @@ class LibStr(Lib):
                     cli> storm $foo=$lib.str.join('.', ('rep', 'vtx', 'tag')) $lib.print($foo)
 
                     rep.vtx.tag''',
-            'type': {
-                'type': 'function',
-                '_funcname': 'join',
-                'args': (
-                    {
-                        'name': 'sepr',
-                        'type': 'str',
-                        'desc': 'The separator used to join strings with.',
-                    },
-                    {
-                        'name': 'items',
-                        'type': 'list',
-                        'desc': 'A list of items to join together.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The joined string.',
-                }
-            }
-        },
-        {
-            'name': 'concat',
-            'desc': 'Concatenate a set of strings together.',
-            'type': {
-                'type': 'function',
-                '_funcname': 'concat',
-                'args': (
-                    {
-                        'name': '*args',
-                        'type': 'any',
-                        'desc': 'Items to join together.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The joined string.',
-                }
-            }
-        },
-        {
-            'name': 'format',
-            'desc': '''
+         'type': {'type': 'function', '_funcname': 'join',
+                  'args': (
+                      {'name': 'sepr', 'type': 'str', 'desc': 'The separator used to join strings with.', },
+                      {'name': 'items', 'type': 'list', 'desc': 'A list of items to join together.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The joined string.', }}},
+        {'name': 'concat', 'desc': 'Concatenate a set of strings together.',
+         'type': {'type': 'function', '_funcname': 'concat',
+                  'args': (
+                      {'name': '*args', 'type': 'any', 'desc': 'Items to join together.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The joined string.', }}},
+        {'name': 'format', 'desc': '''
             Format a text string.
 
             Examples:
@@ -1619,27 +1110,12 @@ class LibStr(Lib):
                          $lib.print($str)
 
                     Hello Reader, your list is ['1', '2', '3', '4']!''',
-            'type': {
-                'type': 'function',
-                '_funcname': 'format',
-                'args': (
-                    {
-                        'name': 'text',
-                        'type': 'str',
-                        'desc': 'The base text string.',
-                    },
-                    {
-                        'name': '**kwargs',
-                        'type': 'any',
-                        'desc': 'Keyword values which are substituted into the string.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The new string.',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': 'format',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The base text string.', },
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword values which are substituted into the string.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The new string.', }}},
     )
     _storm_lib_path = ('str',)
 
