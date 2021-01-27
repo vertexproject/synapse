@@ -5117,3 +5117,63 @@ class CortexBasicTest(s_t_utils.SynTest):
             opts = {'mode': 'lookup'}
             retn = await proxy.count('foo.com@vertex.link', opts=opts)
             self.eq(1, retn)
+
+    async def test_tag_model(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+
+            self.len(0, await core.callStorm('return($lib.model.tags.list())'))
+
+            self.none(await core.callStorm('return($lib.model.tags.get(foo.bar))'))
+            self.none(await core.callStorm('return($lib.model.tags.pop(foo.bar, regex))'))
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes('$lib.model.tags.set(cno.cve, newp, newp)')
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.model.tags.set(cno.cve, regex, ())', opts=asvisi)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.model.tags.pop(cno.cve, regex)', opts=asvisi)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.model.tags.del(cno.cve)', opts=asvisi)
+
+            await core.nodes('''
+                $regx = ($lib.null, $lib.null, "[0-9]{4}", "[0-9]{5}")
+                $lib.model.tags.set(cno.cve, regex, $regx)
+            ''')
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345 ]')
+
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.foo ]')
+
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.hehe ]')
+
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.123456 ]')
+
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.12345 ]')
+
+            self.eq((None, None, '[0-9]{4}', '[0-9]{5}'), await core.callStorm('''
+                return($lib.model.tags.pop(cno.cve, regex))
+            '''))
+
+            self.none(await core.callStorm('return($lib.model.tags.pop(cno.cve, regex))'))
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.hehe ]')
+
+            await core.setTagModel('cno.cve', 'regex', (None, None, '[0-9]{4}', '[0-9]{5}'))
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.haha ]')
+
+            self.none(await core.callStorm('$lib.model.tags.del(cno.cve)'))
+            self.none(await core.callStorm('return($lib.model.tags.get(cno.cve))'))
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.haha ]')
