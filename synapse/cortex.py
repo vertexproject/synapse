@@ -1100,7 +1100,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
-        await self._checkLayerModels()
         await self._initCoreQueues()
 
         self.addHealthFunc(self._cortexHealth)
@@ -1173,6 +1172,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # do any post-nexus initialization here...
         if self.isactive:
             await self._checkNexsIndx()
+            await self._checkLayerModels()
         await self._initCoreMods()
         await self._initStormSvcs()
 
