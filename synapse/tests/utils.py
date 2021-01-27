@@ -87,29 +87,17 @@ class LibTst(s_stormtypes.Lib):
     LibTst for testing!
     '''
     _storm_locals = (
-        {
-            'name': 'beep',
-            'desc': '''
-            Example storm func.
+        {'name': 'beep',
+         'desc': '''
+        Example storm func.
 
-            Notes:
-                It beeps strings!''',
-            'type': {
-                'type': 'function',
-                '_funcname': 'beep',
-                'args': (
-                    {
-                        'name': 'valu',
-                        'type': 'str',
-                        'desc': 'The value to beep.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The beeped string.',
-                }
-            }
-        },
+        Notes:
+            It beeps strings!''',
+         'type': {'type': 'function', '_funcname': 'beep',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
     )
     _storm_lib_path = ('test',)
     def addLibFuncs(self):

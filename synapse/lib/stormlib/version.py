@@ -10,24 +10,12 @@ class VersionLib(s_stormtypes.Lib):
     A Storm Library for interacting with version information.
     '''
     _storm_locals = (
-        {
-            'name': 'version',
-            'desc': '''
-            The synapse version tuple for the local Cortex.
-
-            ''',
-            'type': {
-                'type': 'function',
-                '_funcname': '_getSynVersion',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'The version triple.',
-                }
-            }
-        },
-        {
-            'name': 'matches',
-            'desc': '''
+        {'name': 'version',
+         'desc': 'The synapse version tuple for the local Cortex.',
+         'type': {'type': 'function', '_funcname': '_getSynVersion',
+                  'returns': {'type': 'list', 'desc': 'The version triple.', }}},
+        {'name': 'matches',
+         'desc': '''
             Check if the given version triple meets the requirements string.
 
             Examples:
@@ -37,29 +25,13 @@ class VersionLib(s_stormtypes.Lib):
                     if $lib.version.matches($synver, ">=2.9.0") {
                         $dostuff()
                     }
-
             ''',
-            'type': {
-                'type': 'function',
-                '_funcname': 'matches',
-                'args': (
-                    {
-                        'name': 'vertup',
-                        'type': 'list',
-                        'desc': 'Triple of major, minor, and patch version integers.',
-                    },
-                    {
-                        'name': 'reqstr',
-                        'type': 'str',
-                        'desc': 'The version string to compare against.',
-                    },
-                ),
-                'returns': {
-                    'type': 'boolean',
-                    'desc': 'True if the version meets the requirements, False otherwise.',
-                }
-            }
-        },
+         'type': {'type': 'function', '_funcname': 'matches',
+                  'args': (
+                      {'name': 'vertup', 'type': 'list', 'desc': 'Triple of major, minor, and patch version integers.', },
+                      {'name': 'reqstr', 'type': 'str', 'desc': 'The version string to compare against.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the version meets the requirements, False otherwise.', }}},
     )
     _storm_lib_path = ('version',)
 

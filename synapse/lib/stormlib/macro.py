@@ -126,78 +126,28 @@ class LibMacro(s_stormtypes.Lib):
     A Storm Library for interacting with the Storm Macros in the Cortex.
     '''
     _storm_locals = (
-        {
-            'name': 'set',
-            'desc': 'Add or modify an existing Storm Macro in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_funcMacroSet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'Name of the Storm Macro to add or modify.',
-                    },
-                    {
-                        'name': 'storm',
-                        'type': ['str', 'storm:query'],
-                        'desc': 'The Storm query to add to the macro.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'get',
-            'desc': 'Get a Storm Macro definition by name from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_funcMacroGet',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the macro to get.',
-                    },
-                ),
-                'returns': {
-                    'type': 'dict',
-                    'desc': 'A macro definition.',
-                }
-            }
-        },
-        {
-            'name': 'del',
-            'desc': 'Delete a Storm Macro by name from the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_funcMacroDel',
-                'args': (
-                    {
-                        'name': 'name',
-                        'type': 'str',
-                        'desc': 'The name of the macro to delete.',
-                    },
-                ),
-                'returns': {
-                    'type': 'null',
-                }
-            }
-        },
-        {
-            'name': 'list',
-            'desc': 'Get a list of Storm Macros in the Cortex.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_funcMacroList',
-                'returns': {
-                    'type': 'list',
-                    'desc': 'A list of ``dict`` objects containing Macro definitions.',
-                }
-            }
-        },
+        {'name': 'set', 'desc': 'Add or modify an existing Storm Macro in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_funcMacroSet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the Storm Macro to add or modify.', },
+                      {'name': 'storm', 'type': ['str', 'storm:query'], 'desc': 'The Storm query to add to the macro.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get a Storm Macro definition by name from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_funcMacroGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the macro to get.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A macro definition.', }}},
+        {'name': 'del', 'desc': 'Delete a Storm Macro by name from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_funcMacroDel',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the macro to delete.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'list', 'desc': 'Get a list of Storm Macros in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_funcMacroList',
+                  'returns': {'type': 'list', 'desc': 'A list of ``dict`` objects containing Macro definitions.', }}},
     )
     _storm_lib_path = ('macro',)
 

@@ -9,44 +9,18 @@ class JsonLib(s_stormtypes.Lib):
     A Storm Library for interacting with Json data.
     '''
     _storm_locals = (
-        {
-            'name': 'load',
-            'desc': 'Parse a JSON string and return the deserialized data.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_jsonLoad',
-                'args': (
-                    {
-                        'name': 'text',
-                        'type': 'str',
-                        'desc': 'The string to be deserialized.',
-                    },
-                ),
-                'returns': {
-                    'type': 'prim',
-                    'desc': 'The JSON deserialized object.',
-                }
-            }
-        },
-        {
-            'name': 'save',
-            'desc': 'Save an object as a JSON string.',
-            'type': {
-                'type': 'function',
-                '_funcname': '_jsonSave',
-                'args': (
-                    {
-                        'name': 'item',
-                        'type': 'any',
-                        'desc': 'The item to be serialized as a JSON string.',
-                    },
-                ),
-                'returns': {
-                    'type': 'str',
-                    'desc': 'The JSON serialized object.',
-                }
-            }
-        },
+        {'name': 'load', 'desc': 'Parse a JSON string and return the deserialized data.',
+         'type': {'type': 'function', '_funcname': '_jsonLoad',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The string to be deserialized.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The JSON deserialized object.', }}},
+        {'name': 'save', 'desc': 'Save an object as a JSON string.',
+         'type': {'type': 'function', '_funcname': '_jsonSave',
+                  'args': (
+                      {'name': 'item', 'type': 'any', 'desc': 'The item to be serialized as a JSON string.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The JSON serialized object.', }}},
     )
     _storm_lib_path = ('json',)
 
