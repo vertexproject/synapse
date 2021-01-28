@@ -3563,7 +3563,6 @@ class TagPruneCmd(Cmd):
 
             async for node, path in genr:
                 for tag, parents in tags.items():
-                    print(tag, parents)
                     await node.delTag(tag)
 
                     for parent in parents:

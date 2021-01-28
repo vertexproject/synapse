@@ -1972,8 +1972,8 @@ class StormTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', 'foo')
                 await node.addTag('runtsafety')
 
-                node = await snap.addNode('test:str', 'runtsafetytwo')
-                await node.addTag('runtsafetytwo')
+                node = await snap.addNode('test:str', 'runt.safety.two')
+                await node.addTag('runt.safety.two')
 
             # Test non-runtsafe usage
             await core.nodes('test:str | tag.prune $node.value()')
@@ -1984,5 +1984,5 @@ class StormTest(s_t_utils.SynTest):
             node = (await core.nodes('test:str=foo'))[0]
             self.eq(list(node.tags.keys()), ['runtsafety'])
 
-            node = (await core.nodes('test:str=runtsafetytwo'))[0]
+            node = (await core.nodes('test:str=runt.safety.two'))[0]
             self.eq(list(node.tags.keys()), [])
