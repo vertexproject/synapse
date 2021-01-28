@@ -3556,9 +3556,12 @@ class TagPruneCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if self.runtsafe:
+            tagargs = [await s_stormtypes.tostr(t) for t in self.opts.tags]
+
             tags = {}
-            for tagarg in self.opts.tags:
-                tag = tagarg.strip('#')
+            for tag in tagargs:
+                root = tag.split('.')[0]
+                runt.layerConfirm(('node', 'tag', 'del', root))
                 tags[tag] = s_chop.tags(tag)[-2::-1]
 
             async for node, path in genr:
@@ -3574,10 +3577,18 @@ class TagPruneCmd(Cmd):
                 yield node, path
 
         else:
+            permcache = set([])
+
             async for node, path in genr:
+                tagargs = [await s_stormtypes.tostr(t) for t in self.opts.tags]
+
                 tags = {}
-                for tagarg in self.opts.tags:
-                    tag = tagarg.strip('#')
+                for tag in tagargs:
+                    root = tag.split('.')[0]
+                    if root not in permcache:
+                        runt.layerConfirm(('node', 'tag', 'del', root))
+                        permcache.add(root)
+
                     tags[tag] = s_chop.tags(tag)[-2::-1]
 
                 for tag, parents in tags.items():

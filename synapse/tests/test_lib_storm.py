@@ -1987,3 +1987,34 @@ class StormTest(s_t_utils.SynTest):
 
             node = (await core.nodes('test:str=runt.safety.two'))[0]
             self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'foo')
+                await node.addTag('runt.need.perms')
+
+                node = await snap.addNode('test:str', 'runt.safety.two')
+                await node.addTag('runt.safety.two')
+
+            # Test perms
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
+
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'test:str | tag.prune $node.value()')
+
+            await visi.addRule((True, ('node', 'tag', 'del', 'runt')))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+                await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
+
+                node = (await core.nodes('test:str=foo'))[0]
+                self.eq(list(node.tags.keys()), ['runtsafety'])
+
+                await asvisi.callStorm(f'test:str=runt.safety.two | tag.prune $node.value()')
+
+                node = (await core.nodes('test:str=runt.safety.two'))[0]
+                self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
