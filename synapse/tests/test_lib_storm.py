@@ -1681,6 +1681,31 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:str=refs <(refs)- *'))
             self.len(0, await core.nodes('test:str=* <(seen)- *'))
 
+            # Test perms
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
+            await core.nodes('test:str=test1 [ +(refs)> { test:int=7 } ]')
+            self.len(1, await core.nodes('test:str=test1 -(refs)> *'))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm('test:str=test1 | edges.del refs')
+
+                await visi.addRule((True, ('node', 'edge', 'del', 'refs')))
+
+                await asvisi.callStorm('test:str=test1 | edges.del refs')
+                self.len(0, await core.nodes('test:str=test1 -(refs)> *'))
+
+                await core.nodes('test:str=test1 [ +(refs)> { test:int=7 } ]')
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm('test:str=test1 | edges.del *')
+
+                await visi.addRule((True, ('node', 'edge', 'del')))
+
+                await asvisi.callStorm('test:str=test1 | edges.del *')
+                self.len(0, await core.nodes('test:str=test1 -(refs)> *'))
+
     async def test_storm_pushpull(self):
 
         with self.getTestDir() as dirn:
