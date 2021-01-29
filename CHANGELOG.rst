@@ -18,7 +18,7 @@ Features and Enhancements
 - Add ``synapse.lib.autodoc`` to collect some Storm documentation helpers
   into a single library.
   (`#2034 <https://github.com/vertexproject/synapse/pull/2034>`_)
-- Add ``tag.prune`` Storm command to rmeove parent tags when removing a
+- Add ``tag.prune`` Storm command to remove parent tags when removing a
   leaf tag from a node.
   (`#2062 <https://github.com/vertexproject/synapse/pull/2062>`_)
 - Update the ``msgpack`` Python dependency to version ``v1.0.2``.
