@@ -729,6 +729,26 @@ class StormTest(s_t_utils.SynTest):
                                         ('woah.beep', 'note'): 'oh my',
                                         })
 
+            # Test perms
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'movetag woah perm')
+
+                await visi.addRule((True, ('node', 'tag', 'del', 'woah')))
+
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'movetag woah perm')
+
+                await visi.addRule((True, ('node', 'tag', 'add', 'perm')))
+
+                await asvisi.callStorm(f'movetag woah perm')
+
+            self.len(0, await core.nodes('#woah'))
+            self.len(1, await core.nodes('#perm'))
+
         # Sad path
         async with self.getTestCore() as core:
             # Test moving a tag to itself

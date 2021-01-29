@@ -2419,6 +2419,11 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
+        newparts = (await s_stormtypes.tostr(self.opts.newtag)).split('.')
+
+        runt.layerConfirm(('node', 'tag', 'del', *oldparts))
+        runt.layerConfirm(('node', 'tag', 'add', *newparts))
+
         newt = await snap.addNode('syn:tag', self.opts.newtag)
         newstr = newt.ndef[1]
 
