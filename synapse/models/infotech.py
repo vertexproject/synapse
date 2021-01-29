@@ -989,6 +989,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Contact info for the author of the yara rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+                    ('enabled', ('bool', {}), {
+                        'doc': 'The rule enabled status to be used for yara evaluation engines.'}),
                 )),
 
                 ('it:app:yara:match', {}, (

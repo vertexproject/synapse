@@ -2224,6 +2224,17 @@ class Layer(s_nexus.Pusher):
             yield verb, s_common.ehex(n1buid)
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):
+        '''
+        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
+
+        Args:
+            form (str):  A form name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
         try:
             indxby = IndxByForm(self, form)
 
@@ -2234,6 +2245,18 @@ class Layer(s_nexus.Pusher):
             yield item
 
     async def iterPropRows(self, form, prop, stortype=None, startvalu=None):
+        '''
+        Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalu.
+
+        Args:
+            form (str):  A form name.
+            prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
+        '''
         try:
             indxby = IndxByProp(self, form, prop)
 
@@ -2245,8 +2268,15 @@ class Layer(s_nexus.Pusher):
 
     async def iterUnivRows(self, prop, stortype=None, startvalu=None):
         '''
+        Yields buid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalu.
+
         Args:
-            startvalu (Any): The value to start at.  May only be not None if stortype is not None.
+            prop (str):  A universal property name.
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
+
+        Returns:
+            AsyncIterator[Tuple(buid, valu)]
         '''
         try:
             indxby = IndxByProp(self, None, prop)
@@ -2259,10 +2289,12 @@ class Layer(s_nexus.Pusher):
 
     async def iterTagRows(self, tag, form=None, starttupl=None):
         '''
+        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+
         Args:
-            tag(str): the tag to match
-            form(Optional[str]):  if present, only yields buids of nodes that match the form
-            starttupl(Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there
+            tag (str): the tag to match
+            form (Optional[str]):  if present, only yields buids of nodes that match the form.
+            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
 
         Returns:
             AsyncIterator[Tuple(buid, (valu, form))]
@@ -2307,10 +2339,14 @@ class Layer(s_nexus.Pusher):
 
     async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''
-        Yields (buid, valu) that match a tag:prop
+        Yields (buid, valu) that match a tag:prop, optionally (re)starting at startvalu.
 
         Args:
-            form:  may be None
+            tag (str):  tag name
+            prop (str):  prop name
+            form (Optional[str]):  optional form name
+            stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
+            startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
             AsyncIterator[Tuple(buid, valu)]
@@ -2664,26 +2700,27 @@ class Layer(s_nexus.Pusher):
         Yield (offs, (buid, form, ETYPE, VALS, META)) tuples from the nodeedit log starting from the given offset.
         Only edits that match the filter in matchdef will be yielded.
 
-        ETYPE is an constant EDIT_* above.  VALS is a tuple whose format depends on ETYPE, outlined in the comment
-        next to the constant.  META is a dict that may contain keys 'user' and 'time' to represent the iden of the user
-        that initiated the change, and the time that it took place, respectively.
+        Notes:
 
-        Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
+            ETYPE is an constant EDIT_* above.  VALS is a tuple whose format depends on ETYPE, outlined in the comment
+            next to the constant.  META is a dict that may contain keys 'user' and 'time' to represent the iden of the
+            user that initiated the change, and the time that it took place, respectively.
 
-        Args:
-            offs(int): starting nexus/editlog offset
-            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
-            wait(bool):  whether to pend and stream value until this layer is fini'd
+            Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
 
-        The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a sequence
-        of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
+            The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a
+            sequence of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
             forms: EDIT_NODE_ADD and EDIT_NODE_DEL events.  Matches events for nodes with forms in the value list.
             props: EDIT_PROP_SET and EDIT_PROP_DEL events.  Values must be in form:prop or .universal form
             tags:  EDIT_TAG_SET and EDIT_TAG_DEL events.  Values must be the raw tag with no #.
             tagprops: EDIT_TAGPROP_SET and EDIT_TAGPROP_DEL events.   Values must be just the prop or tag:prop.
 
-        Note:
             Will not yield any values if this layer was not created with logedits enabled
+
+        Args:
+            offs(int): starting nexus/editlog offset
+            matchdef(Dict[str, Sequence[str]]):  a dict describing which events are yielded
+            wait(bool):  whether to pend and stream value until this layer is fini'd
         '''
 
         formm = set(matchdef.get('forms', ()))

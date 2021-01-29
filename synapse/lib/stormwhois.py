@@ -9,7 +9,20 @@ class LibWhois(s_stormtypes.Lib):
     '''
     A Storm Library for providing a consistent way to generate guids for WHOIS / Registration Data in Storm.
     '''
+    _storm_locals = (
+        {'name': 'guid',
+         'desc': '''
+        Provides standard patterns for creating guids for certain inet:whois forms.
 
+        Raises:
+            StormRuntimeError: If form is not supported in this method.''',
+         'type': {'type': 'function', '_funcname': '_whoisGuid',
+                  'args': (
+                      {'name': 'props', 'type': 'dict', 'desc': 'Dictionary of properties used to create the form.', },
+                      {'name': 'form', 'type': 'str', 'desc': 'The ``inet:whois`` form to create the guid for.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'A guid for creating a the node for.', }}},
+    )
     _storm_lib_path = ('inet', 'whois')
 
     def getObjLocals(self):
@@ -18,19 +31,6 @@ class LibWhois(s_stormtypes.Lib):
          }
 
     async def _whoisGuid(self, props, form):
-        '''
-        Provides standard patterns for creating guids for certain inet:whois forms.
-
-        Args:
-            props (dict): Dictionary of properties used to create the form
-            form (str): The inet:whois form to create the guid for
-
-        Returns:
-            (str): A guid from synapse.common
-
-        Raises:
-            StormRuntimeError: If form is not supported in this method
-        '''
         form = await s_stormtypes.tostr(form)
         props = await s_stormtypes.toprim(props)
         if form == 'iprec':

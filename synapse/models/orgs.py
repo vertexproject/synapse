@@ -22,6 +22,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The five or six digit North American Industry Classification System code.',
                     'ex': '541715',
                 }),
+                ('ou:isic', ('str', {'regex': r'^[A-Z]([0-9]{2}[0-9]{0,2})?$'}), {
+                    'doc': 'An International Standard Industrial Classification of All Economic Activities (ISIC) code.',
+                    'ex': 'C1393',
+                }),
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit.',
                 }),
@@ -54,7 +58,8 @@ class OuModule(s_module.CoreModule):
                     'ex': 'acme corporation',
                 }),
                 ('ou:member', ('comp', {'fields': (('org', 'ou:org'), ('person', 'ps:person'))}), {
-                    'doc': 'A person who is (or was) a member of an organization.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:position.',
                 }),
                 ('ou:position', ('guid', {}), {
                     'doc': 'A position within an org.  May be organized into an org chart.',
@@ -261,7 +266,7 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'The North American Industry Classification System code for the organization.',
                     }),
-                    ('industries', ('array', {'type': 'ou:industry'}), {
+                    ('industries', ('array', {'type': 'ou:industry', 'uniq': True}), {
                         'doc': 'The industries associated with the org.',
                     }),
                     ('us:cage', ('gov:us:cage', {}), {
@@ -342,6 +347,8 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of SIC codes that map to the industry.'}),
                     ('naics', ('array', {'type': 'ou:naics', 'uniq': True, 'split': ','}), {
                         'doc': 'An array of NAICS codes that map to the industry.'}),
+                    ('isic', ('array', {'type': 'ou:isic', 'uniq': True, 'split': ','}), {
+                        'doc': 'An array of ISIC codes that map to the industry.'}),
                 )),
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
@@ -619,6 +626,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A description of the contest.',
                         'ex': 'the capture-the-flag event hosted at defcon 2020',
                         'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The contest website URL.'
                     }),
                     ('start', ('time', {}), {
                         'doc': 'The contest start date / time.',

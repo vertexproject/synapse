@@ -38,6 +38,14 @@ class StormHttpTest(s_test.SynTest):
             data = resp.get('result')
             self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
 
+            # headers
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp.headers."Content-Type" )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            self.eq(resp, 'application/json; charset=UTF-8')
+
             # params as a urlencoded string
             q = '''
             $params="foo=bar&key=valu&foo=baz"

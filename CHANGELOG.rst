@@ -5,6 +5,28 @@ Synapse Changelog
 *****************
 
 
+v2.23.0 - 2020-01-21
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for ndef based light edge definitions in the ``syn.nodes``
+  feed API.
+  (`#2051 <https://github.com/vertexproject/synapse/pull/2051>`_)
+  (`#2053 <https://github.com/vertexproject/synapse/pull/2053>`_)
+- Add ISIC codes to the ``ou:industry`` form.
+  (`#2054 <https://github.com/vertexproject/synapse/pull/2054>`_)
+  (`#2055 <https://github.com/vertexproject/synapse/pull/2055>`_)
+- Add secondary properties ``:loc``, ``:latlong``, and ``:place`` to the
+  ``inet:web:action`` and ``inet:web:logon`` forms.
+  (`#2052 <https://github.com/vertexproject/synapse/pull/2052>`_)
+- Add secondary property ``:enabled`` to the form ``it:app:yara:rule``.
+  (`#2052 <https://github.com/vertexproject/synapse/pull/2052>`_)
+- Deprecate the ``file:string`` and ``ou:member`` forms, in favor of
+  using light edges for storing those relationships.
+  (`#2052 <https://github.com/vertexproject/synapse/pull/2052>`_)
+
+
 v2.22.0 - 2020-01-19
 ====================
 
@@ -251,7 +273,7 @@ Bugfixes
 --------
 - Properly handle whitespace in keyword arguments when calling functions in
   Storm.
-  (`#1999 <https://github.com/vertexproject/synapse/pull/1997>`_)
+  (`#1997 <https://github.com/vertexproject/synapse/pull/1997>`_)
 - Fix some garbage collection issues causing periodic pauses in a Cortex due
   to failing to close some generators used in the Storm Command AST node.
   (`#2001 <https://github.com/vertexproject/synapse/pull/2001>`_)
@@ -886,7 +908,7 @@ Features and Enhancements
   (`#1844 <https://github.com/vertexproject/synapse/pull/1844>`_)
 - Add support for Cron name and doc fields to be editable.
   (`#1848 <https://github.com/vertexproject/synapse/pull/1848>`_)
-- Add support for Runtime-only (``runt``) nodes in the PivotOut operation (``-> * ``).
+- Add support for Runtime-only (``runt``) nodes in the PivotOut operation (``-> *``).
   (`#1851 <https://github.com/vertexproject/synapse/pull/1851>`_)
 - Add ``:nicks`` and ``:names`` secondary properties to ``ps:person`` and ``ps:persona`` types.
   (`#1852 <https://github.com/vertexproject/synapse/pull/1852>`_)

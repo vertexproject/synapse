@@ -1071,29 +1071,22 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('adminkey is sekrit', mesgs)
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
-                    # Storing a valu into the hive that can't be msgpacked fails
-                    q = '[test:str=test] $lib.user.vars.set(mynode, $node)'
-                    mesgs = await s_test.alist(prox.storm(q))
-                    err = "can not serialize 'Node'"
-                    errs = [m for m in mesgs if m[0] == 'err']
-                    self.len(1, errs)
-                    self.isin(err, errs[0][1][1].get('mesg'))
+                    # Storing a valu into the hive gets toprim()'d
+                    q = '[test:str=test] $lib.user.vars.set(mynode, $node) return($lib.user.vars.get(mynode))'
+                    data = await prox.callStorm(q)
+                    self.eq(data, 'test')
 
                     # Sad path - names must be strings.
                     q = '$lib.globals.set((my, nested, valu), haha)'
-                    mesgs = await s_test.alist(prox.storm(q))
+                    mesgs = await prox.storm(q).list()
                     err = 'The name of a persistent variable must be a string.'
-                    errs = [m for m in mesgs if m[0] == 'err']
-                    self.len(1, errs)
-                    self.eq(errs[0][1][1].get('mesg'), err)
+                    self.stormIsInErr(err, mesgs)
 
                     # Sad path - names must be strings.
                     q = '$lib.globals.set((my, nested, valu), haha)'
-                    mesgs = await s_test.alist(prox.storm(q))
+                    mesgs = await prox.storm(q).list()
                     err = 'The name of a persistent variable must be a string.'
-                    errs = [m for m in mesgs if m[0] == 'err']
-                    self.len(1, errs)
-                    self.eq(errs[0][1][1].get('mesg'), err)
+                    self.stormIsInErr(err, mesgs)
 
                 async with core.getLocalProxy() as uprox:
                     self.true(await uprox.setCellUser(iden1))
@@ -1200,14 +1193,14 @@ class StormTypesTest(s_test.SynTest):
                 async with core.getLocalProxy() as uprox:
                     self.true(await uprox.setCellUser(iden1))
 
-                    mesgs = await s_test.alist(uprox.storm(listq))
+                    mesgs = await uprox.storm(listq).list()
                     self.len(1, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('somekey is hehe', mesgs)
 
                     q = '''$valu=$lib.globals.get(userkey)
                     $lib.print($valu)
                     '''
-                    mesgs = await s_test.alist(uprox.storm(q))
+                    mesgs = await uprox.storm(q).list()
                     self.stormIsInPrint('lessThanSekrit', mesgs)
 
                     # The StormHiveDict is safe when computing things
@@ -1215,7 +1208,8 @@ class StormTypesTest(s_test.SynTest):
                     $lib.user.vars.set(someint, $node.value())
                     [test:str=$lib.user.vars.get(someint)]
                     '''
-                    podes = await s_test.alist(uprox.eval(q))
+                    mesgs = await uprox.storm(q).list()
+                    podes = [m[1] for m in mesgs if m[0] == 'node']
                     self.len(2, podes)
                     self.eq({('test:str', '1234'), ('test:int', 1234)},
                             {pode[0] for pode in podes})
@@ -1374,6 +1368,9 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Storm queue list:', msgs)
             self.stormIsInPrint('visi', msgs)
 
+            name = await core.callStorm('$q = $lib.queue.get(visi) return ($q.name)')
+            self.eq(name, 'visi')
+
             nodes = await core.nodes('$q = $lib.queue.get(visi) [ inet:ipv4=1.2.3.4 ] $q.put( $node.repr() )')
             nodes = await core.nodes('$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4')
             self.len(1, nodes)
@@ -1483,6 +1480,7 @@ class StormTypesTest(s_test.SynTest):
                     await core.nodes('$lib.queue.get(synq)')
 
                 await core.callStorm('$lib.queue.gen(poptest).puts((foo, bar, baz))')
+                self.eq('poptest', await core.callStorm('return($lib.queue.get(poptest).name)'))
                 self.eq((0, 'foo'), await core.callStorm('return($lib.queue.get(poptest).pop(0))'))
                 self.eq((1, 'bar'), await core.callStorm('return($lib.queue.get(poptest).pop(1))'))
                 self.eq((2, 'baz'), await core.callStorm('return($lib.queue.get(poptest).pop(2))'))
@@ -3026,6 +3024,8 @@ class StormTypesTest(s_test.SynTest):
 
             self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
             self.nn(await core.callStorm('return($lib.auth.users.byname(visi))'))
+
+            self.eq(await core.callStorm('return($lib.auth.roles.byname(all).name)'), 'all')
 
             self.none(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}}))
             self.none(await core.callStorm('return($lib.auth.roles.get($iden))', opts={'vars': {'iden': 'newp'}}))

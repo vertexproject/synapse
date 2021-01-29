@@ -84,6 +84,17 @@ class OuModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 111)
             self.raises(s_exc.BadTypeValu, t.norm, 10000)
 
+            # ou:isic
+            t = core.model.type('ou:isic')
+            self.eq('C', t.norm('C')[0])
+            self.eq('C13', t.norm('C13')[0])
+            self.eq('C139', t.norm('C139')[0])
+            self.eq('C1393', t.norm('C1393')[0])
+            self.raises(s_exc.BadTypeValu, t.norm, 'C1')
+            self.raises(s_exc.BadTypeValu, t.norm, 'C12345')
+            self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            self.raises(s_exc.BadTypeValu, t.norm, 1000000)
+
             # ou:alias
             t = core.model.type('ou:alias')
             self.raises(s_exc.BadTypeValu, t.norm, 'asdf.asdf.asfd')
@@ -411,6 +422,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :family="defcon ctf"
                     :start=20200808
                     :end=20200811
+                    :url=http://vertex.link/contest
 
                     :loc=us.nv.lasvegas
                     :place=*
@@ -430,6 +442,8 @@ class OuModelTest(s_t_utils.SynTest):
 
             self.eq(1596844800000, nodes[0].get('start'))
             self.eq(1597104000000, nodes[0].get('end'))
+
+            self.eq('http://vertex.link/contest', nodes[0].get('url'))
 
             self.eq((20, 30), nodes[0].get('latlong'))
             self.eq('us.nv.lasvegas', nodes[0].get('loc'))
@@ -452,6 +466,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(20, nodes[0].get('score'))
             self.len(1, await core.nodes('ou:contest:result -> ps:contact'))
             self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
+
+            opts = {'vars': {'ind': s_common.guid()}}
+            nodes = await core.nodes('[ ou:org=* :industries=($ind, $ind) ]', opts=opts)
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('industries'))
 
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
@@ -534,11 +553,12 @@ class OuModelTest(s_t_utils.SynTest):
     async def test_ou_industry(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ou:industry=* :name=" Foo Bar " :subs=(*, *) :naics=(11111,22222) :sic="1234,5678" ]')
+            nodes = await core.nodes('[ ou:industry=* :name=" Foo Bar " :subs=(*, *) :naics=(11111,22222) :sic="1234,5678" :isic=C1393 ]')
             self.len(1, nodes)
             self.eq('foo bar', nodes[0].get('name'))
             self.sorteq(('1234', '5678'), nodes[0].get('sic'))
             self.sorteq(('11111', '22222'), nodes[0].get('naics'))
+            self.sorteq(('C1393', ), nodes[0].get('isic'))
             self.len(2, nodes[0].get('subs'))
 
             nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')

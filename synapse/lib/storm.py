@@ -11,6 +11,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
+import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
@@ -2418,6 +2419,11 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
+        newparts = (await s_stormtypes.tostr(self.opts.newtag)).split('.')
+
+        runt.layerConfirm(('node', 'tag', 'del', *oldparts))
+        runt.layerConfirm(('node', 'tag', 'add', *newparts))
+
         newt = await snap.addNode('syn:tag', self.opts.newtag)
         newstr = newt.ndef[1]
 
@@ -3507,4 +3513,96 @@ class EdgesDelCmd(Cmd):
                     verb = None
 
                 await self.delEdges(node, verb, n2)
+                yield node, path
+
+class TagPruneCmd(Cmd):
+    '''
+    Prune a tag (or tags) from nodes.
+
+    This command will delete the tags specified as parameters from incoming nodes,
+    as well as all of their parent tags that don't have other tags as children.
+
+    For example, given a node with the tags:
+
+        #parent
+        #parent.child
+        #parent.child.grandchild
+
+    Pruning the parent.child.grandchild tag would remove all tags. If the node had
+    the tags:
+
+        #parent
+        #parent.child
+        #parent.child.step
+        #parent.child.grandchild
+
+    Pruning the parent.child.grandchild tag will only remove the parent.child.grandchild
+    tag as the parent tags still have other children.
+
+    Examples:
+
+        # Prune the parent.child.grandchild tag
+        inet:ipv4=1.2.3.4 | tag.prune parent.child.grandchild
+    '''
+    name = 'tag.prune'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('tags', default=[], nargs='*', help='Names of tags to prune.')
+        return pars
+
+    def hasChildTags(self, node, tag):
+        pref = tag + '.'
+        for ntag in node.tags:
+            if ntag.startswith(pref):
+                return True
+        return False
+
+    async def execStormCmd(self, runt, genr):
+
+        if self.runtsafe:
+            tagargs = [await s_stormtypes.tostr(t) for t in self.opts.tags]
+
+            tags = {}
+            for tag in tagargs:
+                root = tag.split('.')[0]
+                runt.layerConfirm(('node', 'tag', 'del', root))
+                tags[tag] = s_chop.tags(tag)[-2::-1]
+
+            async for node, path in genr:
+                for tag, parents in tags.items():
+                    await node.delTag(tag)
+
+                    for parent in parents:
+                        if not self.hasChildTags(node, parent):
+                            await node.delTag(parent)
+                        else:
+                            break
+
+                yield node, path
+
+        else:
+            permcache = set([])
+
+            async for node, path in genr:
+                tagargs = [await s_stormtypes.tostr(t) for t in self.opts.tags]
+
+                tags = {}
+                for tag in tagargs:
+                    root = tag.split('.')[0]
+                    if root not in permcache:
+                        runt.layerConfirm(('node', 'tag', 'del', root))
+                        permcache.add(root)
+
+                    tags[tag] = s_chop.tags(tag)[-2::-1]
+
+                for tag, parents in tags.items():
+                    await node.delTag(tag)
+
+                    for parent in parents:
+                        if not self.hasChildTags(node, parent):
+                            await node.delTag(parent)
+                        else:
+                            break
+
                 yield node, path
