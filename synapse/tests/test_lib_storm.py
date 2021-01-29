@@ -1864,3 +1864,157 @@ class StormTest(s_t_utils.SynTest):
                 layr.logedits = False
                 with self.raises(s_exc.BadArg):
                     await layr.waitEditOffs(200)
+
+    async def test_storm_tagprune(self):
+
+        async with self.getTestCore() as core:
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'foo')
+                await node.addTag('parent.child.grandchild')
+
+                node = await snap.addNode('test:str', 'bar')
+                await node.addTag('parent.childtag')
+                await node.addTag('parent.child.step')
+                await node.addTag('parent.child.grandchild')
+
+                node = await snap.addNode('test:str', 'baz')
+                await node.addTag('parent.child.step')
+                await node.addTag('parent.child.step.two')
+                await node.addTag('parent.child.step.three')
+
+            # Won't do anything but should work
+            nodes = await core.nodes('test:str | tag.prune')
+            self.len(3, nodes)
+
+            node = (await core.nodes('test:str=foo'))[0]
+            exp = [
+                'parent',
+                'parent.child',
+                'parent.child.grandchild'
+            ]
+            self.eq(list(node.tags.keys()), exp)
+
+            node = (await core.nodes('test:str=bar'))[0]
+            exp = [
+                'parent',
+                'parent.childtag',
+                'parent.child',
+                'parent.child.step',
+                'parent.child.grandchild'
+            ]
+            self.eq(list(node.tags.keys()), exp)
+
+            node = (await core.nodes('test:str=baz'))[0]
+            exp = [
+                'parent',
+                'parent.child',
+                'parent.child.step',
+                'parent.child.step.two',
+                'parent.child.step.three'
+            ]
+            self.eq(list(node.tags.keys()), exp)
+
+            await core.nodes('test:str | tag.prune parent.child.grandchild')
+
+            # Should remove all tags
+            node = (await core.nodes('test:str=foo'))[0]
+            self.eq(list(node.tags.keys()), [])
+
+            # Should only remove parent.child.grandchild
+            node = (await core.nodes('test:str=bar'))[0]
+            exp = ['parent', 'parent.childtag', 'parent.child', 'parent.child.step']
+            self.eq(list(node.tags.keys()), exp)
+
+            await core.nodes('test:str | tag.prune parent.child.step')
+
+            # Should only remove parent.child.step and parent.child
+            node = (await core.nodes('test:str=bar'))[0]
+            self.eq(list(node.tags.keys()), ['parent', 'parent.childtag'])
+
+            # Should remove all tags
+            node = (await core.nodes('test:str=baz'))[0]
+            self.eq(list(node.tags.keys()), [])
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'foo')
+                await node.addTag('tag.tree.one')
+                await node.addTag('tag.tree.two')
+                await node.addTag('another.tag.tree')
+
+                node = await snap.addNode('test:str', 'baz')
+                await node.addTag('tag.tree.one')
+                await node.addTag('tag.tree.two')
+                await node.addTag('another.tag.tree')
+                await node.addTag('more.tags.to.remove')
+                await node.addTag('tag.that.stays')
+
+            # Remove multiple tags
+            tags = '''
+                tag.tree.one
+                tag.tree.two
+                another.tag.tree
+                more.tags.to.remove
+            '''
+            await core.nodes(f'test:str | tag.prune {tags}')
+
+            node = (await core.nodes('test:str=foo'))[0]
+            self.eq(list(node.tags.keys()), [])
+
+            node = (await core.nodes('test:str=baz'))[0]
+            exp = ['tag', 'tag.that', 'tag.that.stays']
+            self.eq(list(node.tags.keys()), exp)
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'runtsafety')
+                await node.addTag('runtsafety')
+
+                node = await snap.addNode('test:str', 'foo')
+                await node.addTag('runtsafety')
+
+                node = await snap.addNode('test:str', 'runt.safety.two')
+                await node.addTag('runt.safety.two')
+                await node.addTag('runt.child')
+
+            # Test non-runtsafe usage
+            await core.nodes('test:str | tag.prune $node.value()')
+
+            node = (await core.nodes('test:str=runtsafety'))[0]
+            self.eq(list(node.tags.keys()), [])
+
+            node = (await core.nodes('test:str=foo'))[0]
+            self.eq(list(node.tags.keys()), ['runtsafety'])
+
+            node = (await core.nodes('test:str=runt.safety.two'))[0]
+            self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'foo')
+                await node.addTag('runt.need.perms')
+
+                node = await snap.addNode('test:str', 'runt.safety.two')
+                await node.addTag('runt.safety.two')
+
+            # Test perms
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
+
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'test:str | tag.prune $node.value()')
+
+            await visi.addRule((True, ('node', 'tag', 'del', 'runt')))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+                await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
+
+                node = (await core.nodes('test:str=foo'))[0]
+                self.eq(list(node.tags.keys()), ['runtsafety'])
+
+                await asvisi.callStorm(f'test:str=runt.safety.two | tag.prune $node.value()')
+
+                node = (await core.nodes('test:str=runt.safety.two'))[0]
+                self.eq(list(node.tags.keys()), ['runt', 'runt.child'])

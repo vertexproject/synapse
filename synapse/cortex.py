@@ -2675,6 +2675,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.EdgesDelCmd)
         self.addStormCmd(s_storm.ParallelCmd)
+        self.addStormCmd(s_storm.TagPruneCmd)
         self.addStormCmd(s_storm.ViewExecCmd)
         self.addStormCmd(s_storm.BackgroundCmd)
         self.addStormCmd(s_storm.SpliceListCmd)
