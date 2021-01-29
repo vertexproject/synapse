@@ -585,6 +585,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'An AHA client certificate CN to register as a local admin user.',
             'type': 'string',
         },
+        'aha:svcinfo': {
+            'description': 'An AHA svcinfo object. This overrides self discovered information.',
+            'default': None,
+            'type': 'object',
+            'properties': {
+                'urlinfo': {
+                    'type': 'object',
+                    'properties': {
+                        'host': {'type': 'string'},
+                        'port': {'type': 'integer'},
+                        'schema': {'type': 'string'}
+                    },
+                    'required': ('host', 'port', 'scheme', )
+                }
+            },
+            'required': ('urlinfo', ),
+        }
     }
 
     BACKUP_SPAWN_TIMEOUT = 4.0
@@ -808,6 +825,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sockaddr = None
 
         turl = self.conf.get('dmon:listen')
+        logger.info(f'{turl=}')
+        logger.info(f'{self.conf.asDict()}')
         if turl is not None:
             self.sockaddr = await self.dmon.listen(turl)
             logger.info(f'dmon listening: {turl}')
@@ -832,7 +851,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahalead = self.conf.get('aha:leader')
         ahanetw = self.conf.get('aha:network')
 
+        logger.error(f'{self.conf.asDict()}')
         ahainfo = self.conf.get('aha:svcinfo')
+        logger.error(f'{ahainfo}')
         if ahainfo is None and turl is not None:
 
             urlinfo = s_telepath.chopurl(turl)

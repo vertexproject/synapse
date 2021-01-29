@@ -185,6 +185,9 @@ class AhaCell(s_cell.Cell):
         full = ('aha', 'svcfull', svcfull)
         path = ('aha', 'services', svcnetw, svcname)
 
+        unfo = info.get('urlinfo')
+        logger.debug(f'Adding service [{svcfull}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]')
+
         svcinfo = {
             'name': svcfull,
             'svcname': svcname,
