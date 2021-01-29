@@ -194,24 +194,24 @@ class FileModule(s_module.CoreModule):
                             'doc': 'A mime specific arbitrary data structure for non-indexed data.',
                         }),
                     ),
+                    'doc': 'Properties common to mime specific file metadata types.',
                 }),
-                ('file:mime:olefile', {
+                ('file:mime:msoffice', {
                     'props': (
-                        ('ole:title', ('str', {}), {
+                        ('msoffice:title', ('str', {}), {
                             'doc': 'The title extracted from OLE metadata.'}),
-                        ('ole:author', ('str', {}), {
+                        ('msoffice:author', ('str', {}), {
                             'doc': 'The author extracted from OLE metadata.'}),
-                        ('ole:subject', ('str', {}), {
+                        ('msoffice:subject', ('str', {}), {
                             'doc': 'The subject extracted from OLE metadata.'}),
-                        ('ole:application', ('str', {}), {
+                        ('msoffice:application', ('str', {}), {
                             'doc': 'The creating_application extracted from OLE metadata.'}),
-                        ('ole:created', ('time', {}), {
+                        ('msoffice:created', ('time', {}), {
                             'doc': 'The create_time extracted from OLE metadata.'}),
-                        ('ole:lastsaved', ('time', {}), {
+                        ('msoffice:lastsaved', ('time', {}), {
                             'doc': 'The last_saved_time extracted from OLE metadata.'}),
-                        ('ole:streams', ('array', {'type': 'file:mime:ole:stream'}), {
-                            'doc': 'An array of streams extracted from the OLE file.'}),
                     ),
+                    'doc': 'Properties common to various microsoft office file formats.',
                     # yo dawg...
                     'interfaces': ('file:mime:meta',),
                 }),
@@ -236,27 +236,24 @@ class FileModule(s_module.CoreModule):
                     'doc': 'Records one, of potentially multiple, mime types for a given file.',
                 }),
 
-                ('file:mime:ole:stream', ('comp', {'fields': (('path', 'file:path'), ('sha256', 'hash:sha256'))}), {
-                    'doc': 'A named stream contained within an OLE file or document zip file.',
-                }),
-
                 ('file:mime:msdoc', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a Microsoft Word file.',
-                    'interfaces': ('file:mime:olefile',),
+                    'interfaces': ('file:mime:msoffice',),
                 }),
 
                 ('file:mime:msxls', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a Microsoft Excel file.',
-                    'interfaces': ('file:mime:olefile',),
+                    'interfaces': ('file:mime:msoffice',),
                 }),
 
                 ('file:mime:msppt', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a Microsoft Powerpoint file.',
-                    'interfaces': ('file:mime:olefile',),
+                    'interfaces': ('file:mime:msoffice',),
                 }),
 
                 ('file:mime:rtf', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a .rtf file.',
+                    'interfaces': ('file:mime:meta',),
                 }),
 
                 ('file:mime:pe:section', ('comp', {'fields': (
@@ -370,18 +367,9 @@ class FileModule(s_module.CoreModule):
                     }),
                 )),
 
-                ('file:mime:msdoc', {}, (
-                )),
-
-                ('file:mime:msxls', {}, (
-                    ('sheets', ('array', {'type': 'str'}), {
-                        'doc': 'An array of worksheet names extracted from the file.'}),
-                )),
-
-                ('file:mime:msppt', {}, (
-                    ('slidecount', ('int', {}), {
-                        'doc': 'An array of worksheet names extracted from the file.'}),
-                )),
+                ('file:mime:msdoc', {}, ()),
+                ('file:mime:msxls', {}, ()),
+                ('file:mime:msppt', {}, ()),
 
                 ('file:mime:rtf', {}, (
                     ('guid', ('guid', {}), {
