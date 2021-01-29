@@ -73,7 +73,7 @@ _url_re = regex.compile(r'^(?P<front>.+?://.+?:)[^/]+?(?=@)')
 
 def sanitizeUrl(url):
     '''
-    Returns a URL with the password (if present) replaced with ****
+    Returns a URL with the password (if present) replaced with ``****``
 
     RFC 3986 3.2.1 'Applications should not render as clear text any data after the first colon (":") character found
     within a userinfo subcomponent unless the data after the colon is the empty string (indicating no password)'

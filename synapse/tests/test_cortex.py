@@ -11,7 +11,9 @@ import synapse.cortex as s_cortex
 
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
+import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
 import synapse.tools.backup as s_tools_backup
@@ -1729,6 +1731,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             for field in ('version', 'modeldef', 'stormcmds'):
                 self.isin(field, coreinfo)
 
+            coreinfo = await prox.getCoreInfoV2()
+
+            for field in ('version', 'modeldict', 'stormdocs'):
+                self.isin(field, coreinfo)
+
             layers = list(core.listLayers())
             self.len(1, layers)
             lyr = layers[0]
@@ -3024,11 +3031,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             await node1.setData('foo', 'bar')
             pack = node1.pack()
             pack[1]['nodedata']['foo'] = 'bar'
+            pack[1]['edges'] = (('refs', ('inet:ipv4', '1.2.3.4')),
+                                ('newp', ('test:newp', 'newp')))
             podes.append(pack)
 
             node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
             pack = node2.pack()
-            pack[1]['edges'] = [(node1.iden(), {'verb': 'refs'})]
+            pack[1]['edges'] = (('refs', node1.iden()), )
             podes.append(pack)
 
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
@@ -3038,6 +3047,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core1.addFeedData('syn.nodes', podes)
             await self.agenlen(3, core1.eval('test:int'))
+            self.len(1, await core1.nodes('test:int=1 -(refs)> inet:ipv4 +inet:ipv4=1.2.3.4'))
+            self.len(0, await core1.nodes('test:int=1 -(newp)> *'))
 
             node1 = (await core1.nodes('test:int=1'))[0]
             self.eq('bar', await node1.getData('foo'))
@@ -5029,3 +5040,233 @@ class CortexBasicTest(s_t_utils.SynTest):
             layr = core.getView().layers[0].iden
             visi = await core.auth.addUser('visi')
             visi.confirm(('layer', 'read'), gateiden=layr)
+
+    async def test_cortex_export(self):
+
+        async with self.getTestCore() as core:
+
+            await core.auth.rootuser.setPasswd('secret')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            altview = await core.callStorm('$layr = $lib.layer.add() return($lib.view.add(layers=($layr.iden,)).iden)')
+
+            await core.nodes('[ inet:email=visi@vertex.link +#visi.woot +#foo.bar ]')
+            await core.nodes('[ inet:fqdn=hehe.com ]')
+            await core.nodes('[ media:news=* :title="Vertex Project Winning" +(refs)> { inet:email=visi@vertex.link inet:fqdn=hehe.com } ]')
+
+            async with core.getLocalProxy() as proxy:
+
+                opts = {'scrub': {'include': {'tags': ('visi',)}}}
+                podes = [p async for p in proxy.exportStorm('media:news inet:email', opts=opts)]
+
+                self.len(2, podes)
+                news = [p for p in podes if p[0][0] == 'media:news'][0]
+                email = [p for p in podes if p[0][0] == 'inet:email'][0]
+
+                self.nn(email[1]['tags']['visi'])
+                self.nn(email[1]['tags']['visi.woot'])
+                self.none(email[1]['tags'].get('foo'))
+                self.none(email[1]['tags'].get('foo.bar'))
+                self.len(1, news[1]['edges'])
+                self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
+
+                # concat the bytes and add back to the axon
+                byts = b''.join(s_msgpack.en(p) for p in podes)
+                size, sha256b = await core.axon.put(byts)
+                sha256 = s_common.ehex(sha256b)
+
+                opts = {'view': altview, 'vars': {'sha256': sha256}}
+                self.eq(2, await proxy.callStorm('return($lib.feed.fromAxon($sha256))', opts=opts))
+                self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
+                self.eq(2, await proxy.feedFromAxon(sha256))
+
+            async with self.getHttpSess(port=port, auth=('root', 'secret')) as sess:
+                body = {
+                    'query': 'media:news inet:email',
+                    'opts': {'scrub': {'include': {'tags': ('visi',)}}},
+                }
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)
+                byts = await resp.read()
+
+                podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
+
+                news = [p for p in podes if p[0][0] == 'media:news'][0]
+                email = [p for p in podes if p[0][0] == 'inet:email'][0]
+
+                self.nn(email[1]['tags']['visi'])
+                self.nn(email[1]['tags']['visi.woot'])
+                self.none(email[1]['tags'].get('foo'))
+                self.none(email[1]['tags'].get('foo.bar'))
+                self.len(1, news[1]['edges'])
+                self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
+
+                body = {'query': 'inet:ipv4=asdfasdf'}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)
+                retval = await resp.json()
+                self.eq('err', retval['status'])
+                self.eq('BadTypeValu', retval['code'])
+
+            async def boom(*args, **kwargs):
+                for x in (): yield x
+                raise s_exc.BadArg()
+
+            core.axon.iterMpkFile = boom
+            with self.raises(s_exc.BadArg):
+                await core.feedFromAxon(s_common.ehex(sha256b))
+
+    async def test_cortex_lookup_mode(self):
+        async with self.getTestCoreAndProxy() as (_core, proxy):
+            retn = await proxy.count('[inet:email=foo.com@vertex.link]')
+            self.eq(1, retn)
+
+            opts = {'mode': 'lookup'}
+            retn = await proxy.count('foo.com@vertex.link', opts=opts)
+            self.eq(1, retn)
+
+    async def test_tag_model(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+
+            self.len(0, await core.callStorm('return($lib.model.tags.list())'))
+
+            self.none(await core.callStorm('return($lib.model.tags.get(foo.bar))'))
+            self.none(await core.callStorm('return($lib.model.tags.pop(foo.bar, regex))'))
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes('$lib.model.tags.set(cno.cve, newp, newp)')
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.model.tags.set(cno.cve, regex, ())', opts=asvisi)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.model.tags.pop(cno.cve, regex)', opts=asvisi)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.model.tags.del(cno.cve)', opts=asvisi)
+
+            await core.nodes('''
+                $regx = ($lib.null, $lib.null, "[0-9]{4}", "[0-9]{5}")
+                $lib.model.tags.set(cno.cve, regex, $regx)
+            ''')
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345 ]')
+
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.foo ]')
+
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.hehe ]')
+
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.123456 ]')
+
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.12345 ]')
+
+            self.eq((None, None, '[0-9]{4}', '[0-9]{5}'), await core.callStorm('''
+                return($lib.model.tags.pop(cno.cve, regex))
+            '''))
+
+            self.none(await core.callStorm('return($lib.model.tags.pop(cno.cve, regex))'))
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.hehe ]')
+
+            await core.setTagModel('cno.cve', 'regex', (None, None, '[0-9]{4}', '[0-9]{5}'))
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.haha ]')
+
+            self.none(await core.callStorm('$lib.model.tags.del(cno.cve)'))
+            self.none(await core.callStorm('return($lib.model.tags.get(cno.cve))'))
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.haha ]')
+
+    async def test_cortex_iterrows(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+            await core.addTagProp('score', ('int', {}), {})
+
+            async with await core.snap() as snap:
+
+                props = {'asn': 10, '.seen': ('2016', '2017')}
+                node = await snap.addNode('inet:ipv4', 1, props=props)
+                buid1 = node.buid
+                await node.addTag('foo', ('2020', '2021'))
+                await node.setTagProp('foo', 'score', 42)
+
+                props = {'asn': 20, '.seen': ('2015', '2016')}
+                node = await snap.addNode('inet:ipv4', 2, props=props)
+                buid2 = node.buid
+                await node.addTag('foo', ("2019", "2020"))
+                await node.setTagProp('foo', 'score', 41)
+
+                props = {'asn': 30, '.seen': ('2015', '2016')}
+                node = await snap.addNode('inet:ipv4', 3, props=props)
+                buid3 = node.buid
+                await node.addTag('foo', ("2018", "2020"))
+                await node.setTagProp('foo', 'score', 99)
+
+                node = await snap.addNode('test:str', 'yolo')
+
+                node = await snap.addNode('test:str', 'z' * 500)
+
+            badiden = 'xxx'
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterPropRows(badiden, 'inet:ipv4', 'asn'))
+
+            # rows are (buid, valu) tuples
+            layriden = core.view.layers[0].iden
+            rows = await alist(prox.iterPropRows(layriden, 'inet:ipv4', 'asn'))
+
+            self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
+
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterUnivRows(badiden, '.seen'))
+
+            # rows are (buid, valu) tuples
+            rows = await alist(prox.iterUnivRows(layriden, '.seen'))
+
+            tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
+            ivals = (tm('2015', '2016'), tm('2015', '2016'), tm('2016', '2017'))
+            self.eq(ivals, tuple(sorted([row[1] for row in rows])))
+
+            # iterFormRows
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterFormRows(badiden, 'inet:ipv4'))
+
+            rows = await alist(prox.iterFormRows(layriden, 'inet:ipv4'))
+            self.eq([(buid1, 1), (buid2, 2), (buid3, 3)], rows)
+
+            # iterTagRows
+            expect = sorted(
+                [
+                    (buid1, (tm('2020', '2021'), 'inet:ipv4')),
+                    (buid2, (tm('2019', '2020'), 'inet:ipv4')),
+                    (buid3, (tm('2018', '2020'), 'inet:ipv4')),
+                ], key=lambda x: x[0])
+
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform',
+                                                                      starttupl=(expect[1][0], 'newpform')))
+            rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
+            self.eq([], rows)
+
+            rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4'))
+            self.eq(expect, rows)
+
+            rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4', starttupl=(expect[1][0],
+                                                'inet:ipv4')))
+            self.eq(expect[1:], rows)
+
+            expect = [
+                (buid2, 41,),
+                (buid1, 42,),
+                (buid3, 99,),
+            ]
+
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagPropRows(badiden, 'foo', 'score', form='inet:ipv4',
+                                                                          stortype=s_layer.STOR_TYPE_I64,
+                                                                          startvalu=42))
+
+            rows = await alist(prox.iterTagPropRows(layriden, 'foo', 'score', form='inet:ipv4',
+                                                    stortype=s_layer.STOR_TYPE_I64, startvalu=42))
+            self.eq(expect[1:], rows)

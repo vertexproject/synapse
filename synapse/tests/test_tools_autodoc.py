@@ -114,12 +114,12 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('.. _stormlibs-lib-print:\n\n$lib.print(mesg, \\*\\*kwargs)\n============================',
                       libtext)
             self.isin('Print a message to the runtime.', libtext)
-            self.isin('\\*\\*kwargs: Keyword arguments to substitute into the mesg.', libtext)
+            self.isin('\\*\\*kwargs (any): Keyword arguments to substitute into the mesg.', libtext)
             self.isin('.. _stormlibs-lib-time:\n\n*********\n$lib.time\n*********', libtext)
             self.isin('A Storm Library for interacting with timestamps.', libtext)
 
             with s_common.genfile(path, 'stormtypes_prims.rst') as fd:
                 primbuf = fd.read()
             primstext = primbuf.decode()
-            self.isin('.. _stormprims-User:\n\n****\nUser\n****', primstext)
-            self.isin('User.iden\n=========\n\nConstant representing the user iden.', primstext)
+            self.isin('.. _stormprims-storm-auth-user:\n\n*****************\nstorm\\:auth\\:user\n*****************', primstext)
+            self.isin('iden\n====\n\nThe User iden.', primstext)

@@ -12,6 +12,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.hiveauth as s_hiveauth
 
 logger = logging.getLogger(__name__)
@@ -88,12 +89,15 @@ class HandlerBase:
         return self.loadJsonMesg(self.request.body)
 
     def sendRestErr(self, code, mesg):
+        self.set_header('Content-Type', 'application/json')
         return self.write({'status': 'err', 'code': code, 'mesg': mesg})
 
     def sendRestExc(self, e):
+        self.set_header('Content-Type', 'application/json')
         return self.sendRestErr(e.__class__.__name__, str(e))
 
     def sendRestRetn(self, valu):
+        self.set_header('Content-Type', 'application/json')
         return self.write({'status': 'ok', 'result': valu})
 
     def loadJsonMesg(self, byts):
@@ -383,6 +387,32 @@ class StormCallV1(Handler):
             return self.sendRestErr(e.__class__.__name__, mesg)
         else:
             return self.sendRestRetn(ret)
+
+class StormExportV1(Handler):
+
+    async def post(self):
+        return await self.get()
+
+    async def get(self):
+
+        user, body = await self.getUserBody()
+        if body is s_common.novalu: # pragma: no cover
+            return
+
+        # dont allow a user to be specified
+        opts = body.get('opts')
+        query = body.get('query')
+
+        # Maintain backwards compatibility with 0.1.x output
+        opts = await self._reqValidOpts(opts)
+
+        try:
+            self.set_header('Content-Type', 'application/x-synapse-nodes')
+            async for pode in self.cell.exportStorm(query, opts=opts):
+                self.write(s_msgpack.en(pode))
+
+        except Exception as e:
+            return self.sendRestExc(e)
 
 class ReqValidStormV1(Handler):
 
@@ -909,3 +939,16 @@ class OnePassIssueV1(Handler):
         await self.cell.auth.setUserInfo(useriden, 'onepass', onepass)
 
         return self.sendRestRetn(passwd)
+
+class CoreInfoV1(Handler):
+    '''
+    /api/v1/core/info
+    '''
+
+    async def get(self):
+
+        if not await self.reqAuthUser():
+            return
+
+        resp = await self.cell.getCoreInfoV2()
+        return self.sendRestRetn(resp)

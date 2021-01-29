@@ -5,6 +5,73 @@ Synapse Changelog
 *****************
 
 
+v2.23.0 - 2020-01-21
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for ndef based light edge definitions in the ``syn.nodes``
+  feed API.
+  (`#2051 <https://github.com/vertexproject/synapse/pull/2051>`_)
+  (`#2053 <https://github.com/vertexproject/synapse/pull/2053>`_)
+- Add ISIC codes to the ``ou:industry`` form.
+  (`#2054 <https://github.com/vertexproject/synapse/pull/2054>`_)
+  (`#2055 <https://github.com/vertexproject/synapse/pull/2055>`_)
+- Add secondary properties ``:loc``, ``:latlong``, and ``:place`` to the
+  ``inet:web:action`` and ``inet:web:logon`` forms.
+  (`#2052 <https://github.com/vertexproject/synapse/pull/2052>`_)
+- Add secondary property ``:enabled`` to the form ``it:app:yara:rule``.
+  (`#2052 <https://github.com/vertexproject/synapse/pull/2052>`_)
+- Deprecate the ``file:string`` and ``ou:member`` forms, in favor of
+  using light edges for storing those relationships.
+  (`#2052 <https://github.com/vertexproject/synapse/pull/2052>`_)
+
+
+v2.22.0 - 2020-01-19
+====================
+
+Features and Enhancements
+-------------------------
+- Allow expression statments to be used in Storm filters.
+  (`#2041 <https://github.com/vertexproject/synapse/pull/2041>`_)
+- Add ``file:subfile:path`` secondary property to record the path a file was
+  stored in a parent file. The corresponding ``file:subfile:name`` property is
+  marked as deprecated.
+  (`#2043 <https://github.com/vertexproject/synapse/pull/2043>`_)
+- Make the Axon ``wget()`` timeout a configurable parameter.
+  (`#2047 <https://github.com/vertexproject/synapse/pull/2047>`_)
+- Add a ``Cortex.exportStorm()`` on the Cortex which allows for exporting
+  nodes from a Storm query which can be directly ingested with the
+  ``syn.nodes`` feed function. If the data is serialized using msgpack and
+  stored in a Axon, it can be added to a Cortex with the new
+  ``Cortex.feedFromAxon()`` API. A new HTTP API, ``/api/v1/storm/export``,
+  can be used to get a msgpacked file using this export interface.
+  (`#2045 <https://github.com/vertexproject/synapse/pull/2045>`_)
+
+Bugfixes
+--------
+- Fix issues in the Layer push and pull loop code.
+  (`#2044 <https://github.com/vertexproject/synapse/pull/2044>`_)
+  (`#2048 <https://github.com/vertexproject/synapse/pull/2048>`_)
+- Add missing ``toprim()`` and ``tostr()`` calls for the Stormtypes Whois
+  guid generation helpers.
+  (`#2046 <https://github.com/vertexproject/synapse/pull/2046>`_)
+- Fix behavior in the Storm lookup mode which failed to lookup some expected
+  results.
+  (`#2049 <https://github.com/vertexproject/synapse/pull/2049>`_)
+- Fix ``$lib.pkg.get()`` return value when the package is not present.
+  (`#2050 <https://github.com/vertexproject/synapse/pull/2050>`_)
+
+
+v2.21.1 - 2021-01-04
+====================
+
+Bugfixes
+--------
+- Fix a variable scoping issue causing a race condition.
+  (`#2042 <https://github.com/vertexproject/synapse/pull/2042>`_)
+
+
 v2.21.0 - 2020-12-31
 ====================
 
@@ -206,7 +273,7 @@ Bugfixes
 --------
 - Properly handle whitespace in keyword arguments when calling functions in
   Storm.
-  (`#1999 <https://github.com/vertexproject/synapse/pull/1997>`_)
+  (`#1997 <https://github.com/vertexproject/synapse/pull/1997>`_)
 - Fix some garbage collection issues causing periodic pauses in a Cortex due
   to failing to close some generators used in the Storm Command AST node.
   (`#2001 <https://github.com/vertexproject/synapse/pull/2001>`_)
@@ -841,7 +908,7 @@ Features and Enhancements
   (`#1844 <https://github.com/vertexproject/synapse/pull/1844>`_)
 - Add support for Cron name and doc fields to be editable.
   (`#1848 <https://github.com/vertexproject/synapse/pull/1848>`_)
-- Add support for Runtime-only (``runt``) nodes in the PivotOut operation (``-> * ``).
+- Add support for Runtime-only (``runt``) nodes in the PivotOut operation (``-> *``).
   (`#1851 <https://github.com/vertexproject/synapse/pull/1851>`_)
 - Add ``:nicks`` and ``:names`` secondary properties to ``ps:person`` and ``ps:persona`` types.
   (`#1852 <https://github.com/vertexproject/synapse/pull/1852>`_)

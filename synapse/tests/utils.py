@@ -83,7 +83,23 @@ def norm(z):
     return z
 
 class LibTst(s_stormtypes.Lib):
+    '''
+    LibTst for testing!
+    '''
+    _storm_locals = (
+        {'name': 'beep',
+         'desc': '''
+        Example storm func.
 
+        Notes:
+            It beeps strings!''',
+         'type': {'type': 'function', '_funcname': 'beep',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
+    )
+    _storm_lib_path = ('test',)
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
@@ -1659,7 +1675,7 @@ class SynTest(unittest.TestCase):
 
         Args:
             obj (object): Object being inspected. This is validated to be a
-            tuple of length two, contiaing a str or None as the first value,
+            tuple of length two, containing a str or None as the first value,
             and a dict as the second value.
 
         Notes:

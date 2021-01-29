@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -211,6 +212,14 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
             self.stormIsInWarn('HTTP code 404', msgs)
 
+            # test request timeout
+            async def timeout(self):
+                await asyncio.sleep(2)
+
+            with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
+                msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/active --timeout 1')
+                self.stormIsInWarn('TimeoutError', msgs)
+
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
             resp = await core.callStorm(wget, opts=opts)
             self.true(resp['ok'])
@@ -240,6 +249,8 @@ class StormTest(s_t_utils.SynTest):
             pkg0 = {'name': 'hehe', 'version': '1.2.3'}
             await core.addStormPkg(pkg0)
             self.eq('1.2.3', await core.callStorm('return($lib.pkg.get(hehe).version)'))
+
+            self.eq(None, await core.callStorm('return($lib.pkg.get(nopkg))'))
 
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
@@ -1707,10 +1718,18 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
-                offs = await core.layers.get(layr2).getEditOffs()
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await core.layers.get(layr2).waitEditOffs(offs + 1, timeout=3)
-                self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
+
+                # wait for first write so we can get the correct offset
+                await core.layers.get(layr2).waitEditOffs(0, timeout=3)
+                offs = await core.layers.get(layr2).getEditOffs()
+
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.layers.get(layr2).waitEditOffs(offs + 10, timeout=3)
+
+                self.len(3, await core.nodes('ps:contact', opts={'view': view1}))
+                self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
 
                 # remove and ensure no replay on restart
                 await core.nodes('ps:contact | delnode', opts={'view': view2})
@@ -1723,10 +1742,12 @@ class StormTest(s_t_utils.SynTest):
 
                 offs = await core.layers.get(layr2).getEditOffs()
                 await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await core.layers.get(layr2).waitEditOffs(offs + 1, timeout=3)
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.layers.get(layr2).waitEditOffs(offs + 6, timeout=3)
 
                 # confirm we dont replay and get the old one back...
-                self.len(1, await core.nodes('ps:contact', opts={'view': view2}))
+                self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
 
                 actv = len(core.activecoros)
                 # remove all pushes / pulls
@@ -1773,7 +1794,7 @@ class StormTest(s_t_utils.SynTest):
 
                 # Wait for the active coros to die
                 for task in [t for t in tasks if t is not None]:
-                    await s_coro.waittask(task, timeout=5)
+                    self.true(await s_coro.waittask(task, timeout=5))
 
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(0, [t for t in tasks if t.get('name').startswith('layer pull:')])
@@ -1843,3 +1864,157 @@ class StormTest(s_t_utils.SynTest):
                 layr.logedits = False
                 with self.raises(s_exc.BadArg):
                     await layr.waitEditOffs(200)
+
+    async def test_storm_tagprune(self):
+
+        async with self.getTestCore() as core:
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'foo')
+                await node.addTag('parent.child.grandchild')
+
+                node = await snap.addNode('test:str', 'bar')
+                await node.addTag('parent.childtag')
+                await node.addTag('parent.child.step')
+                await node.addTag('parent.child.grandchild')
+
+                node = await snap.addNode('test:str', 'baz')
+                await node.addTag('parent.child.step')
+                await node.addTag('parent.child.step.two')
+                await node.addTag('parent.child.step.three')
+
+            # Won't do anything but should work
+            nodes = await core.nodes('test:str | tag.prune')
+            self.len(3, nodes)
+
+            node = (await core.nodes('test:str=foo'))[0]
+            exp = [
+                'parent',
+                'parent.child',
+                'parent.child.grandchild'
+            ]
+            self.eq(list(node.tags.keys()), exp)
+
+            node = (await core.nodes('test:str=bar'))[0]
+            exp = [
+                'parent',
+                'parent.childtag',
+                'parent.child',
+                'parent.child.step',
+                'parent.child.grandchild'
+            ]
+            self.eq(list(node.tags.keys()), exp)
+
+            node = (await core.nodes('test:str=baz'))[0]
+            exp = [
+                'parent',
+                'parent.child',
+                'parent.child.step',
+                'parent.child.step.two',
+                'parent.child.step.three'
+            ]
+            self.eq(list(node.tags.keys()), exp)
+
+            await core.nodes('test:str | tag.prune parent.child.grandchild')
+
+            # Should remove all tags
+            node = (await core.nodes('test:str=foo'))[0]
+            self.eq(list(node.tags.keys()), [])
+
+            # Should only remove parent.child.grandchild
+            node = (await core.nodes('test:str=bar'))[0]
+            exp = ['parent', 'parent.childtag', 'parent.child', 'parent.child.step']
+            self.eq(list(node.tags.keys()), exp)
+
+            await core.nodes('test:str | tag.prune parent.child.step')
+
+            # Should only remove parent.child.step and parent.child
+            node = (await core.nodes('test:str=bar'))[0]
+            self.eq(list(node.tags.keys()), ['parent', 'parent.childtag'])
+
+            # Should remove all tags
+            node = (await core.nodes('test:str=baz'))[0]
+            self.eq(list(node.tags.keys()), [])
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'foo')
+                await node.addTag('tag.tree.one')
+                await node.addTag('tag.tree.two')
+                await node.addTag('another.tag.tree')
+
+                node = await snap.addNode('test:str', 'baz')
+                await node.addTag('tag.tree.one')
+                await node.addTag('tag.tree.two')
+                await node.addTag('another.tag.tree')
+                await node.addTag('more.tags.to.remove')
+                await node.addTag('tag.that.stays')
+
+            # Remove multiple tags
+            tags = '''
+                tag.tree.one
+                tag.tree.two
+                another.tag.tree
+                more.tags.to.remove
+            '''
+            await core.nodes(f'test:str | tag.prune {tags}')
+
+            node = (await core.nodes('test:str=foo'))[0]
+            self.eq(list(node.tags.keys()), [])
+
+            node = (await core.nodes('test:str=baz'))[0]
+            exp = ['tag', 'tag.that', 'tag.that.stays']
+            self.eq(list(node.tags.keys()), exp)
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'runtsafety')
+                await node.addTag('runtsafety')
+
+                node = await snap.addNode('test:str', 'foo')
+                await node.addTag('runtsafety')
+
+                node = await snap.addNode('test:str', 'runt.safety.two')
+                await node.addTag('runt.safety.two')
+                await node.addTag('runt.child')
+
+            # Test non-runtsafe usage
+            await core.nodes('test:str | tag.prune $node.value()')
+
+            node = (await core.nodes('test:str=runtsafety'))[0]
+            self.eq(list(node.tags.keys()), [])
+
+            node = (await core.nodes('test:str=foo'))[0]
+            self.eq(list(node.tags.keys()), ['runtsafety'])
+
+            node = (await core.nodes('test:str=runt.safety.two'))[0]
+            self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'foo')
+                await node.addTag('runt.need.perms')
+
+                node = await snap.addNode('test:str', 'runt.safety.two')
+                await node.addTag('runt.safety.two')
+
+            # Test perms
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
+
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'test:str | tag.prune $node.value()')
+
+            await visi.addRule((True, ('node', 'tag', 'del', 'runt')))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+                await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
+
+                node = (await core.nodes('test:str=foo'))[0]
+                self.eq(list(node.tags.keys()), ['runtsafety'])
+
+                await asvisi.callStorm(f'test:str=runt.safety.two | tag.prune $node.value()')
+
+                node = (await core.nodes('test:str=runt.safety.two'))[0]
+                self.eq(list(node.tags.keys()), ['runt', 'runt.child'])

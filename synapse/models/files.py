@@ -291,7 +291,8 @@ class FileModule(s_module.CoreModule):
                 ('file:string', ('comp', {'fields': (
                         ('file', 'file:bytes'),
                         ('string', 'str'))}), {
-                    'doc': 'The fused knowledge of a file:bytes node containing a string.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use the edge -(refs)> it:dev:str.',
                 }),
 
                 ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
@@ -503,10 +504,12 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The child file contained in the parent file.',
                     }),
                     ('name', ('file:base', {}), {
-                        'doc': 'The name of the child file. Because a given set of bytes '
-                               'can have any number of arbitrary names, this field is '
-                               'used for display purposes only.'
-                    })
+                        'deprecated': True,
+                        'doc': 'Deprecated, please use the :path property.',
+                    }),
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path that the parent uses to refer to the child file.',
+                    }),
                 )),
 
                 ('file:path', {}, (

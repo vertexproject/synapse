@@ -326,10 +326,6 @@ class CoreSpawnTest(s_test.SynTest):
                 self.len(1, new_idens)
                 await prox.kill(new_idens[0])
 
-                # Ensure that opts were passed into the task data without spawn: True set
-                task = [task for task in tasks if task.get('iden') == new_idens[0]][0]
-                self.none(task.get('info').get('opts').get('spawn'))
-
                 # Ensure the task cancellation tore down the spawnproc
                 self.true(await victimproc.waitfini(6))
 

@@ -14,6 +14,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.storm as s_storm
 import synapse.lib.config as s_config
 import synapse.lib.output as s_output
+import synapse.lib.autodoc as s_autodoc
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
@@ -33,14 +34,6 @@ info_ignores = (
 
 raw_back_slash_colon = r'\:'
 
-# TODO Ensure this is consistent with other documentation.
-rstlvls = [
-    ('#', {'over': True}),
-    ('*', {'over': True}),
-    ('=', {}),
-    ('-', {}),
-    ('^', {}),
-]
 
 class DocHelp:
     '''
@@ -80,38 +73,6 @@ class DocHelp:
             else:  # pragma: no cover
                 logger.warning(f'No ctor/type available for [{formname}]')
 
-class RstHelp:
-
-    def __init__(self):
-        self.lines = []
-
-    def addHead(self, name, lvl=0, link=None):
-        char, info = rstlvls[lvl]
-        under = char * len(name)
-
-        lines = []
-
-        lines.append('')
-
-        if link:
-            lines.append('')
-            lines.append(link)
-            lines.append('')
-
-        if info.get('over'):
-            lines.append(under)
-
-        lines.append(name)
-        lines.append(under)
-        lines.append('')
-
-        self.addLines(*lines)
-
-    def addLines(self, *lines):
-        self.lines.extend(lines)
-
-    def getRstText(self):
-        return '\n'.join(self.lines)
 
 def processCtors(rst, dochelp, ctors):
     '''
@@ -259,6 +220,7 @@ def processTypes(rst, dochelp, types):
                     json_lines = json.dumps(valu, indent=1, sort_keys=True)
                     json_lines = ['   ' + line for line in json_lines.split('\n')]
                     lines.extend(json_lines)
+                    lines.append('\n')
                     rst.addLines(*lines)
                 else:
                     rst.addLines(f' * {key}: ``{valu}``')
@@ -439,13 +401,13 @@ async def docModel(outp,
         if not node:  # pramga: no cover
             raise s_exc.SynErr(mesg='Unable to make a node from example.', form=form, example=example)
 
-    rst = RstHelp()
+    rst = s_autodoc.RstHelp()
     rst.addHead('Synapse Data Model - Types', lvl=0)
 
     processCtors(rst, dochelp, ctors)
     processTypes(rst, dochelp, types)
 
-    rst2 = RstHelp()
+    rst2 = s_autodoc.RstHelp()
     rst2.addHead('Synapse Data Model - Forms', lvl=0)
 
     processFormsProps(rst2, dochelp, forms, univ_names)
@@ -459,7 +421,7 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
     if not hasattr(cls, 'confdefs'):
         raise Exception('ctor must have a confdefs attr')
 
-    rst = RstHelp()
+    rst = s_autodoc.RstHelp()
 
     clsname = cls.__name__
     conf = cls.initCellConf()  # type: s_config.Config
@@ -554,7 +516,7 @@ async def docStormsvc(ctor):
     async with await cellapi.anit(s_common.novalu, DummyLink(), s_common.novalu) as obj:
         svcinfo = await obj.getStormSvcInfo()
 
-    rst = RstHelp()
+    rst = s_autodoc.RstHelp()
 
     # Disable default python highlighting
     rst.addLines('.. highlight:: none\n')
@@ -646,182 +608,36 @@ async def docStormsvc(ctor):
 
     return rst, clsname
 
-def ljuster(ilines):
-    '''Helper to lstrip lines of whitespace an appropriate amount.'''
-    baseline = ilines[0]
-    assert baseline != ''
-    newbaseline = baseline.lstrip()
-    assert newbaseline != ''
-    diff = len(baseline) - len(newbaseline)
-    assert diff >= 0
-    newlines = [line[diff:] for line in ilines]
-    return newlines
+async def docStormTypes():
+    registry = s_stormtypes.registry
 
-def scrubLines(lines):
-    '''Remove any empty lines until we encounter non-empty linee'''
-    newlines = []
-    for line in lines:
-        if line == '' and not newlines:
-            continue
-        newlines.append(line)
+    libsinfo = registry.getLibDocs()
 
-    return newlines
+    libspage = s_autodoc.RstHelp()
 
-def getDoc(obj, errstr):
-    '''Helper to get __doc__'''
-    doc = getattr(obj, '__doc__')
-    if doc is None:
-        doc = f'No doc for {errstr}'
-        logger.warning(doc)
-    return doc
-
-def cleanArgsRst(doc):
-    '''Clean up args strings to be RST friendly.'''
-    replaces = (('*args', '\\*args'),
-                ('*vals', '\\*vals'),
-                ('**info', '\\*\\*info'),
-                ('**kwargs', '\\*\\*kwargs'),
-                )
-    for (new, old) in replaces:
-        doc = doc.replace(new, old)
-    return doc
-
-def getCallsig(func):
-    '''Get the callsig of a function, stripping self if present.'''
-    callsig = inspect.signature(func)
-    params = list(callsig.parameters.values())
-    if params and params[0].name == 'self':
-        callsig = callsig.replace(parameters=params[1:])
-    return callsig
-
-def prepareRstLines(doc, cleanargs=False):
-    '''Prepare a __doc__ string for RST lines.'''
-    if cleanargs:
-        doc = cleanArgsRst(doc)
-    lines = doc.split('\n')
-    lines = scrubLines(lines)
-    lines = ljuster(lines)
-    return lines
-
-def docStormLibs(libs):
-    page = RstHelp()
-
-    page.addHead('Storm Libraries', lvl=0, link='.. _stormtypes-libs-header:')
+    libspage.addHead('Storm Libraries', lvl=0, link='.. _stormtypes-libs-header:')
 
     lines = (
         '',
         'Storm Libraries represent powerful tools available inside of the Storm query language.',
         ''
     )
-    page.addLines(*lines)
+    libspage.addLines(*lines)
 
-    basepath = 'lib'
+    s_autodoc.docStormTypes(libspage, libsinfo, linkprefix='stormlibs', islib=True)
 
-    for (path, lib) in libs:
-        libpath = '.'.join((basepath,) + path)
-        fulllibpath = f'${libpath}'
+    priminfo = registry.getTypeDocs()
+    typespage = s_autodoc.RstHelp()
 
-        liblink = f'.. _stormlibs-{libpath.replace(".", "-")}:'
-        page.addHead(fulllibpath, lvl=1, link=liblink)
-
-        libdoc = getDoc(lib, fulllibpath)
-        lines = prepareRstLines(libdoc)
-
-        page.addLines(*lines)
-
-        for (name, locl) in sorted(list(lib.getObjLocals(lib).items())):  # python trick
-
-            loclpath = '.'.join((libpath, name))
-            locldoc = getDoc(locl, loclpath)
-
-            loclfullpath = f'${loclpath}'
-            header = loclfullpath
-            link = f'.. _stormlibs-{loclpath.replace(".", "-")}:'
-            lines = None
-
-            if callable(locl):
-                lines = prepareRstLines(locldoc, cleanargs=True)
-                callsig = getCallsig(locl)
-                header = f'{header}{callsig}'
-                header = header.replace('*', r'\*')
-
-            elif isinstance(locl, property):
-                lines = prepareRstLines(locldoc)
-
-            else:  # pragma: no cover
-                logger.warning(f'Unknown constant found: {loclfullpath} -> {locl}')
-
-            if lines:
-                page.addHead(header, lvl=2, link=link)
-                page.addLines(*lines)
-
-    return page
-
-def docStormPrims(types):
-    page = RstHelp()
-
-    page.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
+    typespage.addHead('Storm Types', lvl=0, link='.. _stormtypes-prim-header:')
 
     lines = (
         '',
         'Storm Objects are used as view objects for manipulating data in the Storm Runtime and in the Cortex itself.'
         ''
     )
-    page.addLines(*lines)
-
-    for (sname, styp) in types:
-
-        typelink = f'.. _stormprims-{sname}:'
-        page.addHead(sname, lvl=1, link=typelink)
-
-        typedoc = getDoc(styp, sname)
-        lines = prepareRstLines(typedoc)
-
-        page.addLines(*lines)
-
-        locls = styp.getObjLocals(styp)
-
-        for (name, locl) in sorted(list(locls.items())):
-
-            loclname = '.'.join((sname, name))
-            locldoc = getDoc(locl, loclname)
-
-            header = loclname
-            link = f'.. _stormprims-{loclname.replace(".", "-")}:'
-            lines = None
-
-            if callable(locl):
-
-                lines = prepareRstLines(locldoc, cleanargs=True)
-
-                callsig = getCallsig(locl)
-
-                header = f'{loclname}{callsig}'
-                header = header.replace('*', r'\*')
-
-            elif isinstance(locl, property):
-
-                lines = prepareRstLines(locldoc)
-
-            else:  # pragma: no cover
-                logger.warning(f'Unknown constant found: {loclname} -> {locl}')
-
-            if lines:
-                page.addHead(header, lvl=2, link=link)
-                page.addLines(*lines)
-
-    return page
-
-async def docStormTypes():
-    registry = s_stormtypes.registry
-    libs = registry.iterLibs()
-    types = registry.iterTypes()
-
-    libs.sort(key=lambda x: x[0])
-    types.sort(key=lambda x: x[0])
-
-    libspage = docStormLibs(libs)  # type: RstHelp
-    typespage = docStormPrims(types)  # type: RstHelp
+    typespage.addLines(*lines)
+    s_autodoc.docStormTypes(typespage, priminfo, linkprefix='stormprims')
 
     return libspage, typespage
 
