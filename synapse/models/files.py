@@ -199,17 +199,17 @@ class FileModule(s_module.CoreModule):
                 ('file:mime:msoffice', {
                     'props': (
                         ('msoffice:title', ('str', {}), {
-                            'doc': 'The title extracted from OLE metadata.'}),
+                            'doc': 'The title extracted from Microsoft Office metadata.'}),
                         ('msoffice:author', ('str', {}), {
-                            'doc': 'The author extracted from OLE metadata.'}),
+                            'doc': 'The author extracted from Microsoft Office metadata.'}),
                         ('msoffice:subject', ('str', {}), {
-                            'doc': 'The subject extracted from OLE metadata.'}),
+                            'doc': 'The subject extracted from Microsoft Office metadata.'}),
                         ('msoffice:application', ('str', {}), {
-                            'doc': 'The creating_application extracted from OLE metadata.'}),
+                            'doc': 'The creating_application extracted from Microsoft Office metadata.'}),
                         ('msoffice:created', ('time', {}), {
-                            'doc': 'The create_time extracted from OLE metadata.'}),
+                            'doc': 'The create_time extracted from Microsoft Office metadata.'}),
                         ('msoffice:lastsaved', ('time', {}), {
-                            'doc': 'The last_saved_time extracted from OLE metadata.'}),
+                            'doc': 'The last_saved_time extracted from Microsoft Office metadata.'}),
                     ),
                     'doc': 'Properties common to various microsoft office file formats.',
                     # yo dawg...
