@@ -5,6 +5,49 @@ Synapse Changelog
 *****************
 
 
+v2.24.0 - 2020-01-29
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for storing model metadata for tags and support for enforcing
+  tag trees using regular expressions.
+  (`#2056 <https://github.com/vertexproject/synapse/pull/2056>`_)
+- Add ``ou:contest:url`` secondary property.
+  (`#2059 <https://github.com/vertexproject/synapse/pull/2059>`_)
+- Add ``synapse.lib.autodoc`` to collect some Storm documentation helpers
+  into a single library.
+  (`#2034 <https://github.com/vertexproject/synapse/pull/2034>`_)
+- Add ``tag.prune`` Storm command to remove parent tags when removing a
+  leaf tag from a node.
+  (`#2062 <https://github.com/vertexproject/synapse/pull/2062>`_)
+- Update the ``msgpack`` Python dependency to version ``v1.0.2``.
+  (`#1735 <https://github.com/vertexproject/synapse/pull/1735>`_)
+- Add logs to Cell backup routines.
+  (`#2060 <https://github.com/vertexproject/synapse/pull/2060>`_)
+- Export the Layer iterrows APIs to the CoreApi.
+  (`#2061 <https://github.com/vertexproject/synapse/pull/2061>`_)
+
+Bugfixes
+--------
+- Do not connect to Aha servers when they are not needed.
+  (`#2058 <https://github.com/vertexproject/synapse/pull/2058>`_)
+- Make the array property ``ou:org:industries`` a unique array property.
+  (`#2059 <https://github.com/vertexproject/synapse/pull/2059>`_)
+- Add permission checks to the Storm ``movetag`` command.
+  (`#2063 <https://github.com/vertexproject/synapse/pull/2063>`_)
+- Add permissions checks to the Storm ``edges.del`` command.
+  (`#2064 <https://github.com/vertexproject/synapse/pull/2064>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for the ``synapse.tools.genpkg`` utility, for loading
+  Storm packages into a Cortex.
+  (`#2057 <https://github.com/vertexproject/synapse/pull/2057>`_)
+- Refactor the Stormtypes documentation generation to make it data driven.
+  (`#2034 <https://github.com/vertexproject/synapse/pull/2034>`_)
+
+
 v2.23.0 - 2020-01-21
 ====================
 
