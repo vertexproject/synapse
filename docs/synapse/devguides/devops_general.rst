@@ -102,6 +102,7 @@ generate a certificate signing request (CSR) to be signed by an external CA or y
 pre-existing PEM encoded certificate files to the expected filesystem locations.
 
 To generate a CSR using ``certtool``::
+
     python -m synapse.tools.easycert --csr --server cortex.vertex.link
     key saved: /home/visi/.syn/certs/hosts/cortex.vertex.link.key
     csr saved: /home/visi/.syn/certs/hosts/cortex.vertex.link.csr
