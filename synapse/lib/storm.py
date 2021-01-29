@@ -2419,6 +2419,11 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
+        newparts = (await s_stormtypes.tostr(self.opts.newtag)).split('.')
+
+        runt.layerConfirm(('node', 'tag', 'del', *oldparts))
+        runt.layerConfirm(('node', 'tag', 'add', *newparts))
+
         newt = await snap.addNode('syn:tag', self.opts.newtag)
         newstr = newt.ndef[1]
 
@@ -3493,7 +3498,10 @@ class EdgesDelCmd(Cmd):
             verb = await s_stormtypes.tostr(self.opts.verb)
 
             if verb == '*':
+                runt.layerConfirm(('node', 'edge', 'del'))
                 verb = None
+            else:
+                runt.layerConfirm(('node', 'edge', 'del', verb))
 
             async for node, path in genr:
                 await self.delEdges(node, verb, n2)
@@ -3505,7 +3513,10 @@ class EdgesDelCmd(Cmd):
                 verb = await s_stormtypes.tostr(self.opts.verb)
 
                 if verb == '*':
+                    runt.layerConfirm(('node', 'edge', 'del'))
                     verb = None
+                else:
+                    runt.layerConfirm(('node', 'edge', 'del', verb))
 
                 await self.delEdges(node, verb, n2)
                 yield node, path
