@@ -198,17 +198,17 @@ class FileModule(s_module.CoreModule):
                 }),
                 ('file:mime:msoffice', {
                     'props': (
-                        ('msoffice:title', ('str', {}), {
+                        ('title', ('str', {}), {
                             'doc': 'The title extracted from Microsoft Office metadata.'}),
-                        ('msoffice:author', ('str', {}), {
+                        ('author', ('str', {}), {
                             'doc': 'The author extracted from Microsoft Office metadata.'}),
-                        ('msoffice:subject', ('str', {}), {
+                        ('subject', ('str', {}), {
                             'doc': 'The subject extracted from Microsoft Office metadata.'}),
-                        ('msoffice:application', ('str', {}), {
+                        ('application', ('str', {}), {
                             'doc': 'The creating_application extracted from Microsoft Office metadata.'}),
-                        ('msoffice:created', ('time', {}), {
+                        ('created', ('time', {}), {
                             'doc': 'The create_time extracted from Microsoft Office metadata.'}),
-                        ('msoffice:lastsaved', ('time', {}), {
+                        ('lastsaved', ('time', {}), {
                             'doc': 'The last_saved_time extracted from Microsoft Office metadata.'}),
                     ),
                     'doc': 'Properties common to various microsoft office file formats.',

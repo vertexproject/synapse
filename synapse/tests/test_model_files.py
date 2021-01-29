@@ -220,4 +220,4 @@ class FileTest(s_t_utils.SynTest):
     async def test_model_file_mime_ms(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ file:mime:msdoc=* :msoffice:title=woot ]')
+            nodes = await core.nodes('[ file:mime:msdoc=* :title=woot ]')
