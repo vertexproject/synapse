@@ -70,12 +70,12 @@ Once the ``ssl`` protocol is specified, the ``hostname``, either from a query pa
 network location, is used to lookup a matching ``crt`` and ``key`` file pair from your server certificate directory
 located at ``~/.syn/certs/hosts``. See the following sections for how to setup server certificates.
 
-Self-Signed Certificates using certtool
+Self-Signed Certificates using easycert
 ***************************************
 
 For self-signed certificates, we need to generate a CA certificate and key as well as a server certificate and key.
 
-The synapse ``certtool`` can be used to easily generate a CA and server certificates. For example, if we wanted
+The synapse ``easycert`` can be used to easily generate a CA and server certificates. For example, if we wanted
 to generate a CA certificate for "vertex"::
 
     python -m synapse.tools.easycert --ca vertex
@@ -97,11 +97,11 @@ to sign arbitrary certificates).
 CA-Signed Certificates
 **********************
 
-Any external CA may be used to sign ``telepath`` server certificates. The ``certtool`` can be used to easily
+Any external CA may be used to sign ``telepath`` server certificates. The ``easycert`` can be used to easily
 generate a certificate signing request (CSR) to be signed by an external CA or you can simply copy or link
 pre-existing PEM encoded certificate files to the expected filesystem locations.
 
-To generate a CSR using ``certtool``::
+To generate a CSR using ``easycert``::
 
     python -m synapse.tools.easycert --csr --server cortex.vertex.link
     key saved: /home/visi/.syn/certs/hosts/cortex.vertex.link.key
