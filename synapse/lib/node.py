@@ -519,22 +519,29 @@ class Node:
         todel = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
 
         # retrieve a list of prunable tags
-        prune = await self.snap.core.getTagPrune(name)
-        if prune:
+        if len(path) > 1:
 
-            tree = self._getTagTree()
+            parent = '.'.join(path[:-1])
 
-            for prunetag in prune:
-                node = tree
+            prune = await self.snap.core.getTagPrune(parent)
+            if prune:
 
-                for step in prunetag.split('.'):
+                tree = self._getTagTree()
 
-                    node = node[1].get(step)
-                    if node is None:
-                        break
+                for prunetag in reversed(prune):
 
-                if node is not None and len(node[1]) == 1:
-                    todel.append((len(node[0]), node[0]))
+                    node = tree
+                    for step in prunetag.split('.'):
+
+                        node = node[1].get(step)
+                        if node is None:
+                            break
+
+                    if node is not None and len(node[1]) == 1:
+                        todel.append((len(node[0]), node[0]))
+                        continue
+
+                    break
 
         todel.sort(reverse=True)
 

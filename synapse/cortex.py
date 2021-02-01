@@ -86,7 +86,7 @@ reqValidPull = reqValidPush
 reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
     'properties': {
-        'prune': {'type': 'boolean'},
+        'prune': {'type': 'number'},
         'regex': {'type': 'array', 'items': {'type': ['string', 'null']}},
     },
     'additionalProperties': False,
@@ -1334,7 +1334,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         Tag Model Properties:
             regex - A list of None or regular expression strings to match each tag level.
-            prune - A boolean that will make all tag deletes in the tree have prune behavior.
+            prune - A number that determines how many levels of pruning are desired.
 
         Examples:
             await core.setTagModel("cno.cve", "regex", (None, None, "[0-9]{4}", "[0-9]{5}"))
@@ -1433,10 +1433,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         prune = []
 
-        pruning = False
+        pruning = 0
         for tag in s_chop.tags(tagname):
 
             if pruning:
+                pruning -= 1
                 prune.append(tag)
                 continue
 
@@ -1444,9 +1445,14 @@ class Cortex(s_cell.Cell):  # type: ignore
             if meta is None:
                 continue
 
-            pruning = meta.get('prune', False)
+            pruning = meta.get('prune', 0)
             if pruning:
+                pruning -= 1
                 prune.append(tag)
+
+        # if we dont reach the final tag for pruning, skip it.
+        if prune and not prune[-1] == tagname:
+            return ()
 
         return tuple(prune)
 
