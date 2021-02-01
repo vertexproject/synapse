@@ -1379,12 +1379,6 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 3:
             await self._layrV2toV3()
 
-    async def getSpawnInfo(self):
-        info = await self.pack()
-        info['dirn'] = self.dirn
-        info['ctor'] = self.ctorname
-        return info
-
     async def getLayerSize(self):
         '''
         Get the total storage size for the layer.
