@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.23.0'
+VERSION = '2.24.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -48,7 +48,7 @@ setup(
 
     install_requires=[
         'pyOpenSSL>=16.2.0,<20.0.0',
-        'msgpack>=0.6.1,<0.7.0',
+        'msgpack>=1.0.2,<1.1.0',
         'xxhash>=1.4.4,<2.0.0',
         'lmdb>=1.0.0,<2.0.0',
         'tornado>=6.0.3,<7.0.0',
