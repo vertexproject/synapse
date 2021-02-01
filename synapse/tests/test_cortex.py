@@ -4237,13 +4237,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.dmon.del(newp)')
 
-    async def test_cortex_spawn_notsupported(self):
-
-        async with self.getTestCore() as core:
-            core.spawncorector = None
-            with self.raises(s_exc.FeatureNotSupported):
-                await core.getSpawnInfo()
-
     async def test_cortex_storm_dmon_view(self):
 
         with self.getTestDir() as dirn:
