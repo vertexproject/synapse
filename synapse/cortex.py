@@ -495,54 +495,8 @@ class CoreApi(s_cell.CellApi):
         '''
         opts = self._reqValidStormOpts(opts)
 
-        if opts.get('spawn'):
-            await self._execSpawnStorm(text, opts)
-            return
-
         async for mesg in self.cell.storm(text, opts=opts):
             yield mesg
-
-    async def _execSpawnStorm(self, text, opts):
-
-        view = self.cell._viewFromOpts(opts)
-
-        link = s_scope.get('link')
-
-        opts.pop('spawn', None)
-        info = {
-            'link': link.getSpawnInfo(),
-            'view': view.iden,
-            'user': self.user.iden,
-            'storm': {
-                'opts': opts,
-                'query': text,
-            }
-        }
-
-        await self.cell.boss.promote('storm:spawn', user=self.user, info={'query': text})
-        proc = None
-        mesg = 'Spawn complete'
-
-        try:
-
-            async with self.cell.spawnpool.get() as proc:
-                if await proc.xact(info):
-                    await link.fini()
-
-        except (asyncio.CancelledError, Exception) as e:
-
-            if not isinstance(e, asyncio.CancelledError):
-                logger.exception('Error during spawned Storm execution.')
-
-            if not self.cell.isfini:
-                if proc:
-                    await proc.fini()
-
-            mesg = repr(e)
-            raise
-
-        finally:
-            raise s_exc.DmonSpawn(mesg=mesg)
 
     async def reqValidStorm(self, text, opts=None):
         '''
@@ -994,11 +948,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'A list of module classes to load.',
             'type': 'array'
         },
-        'spawn:poolsize': {
-            'default': 8,
-            'description': 'The max number of spare processes to keep around in the storm spawn pool.',
-            'type': 'integer'
-        },
         'storm:log': {
             'default': False,
             'description': 'Log storm queries via system logger.',
@@ -1022,7 +971,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
-    spawncorector = 'synapse.lib.spawn.SpawnCore'
 
     # phase 2 - service storage
     async def initServiceStorage(self):
@@ -1042,8 +990,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.splicers = {}
         self.feedfuncs = {}
         self.stormcmds = {}
-
-        self.spawnpool = None
 
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
@@ -1149,11 +1095,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
 
-        import synapse.lib.spawn as s_spawn  # get around circular dependency
-        self.spawnpool = await s_spawn.SpawnPool.anit(self)
-        self.onfini(self.spawnpool)
-        self.on('user:mod', self._onEvtBumpSpawnPool)
-
         self.dynitems.update({
             'cron': self.agenda,
             'cortex': self,
@@ -1194,13 +1135,6 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def initServicePassive(self):
         await self.agenda.stop()
         await self.stormdmons.stop()
-
-    async def _onEvtBumpSpawnPool(self, evnt):
-        await self.bumpSpawnPool()
-
-    async def bumpSpawnPool(self):
-        if self.spawnpool is not None:
-            await self.spawnpool.bump()
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -1439,38 +1373,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         return list(self.taghive.items())
 
-    async def getSpawnInfo(self):
-
-        if self.spawncorector is None:
-            mesg = 'spawn storm option not supported on this cortex'
-            raise s_exc.FeatureNotSupported(mesg=mesg)
-
-        ret = {
-            'iden': self.iden,
-            'dirn': self.dirn,
-            'conf': {
-                'storm:log': self.conf.get('storm:log', False),
-                'storm:log:level': self.conf.get('storm:log:level', logging.INFO),
-                'trigger:enable': self.conf.get('trigger:enable', True),
-            },
-            'loglevel': logger.getEffectiveLevel(),
-            'views': [v.getSpawnInfo() for v in self.views.values()],
-            'layers': [await lyr.getSpawnInfo() for lyr in self.layers.values()],
-            'storm': {
-                'cmds': {
-                    'cdefs': list(self.storm_cmd_cdefs.items()),
-                    'ctors': list(self.storm_cmd_ctors.items()),
-                },
-                'libs': tuple(self.libroot),
-                'mods': await self.getStormMods(),
-                'pkgs': await self.getStormPkgs(),
-                'svcs': [svc.sdef for svc in self.getStormSvcs()],
-            },
-            'model': await self.getModelDefs(),
-            'spawncorector': self.spawncorector,
-        }
-        return ret
-
     async def _finiStor(self):
         await asyncio.gather(*[view.fini() for view in self.views.values()])
         await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
@@ -1662,13 +1564,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.stormcmds[name] = ctor
         self.storm_cmd_cdefs[name] = cdef
 
-        await self.bumpSpawnPool()
-
         await self.fire('core:cmd:change', cmd=name, act='add')
 
     async def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
-        await self.bumpSpawnPool()
 
         await self.fire('core:cmd:change', cmd=name, act='del')
 
@@ -1696,7 +1595,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
-        await self.bumpSpawnPool()
 
         await self.fire('core:cmd:change', cmd=name, act='del')
 
@@ -1839,8 +1737,6 @@ class Cortex(s_cell.Cell):  # type: ignore
                     logger.warning(f'onload failed for package: {name}')
             self.schedCoro(_onload())
 
-        await self.bumpSpawnPool()
-
     async def _dropStormPkg(self, pkgdef):
         '''
         Reverse the process of loadStormPkg()
@@ -1852,8 +1748,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         for cdef in pkgdef.get('commands', ()):
             name = cdef.get('name')
             await self._popStormCmd(name)
-
-        await self.bumpSpawnPool()
 
     def getStormSvc(self, name):
 
@@ -1897,7 +1791,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         ssvc = await self._setStormSvc(sdef)
         await self.svchive.set(iden, sdef)
-        await self.bumpSpawnPool()
 
         return ssvc.sdef
 
@@ -1938,8 +1831,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         if ssvc is not None:
             self.svcsbysvcname.pop(ssvc.svcname, None)
             await ssvc.fini()
-
-        await self.bumpSpawnPool()
 
     async def _delStormSvcPkgs(self, iden):
         '''
@@ -2119,8 +2010,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
-        await self.bumpSpawnPool()
-
     @contextlib.asynccontextmanager
     async def watcher(self, wdef):
 
@@ -2188,7 +2077,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
         await self.fire('core:extmodel:change', form=formname, act='add', type='form')
-        await self.bumpSpawnPool()
 
     @s_nexus.Pusher.onPushAuto('model:form:del')
     async def delForm(self, formname):
@@ -2207,7 +2095,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
-        await self.bumpSpawnPool()
 
     @s_nexus.Pusher.onPushAuto('model:prop:add')
     async def addFormProp(self, form, prop, tdef, info):
@@ -2223,7 +2110,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
         await self.fire('core:extmodel:change', form=form, prop=prop, act='add', type='formprop')
-        await self.bumpSpawnPool()
 
     async def delFormProp(self, form, prop):
         full = f'{form}:{prop}'
@@ -2255,7 +2141,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.extprops.pop(full, None)
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='del', type='formprop')
-        await self.bumpSpawnPool()
 
     async def delUnivProp(self, prop):
         udef = self.extunivs.get(prop)
@@ -2283,7 +2168,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.model.delUnivProp(prop)
         await self.extunivs.pop(prop, None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
-        await self.bumpSpawnPool()
 
     async def addTagProp(self, name, tdef, info):
         if self.exttagprops.get(name) is not None:
@@ -2300,7 +2184,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.exttagprops.set(name, (name, tdef, info))
         await self.fire('core:tagprop:change', name=name, act='add')
-        await self.bumpSpawnPool()
 
     async def delTagProp(self, name):
         pdef = self.exttagprops.get(name)
@@ -2325,7 +2208,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.exttagprops.pop(name, None)
         await self.fire('core:tagprop:change', name=name, act='del')
-        await self.bumpSpawnPool()
 
     async def addNodeTag(self, user, iden, tag, valu=(None, None)):
         '''
@@ -3055,8 +2937,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         view = await self._loadView(node)
         view.init2()
 
-        await self.bumpSpawnPool()
-
         return await view.pack()
 
     async def delView(self, iden):
@@ -3089,8 +2969,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         await view.delete()
 
         await self.auth.delAuthGate(iden)
-
-        await self.bumpSpawnPool()
 
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
@@ -3126,8 +3004,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         layr.deloffs = nexsitem[0]
 
-        await self.bumpSpawnPool()
-
     async def setViewLayers(self, layers, iden=None):
         '''
         Args:
@@ -3139,7 +3015,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchView(iden=iden)
 
         await view.setLayers(layers)
-        await self.bumpSpawnPool()
 
     def getLayer(self, iden=None):
         '''
@@ -3296,8 +3171,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         for pdef in layrinfo.get('pulls', {}).values():
             await self.runLayrPull(layr, pdef)
-
-        await self.bumpSpawnPool()
 
         await self.fire('core:layr:add', iden=layr.iden)
 
