@@ -212,7 +212,6 @@ class FileModule(s_module.CoreModule):
                             'doc': 'The last_saved_time extracted from Microsoft Office metadata.'}),
                     ),
                     'doc': 'Properties common to various microsoft office file formats.',
-                    # yo dawg...
                     'interfaces': ('file:mime:meta',),
                 }),
             ),

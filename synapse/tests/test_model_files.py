@@ -280,3 +280,24 @@ class FileTest(s_t_utils.SynTest):
             ]''', opts=opts)
             self.len(1, nodes)
             testmsoffice(nodes[0])
+
+    async def test_model_file_mime_rtf(self):
+
+        async with self.getTestCore() as core:
+
+            fileguid = s_common.guid()
+            opts = {'vars': {'fileguid': f'guid:{fileguid}'}}
+
+            nodes = await core.nodes('''[
+                file:mime:rtf=*
+                    :file=$fileguid
+                    :file:offs=0
+                    :file:data=(foo, bar)
+                    :guid=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            ]''', opts=opts)
+
+            self.len(1, nodes)
+            self.eq(f'guid:{fileguid}', nodes[0].get('file'))
+            self.eq(0, nodes[0].get('file:offs'))
+            self.eq(('foo', 'bar'), nodes[0].get('file:data'))
+            self.eq('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', nodes[0].get('guid'))
