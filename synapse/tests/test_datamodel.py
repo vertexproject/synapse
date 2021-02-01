@@ -106,14 +106,18 @@ class DataModelTest(s_t_utils.SynTest):
         with self.raises(s_exc.NoSuchUniv):
             modl.delUnivProp('newp')
 
+        modl.addIface('test:iface', {})
+
         modl.addType('bar', 'int', {}, {})
-        modl.addType('foo:foo', 'int', {}, {})
+        modl.addType('foo:foo', 'int', {}, {'interfaces': ('test:iface',)})
 
         modl.addForm('foo:foo', {}, ())
         modl.addFormProp('foo:foo', 'bar', ('bar', {}), {})
 
         with self.raises(s_exc.CantDelType):
             modl.delType('bar')
+
+        modl.delForm('foo:foo')
 
     async def test_datamodel_del_prop(self):
 
