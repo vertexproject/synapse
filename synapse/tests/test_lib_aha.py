@@ -61,7 +61,7 @@ class AhaTest(s_test.SynTest):
                                  f'tcp://root:hehehaha@127.0.0.1:{port}'],
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
-            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
+            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf.copy()) as cryo:
 
                 await cryo.auth.rootuser.setPasswd('secret')
 
@@ -115,7 +115,7 @@ class AhaTest(s_test.SynTest):
                 await ahaadmin.setAdmin(False, logged=False)
                 self.false(ahaadmin.isAdmin())
 
-            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
+            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf.copy()) as cryo:
                 ahaadmin = await cryo.auth.getUserByName('root@cryo.mynet')
                 # And we should be unlocked and admin now
                 self.false(ahaadmin.isLocked())

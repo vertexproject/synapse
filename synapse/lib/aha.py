@@ -100,37 +100,15 @@ class AhaApi(s_cell.CellApi):
 
     async def signHostCsr(self, csrtext, signas=None):
 
-        xcsr = self.cell.certdir._loadCsrByts(csrtext.encode())
-
-        hostname = xcsr.get_subject().CN
-
-        hostpath = s_common.genpath(self.cell.dirn, 'certs', 'hosts', f'{hostname}.crt')
-        if os.path.isfile(hostpath):
-            os.unlink(hostpath)
-
-        if signas is None:
-            signas = hostname.split('.', 1)[1]
-
-        pkey, cert = self.cell.certdir.signHostCsr(xcsr, signas=signas)
-
-        return self.cell.certdir._certToByts(cert).decode()
+        await self._reqUserAllowed(('aha', 'csr', 'host'))
+        byts = await self.cell.signHostCsr(csrtext, signas=signas)
+        return byts
 
     async def signUserCsr(self, csrtext, signas=None):
 
-        xcsr = self.cell.certdir._loadCsrByts(csrtext.encode())
-
-        username = xcsr.get_subject().CN
-
-        userpath = s_common.genpath(self.cell.dirn, 'certs', 'users', f'{username}.crt')
-        if os.path.isfile(userpath):
-            os.unlink(userpath)
-
-        if signas is None:
-            signas = username.split('@', 1)[1]
-
-        pkey, cert = self.cell.certdir.signUserCsr(xcsr, signas=signas)
-
-        return self.cell.certdir._certToByts(cert).decode()
+        await self._reqUserAllowed(('aha', 'csr', 'user'))
+        byts = await self.cell.signUserCsr(csrtext, signas=signas)
+        return byts
 
 class AhaCell(s_cell.Cell):
 
@@ -247,3 +225,35 @@ class AhaCell(s_cell.Cell):
             fd.write(cakey.encode())
         with s_common.genfile(self.dirn, 'certs', 'cas', f'{name}.crt') as fd:
             fd.write(cacert.encode())
+
+    async  def signHostCsr(self, csrtext, signas=None):
+        xcsr = self.certdir._loadCsrByts(csrtext.encode())
+
+        hostname = xcsr.get_subject().CN
+
+        hostpath = s_common.genpath(self.dirn, 'certs', 'hosts', f'{hostname}.crt')
+        if os.path.isfile(hostpath):
+            os.unlink(hostpath)
+
+        if signas is None:
+            signas = hostname.split('.', 1)[1]
+
+        pkey, cert = self.certdir.signHostCsr(xcsr, signas=signas)
+
+        return self.certdir._certToByts(cert).decode()
+
+    async def signUserCsr(self, csrtext, signas=None):
+        xcsr = self.certdir._loadCsrByts(csrtext.encode())
+
+        username = xcsr.get_subject().CN
+
+        userpath = s_common.genpath(self.dirn, 'certs', 'users', f'{username}.crt')
+        if os.path.isfile(userpath):
+            os.unlink(userpath)
+
+        if signas is None:
+            signas = username.split('@', 1)[1]
+
+        pkey, cert = self.certdir.signUserCsr(xcsr, signas=signas)
+
+        return self.certdir._certToByts(cert).decode()
