@@ -5184,6 +5184,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.haha ]')
 
+            # clear out the #cno.cve tags and test prune behavior.
+            await core.nodes('#cno.cve [ -#cno.cve ]')
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345 ]')
+            await core.nodes('$lib.model.tags.set(cno.cve, prune, $lib.true)')
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#cno.cve.2021.12345 ]')
+            self.len(1, nodes)
+            self.eq((('cno', (None, None)),), nodes[0].getTags())
+
+            await core.nodes('$lib.model.tags.pop(cno.cve, prune)')
+            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345 ]')
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#cno.cve.2021.12345 ]')
+            self.len(1, nodes)
+            self.len(3, nodes[0].getTags())
+
     async def test_cortex_iterrows(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):

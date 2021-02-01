@@ -86,7 +86,7 @@ reqValidPull = reqValidPush
 reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
     'properties': {
-        # 'prune': {'type': 'boolean'},
+        'prune': {'type': 'boolean'},
         'regex': {'type': 'array', 'items': {'type': ['string', 'null']}},
     },
     'additionalProperties': False,
@@ -1069,6 +1069,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.ontagdelglobs = s_cache.TagGlobs()
 
         self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
+        self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
@@ -1333,6 +1334,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         Tag Model Properties:
             regex - A list of None or regular expression strings to match each tag level.
+            prune - A boolean that will make all tag deletes in the tree have prune behavior.
 
         Examples:
             await core.setTagModel("cno.cve", "regex", (None, None, "[0-9]{4}", "[0-9]{5}"))
@@ -1350,6 +1352,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         # clear cached entries
         if name == 'regex':
             self.tagvalid.clear()
+        elif name == 'prune':
+            self.tagprune.clear()
 
     @s_nexus.Pusher.onPushAuto('tag:model:del')
     async def delTagModel(self, tagname):
@@ -1361,6 +1365,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         await self.taghive.pop(tagname)
         self.tagvalid.clear()
+        self.tagprune.clear()
 
     @s_nexus.Pusher.onPushAuto('tag:model:pop')
     async def popTagModel(self, tagname, name):
@@ -1384,6 +1389,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if name == 'regex':
             self.tagvalid.clear()
+        elif name == 'prune':
+            self.tagprune.clear()
 
         return retn
 
@@ -1394,9 +1401,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         Returns:
             (bool): True if the tag is valid.
         '''
-        return await self.tagvalid.aget(tagname)
+        return self.tagvalid.get(tagname)
 
-    async def _isTagValid(self, tagname):
+    def _isTagValid(self, tagname):
 
         parts = s_chop.tagpath(tagname)
         for tag in s_chop.tags(tagname):
@@ -1418,6 +1425,30 @@ class Cortex(s_cell.Cell):  # type: ignore
                     return False
 
         return True
+
+    async def getTagPrune(self, tagname):
+        return self.tagprune.get(tagname)
+
+    def _getTagPrune(self, tagname):
+
+        prune = []
+
+        pruning = False
+        for tag in s_chop.tags(tagname):
+
+            if pruning:
+                prune.append(tag)
+                continue
+
+            meta = self.taghive.get(tag)
+            if meta is None:
+                continue
+
+            pruning = meta.get('prune', False)
+            if pruning:
+                prune.append(tag)
+
+        return tuple(prune)
 
     async def getTagModel(self, tagname):
         '''
