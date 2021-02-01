@@ -217,7 +217,66 @@ class FileTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('file:ismime', (guid, 'text/plain')))
 
-    async def test_model_file_mime_ms(self):
+    async def test_model_file_mime_msoffice(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ file:mime:msdoc=* :title=woot ]')
+
+            fileguid = s_common.guid()
+            opts = {'vars': {'fileguid': f'guid:{fileguid}'}}
+
+            def testmsoffice(n):
+                self.eq('lolz', n.get('title'))
+                self.eq('deep_value', n.get('author'))
+                self.eq('GME stonks', n.get('subject'))
+                self.eq('stonktrader3000', n.get('application'))
+                self.eq(1611100800000, n.get('created'))
+                self.eq(1611187200000, n.get('lastsaved'))
+
+                self.eq(f'guid:{fileguid}', n.get('file'))
+                self.eq(0, n.get('file:offs'))
+                self.eq(('foo', 'bar'), n.get('file:data'))
+
+            nodes = await core.nodes('''[
+                file:mime:msdoc=*
+                    :file=$fileguid
+                    :file:offs=0
+                    :file:data=(foo, bar)
+                    :title=lolz
+                    :author=deep_value
+                    :subject="GME stonks"
+                    :application=stonktrader3000
+                    :created=20210120
+                    :lastsaved=20210121
+            ]''', opts=opts)
+            self.len(1, nodes)
+            testmsoffice(nodes[0])
+
+            nodes = await core.nodes('''[
+                file:mime:msxls=*
+                    :file=$fileguid
+                    :file:offs=0
+                    :file:data=(foo, bar)
+                    :title=lolz
+                    :author=deep_value
+                    :subject="GME stonks"
+                    :application=stonktrader3000
+                    :created=20210120
+                    :lastsaved=20210121
+            ]''', opts=opts)
+            self.len(1, nodes)
+            testmsoffice(nodes[0])
+
+            nodes = await core.nodes('''[
+                file:mime:msppt=*
+                    :file=$fileguid
+                    :file:offs=0
+                    :file:data=(foo, bar)
+                    :title=lolz
+                    :author=deep_value
+                    :subject="GME stonks"
+                    :application=stonktrader3000
+                    :created=20210120
+                    :lastsaved=20210121
+            ]''', opts=opts)
+            self.len(1, nodes)
+            testmsoffice(nodes[0])
