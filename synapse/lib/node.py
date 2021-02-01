@@ -475,6 +475,29 @@ class Node:
 
         await self.snap.applyNodeEdit(nodeedit)
 
+    def _getTagTree(self):
+
+        root = (None, {})
+        for tag in self.tags.keys():
+
+            node = root
+
+            for part in tag.split('.'):
+
+                kidn = node[1].get(part)
+
+                if kidn is None:
+
+                    full = part
+                    if node[0] is not None:
+                        full = f'{node[0]}.{full}'
+
+                    kidn = node[1][part] = (full, {})
+
+                node = kidn
+
+        return root
+
     async def delTag(self, tag, init=False):
         '''
         Delete a tag from the node.
@@ -493,13 +516,39 @@ class Node:
 
         pref = name + '.'
 
-        subtags = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
-        subtags.sort(reverse=True)
+        todel = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
+
+        if len(path) > 1:
+
+            parent = '.'.join(path[:-1])
+
+            # retrieve a list of prunable tags
+            prune = await self.snap.core.getTagPrune(parent)
+            if prune:
+
+                tree = self._getTagTree()
+
+                for prunetag in reversed(prune):
+
+                    node = tree
+                    for step in prunetag.split('.'):
+
+                        node = node[1].get(step)
+                        if node is None:
+                            break
+
+                    if node is not None and len(node[1]) == 1:
+                        todel.append((len(node[0]), node[0]))
+                        continue
+
+                    break
+
+        todel.sort(reverse=True)
 
         # order matters...
         edits = []
 
-        for _, subtag in subtags:
+        for _, subtag in todel:
 
             edits.extend(self._getTagPropDel(subtag))
             edits.append((s_layer.EDIT_TAG_DEL, (subtag, None), ()))
