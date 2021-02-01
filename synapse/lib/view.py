@@ -158,6 +158,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 async for verb in layr.getEdgeVerbs():
 
+                    await asyncio.sleep(0)
+
                     if verb in vset:
                         continue
 
