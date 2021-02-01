@@ -1115,6 +1115,9 @@ class Ival(Type):
     def _normPyIter(self, valu):
         (minv, maxv), info = self._normByTickTock(valu)
 
+        if minv == maxv:
+            maxv = maxv + 1
+
         # Norm via iter must produce an actual range.
         if minv >= maxv:
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
