@@ -5177,6 +5177,36 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.haha ]')
 
+            # clear out the #cno.cve tags and test prune behavior.
+            await core.nodes('#cno.cve [ -#cno.cve ]')
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345.foo +#cno.cve.2021.55555 ]')
+
+            await core.nodes('$lib.model.tags.set(cno.cve, prune, (2))')
+
+            # test that the pruning behavior detects non-leaf boundaries
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#cno.cve.2021.55555 ]')
+            self.sorteq(('cno', 'cno.cve', 'cno.cve.2021', 'cno.cve.2021.12345', 'cno.cve.2021.12345.foo'), [t[0] for t in nodes[0].getTags()])
+
+            # test that the pruning behavior stops at the correct level
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#cno.cve.2021.12345.foo ]')
+            self.sorteq(('cno', 'cno.cve', 'cno.cve.2021', 'cno.cve.2021.12345'), [t[0] for t in nodes[0].getTags()])
+
+            # test that the pruning behavior detects when it needs to prune
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#cno.cve.2021.12345 ]')
+            self.len(1, nodes)
+            self.eq((('cno', (None, None)),), nodes[0].getTags())
+
+            # test that the prune caches get cleared correctly
+            await core.nodes('$lib.model.tags.pop(cno.cve, prune)')
+            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345 ]')
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#cno.cve.2021.12345 ]')
+            self.len(1, nodes)
+            self.sorteq(('cno', 'cno.cve', 'cno.cve.2021'), [t[0] for t in nodes[0].getTags()])
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes('$lib.model.tags.set(cno.cve, prune, (0))')
+
     async def test_cortex_iterrows(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
