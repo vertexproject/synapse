@@ -518,11 +518,11 @@ class Node:
 
         todel = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
 
-        # retrieve a list of prunable tags
         if len(path) > 1:
 
             parent = '.'.join(path[:-1])
 
+            # retrieve a list of prunable tags
             prune = await self.snap.core.getTagPrune(parent)
             if prune:
 
