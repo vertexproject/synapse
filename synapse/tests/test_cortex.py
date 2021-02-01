@@ -5211,6 +5211,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.sorteq(('cno', 'cno.cve', 'cno.cve.2021'), [t[0] for t in nodes[0].getTags()])
 
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes('$lib.model.tags.set(cno.cve, prune, (0))')
+
     async def test_cortex_iterrows(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):

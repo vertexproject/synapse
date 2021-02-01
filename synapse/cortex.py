@@ -86,7 +86,7 @@ reqValidPull = reqValidPush
 reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
     'properties': {
-        'prune': {'type': 'number'},
+        'prune': {'type': 'number', 'minimum': 1},
         'regex': {'type': 'array', 'items': {'type': ['string', 'null']}},
     },
     'additionalProperties': False,
