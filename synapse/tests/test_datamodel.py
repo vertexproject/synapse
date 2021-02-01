@@ -57,6 +57,24 @@ class DataModelTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadFormDef):
             modl.addDataModels(mods)
 
+    async def test_datamodel_no_interface(self):
+        modl = s_datamodel.Model()
+        mods = (
+            ('hehe', {
+                'types': (
+                    ('test:derp', ('int', {}), {
+                        'interfaces': ('foo:bar',),
+                    }),
+                ),
+                'forms': (
+                    ('test:derp', {}, ()),
+                ),
+            }),
+        )
+
+        with self.raises(s_exc.NoSuchName):
+            modl.addDataModels(mods)
+
     async def test_datamodel_dynamics(self):
 
         modl = s_datamodel.Model()
