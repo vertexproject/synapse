@@ -518,8 +518,6 @@ class Node:
 
         todel = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
 
-        # TODO maybe this API should take the tag path?
-
         # retrieve a list of prunable tags
         prune = await self.snap.core.getTagPrune(name)
         if prune:
