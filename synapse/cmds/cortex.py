@@ -231,7 +231,6 @@ class StormCmd(s_cli.Cmd):
         --show <names>: Limit storm events (server-side) to the comma-separated list.
         --file <path>: Run the storm query specified in the given file path.
         --optsfile <path>: Run the query with the given options from a JSON/YAML file.
-        --spawn: (EXPERIMENTAL!) Run the query within a spawned sub-process runtime (read-only).
 
     Examples:
         storm inet:ipv4=1.2.3.4
@@ -254,7 +253,6 @@ class StormCmd(s_cli.Cmd):
         ('--raw', {}),
         ('--debug', {}),
         ('--path', {}),
-        ('--spawn', {'type': 'flag'}),
         ('--save-nodes', {'type': 'valu'}),
         ('query', {'type': 'glob'}),
     )
@@ -428,9 +426,6 @@ class StormCmd(s_cli.Cmd):
         editformat = opts['editformat']
         if editformat != 'nodeedits':
             stormopts['editformat'] = editformat
-
-        if opts.get('spawn'):
-            stormopts['spawn'] = True
 
         nodesfd = None
         if opts.get('save-nodes'):

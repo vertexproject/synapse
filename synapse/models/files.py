@@ -183,6 +183,39 @@ class FileModule(s_module.CoreModule):
                     'ex': 'c:/windows/system32/calc.exe'}),
             ),
 
+            'interfaces': (
+                ('file:mime:meta', {
+                    'props': (
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file that the mime info was parsed from.'}),
+                        ('file:offs', ('int', {}), {
+                            'doc': 'The optional offset where the mime info was parsed from.'}),
+                        ('file:data', ('data', {}), {
+                            'doc': 'A mime specific arbitrary data structure for non-indexed data.',
+                        }),
+                    ),
+                    'doc': 'Properties common to mime specific file metadata types.',
+                }),
+                ('file:mime:msoffice', {
+                    'props': (
+                        ('title', ('str', {}), {
+                            'doc': 'The title extracted from Microsoft Office metadata.'}),
+                        ('author', ('str', {}), {
+                            'doc': 'The author extracted from Microsoft Office metadata.'}),
+                        ('subject', ('str', {}), {
+                            'doc': 'The subject extracted from Microsoft Office metadata.'}),
+                        ('application', ('str', {}), {
+                            'doc': 'The creating_application extracted from Microsoft Office metadata.'}),
+                        ('created', ('time', {}), {
+                            'doc': 'The create_time extracted from Microsoft Office metadata.'}),
+                        ('lastsaved', ('time', {}), {
+                            'doc': 'The last_saved_time extracted from Microsoft Office metadata.'}),
+                    ),
+                    'doc': 'Properties common to various microsoft office file formats.',
+                    'interfaces': ('file:mime:meta',),
+                }),
+            ),
+
             'types': (
 
                 ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
@@ -200,6 +233,26 @@ class FileModule(s_module.CoreModule):
 
                 ('file:ismime', ('comp', {'fields': (('file', 'file:bytes'), ('mime', 'file:mime'))}), {
                     'doc': 'Records one, of potentially multiple, mime types for a given file.',
+                }),
+
+                ('file:mime:msdoc', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a Microsoft Word file.',
+                    'interfaces': ('file:mime:msoffice',),
+                }),
+
+                ('file:mime:msxls', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a Microsoft Excel file.',
+                    'interfaces': ('file:mime:msoffice',),
+                }),
+
+                ('file:mime:msppt', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a Microsoft Powerpoint file.',
+                    'interfaces': ('file:mime:msoffice',),
+                }),
+
+                ('file:mime:rtf', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a .rtf file.',
+                    'interfaces': ('file:mime:meta',),
                 }),
 
                 ('file:mime:pe:section', ('comp', {'fields': (
@@ -311,6 +364,15 @@ class FileModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The mime type of the file.',
                     }),
+                )),
+
+                ('file:mime:msdoc', {}, ()),
+                ('file:mime:msxls', {}, ()),
+                ('file:mime:msppt', {}, ()),
+
+                ('file:mime:rtf', {}, (
+                    ('guid', ('guid', {}), {
+                        'doc': 'The parsed GUID embedded in the .rtf file.'}),
                 )),
 
                 ('file:mime:pe:section', {}, (

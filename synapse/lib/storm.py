@@ -261,7 +261,6 @@ reqValidDdef = s_config.getJsValidator({
         'stormopts': {
             'type': 'object',
             'properties': {
-                'spawn': {'type': 'boolean'},
                 'repr': {'type': 'boolean'},
                 'path': {'type': 'string'},
                 'show': {'type': 'array', 'items': {'type': 'string'}}

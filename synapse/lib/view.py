@@ -110,7 +110,7 @@ class View(s_nexus.Pusher):  # type: ignore
             'tag:prop:set': self._tagPropSetConfirm,
         }
 
-        # isolate some initialization to easily override for SpawnView.
+        # isolate some initialization to easily override.
         await self._initViewLayers()
 
     async def getStorNodes(self, buid):
@@ -157,6 +157,8 @@ class View(s_nexus.Pusher):  # type: ignore
             for layr in self.layers:
 
                 async for verb in layr.getEdgeVerbs():
+
+                    await asyncio.sleep(0)
 
                     if verb in vset:
                         continue
@@ -719,11 +721,6 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         await self.fini()
         await self.node.pop()
-
-    def getSpawnInfo(self):
-        return {
-            'iden': self.iden,
-        }
 
     async def addNodeEdits(self, edits, meta):
         '''
