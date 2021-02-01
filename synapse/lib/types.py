@@ -1119,7 +1119,7 @@ class Ival(Type):
             maxv = maxv + 1
 
         # Norm via iter must produce an actual range.
-        if minv >= maxv:
+        if minv > maxv:
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg='Ival range must in (min, max) format')
 
