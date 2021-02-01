@@ -4,6 +4,7 @@ import logging
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -90,25 +91,17 @@ class AhaApi(s_cell.CellApi):
     async def genCaCert(self, network):
 
         await self._reqUserAllowed(('aha', 'ca', 'gen'))
-
-        path = self.cell.certdir.getCaCertPath(network)
-        if path is not None:
-            with open(path, 'rb') as fd:
-                return fd.read().decode()
-
         return await self.cell.genCaCert(network)
 
     async def signHostCsr(self, csrtext, signas=None):
 
         await self._reqUserAllowed(('aha', 'csr', 'host'))
-        byts = await self.cell.signHostCsr(csrtext, signas=signas)
-        return byts
+        return await self.cell.signHostCsr(csrtext, signas=signas)
 
     async def signUserCsr(self, csrtext, signas=None):
 
         await self._reqUserAllowed(('aha', 'csr', 'user'))
-        byts = await self.cell.signUserCsr(csrtext, signas=signas)
-        return byts
+        return await self.cell.signUserCsr(csrtext, signas=signas)
 
 class AhaCell(s_cell.Cell):
 
@@ -207,8 +200,13 @@ class AhaCell(s_cell.Cell):
 
     async def genCaCert(self, network):
 
-        # TODO executor threads for cert gen
-        pkey, cert = self.certdir.genCaCert(network, save=False)
+        path = self.certdir.getCaCertPath(network)
+        if path is not None:
+            with open(path, 'rb') as fd:
+                return fd.read().decode()
+
+        fut = s_coro.executor(self.certdir.genCaCert, network, save=False)
+        pkey, cert = await fut
 
         cakey = self.certdir._pkeyToByts(pkey).decode()
         cacert = self.certdir._certToByts(cert).decode()
@@ -226,7 +224,7 @@ class AhaCell(s_cell.Cell):
         with s_common.genfile(self.dirn, 'certs', 'cas', f'{name}.crt') as fd:
             fd.write(cacert.encode())
 
-    async  def signHostCsr(self, csrtext, signas=None):
+    async def signHostCsr(self, csrtext, signas=None):
         xcsr = self.certdir._loadCsrByts(csrtext.encode())
 
         hostname = xcsr.get_subject().CN
