@@ -5,6 +5,37 @@ Synapse Changelog
 *****************
 
 
+v2.25.0 - 2020-02-01
+====================
+
+Features and Enhancements
+-------------------------
+- Implement tag model based pruning behavior for controlling how individual
+  tag trees are deleted from nodes.
+  (`#2067 <https://github.com/vertexproject/synapse/pull/2067>`_)
+- Add model interfaces for defining common sets of properties for forms,
+  starting with some file mime metadata.
+  (`#2040 <https://github.com/vertexproject/synapse/pull/2040>`_)
+- Add ``file:mime:msdoc``, ``file:mime:msxls``, ``file:mime:msppt``, and
+  ``file:mime:rtf`` forms.
+  (`#2040 <https://github.com/vertexproject/synapse/pull/2040>`_)
+- Tweak the ival normalizer to auto-expand intervals with a single element.
+  (`#2070 <https://github.com/vertexproject/synapse/pull/2070>`_)
+- Removed the experimental ``spawn`` feature of the Storm runtime.
+  (`#2068 <https://github.com/vertexproject/synapse/pull/2068>`_)
+
+Bugfixes
+--------
+- Add a missing async yield statement in ``View.getEdgeVerbs()``.
+  (`#2069 <https://github.com/vertexproject/synapse/pull/2069>`_)
+
+Improved Documentation
+----------------------
+- Correct incorrect references to the ``synapse.tools.easycert``
+  documentation.
+  (`#2065 <https://github.com/vertexproject/synapse/pull/2065>`_)
+
+
 v2.24.0 - 2020-01-29
 ====================
 
