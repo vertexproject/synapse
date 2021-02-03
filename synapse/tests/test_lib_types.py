@@ -366,6 +366,8 @@ class TypesTest(s_t_utils.SynTest):
         newv = ival.norm(('2015', '2018'))[0]
         self.eq((1420070400000, 1514764800000), ival.merge(oldv, newv))
 
+        self.eq((1420070400000, 1420070400001), ival.norm(('2015', '2015'))[0])
+
         self.raises(s_exc.BadTypeValu, ival.norm, '?')
         self.raises(s_exc.BadTypeValu, ival.norm, ('', ''))
         self.raises(s_exc.BadTypeValu, ival.norm, ('2016-3days', '+77days', '-40days'))
@@ -549,8 +551,6 @@ class TypesTest(s_t_utils.SynTest):
             q = '[test:str=newp .seen=("+-1 day","+-1 day")]'
             await self.agenraises(s_exc.BadTypeValu, core.eval(q))
             q = '[test:str=newp  .seen=("?","?")]'
-            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
-            q = '[test:str=newp  .seen=(2018/03/31,2018/03/31)]'
             await self.agenraises(s_exc.BadTypeValu, core.eval(q))
             q = '[test:str=newp .seen=(2008, 2019, 2000)]'
             await self.agenraises(s_exc.BadTypeValu, core.eval(q))
