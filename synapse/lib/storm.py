@@ -396,6 +396,124 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'layer.pull.add',
+        'descr': 'Add a pull configuration to a layer.',
+        'cmdargs': (
+            ('layr', {'help': 'Iden of the layer to pull to.'}),
+            ('src', {'help': 'Telepath url of the source layer to pull from.'}),
+            ('--offset', {'help': 'Layer offset to begin pulling from',
+                          'type': 'int',
+                          'default': 0}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.layr)
+            $pdef = $layr.addPull($cmdopts.src, $cmdopts.offset)
+            if $pdef {
+                $lib.print("Layer pull added: {iden}", iden=$pdef.iden)
+            }
+        ''',
+    },
+    {
+        'name': 'layer.pull.del',
+        'descr': 'Delete a pull configuration from a layer.',
+        'cmdargs': (
+            ('layr', {'help': 'Iden of the layer to modify.'}),
+            ('iden', {'help': 'Iden of the pull configuration to delete.'}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.layr)
+            $retn = $layr.delPull($cmdopts.iden)
+            $lib.print("Layer pull deleted.")
+        ''',
+    },
+    {
+        'name': 'layer.pull.list',
+        'descr': 'Get a list of the pull configurations for a layer.',
+        'cmdargs': (
+            ('layr', {'help': 'Iden of the layer to retrieve pull configurations for.'}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.layr)
+            $lib.print($layr.repr())
+
+            $pulls = $layr.get(pulls)
+            if $pulls {
+                $lib.print('Pull Iden                        | User                 | Time                |     Offset | URL')
+                $lib.print('------------------------------------------------------------------------------------------------------------------------------------------')
+                for ($iden, $pdef) in $pulls {
+                    $user = $lib.auth.users.get($pdef.user)
+                    if $user { $user = $user.name.ljust(20) }
+                    else { $user = $pdef.user }
+
+                    $tstr = $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S')
+                    $ostr = $lib.cast(str, $pdef.offs).rjust(10)
+                    $lib.print("{iden} | {user} | {time} | {offs} | {url}", iden=$iden, time=$tstr, user=$user, offs=$ostr, url=$pdef.url)
+                }
+            } else {
+                $lib.print('No pulls configured.')
+            }
+        ''',
+    },
+    {
+        'name': 'layer.push.add',
+        'descr': 'Add a push configuration to a layer.',
+        'cmdargs': (
+            ('layr', {'help': 'Iden of the layer to push from.'}),
+            ('dest', {'help': 'Telepath url of the layer to push to.'}),
+            ('--offset', {'help': 'Layer offset to begin pushing from.',
+                          'type': 'int',
+                          'default': 0}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.layr)
+            $pdef = $layr.addPush($cmdopts.dest, $cmdopts.offset)
+            if $pdef {
+                $lib.print("Layer push added: {iden}", iden=$pdef.iden)
+            }
+        ''',
+    },
+    {
+        'name': 'layer.push.del',
+        'descr': 'Delete a push configuration from a layer.',
+        'cmdargs': (
+            ('layr', {'help': 'Iden of the layer to modify.'}),
+            ('iden', {'help': 'Iden of the push configuration to delete.'}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.layr)
+            $retn = $layr.delPush($cmdopts.iden)
+            $lib.print("Layer push deleted.")
+        ''',
+    },
+    {
+        'name': 'layer.push.list',
+        'descr': 'Get a list of the push configurations for a layer.',
+        'cmdargs': (
+            ('layr', {'help': 'Iden of the layer to retrieve push configurations for.'}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.layr)
+            $lib.print($layr.repr())
+
+            $pushs = $layr.get(pushs)
+            if $pushs {
+                $lib.print('Push Iden                        | User                 | Time                |     Offset | URL')
+                $lib.print('------------------------------------------------------------------------------------------------------------------------------------------')
+                for ($iden, $pdef) in $pushs {
+                    $user = $lib.auth.users.get($pdef.user)
+                    if $user { $user = $user.name.ljust(20) }
+                    else { $user = $pdef.user }
+
+                    $tstr = $lib.time.format($pdef.time, '%Y-%m-%d %H:%M:%S')
+                    $ostr = $lib.cast(str, $pdef.offs).rjust(10)
+                    $lib.print("{iden} | {user} | {time} | {offs} | {url}", iden=$iden, time=$tstr, user=$user, offs=$ostr, url=$pdef.url)
+                }
+            } else {
+                $lib.print('No pushes configured.')
+            }
+        ''',
+    },
+    {
         'name': 'pkg.list',
         'descr': 'List the storm packages loaded in the cortex.',
         'cmdrargs': (),

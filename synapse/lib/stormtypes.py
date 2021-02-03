@@ -4039,6 +4039,7 @@ class Layer(Prim):
         }
         todo = s_common.todo('addLayrPull', layriden, pdef)
         await self.runt.dyncall('cortex', todo)
+        return pdef
 
     async def _delPull(self, iden):
         iden = await tostr(iden)
@@ -4077,6 +4078,7 @@ class Layer(Prim):
         }
         todo = s_common.todo('addLayrPush', layriden, pdef)
         await self.runt.dyncall('cortex', todo)
+        return pdef
 
     async def _delPush(self, iden):
         iden = await tostr(iden)
