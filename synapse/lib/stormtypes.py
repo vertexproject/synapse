@@ -3913,7 +3913,7 @@ class Layer(Prim):
                       {'name': 'url', 'type': 'str', 'desc': 'A telepath URL of the target layer/feed.', },
                       {'name': 'offs', 'type': 'int', 'desc': 'The local layer offset to begin pushing from', 'default': 0, },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the push definition.', }}},
         {'name': 'delPush', 'desc': 'Remove a push config from the layer.',
          'type': {'type': 'function', '_funcname': '_delPush',
                   'args': (
@@ -3926,7 +3926,7 @@ class Layer(Prim):
                       {'name': 'url', 'type': 'str', 'desc': 'The telepath URL to a layer/feed.', },
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to begin from.', 'default': 0, },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the pull definition.', }}},
         {'name': 'delPull', 'desc': 'Remove a pull config from the layer.',
          'type': {'type': 'function', '_funcname': '_delPull',
                   'args': (
