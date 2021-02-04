@@ -3384,6 +3384,8 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq(6, await core.callStorm("return($lib.layer.get().getPropCount('.created'))"))
             self.eq(2, await core.callStorm("return($lib.layer.get().getPropCount(inet:ipv4.created))"))
+            self.eq(0, await core.callStorm("return($lib.layer.get().getPropCount('.seen'))"))
+
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm('return($lib.layer.get().getPropCount(newp:newp))')
 
