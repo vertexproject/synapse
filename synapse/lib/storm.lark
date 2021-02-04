@@ -45,7 +45,7 @@ editunivdel: "-" univprop
 edittagdel: "-" tagname
 editpropset: relprop _WS? SETOPER _WS? (_valu | baresubquery)
 editpropdel: "-" relprop
-editunivset: univprop _WS? SETOPER _WS? _valu
+editunivset: univprop _WS? SETOPER _WS? (_valu | baresubquery)
 editnodeadd: formname _WS? SETOPER _WS? _valu
 edittagpropset: "+" tagprop _WS? SETOPER _WS? _valu
 edittagpropdel: "-" tagprop

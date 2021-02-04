@@ -433,6 +433,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.len(2, nodes[0].get('industries'))
 
+            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('org'))
+
             nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
             self.len(1, nodes)
             self.len(1, nodes[0].get('industries'))
