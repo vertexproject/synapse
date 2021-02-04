@@ -1782,6 +1782,12 @@ class StormTest(s_t_utils.SynTest):
                 purl = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr0).get(pushs) { return($pdef.url) }', opts=opts)
                 self.true(purl.startswith('tcp://root:****@127.0.0.1'))
 
+                msgs = await core.stormlist('layer.push.list $layr0', opts=opts)
+                self.stormIsInPrint('tcp://root:****@127.0.0.1', msgs)
+
+                msgs = await core.stormlist('layer.pull.list $layr2', opts=opts)
+                self.stormIsInPrint('tcp://root:****@127.0.0.1', msgs)
+
                 self.eq(2, len(core.activecoros) - actv)
                 tasks = await core.callStorm('return($lib.ps.list())')
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
@@ -1840,6 +1846,39 @@ class StormTest(s_t_utils.SynTest):
                 # code coverage for push/pull dict exists but has no entries
                 self.none(await core.callStorm('return($lib.layer.get($layr2).delPull($lib.guid()))', opts=opts))
                 self.none(await core.callStorm('return($lib.layer.get($layr0).delPush($lib.guid()))', opts=opts))
+
+                msgs = await core.stormlist('layer.push.list $layr0', opts=opts)
+                self.stormIsInPrint('No pushes configured', msgs)
+
+                msgs = await core.stormlist('layer.pull.list $layr2', opts=opts)
+                self.stormIsInPrint('No pulls configured', msgs)
+
+                # Test storm command add/del
+                q = f'layer.push.add $layr0 "tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}"'
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Layer push added', msgs)
+
+                q = f'layer.pull.add $layr2 "tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}"'
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Layer pull added', msgs)
+
+                msgs = await core.stormlist('layer.push.list $layr0', opts=opts)
+                self.stormIsInPrint('tcp://root:****@127.0.0.1', msgs)
+
+                msgs = await core.stormlist('layer.pull.list $layr2', opts=opts)
+                self.stormIsInPrint('tcp://root:****@127.0.0.1', msgs)
+
+                pidn = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr0).get(pushs) { return($iden) }', opts=opts)
+                msgs = await core.stormlist(f'layer.push.del $layr0 {pidn}', opts=opts)
+                self.stormIsInPrint('Layer push deleted', msgs)
+                msgs = await core.stormlist('layer.push.list $layr0', opts=opts)
+                self.stormIsInPrint('No pushes configured', msgs)
+
+                pidn = await core.callStorm('for ($iden, $pdef) in $lib.layer.get($layr2).get(pulls) { return($iden) }', opts=opts)
+                msgs = await core.stormlist(f'layer.pull.del $layr2 {pidn}', opts=opts)
+                self.stormIsInPrint('Layer pull deleted', msgs)
+                msgs = await core.stormlist('layer.pull.list $layr2', opts=opts)
+                self.stormIsInPrint('No pulls configured', msgs)
 
                 # add a push/pull and remove the layer to cancel it...
                 await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
