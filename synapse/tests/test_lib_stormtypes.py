@@ -3387,6 +3387,9 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm('return($lib.layer.get().getPropCount(newp:newp))')
 
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm("return($lib.layer.get().getPropCount('.newp'))")
+
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {
             'name': 'foo',
