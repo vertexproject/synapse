@@ -4117,6 +4117,8 @@ class Layer(Prim):
 
         if prop.isform:
             todo = s_common.todo('getPropCount', prop.name, None, maxsize=maxsize)
+        elif prop.isuniv:
+            todo = s_common.todo('getUnivPropCount', prop.name, maxsize=maxsize)
         else:
             todo = s_common.todo('getPropCount', prop.form.name, prop.name, maxsize=maxsize)
 
