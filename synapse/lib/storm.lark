@@ -43,7 +43,7 @@ editparens: "(" _WS? editnodeadd [ _WS _editopers ] _WS? ")"
 edittagadd: "+" [SETTAGOPER] tagname [_WS? "=" _WS? _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
-editpropset: relprop _WS? SETOPER _WS? _valu
+editpropset: relprop _WS? SETOPER _WS? (_valu | baresubquery)
 editpropdel: "-" relprop
 editunivset: univprop _WS? SETOPER _WS? _valu
 editnodeadd: formname _WS? SETOPER _WS? _valu

@@ -458,6 +458,20 @@ class SubQuery(Oper):
         async for item in self.kids[0].run(runt, genr):
             yield item
 
+    async def compute(self, runt, path):
+        # not technically a prim, but we can produce an array of primary prop vals
+        subvals = []
+        async with runt.getSubRuntime(self.kids[0]) as runt:
+            async for valunode, valupath in runt.execute():
+
+                subvals.append(valunode.ndef[1])
+
+                if len(subvals) >= 128:
+                    mesg = 'Cannot use query-based assignment for >128 items.'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+
+        return subvals
+
 class InitBlock(AstNode):
     '''
     An AST node that runs only once before yielding nodes.
@@ -2950,13 +2964,31 @@ class EditPropSet(Edit):
         async for node, path in genr:
 
             name = await self.kids[0].compute(runt, path)
-
-            valu = await self.kids[2].compute(runt, path)
-            valu = await s_stormtypes.toprim(valu)
+            #valu = await self.kids[2].compute(runt, path)
 
             prop = node.form.props.get(name)
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
+
+            expand = True
+            isarray = isinstance(prop.type, s_types.Array)
+
+            valu = await self.kids[2].compute(runt, path)
+            valu = await s_stormtypes.toprim(valu)
+
+            # Setting a value to a subquery means assigning the value of
+            # the primary property (for a single value) or array of values
+            if isinstance(self.kids[2], SubQuery):
+
+                if not isarray:
+                    if len(valu) != 1:
+                        mesg = 'Cannot assign a property value from multiple nodes.'
+                        raise s_exc.StormRuntimeError(mesg=mesg)
+
+                    valu = valu[0]
+
+                else:
+                    expand = False
 
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
@@ -2974,23 +3006,27 @@ class EditPropSet(Edit):
                     if arry is None:
                         arry = ()
 
+                    # make arry mutable
+                    arry = list(arry)
+
+                    if expand:
+                        valu = (valu,)
+
                     if isadd:
-                        # this new valu will get normed by the array prop
-                        valu = arry + (valu,)
+                        arry.extend(valu)
 
                     else:
-                        # make arry mutable
-                        arry = list(arry)
 
                         # we cant remove something we cant norm...
                         # but that also means it can't be in the array so...
-                        norm, info = prop.type.arraytype.norm(valu)
-                        try:
-                            arry.remove(norm)
-                        except ValueError:
-                            pass
+                        for v in valu:
+                            norm, info = prop.type.arraytype.norm(v)
+                            try:
+                                arry.remove(norm)
+                            except ValueError:
+                                pass
 
-                        valu = arry
+                    valu = arry
 
                 await node.set(name, valu)
 
