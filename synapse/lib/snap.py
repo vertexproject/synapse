@@ -974,6 +974,7 @@ class Snap(s_base.Base):
                 except Exception as e:
                     if not oldstrict:
                         await self.warn(f'addNodes failed on {formname}, {formvalu}, {forminfo}: {e}')
+                        await asyncio.sleep(0)
                         continue
                     raise
 
