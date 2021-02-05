@@ -3382,8 +3382,15 @@ class StormTypesTest(s_test.SynTest):
             self.eq(3, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
             self.eq(2, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar, formname=inet:ipv4))'))
 
+            self.eq(6, await core.callStorm("return($lib.layer.get().getPropCount('.created'))"))
+            self.eq(2, await core.callStorm("return($lib.layer.get().getPropCount(inet:ipv4.created))"))
+            self.eq(0, await core.callStorm("return($lib.layer.get().getPropCount('.seen'))"))
+
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm('return($lib.layer.get().getPropCount(newp:newp))')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm("return($lib.layer.get().getPropCount('.newp'))")
 
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {
