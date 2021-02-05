@@ -1339,6 +1339,18 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.len(2, commitstats)
                 self.eq(2, commitstats[-1][1])
 
+    async def test_lmdbslab_iter_and_delete(self):
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as slab:
+                bar = slab.initdb('bar', dupsort=True)
+                slab.put(b'\x00\x01', b'hehe', dupdata=True, db=bar)
+                slab.put(b'\x00\x02', b'haha', dupdata=True, db=bar)
+                scan = slab.scanByDups(b'\x00\x02', db=bar)
+                self.eq((b'\x00\x02', b'haha'), next(scan))
+                slab.delete(b'\x00\x01', b'hehe', db=bar)
+                self.raises(StopIteration, next, scan)
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):
