@@ -5,6 +5,30 @@ Synapse Changelog
 *****************
 
 
+v2.26.0 - 2020-02-05
+====================
+
+Features and Enhancements
+-------------------------
+- Add Storm commands for easily adding, deleting, and listing layer push
+  and pull configurations.
+  (`#2071 <https://github.com/vertexproject/synapse/pull/2071>`_)
+
+Bugfixes
+--------
+- Fix ``layer.getPropCount()`` API for universal properties.
+  (`#2073 <https://github.com/vertexproject/synapse/pull/2073>`_)
+- Add a missing async yield in ``Snap.addNodes()``.
+  (`#2074 <https://github.com/vertexproject/synapse/pull/2074>`_)
+- Constrain lmdb version due to unexpected behavior in ``v1.1.0``.
+  (`#2075 <https://github.com/vertexproject/synapse/pull/2075>`_)
+
+Improved Documentation
+----------------------
+- Update user docs for Storm flow control and data model references.
+  (`#2066 <https://github.com/vertexproject/synapse/pull/2066>`_)
+
+
 v2.25.0 - 2020-02-01
 ====================
 
