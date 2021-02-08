@@ -3246,7 +3246,7 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
                                      opts={'vars': {'iden': iden}})
 
-            with self.raises(TypeError):
+            with self.raises(s_exc.BadArg):
                 iden = 12345
                 await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
                                      opts={'vars': {'iden': iden}})

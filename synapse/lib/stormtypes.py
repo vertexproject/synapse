@@ -4808,8 +4808,11 @@ class LibUsers(Lib):
 
     async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
         self.runt.confirm(('auth', 'user', 'add'))
-        udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email,
-                                                 iden=iden,)
+        name = await tostr(name)
+        iden = await tostr(iden, True)
+        email = await tostr(email, True)
+        passwd = await tostr(passwd, True)
+        udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email, iden=iden,)
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
