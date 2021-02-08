@@ -337,14 +337,15 @@ class Auth(s_nexus.Pusher):
             raise s_exc.NoSuchAuthGate(iden=iden, mesg=mesg)
         return gate
 
-    async def addUser(self, name, passwd=None, email=None):
+    async def addUser(self, name, passwd=None, email=None, iden=None):
         '''
         Add a User to the Hive.
 
         Args:
             name (str): The name of the User.
             passwd (str): A optional password for the user.
-            email (str): A optional emall for the user.
+            email (str): A optional email for the user.
+            iden (str): A optional iden to use as the user iden.
 
         Returns:
             HiveUser: A Hive User.
@@ -353,7 +354,16 @@ class Auth(s_nexus.Pusher):
         if self.usersbyname.get(name) is not None:
             raise s_exc.DupUserName(name=name)
 
-        iden = s_common.guid()
+        if iden is None:
+            iden = s_common.guid()
+        else:
+            if not s_common.isguid(iden):
+                raise s_exc.BadArg(name='iden', arg=iden, mesg='Argument it not a valid iden.')
+
+            if self.usersbyiden.get(iden) is not None:
+                raise s_exc.DupIden(name=name, iden=iden,
+                                    mesg='User already exists for the iden.')
+
         await self._push('user:add', iden, name)
 
         user = self.user(iden)

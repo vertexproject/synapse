@@ -4755,6 +4755,7 @@ class LibUsers(Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the user.', },
                       {'name': 'passwd', 'type': 'str', 'desc': 'The users password.', 'default': None, },
                       {'name': 'email', 'type': 'str', 'desc': 'The users email address.', 'default': None, },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden to use to create the user.', 'default': None, }
                   ),
                   'returns': {'type': 'storm:auth:user', 'desc': 'The ``storm:auth:user`` object for the new user.', }}},
         {'name': 'del', 'desc': 'Delete a User from the Cortex.',
@@ -4805,9 +4806,10 @@ class LibUsers(Lib):
         if udef is not None:
             return User(self.runt, udef['iden'])
 
-    async def _methUsersAdd(self, name, passwd=None, email=None):
+    async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
         self.runt.confirm(('auth', 'user', 'add'))
-        udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email)
+        udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email,
+                                                 iden=iden,)
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):

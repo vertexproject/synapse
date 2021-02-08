@@ -3232,6 +3232,25 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.none(await core.auth.getRoleByName('ninjas'))
 
+            # Use arbitrary idens when creating users.
+            iden = s_common.guid(('foo', 101))
+            udef = await core.callStorm('$u=$lib.auth.users.add(foo, iden=$iden) return ( $u )',
+                                        opts={'vars': {'iden': iden}})
+            self.eq(udef.get('iden'), iden)
+
+            with self.raises(s_exc.DupIden):
+                await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
+                                     opts={'vars': {'iden': iden}})
+            with self.raises(s_exc.BadArg):
+                iden = 'beep'
+                await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
+                                     opts={'vars': {'iden': iden}})
+
+            with self.raises(TypeError):
+                iden = 12345
+                await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
+                                     opts={'vars': {'iden': iden}})
+
     async def test_stormtypes_node(self):
 
         async with self.getTestCore() as core:
