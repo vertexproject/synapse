@@ -501,7 +501,6 @@ class Agenda(s_base.Base):
         "Cancel the scheduler loop, and set self.enabled to False."
         if not self.enabled:
             return
-
         self._schedtask.cancel()
         for task in self._running_tasks:
             await task.fini()
@@ -512,7 +511,7 @@ class Agenda(s_base.Base):
         '''
         Load all the appointments from persistent storage
         '''
-        # Clear existing appointments
+        # Clear existing appointments before loading
         self.apptheap = []
         self.appts = {}
 
