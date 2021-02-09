@@ -554,5 +554,10 @@ class AgendaTest(s_t_utils.SynTest):
             appts = core.agenda.list()
             await core.agenda._execute(appts[0][1])
             self.eq((0, 99), await core.callStorm('return($lib.queue.get(foo).get())'))
+
+            appts[0][1].creator = 'fakeuser'
+            await core.agenda._execute(appts[0][1])
+            self.eq(appts[0][1].lastresult, 'Failed due to unknown user')
+
             await core.agenda.stop()
             self.false(core.agenda.enabled)
