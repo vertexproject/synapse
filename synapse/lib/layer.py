@@ -1540,6 +1540,17 @@ class Layer(s_nexus.Pusher):
 
         return await self.layrslab.countByPref(abrv, db=self.byprop, maxsize=maxsize)
 
+    async def getUnivPropCount(self, propname, maxsize=None):
+        '''
+        Return the number of universal property rows in the layer for the given prop.
+        '''
+        try:
+            abrv = self.getPropAbrv(None, propname)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        return await self.layrslab.countByPref(abrv, db=self.byprop, maxsize=maxsize)
+
     async def liftByTag(self, tag, form=None):
 
         try:

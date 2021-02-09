@@ -3913,7 +3913,7 @@ class Layer(Prim):
                       {'name': 'url', 'type': 'str', 'desc': 'A telepath URL of the target layer/feed.', },
                       {'name': 'offs', 'type': 'int', 'desc': 'The local layer offset to begin pushing from', 'default': 0, },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the push definition.', }}},
         {'name': 'delPush', 'desc': 'Remove a push config from the layer.',
          'type': {'type': 'function', '_funcname': '_delPush',
                   'args': (
@@ -3926,7 +3926,7 @@ class Layer(Prim):
                       {'name': 'url', 'type': 'str', 'desc': 'The telepath URL to a layer/feed.', },
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to begin from.', 'default': 0, },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the pull definition.', }}},
         {'name': 'delPull', 'desc': 'Remove a pull config from the layer.',
          'type': {'type': 'function', '_funcname': '_delPull',
                   'args': (
@@ -4039,6 +4039,7 @@ class Layer(Prim):
         }
         todo = s_common.todo('addLayrPull', layriden, pdef)
         await self.runt.dyncall('cortex', todo)
+        return pdef
 
     async def _delPull(self, iden):
         iden = await tostr(iden)
@@ -4077,6 +4078,7 @@ class Layer(Prim):
         }
         todo = s_common.todo('addLayrPush', layriden, pdef)
         await self.runt.dyncall('cortex', todo)
+        return pdef
 
     async def _delPush(self, iden):
         iden = await tostr(iden)
@@ -4115,6 +4117,8 @@ class Layer(Prim):
 
         if prop.isform:
             todo = s_common.todo('getPropCount', prop.name, None, maxsize=maxsize)
+        elif prop.isuniv:
+            todo = s_common.todo('getUnivPropCount', prop.name, maxsize=maxsize)
         else:
             todo = s_common.todo('getPropCount', prop.form.name, prop.name, maxsize=maxsize)
 
