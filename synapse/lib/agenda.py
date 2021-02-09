@@ -648,7 +648,7 @@ class Agenda(s_base.Base):
 
         appt.doc = cdef.get('doc', '')
 
-        await self._storeAppt(appt, nexs=False)
+        await self._storeAppt(appt)
 
         return appt.pack()
 
