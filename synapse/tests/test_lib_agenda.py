@@ -8,6 +8,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
+import synapse.lib.nexus as s_nexus
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.lib.agenda as s_agenda
@@ -183,8 +184,11 @@ class AgendaTest(s_t_utils.SynTest):
             core = mock.Mock()
             core.eval = myeval
             core.slab = await s_lmdbslab.Slab.anit(dirn, map_size=s_t_utils.TEST_MAP_SIZE, readonly=False)
+            nexsroot = await s_nexus.NexsRoot.anit(dirn)
+            await nexsroot.startup(None)
+
             db = core.slab.initdb('hive')
-            core.hive = await s_hive.SlabHive.anit(core.slab, db=db)
+            core.hive = await s_hive.SlabHive.anit(core.slab, db=db, nexsroot=nexsroot)
             core.boss = await s_boss.Boss.anit()
             async with await s_agenda.Agenda.anit(core) as agenda:
                 agenda.onfini(core.hive)
@@ -466,7 +470,8 @@ class AgendaTest(s_t_utils.SynTest):
                     badguid2 = adef.get('iden')
 
                     adef['ver'] = 1337
-                    await agenda._hivedict.set(badguid2, adef)
+                    full = agenda._hivenode.full + (badguid2,)
+                    await agenda.core.hive.set(full, adef)
 
                     xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2099}
                     lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2099}
