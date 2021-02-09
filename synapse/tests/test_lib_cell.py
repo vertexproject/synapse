@@ -318,6 +318,10 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('haha', await proxy.getUserProfInfo(visi.iden, 'hehe'))
                 self.eq('haha', (await proxy.getUserProfile(visi.iden))['hehe'])
 
+                iden = s_common.guid(('foo', 101))
+                udef = await proxy.addUser('foo', iden=iden)
+                self.eq(udef.get('iden'), iden)
+
     async def test_longpath(self):
         # This is similar to the DaemonTest::test_unixsock_longpath
         # but exercises the long-path failure inside of the cell's daemon
