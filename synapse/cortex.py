@@ -1437,7 +1437,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden = node.ndef[1]
             appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
-            await appt.setDoc(valu)
+            await appt.setDoc(valu, nexs=True)
             node.props[prop.name] = valu
 
         async def onSetCronName(node, prop, valu):
@@ -1445,7 +1445,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden = node.ndef[1]
             appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
-            await appt.setName(valu)
+            await appt.setName(valu, nexs=True)
             node.props[prop.name] = valu
 
         self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
