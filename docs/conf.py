@@ -218,6 +218,7 @@ def run_confdocs(_):
                 './docs/synapse/autodocs', '--doc-conf']
     ctors = ('synapse.axon.Axon',
              'synapse.cortex.Cortex',
+             'synapse.lib.aha.AhaCell',
              'synapse.cryotank.CryoCell',
              )
     for ctor in ctors:
@@ -258,5 +259,5 @@ def setup(app):
     app.connect('builder-inited', run_apidoc)
     app.connect('builder-inited', run_modeldoc)
     app.connect('builder-inited', run_confdocs)
-    app.connect('builder-inited', convert_ipynb)
+    # app.connect('builder-inited', convert_ipynb)
     app.connect('builder-inited', run_stormtypes)

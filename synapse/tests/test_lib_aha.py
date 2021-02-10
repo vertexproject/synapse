@@ -34,9 +34,14 @@ class AhaTest(s_test.SynTest):
         with self.raises(s_exc.NoSuchName):
             await s_telepath.getAhaProxy({'host': 'hehe.haha'})
 
+        # We do inprocess reference counting for urls and clients.
         urls = ['newp://newp@newp', 'newp://newp@newp']
-        client = await s_telepath.addAhaUrl(urls)
-        client = await s_telepath.addAhaUrl(urls)
+        info = await s_telepath.addAhaUrl(urls)
+        self.eq(info.get('refs'), 1)
+        # There is not yet a telepath client which is using these urls.
+        self.none(info.get('client'))
+        info = await s_telepath.addAhaUrl(urls)
+        self.eq(info.get('refs'), 2)
 
         await s_telepath.delAhaUrl(urls)
         self.len(1, s_telepath.aha_clients)

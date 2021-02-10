@@ -825,8 +825,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sockaddr = None
 
         turl = self.conf.get('dmon:listen')
-        logger.info(f'{turl=}')
-        logger.info(f'{self.conf.asDict()}')
+
         if turl is not None:
             self.sockaddr = await self.dmon.listen(turl)
             logger.info(f'dmon listening: {turl}')
