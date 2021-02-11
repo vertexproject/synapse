@@ -445,11 +445,18 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.len(2, nodes[0].get('industries'))
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={} ]')
+
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')
+
+            await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
+            await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
+            await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
 
     async def test_storm_pipe(self):
 

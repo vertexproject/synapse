@@ -467,8 +467,8 @@ class SubQuery(Oper):
                 subvals.append(valunode.ndef[1])
 
                 if len(subvals) >= 128:
-                    mesg = 'Cannot use query-based assignment for >128 items.'
-                    raise s_exc.StormRuntimeError(mesg=mesg)
+                    mesg = 'Cannot use subquery assignment for >128 items.'
+                    raise s_exc.BadTypeValu(mesg=mesg)
 
         return subvals
 
@@ -2964,37 +2964,40 @@ class EditPropSet(Edit):
         async for node, path in genr:
 
             name = await self.kids[0].compute(runt, path)
-            #valu = await self.kids[2].compute(runt, path)
 
             prop = node.form.props.get(name)
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            expand = True
-            isarray = isinstance(prop.type, s_types.Array)
-
-            valu = await self.kids[2].compute(runt, path)
-            valu = await s_stormtypes.toprim(valu)
-
-            # Setting a value to a subquery means assigning the value of
-            # the primary property (for a single value) or array of values
-            if isinstance(self.kids[2], SubQuery):
-
-                if not isarray:
-                    if len(valu) != 1:
-                        mesg = 'Cannot assign a property value from multiple nodes.'
-                        raise s_exc.StormRuntimeError(mesg=mesg)
-
-                    valu = valu[0]
-
-                else:
-                    expand = False
-
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
                 runt.layerConfirm(('node', 'prop', 'set', prop.full))
 
+            expand = True
+            isarray = isinstance(prop.type, s_types.Array)
+
             try:
+
+                valu = await self.kids[2].compute(runt, path)
+                valu = await s_stormtypes.toprim(valu)
+
+                # Setting a value to a subquery means assigning the value of
+                # the primary property (for a single value) or array of values
+                if isinstance(self.kids[2], SubQuery):
+
+                    if not isarray:
+
+                        if len(valu) != 1:
+                            if len(valu) == 0:
+                                mesg = "Subquery assignment didn't return any nodes."
+                            else:
+                                mesg = 'Subquery assignment returned more than 1 node.'
+                            raise s_exc.BadTypeValu(mesg=mesg)
+
+                        valu = valu[0]
+
+                    else:
+                        expand = False
 
                 if isadd or issub:
 
