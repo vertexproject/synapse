@@ -213,8 +213,10 @@ class StormTest(s_t_utils.SynTest):
             delopts = {'user': visi.iden, 'vars': {'sha256': sha256}}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.axon.del($sha256)', opts=delopts)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.axon.dels(($sha256,))', opts=delopts)
             delopts = {'vars': {'sha256': sha256}}
-            self.true(await core.callStorm('return($lib.axon.del($sha256))', opts=delopts))
+            self.eq((True, False), await core.callStorm('return($lib.axon.dels(($sha256, $sha256)))', opts=delopts))
             self.false(await core.callStorm('return($lib.axon.del($sha256))', opts=delopts))
 
             msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')

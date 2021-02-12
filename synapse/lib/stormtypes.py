@@ -1188,9 +1188,22 @@ class LibAxon(Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'del_',
                   'args': (
-                      {'name': 'sha256', 'type': 'hash:sha256', 'desc': ''},
+                      {'name': 'sha256', 'type': 'hash:sha256', 'desc': 'The sha256 of the bytes to remove from the Axon.'},
                   ),
                   'returns': {'type': 'bool', 'desc': 'True if the bytes were found and removed.', }}},
+
+        {'name': 'dels', 'desc': '''
+            Remove multiple byte blobs from the Cortex's Axon by a list of sha256 hashes.
+
+            Example:
+                $list = ($hash0, $hash1, $hash2)
+                $lib.axon.dels($list)
+        ''',
+         'type': {'type': 'function', '_funcname': 'dels',
+                  'args': (
+                      {'name': 'sha256s', 'type': 'list', 'desc': 'A list of sha256 hashes to remove from the Axon.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of boolean values that are True if the bytes were found.', }}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1199,7 +1212,24 @@ class LibAxon(Lib):
             'wget': self.wget,
             'urlfile': self.urlfile,
             'del': self.del_,
+            'dels': self.dels,
         }
+
+    async def dels(self, sha256s):
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+
+        sha256s = await toprim(sha256s)
+
+        if not isinstance(sha256s, (list, tuple)):
+            raise s_exc.BadArg()
+
+        hashes = [s_common.uhex(s) for s in sha256s]
+
+        await self.runt.snap.core.getAxon()
+
+        axon = self.runt.snap.core.axon
+        return await axon.dels(hashes)
 
     async def del_(self, sha256):
 

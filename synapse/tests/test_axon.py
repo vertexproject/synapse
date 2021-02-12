@@ -184,6 +184,7 @@ class AxonTest(s_t_utils.SynTest):
             self.true(fd.fd.closed)
 
         self.true(await axon.del_(bbufhash))
+        self.eq((False,), await axon.dels((bbufhash,)))
 
         info = await axon.metrics()
         self.eq(33554474, info.get('size:bytes'))
@@ -372,6 +373,7 @@ class AxonTest(s_t_utils.SynTest):
                 await self.agenraises(s_exc.AuthDeny, prox.hashes(0))
                 await self.agenraises(s_exc.AuthDeny, prox.history(0))
                 await self.asyncraises(s_exc.AuthDeny, prox.del_(asdfhash))
+                await self.asyncraises(s_exc.AuthDeny, prox.dels((asdfhash,)))
                 await self.asyncraises(s_exc.AuthDeny, prox.wants((asdfhash,)))
                 await self.asyncraises(s_exc.AuthDeny, prox.put(abuf))
                 await self.asyncraises(s_exc.AuthDeny, prox.puts((abuf,)))

@@ -233,6 +233,13 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'del'))
         return await self.cell.del_(sha256)
 
+    async def dels(self, sha256s):
+        '''
+        Remove the given bytes from the Axon by a list of sha256 hashes.
+        '''
+        await self._reqUserAllowed(('axon', 'del'))
+        return await self.cell.dels(sha256s)
+
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
         await self._reqUserAllowed(('axon', 'wget'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
@@ -427,6 +434,9 @@ class Axon(s_cell.Cell):
             self.blobslab.put(lkey, byts, db=self.blobs)
             await asyncio.sleep(0)
         return size
+
+    async def dels(self, sha256s):
+        return [await self.del_(s) for s in sha256s]
 
     async def del_(self, sha256):
 
