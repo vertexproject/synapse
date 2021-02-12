@@ -373,6 +373,13 @@ class AxonTest(s_t_utils.SynTest):
                 self.eq('ok', item.get('status'))
                 self.eq((False, False), item.get('result'))
 
+            data = {'newp': 'newp'}
+            async with sess.post(url_de, json=data) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+                self.eq('SchemaViolation', item.get('code'))
+
     async def test_axon_perms(self):
         async with self.getTestAxon() as axon:
             user = await axon.auth.addUser('user')
