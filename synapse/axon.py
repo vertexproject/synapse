@@ -305,6 +305,9 @@ class Axon(s_cell.Cell):
 
     @contextlib.asynccontextmanager
     async def holdHashLock(self, hashbyts):
+        '''
+        A context manager that synchronizes edit access to a blob.
+        '''
 
         item = self.hashlocks.get(hashbyts)
         if item is None:
