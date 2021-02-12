@@ -108,13 +108,85 @@ it registers the lists of Aha servers and list of certificate directories with
 the Synapse process, and returns a callback function which will remove those
 directories from the process.
 
-In the above example, two sets of aha servers are registered, and a additional
+In the above example, two sets of Aha servers are registered, and a additional
 certificate directory.
 
-Putting it Together
--------------------
+Bootstrapping An Aha Environment
+--------------------------------
+
+The following shows an example of bootstrapping a local Aha instance, configuring a machine user and a client user
+for it, adding a Cortex to the network and then connecting to the Cortex via Aha.
+
+Start an Aha service:
+
+    ::
+
+        SYN_AHACELL_AHA_URLS=tcp://127.0.0.1:8081 SYN_AHACELL_DMON_LISTEN=tcp://0.0.0.0:8081 \
+        SYN_AHACELL_AUTH_PASSWD=root python -m synapse.servers.aha cells/aha01
+
+Add a user to the Aha service. There needs to be a user that a Cell can use to
+connect and register itself to to the Aha server:
+
+    ::
+
+        # Add a user to the Aha cell.
+        python -m synapse.tools.cellauth cell://./cells/aha01 modify --adduser reguser
+
+        # Give the user a password.
+        python -m synapse.tools.cellauth cell://./cells/aha01 modify --passwd secret reguser
+
+        # Grant it the permissions for authenticating with Aha and registering a service.
+        python -m synapse.tools.cellauth cell://./cells/aha001modify --addrule aha.service.add reguser
+
+Start up a Cortex, configured to register itself with the Aha service. This Cortex is binding a listener on port 0,
+so the OS will assign the listening port for us:
+
+    ::
+
+        SYN_CORTEX_DMON_LISTEN=tcp://0.0.0.0:0/ SYN_CORTEX_HTTPS_PORT=8443 SYN_CORTEX_AHA_NAME=ahacore \
+        SYN_CORTEX_AHA_REGISTRY=tcp://reguser:secret@127.0.0.1:8081/ SYN_CORTEX_AHA_NETWORK=demonet \
+        SYN_CORTEX_AUTH_PASSWD=root python -m synapse.servers.cortex cells/ahacore01
+
+The ``synapse.tools.aha.list`` utility can be used to inspect the services that have been registered with a given
+Aha cell.
+
+    ::
+
+        $ python -m synapse.tools.aha.list cell://./cells/aha01
+        Service              network                        online scheme host                 port
+        ahacore              demonet                        True   tcp    127.0.0.1            45463
+
+Now we can add a client user to the Aha cell so that they can look up the Cell
 
 
+    ::
+
+        # Add a client user to Aha.
+        python -m synapse.tools.cellauth cell://./cells/aha01 modify --adduser alice
+
+        # Give them a password
+        python -m synapse.tools.cellauth cell://./cells/aha01 modify --passwd secret alice
+
+        # Allow the client to lookup services
+        python -m synapse.tools.cellauth cell://./cells/aha01 modify --addrule aha.service.get alice
+
+The clients ``telepath.yaml`` file will need to include the Aha server location.
+
+    ::
+
+        $ cat ~/.syn/telepath.yaml
+        version: 1
+        aha:servers:
+          - - tcp://alice:secret@127.0.0.1:8081/
+
+Now the user can connect to the Cortex by resolving its IP and port via the Aha server.
+
+    ::
+
+        python -m synapse.tools.cmdr aha://root:root@ahacore.demonet/
+
+This will lookup the ``ahacore.demonet`` service in the Aha service, and then connect to the Cortex using the information
+provided by Aha.
 
 Using Aha with Custom Client Code
 ---------------------------------
@@ -160,5 +232,10 @@ Example code loading ``telepath.yaml`` ::
 
     sys.exit(asyncio.run(main(sys.argv[1:]))))
 
-A Synapse Cell does not need to be configured with a ``telepath.yaml`` file
-if it is a Client which connects to
+A Synapse Cell does not need to be configured with a ``telepath.yaml`` file if it is a Client which registers itself
+with an Aha server during startup.
+
+TODO
+----
+
+TLS notes
