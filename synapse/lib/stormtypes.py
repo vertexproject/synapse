@@ -1180,13 +1180,13 @@ class LibAxon(Lib):
                   ),
                   'returns': {'type': ['storm:node', 'null '],
                               'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.', }}},
-        {'name': 'del', '_funcname': 'del_', 'desc': '''
+        {'name': 'del', 'desc': '''
             Remove the bytes from the Cortex's Axon by sha256.
 
             Example:
                 file:bytes#foo +:sha256 $lib.axon.del(:sha256)
         ''',
-         'type': {'type': 'function',
+         'type': {'type': 'function', '_funcname': 'del_',
                   'args': (
                       {'name': 'sha256', 'type': 'hash:sha256', 'desc': ''},
                   ),
