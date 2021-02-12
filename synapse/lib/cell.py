@@ -850,9 +850,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahalead = self.conf.get('aha:leader')
         ahanetw = self.conf.get('aha:network')
 
-        logger.error(f'{self.conf.asDict()}')
         ahainfo = self.conf.get('aha:svcinfo')
-        logger.error(f'{ahainfo}')
         if ahainfo is None and turl is not None:
 
             urlinfo = s_telepath.chopurl(turl)
