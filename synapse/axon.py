@@ -112,7 +112,7 @@ class AxonHttpDelV1(s_httpapi.Handler):
         resp = await self.cell.dels(hashes)
         return self.sendRestRetn(resp)
 
-class AxonHttpDownloadV1(s_httpapi.Handler):
+class AxonHttpBySha256V1(s_httpapi.Handler):
 
     async def get(self, sha256):
 
@@ -328,7 +328,6 @@ class Axon(s_cell.Cell):
         self.hashlocks = {}
 
         self.axonhist = s_lmdbslab.Hist(self.axonslab, 'history')
-        self.axondel = s_slabseqn.SlabSeqn(self.axonslab, 'axondel')
         self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
 
         node = await self.hive.open(('axon', 'metrics'))
@@ -390,7 +389,7 @@ class Axon(s_cell.Cell):
         self.addHttpApi('/api/v1/axon/files/del', AxonHttpDelV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/put', AxonHttpUploadV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', AxonHttpHasV1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpDownloadV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpBySha256V1, {'cell': self})
 
     def _addSyncItem(self, item):
         self.axonhist.add(item)
