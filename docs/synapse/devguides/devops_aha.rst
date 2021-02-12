@@ -239,3 +239,4 @@ TODO
 ----
 
 TLS notes
+SVCINFO notes
