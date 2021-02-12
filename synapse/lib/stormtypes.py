@@ -1180,6 +1180,17 @@ class LibAxon(Lib):
                   ),
                   'returns': {'type': ['storm:node', 'null '],
                               'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.', }}},
+        {'name': 'del', '_funcname': 'del_', 'desc': '''
+            Remove the bytes from the Cortex's Axon by sha256.
+
+            Example:
+                file:bytes#foo +:sha256 $lib.axon.del(:sha256)
+        ''',
+         'type': {'type': 'function',
+                  'args': (
+                      {'name': 'sha256', 'type': 'hash:sha256', 'desc': ''},
+                  ),
+                  'returns': {'type': 'bool', 'desc': 'True if the bytes were found and removed.', }}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1187,7 +1198,19 @@ class LibAxon(Lib):
         return {
             'wget': self.wget,
             'urlfile': self.urlfile,
+            'del': self.del_,
         }
+
+    async def del_(self, sha256):
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        sha256 = await tostr(sha256)
+
+        sha256b = s_common.uhex(sha256)
+        await self.runt.snap.core.getAxon()
+
+        axon = self.runt.snap.core.axon
+        return await axon.del_(sha256b)
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None):
 

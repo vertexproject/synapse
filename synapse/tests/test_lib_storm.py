@@ -208,6 +208,14 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'file:bytes')
+            # test $lib.axon.del()
+            sha256 = nodes[0].get('sha256')
+            delopts = {'user': visi.iden, 'vars': {'sha256': sha256}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.axon.del($sha256)', opts=delopts)
+            delopts = {'vars': {'sha256': sha256}}
+            self.true(await core.callStorm('return($lib.axon.del($sha256))', opts=delopts))
+            self.false(await core.callStorm('return($lib.axon.del($sha256))', opts=delopts))
 
             msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
             self.stormIsInWarn('HTTP code 404', msgs)
