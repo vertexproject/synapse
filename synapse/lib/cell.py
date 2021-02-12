@@ -191,8 +191,8 @@ class CellApi(s_base.Base):
         return await self.cell.kill(self.user, iden)
 
     @adminapi(log=True)
-    async def addUser(self, name, passwd=None, email=None):
-        return await self.cell.addUser(name, passwd=passwd, email=email)
+    async def addUser(self, name, passwd=None, email=None, iden=None):
+        return await self.cell.addUser(name, passwd=passwd, email=email, iden=iden)
 
     @adminapi(log=True)
     async def delUser(self, iden):
@@ -1273,8 +1273,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self.fire('user:mod', act='revoke', user=useriden, role=roleiden)
 
-    async def addUser(self, name, passwd=None, email=None):
-        user = await self.auth.addUser(name, passwd=passwd, email=email)
+    async def addUser(self, name, passwd=None, email=None, iden=None):
+        user = await self.auth.addUser(name, passwd=passwd, email=email, iden=iden)
         await self.fire('user:mod', act='adduser', name=name)
         return user.pack(packroles=True)
 

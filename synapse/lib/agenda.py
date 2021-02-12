@@ -436,19 +436,19 @@ class _Appt:
             self.nexttime = None
             return
 
-    async def setDoc(self, text):
+    async def setDoc(self, text, nexs=False):
         '''
         Set the doc field of an appointment.
         '''
         self.doc = text
-        await self._save()
+        await self._save(nexs=nexs)
 
-    async def setName(self, text):
+    async def setName(self, text, nexs=False):
         self.name = text
-        await self._save()
+        await self._save(nexs=nexs)
 
-    async def _save(self):
-        await self.stor._storeAppt(self)
+    async def _save(self, nexs=False):
+        await self.stor._storeAppt(self, nexs=nexs)
 
 class Agenda(s_base.Base):
     '''
@@ -467,8 +467,7 @@ class Agenda(s_base.Base):
         self._wake_event = asyncio.Event()  # Causes the scheduler loop to wake up
         self.onfini(self._wake_event.set)
 
-        self._hivedict = await self.core.hive.dict(('agenda', 'appts'))  # Persistent storage
-        self.onfini(self._hivedict)
+        self._hivenode = await self.core.hive.open(('agenda', 'appts')) # Persistent storage
         self.onfini(self.stop)
 
         self.enabled = False
@@ -487,6 +486,7 @@ class Agenda(s_base.Base):
         if self.enabled:
             return
 
+        await self._load_all()
         for iden, appt in self.appts.items():
             try:
                 self.core.getStormQuery(appt.query)
@@ -511,8 +511,13 @@ class Agenda(s_base.Base):
         '''
         Load all the appointments from persistent storage
         '''
+        # Clear existing appointments before loading
+        self.apptheap = []
+        self.appts = {}
+
         to_delete = []
-        for iden, val in self._hivedict.items():
+        for iden, node in iter(self._hivenode):
+            val = node.valu
             try:
                 appt = _Appt.unpack(self, val)
                 if appt.iden != iden:
@@ -526,7 +531,9 @@ class Agenda(s_base.Base):
                 continue
 
         for iden in to_delete:
-            await self._hivedict.pop(iden)
+            node = self._hivenode.get(iden)
+            if node is not None:
+                await node.hive.pop(node.full)
 
         # Make sure we don't assign the same index to 2 appointments
         if self.appts:
@@ -543,9 +550,10 @@ class Agenda(s_base.Base):
         if self.apptheap and self.apptheap[0] is appt:
             self._wake_event.set()
 
-    async def _storeAppt(self, appt):
+    async def _storeAppt(self, appt, nexs=False):
         ''' Store a single appointment '''
-        await self._hivedict.set(appt.iden, appt.pack())
+        full = self._hivenode.full + (appt.iden,)
+        await self.core.hive.set(full, appt.pack(), nexs=nexs)
 
     @staticmethod
     def _dictproduct(rdict):
@@ -709,7 +717,9 @@ class Agenda(s_base.Base):
                 heapq.heapify(self.apptheap)
 
         del self.appts[iden]
-        await self._hivedict.pop(iden)
+        node = self._hivenode.get(iden)
+        if node is not None:
+            await node.hive.pop(node.full)
 
     async def _scheduleLoop(self):
         '''
@@ -766,7 +776,7 @@ class Agenda(s_base.Base):
         appt.isrunning = False
         appt.lastresult = 'Failed due to unknown user'
         if not self.isfini:
-            await self._storeAppt(appt)
+            await self._storeAppt(appt, nexs=True)
 
     async def _runJob(self, user, appt):
         '''
@@ -776,7 +786,7 @@ class Agenda(s_base.Base):
         appt.isrunning = True
         appt.laststarttime = time.time()
         appt.startcount += 1
-        await self._storeAppt(appt)
+        await self._storeAppt(appt, nexs=True)
 
         with s_provenance.claim('cron', iden=appt.iden):
             logger.info('Agenda executing for iden=%s, user=%s, query={%s}', appt.iden, user.name, appt.query)
@@ -801,4 +811,4 @@ class Agenda(s_base.Base):
                 appt.isrunning = False
                 appt.lastresult = result
                 if not self.isfini:
-                    await self._storeAppt(appt)
+                    await self._storeAppt(appt, nexs=True)
