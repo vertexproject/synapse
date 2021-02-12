@@ -14,6 +14,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.share as s_share
+import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -84,6 +85,33 @@ class AxonHttpHasV1(s_httpapi.Handler):
         resp = await self.cell.has(s_common.uhex(sha256))
         return self.sendRestRetn(resp)
 
+reqValidAxonDel = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'sha256s': {
+            'type': 'array',
+            'items': {'type': 'string', 'pattern': '(?i)^[0-9a-f]{64}$'}
+        },
+    },
+    'additionalProperties': False,
+    'required': ['sha256s'],
+})
+
+class AxonHttpDelV1(s_httpapi.Handler):
+
+    async def post(self):
+
+        if not await self.reqAuthAllowed(('axon', 'del')):
+            return
+
+        body = self.getJsonBody(validator=reqValidAxonDel)
+        if body is None:
+            return
+
+        hashes = [s_common.uhex(s) for s in body.get('sha256s')]
+        resp = await self.cell.dels(hashes)
+        return self.sendRestRetn(resp)
+
 class AxonHttpDownloadV1(s_httpapi.Handler):
 
     async def get(self, sha256):
@@ -109,9 +137,17 @@ class AxonHttpDownloadV1(s_httpapi.Handler):
         return
 
     async def delete(self, sha256):
+
         if not await self.reqAuthAllowed(('axon', 'del')):
             return
-        resp = await self.cell.del_(s_common.uhex(sha256))
+
+        sha256b = s_common.uhex(sha256)
+        if not await self.cell.has(sha256b):
+            self.set_status(404)
+            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}')
+            return
+
+        resp = await self.cell.del_(sha256b)
         return self.sendRestRetn(resp)
 
 class UpLoad(s_base.Base):
@@ -351,6 +387,7 @@ class Axon(s_cell.Cell):
         self.onfini(self.blobslab.fini)
 
     def _initAxonHttpApi(self):
+        self.addHttpApi('/api/v1/axon/files/del', AxonHttpDelV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/put', AxonHttpUploadV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', AxonHttpHasV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpDownloadV1, {'cell': self})

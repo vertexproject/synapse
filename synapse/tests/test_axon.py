@@ -214,6 +214,7 @@ class AxonTest(s_t_utils.SynTest):
         newb = await axon.auth.addUser('newb')
         await newb.setPasswd('secret')
 
+        url_de = f'https://localhost:{port}/api/v1/axon/files/del'
         url_ul = f'https://localhost:{port}/api/v1/axon/files/put'
         url_hs = f'https://localhost:{port}/api/v1/axon/files/has/sha256'
         url_dl = f'https://localhost:{port}/api/v1/axon/files/by/sha256'
@@ -236,6 +237,11 @@ class AxonTest(s_t_utils.SynTest):
                 self.eq('err', item.get('status'))
 
             async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
+                self.eq(403, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+
+            async with sess.post(url_de) as resp:
                 self.eq(403, resp.status)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
@@ -355,10 +361,17 @@ class AxonTest(s_t_utils.SynTest):
                 self.true(item.get('result'))
 
             async with sess.delete(f'{url_dl}/{asdfhash_h}') as resp:
+                self.eq(404, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+
+            # test /api/v1/axon/file/del API
+            data = {'sha256s': (asdfhash_h, asdfhash_h)}
+            async with sess.post(url_de, json=data) as resp:
                 self.eq(200, resp.status)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
-                self.false(item.get('result'))
+                self.eq((False, False), item.get('result'))
 
     async def test_axon_perms(self):
         async with self.getTestAxon() as axon:
