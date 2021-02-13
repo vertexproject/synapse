@@ -1184,7 +1184,9 @@ class LibAxon(Lib):
             Remove the bytes from the Cortex's Axon by sha256.
 
             Example:
-                file:bytes#foo +:sha256 $lib.axon.del(:sha256)
+                Delete files from the axon based on a tag::
+
+                    file:bytes#foo +:sha256 $lib.axon.del(:sha256)
         ''',
          'type': {'type': 'function', '_funcname': 'del_',
                   'args': (
@@ -1196,8 +1198,10 @@ class LibAxon(Lib):
             Remove multiple byte blobs from the Cortex's Axon by a list of sha256 hashes.
 
             Example:
-                $list = ($hash0, $hash1, $hash2)
-                $lib.axon.dels($list)
+                Delete a list of files (by hash) from the Axon::
+
+                    $list = ($hash0, $hash1, $hash2)
+                    $lib.axon.dels($list)
         ''',
          'type': {'type': 'function', '_funcname': 'dels',
                   'args': (
