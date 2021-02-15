@@ -68,6 +68,12 @@ class HandlerBase:
             self.add_header('Access-Control-Allow-Credentials', 'true')
             self.add_header('Access-Control-Allow-Headers', 'Content-Type')
 
+    def getAuthCell(self):
+        '''
+        Return a reference to the cell used for auth operations.
+        '''
+        return self.cell
+
     def options(self):
         self.set_status(204)
         self.finish()
@@ -229,13 +235,49 @@ class HandlerBase:
         self._web_user = user
         return user
 
-    async def username(self):
+    async def useriden(self):
+        '''
+        Return the user iden of the current session user.
+
+        NOTE: APIs should migrate toward using this rather than the heavy
+              Handler.user() API to facilitate reuse of handler objects with
+              telepath references.
+        '''
         user = await self.user()
-        if user is not None:
-            return user.name
+        if user is None:
+            return None
+        return user.iden
+
+    async def allowed(self, perm, gateiden=None):
+        '''
+        Return true if there is a logged in user with the given permissions.
+
+        NOTE: This API sets up HTTP response values if it returns False.
+
+        NOTE: This API uses the Handler.getAuthCell() abstraction and is safe for use
+              in split-auth cells.
+        '''
+        authcell = self.getAuthCell()
+
+        useriden = await self.useriden()
+        if useriden is None:
+            self.sendAuthRequired()
+            return False
+
+        if await authcell.isUserAllowed(useriden, perm, gateiden=gateiden):
+            return True
+
+        udef = await authcell.getUserDef(useriden)
+
+        username = udef.get('name')
+
+        self.set_status(403)
+        mesg = f'User ({username}) must have permission {".".join(path)}'
+        self.sendRestErr('AuthDeny', mesg)
+        return False
 
     async def authenticated(self):
-        return await self.user() is not None
+        return await self.useriden() is not None
 
     async def getUserBody(self):
         '''
@@ -285,11 +327,13 @@ class Handler(HandlerBase, t_web.RequestHandler):
         if opts is None:
             opts = {}
 
-        user = await self.user()
+        authcell = self.getAuthCell()
+        useriden = await self.useriden()
 
-        opts.setdefault('user', user.iden)
-        if opts.get('user') != user.iden:
-            user.confirm(('impersonate',))
+        opts.setdefault('user', useriden)
+        if opts.get('user') != useriden:
+            if not await authcell.isUserAllowed(useriden, ('impersonate',)):
+                opts['user'] = useriden
 
         return opts
 
@@ -309,7 +353,14 @@ class StreamHandler(Handler):
         raise s_exc.NoSuchImpl(mesg='data_received must be implemented by subclasses.',
                                name='data_received')
 
-class StormNodesV1(Handler):
+class StormHandler(Handler):
+
+    def getCore(self):
+        # add an abstraction to allow subclasses to dictate how
+        # a reference to the cortex is returned from the handler.
+        return self.cell
+
+class StormNodesV1(StormHandler):
 
     async def post(self):
         return await self.get()
@@ -333,18 +384,20 @@ class StormNodesV1(Handler):
             self.write(json.dumps(pode))
             await self.flush()
 
-class StormV1(Handler):
+class StormV1(StormHandler):
 
     async def post(self):
         return await self.get()
 
     async def get(self):
 
-        user, body = await self.getUserBody()
-        if body is s_common.novalu:
+        if not await self.reqAuthUser():
             return
 
-        # dont allow a user to be specified
+        body = self.getJsonBody()
+        if body is None:
+            return
+
         opts = body.get('opts')
         query = body.get('query')
 
@@ -352,31 +405,31 @@ class StormV1(Handler):
         opts = await self._reqValidOpts(opts)
         opts['editformat'] = 'splices'
 
-        await self.cell.boss.promote('storm', user=user, info={'query': query})
-
-        async for mesg in self.cell.storm(query, opts=opts):
+        async for mesg in self.getCore().storm(query, opts=opts):
             self.write(json.dumps(mesg))
             await self.flush()
 
-class StormCallV1(Handler):
+class StormCallV1(StormHandler):
 
     async def post(self):
         return await self.get()
 
     async def get(self):
 
-        user, body = await self.getUserBody()
-        if body is s_common.novalu:
+        if not await self.reqAuthUser():
             return
 
-        # dont allow a user to be specified
+        body = self.getJsonBody()
+        if body is None:
+            return
+
         opts = body.get('opts')
         query = body.get('query')
 
         opts = await self._reqValidOpts(opts)
 
         try:
-            ret = await self.cell.callStorm(query, opts=opts)
+            ret = await self.getCore().callStorm(query, opts=opts)
         except s_exc.SynErr as e:
             mesg = e.get('mesg', str(e))
             return self.sendRestErr(e.__class__.__name__, mesg)
@@ -388,33 +441,35 @@ class StormCallV1(Handler):
         else:
             return self.sendRestRetn(ret)
 
-class StormExportV1(Handler):
+class StormExportV1(StormHandler):
 
     async def post(self):
         return await self.get()
 
     async def get(self):
 
-        user, body = await self.getUserBody()
-        if body is s_common.novalu: # pragma: no cover
+        if not await self.reqAuthUser():
             return
 
-        # dont allow a user to be specified
+        body = self.getJsonBody()
+        if body is None:
+            return
+
         opts = body.get('opts')
         query = body.get('query')
 
-        # Maintain backwards compatibility with 0.1.x output
         opts = await self._reqValidOpts(opts)
 
         try:
             self.set_header('Content-Type', 'application/x-synapse-nodes')
-            async for pode in self.cell.exportStorm(query, opts=opts):
+            async for pode in self.getCore().exportStorm(query, opts=opts):
                 self.write(s_msgpack.en(pode))
+                await self.flush()
 
         except Exception as e:
             return self.sendRestExc(e)
 
-class ReqValidStormV1(Handler):
+class ReqValidStormV1(StormHandler):
 
     async def post(self):
         return await self.get()
