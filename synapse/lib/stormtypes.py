@@ -2515,6 +2515,26 @@ class Str(Prim):
                     $lib.print($foo.lower())''',
          'type': {'type': 'function', '_funcname': '_methStrLower',
                   'returns': {'type': 'str', 'desc': 'The lowercased string.', }}},
+        {'name': 'slice', 'desc': '''
+            Get a substring slice of the string.
+
+            Examples:
+                Slice from index to 1 to 5::
+
+                    $x="foobar"
+                    $y=$x.slice(1,5)  // "ooba"
+
+                Slice from index 3 to the end of the string::
+
+                    $y=$x.slice(3)  // "bar"
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrSlice',
+                  'args': (
+                      {'name': 'start', 'type': 'int', 'desc': 'The starting character index.'},
+                      {'name': 'end', 'type': 'int', 'default': None,
+                       'desc': 'The ending character index. If not specified, slice to the end of the string'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The slice substring.'}}},
     )
     _storm_typename = 'str'
     def __init__(self, valu, path=None):
@@ -2534,6 +2554,7 @@ class Str(Prim):
             'lstrip': self._methStrLstrip,
             'rstrip': self._methStrRstrip,
             'lower': self._methStrLower,
+            'slice': self._methStrSlice,
         }
 
     def __int__(self):
@@ -2583,6 +2604,15 @@ class Str(Prim):
 
     async def _methStrLower(self):
         return self.valu.lower()
+
+    async def _methStrSlice(self, start, end=None):
+        start = await toint(start)
+
+        if end is None:
+            return self.valu[start:]
+
+        end = await toint(end)
+        return self.valu[start:end]
 
 @registry.registerType
 class Bytes(Prim):
