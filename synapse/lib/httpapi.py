@@ -85,8 +85,8 @@ class HandlerBase:
     def check_origin(self, origin):
         return self.isOrigHost(origin)
 
-    def getJsonBody(self):
-        return self.loadJsonMesg(self.request.body)
+    def getJsonBody(self, validator=None):
+        return self.loadJsonMesg(self.request.body, validator=validator)
 
     def sendRestErr(self, code, mesg):
         self.set_header('Content-Type', 'application/json')
@@ -100,9 +100,17 @@ class HandlerBase:
         self.set_header('Content-Type', 'application/json')
         return self.write({'status': 'ok', 'result': valu})
 
-    def loadJsonMesg(self, byts):
+    def loadJsonMesg(self, byts, validator=None):
         try:
-            return json.loads(byts)
+            item = json.loads(byts)
+            if validator is not None:
+                validator(item)
+            return item
+
+        except s_exc.SchemaViolation as e:
+            self.sendRestErr('SchemaViolation', str(e))
+            return None
+
         except Exception:
             self.sendRestErr('SchemaViolation', 'Invalid JSON content.')
             return None
