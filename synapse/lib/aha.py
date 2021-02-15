@@ -1,6 +1,7 @@
 import os
 import logging
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
@@ -144,7 +145,11 @@ class AhaCell(s_cell.Cell):
 
         if network is None:
             svcfull = name
-            svcname, svcnetw = name.split('.', 1)
+            try:
+                svcname, svcnetw = name.split('.', 1)
+            except ValueError:
+                raise s_exc.BadArg(name=name, arg='name',
+                                   mesg='Name must contain at least one "."')
         else:
             svcname = name
             svcnetw = network
