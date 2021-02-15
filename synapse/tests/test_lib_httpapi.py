@@ -16,7 +16,7 @@ class HttpApiTest(s_tests.SynTest):
 
         class ReqAuthHandler(s_httpapi.Handler):
             async def get(self):
-                if not await self.reqAuthAllowed(('syn:test', )):
+                if not await self.allowed(('syn:test', )):
                     return
                 return self.sendRestRetn({'data': 'everything is awesome!'})
 

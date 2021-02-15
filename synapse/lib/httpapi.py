@@ -113,7 +113,7 @@ class HandlerBase:
             self.sendRestErr('SchemaViolation', 'Invalid JSON content.')
             return None
 
-    def sendAuthReqired(self):
+    def sendAuthRequired(self):
         self.set_header('WWW-Authenticate', 'Basic realm=synapse')
         self.set_status(401)
         self.sendRestErr('NotAuthenticated', 'The session is not logged in.')
@@ -121,62 +121,20 @@ class HandlerBase:
     async def reqAuthUser(self):
         if await self.authenticated():
             return True
-        self.sendAuthReqired()
+        self.sendAuthRequired()
         return False
 
     async def reqAuthAdmin(self):
 
         user = await self.user()
         if user is None:
-            self.sendAuthReqired()
+            self.sendAuthRequired()
             return False
 
         if not user.isAdmin():
             self.sendRestErr('AuthDeny', f'User {user.iden} ({user.name}) is not an admin.')
             return False
 
-        return True
-
-    async def reqAuthAllowed(self, path):
-        '''
-        Helper method that subclasses can use for user permission checking.
-
-        Args:
-            path: Tuple of permission path components to check.
-
-        Notes:
-            This will call reqAuthUser() to ensure that there is a valid user.
-            If this returns False, the handler should return since the the
-            status code and resulting error message will already have been
-            sent to the requester.
-
-        Examples:
-
-            Define a handler which checks for ``syn:test`` permission::
-
-                class ReqAuthHandler(s_httpapi.Handler):
-                    async def get(self):
-                        if not await self.reqAuthAllowed(('syn:test', )):
-                            return
-                     return self.sendRestRetn({'data': 'everything is awesome!'})
-
-        Returns:
-            bool: True if the user is allowed; False if the user is not allowed.
-
-        Raises:
-            s_exc.AuthDeny: If the permission is not allowed.
-
-        '''
-
-        if not await self.reqAuthUser():
-            return False
-
-        user = await self.user()
-        if not user.allowed(path):
-            self.set_status(403)
-            mesg = f'User {user.iden} ({user.name}) must have permission {".".join(path)}'
-            self.sendRestErr('AuthDeny', mesg)
-            return False
         return True
 
     async def sess(self, gen=True):
@@ -272,7 +230,7 @@ class HandlerBase:
         username = udef.get('name')
 
         self.set_status(403)
-        mesg = f'User ({username}) must have permission {".".join(path)}'
+        mesg = f'User ({username}) must have permission {".".join(perm)}'
         self.sendRestErr('AuthDeny', mesg)
         return False
 
@@ -903,7 +861,7 @@ class ModelV1(Handler):
 class HealthCheckV1(Handler):
 
     async def get(self):
-        if not await self.reqAuthAllowed(('health', )):
+        if not await self.allowed(('health', )):
             return
         resp = await self.cell.getHealthCheck()
         return self.sendRestRetn(resp)
@@ -925,7 +883,7 @@ class StormVarsGetV1(Handler):
         varname = str(body.get('name'))
         defvalu = body.get('default')
 
-        if not await self.reqAuthAllowed(('globals', 'get', varname)):
+        if not await self.allowed(('globals', 'get', varname)):
             return
 
         valu = await self.cell.getStormVar(varname, default=defvalu)
@@ -942,7 +900,7 @@ class StormVarsPopV1(Handler):
         varname = str(body.get('name'))
         defvalu = body.get('default')
 
-        if not await self.reqAuthAllowed(('globals', 'pop', varname)):
+        if not await self.allowed(('globals', 'pop', varname)):
             return
 
         valu = await self.cell.popStormVar(varname, default=defvalu)
@@ -961,7 +919,7 @@ class StormVarsSetV1(Handler):
         if varvalu is s_common.novalu:
             return self.sendRestErr('BadArg', 'The "value" field is required.')
 
-        if not await self.reqAuthAllowed(('globals', 'set', varname)):
+        if not await self.allowed(('globals', 'set', varname)):
             return
 
         await self.cell.setStormVar(varname, varvalu)
