@@ -215,6 +215,8 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('$lib.axon.del($sha256)', opts=delopts)
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.axon.dels(($sha256,))', opts=delopts)
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.axon.dels(newp)')
             delopts = {'vars': {'sha256': sha256}}
             self.eq((True, False), await core.callStorm('return($lib.axon.dels(($sha256, $sha256)))', opts=delopts))
             self.false(await core.callStorm('return($lib.axon.del($sha256))', opts=delopts))
