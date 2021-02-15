@@ -371,7 +371,7 @@ class AxonTest(s_t_utils.SynTest):
                 self.eq(200, resp.status)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
-                self.eq((False, False), item.get('result'))
+                self.eq(((asdfhash_h, False), (asdfhash_h, False)), item.get('result'))
 
             data = {'newp': 'newp'}
             async with sess.post(url_de, json=data) as resp:

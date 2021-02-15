@@ -108,9 +108,10 @@ class AxonHttpDelV1(s_httpapi.Handler):
         if body is None:
             return
 
-        hashes = [s_common.uhex(s) for s in body.get('sha256s')]
+        sha256s = body.get('sha256s')
+        hashes = [s_common.uhex(s) for s in sha256s]
         resp = await self.cell.dels(hashes)
-        return self.sendRestRetn(resp)
+        return self.sendRestRetn(tuple(zip(sha256s, resp)))
 
 class AxonHttpBySha256V1(s_httpapi.Handler):
 
