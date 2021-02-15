@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import logging
 import tempfile
+import contextlib
 
 import aiohttp
 import aiohttp_socks
@@ -13,6 +14,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.share as s_share
+import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -83,7 +85,35 @@ class AxonHttpHasV1(s_httpapi.Handler):
         resp = await self.cell.has(s_common.uhex(sha256))
         return self.sendRestRetn(resp)
 
-class AxonHttpDownloadV1(s_httpapi.Handler):
+reqValidAxonDel = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'sha256s': {
+            'type': 'array',
+            'items': {'type': 'string', 'pattern': '(?i)^[0-9a-f]{64}$'}
+        },
+    },
+    'additionalProperties': False,
+    'required': ['sha256s'],
+})
+
+class AxonHttpDelV1(s_httpapi.Handler):
+
+    async def post(self):
+
+        if not await self.reqAuthAllowed(('axon', 'del')):
+            return
+
+        body = self.getJsonBody(validator=reqValidAxonDel)
+        if body is None:
+            return
+
+        sha256s = body.get('sha256s')
+        hashes = [s_common.uhex(s) for s in sha256s]
+        resp = await self.cell.dels(hashes)
+        return self.sendRestRetn(tuple(zip(sha256s, resp)))
+
+class AxonHttpBySha256V1(s_httpapi.Handler):
 
     async def get(self, sha256):
 
@@ -106,6 +136,20 @@ class AxonHttpDownloadV1(s_httpapi.Handler):
             self.sendRestErr('NoSuchFile', e.get('mesg'))
 
         return
+
+    async def delete(self, sha256):
+
+        if not await self.reqAuthAllowed(('axon', 'del')):
+            return
+
+        sha256b = s_common.uhex(sha256)
+        if not await self.cell.has(sha256b):
+            self.set_status(404)
+            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}')
+            return
+
+        resp = await self.cell.del_(sha256b)
+        return self.sendRestRetn(resp)
 
 class UpLoad(s_base.Base):
 
@@ -219,6 +263,20 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'upload'))
         return await UpLoadShare.anit(self.cell, self.link)
 
+    async def del_(self, sha256):
+        '''
+        Remove the given bytes from the Axon by sha256.
+        '''
+        await self._reqUserAllowed(('axon', 'del'))
+        return await self.cell.del_(sha256)
+
+    async def dels(self, sha256s):
+        '''
+        Remove the given bytes from the Axon by a list of sha256 hashes.
+        '''
+        await self._reqUserAllowed(('axon', 'del'))
+        return await self.cell.dels(sha256s)
+
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
         await self._reqUserAllowed(('axon', 'wget'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
@@ -268,6 +326,8 @@ class Axon(s_cell.Cell):
         self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
 
+        self.hashlocks = {}
+
         self.axonhist = s_lmdbslab.Hist(self.axonslab, 'history')
         self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
 
@@ -285,6 +345,25 @@ class Axon(s_cell.Cell):
         await self._initBlobStor()
 
         self._initAxonHttpApi()
+
+    @contextlib.asynccontextmanager
+    async def holdHashLock(self, hashbyts):
+        '''
+        A context manager that synchronizes edit access to a blob.
+        '''
+
+        item = self.hashlocks.get(hashbyts)
+        if item is None:
+            self.hashlocks[hashbyts] = item = [0, asyncio.Lock()]
+
+        item[0] += 1
+        async with item[1]:
+            yield
+
+        item[0] -= 1
+
+        if item[0] == 0:
+            self.hashlocks.pop(hashbyts, None)
 
     def _reqBelowLimit(self):
 
@@ -308,9 +387,10 @@ class Axon(s_cell.Cell):
         self.onfini(self.blobslab.fini)
 
     def _initAxonHttpApi(self):
+        self.addHttpApi('/api/v1/axon/files/del', AxonHttpDelV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/put', AxonHttpUploadV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', AxonHttpHasV1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpDownloadV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpBySha256V1, {'cell': self})
 
     def _addSyncItem(self, item):
         self.axonhist.add(item)
@@ -365,20 +445,23 @@ class Axon(s_cell.Cell):
     async def save(self, sha256, genr):
 
         self._reqBelowLimit()
-        byts = self.axonslab.get(sha256, db=self.sizes)
-        if byts is not None:
-            return int.from_bytes(byts, 'big')
 
-        size = await self._saveFileGenr(sha256, genr)
+        async with self.holdHashLock(sha256):
 
-        self._addSyncItem((sha256, size))
+            byts = self.axonslab.get(sha256, db=self.sizes)
+            if byts is not None:
+                return int.from_bytes(byts, 'big')
 
-        await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') + 1)
-        await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') + size)
+            size = await self._saveFileGenr(sha256, genr)
 
-        self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+            self._addSyncItem((sha256, size))
 
-        return size
+            await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') + 1)
+            await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') + size)
+
+            self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+
+            return size
 
     async def _saveFileGenr(self, sha256, genr):
         size = 0
@@ -388,6 +471,30 @@ class Axon(s_cell.Cell):
             self.blobslab.put(lkey, byts, db=self.blobs)
             await asyncio.sleep(0)
         return size
+
+    async def dels(self, sha256s):
+        return [await self.del_(s) for s in sha256s]
+
+    async def del_(self, sha256):
+
+        async with self.holdHashLock(sha256):
+
+            byts = self.axonslab.pop(sha256, db=self.sizes)
+            if not byts:
+                return False
+
+            size = int.from_bytes(byts, 'big')
+            await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') - 1)
+            await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') - size)
+
+            await self._delBlobByts(sha256)
+            return True
+
+    async def _delBlobByts(self, sha256):
+        # remove the actual blobs...
+        for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
+            self.blobslab.delete(lkey, db=self.blobs)
+            await asyncio.sleep(0)
 
     async def wants(self, sha256s):
         '''
