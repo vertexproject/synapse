@@ -64,6 +64,10 @@ class AhaApi(s_cell.CellApi):
             urlinfo.setdefault('host', host)
 
         async def fini():
+            if self.cell.isfini:
+                mesg = f'{self.cell.__class__.__name__} is fini. Unable to set {name}@{network} as down.'
+                logger.warning(mesg)
+                return
             await self.cell.setAhaSvcDown(name, sess, network=network)
 
         self.onfini(fini)
