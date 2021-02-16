@@ -1282,17 +1282,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             retn = await s_coro.executor(waitproc)
             await link.fini()
 
-        except (asyncio.CancelledError, Exception) as e:	
+        except (asyncio.CancelledError, Exception) as e:
 
-            if not isinstance(e, asyncio.CancelledError):	
-                logger.exception('Error during backup streaming.')	
+            if not isinstance(e, asyncio.CancelledError):
+                logger.exception('Error during backup streaming.')
 
-            if not self.isfini:	
-                if proc:	
+            if not self.isfini:
+                if proc:
                     proc.terminate()
 
-            mesg = repr(e)	
-            raise	
+            mesg = repr(e)
+            raise
 
         finally:
             os.unlink(path + '.tar.gz')
