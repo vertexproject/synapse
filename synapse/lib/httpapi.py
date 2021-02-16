@@ -298,8 +298,8 @@ class Handler(HandlerBase, t_web.RequestHandler):
 
         opts.setdefault('user', useriden)
         if opts.get('user') != useriden:
-            if not await authcell.isUserAllowed(useriden, ('impersonate',)):
-                opts['user'] = useriden
+            if not await self.allowed(('impersonate',)):
+                return None
 
         return opts
 
@@ -344,6 +344,8 @@ class StormNodesV1(StormHandler):
         await self.cell.boss.promote('storm', user=user, info={'query': query})
 
         opts = await self._reqValidOpts(opts)
+        if opts is None:
+            return
 
         view = self.cell._viewFromOpts(opts)
         async for pode in view.iterStormPodes(query, opts=opts):
@@ -369,6 +371,9 @@ class StormV1(StormHandler):
 
         # Maintain backwards compatibility with 0.1.x output
         opts = await self._reqValidOpts(opts)
+        if opts is None:
+            return
+
         opts['editformat'] = 'splices'
 
         async for mesg in self.getCore().storm(query, opts=opts):
@@ -393,6 +398,8 @@ class StormCallV1(StormHandler):
         query = body.get('query')
 
         opts = await self._reqValidOpts(opts)
+        if opts is None:
+            return
 
         try:
             ret = await self.getCore().callStorm(query, opts=opts)
@@ -425,6 +432,8 @@ class StormExportV1(StormHandler):
         query = body.get('query')
 
         opts = await self._reqValidOpts(opts)
+        if opts is None:
+            return
 
         try:
             self.set_header('Content-Type', 'application/x-synapse-nodes')
