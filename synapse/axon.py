@@ -101,7 +101,7 @@ class AxonHttpDelV1(s_httpapi.Handler):
 
     async def post(self):
 
-        if not await self.reqAuthAllowed(('axon', 'del')):
+        if not await self.allowed(('axon', 'del')):
             return
 
         body = self.getJsonBody(validator=reqValidAxonDel)
@@ -139,7 +139,7 @@ class AxonHttpBySha256V1(s_httpapi.Handler):
 
     async def delete(self, sha256):
 
-        if not await self.reqAuthAllowed(('axon', 'del')):
+        if not await self.allowed(('axon', 'del')):
             return
 
         sha256b = s_common.uhex(sha256)
