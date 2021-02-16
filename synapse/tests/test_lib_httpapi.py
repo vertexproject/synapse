@@ -739,7 +739,6 @@ class HttpApiTest(s_tests.SynTest):
 
             visi = await core.auth.addUser('visi')
 
-            await visi.setAdmin(True)
             await visi.setPasswd('secret')
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
@@ -754,6 +753,12 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
+
+                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
+                    self.eq(resp.status, 403)
+
+                await visi.setAdmin(True)
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', data=b'asdf') as resp:
                     item = await resp.json()

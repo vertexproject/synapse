@@ -224,7 +224,12 @@ class CortexTest(s_t_utils.SynTest):
                     'walk operation expected a string or list.  got: 0.')
 
     async def test_cortex_callstorm(self):
+
         async with self.getTestCore(conf={'auth:passwd': 'root'}) as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
             self.eq('asdf', await core.callStorm('return (asdf)'))
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
@@ -239,6 +244,11 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(cm.exception.get('errx'), 'StormExit')
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            async with self.getHttpSess(port=port, auth=('visi', 'secret')) as sess:
+                body = {'query': 'return(asdf)', 'opts': {'user': core.auth.rootuser.iden}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(resp.status, 403)
 
             async with self.getHttpSess(port=port) as sess:
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/call')
@@ -5042,6 +5052,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
             await core.auth.rootuser.setPasswd('secret')
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
@@ -5081,6 +5094,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getHttpSess(port=port) as sess:
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
                 self.eq(401, resp.status)
+
+            async with self.getHttpSess(port=port, auth=('visi', 'secret')) as sess:
+                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/export', json=body) as resp:
+                    self.eq(resp.status, 403)
 
             async with self.getHttpSess(port=port, auth=('root', 'secret')) as sess:
 
