@@ -1169,6 +1169,21 @@ class Slab(s_base.Base):
 
             yield from scan.iternext()
 
+    def scanKeysByPref(self, byts, db=None):
+
+        with ScanKeys(self, db) as scan:
+
+            if not scan.set_range(byts):
+                return
+
+            size = len(byts)
+            for lkey in scan.iternext():
+
+                if lkey[:size] != byts:
+                    return
+
+                yield lkey
+
     async def countByPref(self, byts, db=None, maxsize=None):
         '''
         Return the number of rows in the given db with the matching prefix bytes.
