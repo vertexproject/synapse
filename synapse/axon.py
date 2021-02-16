@@ -32,7 +32,7 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
     async def prepare(self):
         self.upfd = None
 
-        if not await self.reqAuthAllowed(('axon', 'upload')):
+        if not await self.allowed(('axon', 'upload')):
             await self.finish()
 
         # max_body_size defaults to 100MB and requires a value
@@ -80,7 +80,7 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
 class AxonHttpHasV1(s_httpapi.Handler):
 
     async def get(self, sha256):
-        if not await self.reqAuthAllowed(('axon', 'has')):
+        if not await self.allowed(('axon', 'has')):
             return
         resp = await self.cell.has(s_common.uhex(sha256))
         return self.sendRestRetn(resp)
@@ -101,7 +101,7 @@ class AxonHttpDelV1(s_httpapi.Handler):
 
     async def post(self):
 
-        if not await self.reqAuthAllowed(('axon', 'del')):
+        if not await self.allowed(('axon', 'del')):
             return
 
         body = self.getJsonBody(validator=reqValidAxonDel)
@@ -117,7 +117,7 @@ class AxonHttpBySha256V1(s_httpapi.Handler):
 
     async def get(self, sha256):
 
-        if not await self.reqAuthAllowed(('axon', 'get')):
+        if not await self.allowed(('axon', 'get')):
             return
 
         sha256b = s_common.uhex(sha256)
@@ -139,7 +139,7 @@ class AxonHttpBySha256V1(s_httpapi.Handler):
 
     async def delete(self, sha256):
 
-        if not await self.reqAuthAllowed(('axon', 'del')):
+        if not await self.allowed(('axon', 'del')):
             return
 
         sha256b = s_common.uhex(sha256)
