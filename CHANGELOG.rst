@@ -5,6 +5,36 @@ Synapse Changelog
 *****************
 
 
+v2.27.0 - 2020-02-016
+====================
+
+
+Features and Enhancements
+-------------------------
+- Allow property assignment and array operations from subsqueries.
+  (`#2072 <https://github.com/vertexproject/synapse/pull/2072>`_)
+- Add APIs to the Axon to allow the deletion of blobs via Telepath and HTTP
+  APIs.
+  (`#2080 <https://github.com/vertexproject/synapse/pull/2080>`_)
+- Add a ``str.slice()`` stormtypes method to allow easy string slicing.
+  (`#2083 <https://github.com/vertexproject/synapse/pull/2083>`_)
+- Modularize the Storm HTTP API handlers.
+  (`#2082 <https://github.com/vertexproject/synapse/pull/2082>`_)
+
+Bugfixes
+--------
+- Fix Agenda events which were not being properly tracked via the Nexus.
+  (`#2078 <https://github.com/vertexproject/synapse/pull/2078>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for the Cortex ``/api/v1/storm/export`` HTTP endpoint.
+  This also included documentation for the scrub option in Storm.
+  (`#2079 <https://github.com/vertexproject/synapse/pull/2079>`_)
+- Add a Code of Conduct for Synapse.
+  (`#2081 <https://github.com/vertexproject/synapse/pull/2081>`_)
+
+
 v2.26.0 - 2020-02-05
 ====================
 

@@ -558,6 +558,24 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="QuickBrownFox" return ( $foo.lower() )'
             self.eq('quickbrownfox', await core.callStorm(q))
 
+            q = '$foo="quickbrownfox" return ( $foo.slice(5) )'
+            self.eq('brownfox', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.slice(5, 10) )'
+            self.eq('brown', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.slice((-8)) )'
+            self.eq('brownfox', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.slice(0, (-3)) )'
+            self.eq('quickbrown', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.slice(55, 42) )'
+            self.eq('', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.slice("newp") )'
+            await self.asyncraises(s_exc.BadCast, core.callStorm(q))
+
             # tuck the regx tests in with str
             self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
             self.true(await core.callStorm(r'''return($lib.regex.matches('foo', FOOBAR, $lib.regex.flags.i))'''))
