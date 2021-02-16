@@ -76,31 +76,53 @@ def adminapi(log=False):
 
     return decrfunc
 
-async def _doStream(path):
+async def _doStream(path, chunksize=1024):
+    '''
+    Create tarball and stream bytes.
+
+    Args:
+        path (str): Path to the backup.
+
+    Yields:
+        (bytes): File bytes
+    '''
+
     output_filename = path + '.tar.gz'
     with tarfile.open(output_filename, 'w:gz') as tar:
         tar.add(path, arcname=os.path.basename(path))
 
     with open(output_filename, 'rb') as tar:
         while True:
-            byts = tar.read(1024)
+            byts = tar.read(chunksize)
             if not byts:
                 return
             yield byts
 
-async def _streamWork(info, done):
-    link = await s_link.fromspawn(info.get('link'))
-    path = info.get('path')
+async def _streamWork(path, linkinfo, done):
+    '''
+    Inner setup for backup streaming.
+
+    Args:
+        path (str): Path to the backup.
+        linkinfo(dict): Link info dictionary.
+        done (multiprocessing.Queue): TX Queue.
+
+    Returns:
+        None: Returns None.
+    '''
+    link = await s_link.fromspawn(linkinfo)
     await s_daemon.t2call(link, _doStream, (path,), {})
 
     wasfini = link.isfini
     await link.fini()
 
     await s_coro.executor(done.put, wasfini)
-    return True
 
-def _streamProc(info, done):
-    asyncio.run(_streamWork(info, done))
+def _streamProc(path, linkinfo, done):
+    '''
+    Multiprocessing target for streaming a backup.
+    '''
+    asyncio.run(_streamWork(path, linkinfo, done))
 
 class CellApi(s_base.Base):
 
@@ -1237,12 +1259,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Specified backup path has no cell.guid file.'
             raise s_exc.BadArg(mesg=mesg)
 
-        link = s_scope.get('link')
-
-        info = {
-            'path': path,
-            'link': link.getSpawnInfo(),
-        }
+        linkinfo = s_scope.get('link').getSpawnInfo()
 
         await self.boss.promote('backup:stream', user=user)
 
@@ -1250,7 +1267,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         done = ctx.Queue()
 
         def getproc():
-            proc = ctx.Process(target=_streamProc, args=(info, done))
+            proc = ctx.Process(target=_streamProc, args=(path, linkinfo, done))
             proc.start()
             return proc
 
@@ -1278,6 +1295,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise	
 
         finally:
+            os.unlink(path + '.tar.gz')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
