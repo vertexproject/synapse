@@ -240,6 +240,10 @@ class CortexTest(s_t_utils.SynTest):
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
+            async with self.getHttpSess(port=port) as sess:
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/call')
+                self.eq(401, resp.status)
+
             async with self.getHttpSess() as sess:
                 async with sess.post(f'https://localhost:{port}/api/v1/login',
                                      json={'user': 'root', 'passwd': 'root'}) as resp:
@@ -5074,7 +5078,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
                 self.eq(2, await proxy.feedFromAxon(sha256))
 
+            async with self.getHttpSess(port=port) as sess:
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
+                self.eq(401, resp.status)
+
             async with self.getHttpSess(port=port, auth=('root', 'secret')) as sess:
+
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
+                self.eq(200, resp.status)
+
+                reply = await resp.json()
+                self.eq('err', reply.get('status'))
+                self.eq('SchemaViolation', reply.get('code'))
+
                 body = {
                     'query': 'media:news inet:email',
                     'opts': {'scrub': {'include': {'tags': ('visi',)}}},

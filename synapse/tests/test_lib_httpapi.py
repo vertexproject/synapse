@@ -744,6 +744,10 @@ class HttpApiTest(s_tests.SynTest):
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
+            async with self.getHttpSess(port=port) as sess:
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm')
+                self.eq(401, resp.status)
+
             async with self.getHttpSess() as sess:
 
                 async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
