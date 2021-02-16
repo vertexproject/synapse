@@ -183,10 +183,24 @@ class AxonTest(s_t_utils.SynTest):
         if isinstance(fd, s_axon.UpLoad):
             self.true(fd.fd.closed)
 
+        self.true(await axon.del_(bbufhash))
+        self.eq((False,), await axon.dels((bbufhash,)))
+
+        info = await axon.metrics()
+        self.eq(33554474, info.get('size:bytes'))
+        self.eq(6, info.get('file:count'))
+
+        self.false(await axon.del_(bbufhash))
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
             await self.runAxonTestBase(axon)
+
+            # test behavior for two concurrent uploads where the file exists once the lock is released
+            self.eq(bbufretn, await axon.put(bbuf))
+            self.true(await axon.has(bbufhash))
+            self.eq(bbufretn[0], await axon.save(bbufhash, None))
 
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
@@ -205,6 +219,7 @@ class AxonTest(s_t_utils.SynTest):
         newb = await axon.auth.addUser('newb')
         await newb.setPasswd('secret')
 
+        url_de = f'https://localhost:{port}/api/v1/axon/files/del'
         url_ul = f'https://localhost:{port}/api/v1/axon/files/put'
         url_hs = f'https://localhost:{port}/api/v1/axon/files/has/sha256'
         url_dl = f'https://localhost:{port}/api/v1/axon/files/by/sha256'
@@ -215,12 +230,23 @@ class AxonTest(s_t_utils.SynTest):
 
         # Perms
         async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
+
             async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
                 self.eq(403, resp.status)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
 
+            async with sess.delete(f'{url_dl}/{asdfhash_h}') as resp:
+                self.eq(403, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+
             async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
+                self.eq(403, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+
+            async with sess.post(url_de) as resp:
                 self.eq(403, resp.status)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
@@ -239,6 +265,7 @@ class AxonTest(s_t_utils.SynTest):
 
         await newb.addRule((True, ('axon', 'get')))
         await newb.addRule((True, ('axon', 'has')))
+        await newb.addRule((True, ('axon', 'del')))
         await newb.addRule((True, ('axon', 'upload')))
 
         # Basic
@@ -331,6 +358,33 @@ class AxonTest(s_t_utils.SynTest):
                 self.gt(len(byts), 1)
                 self.eq(bbuf, b''.join(byts))
 
+            # DELETE method by sha256
+            async with sess.delete(f'{url_dl}/{asdfhash_h}') as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                self.true(item.get('result'))
+
+            async with sess.delete(f'{url_dl}/{asdfhash_h}') as resp:
+                self.eq(404, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+
+            # test /api/v1/axon/file/del API
+            data = {'sha256s': (asdfhash_h, asdfhash_h)}
+            async with sess.post(url_de, json=data) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('ok', item.get('status'))
+                self.eq(((asdfhash_h, False), (asdfhash_h, False)), item.get('result'))
+
+            data = {'newp': 'newp'}
+            async with sess.post(url_de, json=data) as resp:
+                self.eq(200, resp.status)
+                item = await resp.json()
+                self.eq('err', item.get('status'))
+                self.eq('SchemaViolation', item.get('code'))
+
     async def test_axon_perms(self):
         async with self.getTestAxon() as axon:
             user = await axon.auth.addUser('user')
@@ -343,6 +397,8 @@ class AxonTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, prox.has(asdfhash))
                 await self.agenraises(s_exc.AuthDeny, prox.hashes(0))
                 await self.agenraises(s_exc.AuthDeny, prox.history(0))
+                await self.asyncraises(s_exc.AuthDeny, prox.del_(asdfhash))
+                await self.asyncraises(s_exc.AuthDeny, prox.dels((asdfhash,)))
                 await self.asyncraises(s_exc.AuthDeny, prox.wants((asdfhash,)))
                 await self.asyncraises(s_exc.AuthDeny, prox.put(abuf))
                 await self.asyncraises(s_exc.AuthDeny, prox.puts((abuf,)))
@@ -351,6 +407,7 @@ class AxonTest(s_t_utils.SynTest):
                 # now add rules and run the test suite
                 await user.addRule((True, ('health',)))
                 await user.addRule((True, ('axon', 'get',)))
+                await user.addRule((True, ('axon', 'del',)))
                 await user.addRule((True, ('axon', 'has',)))
                 await user.addRule((True, ('axon', 'upload',)))
                 await self.runAxonTestBase(prox)
