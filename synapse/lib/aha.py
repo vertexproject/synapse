@@ -86,22 +86,17 @@ class AhaApi(s_cell.CellApi):
     async def getCaCert(self, network):
 
         await self._reqUserAllowed(('aha', 'ca', 'get'))
-        path = self.cell.certdir.getCaCertPath(network)
-        if path is None:
-            return None
-
-        with open(path, 'rb') as fd:
-            return fd.read().decode()
+        return await self.cell.getCaCert(network)
 
     async def genCaCert(self, network):
 
         await self._reqUserAllowed(('aha', 'ca', 'gen'))
         return await self.cell.genCaCert(network)
 
-    async def signHostCsr(self, csrtext, signas=None):
+    async def signHostCsr(self, csrtext, signas=None, sans=None):
 
         await self._reqUserAllowed(('aha', 'csr', 'host'))
-        return await self.cell.signHostCsr(csrtext, signas=signas)
+        return await self.cell.signHostCsr(csrtext, signas=signas, sans=sans)
 
     async def signUserCsr(self, csrtext, signas=None):
 
@@ -252,6 +247,15 @@ class AhaCell(s_cell.Cell):
 
         return cacert
 
+    async def getCaCert(self, network):
+
+        path = self.certdir.getCaCertPath(network)
+        if path is None:
+            return None
+
+        with open(path, 'rb') as fd:
+            return fd.read().decode()
+
     @s_nexus.Pusher.onPushAuto('aha:ca:save')
     async def saveCaCert(self, name, cakey, cacert):
         # manually save the files to a certpath compatible location
@@ -260,7 +264,7 @@ class AhaCell(s_cell.Cell):
         with s_common.genfile(self.dirn, 'certs', 'cas', f'{name}.crt') as fd:
             fd.write(cacert.encode())
 
-    async def signHostCsr(self, csrtext, signas=None):
+    async def signHostCsr(self, csrtext, signas=None, sans=None):
         xcsr = self.certdir._loadCsrByts(csrtext.encode())
 
         hostname = xcsr.get_subject().CN
@@ -272,7 +276,7 @@ class AhaCell(s_cell.Cell):
         if signas is None:
             signas = hostname.split('.', 1)[1]
 
-        pkey, cert = self.certdir.signHostCsr(xcsr, signas=signas)
+        pkey, cert = self.certdir.signHostCsr(xcsr, signas=signas, sans=sans)
 
         return self.certdir._certToByts(cert).decode()
 

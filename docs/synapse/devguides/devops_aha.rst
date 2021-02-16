@@ -5,8 +5,8 @@ Aha Service Discovery
 
 The Aha service discovery is a native Synapse tool and protocol for doing
 service discovery when multiple Synapse services are being deployed in a
-environment. In order to utilize Aha, a few
-
+environment. This page covers what how Aha works, what services the AhaCell
+provides, and demonstrates a Cortex configuration using Aha.
 
 How Aha Works
 -------------
@@ -23,12 +23,6 @@ standalone, mirror, or clustered mode of operation.
   information.
 - The client will then make the actual Telepath connection using the connection
   information provided by the Aha server.
-
-Standing up an Aha Server
--------------------------
-
-Aha goes here!
-
 
 Configuring A Cell
 ------------------
@@ -235,8 +229,19 @@ Example code loading ``telepath.yaml`` ::
 A Synapse Cell does not need to be configured with a ``telepath.yaml`` file if it is a Client which registers itself
 with an Aha server during startup.
 
+
+The Aha Server as a TLS CA
+--------------------------
+
+The Aha server also has the ability to work as a Certificate Authority. Can be
+used to create a new TLS CA for a given Aha network, and then perform
+certificate request signing. This can be used in conjunction with devops
+practices to enable an entire network of Synapse based services to utilize TLS
+and Telepath together.
+
+
+
 TODO
 ----
 
-TLS notes
 SVCINFO notes
