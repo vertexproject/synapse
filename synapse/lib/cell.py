@@ -587,7 +587,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'aha:svcinfo': {
             'description': 'An AHA svcinfo object. This overrides self discovered information.',
-            'default': None,
             'type': 'object',
             'properties': {
                 'urlinfo': {
