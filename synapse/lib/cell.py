@@ -5,6 +5,7 @@ import shutil
 import socket
 import asyncio
 import logging
+import tarfile
 import argparse
 import datetime
 import functools
@@ -23,8 +24,10 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
+import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
+import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.output as s_output
@@ -72,6 +75,32 @@ def adminapi(log=False):
         return wrapped
 
     return decrfunc
+
+async def _doStream(path):
+    output_filename = path + '.tar.gz'
+    with tarfile.open(output_filename, 'w:gz') as tar:
+        tar.add(path, arcname=os.path.basename(path))
+
+    with open(output_filename, 'rb') as tar:
+        while True:
+            byts = tar.read(1024)
+            if not byts:
+                return
+            yield byts
+
+async def _streamWork(info, done):
+    link = await s_link.fromspawn(info.get('link'))
+    path = info.get('path')
+    await s_daemon.t2call(link, _doStream, (path,), {})
+
+    wasfini = link.isfini
+    await link.fini()
+
+    await s_coro.executor(done.put, wasfini)
+    return True
+
+def _streamProc(info, done):
+    asyncio.run(_streamWork(info, done))
 
 class CellApi(s_base.Base):
 
@@ -493,6 +522,19 @@ class CellApi(s_base.Base):
             name (str): The name of the backup to delete.
         '''
         return await self.cell.delBackup(name)
+
+    @adminapi()
+    async def streamBackupArchive(self, name):
+        '''
+        Retrieve a backup by name as a compressed stream of bytes.
+
+        Note: Compression and streaming will occur from a separate process.
+
+        Args:
+            name (str): The name of the backup to retrieve.
+        '''
+        await self.cell.streamBackupArchive(name, user=self.user)
+        yield
 
     @adminapi()
     async def getDiagInfo(self):
@@ -1184,6 +1226,59 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         walkpath(self.backdirn)
         return backups
+
+    async def streamBackupArchive(self, name, user):
+
+        self._reqBackConf()
+        path = self._reqBackDirn(name)
+
+        cellguid = os.path.join(path, 'cell.guid')
+        if not os.path.isfile(cellguid):
+            mesg = 'Specified backup path has no cell.guid file.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        link = s_scope.get('link')
+
+        info = {
+            'path': path,
+            'link': link.getSpawnInfo(),
+        }
+
+        await self.boss.promote('backup:stream', user=user)
+
+        ctx = multiprocessing.get_context('spawn')
+        done = ctx.Queue()
+
+        def getproc():
+            proc = ctx.Process(target=_streamProc, args=(info, done))
+            proc.start()
+            return proc
+
+        mesg = 'Streaming complete'
+
+        try:
+            proc = await s_coro.executor(getproc)
+            def waitproc():
+                proc.join()
+                return done.get()
+
+            retn = await s_coro.executor(waitproc)
+            await link.fini()
+
+        except (asyncio.CancelledError, Exception) as e:	
+
+            if not isinstance(e, asyncio.CancelledError):	
+                logger.exception('Error during backup streaming.')	
+
+            if not self.isfini:	
+                if proc:	
+                    proc.terminate()
+
+            mesg = repr(e)	
+            raise	
+
+        finally:
+            raise s_exc.DmonSpawn(mesg=mesg)
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
         user = self.auth.user(iden)

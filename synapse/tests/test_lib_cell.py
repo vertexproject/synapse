@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import tarfile
 import asyncio
 
 from unittest import mock
@@ -808,3 +809,36 @@ class CellTest(s_t_utils.SynTest):
                 await step()
 
                 self.none(await cell.delActiveCoro(s_common.guid()))
+
+    async def test_cell_stream_backup(self):
+
+        with self.getTestDir() as dirn:
+
+            backdirn = os.path.join(dirn, 'backups')
+            coredirn = os.path.join(dirn, 'cortex')
+            bkuppath = os.path.join(dirn, 'bkup.tar.gz')
+
+            conf = {'backup:dir': backdirn}
+            s_common.yamlsave(conf, coredirn, 'cell.yaml')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+
+                nodes = await core.nodes('[test:str=streamed]')
+                self.len(1, nodes)
+
+                async with core.getLocalProxy() as proxy:
+
+                    await proxy.runBackup(name='bkup')
+
+                    with open(bkuppath, 'wb') as bkup:
+                        async for msg in proxy.streamBackupArchive('bkup'):
+                            bkup.write(msg)
+
+            with tarfile.open(bkuppath, 'r:gz') as tar:
+                tar.extractall(path=dirn)
+
+            bkupdirn = os.path.join(dirn, 'bkup')
+            async with self.getTestCore(dirn=bkupdirn) as core:
+
+                nodes = await core.nodes('test:str=streamed')
+                self.len(1, nodes)
