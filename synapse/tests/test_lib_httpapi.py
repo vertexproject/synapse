@@ -758,6 +758,10 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
                     self.eq(resp.status, 403)
 
+                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
+                    self.eq(resp.status, 403)
+
                 await visi.setAdmin(True)
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', data=b'asdf') as resp:
