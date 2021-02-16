@@ -16,7 +16,7 @@ class HttpApiTest(s_tests.SynTest):
 
         class ReqAuthHandler(s_httpapi.Handler):
             async def get(self):
-                if not await self.reqAuthAllowed(('syn:test', )):
+                if not await self.allowed(('syn:test', )):
                     return
                 return self.sendRestRetn({'data': 'everything is awesome!'})
 
@@ -739,10 +739,13 @@ class HttpApiTest(s_tests.SynTest):
 
             visi = await core.auth.addUser('visi')
 
-            await visi.setAdmin(True)
             await visi.setPasswd('secret')
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            async with self.getHttpSess(port=port) as sess:
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm')
+                self.eq(401, resp.status)
 
             async with self.getHttpSess() as sess:
 
@@ -750,6 +753,16 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
+
+                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
+                    self.eq(resp.status, 403)
+
+                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
+                    self.eq(resp.status, 403)
+
+                await visi.setAdmin(True)
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', data=b'asdf') as resp:
                     item = await resp.json()
