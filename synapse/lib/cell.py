@@ -86,7 +86,6 @@ async def _doStream(path, chunksize=1024):
     Yields:
         (bytes): File bytes
     '''
-
     output_filename = path + '.tar.gz'
     with tarfile.open(output_filename, 'w:gz') as tar:
         tar.add(path, arcname=os.path.basename(path))
