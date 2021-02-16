@@ -87,15 +87,22 @@ async def _doStream(path, chunksize=1024):
         (bytes): File bytes
     '''
     output_filename = path + '.tar.gz'
-    with tarfile.open(output_filename, 'w:gz') as tar:
-        tar.add(path, arcname=os.path.basename(path))
+    link0, file1 = await s_link.linkfile()
 
-    with open(output_filename, 'rb') as tar:
-        while True:
-            byts = tar.read(chunksize)
-            if not byts:
-                return
-            yield byts
+    def dowrite(fd):
+        with tarfile.open(output_filename, 'w|gz', fileobj=fd) as tar:
+            tar.add(path, arcname=os.path.basename(path))
+        fd.close()
+
+    coro = s_coro.executor(dowrite, file1)
+
+    while True:
+        byts = await link0.recv(chunksize)
+        if not byts:
+            return
+        yield byts
+
+    await coro
 
 async def _streamWork(path, linkinfo, done):
     '''
@@ -1286,15 +1293,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not isinstance(e, asyncio.CancelledError):
                 logger.exception('Error during backup streaming.')
 
-            if not self.isfini:
-                if proc:
-                    proc.terminate()
+            proc.terminate()
 
             mesg = repr(e)
             raise
 
         finally:
-            os.unlink(path + '.tar.gz')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
