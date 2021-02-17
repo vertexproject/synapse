@@ -844,12 +844,9 @@ class CellTest(s_t_utils.SynTest):
                         with self.raises(asyncio.TimeoutError):
                             await asyncio.wait_for(arch, timeout=0.1)
 
-                        arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup'))
+                        arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup', remove=True))
                         with self.raises(asyncio.TimeoutError):
-                            await asyncio.wait_for(arch, timeout=0.1)
-
-                        self.eq(('bkup',), sorted(await proxy.getBackups()))
-                        self.false(os.path.isdir(os.path.join(backdirn, 'nobkup')))
+                            await asyncio.wait_for(arch, timeout=1.0)
 
                     with open(bkuppath, 'wb') as bkup:
                         async for msg in proxy.iterBackupArchive('bkup'):
