@@ -817,6 +817,8 @@ class CellTest(s_t_utils.SynTest):
             backdirn = os.path.join(dirn, 'backups')
             coredirn = os.path.join(dirn, 'cortex')
             bkuppath = os.path.join(dirn, 'bkup.tar.gz')
+            bkuppath2 = os.path.join(dirn, 'bkup2.tar.gz')
+            bkuppath3 = os.path.join(dirn, 'bkup3.tar.gz')
 
             conf = {'backup:dir': backdirn}
             s_common.yamlsave(conf, coredirn, 'cell.yaml')
@@ -828,11 +830,35 @@ class CellTest(s_t_utils.SynTest):
 
                 async with core.getLocalProxy() as proxy:
 
+                    with self.raises(s_exc.BadArg):
+                        async for msg in proxy.iterBackupArchive('nope'):
+                            pass
+
                     await proxy.runBackup(name='bkup')
 
                     with open(bkuppath, 'wb') as bkup:
-                        async for msg in proxy.streamBackupArchive('bkup'):
+                        async for msg in proxy.iterBackupArchive('bkup'):
                             bkup.write(msg)
+
+                    nodes = await core.nodes('[test:str=freshbkup]')
+                    self.len(1, nodes)
+
+                    with open(bkuppath2, 'wb') as bkup2:
+                        async for msg in proxy.iterNewBackupArchive('bkup2'):
+                            bkup2.write(msg)
+
+                    self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
+                    self.true(os.path.isdir(os.path.join(backdirn, 'bkup2')))
+
+                    nodes = await core.nodes('[test:str=lastbkup]')
+                    self.len(1, nodes)
+
+                    with open(bkuppath3, 'wb') as bkup3:
+                        async for msg in proxy.iterNewBackupArchive('bkup3', remove=True):
+                            bkup3.write(msg)
+
+                    self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
+                    self.false(os.path.isdir(os.path.join(backdirn, 'bkup3')))
 
             with tarfile.open(bkuppath, 'r:gz') as tar:
                 tar.extractall(path=dirn)
@@ -841,4 +867,25 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=bkupdirn) as core:
 
                 nodes = await core.nodes('test:str=streamed')
+                self.len(1, nodes)
+
+                nodes = await core.nodes('test:str=freshbkup')
+                self.len(0, nodes)
+
+            with tarfile.open(bkuppath2, 'r:gz') as tar:
+                tar.extractall(path=dirn)
+
+            bkupdirn2 = os.path.join(dirn, 'bkup2')
+            async with self.getTestCore(dirn=bkupdirn2) as core:
+
+                nodes = await core.nodes('test:str=freshbkup')
+                self.len(1, nodes)
+
+            with tarfile.open(bkuppath3, 'r:gz') as tar:
+                tar.extractall(path=dirn)
+
+            bkupdirn3 = os.path.join(dirn, 'bkup3')
+            async with self.getTestCore(dirn=bkupdirn3) as core:
+
+                nodes = await core.nodes('test:str=lastbkup')
                 self.len(1, nodes)

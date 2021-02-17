@@ -76,7 +76,7 @@ def adminapi(log=False):
 
     return decrfunc
 
-async def _doStream(path, chunksize=1024):
+async def _doIterBackup(path, chunksize=1024):
     '''
     Create tarball and stream bytes.
 
@@ -104,7 +104,7 @@ async def _doStream(path, chunksize=1024):
 
     await coro
 
-async def _streamWork(path, linkinfo, done):
+async def _iterBackupWork(path, linkinfo, done):
     '''
     Inner setup for backup streaming.
 
@@ -117,18 +117,18 @@ async def _streamWork(path, linkinfo, done):
         None: Returns None.
     '''
     link = await s_link.fromspawn(linkinfo)
-    await s_daemon.t2call(link, _doStream, (path,), {})
+    await s_daemon.t2call(link, _doIterBackup, (path,), {})
 
     wasfini = link.isfini
     await link.fini()
 
     await s_coro.executor(done.put, wasfini)
 
-def _streamProc(path, linkinfo, done):
+def _iterBackupProc(path, linkinfo, done):
     '''
     Multiprocessing target for streaming a backup.
     '''
-    asyncio.run(_streamWork(path, linkinfo, done))
+    asyncio.run(_iterBackupWork(path, linkinfo, done))
 
 class CellApi(s_base.Base):
 
@@ -552,7 +552,7 @@ class CellApi(s_base.Base):
         return await self.cell.delBackup(name)
 
     @adminapi()
-    async def streamBackupArchive(self, name):
+    async def iterBackupArchive(self, name):
         '''
         Retrieve a backup by name as a compressed stream of bytes.
 
@@ -561,7 +561,21 @@ class CellApi(s_base.Base):
         Args:
             name (str): The name of the backup to retrieve.
         '''
-        await self.cell.streamBackupArchive(name, user=self.user)
+        await self.cell.iterBackupArchive(name, user=self.user)
+        yield
+
+    @adminapi()
+    async def iterNewBackupArchive(self, name, remove=False):
+        '''
+        Run a new backup and return it as a compressed stream of bytes.
+
+        Note: Compression and streaming will occur from a separate process.
+
+        Args:
+            name (str): The name of the backup to retrieve.
+            remove (bool): Delete the backup after streaming.
+        '''
+        await self.cell.iterNewBackupArchive(name, user=self.user, remove=remove)
         yield
 
     @adminapi()
@@ -1255,11 +1269,56 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         walkpath(self.backdirn)
         return backups
 
-    async def streamBackupArchive(self, name, user):
+    async def iterBackupArchive(self, name, user):
 
-        self._reqBackConf()
         path = self._reqBackDirn(name)
+        cellguid = os.path.join(path, 'cell.guid')
+        if not os.path.isfile(cellguid):
+            mesg = 'Specified backup path has no cell.guid file.'
+            raise s_exc.BadArg(mesg=mesg)
 
+        link = s_scope.get('link')
+        linkinfo = link.getSpawnInfo()
+
+        await self.boss.promote('backup:stream', user=user)
+
+        ctx = multiprocessing.get_context('spawn')
+        done = ctx.Queue()
+
+        mesg = 'Streaming complete'
+
+        def getproc():
+            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
+            proc.start()
+            return proc
+
+        proc = await s_coro.executor(getproc)
+
+        try:
+            def waitproc():
+                proc.join()
+                return done.get()
+
+            if await s_coro.executor(waitproc):
+                await link.fini()
+
+        except (asyncio.CancelledError, Exception) as e:
+
+            if not isinstance(e, asyncio.CancelledError):
+                logger.exception('Error during backup streaming.')
+
+            proc.terminate()
+            mesg = repr(e)
+            raise
+
+        finally:
+            raise s_exc.DmonSpawn(mesg=mesg)
+
+    async def iterNewBackupArchive(self, name, user, remove=False):
+
+        await self.runBackup(name)
+
+        path = self._reqBackDirn(name)
         cellguid = os.path.join(path, 'cell.guid')
         if not os.path.isfile(cellguid):
             mesg = 'Specified backup path has no cell.guid file.'
@@ -1272,36 +1331,35 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ctx = multiprocessing.get_context('spawn')
         done = ctx.Queue()
 
-        proc = None
+        mesg = 'Streaming complete'
 
         def getproc():
-            proc = ctx.Process(target=_streamProc, args=(path, linkinfo, done))
+            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
             proc.start()
             return proc
 
-        mesg = 'Streaming complete'
+        proc = await s_coro.executor(getproc)
 
         try:
-            proc = await s_coro.executor(getproc)
             def waitproc():
                 proc.join()
                 return done.get()
 
-            retn = await s_coro.executor(waitproc)
-            await link.fini()
+            if await s_coro.executor(waitproc):
+                await link.fini()
 
         except (asyncio.CancelledError, Exception) as e:
 
             if not isinstance(e, asyncio.CancelledError):
                 logger.exception('Error during backup streaming.')
 
-            if proc:
-                proc.terminate()
-
+            proc.terminate()
             mesg = repr(e)
             raise
 
         finally:
+            if remove:
+                await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
