@@ -2208,6 +2208,7 @@ class MergeCmd(Cmd):
                 else:
                     runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
                     runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+
                     adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
                     subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
 
@@ -2222,6 +2223,7 @@ class MergeCmd(Cmd):
                 else:
                     runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                     runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+
                     adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
                     subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
 
@@ -2233,6 +2235,7 @@ class MergeCmd(Cmd):
                 else:
                     runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                     runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+
                     adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
                     subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
@@ -2244,6 +2247,7 @@ class MergeCmd(Cmd):
                 else:
                     runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
                     runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+
                     adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
                     subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
                     if len(adds) >= 1000:
@@ -2257,6 +2261,7 @@ class MergeCmd(Cmd):
                 else:
                     runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
                     runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+
                     adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
                     subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
                     if len(adds) >= 1000:
