@@ -28,6 +28,9 @@ def _exiterProc(pipe, srcdir, dstdir, lmdbpaths):
     pipe.send('captured')
     sys.exit(1)
 
+def _backupSleep(path, linkinfo, done):
+    time.sleep(3.0)
+
 class EchoAuthApi(s_cell.CellApi):
 
     def isadmin(self):
@@ -835,6 +838,18 @@ class CellTest(s_t_utils.SynTest):
                             pass
 
                     await proxy.runBackup(name='bkup')
+
+                    with mock.patch('synapse.lib.cell._iterBackupProc', _backupSleep):
+                        arch = s_t_utils.alist(proxy.iterBackupArchive('bkup'))
+                        with self.raises(asyncio.TimeoutError):
+                            await asyncio.wait_for(arch, timeout=0.1)
+
+                        arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup'))
+                        with self.raises(asyncio.TimeoutError):
+                            await asyncio.wait_for(arch, timeout=0.1)
+
+                        self.eq(('bkup',), sorted(await proxy.getBackups()))
+                        self.false(os.path.isdir(os.path.join(backdirn, 'nobkup')))
 
                     with open(bkuppath, 'wb') as bkup:
                         async for msg in proxy.iterBackupArchive('bkup'):

@@ -562,7 +562,10 @@ class CellApi(s_base.Base):
             name (str): The name of the backup to retrieve.
         '''
         await self.cell.iterBackupArchive(name, user=self.user)
-        yield
+
+        # Make this a generator
+        if False: # pragma: no cover
+            yield
 
     @adminapi()
     async def iterNewBackupArchive(self, name, remove=False):
@@ -576,7 +579,10 @@ class CellApi(s_base.Base):
             remove (bool): Delete the backup after streaming.
         '''
         await self.cell.iterNewBackupArchive(name, user=self.user, remove=remove)
-        yield
+
+        # Make this a generator
+        if False: # pragma: no cover
+            yield
 
     @adminapi()
     async def getDiagInfo(self):
@@ -1285,6 +1291,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ctx = multiprocessing.get_context('spawn')
         done = ctx.Queue()
 
+        proc = None
         mesg = 'Streaming complete'
 
         def getproc():
@@ -1292,9 +1299,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             proc.start()
             return proc
 
-        proc = await s_coro.executor(getproc)
 
         try:
+            proc = await s_coro.executor(getproc)
+
             def waitproc():
                 proc.join()
                 return done.get()
@@ -1307,7 +1315,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not isinstance(e, asyncio.CancelledError):
                 logger.exception('Error during backup streaming.')
 
-            proc.terminate()
+            if proc:
+                await s_coro.executor(done.put, False)
+                proc.terminate()
+
             mesg = repr(e)
             raise
 
@@ -1319,11 +1330,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.runBackup(name)
 
         path = self._reqBackDirn(name)
-        cellguid = os.path.join(path, 'cell.guid')
-        if not os.path.isfile(cellguid):
-            mesg = 'Specified backup path has no cell.guid file.'
-            raise s_exc.BadArg(mesg=mesg)
-
         linkinfo = s_scope.get('link').getSpawnInfo()
 
         await self.boss.promote('backup:stream', user=user)
@@ -1331,6 +1337,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ctx = multiprocessing.get_context('spawn')
         done = ctx.Queue()
 
+        proc = None
         mesg = 'Streaming complete'
 
         def getproc():
@@ -1338,9 +1345,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             proc.start()
             return proc
 
-        proc = await s_coro.executor(getproc)
-
         try:
+            proc = await s_coro.executor(getproc)
+
             def waitproc():
                 proc.join()
                 return done.get()
@@ -1353,7 +1360,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not isinstance(e, asyncio.CancelledError):
                 logger.exception('Error during backup streaming.')
 
-            proc.terminate()
+            if proc:
+                await s_coro.executor(done.put, False)
+                proc.terminate()
+
             mesg = repr(e)
             raise
 
