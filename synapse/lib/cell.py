@@ -1272,6 +1272,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ctx = multiprocessing.get_context('spawn')
         done = ctx.Queue()
 
+        proc = None
+
         def getproc():
             proc = ctx.Process(target=_streamProc, args=(path, linkinfo, done))
             proc.start()
@@ -1293,7 +1295,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not isinstance(e, asyncio.CancelledError):
                 logger.exception('Error during backup streaming.')
 
-            proc.terminate()
+            if proc:
+                proc.terminate()
 
             mesg = repr(e)
             raise
