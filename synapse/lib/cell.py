@@ -1299,7 +1299,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             proc.start()
             return proc
 
-
         try:
             proc = await s_coro.executor(getproc)
 
