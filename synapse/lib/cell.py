@@ -102,8 +102,6 @@ async def _doIterBackup(path, chunksize=1024):
             return
         yield byts
 
-    await coro
-
 async def _iterBackupWork(path, linkinfo, done):
     '''
     Inner setup for backup streaming.
