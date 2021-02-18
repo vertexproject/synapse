@@ -1,4 +1,3 @@
-import logging
 import contextlib
 
 import synapse.exc as s_exc
@@ -7,11 +6,10 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
 
+import synapse.tools.backup as s_tools_backup
+
 import synapse.tests.utils as s_test
 import synapse.servers.aha as s_servers_aha
-
-logger = logging.getLogger(__name__)
-
 
 class AhaTest(s_test.SynTest):
 
@@ -27,56 +25,51 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_mirrors(self):
 
-        urls = ('cell://home0', 'cell://home1')
-        conf = {'aha:urls': urls}
-
-        async with self.getTestAha(conf=conf) as aha:
-            async with aha.getLocalProxy() as proxy:
-                self.eq(urls, await proxy.getAhaUrls())
-
-    async def test_lib_aha_offon(self):
         with self.getTestDir() as dirn:
-            cryo0_dirn = s_common.gendir(dirn, 'cryo0')
-            conf = {'auth:passwd': 'secret'}
-            async with self.getTestAha(conf=conf.copy(), dirn=dirn) as aha:
-                host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
+            dir0 = s_common.gendir(dirn, 'aha0')
+            dir1 = s_common.gendir(dirn, 'aha1')
 
-                wait00 = aha.waiter(1, 'aha:svcadd')
-                cryo_conf = {
-                    'aha:name': '0.cryo.mynet',
-                    'aha:leader': 'cryo.mynet',
-                    'aha:admin': 'root@cryo.mynet',
-                    'aha:registry': f'tcp://root:secret@127.0.0.1:{port}',
-                    'dmon:listen': 'tcp://0.0.0.0:0/',
+            conf = {'nexslog:en': True}
+
+            async with self.getTestAha(conf={'nexslog:en': True}, dirn=dir0) as aha0:
+                user = await aha0.auth.addUser('reguser', passwd='secret')
+                await user.setAdmin(True)
+
+            s_tools_backup.backup(dir0, dir1)
+
+            async with self.getTestAha(conf=conf, dirn=dir0) as aha0:
+                upstream_url = aha0.getLocalUrl()
+
+                mirrorconf = {
+                    'nexslog:en': True,
+                    'mirror': upstream_url,
                 }
-                async with self.getTestCryo(dirn=cryo0_dirn, conf=cryo_conf.copy()) as cryo:
-                    await wait00.wait(timeout=2)
-                    import asyncio
-                    await asyncio.sleep(1)  # Need a signal from cryo00 that aha has registered
 
-                    svcs = [svc async for svc in aha.getAhaSvcs()]
-                    for s in svcs:
-                        logger.info(s)
+                async with self.getTestAha(conf=mirrorconf, dirn=dir1) as aha1:
+                    # CA is nexus-fied
+                    cabyts = await aha0.genCaCert('mirrorca')
+                    await aha1.sync()
+                    mirbyts = await aha1.genCaCert('mirrorca')
+                    self.eq(cabyts, mirbyts)
+                    iden = s_common.guid()
+                    # Adding, downing, and removing service is also nexusified
+                    info = {'urlinfo': {'host': '127.0.0.1', 'port': 8080,
+                                        'scheme': 'tcp'},
+                            'online': iden}
+                    await aha0.addAhaSvc('test', info, network='example.net')
+                    await aha1.sync()
+                    mnfo = await aha1.getAhaSvc('test.example.net')
+                    self.eq(mnfo.get('name'), 'test.example.net')
 
-                    # Tear down the Aha cell.
-                    import synapse.lib.base as s_base
-                    logger.info(f'AHA INFO: {aha=} {type(aha)} {isinstance(aha, s_base.Base)}')
+                    await aha0.setAhaSvcDown('test', iden, network='example.net')
+                    await aha1.sync()
+                    mnfo = await aha1.getAhaSvc('test.example.net')
+                    self.notin('online', mnfo)
 
-                    await aha.__aexit__(None, None, None)
-
-                    logger.info('tearing down cryp00')
-
-                print('out first aha teardown yield')
-
-            logger.info('Bringing aha back!')
-            async with self.getTestAha(conf=conf.copy(), dirn=dirn) as aha:
-                # host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
-
-                svcs = [svc async for svc in aha.getAhaSvcs()]
-                for s in svcs:
-                    logger.info(s)
-
-                await asyncio.sleep(6)
+                    await aha0.delAhaSvc('test', network='example.net')
+                    await aha1.sync()
+                    mnfo = await aha1.getAhaSvc('test.example.net')
+                    self.none(mnfo)
 
     async def test_lib_aha(self):
 
