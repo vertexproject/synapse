@@ -683,6 +683,7 @@ workflows:
             branches:
               only:
                 - master
+                - feature_aha_docs
 
       - gh-release/dorelease:
           requires:
