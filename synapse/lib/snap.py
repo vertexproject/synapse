@@ -306,11 +306,14 @@ class Snap(s_base.Base):
             'tagprops': {},
         }
 
-        for layr in self.layers:
+        layrs = [layr for layr in self.layers if layr.iden not in cache]
+        if layrs:
+            sodes = list(await self.core._getStorNodes(buid, layrs))
 
+        for layr in self.layers:
             sode = cache.get(layr.iden)
             if sode is None:
-                sode = await layr.getStorNode(buid)
+                sode = sodes.pop(0)
 
             form = sode.get('form')
             valt = sode.get('valu')
