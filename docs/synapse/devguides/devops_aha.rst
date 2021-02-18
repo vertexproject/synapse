@@ -239,6 +239,9 @@ certificate request signing. This can be used in conjunction with devops
 practices to enable an entire network of Synapse based services to utilize TLS
 and Telepath together.
 
+Bootstrapping AHA with TLS
+--------------------------
+
 
 
 TODO

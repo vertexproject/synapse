@@ -180,7 +180,7 @@ class AhaCell(s_cell.Cell):
 
     @s_nexus.Pusher.onPushAuto('aha:svc:add')
     async def addAhaSvc(self, name, info, network=None):
-
+        logger.info(f'{name=} {info=} {network=}')
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
 
         full = ('aha', 'svcfull', svcfull)

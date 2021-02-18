@@ -28,20 +28,23 @@ async def _main(argv, outp):
         except IndexError:
             network = None
 
-        mesg = f"{'Service':<20s} {'network':<30s} {'online':<6} {'scheme':<6} {'host':<20} {'port':<5}"
+        mesg = f"{'Service':<20s} {'network':<30s} {'online':<6} {'scheme':<6} {'host':<20} {'port':<5}  connection opts"
         outp.printf(mesg)
         async for svc in prox.getAhaSvcs(network):
-            svcname = svc.get('svcname')
-            svcnetw = svc.get('svcnetw')
 
-            svcinfo = svc.get('svcinfo')
-            urlinfo = svcinfo.get('urlinfo')
-            online = str(bool(svcinfo.get('online')))
-            host = urlinfo.get('host')
-            port = str(urlinfo.get('port'))
-            scheme = urlinfo.get('scheme')
+            svcname = svc.pop('svcname')
+            svcnetw = svc.pop('svcnetw')
 
-            mesg = f'{svcname:<20s} {svcnetw:<30s} {online:<6} {scheme:<6} {host:<20} {port:<5} '
+            svcinfo = svc.pop('svcinfo')
+            urlinfo = svcinfo.pop('urlinfo')
+            online = str(bool(svcinfo.pop('online', False)))
+            host = urlinfo.pop('host')
+            port = str(urlinfo.pop('port'))
+            scheme = urlinfo.pop('scheme')
+
+            mesg = f'{svcname:<20s} {svcnetw:<30s} {online:<6} {scheme:<6} {host:<20} {port:<5}'
+            if svc:
+                mesg = f'{mesg}  {svc}'
 
             outp.printf(mesg)
 
