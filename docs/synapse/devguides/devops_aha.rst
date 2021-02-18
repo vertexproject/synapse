@@ -71,11 +71,14 @@ One of the following two configuration values must be set as well:
           urlinfo:
             host: core.demo.net
             port: 30000
-            schema: ssl
-            ca: demonet
+            schema: tcp
 
-    This information is used by the Aha server instead of pulling port numbers,
-    scheme and IP information dynamically.
+    This information is used by the Aha server instead of relying on the dynamic
+    resolution of data, which is the default behavior. This can enable a
+    configuration where DNS names are used instead of IP addresses for doing
+    connections; where the Telepath listening port on the Cell may not be the
+    same port that users reach the service by; or for providing additional
+    Telepath connection information.
 
 
 Using Aha with Synapse Clients
@@ -110,8 +113,9 @@ certificate directory.
 Bootstrapping An Aha Environment
 --------------------------------
 
-The following shows an example of bootstrapping a local Aha instance, configuring a machine user and a client user
-for it, adding a Cortex to the network and then connecting to the Cortex via Aha.
+The following shows an example of bootstrapping a local Aha instance, configuring
+a machine user and a client user for it, adding a Cortex to the network and then
+connecting to the Cortex via Aha.
 
 Start an Aha service:
 
@@ -135,8 +139,9 @@ connect and register itself to to the Aha server:
         python -m synapse.tools.cellauth cell://./cells/aha001modify \
         --addrule aha.service.add reguser
 
-Start up a Cortex, configured to register itself with the Aha service. This Cortex is binding a listener on port 0,
-so the OS will assign the listening port for us:
+Start up a Cortex, configured to register itself with the Aha service. This
+Cortex is binding a listener on port 0, so the OS will assign the listening
+port for us:
 
     ::
 
@@ -144,8 +149,8 @@ so the OS will assign the listening port for us:
         SYN_CORTEX_AHA_REGISTRY=tcp://reguser:secret@127.0.0.1:8081/ SYN_CORTEX_AHA_NETWORK=demonet \
         SYN_CORTEX_AUTH_PASSWD=root python -m synapse.servers.cortex cells/ahacore01
 
-The ``synapse.tools.aha.list`` utility can be used to inspect the services that have been registered with a given
-Aha cell.
+The ``synapse.tools.aha.list`` utility can be used to inspect the services that
+have been registered with a given Aha cell.
 
     ::
 
@@ -182,25 +187,29 @@ Now the user can connect to the Cortex by resolving its IP and port via the Aha 
 
         python -m synapse.tools.cmdr aha://root:root@ahacore.demonet/
 
-This will lookup the ``ahacore.demonet`` service in the Aha service, and then connect to the Cortex using the information
-provided by Aha.
+This will lookup the ``ahacore.demonet`` service in the Aha service, and then
+connect to the Cortex using the information provided by Aha.
 
 The Aha Server as a TLS CA
 --------------------------
 
-The Aha server also has the ability to work as a Certificate Authority. Can be used to create a new TLS CA for a given
-Aha network, and then perform certificate request signing for servers and clients. This can be used in conjunction with
-devops practices to enable an entire network of Synapse based services to utilize TLS and Telepath together.
+The Aha server also has the ability to work as a Certificate Authority. Can be
+used to create a new TLS CA for a given Aha network, and then perform certificate
+request signing for servers and clients. This can be used in conjunction with
+devops practices to enable an entire network of Synapse based services to
+utilize TLS and Telepath together.
 
 Bootstrapping AHA with TLS
 --------------------------
 
-The following steps show bootstraping an Aha cell and using TLS to secure the connections between the services.
+The following steps show bootstraping an Aha cell and using TLS to secure the
+connections between the services.
 
 .. note::
-    This example assumes that everything is locally hosted, so no DNS names are used here. The ``hostname`` parameter
-    provided to the Telepath URLS instructs the client to confirm, regardless of IP or DNS name, the CN of the
-    certificate to expect when connecting.
+    This example assumes that everything is locally hosted, so no DNS names are used
+    here. The ``hostname`` parameter provided to the Telepath URLS instructs the client
+    to confirm, regardless of IP or DNS name, the common name of the certificate to
+    expect when connecting.
 
 Setup a few directories::
 
@@ -214,15 +223,16 @@ Start an Aha Cell ::
 
 This also creates an admin user named ``admin@demo.net`` in the Cell.
 
-Connect to the Aha cell and generate a CA for the Aha network and a server certificate for the Aha cell ::
+Connect to the Aha cell and generate a CA for the Aha network and a server
+certificate for the Aha cell ::
 
     python -m synapse.tools.aha.easycert -a cell://./cells/aha --ca demo.net
 
     python -m synapse.tools.aha.easycert -a cell://./cells/aha --server \
     --network demo.net aha.demo.net
 
-The server private key would have been saved to the users default certdir directory, so we can copy it over Cell
-certificate directory::
+The server private key would have been saved to the users default certdir
+directory, so we can copy it over Cell certificate directory::
 
     mv ~/.syn/certs/hosts/aha.demo.net.key cells/aha/certs/hosts/aha.demo.net.key
 
@@ -245,7 +255,8 @@ Add groups to the Aha Cell and grant them permissions::
     python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha.demo.net" \
     modify --addrule aha.service.add aha_svc
 
-Add a user for the Cortex to register with, and a client user for connecting to Aha for doing service lookups::
+Add a user for the Cortex to register with, and a client user for connecting
+to Aha for doing service lookups::
 
     python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha.demo.net" \
     modify --adduser core02@demo.net
@@ -363,6 +374,8 @@ Example code loading ``telepath.yaml`` ::
 
     sys.exit(asyncio.run(main(sys.argv[1:]))))
 
-A standalone Synapse Cell does not use a ``telepath.yaml``. The Cell will add its own ``./certs`` directory for any
-local certificates it needs for Telepath, and the URLs in the ``aha:registry`` configuration parameter will be added
-to the running processes list of Aha servers to enable Cells to do service discovery.
+A standalone Synapse Cell does not use a ``telepath.yaml``. The Cell will add
+its own ``./certs`` directory for any local certificates it needs for Telepath,
+and the URLs in the ``aha:registry`` configuration parameter will be added
+to the running processes list of Aha servers. This allows code running inside
+of the Cell to connect to ``aha://`` URLs.
