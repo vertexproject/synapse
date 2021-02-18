@@ -10,6 +10,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
 import synapse.lib.node as s_node
@@ -906,6 +907,130 @@ class Snap(s_base.Base):
             raise ctor(mesg=mesg, **info)
         return False
 
+    async def addNodeEdits(self, name, valu, props=None):
+
+        form = self.core.model.form(name)
+        if form is None:
+            raise s_exc.NoSuchForm(name=name)
+
+        if form.isrunt:
+            raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
+                                   form=form.full, prop=valu)
+
+        try:
+            if self.buidprefetch:
+                norm, info = form.type.norm(valu)
+                buid = s_common.buid((form.name, norm))
+                node = await self.getNodeByBuid(buid)
+                if node is not None:
+                    if props is not None:
+                        return (node, await self.getNodeAdds(form, valu, props=props, addnode=False))
+                    else:
+                        return (node, [(buid, form.name, [])])
+
+            return (None, await self.getNodeAdds(form, valu, props=props))
+
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            raise
+
+        except Exception as e:
+            if not self.strict:
+                await self.warn(f'addNode: {e}')
+                return (None, None)
+            raise
+
+    async def addTagEdits(self, node, tags):
+
+        edits = []
+        for tag, valu in tags.items():
+
+            path = s_chop.tagpath(tag)
+            name = '.'.join(path)
+
+            if not await self.core.isTagValid(name):
+                mesg = f'The tag does not meet the regex for the tree.'
+                raise s_exc.BadTag(mesg=mesg)
+
+            tagnode = await self.addTagNode(name)
+
+            isnow = tagnode.get('isnow')
+            if isnow:
+                await self.warn(f'tag {name} is now {isnow}')
+                name = isnow
+                path = isnow.split('.')
+
+            if isinstance(valu, list):
+                valu = tuple(valu)
+
+            if valu != (None, None):
+                valu = self.core.model.type('ival').norm(valu)[0]
+
+            curv = None
+            if node is not None:
+                curv = node.tags.get(name)
+                if curv == valu:
+                    continue
+
+            if curv is None:
+
+                tags = s_chop.tags(name)
+                for tag in tags[:-1]:
+
+                    if node is not None and node.tags.get(tag) is not None:
+                        continue
+
+                    await self.addTagNode(tag)
+
+                    edits.append((s_layer.EDIT_TAG_SET, (tag, (None, None), None), ()))
+
+            else:
+                valu = s_time.ival(*valu, *curv)
+
+            if valu == curv:
+                continue
+
+            edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
+
+        return edits
+
+    async def addTagPropEdits(self, node, tagprops):
+
+        edits = []
+        tagpropsets = []
+
+        for tag, props in tagprops.items():
+            for name, valu in props.items():
+
+                try:
+                    prop = self.core.model.getTagProp(name)
+                    if prop is None:
+                        raise s_exc.NoSuchTagProp(mesg='Tag prop does not exist in this Cortex.',
+                                                  name=name)
+
+                    try:
+                        norm, info = prop.type.norm(valu)
+                    except Exception as e:
+                        mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
+                        await self._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
+                        continue
+
+                    tagkey = (tag, name)
+                    if node is not None:
+                        curv = node.tagprops.get(tagkey)
+                        if norm == curv:
+                            continue
+
+                    edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype), ()))
+                    tagpropsets.append((tagkey, norm))
+
+                except s_exc.NoSuchTagProp:
+                    mesg = \
+                        f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
+                    logger.warning(mesg)
+                    continue
+
+        return (edits, tagpropsets)
+
     async def addNodes(self, nodedefs):
         '''
         Add/merge nodes in bulk.
@@ -922,6 +1047,10 @@ class Snap(s_base.Base):
         Returns:
             (list): A list of xact messages.
         '''
+        if self.readonly:
+            mesg = 'The snapshot is in read-only mode.'
+            raise s_exc.IsReadOnly(mesg=mesg)
+
         for (formname, formvalu), forminfo in nodedefs:
             try:
                 props = forminfo.get('props')
@@ -933,29 +1062,30 @@ class Snap(s_base.Base):
                 oldstrict = self.strict
                 self.strict = True
                 try:
-                    node = await self.addNode(formname, formvalu, props=props)
-                    if node is not None:
-                        tags = forminfo.get('tags')
-                        if tags is not None:
-                            for tag, asof in tags.items():
-                                await node.addTag(tag, valu=asof)
 
-                        tagprops = forminfo.get('tagprops', {})
+                    (node, editset) = await self.addNodeEdits(formname, formvalu, props=props)
+                    if editset is not None:
+                        buid, form, edits = editset[0]
+
+                        tags = forminfo.get('tags')
+                        tagprops = forminfo.get('tagprops')
                         if tagprops is not None:
-                            for tag, props in tagprops.items():
-                                for prop, valu in props.items():
-                                    try:
-                                        await node.setTagProp(tag, prop, valu)
-                                    except s_exc.NoSuchTagProp:
-                                        mesg = \
-                                            f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
-                                        logger.warning(mesg)
-                                        continue
+                            for tag in tagprops.keys():
+                                tags[tag] = (None, None)
+
+                        if tags is not None:
+                            tagedits = await self.addTagEdits(node, tags)
+                            edits.extend(tagedits)
+
+                        tpsets = []
+                        if tagprops is not None:
+                            (tpedits, tpsets) = await self.addTagPropEdits(node, tagprops)
+                            edits.extend(tpedits)
 
                         nodedata = forminfo.get('nodedata')
                         if nodedata is not None:
                             for name, data in nodedata.items():
-                                await node.setData(name, data)
+                                edits.append((s_layer.EDIT_NODEDATA_SET, (name, data, None), ()))
 
                         for verb, n2iden in forminfo.get('edges', ()):
                             # check for embedded ndef rather than n2iden
@@ -969,7 +1099,17 @@ class Snap(s_base.Base):
                                     logger.warning(f'Failed to make n2 edge node for {n2iden}')
                                     continue
                                 n2iden = n2node.iden()
-                            await node.addEdge(verb, n2iden)
+
+                            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
+
+                        nodes = await self.applyNodeEdits([(buid, form, edits)])
+                        assert len(nodes) >= 1
+
+                        # Adds is top-down, so the first node is what we want
+                        node = nodes[0]
+
+                        for (tagkey, norm) in tpsets:
+                            node.tagprops[tagkey] = norm
 
                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
