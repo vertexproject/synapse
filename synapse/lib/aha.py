@@ -180,7 +180,7 @@ class AhaCell(s_cell.Cell):
 
     @s_nexus.Pusher.onPushAuto('aha:svc:add')
     async def addAhaSvc(self, name, info, network=None):
-        logger.info(f'{name=} {info=} {network=}')
+
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
 
         full = ('aha', 'svcfull', svcfull)
@@ -236,6 +236,7 @@ class AhaCell(s_cell.Cell):
             with open(path, 'rb') as fd:
                 return fd.read().decode()
 
+        logger.info(f'Generating CA certificate for {network}')
         fut = s_coro.executor(self.certdir.genCaCert, network, save=False)
         pkey, cert = await fut
 
@@ -276,6 +277,8 @@ class AhaCell(s_cell.Cell):
         if signas is None:
             signas = hostname.split('.', 1)[1]
 
+        logger.info(f'Signing host CSR for [{hostname}], signas={signas}, sans={sans}')
+
         pkey, cert = self.certdir.signHostCsr(xcsr, signas=signas, sans=sans)
 
         return self.certdir._certToByts(cert).decode()
@@ -291,6 +294,8 @@ class AhaCell(s_cell.Cell):
 
         if signas is None:
             signas = username.split('@', 1)[1]
+
+        logger.info(f'Signing user CSR for [{username}], signas={signas}')
 
         pkey, cert = self.certdir.signUserCsr(xcsr, signas=signas)
 
