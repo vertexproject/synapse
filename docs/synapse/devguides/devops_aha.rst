@@ -1,5 +1,7 @@
 .. _devops-aha:
 
+.. highlight:: none
+
 Aha Service Discovery
 =====================
 
@@ -183,68 +185,22 @@ Now the user can connect to the Cortex by resolving its IP and port via the Aha 
 This will lookup the ``ahacore.demonet`` service in the Aha service, and then connect to the Cortex using the information
 provided by Aha.
 
-Using Aha with Custom Client Code
----------------------------------
-
-Custom Synapse client which expects to utilize Aha servers for doing service
-discovery can easily configure the aha services by loading the same
-``telepath.yaml`` file that is used by CLI tools.
-
-Example code loading ``telepath.yaml`` ::
-
-    import contextlib
-    import synapse.common as s_common
-    import synapse.telepath as s_telepath
-
-    async def main(argv):
-
-        # Get the full path to the default telepath.yaml file
-        path = s_common.getSynPath('telepath.yaml')
-
-        # Create a exitstack
-        async with contextlib.AsyncExitStack() as ctx:
-
-            # Load the telepath environment. If the file
-            # Exists, then the return value will be an
-            # async callback.
-            telefini = await s_telepath.loadTeleEnv(path)
-
-            if telefini is not None:
-
-                # register the callback to be executed
-                ctx.push_async_callback(telefini)
-
-            # Now that the telepath environment is setup, we can
-            # connect to aha:// URLs if they are provided.
-            async with await s_telepath.openurl(argv[0]) as proxy:
-
-                await doStuff(proxy)
-
-        return 0
-
-    async def doStuff(proxy):
-        pass
-
-    sys.exit(asyncio.run(main(sys.argv[1:]))))
-
-A Synapse Cell does not need to be configured with a ``telepath.yaml`` file if it is a Client which registers itself
-with an Aha server during startup.
-
-
 The Aha Server as a TLS CA
 --------------------------
 
-The Aha server also has the ability to work as a Certificate Authority. Can be
-used to create a new TLS CA for a given Aha network, and then perform
-certificate request signing. This can be used in conjunction with devops
-practices to enable an entire network of Synapse based services to utilize TLS
-and Telepath together.
+The Aha server also has the ability to work as a Certificate Authority. Can be used to create a new TLS CA for a given
+Aha network, and then perform certificate request signing for servers and clients. This can be used in conjunction with
+devops practices to enable an entire network of Synapse based services to utilize TLS and Telepath together.
 
 Bootstrapping AHA with TLS
 --------------------------
 
 The following steps show bootstraping an Aha cell and using TLS to secure the connections between the services.
-This example assumes that everything is locally hosted, so no DNS names are used here.
+
+.. note::
+    This example assumes that everything is locally hosted, so no DNS names are used here. The ``hostname`` parameter
+    provided to the Telepath URLS instructs the client to confirm, regardless of IP or DNS name, the CN of the
+    certificate to expect when connecting.
 
 Setup a few directories::
 
@@ -320,7 +276,7 @@ Setup CA, server and user certificates for the Cortex::
     python -m synapse.tools.aha.easycert -a "ssl://admin@127.0.0.1:8081/?hostname=aha.demo.net" \
     --certdir cells/ahacore02/certs/ --network demo.net core02@demo.net
 
-Setup a client certificate for bob@demo.net::
+Setup a client certificate for ``bob@demo.net``::
 
     python -m synapse.tools.aha.easycert -a "ssl://admin@127.0.0.1:8081/?hostname=aha.demo.net" \
     --network demo.net bob@demo.net
@@ -333,7 +289,7 @@ Startup the Cortex using TLS::
      SYN_CORTEX_AHA_NAME=core02 SYN_CORTEX_AHA_NETWORK=demo.net \
      python -m synapse.servers.cortex cells/ahacore02
 
-Add the bob@demo.net user to the Cortex::
+Add the ``bob@demo.net`` user to the Cortex::
 
     python -m synapse.tools.cellauth "aha://admin@core02.demo.net/" modify --adduser bob@demo.net
     # And make him a admin so he can do things on the Cortex
@@ -359,3 +315,54 @@ TODO
 ----
 
 SVCINFO notes
+
+
+Using Aha with Custom Client Code
+---------------------------------
+
+Custom Synapse client which expects to utilize Aha servers for doing service
+discovery can easily configure the aha services by loading the same
+``telepath.yaml`` file that is used by CLI tools.
+
+.. highlight:: python3
+
+Example code loading ``telepath.yaml`` ::
+
+    import contextlib
+    import synapse.common as s_common
+    import synapse.telepath as s_telepath
+
+    async def main(argv):
+
+        # Get the full path to the default telepath.yaml file
+        path = s_common.getSynPath('telepath.yaml')
+
+        # Create a exitstack
+        async with contextlib.AsyncExitStack() as ctx:
+
+            # Load the telepath environment. If the file
+            # Exists, then the return value will be an
+            # async callback.
+            telefini = await s_telepath.loadTeleEnv(path)
+
+            if telefini is not None:
+
+                # register the callback to be executed
+                ctx.push_async_callback(telefini)
+
+            # Now that the telepath environment is setup, we can
+            # connect to aha:// URLs if they are provided.
+            async with await s_telepath.openurl(argv[0]) as proxy:
+
+                await doStuff(proxy)
+
+        return 0
+
+    async def doStuff(proxy):
+        pass
+
+    sys.exit(asyncio.run(main(sys.argv[1:]))))
+
+A standalone Synapse Cell does not use a ``telepath.yaml``. The Cell will add its own ``./certs`` directory for any
+local certificates it needs for Telepath, and the URLs in the ``aha:registry`` configuration parameter will be added
+to the running processes list of Aha servers to enable Cells to do service discovery.
