@@ -130,7 +130,8 @@ connect and register itself to to the Aha server:
         python -m synapse.tools.cellauth cell://./cells/aha01 modify --passwd secret reguser
 
         # Grant it the permissions for authenticating with Aha and registering a service.
-        python -m synapse.tools.cellauth cell://./cells/aha001modify --addrule aha.service.add reguser
+        python -m synapse.tools.cellauth cell://./cells/aha001modify \
+        --addrule aha.service.add reguser
 
 Start up a Cortex, configured to register itself with the Aha service. This Cortex is binding a listener on port 0,
 so the OS will assign the listening port for us:
@@ -147,11 +148,10 @@ Aha cell.
     ::
 
         $ python -m synapse.tools.aha.list cell://./cells/aha01
-        Service              network                        online scheme host                 port
+        Service              network                        online scheme host                 port   connection opts
         ahacore              demonet                        True   tcp    127.0.0.1            45463
 
 Now we can add a client user to the Aha cell so that they can look up the Cell
-
 
     ::
 
@@ -162,7 +162,8 @@ Now we can add a client user to the Aha cell so that they can look up the Cell
         python -m synapse.tools.cellauth cell://./cells/aha01 modify --passwd secret alice
 
         # Allow the client to lookup services
-        python -m synapse.tools.cellauth cell://./cells/aha01 modify --addrule aha.service.get alice
+        python -m synapse.tools.cellauth cell://./cells/aha01 modify \
+        --addrule aha.service.get alice
 
 The clients ``telepath.yaml`` file will need to include the Aha server location.
 
@@ -252,7 +253,8 @@ Setup a few directories::
 
 Start an Aha Cell ::
 
-    SYN_LOG_LEVEL=DEBUG SYN_AHACELL_AHA_ADMIN=admin@ahademo.net python -m synapse.servers.aha cells/aha02
+    SYN_LOG_LEVEL=DEBUG SYN_AHACELL_AHA_ADMIN=admin@ahademo.net \
+    python -m synapse.servers.aha cells/aha02
 
 This also creates an admin user named ``admin@ahademo.net`` in the Cell.
 
@@ -260,7 +262,8 @@ Connect to the Aha cell and generate a CA for the Aha network and a server certi
 
     python -m synapse.tools.aha.easycert -a cell://./cells/aha02 --ca ahademo.net
 
-    python -m synapse.tools.aha.easycert -a cell://./cells/aha02 --server --network ahademo.net aha02.ahademo.net
+    python -m synapse.tools.aha.easycert -a cell://./cells/aha02 --server \
+    --network ahademo.net aha02.ahademo.net
 
 The server private key would have been saved to the users default certdir directory, so we can copy it over Cell
 certificate directory::
@@ -274,35 +277,53 @@ Restart the Aha Cell with TLS::
 
 Add groups to the Aha Cell and grant them permissions::
 
-    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" modify --addrole aha_svc
-    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" modify --addrole aha_user
+    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    modify --addrole aha_svc
 
-    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" modify --addrule aha.service.get aha_user
-    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" modify --addrule aha.service.add aha_svc
+    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    modify --addrole aha_user
+
+    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    modify --addrule aha.service.get aha_user
+
+    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    modify --addrule aha.service.add aha_svc
 
 Add a user for the Cortex to register with, and a client user for connecting to Aha for doing service lookups::
 
-    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" modify --adduser core02@ahademo.net
-    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" modify --grant aha_user core02@ahademo.net
-    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" modify --grant aha_svc core02@ahademo.net
+    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    modify --adduser core02@ahademo.net
 
-    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" modify --adduser bob@ahademo.net
-    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" modify --grant aha_user bob@ahademo.net
+    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    modify --grant aha_user core02@ahademo.net
+
+    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    modify --grant aha_svc core02@ahademo.net
+
+    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    modify --adduser bob@ahademo.net
+
+    python -m synapse.tools.cellauth "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    modify --grant aha_user bob@ahademo.net
 
 Setup CA, server and user certificates for the Cortex::
 
     # Get a copy of the ahademo.net CA certificate
-    python -m synapse.tools.aha.easycert -a "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" --certdir cells/ahacore02/certs/ --ca ahademo.net
+    python -m synapse.tools.aha.easycert -a "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    --certdir cells/ahacore02/certs/ --ca ahademo.net
 
     # Server certificate for ahacore02.ahademo.net
-    python -m synapse.tools.aha.easycert -a "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" --certdir cells/ahacore02/certs/ --network ahademo.net --server core02.ahademo.net
+    python -m synapse.tools.aha.easycert -a "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    --certdir cells/ahacore02/certs/ --network ahademo.net --server core02.ahademo.net
 
     # User certificate for core02@ahademo.net
-    python -m synapse.tools.aha.easycert -a "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" --certdir cells/ahacore02/certs/ --network ahademo.net core02@ahademo.net
+    python -m synapse.tools.aha.easycert -a "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    --certdir cells/ahacore02/certs/ --network ahademo.net core02@ahademo.net
 
 Setup a client certificate for bob@ahademo.net::
 
-    python -m synapse.tools.aha.easycert -a "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" --network ahademo.net bob@ahademo.net
+    python -m synapse.tools.aha.easycert -a "ssl://admin@127.0.0.1:8081/?hostname=aha02.ahademo.net" \
+    --network ahademo.net bob@ahademo.net
 
 Startup the Cortex using TLS::
 
