@@ -566,7 +566,7 @@ class CellApi(s_base.Base):
             yield
 
     @adminapi()
-    async def iterNewBackupArchive(self, name, remove=False):
+    async def iterNewBackupArchive(self, name=None, remove=False):
         '''
         Run a new backup and return it as a compressed stream of bytes.
 
@@ -576,7 +576,7 @@ class CellApi(s_base.Base):
             name (str): The name of the backup to retrieve.
             remove (bool): Delete the backup after streaming.
         '''
-        await self.cell.iterNewBackupArchive(name, user=self.user, remove=remove)
+        await self.cell.iterNewBackupArchive(user=self.user, name=name, remove=remove)
 
         # Make this a generator
         if False: # pragma: no cover
@@ -1322,9 +1322,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         finally:
             raise s_exc.DmonSpawn(mesg=mesg)
 
-    async def iterNewBackupArchive(self, name, user, remove=False):
+    async def iterNewBackupArchive(self, user, name=None, remove=False):
 
-        await self.runBackup(name)
+        name = await self.runBackup(name)
 
         path = self._reqBackDirn(name)
         linkinfo = s_scope.get('link').getSpawnInfo()
