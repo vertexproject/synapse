@@ -3122,6 +3122,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(1, nodes[0].tagprops.get(('noprop', 'test')))
 
+            # Test a bulk add
+            tags = {'tags': {'test': (2020, 2022)}}
+            data = [(('test:int', x), tags) for x in range(2001)]
+            await core1.addFeedData('syn.nodes', data)
+            nodes = await core1.nodes('test:int#test')
+            self.len(2001, nodes)
+
             await core1.nodes('movetag test newtag')
 
             data = [(('test:int', 1), {'props': {'int2': 2},

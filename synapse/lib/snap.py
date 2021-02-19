@@ -19,6 +19,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
@@ -987,8 +988,6 @@ class Snap(s_base.Base):
     async def _getAddTagPropEdits(self, node, tagprops):
 
         edits = []
-        tagpropsets = []
-
         for tag, props in tagprops.items():
             for name, valu in props.items():
 
@@ -1012,9 +1011,8 @@ class Snap(s_base.Base):
                         continue
 
                 edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype), ()))
-                tagpropsets.append((tagkey, norm))
 
-        return (edits, tagpropsets)
+        return edits
 
     async def addNodes(self, nodedefs):
         '''
@@ -1036,6 +1034,8 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
+        nodeedits = []
+        buids = set()
         for (formname, formvalu), forminfo in nodedefs:
             try:
                 props = forminfo.get('props')
@@ -1065,15 +1065,16 @@ class Snap(s_base.Base):
                             tagedits = await self._getAddTagEdits(node, tags)
                             edits.extend(tagedits)
 
-                        tpsets = []
                         if tagprops is not None:
-                            (tpedits, tpsets) = await self._getAddTagPropEdits(node, tagprops)
+                            tpedits = await self._getAddTagPropEdits(node, tagprops)
                             edits.extend(tpedits)
 
                         nodedata = forminfo.get('nodedata')
                         if nodedata is not None:
                             try:
                                 for name, data in nodedata.items():
+                                    # make sure we have msgpackable nodedata
+                                    s_msgpack.en((name, data))
                                     edits.append((s_layer.EDIT_NODEDATA_SET, (name, data, None), ()))
                             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                                 raise
@@ -1090,22 +1091,26 @@ class Snap(s_base.Base):
                                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                                     raise
                                 except:
-                                    logger.warning(f'Failed to make n2 edge node for {n2iden}')
+                                    await self.warn(f'Failed to make n2 edge node for {n2iden}')
                                     continue
 
                                 n2iden = s_common.ehex(n2editset[0][0])
                                 n2edits.extend(n2editset)
 
+                            # make sure a valid iden and verb were passed in
+                            elif not (isinstance(n2iden, str) and len(n2iden) == 64):
+                                await self.warn(f'Invalid n2 iden {n2iden}')
+                                continue
+
+                            if not (isinstance(verb, str)):
+                                await self.warn(f'Invalid edge verb {verb}')
+                                continue
+
                             edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
 
-                        nodes = await self.applyNodeEdits([(buid, form, edits)] + n2edits)
-                        assert len(nodes) >= 1
-
-                        # Adds is top-down, so the first node is what we want
-                        node = nodes[0]
-
-                        for (tagkey, norm) in tpsets:
-                            node.tagprops[tagkey] = norm
+                        nodeedits.append((buid, form, edits))
+                        nodeedits.extend(n2edits)
+                        buids.add(buid)
 
                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
@@ -1120,13 +1125,25 @@ class Snap(s_base.Base):
                 finally:
                     self.strict = oldstrict
 
-                yield node
+                if len(buids) >= 1000:
+                    nodes = await self.applyNodeEdits(nodeedits)
+                    for node in nodes:
+                        if node in buids:
+                            yield node
+
+                    nodedits = []
+                    buids.clear()
 
             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception:
                 logger.exception(f'Error making node: [{formname}={formvalu}]')
+
+        nodes = await self.applyNodeEdits(nodeedits)
+        for node in nodes:
+            if node in buids:
+                yield node
 
     async def getRuntNodes(self, full, valu=None, cmpr=None):
 
