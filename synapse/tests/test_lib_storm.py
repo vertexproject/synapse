@@ -429,6 +429,14 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:iszone = True', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:zone = mvmnasde.com', msgs)
 
+            # test that a user without perms can diff but not apply
+            await visi.addRule((True, ('view', 'read')))
+            async with core.getLocalProxy(user='visi') as asvisi:
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('merge --diff --apply', opts={'view': view}))
+
+                msgs = await alist(asvisi.storm('ps:person | merge --diff', opts={'view': view}))
+                self.stormIsInPrint('inet:fqdn = mvmnasde.com', msgs)
+
             # merge all the nodes with anything stored in the top layer...
             await core.callStorm('''
                 for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {

@@ -2564,6 +2564,16 @@ class Str(Prim):
                        'desc': 'The ending character index. If not specified, slice to the end of the string'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The slice substring.'}}},
+        {'name': 'reverse', 'desc': '''
+        Get a reversed copy of the string.
+
+        Examples:
+            Printing a reversed string::
+
+                $foo="foobar"
+                $lib.print($foo.reverse())''',
+         'type': {'type': 'function', '_funcname': '_methStrReverse',
+                  'returns': {'type': 'str', 'desc': 'The reversed string.', }}},
     )
     _storm_typename = 'str'
     def __init__(self, valu, path=None):
@@ -2584,6 +2594,7 @@ class Str(Prim):
             'rstrip': self._methStrRstrip,
             'lower': self._methStrLower,
             'slice': self._methStrSlice,
+            'reverse': self._methStrReverse,
         }
 
     def __int__(self):
@@ -2642,6 +2653,9 @@ class Str(Prim):
 
         end = await toint(end)
         return self.valu[start:end]
+
+    async def _methStrReverse(self):
+        return self.valu[::-1]
 
 @registry.registerType
 class Bytes(Prim):
