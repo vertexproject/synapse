@@ -968,7 +968,6 @@ class Snap(s_base.Base):
                     continue
 
             if curv is None:
-
                 tags = s_chop.tags(name)
                 for tag in tags[:-1]:
 
@@ -976,7 +975,6 @@ class Snap(s_base.Base):
                         continue
 
                     await self.addTagNode(tag)
-
                     edits.append((s_layer.EDIT_TAG_SET, (tag, (None, None), None), ()))
 
             else:
