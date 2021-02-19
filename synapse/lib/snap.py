@@ -917,27 +917,17 @@ class Snap(s_base.Base):
             raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
                                    form=form.full, prop=valu)
 
-        try:
-            if self.buidprefetch:
-                norm, info = form.type.norm(valu)
-                buid = s_common.buid((form.name, norm))
-                node = await self.getNodeByBuid(buid)
-                if node is not None:
-                    if props is not None:
-                        return (node, await self.getNodeAdds(form, valu, props=props, addnode=False))
-                    else:
-                        return (node, [(buid, form.name, [])])
+        if self.buidprefetch:
+            norm, info = form.type.norm(valu)
+            buid = s_common.buid((form.name, norm))
+            node = await self.getNodeByBuid(buid)
+            if node is not None:
+                if props is not None:
+                    return (node, await self.getNodeAdds(form, valu, props=props, addnode=False))
+                else:
+                    return (node, [(buid, form.name, [])])
 
-            return (None, await self.getNodeAdds(form, valu, props=props))
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
-        except Exception as e:
-            if not self.strict:
-                await self.warn(f'addNode: {e}')
-                return (None, None)
-            raise
+        return (None, await self.getNodeAdds(form, valu, props=props))
 
     async def _addTagEdits(self, node, tags):
 
