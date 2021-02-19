@@ -1329,7 +1329,7 @@ class LibAxon(Lib):
         axon = self.runt.snap.core.axon
 
         async for item in axon.list_(size=size):
-            yield s_common.ehex(item[0]), *item[1:]
+            yield (s_common.ehex(item[0]), *item[1:])
 
 @registry.registerLib
 class LibBytes(Lib):
