@@ -907,7 +907,7 @@ class Snap(s_base.Base):
             raise ctor(mesg=mesg, **info)
         return False
 
-    async def addNodeEdits(self, name, valu, props=None):
+    async def _addNodeEdits(self, name, valu, props=None):
 
         form = self.core.model.form(name)
         if form is None:
@@ -939,7 +939,7 @@ class Snap(s_base.Base):
                 return (None, None)
             raise
 
-    async def addTagEdits(self, node, tags):
+    async def _addTagEdits(self, node, tags):
 
         edits = []
         for tag, valu in tags.items():
@@ -948,14 +948,14 @@ class Snap(s_base.Base):
             name = '.'.join(path)
 
             if not await self.core.isTagValid(name):
-                mesg = f'The tag does not meet the regex for the tree.'
-                raise s_exc.BadTag(mesg=mesg)
+                await self.warn(f'Tag {tag} does not meet the regex for the tree.')
+                continue
 
             tagnode = await self.addTagNode(name)
 
             isnow = tagnode.get('isnow')
             if isnow:
-                await self.warn(f'tag {name} is now {isnow}')
+                await self.warn(f'Tag {name} is now {isnow}')
                 name = isnow
                 path = isnow.split('.')
 
@@ -963,7 +963,13 @@ class Snap(s_base.Base):
                 valu = tuple(valu)
 
             if valu != (None, None):
-                valu = self.core.model.type('ival').norm(valu)[0]
+                try:
+                    valu = self.core.model.type('ival').norm(valu)[0]
+                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                    raise
+                except Exception as e:
+                    await self.warn(f'Bad tag value: #{tag}={valu}')
+                    continue
 
             curv = None
             if node is not None:
@@ -993,7 +999,7 @@ class Snap(s_base.Base):
 
         return edits
 
-    async def addTagPropEdits(self, node, tagprops):
+    async def _addTagPropEdits(self, node, tagprops):
 
         edits = []
         tagpropsets = []
@@ -1001,33 +1007,27 @@ class Snap(s_base.Base):
         for tag, props in tagprops.items():
             for name, valu in props.items():
 
-                try:
-                    prop = self.core.model.getTagProp(name)
-                    if prop is None:
-                        raise s_exc.NoSuchTagProp(mesg='Tag prop does not exist in this Cortex.',
-                                                  name=name)
+                prop = self.core.model.getTagProp(name)
+                if prop is None:
+                    await self.warn(f'Tagprop {name} does not exist in this Cortex.')
+                    continue
 
-                    try:
-                        norm, info = prop.type.norm(valu)
-                    except Exception as e:
-                        mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
-                        await self._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
+                try:
+                    norm, info = prop.type.norm(valu)
+                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                    raise
+                except Exception as e:
+                    await self.warn(f'Bad property value: #{tag}:{prop.name}={valu!r}')
+                    continue
+
+                tagkey = (tag, name)
+                if node is not None:
+                    curv = node.tagprops.get(tagkey)
+                    if norm == curv:
                         continue
 
-                    tagkey = (tag, name)
-                    if node is not None:
-                        curv = node.tagprops.get(tagkey)
-                        if norm == curv:
-                            continue
-
-                    edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype), ()))
-                    tagpropsets.append((tagkey, norm))
-
-                except s_exc.NoSuchTagProp:
-                    mesg = \
-                        f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
-                    logger.warning(mesg)
-                    continue
+                edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype), ()))
+                tagpropsets.append((tagkey, norm))
 
         return (edits, tagpropsets)
 
@@ -1063,7 +1063,7 @@ class Snap(s_base.Base):
                 self.strict = True
                 try:
 
-                    (node, editset) = await self.addNodeEdits(formname, formvalu, props=props)
+                    (node, editset) = await self._addNodeEdits(formname, formvalu, props=props)
                     if editset is not None:
                         buid, form, edits = editset[0]
 
@@ -1074,35 +1074,43 @@ class Snap(s_base.Base):
                                 tags[tag] = (None, None)
 
                         if tags is not None:
-                            tagedits = await self.addTagEdits(node, tags)
+                            tagedits = await self._addTagEdits(node, tags)
                             edits.extend(tagedits)
 
                         tpsets = []
                         if tagprops is not None:
-                            (tpedits, tpsets) = await self.addTagPropEdits(node, tagprops)
+                            (tpedits, tpsets) = await self._addTagPropEdits(node, tagprops)
                             edits.extend(tpedits)
 
                         nodedata = forminfo.get('nodedata')
                         if nodedata is not None:
-                            for name, data in nodedata.items():
-                                edits.append((s_layer.EDIT_NODEDATA_SET, (name, data, None), ()))
+                            try:
+                                for name, data in nodedata.items():
+                                    edits.append((s_layer.EDIT_NODEDATA_SET, (name, data, None), ()))
+                            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                                raise
+                            except Exception as e:
+                                await self.warn(f'Failed adding node data on {formname}, {formvalu}, {forminfo}: {e}')
 
+                        n2edits = []
                         for verb, n2iden in forminfo.get('edges', ()):
                             # check for embedded ndef rather than n2iden
                             if isinstance(n2iden, (list, tuple)):
                                 n2form, n2valu = n2iden
                                 try:
-                                    n2node = await self.addNode(n2form, n2valu)
+                                    _, n2editset = await self._addNodeEdits(n2form, n2valu)
                                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                                     raise
                                 except:
                                     logger.warning(f'Failed to make n2 edge node for {n2iden}')
                                     continue
-                                n2iden = n2node.iden()
+
+                                n2iden = s_common.ehex(n2editset[0][0])
+                                n2edits.extend(n2editset)
 
                             edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
 
-                        nodes = await self.applyNodeEdits([(buid, form, edits)])
+                        nodes = await self.applyNodeEdits([(buid, form, edits)] + n2edits)
                         assert len(nodes) >= 1
 
                         # Adds is top-down, so the first node is what we want

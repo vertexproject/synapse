@@ -3083,17 +3083,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Put bad data in
             data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
             await core1.addFeedData('syn.nodes', data)
-#           self.len(0, await core1.nodes('test:str=newp -#test.newp'))
+            self.len(1, await core1.nodes('test:str=newp -#test.newp'))
 
             data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
             await core1.addFeedData('syn.nodes', data)
-#           self.len(0, await core1.nodes('test:str=opps +#test.newp'))
+            self.len(0, await core1.nodes('test:str=opps +#test.newp'))
 
             data = [(('test:str', 'ahh'), {'nodedata': 123})]
             await core1.addFeedData('syn.nodes', data)
             nodes = await core1.nodes('test:str=ahh')
-#            self.len(1, nodes)
-#            await self.agenlen(0, nodes[0].iterData())
+            self.len(1, nodes)
+            await self.agenlen(0, nodes[0].iterData())
 
             data = [(('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
             await core1.addFeedData('syn.nodes', data)
