@@ -907,7 +907,7 @@ class Snap(s_base.Base):
             raise ctor(mesg=mesg, **info)
         return False
 
-    async def _addNodeEdits(self, name, valu, props=None):
+    async def _getAddNodeEdits(self, name, valu, props=None):
 
         form = self.core.model.form(name)
         if form is None:
@@ -929,7 +929,7 @@ class Snap(s_base.Base):
 
         return (None, await self.getNodeAdds(form, valu, props=props))
 
-    async def _addTagEdits(self, node, tags):
+    async def _getAddTagEdits(self, node, tags):
 
         edits = []
         for tag, valu in tags.items():
@@ -987,7 +987,7 @@ class Snap(s_base.Base):
 
         return edits
 
-    async def _addTagPropEdits(self, node, tagprops):
+    async def _getAddTagPropEdits(self, node, tagprops):
 
         edits = []
         tagpropsets = []
@@ -1051,7 +1051,7 @@ class Snap(s_base.Base):
                 self.strict = True
                 try:
 
-                    (node, editset) = await self._addNodeEdits(formname, formvalu, props=props)
+                    (node, editset) = await self._getAddNodeEdits(formname, formvalu, props=props)
                     if editset is not None:
                         buid, form, edits = editset[0]
 
@@ -1065,12 +1065,12 @@ class Snap(s_base.Base):
                                 tags[tag] = (None, None)
 
                         if tags is not None:
-                            tagedits = await self._addTagEdits(node, tags)
+                            tagedits = await self._getAddTagEdits(node, tags)
                             edits.extend(tagedits)
 
                         tpsets = []
                         if tagprops is not None:
-                            (tpedits, tpsets) = await self._addTagPropEdits(node, tagprops)
+                            (tpedits, tpsets) = await self._getAddTagPropEdits(node, tagprops)
                             edits.extend(tpedits)
 
                         nodedata = forminfo.get('nodedata')
@@ -1089,7 +1089,7 @@ class Snap(s_base.Base):
                             if isinstance(n2iden, (list, tuple)):
                                 n2form, n2valu = n2iden
                                 try:
-                                    _, n2editset = await self._addNodeEdits(n2form, n2valu)
+                                    _, n2editset = await self._getAddNodeEdits(n2form, n2valu)
                                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                                     raise
                                 except:

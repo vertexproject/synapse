@@ -3080,6 +3080,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core1.nodes('test:int=4')
             self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
 
+            # Feed in data again for coverage
+            await core1.addFeedData('syn.nodes', [pode])
+            nodes = await core1.nodes('test:int=4')
+            self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
+
             # Put bad data in
             data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
             await core1.addFeedData('syn.nodes', data)
