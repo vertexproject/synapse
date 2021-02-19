@@ -10,10 +10,11 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
-import synapse.lib.base as s_base
 import synapse.lib.node as s_node
+import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
@@ -970,7 +971,6 @@ class Snap(s_base.Base):
             if curv is None:
                 tags = s_chop.tags(name)
                 for tag in tags[:-1]:
-
                     if node is not None and node.tags.get(tag) is not None:
                         continue
 
@@ -979,9 +979,6 @@ class Snap(s_base.Base):
 
             else:
                 valu = s_time.ival(*valu, *curv)
-
-            if valu == curv:
-                continue
 
             edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
 

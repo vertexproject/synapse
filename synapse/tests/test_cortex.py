@@ -3080,11 +3080,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core1.nodes('test:int=4')
             self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
 
-            # Feed in data again for coverage
-            await core1.addFeedData('syn.nodes', [pode])
-            nodes = await core1.nodes('test:int=4')
-            self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
-
             # Put bad data in
             data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
             await core1.addFeedData('syn.nodes', data)
@@ -3105,6 +3100,42 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
+
+            data = [(('syn:cmd', 'newp'), {})]
+            await core1.addFeedData('syn.nodes', data)
+            self.len(0, await core1.nodes('syn:cmd=newp'))
+
+            # Feed into a forked view
+            vdef2 = await core1.view.fork()
+            view2_iden = vdef2.get('iden')
+
+            data = [(('test:int', 1), {'tags': {'noprop': [None, None]}})]
+            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            self.len(1, await core1.nodes('test:int=1 +#noprop', opts={'view': view2_iden}))
+
+            data = [(('test:int', 1), {'tags': {'noprop': (None, None),
+                                                'noprop.two': (None, None)}})]
+            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            self.len(1, await core1.nodes('test:int=1 +#noprop.two', opts={'view': view2_iden}))
+
+            await core1.nodes('movetag test newtag')
+
+            data = [(('test:int', 1), {'props': {'int2': 2},
+                                       'tags': {'test': (2020, 2021)}})]
+            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
+            self.len(1, nodes)
+            self.eq(2, nodes[0].props.get('int2'))
+
+            data = [(('test:int', 1), {'tags': {'test': (2020, 2022)}})]
+            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
+            self.len(1, nodes)
+            self.eq((2020, 2022), nodes[0].tags.get('newtag'))
+
+            core1.view.layers[0].readonly = True
+            await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
+            self.eq(1,2)
 
     async def test_feed_syn_splice(self):
 
