@@ -3135,7 +3135,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             core1.view.layers[0].readonly = True
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
-            self.eq(1,2)
 
     async def test_feed_syn_splice(self):
 
