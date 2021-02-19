@@ -1090,15 +1090,15 @@ class Snap(s_base.Base):
 
                                 n2form = self.core.model.form(n2formname)
                                 if n2form is None:
-                                    await self.warn(f'Failed to make n2 edge node for {n2iden}')
+                                    await self.warn(f'Failed to make n2 edge node for {n2iden}: invalid form')
                                     continue
 
                                 try:
-                                    n2norm, _ = form.type.norm(n2valu)
+                                    n2norm, _ = n2form.type.norm(n2valu)
                                     n2buid = s_common.buid((n2form.name, n2norm))
 
                                     if not (n2buid in n2buids or n2buid in buids):
-                                        _, n2editset = await self._getAddNodeEdits(n2form, n2valu)
+                                        _, n2editset = await self._getAddNodeEdits(n2formname, n2valu)
                                         n2edits.extend(n2editset)
 
                                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
