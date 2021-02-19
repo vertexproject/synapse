@@ -576,6 +576,9 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="quickbrownfox" return ( $foo.slice("newp") )'
             await self.asyncraises(s_exc.BadCast, core.callStorm(q))
 
+            q = '$foo="foobar" return ( $foo.reverse() )'
+            self.eq('raboof', await core.callStorm(q))
+
             # tuck the regx tests in with str
             self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
             self.true(await core.callStorm(r'''return($lib.regex.matches('foo', FOOBAR, $lib.regex.flags.i))'''))
