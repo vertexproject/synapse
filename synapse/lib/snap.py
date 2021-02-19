@@ -1036,6 +1036,7 @@ class Snap(s_base.Base):
 
         nodeedits = []
         buids = set()
+        n2buids = set()
         for (formname, formvalu), forminfo in nodedefs:
             try:
                 props = forminfo.get('props')
@@ -1085,17 +1086,29 @@ class Snap(s_base.Base):
                         for verb, n2iden in forminfo.get('edges', ()):
                             # check for embedded ndef rather than n2iden
                             if isinstance(n2iden, (list, tuple)):
-                                n2form, n2valu = n2iden
+                                n2formname, n2valu = n2iden
+
+                                n2form = self.core.model.form(n2formname)
+                                if n2form is None:
+                                    await self.warn(f'Failed to make n2 edge node for {n2iden}')
+                                    continue
+
                                 try:
-                                    _, n2editset = await self._getAddNodeEdits(n2form, n2valu)
+                                    n2norm, _ = form.type.norm(n2valu)
+                                    n2buid = s_common.buid((n2form.name, n2norm))
+
+                                    if not (n2buid in n2buids or n2buid in buids):
+                                        _, n2editset = await self._getAddNodeEdits(n2form, n2valu)
+                                        n2edits.extend(n2editset)
+
                                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                                     raise
                                 except:
                                     await self.warn(f'Failed to make n2 edge node for {n2iden}')
                                     continue
 
-                                n2iden = s_common.ehex(n2editset[0][0])
-                                n2edits.extend(n2editset)
+                                n2iden = s_common.ehex(n2buid)
+                                n2buids.add(n2buid)
 
                             # make sure a valid iden and verb were passed in
                             elif not (isinstance(n2iden, str) and len(n2iden) == 64):
@@ -1133,6 +1146,7 @@ class Snap(s_base.Base):
 
                     nodedits = []
                     buids.clear()
+                    n2buids.clear()
 
             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
