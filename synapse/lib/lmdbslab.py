@@ -60,6 +60,11 @@ class Hist:
             tick = int.from_bytes(lkey, 'big')
             yield tick, s_msgpack.un(byts)
 
+    def iterBack(self):
+        for lkey, byts in self.slab.scanByFullBack(db=self.db):
+            tick = int.from_bytes(lkey, 'big')
+            yield tick, s_msgpack.un(byts)
+
 class SlabDict:
     '''
     A dictionary-like object which stores its props in a slab via a prefix.

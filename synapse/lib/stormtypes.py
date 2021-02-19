@@ -1208,6 +1208,23 @@ class LibAxon(Lib):
                       {'name': 'sha256s', 'type': 'list', 'desc': 'A list of sha256 hashes to remove from the Axon.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of boolean values that are True if the bytes were found.', }}},
+
+        {'name': 'list', 'desc': '''
+        List (sha256, size, timestamp) tuples for files in the Axon in reverse order by time added.
+
+        Example:
+            List the last 10 files added::
+
+                for ($sha256, $size, $timestamp) in $lib.axon.list(size=10) {
+                    $lib.print($sha256)
+                }
+        ''',
+         'type': {'type': 'function', '_funcname': 'list_',
+                  'args': (
+                      {'name': 'size', 'type': 'int', 'desc': 'The number of results to return', 'default': 100},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'list',
+                              'desc': 'Tuple of (sha256, size, timestamp) in reverse added time order.', }}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1217,6 +1234,7 @@ class LibAxon(Lib):
             'urlfile': self.urlfile,
             'del': self.del_,
             'dels': self.dels,
+            'list': self.list_,
         }
 
     async def dels(self, sha256s):
@@ -1301,6 +1319,17 @@ class LibAxon(Lib):
         urlfile = await self.runt.snap.addNode('inet:urlfile', (url, sha256), props=props)
 
         return urlfile
+
+    async def list_(self, size=100):
+        size = await toint(size)
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+
+        await self.runt.snap.core.getAxon()
+        axon = self.runt.snap.core.axon
+
+        async for item in axon.list_(size=size):
+            yield s_common.ehex(item[0]), *item[1:]
 
 @registry.registerLib
 class LibBytes(Lib):

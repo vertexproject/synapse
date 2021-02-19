@@ -58,6 +58,8 @@ class AxonTest(s_t_utils.SynTest):
             async for _ in axon.get(asdfhash):
                 pass
 
+        self.len(0, [item async for item in axon.list_()])
+
         async with await axon.upload() as fd:
             await fd.write(abuf)
             self.eq(asdfretn, await fd.save())
@@ -114,6 +116,19 @@ class AxonTest(s_t_utils.SynTest):
         info = await axon.metrics()
         self.eq(33554445, info.get('size:bytes'))
         self.eq(2, info.get('file:count'))
+
+        logger.info('list_() tests')
+
+        list_exp = [bbufretn[::-1], asdfretn[::-1]]  # list_() yields (sha256, size)
+
+        items = [item async for item in axon.list_()]
+        self.eq(list_exp, [item[:2] for item in items])
+        ticks = [item[2] for item in items] + [tick]
+        self.true(sorted(ticks, reverse=True), ticks)
+
+        items = [item async for item in axon.list_(size=1)]
+        self.len(1, items)
+        self.eq(list_exp[0], items[0][:2])
 
         logger.info('Empty file test')
 
@@ -189,6 +204,10 @@ class AxonTest(s_t_utils.SynTest):
         info = await axon.metrics()
         self.eq(33554474, info.get('size:bytes'))
         self.eq(6, info.get('file:count'))
+
+        items = [item[:2] async for item in axon.list_()]
+        self.eq(list_exp[1], items[-1])
+        self.notin(list_exp[0], items)
 
         self.false(await axon.del_(bbufhash))
 
@@ -404,6 +423,9 @@ class AxonTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, prox.puts((abuf,)))
                 await self.asyncraises(s_exc.AuthDeny, prox.upload())
                 await self.asyncraises(s_exc.AuthDeny, prox.metrics())
+                with self.raises(s_exc.AuthDeny):
+                    async for _ in prox.list_():
+                        pass
                 # now add rules and run the test suite
                 await user.addRule((True, ('health',)))
                 await user.addRule((True, ('axon', 'get',)))

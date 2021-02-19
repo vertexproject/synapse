@@ -263,6 +263,20 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'upload'))
         return await UpLoadShare.anit(self.cell, self.link)
 
+    async def list_(self, size=100):
+        '''
+        List files available in the Axon by reverse order of time added.
+
+        Args:
+            size (int): Yield up to size items
+
+        Yields:
+            tuple: (sha256, size, timestamp)
+        '''
+        await self._reqUserAllowed(('axon', 'has'))
+        async for item in self.cell.list_(size=size):
+            yield item
+
     async def del_(self, sha256):
         '''
         Remove the given bytes from the Axon by sha256.
@@ -471,6 +485,22 @@ class Axon(s_cell.Cell):
             self.blobslab.put(lkey, byts, db=self.blobs)
             await asyncio.sleep(0)
         return size
+
+    async def list_(self, size=100):
+        cnt = 0
+        for tick, (sha256, _size) in self.axonhist.iterBack():
+            # history may have files that have been deleted; only return items that exist
+            if not await self.has(sha256):
+                await asyncio.sleep(0)
+                continue
+
+            yield sha256, _size, tick
+
+            cnt += 1
+            if cnt >= size:
+                return
+
+            await asyncio.sleep(0)
 
     async def dels(self, sha256s):
         return [await self.del_(s) for s in sha256s]
