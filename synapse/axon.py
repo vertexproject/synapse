@@ -18,6 +18,7 @@ import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.spooled as s_spooled
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -487,20 +488,25 @@ class Axon(s_cell.Cell):
         return size
 
     async def list_(self, size=100):
-        cnt = 0
-        for tick, (sha256, _size) in self.axonhist.iterBack():
-            # history may have files that have been deleted; only return items that exist
-            if not await self.has(sha256):
+
+        async with await s_spooled.Set.anit(dirn=self.dirn) as hset:
+
+            cnt = 0
+            for tick, (sha256, fsize) in self.axonhist.iterBack():
+                # history may have files that have been deleted; only return items that exist once
+                if sha256 in hset or not await self.has(sha256):
+                    await asyncio.sleep(0)
+                    continue
+
+                await hset.add(sha256)
+
+                yield sha256, fsize, tick
+
+                cnt += 1
+                if cnt >= size:
+                    return
+
                 await asyncio.sleep(0)
-                continue
-
-            yield sha256, _size, tick
-
-            cnt += 1
-            if cnt >= size:
-                return
-
-            await asyncio.sleep(0)
 
     async def dels(self, sha256s):
         return [await self.del_(s) for s in sha256s]

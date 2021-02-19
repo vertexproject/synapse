@@ -191,6 +191,11 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(wget, opts=opts)
 
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('for $x in $lib.axon.list() { $lib.print($x) }', opts=opts)
+
+            tick = s_common.now()
+
             # test wget runtsafe / per-node / per-node with cmdopt
             nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active')
             self.len(1, nodes)
@@ -208,8 +213,15 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'file:bytes')
+            sha256, size, created = nodes[0].get('sha256'), nodes[0].get('size'), nodes[0].get('.created')
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.len(1, items)
+            self.len(3, items[0])
+            self.eq((sha256, size), items[0][:2])
+            self.true(tick <= items[0][2] <= created)
+
             # test $lib.axon.del()
-            sha256 = nodes[0].get('sha256')
             delopts = {'user': visi.iden, 'vars': {'sha256': sha256}}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.axon.del($sha256)', opts=delopts)
@@ -221,8 +233,25 @@ class StormTest(s_t_utils.SynTest):
             self.eq((True, False), await core.callStorm('return($lib.axon.dels(($sha256, $sha256)))', opts=delopts))
             self.false(await core.callStorm('return($lib.axon.del($sha256))', opts=delopts))
 
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.len(0, items)
+
             msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
             self.stormIsInWarn('HTTP code 404', msgs)
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.len(1, items)
+            self.ne(sha256, items[0][0])
+
+            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', opts={'vars': {'buf': b'foo'}})
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.len(2, items)
+            self.eq((sha256, size), items[0][:2])
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list(1) { $x.append($i) } return($x)')
+            self.len(1, items)
+            self.eq((sha256, size), items[0][:2])
 
             # test request timeout
             async def timeout(self):

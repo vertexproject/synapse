@@ -1215,7 +1215,7 @@ class LibAxon(Lib):
         Example:
             List the last 10 files added::
 
-                for ($sha256, $size, $timestamp) in $lib.axon.list(size=10) {
+                for ($sha256, $size, $timestamp) in $lib.axon.list(10) {
                     $lib.print($sha256)
                 }
         ''',

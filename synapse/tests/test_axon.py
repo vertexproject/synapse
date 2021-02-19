@@ -211,6 +211,14 @@ class AxonTest(s_t_utils.SynTest):
 
         self.false(await axon.del_(bbufhash))
 
+        # deleted file re-added goes to front of list and exists once
+        retn = await axon.put(bbuf)
+        self.eq(retn, bbufretn)
+
+        items = [item[:2] async for item in axon.list_()]
+        self.eq(list_exp[0], items[0])
+        self.eq(1, items.count(list_exp[0]))
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
