@@ -1060,6 +1060,9 @@ class Snap(s_base.Base):
                         tags = forminfo.get('tags')
                         tagprops = forminfo.get('tagprops')
                         if tagprops is not None:
+                            if tags is None:
+                                tags = {}
+
                             for tag in tagprops.keys():
                                 tags[tag] = (None, None)
 

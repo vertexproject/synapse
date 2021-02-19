@@ -3087,7 +3087,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
             await core1.addFeedData('syn.nodes', data)
-            self.len(0, await core1.nodes('test:str=opps +#test.newp'))
+            self.len(1, await core1.nodes('test:str=opps +#test.newp'))
 
             data = [(('test:str', 'ahh'), {'nodedata': 123})]
             await core1.addFeedData('syn.nodes', data)
