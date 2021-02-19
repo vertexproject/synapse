@@ -1128,7 +1128,7 @@ class Snap(s_base.Base):
                 if len(buids) >= 1000:
                     nodes = await self.applyNodeEdits(nodeedits)
                     for node in nodes:
-                        if node in buids:
+                        if node.buid in buids:
                             yield node
 
                     nodedits = []
@@ -1142,7 +1142,7 @@ class Snap(s_base.Base):
 
         nodes = await self.applyNodeEdits(nodeedits)
         for node in nodes:
-            if node in buids:
+            if node.buid in buids:
                 yield node
 
     async def getRuntNodes(self, full, valu=None, cmpr=None):
