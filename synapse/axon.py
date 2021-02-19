@@ -264,7 +264,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'upload'))
         return await UpLoadShare.anit(self.cell, self.link)
 
-    async def list_(self, size=100):
+    async def list(self, size=100):
         '''
         List files available in the Axon by reverse order of time added.
 
@@ -275,7 +275,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             tuple: (sha256, size, timestamp)
         '''
         await self._reqUserAllowed(('axon', 'has'))
-        async for item in self.cell.list_(size=size):
+        async for item in self.cell.list(size=size):
             yield item
 
     async def del_(self, sha256):
@@ -487,7 +487,7 @@ class Axon(s_cell.Cell):
             await asyncio.sleep(0)
         return size
 
-    async def list_(self, size=100):
+    async def list(self, size=100):
 
         async with await s_spooled.Set.anit(dirn=self.dirn) as hset:
 

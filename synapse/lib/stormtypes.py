@@ -1219,7 +1219,7 @@ class LibAxon(Lib):
                     $lib.print($sha256)
                 }
         ''',
-         'type': {'type': 'function', '_funcname': 'list_',
+         'type': {'type': 'function', '_funcname': 'list',
                   'args': (
                       {'name': 'size', 'type': 'int', 'desc': 'The number of results to return', 'default': 100},
                   ),
@@ -1234,7 +1234,7 @@ class LibAxon(Lib):
             'urlfile': self.urlfile,
             'del': self.del_,
             'dels': self.dels,
-            'list': self.list_,
+            'list': self.list,
         }
 
     async def dels(self, sha256s):
@@ -1320,7 +1320,7 @@ class LibAxon(Lib):
 
         return urlfile
 
-    async def list_(self, size=100):
+    async def list(self, size=100):
         size = await toint(size)
 
         self.runt.confirm(('storm', 'lib', 'axon', 'has'))
@@ -1328,7 +1328,7 @@ class LibAxon(Lib):
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
 
-        async for item in axon.list_(size=size):
+        async for item in axon.list(size=size):
             yield (s_common.ehex(item[0]), *item[1:])
 
 @registry.registerLib

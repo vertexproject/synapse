@@ -58,7 +58,7 @@ class AxonTest(s_t_utils.SynTest):
             async for _ in axon.get(asdfhash):
                 pass
 
-        self.len(0, [item async for item in axon.list_()])
+        self.len(0, [item async for item in axon.list()])
 
         async with await axon.upload() as fd:
             await fd.write(abuf)
@@ -117,16 +117,16 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(33554445, info.get('size:bytes'))
         self.eq(2, info.get('file:count'))
 
-        logger.info('list_() tests')
+        logger.info('list() tests')
 
-        list_exp = [bbufretn[::-1], asdfretn[::-1]]  # list_() yields (sha256, size)
+        list_exp = [bbufretn[::-1], asdfretn[::-1]]  # list() yields (sha256, size)
 
-        items = [item async for item in axon.list_()]
+        items = [item async for item in axon.list()]
         self.eq(list_exp, [item[:2] for item in items])
         ticks = [item[2] for item in items] + [tick]
         self.true(sorted(ticks, reverse=True), ticks)
 
-        items = [item async for item in axon.list_(size=1)]
+        items = [item async for item in axon.list(size=1)]
         self.len(1, items)
         self.eq(list_exp[0], items[0][:2])
 
@@ -205,7 +205,7 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(33554474, info.get('size:bytes'))
         self.eq(6, info.get('file:count'))
 
-        items = [item[:2] async for item in axon.list_()]
+        items = [item[:2] async for item in axon.list()]
         self.eq(list_exp[1], items[-1])
         self.notin(list_exp[0], items)
 
@@ -215,7 +215,7 @@ class AxonTest(s_t_utils.SynTest):
         retn = await axon.put(bbuf)
         self.eq(retn, bbufretn)
 
-        items = [item[:2] async for item in axon.list_()]
+        items = [item[:2] async for item in axon.list()]
         self.eq(list_exp[0], items[0])
         self.eq(1, items.count(list_exp[0]))
 
@@ -432,7 +432,7 @@ class AxonTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, prox.upload())
                 await self.asyncraises(s_exc.AuthDeny, prox.metrics())
                 with self.raises(s_exc.AuthDeny):
-                    async for _ in prox.list_():
+                    async for _ in prox.list():
                         pass
                 # now add rules and run the test suite
                 await user.addRule((True, ('health',)))
