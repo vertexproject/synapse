@@ -3125,7 +3125,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.nodes('movetag test newtag')
 
             data = [(('test:int', 1), {'props': {'int2': 2},
-                                       'tags': {'test': (2020, 2021)},
+                                       'tags': {'test': [2020, 2021]},
                                        'tagprops': {'noprop': {'test': 1}}})]
             await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
