@@ -1210,21 +1210,27 @@ class LibAxon(Lib):
                   'returns': {'type': 'list', 'desc': 'A list of boolean values that are True if the bytes were found.', }}},
 
         {'name': 'list', 'desc': '''
-        List (sha256, size, timestamp) tuples for files in the Axon in reverse order by time added.
+        List (offset, sha256, size) tuples for files in the Axon in added order.
 
         Example:
-            List the last 10 files added::
+            List files::
 
-                for ($sha256, $size, $timestamp) in $lib.axon.list(10) {
+                for ($offs, $sha256, $size) in $lib.axon.list() {
+                    $lib.print($sha256)
+                }
+
+            Start list from offset 10::
+
+                for ($offs, $sha256, $size) in $lib.axon.list(10) {
                     $lib.print($sha256)
                 }
         ''',
          'type': {'type': 'function', '_funcname': 'list',
                   'args': (
-                      {'name': 'size', 'type': 'int', 'desc': 'The number of results to return', 'default': 100},
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to start from.', 'default': 0},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                              'desc': 'Tuple of (sha256, size, timestamp) in reverse added time order.', }}},
+                              'desc': 'Tuple of (offset, sha256, size) in added order.', }}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1320,16 +1326,16 @@ class LibAxon(Lib):
 
         return urlfile
 
-    async def list(self, size=100):
-        size = await toint(size)
+    async def list(self, offs=0):
+        offs = await toint(offs)
 
         self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
 
-        async for item in axon.list(size=size):
-            yield (s_common.ehex(item[0]), *item[1:])
+        async for item in axon.hashes(offs):
+            yield (item[0], s_common.ehex(item[1][0]), item[1][1])
 
 @registry.registerLib
 class LibBytes(Lib):

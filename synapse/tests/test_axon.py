@@ -58,7 +58,7 @@ class AxonTest(s_t_utils.SynTest):
             async for _ in axon.get(asdfhash):
                 pass
 
-        self.len(0, [item async for item in axon.list()])
+        self.len(0, [item async for item in axon.hashes(0)])
 
         async with await axon.upload() as fd:
             await fd.write(abuf)
@@ -116,19 +116,6 @@ class AxonTest(s_t_utils.SynTest):
         info = await axon.metrics()
         self.eq(33554445, info.get('size:bytes'))
         self.eq(2, info.get('file:count'))
-
-        logger.info('list() tests')
-
-        list_exp = [bbufretn[::-1], asdfretn[::-1]]  # list() yields (sha256, size)
-
-        items = [item async for item in axon.list()]
-        self.eq(list_exp, [item[:2] for item in items])
-        ticks = [item[2] for item in items] + [tick]
-        self.true(sorted(ticks, reverse=True), ticks)
-
-        items = [item async for item in axon.list(size=1)]
-        self.len(1, items)
-        self.eq(list_exp[0], items[0][:2])
 
         logger.info('Empty file test')
 
@@ -205,19 +192,15 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(33554474, info.get('size:bytes'))
         self.eq(6, info.get('file:count'))
 
-        items = [item[:2] async for item in axon.list()]
-        self.eq(list_exp[1], items[-1])
-        self.notin(list_exp[0], items)
+        self.notin(bbufretn[::-1], [item[1] async for item in axon.hashes(0)])
 
         self.false(await axon.del_(bbufhash))
 
-        # deleted file re-added goes to front of list and exists once
+        # deleted file re-added gets returned twice by hashes
         retn = await axon.put(bbuf)
         self.eq(retn, bbufretn)
-
-        items = [item[:2] async for item in axon.list()]
-        self.eq(list_exp[0], items[0])
-        self.eq(1, items.count(list_exp[0]))
+        self.len(2, [item[1] async for item in axon.hashes(0) if item[1][0] == bbufhash])
+        self.len(1, [item[1] async for item in axon.hashes(2) if item[1][0] == bbufhash])
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
@@ -431,9 +414,6 @@ class AxonTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, prox.puts((abuf,)))
                 await self.asyncraises(s_exc.AuthDeny, prox.upload())
                 await self.asyncraises(s_exc.AuthDeny, prox.metrics())
-                with self.raises(s_exc.AuthDeny):
-                    async for _ in prox.list():
-                        pass
                 # now add rules and run the test suite
                 await user.addRule((True, ('health',)))
                 await user.addRule((True, ('axon', 'get',)))
