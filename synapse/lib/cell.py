@@ -1323,26 +1323,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
-
-        name = await self.runBackup(name)
-
-        path = self._reqBackDirn(name)
-        linkinfo = s_scope.get('link').getSpawnInfo()
-
-        await self.boss.promote('backup:stream', user=user)
-
-        ctx = multiprocessing.get_context('spawn')
-        done = ctx.Queue()
-
-        proc = None
-        mesg = 'Streaming complete'
-
-        def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
-            proc.start()
-            return proc
+        path = None
 
         try:
+            name = await self.runBackup(name)
+
+            path = self._reqBackDirn(name)
+            linkinfo = s_scope.get('link').getSpawnInfo()
+
+            await self.boss.promote('backup:stream', user=user)
+
+            ctx = multiprocessing.get_context('spawn')
+            done = ctx.Queue()
+
+            proc = None
+            mesg = 'Streaming complete'
+
+            def getproc():
+                proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
+                proc.start()
+                return proc
+
             proc = await s_coro.executor(getproc)
 
             def waitproc():
@@ -1366,7 +1367,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         finally:
             if remove:
-                await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+                if path is None and name is not None:
+                    try:
+                        path = self._reqBackDirn(name)
+                    except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                        raise
+                    except:
+                        pass
+
+                if path is not None:
+                    await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
