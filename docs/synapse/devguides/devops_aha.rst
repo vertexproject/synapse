@@ -326,14 +326,13 @@ Now Aha can be used to connect to the Cortex::
 
     python -m synapse.tools.cmdr "aha://bob@core02.demo.net/"
 
-Cell ``aha:svcinfo``
---------------------
+Cell ``aha:svcinfo`` Configuration
+----------------------------------
 
 The ``aha:svcinfo`` option, as noted earlier, can be used to dictate the exact
-information registered with the Aha service. That can be used in situations
-DNS names may be stable for a given service; ports that a service listens to
-may not the ones connected to; or there could be additional information that
-needs to be present.
+information registered with the Aha service. This needs to be used if the Cell
+is deployed in such a manner that the Telepath listening port is not the same
+port number that external user would connect to the Cell with.
 
 For example, take a Cortex which uses TLS to listen on a fixed port locally,
 but also expects clients to connect to it via a DNS name and a remapped port.
