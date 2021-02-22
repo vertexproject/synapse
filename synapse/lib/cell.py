@@ -586,7 +586,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
         },
         'aha:svcinfo': {
-            'description': 'An AHA svcinfo object. This overrides self discovered information.',
+            'description': 'An AHA svcinfo object. If set, this overrides self discovered Aha service information.',
             'type': 'object',
             'properties': {
                 'urlinfo': {
@@ -824,7 +824,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sockaddr = None
 
         turl = self.conf.get('dmon:listen')
-
         if turl is not None:
             self.sockaddr = await self.dmon.listen(turl)
             logger.info(f'dmon listening: {turl}')

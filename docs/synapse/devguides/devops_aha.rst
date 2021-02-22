@@ -50,7 +50,7 @@ with Aha.
     clustered deployement), it will also register itself with the Aha server
     with the name.
 
-One of the following two configuration values must be set as well:
+One of the following two configuration values **must** be set as well:
 
 ``dmon:listen``
     This is a string defining the Telepath listener. This takes takes
@@ -74,7 +74,7 @@ One of the following two configuration values must be set as well:
             schema: tcp
 
     This information is used by the Aha server instead of relying on the dynamic
-    resolution of data, which is the default behavior. This can enable a
+    resolution of urlinfo data, which is the default behavior. This can enable a
     configuration where DNS names are used instead of IP addresses for doing
     connections; where the Telepath listening port on the Cell may not be the
     same port that users reach the service by; or for providing additional
@@ -86,8 +86,8 @@ Using Aha with Synapse Clients
 
 Synapse clients which need to use ``aha://`` connections need to know how to
 connect to the Aha server. This can be accomplished by loading a
-``telepath.yaml`` file. This file contains locations of Aha servers that a
-client may connect to in order to resolve names for. For example:
+``SYN_DIR/telepath.yaml`` file. This file contains locations of Aha servers
+that a client may connect to in order to resolve names for. For example:
 
   ::
 
@@ -109,6 +109,9 @@ directories from the process.
 
 In the above example, two sets of Aha servers are registered, and a additional
 certificate directory.
+
+Synapse tools, such as ``synapse.tools.cmdr``, ``synapse.tools.cellauth``,
+will load the ``telepath.yaml`` if it is present.
 
 Bootstrapping An Aha Environment
 --------------------------------

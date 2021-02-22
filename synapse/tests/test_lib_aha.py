@@ -111,7 +111,7 @@ class AhaTest(s_test.SynTest):
                                  f'tcp://root:hehehaha@127.0.0.1:{port}'],
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
-            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf.copy()) as cryo:
+            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
 
                 await cryo.auth.rootuser.setPasswd('secret')
 
@@ -165,7 +165,7 @@ class AhaTest(s_test.SynTest):
                 await ahaadmin.setAdmin(False, logged=False)
                 self.false(ahaadmin.isAdmin())
 
-            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf.copy()) as cryo:
+            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
                 ahaadmin = await cryo.auth.getUserByName('root@cryo.mynet')
                 # And we should be unlocked and admin now
                 self.false(ahaadmin.isLocked())
@@ -232,6 +232,14 @@ class AhaTest(s_test.SynTest):
                 self.none(await ahaproxy.getAhaSvc('cryo.foo'))
                 self.none(await ahaproxy.getAhaSvc('0.cryo.foo'))
                 self.len(2, [s async for s in ahaproxy.getAhaSvcs()])
+
+        # The aha service can also be configured with a set of URLs that could represent itself.
+        urls = ('cell://home0', 'cell://home1')
+        conf = {'aha:urls': urls}
+        async with self.getTestAha(conf=conf) as aha:
+            async with aha.getLocalProxy() as ahaproxy:
+                aurls = await ahaproxy.getAhaUrls()
+                self.eq(urls, aurls)
 
     async def test_lib_aha_loadenv(self):
 
