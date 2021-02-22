@@ -849,6 +849,15 @@ class CellTest(s_t_utils.SynTest):
                         with self.raises(asyncio.TimeoutError):
                             await asyncio.wait_for(arch, timeout=1.0)
 
+                        async def _fakeBackup(self, name=None, wait=True):
+                            s_common.gendir(os.path.join(backdirn, name))
+                            await asyncio.sleep(3.0)
+
+                        with mock.patch.object(s_cell.Cell, 'runBackup', _fakeBackup):
+                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup2', remove=True))
+                            with self.raises(asyncio.TimeoutError):
+                                await asyncio.wait_for(arch, timeout=0.1)
+
                     # Get an existing backup
                     with open(bkuppath, 'wb') as bkup:
                         async for msg in proxy.iterBackupArchive('bkup'):

@@ -1324,6 +1324,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
         path = None
+        proc = None
+        mesg = 'Streaming complete'
 
         try:
             name = await self.runBackup(name)
@@ -1335,9 +1337,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             ctx = multiprocessing.get_context('spawn')
             done = ctx.Queue()
-
-            proc = None
-            mesg = 'Streaming complete'
 
             def getproc():
                 proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
