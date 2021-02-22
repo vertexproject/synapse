@@ -1720,10 +1720,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = pars.parse_args(argv)
 
+        s_common.setlogging(logger, defval=opts.log_level)
+
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()
-
-        s_common.setlogging(logger, defval=opts.log_level)
 
         cell = await cls.anit(opts.dirn, conf=conf)
 
