@@ -858,6 +858,10 @@ class CellTest(s_t_utils.SynTest):
                             with self.raises(asyncio.TimeoutError):
                                 await asyncio.wait_for(arch, timeout=0.1)
 
+                    with self.raises(s_exc.BadArg):
+                        async for msg in proxy.iterNewBackupArchive('bkup'):
+                            pass
+
                     # Get an existing backup
                     with open(bkuppath, 'wb') as bkup:
                         async for msg in proxy.iterBackupArchive('bkup'):

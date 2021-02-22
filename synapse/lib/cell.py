@@ -1323,14 +1323,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
-        path = None
         proc = None
         mesg = 'Streaming complete'
+        if name is None:
+            name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
+
+        path = self._reqBackDirn(name)
+        if os.path.isdir(path):
+            mesg = 'Backup with name already exists'
+            raise s_exc.BadArg(mesg=mesg)
 
         try:
-            name = await self.runBackup(name)
-
-            path = self._reqBackDirn(name)
+            await self.runBackup(name)
             linkinfo = s_scope.get('link').getSpawnInfo()
 
             await self.boss.promote('backup:stream', user=user)
@@ -1366,16 +1370,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         finally:
             if remove:
-                if path is None and name is not None:
-                    try:
-                        path = self._reqBackDirn(name)
-                    except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                        raise
-                    except:
-                        pass
-
-                if path is not None:
-                    await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+                await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
