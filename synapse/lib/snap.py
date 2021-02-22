@@ -1074,8 +1074,11 @@ class Snap(s_base.Base):
                         if nodedata is not None:
                             try:
                                 for name, data in nodedata.items():
-                                    # make sure we have msgpackable nodedata
-                                    s_msgpack.en((name, data))
+                                    # make sure we have valid nodedata
+                                    if not (isinstance(name, str)):
+                                        await self.warn(f'Nodedata key is not a string: {name}')
+                                        continue
+                                    s_common.reqjsonsafe(data)
                                     edits.append((s_layer.EDIT_NODEDATA_SET, (name, data, None), ()))
                             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                                 raise
