@@ -65,7 +65,7 @@ class AhaApi(s_cell.CellApi):
             urlinfo.setdefault('host', host)
 
         async def fini():
-            if self.cell.isfini:
+            if self.cell.isfini:  # pragma: no cover
                 mesg = f'{self.cell.__class__.__name__} is fini. Unable to set {name}@{network} as down.'
                 logger.warning(mesg)
                 return
@@ -144,7 +144,7 @@ class AhaCell(s_cell.Cell):
                 svcname, svcnetw = name.split('.', 1)
             except ValueError:
                 raise s_exc.BadArg(name=name, arg='name',
-                                   mesg='Name must contain at least one "."')
+                                   mesg='Name must contain at least one "."') from None
         else:
             svcname = name
             svcnetw = network

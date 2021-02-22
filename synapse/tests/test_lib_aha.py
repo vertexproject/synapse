@@ -220,6 +220,10 @@ class AhaTest(s_test.SynTest):
                 self.none(await ahaproxy.getAhaSvc('0.cryo.foo'))
                 self.len(2, [s async for s in ahaproxy.getAhaSvcs()])
 
+                with self.raises(s_exc.BadArg):
+                    info = {'urlinfo': {'host': '127.0.0.1', 'port': 8080, 'scheme': 'tcp'}}
+                    await ahaproxy.addAhaSvc('newp', info, network=None)
+
         # The aha service can also be configured with a set of URLs that could represent itself.
         urls = ('cell://home0', 'cell://home1')
         conf = {'aha:urls': urls}
