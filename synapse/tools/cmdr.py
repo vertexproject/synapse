@@ -27,7 +27,7 @@ async def runcmdr(argv, item):  # pragma: no cover
 
     await cmdr.runCmdLoop()
 
-async def _main(argv):
+async def _main(argv):  # pragma: no cover
     # Ensure that SYN_DIR is available
     _ = s_common.getSynDir()
 
