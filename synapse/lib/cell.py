@@ -1323,8 +1323,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
-        proc = None
-        mesg = 'Streaming complete'
+
         if name is None:
             name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
 
@@ -1332,6 +1331,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if os.path.isdir(path):
             mesg = 'Backup with name already exists'
             raise s_exc.BadArg(mesg=mesg)
+
+        proc = None
+        mesg = 'Streaming complete'
 
         try:
             await self.runBackup(name)
