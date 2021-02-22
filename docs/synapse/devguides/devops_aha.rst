@@ -14,12 +14,13 @@ How Aha Works
 -------------
 
 The Aha protocol is very simple. From a high level, the Aha service runs in a
-standalone, mirror, or clustered mode of operation.
+standalone, mirrored, or clustered mode of operation.
 
 - A Synapse service built from a Cell (a Cortex, a Axon, a Storm Service, etc)
   can be configured to register itself with the Aha service with a given name.
 - The Aha service stores the connection information from the Cell. By default,
-  this is remote IP and and Telepath listening port.
+  this is remote IP which the Aha service **saw the connection come from** and
+  the Telepath listening port **of the Cell**.
 - When a service or client wants to connect to a service for that name, it
   will connect the Aha server, lookup the name, and get back the connection
   information.
@@ -325,11 +326,55 @@ Now Aha can be used to connect to the Cortex::
 
     python -m synapse.tools.cmdr "aha://bob@core02.demo.net/"
 
-TODO
-----
+Cell ``aha:svcinfo``
+--------------------
 
-SVCINFO notes
+The ``aha:svcinfo`` option, as noted earlier, can be used to dictate the exact
+information registered with the Aha service. That can be used in situations
+DNS names may be stable for a given service; ports that a service listens to
+may not the ones connected to; or there could be additional information that
+needs to be present.
 
+For example, take a Cortex which uses TLS to listen on a fixed port locally,
+but also expects clients to connect to it via a DNS name and a remapped port.
+This could be running in a container inside of a orchestration platform, where
+its possible that routing rules prevent the use of the port the service binds
+from also being the port that a user connect to the container.
+
+The relevant cell configuration would look like the following::
+
+    aha:name: cortex
+    aha:network: aha.net
+    aha:registry: ssl://reguser:secret@aha01.private.lan:8081/
+    dmon:listen: ssl://127.0.0.1:27492/?hostname=cortex.private.lan
+    aha:svcinfo:
+        urlinfo:
+            host: cortex.private.lan
+            port: 8081
+            scheme: ssl
+
+This would cause the Cortex to share itself locally with the TLS certificate
+``cortex.private.lan`` and the ``aha:svcinfo`` is what would be registered at
+``aha01.private.lan``.
+
+A user connecting to ``aha://someuser:somepass@cortex.aha.net/`` would end
+resolving ``cortex.aha.net`` via the Aha service, and then end up using
+``ssl://someuser:somepass@cortex.private.lan:8081/`` as the actual connection
+information.
+
+Running Aha in Mirror Mode
+--------------------------
+
+Using Aha in a mirror configuration is similar to setting up a Cortex in a
+mirror configuration. First, the Aha service needs to have the ``nexslog:en``
+configuration option set to ``true``. One that is configured, the copy of the
+Nexus must have its ``mirror`` configuration option set to the Telepath url
+of the upstream Aha server.
+
+Once this is configured, service registration updates done on on the upstream
+Aha service will be automatically available from the mirror cells. Similarly,
+CA certificate generation is also mirrored, so any newly created CAs are
+available from any Aha cell.
 
 Using Aha with Custom Client Code
 ---------------------------------
