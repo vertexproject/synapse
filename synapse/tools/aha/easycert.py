@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 # reqver = '>=2.26.0,<3.0.0'
 
 async def _main(argv, outp):
-    print(argv)
     pars = getArgParser()
     opts = pars.parse_args(argv)
 
@@ -30,7 +29,7 @@ async def _main(argv, outp):
 
         # try:
         #     s_version.reqVersion(prox._getSynVers(), reqver)
-        # except s_exc.BadVersion as e:
+        # except s_exc.BadVersion as e:  # pragma: no cover
         #     valu = s_version.fmtVersion(*e.get('valu'))
         #     outp.printf(f'Proxy version {valu} is outside of the aha supported range ({reqver}).')
         #     return 1

@@ -49,6 +49,7 @@ import synapse.daemon as s_daemon
 import synapse.cryotank as s_cryotank
 import synapse.telepath as s_telepath
 
+import synapse.lib.aha as s_aha
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
@@ -1117,6 +1118,16 @@ class SynTest(unittest.TestCase):
 
                 yield core, prox, testsvc
 
+    @contextlib.asynccontextmanager
+    async def getTestAha(self, conf=None, dirn=None):
+        if dirn:
+            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+                yield aha
+        else:
+            with self.getTestDir() as dirn:
+                async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+                    yield aha
+
     async def addSvcToCore(self, svc, core, svcname='svc'):
         '''
         Add a service to a Cortex using telepath over tcp.
@@ -1406,9 +1417,12 @@ class SynTest(unittest.TestCase):
     async def execToolMain(self, func, argv):
         outp = self.getTestOutp()
 
-        def execmain():
-            return func(argv, outp=outp)
-        retn = await s_coro.executor(execmain)
+        if inspect.iscoroutinefunction(func):
+            retn = await func(argv, outp=outp)
+        else:
+            def execmain():
+                return func(argv, outp=outp)
+            retn = await s_coro.executor(execmain)
         return retn, outp
 
     @contextlib.contextmanager

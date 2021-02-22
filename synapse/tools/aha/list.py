@@ -19,7 +19,7 @@ async def _main(argv, outp):
     async with await s_telepath.openurl(argv[0]) as prox:
         try:
             s_version.reqVersion(prox._getSynVers(), reqver)
-        except s_exc.BadVersion as e:
+        except s_exc.BadVersion as e:  # pragma: no cover
             valu = s_version.fmtVersion(*e.get('valu'))
             outp.printf(f'Proxy version {valu} is outside of the aha supported range ({reqver}).')
             return 1
@@ -47,6 +47,7 @@ async def _main(argv, outp):
                 mesg = f'{mesg}  {svc}'
 
             outp.printf(mesg)
+        return 0
 
 async def main(argv, outp=None):  # pragma: no cover
 

@@ -1,10 +1,7 @@
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
-
-import synapse.lib.aha as s_aha
 
 import synapse.tools.backup as s_tools_backup
 
@@ -12,16 +9,6 @@ import synapse.tests.utils as s_test
 import synapse.servers.aha as s_servers_aha
 
 class AhaTest(s_test.SynTest):
-
-    @contextlib.asynccontextmanager
-    async def getTestAha(self, conf=None, dirn=None):
-        if dirn:
-            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
-                yield aha
-        else:
-            with self.getTestDir() as dirn:
-                async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
-                    yield aha
 
     async def test_lib_aha_mirrors(self):
 
