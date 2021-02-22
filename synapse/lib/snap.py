@@ -1076,8 +1076,7 @@ class Snap(s_base.Base):
                                 for name, data in nodedata.items():
                                     # make sure we have msgpackable nodedata
                                     if not (isinstance(name, str)):
-                                        print('nodedata')
-                                        await self.warn(f'Invalid nodedata name: {name}')
+                                        await self.warn(f'Nodedata key is not a string: {name}')
                                         continue
                                     s_common.reqjsonsafe(data)
                                     edits.append((s_layer.EDIT_NODEDATA_SET, (name, data, None), ()))

@@ -3095,6 +3095,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
+            data = [(('test:str', 'baddata'), {'nodedata': {123: 'newp',
+                                                            'newp': b'123'}})]
+            await core1.addFeedData('syn.nodes', data)
+            nodes = await core1.nodes('test:str=baddata')
+            self.len(1, nodes)
+            await self.agenlen(0, nodes[0].iterData())
+
             data = [(('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
             await core1.addFeedData('syn.nodes', data)
             nodes = await core1.nodes('test:str=beef')
