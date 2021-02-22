@@ -1127,6 +1127,7 @@ class Snap(s_base.Base):
                         nodeedits.append((buid, form, edits))
                         nodeedits.extend(n2edits)
                         buids.add(buid)
+                        await asyncio.sleep(0)
 
                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
@@ -1146,6 +1147,7 @@ class Snap(s_base.Base):
                     for node in nodes:
                         if node.buid in buids:
                             yield node
+                            await asyncio.sleep(0)
 
                     nodedits = []
                     buids.clear()
@@ -1161,6 +1163,7 @@ class Snap(s_base.Base):
         for node in nodes:
             if node.buid in buids:
                 yield node
+                await asyncio.sleep(0)
 
     async def getRuntNodes(self, full, valu=None, cmpr=None):
 
