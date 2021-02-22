@@ -58,6 +58,8 @@ class AxonTest(s_t_utils.SynTest):
             async for _ in axon.get(asdfhash):
                 pass
 
+        self.len(0, [item async for item in axon.hashes(0)])
+
         async with await axon.upload() as fd:
             await fd.write(abuf)
             self.eq(asdfretn, await fd.save())
@@ -190,7 +192,15 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(33554474, info.get('size:bytes'))
         self.eq(6, info.get('file:count'))
 
+        self.notin(bbufretn[::-1], [item[1] async for item in axon.hashes(0)])
+
         self.false(await axon.del_(bbufhash))
+
+        # deleted file re-added gets returned twice by hashes
+        retn = await axon.put(bbuf)
+        self.eq(retn, bbufretn)
+        self.len(2, [item[1] async for item in axon.hashes(0) if item[1][0] == bbufhash])
+        self.len(1, [item[1] async for item in axon.hashes(2) if item[1][0] == bbufhash])
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:

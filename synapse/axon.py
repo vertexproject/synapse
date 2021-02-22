@@ -238,6 +238,15 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         return await self.cell.size(sha256)
 
     async def hashes(self, offs):
+        '''
+        Yield hash rows for files that exist in the Axon in added order starting at an offset.
+
+        Args:
+            offs (int): The index offset.
+
+        Yields:
+            (int, (bytes, int)): An index offset and the file SHA-256 and size.
+        '''
         await self._reqUserAllowed(('axon', 'has'))
         async for item in self.cell.hashes(offs):
             yield item
@@ -402,7 +411,9 @@ class Axon(s_cell.Cell):
 
     async def hashes(self, offs):
         for item in self.axonseqn.iter(offs):
-            yield item
+            if self.axonslab.has(item[1][0], db=self.sizes):
+                yield item
+            await asyncio.sleep(0)
 
     async def get(self, sha256):
 
