@@ -518,7 +518,8 @@ class Model:
         item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A potentially huge/tiny number. [x] <= 170141183460469231731687 with a fractional precision of 15 decimal digits.'}
+        info = {'doc': 'A potentially huge/tiny number. [x] <= 170141183460469231731687 with a fractional '
+                       + 'precision of 15 decimal digits.'}
         item = s_types.HugeNum(self, 'hugenum', info, {})
         self.addBaseType(item)
 
@@ -558,6 +559,7 @@ class Model:
         mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
         mdef['univs'] = [u.getPropDef() for u in self.univs.values()]
         mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
+        mdef['interfaces'] = list(self.ifaces.items())
         return [('all', mdef)]
 
     def getModelDict(self):
@@ -565,7 +567,7 @@ class Model:
             'types': {},
             'forms': {},
             'tagprops': {},
-            'interfaces': {},
+            'interfaces': list(self.ifaces.items())
         }
 
         for tobj in self.types.values():
@@ -604,6 +606,13 @@ class Model:
                 )
                 "tagprops":(
                     (tagpropname, (typename, typeopts), {info}),
+                )
+                "interfaces":(
+                    (ifacename, {
+                        'props': ((propname, (typename, typeopts), {info}),),
+                        'doc': docstr,
+                        'interfaces': (ifacename,)
+                    }),
                 )
             }
 
