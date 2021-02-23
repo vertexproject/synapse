@@ -1,4 +1,3 @@
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -6,7 +5,6 @@ import synapse.telepath as s_telepath
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_test
-import synapse.servers.aha as s_servers_aha
 
 class AhaTest(s_test.SynTest):
 
