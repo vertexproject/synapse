@@ -6,9 +6,9 @@ Aha Service Discovery
 =====================
 
 The Aha service discovery is a native Synapse tool and protocol for doing
-service discovery when multiple Synapse services are being deployed in a
-environment. This page covers what how Aha works, what services the AhaCell
-provides, and demonstrates a Cortex configuration using Aha.
+service discovery when multiple Synapse services are being deployed in an
+environment. This page covers how Aha works, what services the Aha server
+provides, and demonstrates a Cortex configurations using Aha.
 
 How Aha Works
 -------------
@@ -379,7 +379,7 @@ Using Aha with Custom Client Code
 ---------------------------------
 
 Custom Synapse client which expects to utilize Aha servers for doing service
-discovery can easily configure the aha services by loading the same
+discovery can easily configure the Aha servers by loading the same
 ``telepath.yaml`` file that is used by CLI tools.
 
 .. highlight:: python3
