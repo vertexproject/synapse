@@ -845,9 +845,26 @@ class CellTest(s_t_utils.SynTest):
                         with self.raises(asyncio.TimeoutError):
                             await asyncio.wait_for(arch, timeout=0.1)
 
-                        arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup', remove=True))
-                        with self.raises(asyncio.TimeoutError):
-                            await asyncio.wait_for(arch, timeout=1.0)
+                        async def _fakeBackup(self, name=None, wait=True):
+                            s_common.gendir(os.path.join(backdirn, name))
+
+                        with mock.patch.object(s_cell.Cell, 'runBackup', _fakeBackup):
+                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup', remove=True))
+                            with self.raises(asyncio.TimeoutError):
+                                await asyncio.wait_for(arch, timeout=0.1)
+
+                        async def _slowFakeBackup(self, name=None, wait=True):
+                            s_common.gendir(os.path.join(backdirn, name))
+                            await asyncio.sleep(3.0)
+
+                        with mock.patch.object(s_cell.Cell, 'runBackup', _slowFakeBackup):
+                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup2', remove=True))
+                            with self.raises(asyncio.TimeoutError):
+                                await asyncio.wait_for(arch, timeout=0.1)
+
+                    with self.raises(s_exc.BadArg):
+                        async for msg in proxy.iterNewBackupArchive('bkup'):
+                            pass
 
                     # Get an existing backup
                     with open(bkuppath, 'wb') as bkup:

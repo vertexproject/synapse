@@ -1340,25 +1340,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
 
-        name = await self.runBackup(name)
+        if name is None:
+            name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
 
         path = self._reqBackDirn(name)
-        linkinfo = s_scope.get('link').getSpawnInfo()
-
-        await self.boss.promote('backup:stream', user=user)
-
-        ctx = multiprocessing.get_context('spawn')
-        done = ctx.Queue()
+        if os.path.isdir(path):
+            mesg = 'Backup with name already exists'
+            raise s_exc.BadArg(mesg=mesg)
 
         proc = None
         mesg = 'Streaming complete'
 
-        def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
-            proc.start()
-            return proc
-
         try:
+            await self.runBackup(name)
+            linkinfo = s_scope.get('link').getSpawnInfo()
+
+            await self.boss.promote('backup:stream', user=user)
+
+            ctx = multiprocessing.get_context('spawn')
+            done = ctx.Queue()
+
+            def getproc():
+                proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
+                proc.start()
+                return proc
+
             proc = await s_coro.executor(getproc)
 
             def waitproc():
