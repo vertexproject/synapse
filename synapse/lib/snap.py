@@ -271,7 +271,6 @@ class Snap(s_base.Base):
                 yield node
 
     async def nodesByTagPropValu(self, form, tag, name, cmpr, valu):
-
         prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
@@ -285,11 +284,31 @@ class Snap(s_base.Base):
         for layr in self.layers:
             genr = layr.liftByTagPropValu(form, tag, name, cmprvals)
             async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['tagprops'].get((tag, prop.name)) != layr:
+                if node.bylayer['tagprops'].get((tag, prop.name)) != layr.iden:
                     continue
                 yield node
 
     async def _joinStorNode(self, buid, cache):
+
+        node = self.livenodes.get(buid)
+        if node is not None:
+            await asyncio.sleep(0)
+            return node
+
+        layrs = [layr for layr in self.layers if layr.iden not in cache]
+        if layrs:
+            newsodes = list(await self.core._getStorNodes(buid, layrs))
+
+        sodes = []
+        for layr in self.layers:
+            sode = cache.get(layr.iden)
+            if sode is None:
+                sode = newsodes.pop(0)
+            sodes.append((layr.iden, sode))
+
+        return await self._joinSodes(buid, sodes)
+
+    async def _joinSodes(self, buid, sodes):
 
         node = self.livenodes.get(buid)
         if node is not None:
@@ -309,14 +328,7 @@ class Snap(s_base.Base):
             'tagprops': {},
         }
 
-        layrs = [layr for layr in self.layers if layr.iden not in cache]
-        if layrs:
-            sodes = list(await self.core._getStorNodes(buid, layrs))
-
-        for layr in self.layers:
-            sode = cache.get(layr.iden)
-            if sode is None:
-                sode = sodes.pop(0)
+        for (layr, sode) in sodes:
 
             form = sode.get('form')
             valt = sode.get('valu')
@@ -346,6 +358,7 @@ class Snap(s_base.Base):
                 nodedata.update(stordata)
 
         if ndef is None:
+            await asyncio.sleep(0)
             return None
 
         pode = (buid, {
@@ -372,10 +385,8 @@ class Snap(s_base.Base):
                 yield node
 
     async def nodesByDataName(self, name):
-        for layr in self.layers:
-            genr = layr.liftByDataName(name)
-            async for node in self._joinStorGenr(layr, genr):
-                yield node
+        async for (buid, sodes) in self.core._liftByDataName(name, self.layers):
+            yield await self._joinSodes(buid, sodes)
 
     async def nodesByProp(self, full):
 
@@ -385,35 +396,18 @@ class Snap(s_base.Base):
             raise s_exc.NoSuchProp(mesg=mesg)
 
         if prop.isrunt:
-
             async for node in self.getRuntNodes(prop.full):
                 yield node
-
             return
 
         if prop.isform:
-
-            for layr in self.layers:
-                genr = layr.liftByProp(prop.name, None)
-
-                async for node in self._joinStorGenr(layr, genr):
-
-                    # TODO merge sort rather than use bylayer
-                    if node.bylayer.get('ndef') != layr:
-                        continue
-
-                    yield node
+            async for (buid, sodes) in self.core._liftByProp(prop.name, None, self.layers):
+                yield await self._joinSodes(buid, sodes)
             return
 
         if prop.isuniv:
-
-            for layr in self.layers:
-                genr = layr.liftByProp(None, prop.name)
-                async for node in self._joinStorGenr(layr, genr):
-                    # TODO should these type of filters yield?
-                    if node.bylayer['props'].get(prop.name) != layr:
-                        continue
-                    yield node
+            async for (buid, sodes) in self.core._liftByProp(None, prop.name, self.layers):
+                yield await self._joinSodes(buid, sodes)
             return
 
         formname = None
@@ -421,13 +415,8 @@ class Snap(s_base.Base):
             formname = prop.form.name
 
         # Prop is secondary prop
-
-        for layr in self.layers:
-            genr = layr.liftByProp(formname, prop.name)
-            async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['props'].get(prop.name) != layr:
-                    continue
-                yield node
+        async for (buid, sodes) in self.core._liftByProp(formname, prop.name, self.layers):
+            yield await self._joinSodes(buid, sodes)
 
     async def nodesByPropValu(self, full, cmpr, valu):
 
@@ -459,11 +448,9 @@ class Snap(s_base.Base):
 
             for layr in self.layers:
                 genr = layr.liftByFormValu(prop.name, cmprvals)
-
                 async for node in self._joinStorGenr(layr, genr):
-
                     # TODO merge sort rather than use bylayer
-                    if node.bylayer.get('ndef') != layr:
+                    if node.bylayer.get('ndef') != layr.iden:
                         continue
 
                     yield node
@@ -475,7 +462,7 @@ class Snap(s_base.Base):
             for layr in self.layers:
                 genr = layr.liftByPropValu(None, prop.name, cmprvals)
                 async for node in self._joinStorGenr(layr, genr):
-                    if node.bylayer['props'].get(prop.name) != layr:
+                    if node.bylayer['props'].get(prop.name) != layr.iden:
                         continue
                     yield node
 
@@ -484,7 +471,7 @@ class Snap(s_base.Base):
         for layr in self.layers:
             genr = layr.liftByPropValu(prop.form.name, prop.name, cmprvals)
             async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['props'].get(prop.name) != layr:
+                if node.bylayer['props'].get(prop.name) != layr.iden:
                     continue
                 yield node
 
@@ -492,7 +479,7 @@ class Snap(s_base.Base):
         for layr in self.layers:
             genr = layr.liftByTag(tag, form=form)
             async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['tags'].get(tag) != layr:
+                if node.bylayer['tags'].get(tag) != layr.iden:
                     continue
                 yield node
 
@@ -501,7 +488,7 @@ class Snap(s_base.Base):
         for layr in self.layers:
             genr = layr.liftByTagValu(tag, cmpr, norm, form=form)
             async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['tags'].get(tag) != layr:
+                if node.bylayer['tags'].get(tag) != layr.iden:
                     continue
                 yield node
 
@@ -533,7 +520,7 @@ class Snap(s_base.Base):
             for layr in self.layers:
                 genr = layr.liftByPropArray(prop.name, None, cmprvals)
                 async for node in self._joinStorGenr(layr, genr):
-                    if node.bylayer['ndef'] != layr:
+                    if node.bylayer['ndef'] != layr.iden:
                         continue
                     yield node
 
@@ -546,7 +533,7 @@ class Snap(s_base.Base):
         for layr in self.layers:
             genr = layr.liftByPropArray(formname, prop.name, cmprvals)
             async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['props'].get(prop.name) != layr:
+                if node.bylayer['props'].get(prop.name) != layr.iden:
                     continue
                 yield node
 
@@ -709,7 +696,7 @@ class Snap(s_base.Base):
                 etyp, parms, _ = edit
 
                 if etyp == s_layer.EDIT_NODE_ADD:
-                    node.bylayer['ndef'] = wlyr
+                    node.bylayer['ndef'] = wlyr.iden
                     callbacks.append((node.form.wasAdded, (node,), {}))
                     callbacks.append((self.view.runNodeAdd, (node,), {}))
                     continue
@@ -729,7 +716,7 @@ class Snap(s_base.Base):
                         continue
 
                     node.props[name] = valu
-                    node.bylayer['props'][name] = wlyr
+                    node.bylayer['props'][name] = wlyr.iden
 
                     callbacks.append((prop.wasSet, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
@@ -756,7 +743,7 @@ class Snap(s_base.Base):
                     (tag, valu, oldv) = parms
 
                     node.tags[tag] = valu
-                    node.bylayer['tags'][tag] = wlyr
+                    node.bylayer['tags'][tag] = wlyr.iden
 
                     callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
                     callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
@@ -776,7 +763,7 @@ class Snap(s_base.Base):
                 if etyp == s_layer.EDIT_TAGPROP_SET:
                     (tag, prop, valu, oldv, stype) = parms
                     node.tagprops[(tag, prop)] = valu
-                    node.bylayer['tags'][(tag, prop)] = wlyr
+                    node.bylayer['tags'][(tag, prop)] = wlyr.iden
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_DEL:

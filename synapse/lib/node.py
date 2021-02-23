@@ -56,10 +56,10 @@ class Node:
         '''
         Return a dictionary that translates the node's bylayer dict to a primitive.
         '''
-        ndef = self.bylayer.get('ndef').iden
-        tags = {t: l.iden for (t, l) in self.bylayer.get('tags', {}).items()}
-        props = {p: l.iden for (p, l) in self.bylayer.get('props', {}).items()}
-        tagprops = {p: l.iden for (p, l) in self.bylayer.get('tagprops', {}).items()}
+        ndef = self.bylayer.get('ndef')
+        tags = {t: l for (t, l) in self.bylayer.get('tags', {}).items()}
+        props = {p: l for (p, l) in self.bylayer.get('props', {}).items()}
+        tagprops = {p: l for (p, l) in self.bylayer.get('tagprops', {}).items()}
         return {'ndef': ndef, 'props': props, 'tags': tags, 'tagprops': tagprops}
 
     def __repr__(self):

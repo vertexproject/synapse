@@ -1537,6 +1537,54 @@ class Cortex(s_cell.Cell):  # type: ignore
         #       the cluster case to minimize round trips
         return [await layr.getStorNode(buid) for layr in layers]
 
+    async def _mergeSodes(self, genrs, cmprkey):
+        lastbuid = None
+        sodes = []
+        async for (layr, item) in s_common.merggenr(genrs, cmprkey):
+            buid, sode = item
+            if not buid == lastbuid:
+                if lastbuid is not None:
+                    yield (lastbuid, sodes)
+
+                lastbuid = buid
+                sodes = [(layr, sode)]
+                continue
+
+            sodes.append((layr, sode))
+
+        if lastbuid is not None:
+            yield (lastbuid, sodes)
+
+    async def _liftByDataName(self, name, layers):
+
+        def cmprkey(x, y):
+            return x[1][0] < y[1][0]
+
+        async def wrapgenr(iden, genr):
+            async for item in genr:
+                yield (iden, item)
+
+        genrs = [wrapgenr(layr.iden, layr.liftByDataName(name)) for layr in layers]
+        async for sodes in self._mergeSodes(genrs, cmprkey):
+            yield sodes
+
+    async def _liftByProp(self, form, prop, layers):
+
+        if prop is None:
+            def cmprkey(x, y):
+                return x[1][1]['valu'][0] < y[1][1]['valu'][0]
+        else:
+            def cmprkey(x, y):
+                return x[1][1]['props'][prop] < y[1][1]['props'][prop]
+
+        async def wrapgenr(iden, genr):
+            async for item in genr:
+                yield (iden, item)
+
+        genrs = [wrapgenr(layr.iden, layr.liftByProp(form, prop)) for layr in layers]
+        async for sodes in self._mergeSodes(genrs, cmprkey):
+            yield sodes
+
     async def _setStormCmd(self, cdef):
         '''
         Note:
