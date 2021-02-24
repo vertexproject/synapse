@@ -1180,6 +1180,57 @@ class LibAxon(Lib):
                   ),
                   'returns': {'type': ['storm:node', 'null '],
                               'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.', }}},
+        {'name': 'del', 'desc': '''
+            Remove the bytes from the Cortex's Axon by sha256.
+
+            Example:
+                Delete files from the axon based on a tag::
+
+                    file:bytes#foo +:sha256 $lib.axon.del(:sha256)
+        ''',
+         'type': {'type': 'function', '_funcname': 'del_',
+                  'args': (
+                      {'name': 'sha256', 'type': 'hash:sha256', 'desc': 'The sha256 of the bytes to remove from the Axon.'},
+                  ),
+                  'returns': {'type': 'bool', 'desc': 'True if the bytes were found and removed.', }}},
+
+        {'name': 'dels', 'desc': '''
+            Remove multiple byte blobs from the Cortex's Axon by a list of sha256 hashes.
+
+            Example:
+                Delete a list of files (by hash) from the Axon::
+
+                    $list = ($hash0, $hash1, $hash2)
+                    $lib.axon.dels($list)
+        ''',
+         'type': {'type': 'function', '_funcname': 'dels',
+                  'args': (
+                      {'name': 'sha256s', 'type': 'list', 'desc': 'A list of sha256 hashes to remove from the Axon.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of boolean values that are True if the bytes were found.', }}},
+
+        {'name': 'list', 'desc': '''
+        List (offset, sha256, size) tuples for files in the Axon in added order.
+
+        Example:
+            List files::
+
+                for ($offs, $sha256, $size) in $lib.axon.list() {
+                    $lib.print($sha256)
+                }
+
+            Start list from offset 10::
+
+                for ($offs, $sha256, $size) in $lib.axon.list(10) {
+                    $lib.print($sha256)
+                }
+        ''',
+         'type': {'type': 'function', '_funcname': 'list',
+                  'args': (
+                      {'name': 'offs', 'type': 'int', 'desc': 'The offset to start from.', 'default': 0},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'list',
+                              'desc': 'Tuple of (offset, sha256, size) in added order.', }}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1187,7 +1238,37 @@ class LibAxon(Lib):
         return {
             'wget': self.wget,
             'urlfile': self.urlfile,
+            'del': self.del_,
+            'dels': self.dels,
+            'list': self.list,
         }
+
+    async def dels(self, sha256s):
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+
+        sha256s = await toprim(sha256s)
+
+        if not isinstance(sha256s, (list, tuple)):
+            raise s_exc.BadArg()
+
+        hashes = [s_common.uhex(s) for s in sha256s]
+
+        await self.runt.snap.core.getAxon()
+
+        axon = self.runt.snap.core.axon
+        return await axon.dels(hashes)
+
+    async def del_(self, sha256):
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        sha256 = await tostr(sha256)
+
+        sha256b = s_common.uhex(sha256)
+        await self.runt.snap.core.getAxon()
+
+        axon = self.runt.snap.core.axon
+        return await axon.del_(sha256b)
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None):
 
@@ -1244,6 +1325,17 @@ class LibAxon(Lib):
         urlfile = await self.runt.snap.addNode('inet:urlfile', (url, sha256), props=props)
 
         return urlfile
+
+    async def list(self, offs=0):
+        offs = await toint(offs)
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+
+        await self.runt.snap.core.getAxon()
+        axon = self.runt.snap.core.axon
+
+        async for item in axon.hashes(offs):
+            yield (item[0], s_common.ehex(item[1][0]), item[1][1])
 
 @registry.registerLib
 class LibBytes(Lib):
@@ -2458,6 +2550,36 @@ class Str(Prim):
                     $lib.print($foo.lower())''',
          'type': {'type': 'function', '_funcname': '_methStrLower',
                   'returns': {'type': 'str', 'desc': 'The lowercased string.', }}},
+        {'name': 'slice', 'desc': '''
+            Get a substring slice of the string.
+
+            Examples:
+                Slice from index to 1 to 5::
+
+                    $x="foobar"
+                    $y=$x.slice(1,5)  // "ooba"
+
+                Slice from index 3 to the end of the string::
+
+                    $y=$x.slice(3)  // "bar"
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrSlice',
+                  'args': (
+                      {'name': 'start', 'type': 'int', 'desc': 'The starting character index.'},
+                      {'name': 'end', 'type': 'int', 'default': None,
+                       'desc': 'The ending character index. If not specified, slice to the end of the string'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The slice substring.'}}},
+        {'name': 'reverse', 'desc': '''
+        Get a reversed copy of the string.
+
+        Examples:
+            Printing a reversed string::
+
+                $foo="foobar"
+                $lib.print($foo.reverse())''',
+         'type': {'type': 'function', '_funcname': '_methStrReverse',
+                  'returns': {'type': 'str', 'desc': 'The reversed string.', }}},
     )
     _storm_typename = 'str'
     def __init__(self, valu, path=None):
@@ -2477,6 +2599,8 @@ class Str(Prim):
             'lstrip': self._methStrLstrip,
             'rstrip': self._methStrRstrip,
             'lower': self._methStrLower,
+            'slice': self._methStrSlice,
+            'reverse': self._methStrReverse,
         }
 
     def __int__(self):
@@ -2526,6 +2650,18 @@ class Str(Prim):
 
     async def _methStrLower(self):
         return self.valu.lower()
+
+    async def _methStrSlice(self, start, end=None):
+        start = await toint(start)
+
+        if end is None:
+            return self.valu[start:]
+
+        end = await toint(end)
+        return self.valu[start:end]
+
+    async def _methStrReverse(self):
+        return self.valu[::-1]
 
 @registry.registerType
 class Bytes(Prim):
@@ -4755,6 +4891,7 @@ class LibUsers(Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the user.', },
                       {'name': 'passwd', 'type': 'str', 'desc': 'The users password.', 'default': None, },
                       {'name': 'email', 'type': 'str', 'desc': 'The users email address.', 'default': None, },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden to use to create the user.', 'default': None, }
                   ),
                   'returns': {'type': 'storm:auth:user', 'desc': 'The ``storm:auth:user`` object for the new user.', }}},
         {'name': 'del', 'desc': 'Delete a User from the Cortex.',
@@ -4805,9 +4942,13 @@ class LibUsers(Lib):
         if udef is not None:
             return User(self.runt, udef['iden'])
 
-    async def _methUsersAdd(self, name, passwd=None, email=None):
+    async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
         self.runt.confirm(('auth', 'user', 'add'))
-        udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email)
+        name = await tostr(name)
+        iden = await tostr(iden, True)
+        email = await tostr(email, True)
+        passwd = await tostr(passwd, True)
+        udef = await self.runt.snap.core.addUser(name, passwd=passwd, email=email, iden=iden,)
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):

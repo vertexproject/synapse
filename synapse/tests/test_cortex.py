@@ -224,7 +224,12 @@ class CortexTest(s_t_utils.SynTest):
                     'walk operation expected a string or list.  got: 0.')
 
     async def test_cortex_callstorm(self):
+
         async with self.getTestCore(conf={'auth:passwd': 'root'}) as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
             self.eq('asdf', await core.callStorm('return (asdf)'))
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
@@ -239,6 +244,15 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(cm.exception.get('errx'), 'StormExit')
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            async with self.getHttpSess(port=port, auth=('visi', 'secret')) as sess:
+                body = {'query': 'return(asdf)', 'opts': {'user': core.auth.rootuser.iden}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(resp.status, 403)
+
+            async with self.getHttpSess(port=port) as sess:
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/call')
+                self.eq(401, resp.status)
 
             async with self.getHttpSess() as sess:
                 async with sess.post(f'https://localhost:{port}/api/v1/login',
@@ -3081,11 +3095,78 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
+            data = [(('test:str', 'baddata'), {'nodedata': {123: 'newp',
+                                                            'newp': b'123'}})]
+            await core1.addFeedData('syn.nodes', data)
+            nodes = await core1.nodes('test:str=baddata')
+            self.len(1, nodes)
+            await self.agenlen(0, nodes[0].iterData())
+
             data = [(('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
             await core1.addFeedData('syn.nodes', data)
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
+
+            data = [(('syn:cmd', 'newp'), {})]
+            await core1.addFeedData('syn.nodes', data)
+            self.len(0, await core1.nodes('syn:cmd=newp'))
+
+            # Feed into a forked view
+            vdef2 = await core1.view.fork()
+            view2_iden = vdef2.get('iden')
+
+            data = [(('test:int', 1), {'tags': {'noprop': [None, None]},
+                                       'tagprops': {'noprop': {'test': 'newp'}}})]
+            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            self.len(1, await core1.nodes('test:int=1 +#noprop', opts={'view': view2_iden}))
+
+            data = [(('test:int', 1), {'tags': {'noprop': (None, None),
+                                                'noprop.two': (None, None)},
+                                       'tagprops': {'noprop': {'test': 1}}})]
+            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            nodes = await core1.nodes('test:int=1 +#noprop.two', opts={'view': view2_iden})
+            self.len(1, nodes)
+            self.eq(1, nodes[0].tagprops.get(('noprop', 'test')))
+
+            # Test a bulk add
+            tags = {'tags': {'test': (2020, 2022)}}
+            data = [(('test:int', x), tags) for x in range(2001)]
+            await core1.addFeedData('syn.nodes', data)
+            nodes = await core1.nodes('test:int#test')
+            self.len(2001, nodes)
+
+            await core1.nodes('movetag test newtag')
+
+            data = [(('test:int', 1), {'props': {'int2': 2},
+                                       'tags': {'test': [2020, 2021]},
+                                       'tagprops': {'noprop': {'test': 1}}})]
+            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
+            self.len(1, nodes)
+            self.eq(2, nodes[0].props.get('int2'))
+            self.eq(1, nodes[0].tagprops.get(('noprop', 'test')))
+
+            data = [(('test:int', 1), {'tags': {'test': (2020, 2022)}})]
+            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
+            self.len(1, nodes)
+            self.eq((2020, 2022), nodes[0].tags.get('newtag'))
+
+            await core1.setTagModel('test', 'regex', (None, '[0-9]{4}'))
+
+            # This tag doesn't match the regex but should still make the node
+            data = [(('test:int', 8), {'tags': {'test.12345': (None, None)}})]
+            await core1.addFeedData('syn.nodes', data)
+            self.len(1, await core1.nodes('test:int=8 -#test.12345'))
+
+            # This tag does match regex
+            data = [(('test:int', 8), {'tags': {'test.1234': (None, None)}})]
+            await core1.addFeedData('syn.nodes', data)
+            self.len(0, await core1.nodes('test:int=8 -#test.1234'))
+
+            core1.view.layers[0].readonly = True
+            await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
 
     async def test_feed_syn_splice(self):
 
@@ -5038,6 +5119,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
             await core.auth.rootuser.setPasswd('secret')
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
@@ -5074,7 +5158,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
                 self.eq(2, await proxy.feedFromAxon(sha256))
 
+            async with self.getHttpSess(port=port) as sess:
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
+                self.eq(401, resp.status)
+
+            async with self.getHttpSess(port=port, auth=('visi', 'secret')) as sess:
+                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/export', json=body) as resp:
+                    self.eq(resp.status, 403)
+
             async with self.getHttpSess(port=port, auth=('root', 'secret')) as sess:
+
+                resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
+                self.eq(200, resp.status)
+
+                reply = await resp.json()
+                self.eq('err', reply.get('status'))
+                self.eq('SchemaViolation', reply.get('code'))
+
                 body = {
                     'query': 'media:news inet:email',
                     'opts': {'scrub': {'include': {'tags': ('visi',)}}},

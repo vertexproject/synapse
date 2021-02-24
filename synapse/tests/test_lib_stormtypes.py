@@ -558,6 +558,27 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="QuickBrownFox" return ( $foo.lower() )'
             self.eq('quickbrownfox', await core.callStorm(q))
 
+            q = '$foo="quickbrownfox" return ( $foo.slice(5) )'
+            self.eq('brownfox', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.slice(5, 10) )'
+            self.eq('brown', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.slice((-8)) )'
+            self.eq('brownfox', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.slice(0, (-3)) )'
+            self.eq('quickbrown', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.slice(55, 42) )'
+            self.eq('', await core.callStorm(q))
+
+            q = '$foo="quickbrownfox" return ( $foo.slice("newp") )'
+            await self.asyncraises(s_exc.BadCast, core.callStorm(q))
+
+            q = '$foo="foobar" return ( $foo.reverse() )'
+            self.eq('raboof', await core.callStorm(q))
+
             # tuck the regx tests in with str
             self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
             self.true(await core.callStorm(r'''return($lib.regex.matches('foo', FOOBAR, $lib.regex.flags.i))'''))
@@ -3231,6 +3252,25 @@ class StormTypesTest(s_test.SynTest):
                 $lib.auth.roles.del($role.iden)
             ''')
             self.none(await core.auth.getRoleByName('ninjas'))
+
+            # Use arbitrary idens when creating users.
+            iden = s_common.guid(('foo', 101))
+            udef = await core.callStorm('$u=$lib.auth.users.add(foo, iden=$iden) return ( $u )',
+                                        opts={'vars': {'iden': iden}})
+            self.eq(udef.get('iden'), iden)
+
+            with self.raises(s_exc.DupIden):
+                await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
+                                     opts={'vars': {'iden': iden}})
+            with self.raises(s_exc.BadArg):
+                iden = 'beep'
+                await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
+                                     opts={'vars': {'iden': iden}})
+
+            with self.raises(s_exc.BadArg):
+                iden = 12345
+                await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
+                                     opts={'vars': {'iden': iden}})
 
     async def test_stormtypes_node(self):
 

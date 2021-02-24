@@ -180,7 +180,7 @@ class CertDir:
                 cdir.genHostCsr('myhost')
 
         Returns:
-            None
+            bytes: The bytes of the CSR.
         '''
         return self._genPkeyCsr(name, 'hosts', outp=outp)
 
@@ -307,7 +307,7 @@ class CertDir:
                 cdir.genUserCsr('myuser')
 
         Returns:
-            None
+            bytes: The bytes of the CSR.
         '''
         return self._genPkeyCsr(name, 'users', outp=outp)
 

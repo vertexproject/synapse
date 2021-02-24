@@ -9,4 +9,5 @@ Synapse package. These boot-time options may be set using information found at :
 
     ../autodocs/conf_axon
     ../autodocs/conf_cortex
+    ../autodocs/conf_ahacell
     ../autodocs/conf_cryocell

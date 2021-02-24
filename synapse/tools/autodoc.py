@@ -463,11 +463,23 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
         # Type/additional information
 
         lines.append('\n')
-        # lines.append('Configuration properties:\n')
 
         ctyp = conf.get('type')
         lines.append('Type')
         lines.append(f'    ``{ctyp}``\n')
+
+        if ctyp == 'object':
+            if conf.get('properties'):
+                lines.append('Properties')
+                lines.append('    The object expects the following properties:')
+                data = {k: v for k, v in conf.items() if k not in (
+                    'description', 'default', 'type', 'hideconf', 'hidecmdl',
+                )}
+                parts = json.dumps(data, sort_keys=True, indent=2).split('\n')
+                lines.append('    ::')
+                lines.append('\n')
+                lines.extend([f'      {p}' for p in parts])
+                lines.append('\n')
 
         defval = conf.get('default', s_common.novalu)
         if defval is not s_common.novalu:

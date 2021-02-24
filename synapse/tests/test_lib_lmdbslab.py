@@ -88,6 +88,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(testlist, (b'hehe', b'hoho'))
                 self.eq(dupslist, (b'hehe', b'hoho'))
 
+                # by pref
+                self.eq([b'hoho'], list(slab.scanKeysByPref(b'h', db=dupsdb)))
+                self.eq([], list(slab.scanKeysByPref(b'z', db=dupsdb)))
+
     async def test_lmdbslab_base(self):
 
         with self.getTestDir() as dirn0, self.getTestDir(startdir=dirn0) as dirn:

@@ -191,6 +191,9 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(wget, opts=opts)
 
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('for $x in $lib.axon.list() { $lib.print($x) }', opts=opts)
+
             # test wget runtsafe / per-node / per-node with cmdopt
             nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active')
             self.len(1, nodes)
@@ -208,9 +211,39 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'file:bytes')
+            sha256, size, created = nodes[0].get('sha256'), nodes[0].get('size'), nodes[0].get('.created')
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.eq([(0, sha256, size)], items)
+
+            # test $lib.axon.del()
+            delopts = {'user': visi.iden, 'vars': {'sha256': sha256}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.axon.del($sha256)', opts=delopts)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.axon.dels(($sha256,))', opts=delopts)
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.axon.dels(newp)')
+            delopts = {'vars': {'sha256': sha256}}
+            self.eq((True, False), await core.callStorm('return($lib.axon.dels(($sha256, $sha256)))', opts=delopts))
+            self.false(await core.callStorm('return($lib.axon.del($sha256))', opts=delopts))
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.len(0, items)
 
             msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
             self.stormIsInWarn('HTTP code 404', msgs)
+
+            self.len(1, await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)'))
+
+            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', opts={'vars': {'buf': b'foo'}})
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.len(2, items)
+            self.eq((2, sha256, size), items[1])
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list(2) { $x.append($i) } return($x)')
+            self.eq([(2, sha256, size)], items)
 
             # test request timeout
             async def timeout(self):
@@ -388,6 +421,14 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:iszone = True', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:zone = mvmnasde.com', msgs)
 
+            # test that a user without perms can diff but not apply
+            await visi.addRule((True, ('view', 'read')))
+            async with core.getLocalProxy(user='visi') as asvisi:
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('merge --diff --apply', opts={'view': view}))
+
+                msgs = await alist(asvisi.storm('ps:person | merge --diff', opts={'view': view}))
+                self.stormIsInPrint('inet:fqdn = mvmnasde.com', msgs)
+
             # merge all the nodes with anything stored in the top layer...
             await core.callStorm('''
                 for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {
@@ -426,6 +467,37 @@ class StormTest(s_t_utils.SynTest):
                 await asyncio.sleep(2)
             task = core.schedCoro(sleeper())
             self.false(await s_coro.waittask(task, timeout=0.1))
+
+            # test subquery based property assignment
+            await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
+            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
+            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('org'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('industries'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')
+
+            await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
+            await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
+            await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
 
     async def test_storm_pipe(self):
 
