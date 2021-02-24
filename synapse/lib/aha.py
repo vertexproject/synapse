@@ -1,9 +1,11 @@
 import os
 import logging
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -63,6 +65,10 @@ class AhaApi(s_cell.CellApi):
             urlinfo.setdefault('host', host)
 
         async def fini():
+            if self.cell.isfini:  # pragma: no cover
+                mesg = f'{self.cell.__class__.__name__} is fini. Unable to set {name}@{network} as down.'
+                logger.warning(mesg)
+                return
             await self.cell.setAhaSvcDown(name, sess, network=network)
 
         self.onfini(fini)
@@ -80,57 +86,22 @@ class AhaApi(s_cell.CellApi):
     async def getCaCert(self, network):
 
         await self._reqUserAllowed(('aha', 'ca', 'get'))
-        path = self.cell.certdir.getCaCertPath(network)
-        if path is None:
-            return None
-
-        with open(path, 'rb') as fd:
-            return fd.read().decode()
+        return await self.cell.getCaCert(network)
 
     async def genCaCert(self, network):
 
         await self._reqUserAllowed(('aha', 'ca', 'gen'))
-
-        path = self.cell.certdir.getCaCertPath(network)
-        if path is not None:
-            with open(path, 'rb') as fd:
-                return fd.read().decode()
-
         return await self.cell.genCaCert(network)
 
-    async def signHostCsr(self, csrtext, signas=None):
+    async def signHostCsr(self, csrtext, signas=None, sans=None):
 
-        xcsr = self.cell.certdir._loadCsrByts(csrtext.encode())
-
-        hostname = xcsr.get_subject().CN
-
-        hostpath = s_common.genpath(self.cell.dirn, 'certs', 'hosts', f'{hostname}.crt')
-        if os.path.isfile(hostpath):
-            os.unlink(hostpath)
-
-        if signas is None:
-            signas = hostname.split('.', 1)[1]
-
-        pkey, cert = self.cell.certdir.signHostCsr(xcsr, signas=signas)
-
-        return self.cell.certdir._certToByts(cert).decode()
+        await self._reqUserAllowed(('aha', 'csr', 'host'))
+        return await self.cell.signHostCsr(csrtext, signas=signas, sans=sans)
 
     async def signUserCsr(self, csrtext, signas=None):
 
-        xcsr = self.cell.certdir._loadCsrByts(csrtext.encode())
-
-        username = xcsr.get_subject().CN
-
-        userpath = s_common.genpath(self.cell.dirn, 'certs', 'users', f'{username}.crt')
-        if os.path.isfile(userpath):
-            os.unlink(userpath)
-
-        if signas is None:
-            signas = username.split('@', 1)[1]
-
-        pkey, cert = self.cell.certdir.signUserCsr(xcsr, signas=signas)
-
-        return self.cell.certdir._certToByts(cert).decode()
+        await self._reqUserAllowed(('aha', 'csr', 'user'))
+        return await self.cell.signUserCsr(csrtext, signas=signas)
 
 class AhaCell(s_cell.Cell):
 
@@ -169,7 +140,11 @@ class AhaCell(s_cell.Cell):
 
         if network is None:
             svcfull = name
-            svcname, svcnetw = name.split('.', 1)
+            try:
+                svcname, svcnetw = name.split('.', 1)
+            except ValueError:
+                raise s_exc.BadArg(name=name, arg='name',
+                                   mesg='Name must contain at least one "."') from None
         else:
             svcname = name
             svcnetw = network
@@ -184,6 +159,9 @@ class AhaCell(s_cell.Cell):
 
         full = ('aha', 'svcfull', svcfull)
         path = ('aha', 'services', svcnetw, svcname)
+
+        unfo = info.get('urlinfo')
+        logger.debug(f'Adding service [{svcfull}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]')
 
         svcinfo = {
             'name': svcfull,
@@ -226,8 +204,14 @@ class AhaCell(s_cell.Cell):
 
     async def genCaCert(self, network):
 
-        # TODO executor threads for cert gen
-        pkey, cert = self.certdir.genCaCert(network, save=False)
+        path = self.certdir.getCaCertPath(network)
+        if path is not None:
+            with open(path, 'rb') as fd:
+                return fd.read().decode()
+
+        logger.info(f'Generating CA certificate for {network}')
+        fut = s_coro.executor(self.certdir.genCaCert, network, save=False)
+        pkey, cert = await fut
 
         cakey = self.certdir._pkeyToByts(pkey).decode()
         cacert = self.certdir._certToByts(cert).decode()
@@ -237,6 +221,15 @@ class AhaCell(s_cell.Cell):
 
         return cacert
 
+    async def getCaCert(self, network):
+
+        path = self.certdir.getCaCertPath(network)
+        if path is None:
+            return None
+
+        with open(path, 'rb') as fd:
+            return fd.read().decode()
+
     @s_nexus.Pusher.onPushAuto('aha:ca:save')
     async def saveCaCert(self, name, cakey, cacert):
         # manually save the files to a certpath compatible location
@@ -244,3 +237,39 @@ class AhaCell(s_cell.Cell):
             fd.write(cakey.encode())
         with s_common.genfile(self.dirn, 'certs', 'cas', f'{name}.crt') as fd:
             fd.write(cacert.encode())
+
+    async def signHostCsr(self, csrtext, signas=None, sans=None):
+        xcsr = self.certdir._loadCsrByts(csrtext.encode())
+
+        hostname = xcsr.get_subject().CN
+
+        hostpath = s_common.genpath(self.dirn, 'certs', 'hosts', f'{hostname}.crt')
+        if os.path.isfile(hostpath):
+            os.unlink(hostpath)
+
+        if signas is None:
+            signas = hostname.split('.', 1)[1]
+
+        logger.info(f'Signing host CSR for [{hostname}], signas={signas}, sans={sans}')
+
+        pkey, cert = self.certdir.signHostCsr(xcsr, signas=signas, sans=sans)
+
+        return self.certdir._certToByts(cert).decode()
+
+    async def signUserCsr(self, csrtext, signas=None):
+        xcsr = self.certdir._loadCsrByts(csrtext.encode())
+
+        username = xcsr.get_subject().CN
+
+        userpath = s_common.genpath(self.dirn, 'certs', 'users', f'{username}.crt')
+        if os.path.isfile(userpath):
+            os.unlink(userpath)
+
+        if signas is None:
+            signas = username.split('@', 1)[1]
+
+        logger.info(f'Signing user CSR for [{username}], signas={signas}')
+
+        pkey, cert = self.certdir.signUserCsr(xcsr, signas=signas)
+
+        return self.certdir._certToByts(cert).decode()

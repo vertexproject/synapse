@@ -333,3 +333,30 @@ The following permissions exist for controlling access to Cortex operations.
 
 *watch.view.<iden>*
     Hook Cortex/View/Layer watch points based on a watch definition for a specific iden.
+
+AhaCell Permissions
+===================
+
+*aha.service.get*
+    Get a Aha service or services.
+
+*aha.service.get.<network>*
+    Get a Aha service or services for a given network.
+
+*aha.service.add.<network>.<name>*
+    Add a Aha service for a given network.
+
+*ana.service.del.<network>.<name>*
+    Delete a Aha service for a given network.
+
+*aha.ca.get*
+    Get a CA certificate that is stored in the Aha service.
+
+*aha.ca.gen*
+    Generate a new CA certificate in the Aha service.
+
+*aha.csr.host*
+    Sign a certificate request for a host.
+
+*aha.csr.user*
+    Sign a certificate request for a user.
