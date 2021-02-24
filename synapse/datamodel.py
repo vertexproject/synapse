@@ -519,7 +519,7 @@ class Model:
         self.addBaseType(item)
 
         info = {'doc': 'A potentially huge/tiny number. [x] <= 170141183460469231731687 with a fractional '
-                       + 'precision of 15 decimal digits.'}
+                       'precision of 15 decimal digits.'}
         item = s_types.HugeNum(self, 'hugenum', info, {})
         self.addBaseType(item)
 
