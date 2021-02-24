@@ -5,9 +5,43 @@ Synapse Changelog
 *****************
 
 
-v2.27.0 - 2020-02-016
+v2.28.0 - 2020-02-24
 ====================
 
+Features and Enhancements
+-------------------------
+- Add ``String.reverse()`` Stormtypes API to reverse a string.
+  (`#2086 <https://github.com/vertexproject/synapse/pull/2086>`_)
+- Add Cell APIs for streaming compressed backups.
+  (`#2084 <https://github.com/vertexproject/synapse/pull/2084>`_)
+  (`#2091 <https://github.com/vertexproject/synapse/pull/2091>`_)
+- Refactor ``snap.addNodeS()`` to reduce the transaction count.
+  (`#2087 <https://github.com/vertexproject/synapse/pull/2087>`_)
+  (`#2090 <https://github.com/vertexproject/synapse/pull/2090>`_)
+- Add ``$lib.axon.list()`` Stormtypes API to list hashes in a Axon.
+  (`#2088 <https://github.com/vertexproject/synapse/pull/2088>`_)
+- Add user permissions requirements for Aha CSR signing.
+  (`#2089 <https://github.com/vertexproject/synapse/pull/2089>`_)
+- Add ``aha:svcinfo`` configuration option for the base Cell.
+  (`#2089 <https://github.com/vertexproject/synapse/pull/2089>`_)
+
+Bugfixes
+--------
+- Fix incorrect permissions check in the ``merge --diff`` Storm command.
+  (`#2085 <https://github.com/vertexproject/synapse/pull/2085>`_)
+- Fix service teardown issue in Aha service on fini.
+  (`#2089 <https://github.com/vertexproject/synapse/pull/2089>`_)
+- Fix possible ``synapse.tools.cmdr`` teardown issue when using Aha.
+  (`#2089 <https://github.com/vertexproject/synapse/pull/2089>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for the Aha discovery service.
+  (`#2089 <https://github.com/vertexproject/synapse/pull/2089>`_)
+
+
+v2.27.0 - 2020-02-16
+====================
 
 Features and Enhancements
 -------------------------
