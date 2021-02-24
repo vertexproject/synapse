@@ -25,7 +25,7 @@ Features and Enhancements
 - Add ``aha:svcinfo`` configuration option for the base Cell.
   (`#2089 <https://github.com/vertexproject/synapse/pull/2089>`_)
 - Update pylmdb to ``v1.1.1``.
-  (`#2076<https://github.com/vertexproject/synapse/pull/2076>`_)
+  (`#2076 <https://github.com/vertexproject/synapse/pull/2076>`_)
 
 Bugfixes
 --------
