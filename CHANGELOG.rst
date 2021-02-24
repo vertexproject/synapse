@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.28.0 - 2020-02-24
+v2.28.0 -        TDB
 ====================
 
 Features and Enhancements
