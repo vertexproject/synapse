@@ -2,6 +2,7 @@ import sys
 import asyncio
 import logging
 import warnings
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -26,17 +27,7 @@ async def runcmdr(argv, item):  # pragma: no cover
 
     await cmdr.runCmdLoop()
 
-async def main(argv):  # pragma: no cover
-
-    if len(argv) not in (1, 2):
-        print('usage: python -m synapse.tools.cmdr <url> [<single quoted command>]')
-        return 1
-
-    s_common.setlogging(logger, 'WARNING')
-
-    path = s_common.getSynPath('telepath.yaml')
-    telefini = await s_telepath.loadTeleEnv(path)
-
+async def _main(argv):  # pragma: no cover
     # Ensure that SYN_DIR is available
     _ = s_common.getSynDir()
 
@@ -50,8 +41,22 @@ async def main(argv):  # pragma: no cover
             return 1
         await runcmdr(argv, item)
 
-    if telefini is not None:
-        await telefini()
+async def main(argv):  # pragma: no cover
+
+    if len(argv) not in (1, 2):
+        print('usage: python -m synapse.tools.cmdr <url> [<single quoted command>]')
+        return 1
+
+    s_common.setlogging(logger, 'WARNING')
+
+    path = s_common.getSynPath('telepath.yaml')
+    async with contextlib.AsyncExitStack() as ctx:
+
+        telefini = await s_telepath.loadTeleEnv(path)
+        if telefini is not None:
+            ctx.push_async_callback(telefini)
+
+        await _main(argv)
 
     return 0
 

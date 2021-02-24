@@ -218,6 +218,7 @@ def run_confdocs(_):
                 './docs/synapse/autodocs', '--doc-conf']
     ctors = ('synapse.axon.Axon',
              'synapse.cortex.Cortex',
+             'synapse.lib.aha.AhaCell',
              'synapse.cryotank.CryoCell',
              )
     for ctor in ctors:
