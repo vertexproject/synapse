@@ -673,6 +673,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'An AHA client certificate CN to register as a local admin user.',
             'type': 'string',
         },
+        'aha:svcinfo': {
+            'description': 'An AHA svcinfo object. If set, this overrides self discovered Aha service information.',
+            'type': 'object',
+            'properties': {
+                'urlinfo': {
+                    'type': 'object',
+                    'properties': {
+                        'host': {'type': 'string'},
+                        'port': {'type': 'integer'},
+                        'schema': {'type': 'string'}
+                    },
+                    'required': ('host', 'port', 'scheme', )
+                }
+            },
+            'required': ('urlinfo', ),
+        }
     }
 
     BACKUP_SPAWN_TIMEOUT = 4.0
@@ -1894,10 +1910,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = pars.parse_args(argv)
 
+        s_common.setlogging(logger, defval=opts.log_level)
+
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()
-
-        s_common.setlogging(logger, defval=opts.log_level)
 
         cell = await cls.anit(opts.dirn, conf=conf)
 
