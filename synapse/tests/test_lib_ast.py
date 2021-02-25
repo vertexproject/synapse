@@ -720,6 +720,12 @@ class AstTest(s_test.SynTest):
             'synapse_minversion': (2, 8, 0),
         }
 
+        jsonpkg = {
+            'name': 'jsonpkg',
+            'version': '1.2.3',
+            'synapse_minversion': (2, 8, 0),
+        }
+
         async with self.getTestCore() as core:
 
             await core.addStormPkg(foo_stormpkg)
@@ -758,6 +764,13 @@ class AstTest(s_test.SynTest):
                                    opts={'vars': {'pkg': stormpkg}})
             msgs = await core.stormlist('pkg.list')
             self.stormIsInPrint('stormpkg', msgs)
+
+            # Make sure a JSON package loads
+            jsonpkg = json.loads(json.dumps(jsonpkg))
+            await core.stormlist('$lib.pkg.add($pkg)',
+                                   opts={'vars': {'pkg': jsonpkg}})
+            msgs = await core.stormlist('pkg.list')
+            self.stormIsInPrint('jsonpkg', msgs)
 
             with self.raises(s_exc.NoSuchName):
                 nodes = await core.nodes('test.nodes')
