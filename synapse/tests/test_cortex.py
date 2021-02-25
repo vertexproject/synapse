@@ -1813,6 +1813,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(cmodel.prop('.test:univ').type.stortype,
                     modelt.get(modelf['props']['.test:univ']['type'][0], {}).get('stortype'))
 
+            mimemeta = model['interfaces'].get('file:mime:meta')
+            self.nn(mimemeta)
+            self.isin('props', mimemeta)
+            self.eq('file', mimemeta['props'][0][0])
+
     async def test_storm_graph(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
