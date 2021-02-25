@@ -567,7 +567,7 @@ class Model:
             'types': {},
             'forms': {},
             'tagprops': {},
-            'interfaces': list(self.ifaces.items())
+            'interfaces': self.ifaces.copy()
         }
 
         for tobj in self.types.values():
