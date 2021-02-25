@@ -243,6 +243,10 @@ class OuModule(s_module.CoreModule):
                     ('name', ('ou:name', {}), {
                         'doc': 'The localized name of an organization.',
                     }),
+                    ('type', ('str', {'lower': True, 'strip': True}), {
+                        'ex': 'threat group',
+                        'doc': 'The type of organization.',
+                    }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the org.',
                     }),

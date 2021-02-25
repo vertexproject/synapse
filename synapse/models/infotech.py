@@ -317,6 +317,22 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A function from an imported library.',
                 }),
             ),
+
+            'interfaces': (
+                ('it:host:activity', {
+                    'props': (
+                        ('exe', ('file:bytes', {}), {
+                            'doc': 'The executable file which caused the activity.'}),
+                        ('proc', ('it:exec:proc', {}), {
+                            'doc': 'The host process which caused the activity.'}),
+                        ('host', ('it:host', {}), {
+                            'doc': 'The host on which the activity occurred.'}),
+                        ('time', ('time', {}), {
+                            'doc': 'The time that the activity started.'}),
+                    ),
+                }),
+            ),
+
             'forms': (
                 ('it:hostname', {}, ()),
 

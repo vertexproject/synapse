@@ -1025,6 +1025,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An HTTP request path query parameter.'}),
 
                     ('inet:http:request', ('guid', {}), {
+                        'interfaces': ('inet:proto:request',),
                         'doc': 'A single HTTP request.'}),
 
                     ('inet:iface', ('guid', {}), {
@@ -1213,6 +1214,38 @@ class InetModule(s_module.CoreModule):
                     }),
                     ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
                         'doc': 'A url/link embedded in an email message.',
+                    }),
+                ),
+
+                'interfaces': (
+
+                    ('inet:proto:request', {
+
+                        'doc': 'Properties common to network protocol requests and responses.',
+                        'interfaces': ('it:host:activity',),
+
+                        'props': (
+                            ('flow', ('inet:flow', {}), {
+                                'doc': 'The raw inet:flow containing the request.'}),
+                            ('client', ('inet:client', {}), {
+                                'doc': 'The inet:addr of the client.'}),
+                            ('client:ipv4', ('inet:ipv4', {}), {
+                                'doc': 'The server IPv4 address that the request was sent from.'}),
+                            ('client:ipv6', ('inet:ipv6', {}), {
+                                'doc': 'The server IPv6 address that the request was sent from.'}),
+                            ('client:host', ('it:host', {}), {
+                                'doc': 'The host that the request was sent from.'}),
+                            ('server', ('inet:server', {}), {
+                                'doc': 'The inet:addr of the server.'}),
+                            ('server:ipv4', ('inet:ipv4', {}), {
+                                'doc': 'The server IPv4 address that the request was sent to.'}),
+                            ('server:ipv6', ('inet:ipv6', {}), {
+                                'doc': 'The server IPv6 address that the request was sent to.'}),
+                            ('server:port', ('inet:port', {}), {
+                                'doc': 'The server port that the request was sent to.'}),
+                            ('server:host', ('it:host', {}), {
+                                'doc': 'The host that the request was sent to.'}),
+                        ),
                     }),
                 ),
 
@@ -1555,25 +1588,6 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:http:request', {}, (
 
-                        ('flow', ('inet:flow', {}), {}),
-
-                        ('client', ('inet:client', {}), {}),
-                        ('client:ipv4', ('inet:ipv4', {}), {}),
-                        ('client:ipv6', ('inet:ipv6', {}), {}),
-                        ('client:host', ('it:host', {}), {
-                            'doc': 'The host that sent the HTTP request.',
-                        }),
-
-                        ('server', ('inet:server', {}), {}),
-                        ('server:ipv4', ('inet:ipv4', {}), {}),
-                        ('server:ipv6', ('inet:ipv6', {}), {}),
-                        ('server:port', ('inet:port', {}), {}),
-                        ('server:host', ('it:host', {}), {
-                            'doc': 'The host that the HTTP request was sent to.',
-                        }),
-
-                        ('time', ('time', {}), {
-                            'doc': 'The time that the HTTP request was sent.'}),
 
                         ('method', ('str', {}), {
                             'doc': 'The HTTP request method string.'}),
