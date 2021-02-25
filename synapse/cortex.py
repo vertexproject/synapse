@@ -1702,7 +1702,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # Check minimum synapse version
         minversion = pkgdef.get('synapse_minversion')
-        if minversion is not None and minversion > s_version.version:
+        if minversion is not None and tuple(minversion) > s_version.version:
             mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
                    f'Cortex is running {s_version.version}'
             raise s_exc.BadVersion(mesg=mesg)
