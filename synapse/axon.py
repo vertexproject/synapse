@@ -225,15 +225,55 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await s_share.Share.__anit__(self, link, None)
 
     async def get(self, sha256):
+        '''
+        Get bytes of a file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Examples:
+
+            Get the bytes from an Axon and process them::
+
+                buf = b''
+                async for bytz in axon.get(sha256):
+                    buf =+ bytz
+
+                await dostuff(buf)
+
+        Yields:
+            bytes: Chunks of the file bytes.
+
+        Raises:
+            synapse.exc.NoSuchFile: If the file does not exist.
+        '''
         await self._reqUserAllowed(('axon', 'get'))
         async for byts in self.cell.get(sha256):
             yield byts
 
     async def has(self, sha256):
+        '''
+        Check if the Axon has a file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            boolean: True if the Axon has the file; false otherwise.
+        '''
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.has(sha256)
 
     async def size(self, sha256):
+        '''
+        Get the size of a file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            int: The size of the file, in bytes. If not present, None is returned.
+        '''
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.size(sha256)
 
@@ -257,14 +297,47 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             yield item
 
     async def wants(self, sha256s):
+        '''
+        Get a list of sha256 values the axon does not have from a input list.
+
+        Args:
+            sha256s (list): A list of sha256 values as bytes.
+
+        Returns:
+            list: A list of bytes containing the sha256 hashes the Axon does not have.
+        '''
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.wants(sha256s)
 
     async def put(self, byts):
+        '''
+        Store bytes in the Axon.
+
+        Args:
+            byts (bytes): The bytes to store in the Axon.
+
+        Notes:
+            This API should not be used for files greater than 128 MiB in size.
+
+        Returns:
+            tuple(int, bytes): A tuple with the file size and sha256 hash of the bytes.
+        '''
         await self._reqUserAllowed(('axon', 'upload'))
         return await self.cell.put(byts)
 
     async def puts(self, files):
+        '''
+        Store a set of bytes in the Axon.
+
+        Args:
+            files (list): A list of bytes to store in the Axon.
+
+        Notes:
+            This API should not be used for storing more than 128 MiB of bytes at once.
+
+        Returns:
+            list(tuple(int, bytes)): A list containing tuples of file size and sha256 hash of the saved bytes.
+        '''
         await self._reqUserAllowed(('axon', 'upload'))
         return await self.cell.puts(files)
 
@@ -275,13 +348,25 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
     async def del_(self, sha256):
         '''
         Remove the given bytes from the Axon by sha256.
+
+        Args:
+            sha256 (bytes): The sha256, in bytes, to remove from the Axon.
+
+        Returns:
+            boolean: True if the file is removed; false if the file is not present.
         '''
         await self._reqUserAllowed(('axon', 'del'))
         return await self.cell.del_(sha256)
 
     async def dels(self, sha256s):
         '''
-        Remove the given bytes from the Axon by a list of sha256 hashes.
+        Given a list of sha256 hashes, delete the files from the Axon.
+
+        Args:
+            sha256s (list): A list of sha256 hashes in bytes form.
+
+        Returns:
+            list: A list of booleans, indicating if the file was deleted or not.
         '''
         await self._reqUserAllowed(('axon', 'del'))
         return await self.cell.dels(sha256s)
@@ -359,6 +444,9 @@ class Axon(s_cell.Cell):
     async def holdHashLock(self, hashbyts):
         '''
         A context manager that synchronizes edit access to a blob.
+
+        Args:
+            hashbyts (bytes): The blob to hold the lock for.
         '''
 
         item = self.hashlocks.get(hashbyts)
@@ -410,13 +498,43 @@ class Axon(s_cell.Cell):
             yield item
 
     async def hashes(self, offs):
+        '''
+        Yield hash rows for files that exist in the Axon in added order starting at an offset.
+
+        Args:
+            offs (int): The index offset.
+
+        Yields:
+            (int, (bytes, int)): An index offset and the file SHA-256 and size.
+        '''
         for item in self.axonseqn.iter(offs):
             if self.axonslab.has(item[1][0], db=self.sizes):
                 yield item
             await asyncio.sleep(0)
 
     async def get(self, sha256):
+        '''
+        Get bytes of a file.
 
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Examples:
+
+            Get the bytes from an Axon and process them::
+
+                buf = b''
+                async for bytz in axon.get(sha256):
+                    buf =+ bytz
+
+                await dostuff(buf)
+
+        Yields:
+            bytes: Chunks of the file bytes.
+
+        Raises:
+            synapse.exc.NoSuchFile: If the file does not exist.
+        '''
         if not await self.has(sha256):
             raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
 
@@ -429,6 +547,18 @@ class Axon(s_cell.Cell):
             yield byts
 
     async def put(self, byts):
+        '''
+        Store bytes in the Axon.
+
+        Args:
+            byts (bytes): The bytes to store in the Axon.
+
+        Notes:
+            This API should not be used for files greater than 128 MiB in size.
+
+        Returns:
+            tuple(int, bytes): A tuple with the file size and sha256 hash of the bytes.
+        '''
         # Use a UpLoad context manager so that we can
         # ensure that a one-shot set of bytes is chunked
         # in a consistent fashion.
@@ -437,15 +567,45 @@ class Axon(s_cell.Cell):
             return await fd.save()
 
     async def puts(self, files):
+        '''
+        Store a set of bytes in the Axon.
+
+        Args:
+            files (list): A list of bytes to store in the Axon.
+
+        Notes:
+            This API should not be used for storing more than 128 MiB of bytes at once.
+
+        Returns:
+            list(tuple(int, bytes)): A list containing tuples of file size and sha256 hash of the saved bytes.
+        '''
         return [await self.put(b) for b in files]
 
     async def upload(self):
         return await UpLoad.anit(self)
 
     async def has(self, sha256):
+        '''
+        Check if the Axon has a file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            boolean: True if the Axon has the file; false otherwise.
+        '''
         return self.axonslab.get(sha256, db=self.sizes) is not None
 
     async def size(self, sha256):
+        '''
+        Get the size of a file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            int: The size of the file, in bytes. If not present, None is returned.
+        '''
         byts = self.axonslab.get(sha256, db=self.sizes)
         if byts is not None:
             return int.from_bytes(byts, 'big')
@@ -484,10 +644,27 @@ class Axon(s_cell.Cell):
         return size
 
     async def dels(self, sha256s):
+        '''
+        Given a list of sha256 hashes, delete the files from the Axon.
+
+        Args:
+            sha256s (list): A list of sha256 hashes in bytes form.
+
+        Returns:
+            list: A list of booleans, indicating if the file was deleted or not.
+        '''
         return [await self.del_(s) for s in sha256s]
 
     async def del_(self, sha256):
+        '''
+        Remove the given bytes from the Axon by sha256.
 
+        Args:
+            sha256 (bytes): The sha256, in bytes, to remove from the Axon.
+
+        Returns:
+            boolean: True if the file is removed; false if the file is not present.
+        '''
         async with self.holdHashLock(sha256):
 
             byts = self.axonslab.pop(sha256, db=self.sizes)
@@ -509,7 +686,13 @@ class Axon(s_cell.Cell):
 
     async def wants(self, sha256s):
         '''
-        Given a list of sha256 bytes, returns a list of the hashes we want bytes for.
+        Get a list of sha256 values the axon does not have from a input list.
+
+        Args:
+            sha256s (list): A list of sha256 values as bytes.
+
+        Returns:
+            list: A list of bytes containing the sha256 hashes the Axon does not have.
         '''
         return [s for s in sha256s if not await self.has(s)]
 
