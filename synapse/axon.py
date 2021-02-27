@@ -152,7 +152,9 @@ class AxonHttpBySha256V1(s_httpapi.Handler):
         return self.sendRestRetn(resp)
 
 class UpLoad(s_base.Base):
-
+    '''
+    An object used to manage uploads to the Axon.
+    '''
     async def __anit__(self, axon):  # type: ignore
 
         await s_base.Base.__anit__(self)
@@ -178,11 +180,29 @@ class UpLoad(s_base.Base):
         self.sha256 = hashlib.sha256()
 
     async def write(self, byts):
+        '''
+        Write bytes to the Upload object.
+
+        Args:
+            byts (bytes): Bytes to write to the current Upload object.
+
+        Returns:
+            (None): Returns None.
+        '''
         self.size += len(byts)
         self.sha256.update(byts)
         self.fd.write(byts)
 
     async def save(self):
+        '''
+        Save the currently uploaded bytes to the Axon.
+
+        Notes:
+            This resets the Upload object, so it can be reused.
+
+        Returns:
+            tuple(int, bytes): A tuple of sizes in bytes and the sha256 hash of the saved files.
+        '''
 
         sha256 = self.sha256.digest()
         rsize = self.size
@@ -342,6 +362,33 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         return await self.cell.puts(files)
 
     async def upload(self):
+        '''
+        Get an Upload object.
+
+        Notes:
+            The UpLoad object should be used to manage uploads greater than 128 MiB in size.
+
+        Examples:
+            Use an UpLoad object to upload a file to the Axon::
+
+                async with axonProxy.upload() as upfd:
+                    # Assumes bytesGenerator yields bytes
+                    async for byts in bytsgenerator():
+                        upfd.write(byts)
+                    upfd.save()
+
+            Use a single UpLoad object to save multiple files::
+
+                async with axonProxy.upload() as upfd:
+                    for fp in file_paths:
+                        # Assumes bytesGenerator yields bytes
+                        async for byts in bytsgenerator(fp):
+                            upfd.write(byts)
+                        upfd.save()
+
+        Returns:
+            UpLoadShare: An Upload manager object.
+        '''
         await self._reqUserAllowed(('axon', 'upload'))
         return await UpLoadShare.anit(self.cell, self.link)
 
@@ -582,6 +629,33 @@ class Axon(s_cell.Cell):
         return [await self.put(b) for b in files]
 
     async def upload(self):
+        '''
+        Get an Upload object.
+
+        Notes:
+            The UpLoad object should be used to manage uploads greater than 128 MiB in size.
+
+        Examples:
+            Use an UpLoad object to upload a file to the Axon::
+
+                async with axon.upload() as upfd:
+                    # Assumes bytesGenerator yields bytes
+                    async for byts in bytsgenerator():
+                        upfd.write(byts)
+                    upfd.save()
+
+            Use a single UpLoad object to save multiple files::
+
+                async with axon.upload() as upfd:
+                    for fp in file_paths:
+                        # Assumes bytesGenerator yields bytes
+                        async for byts in bytsgenerator(fp):
+                            upfd.write(byts)
+                        upfd.save()
+
+        Returns:
+            UpLoad: An Upload manager object.
+        '''
         return await UpLoad.anit(self)
 
     async def has(self, sha256):
@@ -614,7 +688,16 @@ class Axon(s_cell.Cell):
         return dict(self.axonmetrics.items())
 
     async def save(self, sha256, genr):
+        '''
+        Save a generator of bytes to the Axon.
 
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+            genr: The bytes generator function.
+
+        Returns:
+            int: The size of the bytes saved.
+        '''
         self._reqBelowLimit()
 
         async with self.holdHashLock(sha256):
