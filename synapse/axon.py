@@ -423,10 +423,25 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
 
     async def metrics(self):
+        '''
+        Get the runtime metrics of the Axon.
+
+        Returns:
+            dict: A dictionary of runtime data about the Axon.
+        '''
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.metrics()
 
     async def iterMpkFile(self, sha256):
+        '''
+        Yield items from a MsgPack (.mpk) file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Yields:
+            Unpacked items from the bytes.
+        '''
         await self._reqUserAllowed(('axon', 'get'))
         async for item in self.cell.iterMpkFile(sha256):
             yield item
@@ -685,6 +700,12 @@ class Axon(s_cell.Cell):
             return int.from_bytes(byts, 'big')
 
     async def metrics(self):
+        '''
+        Get the runtime metrics of the Axon.
+
+        Returns:
+            dict: A dictionary of runtime data about the Axon.
+        '''
         return dict(self.axonmetrics.items())
 
     async def save(self, sha256, genr):
@@ -781,7 +802,13 @@ class Axon(s_cell.Cell):
 
     async def iterMpkFile(self, sha256):
         '''
-        Yield items from a .mpk message pack stream file.
+        Yield items from a MsgPack (.mpk) file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Yields:
+            Unpacked items from the bytes.
         '''
         unpk = s_msgpack.Unpk()
         async for byts in self.get(s_common.uhex(sha256)):
