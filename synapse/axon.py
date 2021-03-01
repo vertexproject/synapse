@@ -419,6 +419,41 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         return await self.cell.dels(sha256s)
 
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
+        '''
+        Stream a file download directly into the Axon.
+
+        Args:
+            url (str): The URL to retrieve.
+            params (dict): Additional parameters to add to the URL.
+            headers (dict): Additional HTTP headers to add in the request.
+            json: A JSON body which is included with the request.
+            body: The body to be included in the request.
+            method (str): The HTTP method to use.
+            ssl (bool): Perform SSL verification.
+            timeout (int): The timeout of the request, in seconds.
+
+        Notes:
+
+            The dictionary returned by this may contain the following values::
+
+                {
+                    'ok': <boolean> - False if there were exceptions retrieving the URL.
+                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'code': <int> - The response code.
+                    'mesg': <str> - An error message if there was an exception when retrieving the URL.
+                    'headers': <dict> - The response headers as a dictionary.
+                    'size': <int> - The size in bytes of the response body.
+                    'hashes': {
+                        'md5': <str> - The MD5 hash of the response body.
+                        'sha1': <str> - The SHA1 hash of the response body.
+                        'sha256': <str> - The SHA256 hash of the response body.
+                        'sha512': <str> - The SHA512 hash of the response body.
+                    }
+                }
+
+        Returns:
+            dict: A information dictionary containing the results of the request.
+        '''
         await self._reqUserAllowed(('axon', 'wget'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
 
@@ -817,7 +852,39 @@ class Axon(s_cell.Cell):
 
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
         '''
-        Stream a file download directly into the axon.
+        Stream a file download directly into the Axon.
+
+        Args:
+            url (str): The URL to retrieve.
+            params (dict): Additional parameters to add to the URL.
+            headers (dict): Additional HTTP headers to add in the request.
+            json: A JSON body which is included with the request.
+            body: The body to be included in the request.
+            method (str): The HTTP method to use.
+            ssl (bool): Perform SSL verification.
+            timeout (int): The timeout of the request, in seconds.
+
+        Notes:
+
+            The dictionary returned by this may contain the following values::
+
+                {
+                    'ok': <boolean> - False if there were exceptions retrieving the URL.
+                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'code': <int> - The response code.
+                    'mesg': <str> - An error message if there was an exception when retrieving the URL.
+                    'headers': <dict> - The response headers as a dictionary.
+                    'size': <int> - The size in bytes of the response body.
+                    'hashes': {
+                        'md5': <str> - The MD5 hash of the response body.
+                        'sha1': <str> - The SHA1 hash of the response body.
+                        'sha256': <str> - The SHA256 hash of the response body.
+                        'sha512': <str> - The SHA512 hash of the response body.
+                    }
+                }
+
+        Returns:
+            dict: A information dictionary containing the results of the request.
         '''
         connector = None
         proxyurl = self.conf.get('http:proxy')
