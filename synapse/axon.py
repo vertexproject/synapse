@@ -312,6 +312,16 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             yield item
 
     async def history(self, tick, tock=None):
+        '''
+        Yield hash rows for files that existing in the Axon after a given point in time.
+
+        Args:
+            tick (int): The starting time (in epoch milliseconds).
+            tock (int): The ending time to stop iterating at (in epoch milliseconds).
+
+        Yields:
+            (int, (bytes, int)): A tuple containing time of the hash was added and the file SHA-256 and size.
+        '''
         await self._reqUserAllowed(('axon', 'has'))
         async for item in self.cell.history(tick, tock=tock):
             yield item
@@ -591,6 +601,16 @@ class Axon(s_cell.Cell):
         self.axonseqn.add(item)
 
     async def history(self, tick, tock=None):
+        '''
+        Yield hash rows for files that existing in the Axon after a given point in time.
+
+        Args:
+            tick (int): The starting time (in epoch milliseconds).
+            tock (int): The ending time to stop iterating at (in epoch milliseconds).
+
+        Yields:
+            (int, (bytes, int)): A tuple containing time of the hash was added and the file SHA-256 and size.
+        '''
         for item in self.axonhist.carve(tick, tock=tock):
             yield item
 
