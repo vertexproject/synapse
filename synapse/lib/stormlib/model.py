@@ -416,6 +416,9 @@ class ModelProp(s_stormtypes.Prim):
         return ModelType(self.valu.type, path=path)
 
     def _ctorPropForm(self, path=None):
+        if self.valu.form is None:
+            return None
+
         return ModelForm(self.valu.form, path=path)
 
 @s_stormtypes.registry.registerType
