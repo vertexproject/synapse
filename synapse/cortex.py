@@ -1595,7 +1595,10 @@ class Cortex(s_cell.Cell):  # type: ignore
                 yield sodelist
 
     async def _liftByDataName(self, name, layers):
-        genrs = [wrap_liftgenr(layr.iden, layr.liftByDataName(name)) for layr in layers]
+        genrs = []
+        for layr in layers:
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByDataName(name)))
+
         async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
             yield sodes
 
@@ -1606,7 +1609,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             def cmprkey(x, y):
                 return x[1][1]['props'][prop] < y[1][1]['props'][prop]
 
-        genrs = [wrap_liftgenr(layr.iden, layr.liftByProp(form, prop)) for layr in layers]
+        genrs = []
+        for layr in layers:
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop)))
+
         async for sodes in self._mergeSodes(layers, genrs, cmprkey):
             yield sodes
 
@@ -1617,7 +1623,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         def filtercmpr(sode):
             return sode.get('props', {}).get(prop) is not None
 
-        genrs = [wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, cmprvals)) for layr in layers]
+        genrs = []
+        for layr in layers:
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, cmprvals)))
+
         async for sodes in self._mergeSodes(layers, genrs, cmprkey, filtercmpr):
             yield sodes
 
@@ -1625,27 +1634,42 @@ class Cortex(s_cell.Cell):  # type: ignore
         def filtercmpr(sode):
             return sode.get('props', {}).get(prop) is not None
 
-        genrs = [wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, cmprvals)) for layr in layers]
+        genrs = []
+        for layr in layers:
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, cmprvals)))
+
         async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
             yield sodes
 
     async def _liftByFormValu(self, form, cmprvals, layers):
-        genrs = [wrap_liftgenr(layr.iden, layr.liftByFormValu(form, cmprvals)) for layr in layers]
+        genrs = []
+        for layr in layers:
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, cmprvals)))
+
         async for sodes in self._mergeSodes(layers, genrs, cmprkey_formvalu):
             yield sodes
 
     async def _liftByTag(self, tag, form, layers):
-        genrs = [wrap_liftgenr(layr.iden, layr.liftByTag(tag, form)) for layr in layers]
+        genrs = []
+        for layr in layers:
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTag(tag, form)))
+
         async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
             yield sodes
 
     async def _liftByTagValu(self, tag, cmpr, valu, form, layers):
-        genrs = [wrap_liftgenr(layr.iden, layr.liftByTagValu(tag, cmpr, valu, form)) for layr in layers]
+        genrs = []
+        for layr in layers:
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagValu(tag, cmpr, valu, form)))
+
         async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
             yield sodes
 
     async def _liftByTagProp(self, form, tag, prop, layers):
-        genrs = [wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)) for layr in layers]
+        genrs = []
+        for layr in layers:
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
+
         async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
             yield sodes
 
@@ -1653,7 +1677,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         def filtercmpr(sode):
             return sode.get('tagprops', {}).get((tag, prop)) is not None
 
-        genrs = [wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, cmprvals)) for layr in layers]
+        genrs = []
+        for layr in layers:
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, cmprvals)))
+
         async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
             yield sodes
 
