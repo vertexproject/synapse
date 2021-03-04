@@ -317,18 +317,23 @@ commands:
             docker logs test01
             docker logs test02
             docker logs test03
+            docker logs test04
             dstatus01=`docker inspect test01 --format '{{.State.Health.Status}}'`
             dstatus02=`docker inspect test02 --format '{{.State.Health.Status}}'`
             dstatus03=`docker inspect test03 --format '{{.State.Health.Status}}'`
+            dstatus04=`docker inspect test04 --format '{{.State.Health.Status}}'`
             docker stop test01
             docker stop test02
             docker stop test03
+            docker stop test04
             docker rm test01
             docker rm test02
             docker rm test03
+            docker rm test04
             if [ $dstatus01 != "healthy" ]; then exit 1; fi
             if [ $dstatus02 != "healthy" ]; then exit 1; fi
             if [ $dstatus03 != "healthy" ]; then exit 1; fi
+            if [ $dstatus04 != "healthy" ]; then exit 1; fi
             exit 0
 
   do_docker_login:
@@ -350,6 +355,7 @@ commands:
           command: |
             docker build -t vertexproject/synapse:${CIRCLE_TAG} -f docker/images/synapse/Dockerfile .
             docker build -t vertexproject/synapse:${CIRCLE_TAG}-py37 -f docker/images/synapse/Dockerfile-py37 .
+            docker build -t vertexproject/synapse-aha:${CIRCLE_TAG} -f docker/images/aha/Dockerfile .
             docker build -t vertexproject/synapse-axon:${CIRCLE_TAG} -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:${CIRCLE_TAG} -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:${CIRCLE_TAG} -f docker/images/cryotank/Dockerfile .
@@ -362,15 +368,17 @@ commands:
             docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_TAG}-py37 -m synapse.servers.cortex --help
             dstatus01=$?
             if [ $dstatus01 != "0" ]; then exit 1; fi
-            docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_TAG}
-            docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_TAG}
-            docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_TAG}
+            docker run -d --name test01 vertexproject/synapse-aha:${CIRCLE_TAG}
+            docker run -d --name test02 vertexproject/synapse-axon:${CIRCLE_TAG}
+            docker run -d --name test03 vertexproject/synapse-cortex:${CIRCLE_TAG}
+            docker run -d --name test04 vertexproject/synapse-cryotank:${CIRCLE_TAG}
       - check_docker_smoketests
       - run:
           name: tag and push container
           command: |
             docker push vertexproject/synapse:${CIRCLE_TAG}
             docker push vertexproject/synapse:${CIRCLE_TAG}-py37
+            docker push vertexproject/synapse-aha:${CIRCLE_TAG}
             docker push vertexproject/synapse-axon:${CIRCLE_TAG}
             docker push vertexproject/synapse-cortex:${CIRCLE_TAG}
             docker push vertexproject/synapse-cryotank:${CIRCLE_TAG}
@@ -386,6 +394,7 @@ commands:
           command: |
             docker build -t vertexproject/synapse:v2.x.x -f docker/images/synapse/Dockerfile .
             docker build -t vertexproject/synapse:v2.x.x-py37 -f docker/images/synapse/Dockerfile-py37 .
+            docker build -t vertexproject/synapse-aha:v2.x.x -f docker/images/aha/Dockerfile .
             docker build -t vertexproject/synapse-axon:v2.x.x -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:v2.x.x -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:v2.x.x -f docker/images/cryotank/Dockerfile .
@@ -398,15 +407,17 @@ commands:
             docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x-py37 -m synapse.servers.cortex --help
             dstatus01=$?
             if [ $dstatus01 != "0" ]; then exit 1; fi
-            docker run -d --name test01 vertexproject/synapse-axon:v2.x.x
-            docker run -d --name test02 vertexproject/synapse-cortex:v2.x.x
-            docker run -d --name test03 vertexproject/synapse-cryotank:v2.x.x
+            docker run -d --name test01 vertexproject/synapse-aha:v2.x.x
+            docker run -d --name test02 vertexproject/synapse-axon:v2.x.x
+            docker run -d --name test03 vertexproject/synapse-cortex:v2.x.x
+            docker run -d --name test04 vertexproject/synapse-cryotank:v2.x.x
       - check_docker_smoketests
       - run:
           name: tag and push container
           command: |
             docker push vertexproject/synapse:v2.x.x
             docker push vertexproject/synapse:v2.x.x-py37
+            docker push vertexproject/synapse-aha:v2.x.x
             docker push vertexproject/synapse-axon:v2.x.x
             docker push vertexproject/synapse-cortex:v2.x.x
             docker push vertexproject/synapse-cryotank:v2.x.x
@@ -422,6 +433,7 @@ commands:
           command: |
             docker build -t vertexproject/synapse:${CIRCLE_BRANCH} -f docker/images/synapse/Dockerfile .
             docker build -t vertexproject/synapse:${CIRCLE_BRANCH}-py37 -f docker/images/synapse/Dockerfile-py37 .
+            docker build -t vertexproject/synapse-aha:${CIRCLE_BRANCH} -f docker/images/aha/Dockerfile .
             docker build -t vertexproject/synapse-axon:${CIRCLE_BRANCH} -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:${CIRCLE_BRANCH} -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:${CIRCLE_BRANCH} -f docker/images/cryotank/Dockerfile .
@@ -434,15 +446,17 @@ commands:
             docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH}-py37 -m synapse.servers.cortex --help
             dstatus01=$?
             if [ $dstatus01 != "0" ]; then exit 1; fi
-            docker run -d --name test01 vertexproject/synapse-axon:${CIRCLE_BRANCH}
-            docker run -d --name test02 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
-            docker run -d --name test03 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
+            docker run -d --name test01 vertexproject/synapse-aha:${CIRCLE_BRANCH}
+            docker run -d --name test02 vertexproject/synapse-axon:${CIRCLE_BRANCH}
+            docker run -d --name test03 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
+            docker run -d --name test04 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
       - check_docker_smoketests
       - run:
           name: tag and push container
           command: |
             docker push vertexproject/synapse:${CIRCLE_BRANCH}
             docker push vertexproject/synapse:${CIRCLE_BRANCH}-py37
+            docker push vertexproject/synapse-aha:${CIRCLE_BRANCH}
             docker push vertexproject/synapse-axon:${CIRCLE_BRANCH}
             docker push vertexproject/synapse-cortex:${CIRCLE_BRANCH}
             docker push vertexproject/synapse-cryotank:${CIRCLE_BRANCH}

@@ -34,6 +34,8 @@ class StormlibModelTest(s_test.SynTest):
             self.eq('score', await core.callStorm('return($lib.model.tagprop(score).name)'))
             self.eq('int', await core.callStorm('return($lib.model.tagprop(score).type.name)'))
 
+            self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
+
     async def test_stormlib_model_edge(self):
 
         with self.getTestDir() as dirn:

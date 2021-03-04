@@ -1,30 +1,60 @@
-import contextlib
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.aha as s_aha
+import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_test
-import synapse.servers.aha as s_servers_aha
 
 class AhaTest(s_test.SynTest):
 
-    @contextlib.asynccontextmanager
-    async def getTestAha(self, conf=None):
-        with self.getTestDir() as dirn:
-            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
-                yield aha
-
     async def test_lib_aha_mirrors(self):
 
-        urls = ('cell://home0', 'cell://home1')
-        conf = {'aha:urls': urls}
+        with self.getTestDir() as dirn:
+            dir0 = s_common.gendir(dirn, 'aha0')
+            dir1 = s_common.gendir(dirn, 'aha1')
 
-        async with self.getTestAha(conf=conf) as aha:
-            async with aha.getLocalProxy() as proxy:
-                self.eq(urls, await proxy.getAhaUrls())
+            conf = {'nexslog:en': True}
+
+            async with self.getTestAha(conf={'nexslog:en': True}, dirn=dir0) as aha0:
+                user = await aha0.auth.addUser('reguser', passwd='secret')
+                await user.setAdmin(True)
+
+            s_tools_backup.backup(dir0, dir1)
+
+            async with self.getTestAha(conf=conf, dirn=dir0) as aha0:
+                upstream_url = aha0.getLocalUrl()
+
+                mirrorconf = {
+                    'nexslog:en': True,
+                    'mirror': upstream_url,
+                }
+
+                async with self.getTestAha(conf=mirrorconf, dirn=dir1) as aha1:
+                    # CA is nexus-fied
+                    cabyts = await aha0.genCaCert('mirrorca')
+                    await aha1.sync()
+                    mirbyts = await aha1.genCaCert('mirrorca')
+                    self.eq(cabyts, mirbyts)
+                    iden = s_common.guid()
+                    # Adding, downing, and removing service is also nexusified
+                    info = {'urlinfo': {'host': '127.0.0.1', 'port': 8080,
+                                        'scheme': 'tcp'},
+                            'online': iden}
+                    await aha0.addAhaSvc('test', info, network='example.net')
+                    await aha1.sync()
+                    mnfo = await aha1.getAhaSvc('test.example.net')
+                    self.eq(mnfo.get('name'), 'test.example.net')
+
+                    await aha0.setAhaSvcDown('test', iden, network='example.net')
+                    await aha1.sync()
+                    mnfo = await aha1.getAhaSvc('test.example.net')
+                    self.notin('online', mnfo)
+
+                    await aha0.delAhaSvc('test', network='example.net')
+                    await aha1.sync()
+                    mnfo = await aha1.getAhaSvc('test.example.net')
+                    self.none(mnfo)
 
     async def test_lib_aha(self):
 
@@ -34,9 +64,14 @@ class AhaTest(s_test.SynTest):
         with self.raises(s_exc.NoSuchName):
             await s_telepath.getAhaProxy({'host': 'hehe.haha'})
 
+        # We do inprocess reference counting for urls and clients.
         urls = ['newp://newp@newp', 'newp://newp@newp']
-        client = await s_telepath.addAhaUrl(urls)
-        client = await s_telepath.addAhaUrl(urls)
+        info = await s_telepath.addAhaUrl(urls)
+        self.eq(info.get('refs'), 1)
+        # There is not yet a telepath client which is using these urls.
+        self.none(info.get('client'))
+        info = await s_telepath.addAhaUrl(urls)
+        self.eq(info.get('refs'), 2)
 
         await s_telepath.delAhaUrl(urls)
         self.len(1, s_telepath.aha_clients)
@@ -182,6 +217,18 @@ class AhaTest(s_test.SynTest):
                 self.none(await ahaproxy.getAhaSvc('cryo.foo'))
                 self.none(await ahaproxy.getAhaSvc('0.cryo.foo'))
                 self.len(2, [s async for s in ahaproxy.getAhaSvcs()])
+
+                with self.raises(s_exc.BadArg):
+                    info = {'urlinfo': {'host': '127.0.0.1', 'port': 8080, 'scheme': 'tcp'}}
+                    await ahaproxy.addAhaSvc('newp', info, network=None)
+
+        # The aha service can also be configured with a set of URLs that could represent itself.
+        urls = ('cell://home0', 'cell://home1')
+        conf = {'aha:urls': urls}
+        async with self.getTestAha(conf=conf) as aha:
+            async with aha.getLocalProxy() as ahaproxy:
+                aurls = await ahaproxy.getAhaUrls()
+                self.eq(urls, aurls)
 
     async def test_lib_aha_loadenv(self):
 
