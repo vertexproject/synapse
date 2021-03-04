@@ -1950,7 +1950,7 @@ class Layer(s_nexus.Pusher):
 
             for aval in valu:
                 for indx in self.getStorIndx(realtype, aval):
-                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
+                    self.layrslab.delete(abrv + indx, buid, db=self.byarray)
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + indx, buid, db=self.byarray)
 

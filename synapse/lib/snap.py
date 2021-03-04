@@ -265,10 +265,8 @@ class Snap(s_base.Base):
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
-        for layr in self.layers:
-            genr = layr.liftByTagProp(form, tag, name)
-            async for node in self._joinStorGenr(layr, genr):
-                yield node
+        async for (buid, sodes) in self.core._liftByTagProp(form, tag, name, self.layers):
+            yield await self._joinSodes(buid, sodes)
 
     async def nodesByTagPropValu(self, form, tag, name, cmpr, valu):
         prop = self.core.model.getTagProp(name)
@@ -281,12 +279,8 @@ class Snap(s_base.Base):
         if not cmprvals:
             return
 
-        for layr in self.layers:
-            genr = layr.liftByTagPropValu(form, tag, name, cmprvals)
-            async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['tagprops'].get((tag, prop.name)) != layr.iden:
-                    continue
-                yield node
+        async for (buid, sodes) in self.core._liftByTagPropValu(form, tag, name, cmprvals, self.layers):
+            yield await self._joinSodes(buid, sodes)
 
     async def _joinStorNode(self, buid, cache):
 
@@ -419,7 +413,6 @@ class Snap(s_base.Base):
             yield await self._joinSodes(buid, sodes)
 
     async def nodesByPropValu(self, full, cmpr, valu):
-
         if cmpr == 'type=':
             async for node in self.nodesByPropValu(full, '=', valu):
                 yield node
@@ -445,52 +438,26 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
-
-            for layr in self.layers:
-                genr = layr.liftByFormValu(prop.name, cmprvals)
-                async for node in self._joinStorGenr(layr, genr):
-                    # TODO merge sort rather than use bylayer
-                    if node.bylayer.get('ndef') != layr.iden:
-                        continue
-
-                    yield node
-
+            async for (buid, sodes) in self.core._liftByFormValu(prop.name, cmprvals, self.layers):
+                yield await self._joinSodes(buid, sodes)
             return
 
         if prop.isuniv:
-
-            for layr in self.layers:
-                genr = layr.liftByPropValu(None, prop.name, cmprvals)
-                async for node in self._joinStorGenr(layr, genr):
-                    if node.bylayer['props'].get(prop.name) != layr.iden:
-                        continue
-                    yield node
-
+            async for (buid, sodes) in self.core._liftByPropValu(None, prop.name, cmprvals, self.layers):
+                yield await self._joinSodes(buid, sodes)
             return
 
-        for layr in self.layers:
-            genr = layr.liftByPropValu(prop.form.name, prop.name, cmprvals)
-            async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['props'].get(prop.name) != layr.iden:
-                    continue
-                yield node
+        async for (buid, sodes) in self.core._liftByPropValu(prop.form.name, prop.name, cmprvals, self.layers):
+            yield await self._joinSodes(buid, sodes)
 
     async def nodesByTag(self, tag, form=None):
-        for layr in self.layers:
-            genr = layr.liftByTag(tag, form=form)
-            async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['tags'].get(tag) != layr.iden:
-                    continue
-                yield node
+        async for (buid, sodes) in self.core._liftByTag(tag, form, self.layers):
+            yield await self._joinSodes(buid, sodes)
 
     async def nodesByTagValu(self, tag, cmpr, valu, form=None):
         norm, info = self.core.model.type('ival').norm(valu)
-        for layr in self.layers:
-            genr = layr.liftByTagValu(tag, cmpr, norm, form=form)
-            async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['tags'].get(tag) != layr.iden:
-                    continue
-                yield node
+        async for (buid, sodes) in self.core._liftByTagValu(tag, cmpr, norm, form, self.layers):
+            yield await self._joinSodes(buid, sodes)
 
     async def nodesByPropTypeValu(self, name, valu):
 
@@ -516,26 +483,16 @@ class Snap(s_base.Base):
         cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
 
         if prop.isform:
-
-            for layr in self.layers:
-                genr = layr.liftByPropArray(prop.name, None, cmprvals)
-                async for node in self._joinStorGenr(layr, genr):
-                    if node.bylayer['ndef'] != layr.iden:
-                        continue
-                    yield node
-
+            async for (buid, sodes) in self.core._liftByPropArray(prop.name, None, cmprvals, self.layers):
+                yield await self._joinSodes(buid, sodes)
             return
 
         formname = None
         if prop.form is not None:
             formname = prop.form.name
 
-        for layr in self.layers:
-            genr = layr.liftByPropArray(formname, prop.name, cmprvals)
-            async for node in self._joinStorGenr(layr, genr):
-                if node.bylayer['props'].get(prop.name) != layr.iden:
-                    continue
-                yield node
+        async for (buid, sodes) in self.core._liftByPropArray(formname, prop.name, cmprvals, self.layers):
+            yield await self._joinSodes(buid, sodes)
 
     async def getNodeAdds(self, form, valu, props, addnode=True):
 

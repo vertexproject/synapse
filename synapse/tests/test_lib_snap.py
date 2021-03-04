@@ -376,6 +376,15 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await alist(view0.eval('inet:ipv4:asn=42')))
             self.len(0, await alist(view1.eval('inet:ipv4:asn=42')))
 
+            self.len(1, await alist(view0.eval('[ test:arrayprop="*" :ints=(1, 2, 3) ]')))
+            self.len(1, await alist(view1.eval('test:arrayprop [ :ints=(4, 5, 6) ]')))
+
+            self.len(0, await alist(view0.eval('test:int=5 -> test:arrayprop')))
+            self.len(1, await alist(view1.eval('test:int=5 -> test:arrayprop')))
+
+            self.len(1, await alist(view0.eval('test:int=2 -> test:arrayprop')))
+            self.len(0, await alist(view1.eval('test:int=2 -> test:arrayprop')))
+
     async def test_cortex_lift_layers_dup(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
