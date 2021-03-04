@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import binascii
 import collections
 
 import regex
@@ -561,6 +562,21 @@ class Guid(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
+        self.storlifts.update({
+            '^=': self._storLiftPref,
+        })
+
+    def _storLiftPref(self, cmpr, valu):
+
+        try:
+            byts = s_common.uhex(valu)
+        except binascii.Error:
+            mesg = f'Invalid GUID prefix ({valu}). Must be even number of hex chars.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        return (
+            ('^=', byts, self.stortype),
+        )
 
     def _normPyList(self, valu):
         return s_common.guid(valu), {}
