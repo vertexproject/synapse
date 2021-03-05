@@ -155,7 +155,7 @@ class Link(s_base.Base):
                 if name == 'commonName':
                     return valu
 
-    def getSpawnInfo(self):
+    async def getSpawnInfo(self):
         info = {}
 
         # selectively add info for pickle...
@@ -164,25 +164,27 @@ class Link(s_base.Base):
 
         if self.info.get('tls'):
             info['unix'] = True
-            sock0, sock1 = socket.socketpair()
+            link0, sock1 = await linksock()
 
-            def relay(sock):
+            async def relay(link):
                 while True:
-                    byts = sock.recv(1024)
+                    byts = await link.recv(1024)
                     if not byts:
                         break
-                    self.writer.write(byts)
-                sock.close()
+                    await self.send(byts)
+                await link.fini()
 
-            sock = sock1
-            s_coro.executor(relay, sock0)
-        else:
-            sock = self.reader._transport._sock
+            asyncio.create_task(relay(link0))
+
+            return {
+                'info': info,
+                'sock': sock1
+            }
 
         return {
             'info': info,
             # a bit dirty, but there's no other way...
-            'sock': sock,
+            'sock': self.reader._transport._sock
         }
 
     def getAddrInfo(self):
