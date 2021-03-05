@@ -172,6 +172,7 @@ class Link(s_base.Base):
                     if not byts:
                         break
                     self.writer.write(byts)
+                sock.close()
 
             sock = sock1
             s_coro.executor(relay, sock0)
