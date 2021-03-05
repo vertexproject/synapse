@@ -823,11 +823,19 @@ class CellTest(s_t_utils.SynTest):
             bkuppath2 = os.path.join(dirn, 'bkup2.tar.gz')
             bkuppath3 = os.path.join(dirn, 'bkup3.tar.gz')
             bkuppath4 = os.path.join(dirn, 'bkup4.tar.gz')
+            bkuppath5 = os.path.join(dirn, 'bkup5.tar.gz')
 
             conf = {'backup:dir': backdirn}
             s_common.yamlsave(conf, coredirn, 'cell.yaml')
 
             async with self.getTestCore(dirn=coredirn) as core:
+
+                core.certdir.genCaCert('localca')
+                core.certdir.genHostCert('localhost', signas='localca')
+                core.certdir.genUserCert('root@localhost', signas='localca')
+
+                root = await core.auth.addUser('root@localhost')
+                await root.setAdmin(True)
 
                 nodes = await core.nodes('[test:str=streamed]')
                 self.len(1, nodes)
@@ -937,4 +945,24 @@ class CellTest(s_t_utils.SynTest):
             bkupdirn4 = os.path.join(dirn, bkupname)
             async with self.getTestCore(dirn=bkupdirn4) as core:
                 nodes = await core.nodes('test:str=noname')
+                self.len(1, nodes)
+
+            # Test backup over SSL
+            async with self.getTestCore(dirn=coredirn) as core:
+
+                nodes = await core.nodes('[test:str=ssl]')
+                addr, port = await core.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
+
+                async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
+                    with open(bkuppath5, 'wb') as bkup5:
+                        async for msg in proxy.iterNewBackupArchive(remove=True):
+                            bkup5.write(msg)
+
+            with tarfile.open(bkuppath5, 'r:gz') as tar:
+                bkupname = os.path.commonprefix(tar.getnames())
+                tar.extractall(path=dirn)
+
+            bkupdirn5 = os.path.join(dirn, bkupname)
+            async with self.getTestCore(dirn=bkupdirn5) as core:
+                nodes = await core.nodes('test:str=ssl')
                 self.len(1, nodes)

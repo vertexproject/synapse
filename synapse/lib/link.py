@@ -10,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
@@ -161,10 +162,26 @@ class Link(s_base.Base):
         if self.info.get('unix'):
             info['unix'] = True
 
+        if self.info.get('tls'):
+            info['unix'] = True
+            sock0, sock1 = socket.socketpair()
+
+            def relay(sock):
+                while True:
+                    byts = sock.recv(1024)
+                    if not byts:
+                        break
+                    self.writer.write(byts)
+
+            sock = sock1
+            s_coro.executor(relay, sock0)
+        else:
+            sock = self.reader._transport._sock
+
         return {
             'info': info,
             # a bit dirty, but there's no other way...
-            'sock': self.reader._transport._sock,
+            'sock': sock,
         }
 
     def getAddrInfo(self):
