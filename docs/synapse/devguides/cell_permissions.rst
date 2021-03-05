@@ -25,6 +25,9 @@ The following permissions exist for controlling access to Axon operations.
 *axon.upload*
     Upload and save a binary object to the Axon.
 
+*axon.wget*
+    Retrieve files by URL directly to the Axon.
+
 Cell Permissions
 ================
 

@@ -41,7 +41,7 @@ class DeprecatedModel(s_module.CoreModule):
 
 class DataModelTest(s_t_utils.SynTest):
 
-    async def test_datmodel_formname(self):
+    async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
             ('hehe', {
@@ -233,3 +233,15 @@ class DataModelTest(s_t_utils.SynTest):
             with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
                 async with await s_cortex.Cortex.anit(dirn, conf) as core:
                     self.true(await cstream.wait(6))
+
+    async def test_datamodel_getmodeldefs(self):
+        '''
+        Make sure you can make a new model with the output of datamodel.getModelDefs
+        '''
+        modl = s_datamodel.Model()
+        modl.addIface('test:iface', {})
+        modl.addType('foo:foo', 'int', {}, {'interfaces': ('test:iface',)})
+        modl.addForm('foo:foo', {}, ())
+        mdef = modl.getModelDefs()
+        modl2 = s_datamodel.Model()
+        modl2.addDataModels(mdef)
