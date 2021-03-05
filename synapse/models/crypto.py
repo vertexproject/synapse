@@ -161,6 +161,10 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:x509:cert', {}, (
 
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file that the certificate was parsed from.',
+                    }),
+
                     ('subject', ('str', {}), {
                         'doc': 'The subject identifier, commonly in X.500/LDAP format, to which the certificate was issued.',
                     }),

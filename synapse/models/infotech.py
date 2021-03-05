@@ -425,17 +425,24 @@ class ItModule(s_module.CoreModule):
                     ('desc:short', ('str', {'lower': True}), {
                         'doc': 'A short description of the software.',
                     }),
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'The contact information of the org or person who authored the software.',
+                    }),
                     ('author:org', ('ou:org', {}), {
+                        'deprecated': True,
                         'doc': 'Organization which authored the software.',
                     }),
                     ('author:acct', ('inet:web:acct', {}), {
+                        'deprecated': True,
                         'doc': 'Web account of the software author.',
                     }),
                     ('author:email', ('inet:email', {}), {
+                        'deprecated': True,
                         'doc': 'Email address of the sofware author.',
                     }),
 
                     ('author:person', ('ps:person', {}), {
+                        'deprecated': True,
                         'doc': 'Person who authored the software.',
                     }),
                     ('url', ('inet:url', {}), {

@@ -96,6 +96,9 @@ class ProjectModule(s_module.CoreModule):
                         ('ext:id', ('str', {'strip': True}), {
                             'doc': 'A ticket ID from an external system.'}),
 
+                        ('ext:url', ('inet:url', {}), {
+                            'doc': 'A URL to the ticket in an external system.'}),
+
                         ('epic', ('proj:epic', {}), {}),
                         ('created', ('time', {}), {}),
                         ('updated', ('time', {'max': True}), {}),

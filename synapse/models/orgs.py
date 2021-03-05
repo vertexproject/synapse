@@ -460,10 +460,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The contact information for the person who attended the event.',
                     }),
                     ('arrived', ('time', {}), {
-                        'doc': 'The time when a person arrived.',
+                        'doc': 'The time when the person arrived.',
                     }),
                     ('departed', ('time', {}), {
-                        'doc': 'The time when a person departed.',
+                        'doc': 'The time when the person departed.',
                     }),
                     ('roles', ('array', {'type': 'ou:role', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'List of the roles the person had at the event.',
@@ -476,6 +476,9 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('conference:event', ('ou:conference:event', {}), {
                         'doc': 'The conference event that the person attended.',
+                    }),
+                    ('contest', ('ou:contest', {}), {
+                        'doc': 'The contest that the person attended.',
                     }),
                 )),
                 ('ou:meet', {}, (
@@ -511,6 +514,12 @@ class OuModule(s_module.CoreModule):
                 ('ou:conference', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which created/managed the conference.',
+                    }),
+                    ('organizer', ('ps:contact', {}), {
+                        'doc': 'Contact information for the primary organizer of the conference.',
+                    }),
+                    ('sponsors', ('array', {'type': 'ps:contact'}), {
+                        'doc': 'An array of contacts which sponsored the conference.',
                     }),
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The full name of the conference.',
@@ -567,6 +576,12 @@ class OuModule(s_module.CoreModule):
                     ('conference', ('ou:conference', {}), {
                         'ro': True,
                         'doc': 'The conference to which the event is associated.',
+                    }),
+                    ('organizer', ('ps:contact', {}), {
+                        'doc': 'Contact information for the primary organizer of the event.',
+                    }),
+                    ('sponsors', ('array', {'type': 'ps:contact'}), {
+                        'doc': 'An array of contacts which sponsored the event.',
                     }),
                     ('place', ('geo:place', {}), {
                         'doc': 'The geo:place where the event occurred.',
