@@ -164,7 +164,7 @@ class Link(s_base.Base):
 
         if self.info.get('tls'):
             info['unix'] = True
-            link0, sock1 = await linksock()
+            link0, sock = await linksock()
 
             async def relay(link):
                 while True:
@@ -174,17 +174,17 @@ class Link(s_base.Base):
                     await self.send(byts)
                 await link.fini()
 
+                if not self.isfini:
+                    await self.fini()
+
             asyncio.create_task(relay(link0))
 
-            return {
-                'info': info,
-                'sock': sock1
-            }
+        else:
+            sock = self.reader._transport._sock
 
         return {
             'info': info,
-            # a bit dirty, but there's no other way...
-            'sock': self.reader._transport._sock
+            'sock': sock,
         }
 
     def getAddrInfo(self):
