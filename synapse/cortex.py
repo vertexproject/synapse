@@ -1621,7 +1621,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             return x[1][1]['props'][prop] < y[1][1]['props'][prop]
 
         def filtercmpr(sode):
-            return sode.get('props', {}).get(prop) is not None
+            props = sode.get('props')
+            if props is None:
+                return False
+            return props.get(prop) is not None
 
         genrs = []
         for layr in layers:
@@ -1632,7 +1635,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _liftByPropArray(self, form, prop, cmprvals, layers):
         def filtercmpr(sode):
-            return sode.get('props', {}).get(prop) is not None
+            props = sode.get('props')
+            if props is None:
+                return False
+            return props.get(prop) is not None
 
         genrs = []
         for layr in layers:
@@ -1659,7 +1665,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _liftByTagValu(self, tag, cmpr, valu, form, layers):
         def filtercmpr(sode):
-            return sode.get('tags', {}).get(tag) is not None
+            tags = sode.get('tags')
+            if tags is None:
+                return False
+            return tags.get(tag) is not None
 
         genrs = []
         for layr in layers:
@@ -1678,7 +1687,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
         def filtercmpr(sode):
-            return sode.get('tagprops', {}).get((tag, prop)) is not None
+            tagprops = sode.get('tagprops')
+            if tagprops is None:
+                return False
+            return tagprops.get((tag, prop)) is not None
 
         genrs = []
         for layr in layers:
