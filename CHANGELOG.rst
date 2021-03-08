@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.28.1 - 2020-03-08
+v2.28.1 - 2021-03-08
 ====================
 
 Bugfixes
@@ -24,7 +24,7 @@ Improved Documentation
   (`#2101 <https://github.com/vertexproject/synapse/pull/2101>`_)
 
 
-v2.28.0 - 2020-02-26
+v2.28.0 - 2021-02-26
 ====================
 
 Features and Enhancements
@@ -68,7 +68,7 @@ Improved Documentation
 - Add documentation for assigning secondary properties via subquery syntax.
   (`#2097 <https://github.com/vertexproject/synapse/pull/2097>`_)
 
-v2.27.0 - 2020-02-16
+v2.27.0 - 2021-02-16
 ====================
 
 Features and Enhancements
@@ -97,7 +97,7 @@ Improved Documentation
   (`#2081 <https://github.com/vertexproject/synapse/pull/2081>`_)
 
 
-v2.26.0 - 2020-02-05
+v2.26.0 - 2021-02-05
 ====================
 
 Features and Enhancements
@@ -121,7 +121,7 @@ Improved Documentation
   (`#2066 <https://github.com/vertexproject/synapse/pull/2066>`_)
 
 
-v2.25.0 - 2020-02-01
+v2.25.0 - 2021-02-01
 ====================
 
 Features and Enhancements
@@ -152,7 +152,7 @@ Improved Documentation
   (`#2065 <https://github.com/vertexproject/synapse/pull/2065>`_)
 
 
-v2.24.0 - 2020-01-29
+v2.24.0 - 2021-01-29
 ====================
 
 Features and Enhancements
@@ -195,7 +195,7 @@ Improved Documentation
   (`#2034 <https://github.com/vertexproject/synapse/pull/2034>`_)
 
 
-v2.23.0 - 2020-01-21
+v2.23.0 - 2021-01-21
 ====================
 
 Features and Enhancements
@@ -217,7 +217,7 @@ Features and Enhancements
   (`#2052 <https://github.com/vertexproject/synapse/pull/2052>`_)
 
 
-v2.22.0 - 2020-01-19
+v2.22.0 - 2021-01-19
 ====================
 
 Features and Enhancements
