@@ -1559,6 +1559,41 @@ class Runtime:
         runt.readonly = self.readonly
         return runt
 
+    async def storm(self, text, opts, genr=None, asroot=False):
+
+        query = self.snap.core.getStormQuery(text)
+        async with self.getSubRuntime(query, opts=opts) as runt:
+
+            if asroot:
+                runt.asroot = True
+
+            async for item in runt.execute(genr=genr):
+                yield item
+
+    async def getOneNode(self, propname, valu, filt=None, cmpr='='):
+
+        opts = {'vars': {'propname': propname, 'valu': valu}}
+
+        nodes = []
+        try:
+
+            async for node in self.snap.nodesByPropValu(propname, cmpr, valu):
+
+                if filt is not None and not await filt(node):
+                    continue
+
+                if len(nodes) == 1:
+                    mesg = 'Ambiguous value for single node lookup: {propname}^={valu}'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+
+                nodes.append(node)
+
+            if len(nodes) == 1:
+                return nodes[0]
+
+        except s_exc.BadTypeValu:
+            return None
+
 class Parser:
 
     def __init__(self, prog=None, descr=None, root=None):

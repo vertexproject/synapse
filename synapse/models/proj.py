@@ -110,8 +110,8 @@ class ProjectModule(s_module.CoreModule):
 
                         ('type', ('str', {'lower': True, 'strip': True}), {}),
 
-                        #('creator', ('syn:user', {}), {}),
-                        #('assignee', ('syn:user', {}), {}),
+                        ('creator', ('guid', {}), {}),
+                        ('assignee', ('guid', {}), {}),
                     )),
                 ),
             }),
