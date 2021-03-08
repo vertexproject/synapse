@@ -1298,7 +1298,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.BadArg(mesg=mesg)
 
         link = s_scope.get('link')
-        linkinfo = link.getSpawnInfo()
+        linkinfo = await link.getSpawnInfo()
 
         await self.boss.promote('backup:stream', user=user)
 
@@ -1353,7 +1353,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
             await self.runBackup(name)
-            linkinfo = s_scope.get('link').getSpawnInfo()
+            link = s_scope.get('link')
+            linkinfo = await link.getSpawnInfo()
 
             await self.boss.promote('backup:stream', user=user)
 
