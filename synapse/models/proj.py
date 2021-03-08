@@ -62,14 +62,15 @@ class ProjectModule(s_module.CoreModule):
                     ('proj:project', {}, (
                         ('name', ('str', {'strip': True, 'onespace': True}), {}),
                         ('created', ('time', {}), {}),
-                        ('creator', ('guid', {}), {}),
+                        ('creator', ('syn:user', {}), {}),
+                        ('updated', ('time', {}), {}),
                     )),
 
                     # TODO do this with sortable array or linked list
                     #('proj:backlog', {}, (
 
                     ('proj:comment', {}, (
-                        ('user', ('guid', {}), {}),
+                        ('creator', ('syn:user', {}), {}),
                         ('created', ('time', {}), {}),
                         ('updated', ('time', {}), {}),
                         ('ticket', ('proj:ticket', {}), {}),
@@ -80,6 +81,10 @@ class ProjectModule(s_module.CoreModule):
                     ('proj:epic', {}, (
                         ('name', ('str', {'strip': True, 'onespace': True}), {}),
                         ('project', ('proj:project', {}), {}),
+
+                        ('creator', ('syn:user', {}), {}),
+                        ('created', ('time', {}), {}),
+                        ('updated', ('time', {'max': True}), {}),
                     )),
 
                     ('proj:milestone', {}, (
@@ -87,6 +92,10 @@ class ProjectModule(s_module.CoreModule):
                         ('due', ('time', {}), {}),
                         ('delivered', ('time', {}), {}),
                         ('project', ('proj:project', {}), {}),
+
+                        ('creator', ('syn:user', {}), {}),
+                        ('created', ('time', {}), {}),
+                        ('updated', ('time', {'max': True}), {}),
                     )),
 
                     ('proj:ticket', {}, (
@@ -110,8 +119,8 @@ class ProjectModule(s_module.CoreModule):
 
                         ('type', ('str', {'lower': True, 'strip': True}), {}),
 
-                        ('creator', ('guid', {}), {}),
-                        ('assignee', ('guid', {}), {}),
+                        ('creator', ('syn:user', {}), {}),
+                        ('assignee', ('syn:user', {}), {}),
                     )),
                 ),
             }),
