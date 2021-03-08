@@ -12,6 +12,8 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
+import synapse.lib.link as s_link
 
 import synapse.tests.utils as s_t_utils
 
@@ -30,6 +32,15 @@ def _exiterProc(pipe, srcdir, dstdir, lmdbpaths):
 
 def _backupSleep(path, linkinfo, done):
     time.sleep(3.0)
+
+async def _iterBackupEOF(path, linkinfo, done):
+    link = await s_link.fromspawn(linkinfo)
+    link.writer.write_eof()
+    await link.fini()
+    await s_coro.executor(done.put, True)
+
+def _backupEOF(path, linkinfo, done):
+    asyncio.run(_iterBackupEOF(path, linkinfo, done))
 
 class EchoAuthApi(s_cell.CellApi):
 
@@ -954,9 +965,14 @@ class CellTest(s_t_utils.SynTest):
                 addr, port = await core.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
 
                 async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
+
                     with open(bkuppath5, 'wb') as bkup5:
                         async for msg in proxy.iterNewBackupArchive(remove=True):
                             bkup5.write(msg)
+
+                    with self.raises(s_exc.LinkShutDown):
+                        with mock.patch('synapse.lib.cell._iterBackupProc', _backupEOF):
+                            await s_t_utils.alist(proxy.iterNewBackupArchive('eof', remove=True))
 
             with tarfile.open(bkuppath5, 'r:gz') as tar:
                 bkupname = os.path.commonprefix(tar.getnames())

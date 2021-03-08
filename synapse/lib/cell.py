@@ -1353,7 +1353,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
             await self.runBackup(name)
-            linkinfo = await s_scope.get('link').getSpawnInfo()
+            link = s_scope.get('link')
+            linkinfo = await link.getSpawnInfo()
 
             await self.boss.promote('backup:stream', user=user)
 

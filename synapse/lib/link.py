@@ -175,6 +175,9 @@ class Link(s_base.Base):
                             break
                         await self.send(byts)
 
+                    if not self.isfini:
+                        await self.fini()
+
             self.schedCoro(relay(link0))
 
         else:
