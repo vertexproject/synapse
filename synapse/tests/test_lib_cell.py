@@ -965,7 +965,6 @@ class CellTest(s_t_utils.SynTest):
                 addr, port = await core.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
 
                 async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
-
                     with open(bkuppath5, 'wb') as bkup5:
                         async for msg in proxy.iterNewBackupArchive(remove=True):
                             bkup5.write(msg)

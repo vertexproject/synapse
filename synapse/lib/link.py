@@ -10,7 +10,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
