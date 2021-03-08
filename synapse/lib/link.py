@@ -165,19 +165,17 @@ class Link(s_base.Base):
         if self.info.get('tls'):
             info['unix'] = True
             link0, sock = await linksock()
+            link0.onfini(sock.close)
 
             async def relay(link):
-                while True:
-                    byts = await link.recv(1024)
-                    if not byts:
-                        break
-                    await self.send(byts)
-                await link.fini()
+                async with link0:
+                    while True:
+                        byts = await link.recv(1024)
+                        if not byts:
+                            break
+                        await self.send(byts)
 
-                if not self.isfini:
-                    await self.fini()
-
-            asyncio.create_task(relay(link0))
+            self.schedCoro(relay(link0))
 
         else:
             sock = self.reader._transport._sock
