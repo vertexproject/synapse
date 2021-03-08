@@ -168,7 +168,7 @@ class Link(s_base.Base):
             link0.onfini(sock.close)
 
             async def relay(link):
-                async with link0:
+                async with link:
                     while True:
                         byts = await link.recv(1024)
                         if not byts:
