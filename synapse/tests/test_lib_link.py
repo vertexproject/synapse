@@ -157,7 +157,7 @@ class LinkTest(s_test.SynTest):
 
         link0, sock0 = await s_link.linksock()
 
-        info = link0.getSpawnInfo()
+        info = await link0.getSpawnInfo()
         link1 = await s_link.fromspawn(info)
 
         await link1.send(b'V')

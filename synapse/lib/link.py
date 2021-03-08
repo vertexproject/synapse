@@ -154,17 +154,37 @@ class Link(s_base.Base):
                 if name == 'commonName':
                     return valu
 
-    def getSpawnInfo(self):
+    async def getSpawnInfo(self):
         info = {}
 
         # selectively add info for pickle...
         if self.info.get('unix'):
             info['unix'] = True
 
+        if self.info.get('tls'):
+            info['unix'] = True
+            link0, sock = await linksock()
+            link0.onfini(sock.close)
+
+            async def relay(link):
+                async with link:
+                    while True:
+                        byts = await link.recv(1024)
+                        if not byts:
+                            break
+                        await self.send(byts)
+
+                    if not self.isfini:
+                        await self.fini()
+
+            self.schedCoro(relay(link0))
+
+        else:
+            sock = self.reader._transport._sock
+
         return {
             'info': info,
-            # a bit dirty, but there's no other way...
-            'sock': self.reader._transport._sock,
+            'sock': sock,
         }
 
     def getAddrInfo(self):
