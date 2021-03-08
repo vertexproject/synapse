@@ -5,6 +5,25 @@ Synapse Changelog
 *****************
 
 
+v2.28.1 - 2020-03-08
+====================
+
+Bugfixes
+--------
+- Fix ``$lib.model.prop()`` API when called with a universal property.
+  It now returns ``$lib.null`` instead of raising an exception.
+  (`#2100 <https://github.com/vertexproject/synapse/pull/2100>`_)
+- Fix the streaming backup API when used with Telepath and SSL.
+  (`#2101 <https://github.com/vertexproject/synapse/pull/2101>`_)
+
+Improved Documentation
+----------------------
+- Add API documentation for the Axon.
+  (`#2098 <https://github.com/vertexproject/synapse/pull/2098>`_)
+- Update the Storm pivot reference documentation.
+  (`#2101 <https://github.com/vertexproject/synapse/pull/2101>`_)
+
+
 v2.28.0 - 2020-02-26
 ====================
 
