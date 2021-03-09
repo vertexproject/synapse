@@ -1329,7 +1329,7 @@ class Layer(s_nexus.Pusher):
             abrv = lkey[:8]
             (form, prop) = self.getAbrvProp(abrv)
 
-            if prop is None:
+            if form is None or prop is None:
                 continue
 
             byts = self.layrslab.get(lval, db=self.bybuidv3)
