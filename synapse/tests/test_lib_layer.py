@@ -1395,19 +1395,6 @@ class LayerTest(s_t_utils.SynTest):
 
             layr = core.getView().layers[0]
 
-            # Old Cortex events:
-            # transport:air:flightnum=ab1234
-            #  :stops=(stop1, stop2, stop3)
-            #  -:stops
-            #
-            # transport:air:flightnum=cd5678
-            #  :stops=(stop1, stop2, stop3)
-            #  -:stops
-            #  :stops=(stop4, stop5, stop6)
-            #
-            # transport:air:flightnum=ef1234
-            #  :stops=(stop1, stop2, stop3)
-
             nodes = await core.nodes('transport:air:flightnum:stops*[=stop1]')
             self.len(1, nodes)
 
@@ -1423,19 +1410,6 @@ class LayerTest(s_t_utils.SynTest):
             cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop4')
             nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
             self.len(1, nodes)
-
-            # Old Cortex events:
-            # inet:http:request=c4ecbe71313219535366ff921c404ed1
-            #  :headers=((header1,valu1), (header2,valu2))
-            #  -:headers
-
-            # inet:http:request=6a0e9d24233becb616a1ffb3b8b0935a
-            #  :headers=((header1,valu1), (header2,valu2))
-            #  -:headers
-            #  :headers=((header3,valu3),)
-
-            # inet:http:request=7327a21627aee17c762faa69c057cd99
-            #  :headers=((header1,valu1), (header2,valu2))
 
             nodes = await core.nodes('inet:http:request:headers*[=(header1, valu1)]')
             self.len(1, nodes)
