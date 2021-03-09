@@ -69,6 +69,11 @@ class AhaApi(s_cell.CellApi):
                 mesg = f'{self.cell.__class__.__name__} is fini. Unable to set {name}@{network} as down.'
                 logger.warning(mesg)
                 return
+            # In a clustered scenario, a election causing the Dmon to tear down the
+            # links will cause this fini routine to execute. This leaves us trying
+            # to make nexus changes **during** an election after we're in a state
+            # which has less than well defined mechanics. Since the teardown of links
+            # is a awaited, this inline fini operation is also awaited.
             await self.cell.setAhaSvcDown(name, sess, network=network)
 
         self.onfini(fini)
@@ -127,6 +132,32 @@ class AhaCell(s_cell.Cell):
             await slab.fini()
 
         self.onfini(fini)
+
+        self._startup_svcs = [svc async for svc in self.getAhaSvcs() if svc.get('svcinfo', {}).get('online')]
+
+    async def initServiceRuntime(self):
+        self.addActiveCoro(self.oldSessionPruner)
+
+    async def oldSessionPruner(self):
+        # This will only remove online flag from  services seen with the flag
+        # during the start of cell storage. During clustered use, the teardown
+        # of the cellapi implementation takes care of edits which were made
+        # while the service is live, since the nexus will push the change
+        # upstream.
+        #
+        # This will not handle a network partition tho from a re-election
+        #
+        for svc in self._startup_svcs:
+            full = svc.get('name')
+            svcname = svc.get('svcname')
+            network = svc.get('svcnetw')
+            linkiden = svc.get('svcinfo').get('online')
+            currentsvc = await self.getAhaSvc(full)
+            if currentsvc.get('svcinfo').get('online') == linkiden:
+                # Only make the nexus call when we've got data to change.
+                await self.setAhaSvcDown(svcname, linkiden, network=network)
+        # Wait until we are cancelled or the cell is fini.
+        await self.waitfini()
 
     async def getAhaSvcs(self, network=None):
         path = ('aha', 'services')
@@ -194,7 +225,8 @@ class AhaCell(s_cell.Cell):
     async def setAhaSvcDown(self, name, linkiden, network=None):
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
         path = ('aha', 'services', svcnetw, svcname)
-        await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
+        ret = await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
+        logger.debug(f'Deleted: {path} {linkiden=} result {ret=}')
 
     async def getAhaSvc(self, name):
         path = ('aha', 'svcfull', name)
