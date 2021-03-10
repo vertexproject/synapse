@@ -30,7 +30,8 @@ The Synapse release process creates several docker containers for use in product
     points.
 
 Each Synapse release will build and upload tagged images to Docker Hub.  It is strongly recommended that docker based
-deployments specify specific version tags.
+deployments specify specific version tags. A full list of Docker containers can be found here
+:ref:`synapse-docker-images`.
 
 From Python Package
 -------------------
