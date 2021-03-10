@@ -2869,13 +2869,16 @@ class EditNodeAdd(Edit):
         '''
         vals = await self.kids[2].compute(runt, path)
 
-        for valu in form.type.getTypeVals(vals):
-            try:
-                newn = await runt.snap.addNode(form.name, valu)
-            except self.excignore:
-                pass
-            else:
-                yield newn, runt.initPath(newn)
+        try:
+            for valu in form.type.getTypeVals(vals):
+                try:
+                    newn = await runt.snap.addNode(form.name, valu)
+                except self.excignore:
+                    pass
+                else:
+                    yield newn, runt.initPath(newn)
+        except self.excignore:
+            await asyncio.sleep(0)
 
     async def run(self, runt, genr):
 

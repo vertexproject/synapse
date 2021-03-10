@@ -751,8 +751,17 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[inet:ipv4=foo-bar.com]')
 
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[test:str="foo"] [inet:ipv4=$node.value()]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[test:str="foo-bar.com"] [inet:ipv4=$node.value()]')
+
             self.len(0, await core.nodes('[inet:ipv4?=foo]'))
             self.len(0, await core.nodes('[inet:ipv4?=foo-bar.com]'))
+
+            self.len(0, await core.nodes('[test:str="foo"] [inet:ipv4?=$node.value()] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ipv4?=$node.value()] -test:str'))
 
     async def test_ipv6(self):
         formname = 'inet:ipv6'
