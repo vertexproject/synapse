@@ -1313,8 +1313,8 @@ class Layer(s_nexus.Pusher):
         logger.warning('...removing old bybuid index')
         self.layrslab.dropdb('bybuid')
 
-        self.meta.set('version', 4)
-        self.layrvers = 4
+        self.meta.set('version', 3)
+        self.layrvers = 3
 
         logger.warning(f'...complete! ({count} nodes)')
 
@@ -1387,7 +1387,7 @@ class Layer(s_nexus.Pusher):
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
         if self.fresh:
-            self.meta.set('version', 3)
+            self.meta.set('version', 4)
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
