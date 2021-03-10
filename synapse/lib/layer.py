@@ -1313,8 +1313,8 @@ class Layer(s_nexus.Pusher):
         logger.warning('...removing old bybuid index')
         self.layrslab.dropdb('bybuid')
 
-        self.meta.set('version', 3)
-        self.layrvers = 3
+        self.meta.set('version', 4)
+        self.layrvers = 4
 
         logger.warning(f'...complete! ({count} nodes)')
 
