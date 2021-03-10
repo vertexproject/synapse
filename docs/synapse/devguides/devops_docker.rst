@@ -1,4 +1,3 @@
-
 .. _synapse-docker-images:
 
 Synapse Docker Images
@@ -79,3 +78,4 @@ The following images are available::
 
     vertexproject/synapse-base-image3:py38
     vertexproject/synapse-base-image3:py37
+
