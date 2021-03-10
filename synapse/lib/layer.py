@@ -1109,8 +1109,6 @@ class Layer(s_nexus.Pusher):
 
         self.dirty = {}
 
-        await self._initLayerStorage()
-
         self.stortypes = [
 
             None,
@@ -1146,6 +1144,8 @@ class Layer(s_nexus.Pusher):
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
         ]
+
+        await self._initLayerStorage()
 
         self.editors = [
             self._editNodeAdd,
@@ -1318,6 +1318,54 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'...complete! ({count} nodes)')
 
+    async def _layrV3toV4(self):
+
+        sode = collections.defaultdict(dict)
+
+        logger.warning(f'Cleaning layer byarray index: {self.dirn}')
+
+        for lkey, lval in self.layrslab.scanByFull(db=self.byarray):
+
+            abrv = lkey[:8]
+            (form, prop) = self.getAbrvProp(abrv)
+
+            if form is None or prop is None:
+                continue
+
+            byts = self.layrslab.get(lval, db=self.bybuidv3)
+            if byts is not None:
+                sode.update(s_msgpack.un(byts))
+
+            pval = sode['props'].get(prop)
+            if pval is None:
+                self.layrslab.delete(lkey, lval, db=self.byarray)
+                sode.clear()
+                continue
+
+            indxbyts = lkey[8:]
+            valu, stortype = pval
+            realtype = stortype & 0x7fff
+
+            if realtype == STOR_TYPE_MSGP:
+                for aval in valu:
+                    if s_common.buid(aval) == indxbyts:
+                        break
+                else:
+                    self.layrslab.delete(lkey, lval, db=self.byarray)
+                    sode.clear()
+                    continue
+            else:
+                indxvalu = self.stortypes[realtype].decodeIndx(indxbyts)
+                if indxvalu not in valu:
+                    self.layrslab.delete(lkey, lval, db=self.byarray)
+
+            sode.clear()
+
+        self.meta.set('version', 4)
+        self.layrvers = 4
+
+        logger.warning(f'...complete!')
+
     async def _initLayerStorage(self):
 
         slabopts = {
@@ -1378,6 +1426,9 @@ class Layer(s_nexus.Pusher):
 
         if self.layrvers < 3:
             await self._layrV2toV3()
+
+        if self.layrvers < 4:
+            await self._layrV3toV4()
 
     async def getLayerSize(self):
         '''
