@@ -2932,13 +2932,16 @@ class EditNodeAdd(Edit):
                 valu = await self.kids[2].compute(runt, None)
                 valu = await s_stormtypes.toprim(valu)
 
-                for valu in form.type.getTypeVals(valu):
-                    try:
-                        node = await runt.snap.addNode(formname, valu)
-                    except self.excignore:
-                        continue
+                try:
+                    for valu in form.type.getTypeVals(valu):
+                        try:
+                            node = await runt.snap.addNode(formname, valu)
+                        except self.excignore:
+                            continue
 
-                    yield node, runt.initPath(node)
+                        yield node, runt.initPath(node)
+                        await asyncio.sleep(0)
+                except self.excignore:
                     await asyncio.sleep(0)
 
         if runtsafe:
