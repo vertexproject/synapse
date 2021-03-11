@@ -73,7 +73,7 @@ v2.27.0 - 2021-02-16
 
 Features and Enhancements
 -------------------------
-- Allow property assignment and array operations from subsqueries.
+- Allow property assignment and array operations from subqueries.
   (`#2072 <https://github.com/vertexproject/synapse/pull/2072>`_)
 - Add APIs to the Axon to allow the deletion of blobs via Telepath and HTTP
   APIs.
@@ -222,7 +222,7 @@ v2.22.0 - 2021-01-19
 
 Features and Enhancements
 -------------------------
-- Allow expression statments to be used in Storm filters.
+- Allow expression statements to be used in Storm filters.
   (`#2041 <https://github.com/vertexproject/synapse/pull/2041>`_)
 - Add ``file:subfile:path`` secondary property to record the path a file was
   stored in a parent file. The corresponding ``file:subfile:name`` property is
