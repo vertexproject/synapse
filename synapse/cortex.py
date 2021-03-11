@@ -1577,7 +1577,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         sodes = {}
         async for (layr, item) in s_common.merggenr(genrs, cmprkey):
             buid, sode = item
-            if not buid == lastbuid:
+            if not buid == lastbuid or layr in sodes:
                 if lastbuid is not None:
                     sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
                     if sodelist is not None:
@@ -1626,12 +1626,13 @@ class Cortex(s_cell.Cell):  # type: ignore
                 return False
             return props.get(prop) is not None
 
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, cmprvals)))
+        for cval in cmprvals:
+            genrs = []
+            for layr in layers:
+                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, (cval,))))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey, filtercmpr):
-            yield sodes
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey, filtercmpr):
+                yield sodes
 
     async def _liftByPropArray(self, form, prop, cmprvals, layers):
         def filtercmpr(sode):
@@ -1640,20 +1641,22 @@ class Cortex(s_cell.Cell):  # type: ignore
                 return False
             return props.get(prop) is not None
 
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, cmprvals)))
+        for cval in cmprvals:
+            genrs = []
+            for layr in layers:
+                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, (cval,))))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
-            yield sodes
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
+                yield sodes
 
     async def _liftByFormValu(self, form, cmprvals, layers):
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, cmprvals)))
+        for cval in cmprvals:
+            genrs = []
+            for layr in layers:
+                genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, (cval,))))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_formvalu):
-            yield sodes
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_formvalu):
+                yield sodes
 
     async def _liftByTag(self, tag, form, layers):
         genrs = []
@@ -1692,12 +1695,13 @@ class Cortex(s_cell.Cell):  # type: ignore
                 return False
             return tagprops.get((tag, prop)) is not None
 
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, cmprvals)))
+        for cval in cmprvals:
+            genrs = []
+            for layr in layers:
+                genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, (cval,))))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
-            yield sodes
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
+                yield sodes
 
     async def _setStormCmd(self, cdef):
         '''

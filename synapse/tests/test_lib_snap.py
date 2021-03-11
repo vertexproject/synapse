@@ -494,3 +494,44 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await view1.nodes('#woot:score=20'))
 
             self.len(1, await view0.nodes('[ test:int=10 +#woot:score=40 ]'))
+
+    async def test_cortex_lift_layers_ordering(self):
+
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+
+            self.len(1, await view0.nodes('[ inet:ipv4=1.1.1.1 :asn=1 ]'))
+            self.len(1, await view1.nodes('[ inet:ipv4=1.1.1.2 :asn=2 ]'))
+            self.len(1, await view0.nodes('[ inet:ipv4=1.1.1.3 :asn=3 ]'))
+            self.len(1, await view0.nodes('[ inet:ipv4=1.1.1.4 :asn=4 ]'))
+
+            nodes = await view1.nodes('inet:ipv4:asn')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                asn = node.props.get('asn')
+                self.gt(asn, last)
+                last = asn
+
+            nodes = await view1.nodes('inet:ipv4:asn*in=(1,2,3,4)')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                asn = node.props.get('asn')
+                self.gt(asn, last)
+                last = asn
+
+            nodes = await view1.nodes('inet:ipv4:asn*in=(4,3,2,1)')
+            self.len(4, nodes)
+            last = 5
+            for node in nodes:
+                asn = node.props.get('asn')
+                self.lt(asn, last)
+                last = asn
+
+            self.len(1, await view1.nodes('[crypto:x509:cert="*" :identities:fqdns=(somedomain.biz,www.somedomain.biz)]'))
+            nodes = await view1.nodes('crypto:x509:cert:identities:fqdns*[="*.biz"]')
+            self.len(2, nodes)
+
+            self.len(1, await view1.nodes('[crypto:x509:cert="*" :identities:fqdns=(somedomain.biz,www.somedomain.biz)]'))
+            nodes = await view1.nodes('crypto:x509:cert:identities:fqdns*[="*.biz"]')
+            self.len(4, nodes)
