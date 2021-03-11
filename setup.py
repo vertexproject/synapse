@@ -53,7 +53,7 @@ setup(
         'lmdb>=1.1.1,<1.2.0',
         'tornado>=6.1.0,<7.0.0',
         'regex>=2020.5.14',
-        'PyYAML>=5.2,<6.0',
+        'PyYAML>=5.4,<6.0',
         'aiohttp>=3.6.3,<4.0',
         'aiohttp-socks>=0.5.5,<0.6.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
