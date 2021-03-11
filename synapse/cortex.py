@@ -1595,6 +1595,12 @@ class Cortex(s_cell.Cell):  # type: ignore
                 yield sodelist
 
     async def _liftByDataName(self, name, layers):
+        if len(layers) == 1:
+            layr = layers[0].iden
+            async for (buid, sode) in layers[0].liftByDataName(name):
+                yield (buid, [(layr, sode)])
+            return
+
         genrs = []
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByDataName(name)))
@@ -1603,6 +1609,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             yield sodes
 
     async def _liftByProp(self, form, prop, layers):
+        if len(layers) == 1:
+            layr = layers[0].iden
+            async for (buid, sode) in layers[0].liftByProp(form, prop):
+                yield (buid, [(layr, sode)])
+            return
+
         if prop is None:
             cmprkey = cmprkey_formvalu
         else:
@@ -1617,6 +1629,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             yield sodes
 
     async def _liftByPropValu(self, form, prop, cmprvals, layers):
+        if len(layers) == 1:
+            layr = layers[0].iden
+            async for (buid, sode) in layers[0].liftByPropValu(form, prop, cmprvals):
+                yield (buid, [(layr, sode)])
+            return
+
         def cmprkey(x, y):
             return x[1][1]['props'][prop] < y[1][1]['props'][prop]
 
@@ -1635,6 +1653,12 @@ class Cortex(s_cell.Cell):  # type: ignore
                 yield sodes
 
     async def _liftByPropArray(self, form, prop, cmprvals, layers):
+        if len(layers) == 1:
+            layr = layers[0].iden
+            async for (buid, sode) in layers[0].liftByPropArray(form, prop, cmprvals):
+                yield (buid, [(layr, sode)])
+            return
+
         def filtercmpr(sode):
             props = sode.get('props')
             if props is None:
@@ -1650,6 +1674,12 @@ class Cortex(s_cell.Cell):  # type: ignore
                 yield sodes
 
     async def _liftByFormValu(self, form, cmprvals, layers):
+        if len(layers) == 1:
+            layr = layers[0].iden
+            async for (buid, sode) in layers[0].liftByFormValu(form, cmprvals):
+                yield (buid, [(layr, sode)])
+            return
+
         for cval in cmprvals:
             genrs = []
             for layr in layers:
@@ -1659,6 +1689,12 @@ class Cortex(s_cell.Cell):  # type: ignore
                 yield sodes
 
     async def _liftByTag(self, tag, form, layers):
+        if len(layers) == 1:
+            layr = layers[0].iden
+            async for (buid, sode) in layers[0].liftByTag(tag, form):
+                yield (buid, [(layr, sode)])
+            return
+
         genrs = []
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTag(tag, form)))
@@ -1667,6 +1703,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             yield sodes
 
     async def _liftByTagValu(self, tag, cmpr, valu, form, layers):
+        if len(layers) == 1:
+            layr = layers[0].iden
+            async for (buid, sode) in layers[0].liftByTagValu(tag, cmpr, valu, form):
+                yield (buid, [(layr, sode)])
+            return
+
         def filtercmpr(sode):
             tags = sode.get('tags')
             if tags is None:
@@ -1681,6 +1723,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             yield sodes
 
     async def _liftByTagProp(self, form, tag, prop, layers):
+        if len(layers) == 1:
+            layr = layers[0].iden
+            async for (buid, sode) in layers[0].liftByTagProp(form, tag, prop):
+                yield (buid, [(layr, sode)])
+            return
+
         genrs = []
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
@@ -1689,6 +1737,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             yield sodes
 
     async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
+        if len(layers) == 1:
+            layr = layers[0].iden
+            async for (buid, sode) in layers[0].liftByTagPropValu(form, tag, prop, cmprvals):
+                yield (buid, [(layr, sode)])
+            return
+
         def filtercmpr(sode):
             tagprops = sode.get('tagprops')
             if tagprops is None:
