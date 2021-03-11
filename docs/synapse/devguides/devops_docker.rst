@@ -3,19 +3,19 @@
 Synapse Docker Images
 =====================
 
-There are several docker images published for Synapse that can directly used for testing and deployment. By default,
+There are several docker images published for Synapse that can be directly used for testing and deployment. By default,
 the images use Python 3.8.
 
 
 .. note::
     Vertex does **not** publish a ``latest`` tag for any of our Docker repositories. Vertex uses Docker tags based on
-    git branch names, git release tags, and dynamic Docker tags to that track the latest tagged release.
+    git branch names, git release tags, and dynamic Docker tags that track the latest tagged release.
 
 
 Application Specific Images
 ---------------------------
 The application specific images contain entry point scripts which launch their respective Synapse application Cells
-from the ``/vertex/storage`` directory. The details for these images can be found on Dockehub:
+from the ``/vertex/storage`` directory. The details for these images can be found on Dockerhub:
 
 - `Aha <https://hub.docker.com/repository/docker/vertexproject/synapse-aha>`_
 - `Axon <https://hub.docker.com/repository/docker/vertexproject/synapse-axon>`_
