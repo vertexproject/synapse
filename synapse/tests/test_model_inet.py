@@ -752,6 +752,9 @@ class InetModelTest(s_t_utils.SynTest):
                 await core.nodes('[inet:ipv4=foo-bar.com]')
 
             with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ipv4=foo-bar-duck.com]')
+
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[test:str="foo"] [inet:ipv4=$node.value()]')
 
             with self.raises(s_exc.BadTypeValu):
@@ -840,6 +843,27 @@ class InetModelTest(s_t_utils.SynTest):
                 self.checkNode(node, (expected_ndef, expected_props))
 
             await self.agenlen(1, core.eval('inet:ipv6*range=(0::1, 0::1)'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ipv6=foo]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ipv6=foo-bar.com]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ipv6=foo-bar-duck.com]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[test:str="foo"] [inet:ipv6=$node.value()]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[test:str="foo-bar.com"] [inet:ipv6=$node.value()]')
+
+            self.len(0, await core.nodes('[inet:ipv6?=foo]'))
+            self.len(0, await core.nodes('[inet:ipv6?=foo-bar.com]'))
+
+            self.len(0, await core.nodes('[test:str="foo"] [inet:ipv6?=$node.value()] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ipv6?=$node.value()] -test:str'))
 
     async def test_ipv6_lift_range(self):
 
