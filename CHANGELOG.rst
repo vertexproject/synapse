@@ -5,6 +5,44 @@ Synapse Changelog
 *****************
 
 
+v2.29.0 - 2021-03-11
+====================
+
+This release includes a Cortex storage Layer bugfix. It does an automatic
+upgrade upon startup to identify and correct invalid array index values.
+Depending on time needed to perform this automatic upgrade, the Cortex may
+appear unresponsive. Deployments with startup or liveliness probes should
+have those disabled while this upgrade is performed to prevent accidental
+termination of the Cortex process.
+
+Features and Enhancements
+-------------------------
+- Add a ``reverse`` argument to ``$lib.sorted()`` to allow a Storm user
+  to easily reverse an iterable item.
+  (`#2109 <https://github.com/vertexproject/synapse/pull/2109>`_)
+- Update minimum required versions of Tornado and PyYAML.
+  (`#2108 <https://github.com/vertexproject/synapse/pull/2108>`_)
+
+Bugfixes
+--------
+- Fix an issue with Array property type deletion not properly deleting values
+  in the ``byarray`` index. This requires an automatic data migration done at
+  Cortex startup to remove extra index values which may be present in the
+  index.
+  (`#2104 <https://github.com/vertexproject/synapse/pull/2104>`_)
+  (`#2106 <https://github.com/vertexproject/synapse/pull/2106>`_)
+- Fix issues with using the Storm ``?=`` operator with types which can
+  generate multiple values from a given input string when making nodes.
+  (`#2105 <https://github.com/vertexproject/synapse/pull/2105>`_)
+  (`#2107 <https://github.com/vertexproject/synapse/pull/2107>`_)
+
+Improved Documentation
+----------------------
+- Add Devops documentation explaining our Docker container offerings.
+  (`#2104 <https://github.com/vertexproject/synapse/pull/2104>`_)
+  (`#2110 <https://github.com/vertexproject/synapse/pull/2110>`_)
+
+
 v2.28.1 - 2021-03-08
 ====================
 
