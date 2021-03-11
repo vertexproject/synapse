@@ -409,7 +409,7 @@ class IPv4(s_types.Type):
         return socket.inet_ntoa(byts)
 
     def getNetRange(self, text):
-        minstr, maxstr = text.split('-')
+        minstr, maxstr = text.split('-', 1)
         minv, info = self.norm(minstr)
         maxv, info = self.norm(maxstr)
         return minv, maxv
@@ -532,14 +532,22 @@ class IPv6(s_types.Type):
         yield valu
 
     def getCidrRange(self, text):
-        netw = ipaddress.IPv6Network(text, strict=False)
+        try:
+            netw = ipaddress.IPv6Network(text, strict=False)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=text, name=self.name, mesg=str(e)) from None
         minv = netw[0]
         maxv = netw[-1]
         return minv, maxv
 
     def getNetRange(self, text):
-        minv, maxv = text.split('-')
-        return ipaddress.IPv6Address(minv), ipaddress.IPv6Address(maxv)
+        minv, maxv = text.split('-', 1)
+        try:
+            minv = ipaddress.IPv6Address(minv)
+            maxv = ipaddress.IPv6Address(maxv)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=text, name=self.name, mesg=str(e)) from None
+        return minv, maxv
 
     def _ctorCmprEq(self, valu):
 

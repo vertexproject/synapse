@@ -830,6 +830,8 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_sorted',
                   'args': (
                       {'name': 'valu', 'type': 'any', 'desc': 'An iterable object to sort.', },
+                      {'name': 'reverse', 'type': 'boolean', 'desc': 'Reverse the sort order.',
+                       'default': False},
                   ),
                   'returns': {'name': 'Yields', 'type': 'any', 'desc': 'Yields the sorted output.', }}},
         {'name': 'import', 'desc': 'Import a Storm Package.',
@@ -915,9 +917,9 @@ class LibBase(Lib):
         raise s_stormctrl.StormExit()
 
     @stormfunc(readonly=True)
-    async def _sorted(self, valu):
+    async def _sorted(self, valu, reverse=False):
         valu = await toiter(valu)
-        for item in sorted(valu):
+        for item in sorted(valu, reverse=reverse):
             yield item
 
     async def _set(self, *vals):

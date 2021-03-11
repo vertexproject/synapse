@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.28.1'
+VERSION = '2.29.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -51,9 +51,9 @@ setup(
         'msgpack>=1.0.2,<1.1.0',
         'xxhash>=1.4.4,<2.0.0',
         'lmdb>=1.1.1,<1.2.0',
-        'tornado>=6.0.3,<7.0.0',
+        'tornado>=6.1.0,<7.0.0',
         'regex>=2020.5.14',
-        'PyYAML>=5.2,<6.0',
+        'PyYAML>=5.4,<6.0',
         'aiohttp>=3.6.3,<4.0',
         'aiohttp-socks>=0.5.5,<0.6.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
