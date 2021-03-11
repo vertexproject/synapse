@@ -368,6 +368,7 @@ class SnapTest(s_t_utils.SynTest):
         async with self._getTestCoreMultiLayer() as (view0, view1):
 
             self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
+            self.len(1, await alist(view1.eval('inet:ipv4#woot@=2014')))
             self.len(1, await alist(view1.eval('inet:ipv4=1.2.3.4 [ :asn=31337 +#woot=2016 ]')))
 
             self.len(0, await alist(view0.eval('inet:ipv4:asn=31337')))
@@ -377,6 +378,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(0, await alist(view1.eval('inet:ipv4:asn=42')))
 
             self.len(1, await alist(view0.eval('[ test:arrayprop="*" :ints=(1, 2, 3) ]')))
+            self.len(1, await alist(view1.eval('test:int=2 -> test:arrayprop')))
             self.len(1, await alist(view1.eval('test:arrayprop [ :ints=(4, 5, 6) ]')))
 
             self.len(0, await alist(view0.eval('test:int=5 -> test:arrayprop')))
@@ -473,6 +475,7 @@ class SnapTest(s_t_utils.SynTest):
             await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
 
             self.len(1, await view0.nodes('[ test:int=10 +#woot:score=20 ]'))
+            self.len(1, await view1.nodes('#woot:score=20'))
             self.len(1, await view1.nodes('[ test:int=10 +#woot:score=40 ]'))
 
             self.len(0, await view0.nodes('#woot:score=40'))
