@@ -1588,6 +1588,8 @@ class FormPivot(PivotOper):
 
         if not prop.isform:
 
+            isarray = isinstance(prop.type, s_types.Array)
+
             # plain old pivot...
             async for node, path in genr:
 
@@ -1596,9 +1598,14 @@ class FormPivot(PivotOper):
 
                 valu = node.ndef[1]
 
+                if isarray:
+                    genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
+                else:
+                    genr = runt.snap.nodesByPropValu(prop.full, '=', valu)
+
                 # TODO cache/bypass normalization in loop!
                 try:
-                    async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
+                    async for pivo in genr:
                         yield pivo, path.fork(pivo)
                 except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                     if not warned:
