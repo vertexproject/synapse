@@ -502,10 +502,18 @@ class SnapTest(s_t_utils.SynTest):
 
         async with self._getTestCoreMultiLayer() as (view0, view1):
 
+            self.len(1, await view0.nodes('[ inet:ipv4=1.1.1.4 :asn=4 ]'))
             self.len(1, await view0.nodes('[ inet:ipv4=1.1.1.1 :asn=1 ]'))
             self.len(1, await view1.nodes('[ inet:ipv4=1.1.1.2 :asn=2 ]'))
             self.len(1, await view0.nodes('[ inet:ipv4=1.1.1.3 :asn=3 ]'))
-            self.len(1, await view0.nodes('[ inet:ipv4=1.1.1.4 :asn=4 ]'))
+
+            nodes = await view1.nodes('inet:ipv4')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                valu = node.ndef[1]
+                self.gt(valu, last)
+                last = valu
 
             nodes = await view1.nodes('inet:ipv4:asn')
             self.len(4, nodes)
