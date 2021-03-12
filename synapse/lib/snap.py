@@ -370,14 +370,6 @@ class Snap(s_base.Base):
         await asyncio.sleep(0)
         return node
 
-    async def _joinStorGenr(self, layr, genr):
-        cache = {}
-        async for buid, sode in genr:
-            cache[layr.iden] = sode
-            node = await self._joinStorNode(buid, cache)
-            if node is not None:
-                yield node
-
     async def nodesByDataName(self, name):
         async for (buid, sodes) in self.core._liftByDataName(name, self.layers):
             yield await self._joinSodes(buid, sodes)
