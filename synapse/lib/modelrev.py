@@ -32,12 +32,12 @@ class ModelRev:
                 await layr.storNodeEdits(nodeedits, meta)
                 nodeedits.clear()
 
-            async for buid, propvalu in layr.iterPropRows('inet:web:acct', 'client:ipv6'):
+            async for buid, propvalu in layr.iterPropRows('inet:web:acct', 'signup:client:ipv6'):
 
                 ipv6text = ipv6type.norm(ipv4type.repr(propvalu))
                 nodeedits.append(
                     (buid, 'inet:web:acct', (
-                        (s_layer.EDIT_PROP_SET, ('client:ipv6', ipv6text, propvalu, s_layer.STOR_TYPE_IPV6), ()),
+                        (s_layer.EDIT_PROP_SET, ('signup:client:ipv6', ipv6text, propvalu, s_layer.STOR_TYPE_IPV6), ()),
                     )),
                 )
 
