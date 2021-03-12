@@ -160,6 +160,15 @@ class ItModule(s_module.CoreModule):
                 ('it:host', ('guid', {}), {
                     'doc': 'A GUID that represents a host or system.'
                 }),
+                ('it:network', ('guid', {}), {
+                    'doc': 'A GUID that represents logical network.'
+                }),
+                ('it:account', ('guid', {}), {
+                    'doc': 'A GUID that represents an account on a host or network.'
+                }),
+                ('it:logon', ('guid', {}), {
+                    'doc': 'A GUID that represents an individual logon/logoff event.'
+                }),
                 ('it:hosturl', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                     'doc': 'A url hosted on or served by a host or system.',
                 }),
@@ -372,6 +381,46 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that operates the given host.',
+                    }),
+                )),
+                ('it:network', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The name of the network.',
+                    }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org that owns/operates the network.',
+                    }),
+                    ('domain', ('inet:fqdn', {}), {
+                        'doc': 'A network search zone or domain name for the network.',
+                    }),
+                    # TODO host <-> network?
+                )),
+                ('it:account', {}, (
+                    ('user', ('inet:user', {}), {
+                        'doc': 'The username associated with the account',
+                    }),
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'Additional contact information associated with this account.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host where the account is registered.',
+                    }),
+                    ('network', ('it:network', {}), {
+                        'doc': 'The network where the account is registered.',
+                    }),
+                )),
+                ('it:logon', {}, (
+                    ('time', ('time', {}), {
+                        'doc': 'The time the the logon occured.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host that the account logged in to.',
+                    }),
+                    ('account', ('it:account', {}), {
+                        'doc': 'The account that logged in.',
+                    }),
+                    ('duration', ('time:duration', {}), {
+                        'doc': 'The duration of the logon session.',
                     }),
                 )),
                 ('it:hosturl', {}, (

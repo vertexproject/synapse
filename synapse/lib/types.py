@@ -1607,6 +1607,57 @@ class Tag(Str):
 
         return norm, {'subs': subs}
 
+msec_day = 86400000
+msec_hour = 3600000
+msec_min = 60000
+msec_sec = 1000
+
+class Duration(IntBase):
+    _opt_defs = (
+        ('signed', False),
+    )
+
+    def _normPyStr(self, text):
+
+        text = text.strip()
+        if text.find('D') != -1:
+            daystext, text = text.split('D', 1)
+
+        dura = 0
+
+        dura += int(daystext.strip(), 0) * msec_day
+
+        if text.find(':') != -1:
+            parts = text.split(':')
+            if len(parts) == 2:
+                dura += int(parts[0].strip(), 0) * msec_min
+                dura += int(float(parts[1].strip(), 0) * msec_sec)
+            elif len(parts) == 3:
+                dura += int(parts[0].strip(), 0) * msec_hour
+                dura += int(parts[1].strip(), 0) * msec_min
+                dura += int(float(parts[2].strip(), 0) * msec_sec)
+            else:
+                mesg = 'Invalid number of : characters for duration.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+        else:
+            dura += int(float(parts[2].strip(), 0) * msec_sec)
+
+        return dura
+
+    def repr(self, valu):
+
+        days, rem = divmod(valu, msec_day)
+        hours, rem = divmod(rem, msec_hour)
+        minutes, rem = divmod(rem, msec_min)
+        seconds, millis = divmod(rem, msec_sec)
+
+        retn = ''
+        if days:
+            retn += f'{days}D '
+
+        retn += f'{hours:02}:{minutes:02}:{seconds:02}.{millis:03}'
+        return retn
+
 class Time(IntBase):
 
     stortype = s_layer.STOR_TYPE_TIME

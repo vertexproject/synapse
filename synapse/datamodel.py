@@ -470,6 +470,10 @@ class Model:
         item = s_types.Time(self, 'time', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A duration value.'}
+        item = s_types.Duration(self, 'duration', info, {})
+        self.addBaseType(item)
+
         info = {'doc': 'A time window/interval.'}
         item = s_types.Ival(self, 'ival', info, {})
         self.addBaseType(item)

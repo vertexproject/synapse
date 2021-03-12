@@ -20,6 +20,12 @@ class TypesTest(s_t_utils.SynTest):
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
+    def test_duration(self):
+        model = s_datamodel.Model()
+        t = model.type('duration')
+        self.eq('00:05:00.333', t.repr(300333))
+        self.eq('11D 00:05:00.333', t.repr(992832344))
+
     def test_bool(self):
         model = s_datamodel.Model()
         t = model.type('bool')
