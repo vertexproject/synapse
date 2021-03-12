@@ -1659,11 +1659,14 @@ class Cortex(s_cell.Cell):  # type: ignore
                 yield (buid, [(layr, sode)])
             return
 
-        def filtercmpr(sode):
-            props = sode.get('props')
-            if props is None:
-                return False
-            return props.get(prop) is not None
+        if prop is None:
+            filtercmpr = None
+        else:
+            def filtercmpr(sode):
+                props = sode.get('props')
+                if props is None:
+                    return False
+                return props.get(prop) is not None
 
         for cval in cmprvals:
             genrs = []
