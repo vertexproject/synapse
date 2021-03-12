@@ -853,7 +853,7 @@ class LibBase(Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the model type to normalize the value as.', },
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to normalize.', },
                   ),
-                  'returns': {'type': 'prim', 'desc': 'A tuple of (<bool>, <prim>) for status and normalized value.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
     )
 
     def getObjLocals(self):
