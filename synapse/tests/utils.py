@@ -194,6 +194,7 @@ testmodel = {
         ('test:guid', ('guid', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
+        ('test:arrayform', ('array', {'type': 'int'}), {}),
 
         ('test:comp', ('comp', {'fields': (
             ('hehe', 'test:int'),
@@ -231,6 +232,8 @@ testmodel = {
 
         ('test:arrayprop', {}, (
             ('ints', ('array', {'type': 'test:int'}), {}),
+        )),
+        ('test:arrayform', {}, (
         )),
         ('test:type10', {}, (
 

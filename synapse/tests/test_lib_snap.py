@@ -581,6 +581,17 @@ class SnapTest(s_t_utils.SynTest):
                 self.lt(scor, last)
                 last = scor
 
+            await view0.nodes('[ test:arrayform=(3,5,6)]')
+            await view0.nodes('[ test:arrayform=(1,2,3)]')
+            await view1.nodes('[ test:arrayform=(2,3,4)]')
+            await view0.nodes('[ test:arrayform=(3,4,5)]')
+
+            nodes = await view1.nodes('test:arrayform*[=3]')
+            self.len(4, nodes)
+
+            nodes = await view1.nodes('test:arrayform*[=2]')
+            self.len(2, nodes)
+
             nodes = await view1.nodes('yield $lib.lift.byNodeData(woot)')
             self.len(4, nodes)
 
