@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 1)
+maxvers = (0, 2, 2)
 
 class ModelRev:
 
@@ -20,8 +20,8 @@ class ModelRev:
 
     async def revModel20210312(self, layers):
 
-        ipv4text = self.core.model.type('inet:ipv4')
-        ipv6text = self.core.model.type('inet:ipv6')
+        ipv4type = self.core.model.type('inet:ipv4')
+        ipv6type = self.core.model.type('inet:ipv6')
 
         for layr in layers:
 
@@ -34,7 +34,7 @@ class ModelRev:
 
             async for buid, propvalu in layr.iterPropRows('inet:web:acct', 'signup:client:ipv6'):
 
-                ipv6text = ipv6type.norm(ipv4type.repr(propvalu))
+                ipv6text = ipv6type.norm(ipv4type.repr(propvalu))[0]
                 nodeedits.append(
                     (buid, 'inet:web:acct', (
                         (s_layer.EDIT_PROP_SET, ('signup:client:ipv6', ipv6text, propvalu, s_layer.STOR_TYPE_IPV6), ()),
