@@ -1999,7 +1999,7 @@ class InetModule(s_module.CoreModule):
                         ('signup:client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 address used to sign up for the account.'
                         }),
-                        ('signup:client:ipv6', ('inet:ipv4', {}), {
+                        ('signup:client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The IPv6 address used to sign up for the account.'
                         }),
                         ('site', ('inet:fqdn', {}), {
