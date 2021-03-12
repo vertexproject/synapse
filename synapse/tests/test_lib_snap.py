@@ -502,10 +502,12 @@ class SnapTest(s_t_utils.SynTest):
 
         async with self._getTestCoreMultiLayer() as (view0, view1):
 
-            self.len(1, await view0.nodes('[ inet:ipv4=1.1.1.4 :asn=4 ]'))
-            self.len(1, await view0.nodes('[ inet:ipv4=1.1.1.1 :asn=1 ]'))
-            self.len(1, await view1.nodes('[ inet:ipv4=1.1.1.2 :asn=2 ]'))
-            self.len(1, await view0.nodes('[ inet:ipv4=1.1.1.3 :asn=3 ]'))
+            await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+
+            await view0.nodes('[ inet:ipv4=1.1.1.4 :asn=4 +#woot:score=4] $node.data.set(woot, 4)')
+            await view0.nodes('[ inet:ipv4=1.1.1.1 :asn=1 +#woot:score=1] $node.data.set(woot, 1)')
+            await view1.nodes('[ inet:ipv4=1.1.1.2 :asn=2 +#woot:score=2] $node.data.set(woot, 2)')
+            await view0.nodes('[ inet:ipv4=1.1.1.3 :asn=3 +#woot:score=3] $node.data.set(woot, 3)')
 
             nodes = await view1.nodes('inet:ipv4')
             self.len(4, nodes)
@@ -516,6 +518,14 @@ class SnapTest(s_t_utils.SynTest):
                 last = valu
 
             nodes = await view1.nodes('inet:ipv4:asn')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                asn = node.props.get('asn')
+                self.gt(asn, last)
+                last = asn
+
+            nodes = await view1.nodes('inet:ipv4:asn>0')
             self.len(4, nodes)
             last = 0
             for node in nodes:
@@ -538,6 +548,41 @@ class SnapTest(s_t_utils.SynTest):
                 asn = node.props.get('asn')
                 self.lt(asn, last)
                 last = asn
+
+            nodes = await view1.nodes('#woot:score')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                scor = node.tagprops.get(('woot', 'score'))
+                self.gt(scor, last)
+                last = scor
+
+            nodes = await view1.nodes('#woot:score>0')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                scor = node.tagprops.get(('woot', 'score'))
+                self.gt(scor, last)
+                last = scor
+
+            nodes = await view1.nodes('#woot:score*in=(1,2,3,4)')
+            self.len(4, nodes)
+            last = 0
+            for node in nodes:
+                scor = node.tagprops.get(('woot', 'score'))
+                self.gt(scor, last)
+                last = scor
+
+            nodes = await view1.nodes('#woot:score*in=(4,3,2,1)')
+            self.len(4, nodes)
+            last = 5
+            for node in nodes:
+                scor = node.tagprops.get(('woot', 'score'))
+                self.lt(scor, last)
+                last = scor
+
+            nodes = await view1.nodes('yield $lib.lift.byNodeData(woot)')
+            self.len(4, nodes)
 
             self.len(1, await view1.nodes('[crypto:x509:cert="*" :identities:fqdns=(somedomain.biz,www.somedomain.biz)]'))
             nodes = await view1.nodes('crypto:x509:cert:identities:fqdns*[="*.biz"]')

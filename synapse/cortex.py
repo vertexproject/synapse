@@ -1729,11 +1729,14 @@ class Cortex(s_cell.Cell):  # type: ignore
                 yield (buid, [(layr, sode)])
             return
 
+        def cmprkey(x, y):
+            return x[1][1]['tagprops'][(tag, prop)] < y[1][1]['tagprops'][(tag, prop)]
+
         genrs = []
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey):
             yield sodes
 
     async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
@@ -1742,6 +1745,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             async for (buid, sode) in layers[0].liftByTagPropValu(form, tag, prop, cmprvals):
                 yield (buid, [(layr, sode)])
             return
+
+        def cmprkey(x, y):
+            return x[1][1]['tagprops'][(tag, prop)] < y[1][1]['tagprops'][(tag, prop)]
 
         def filtercmpr(sode):
             tagprops = sode.get('tagprops')
@@ -1754,7 +1760,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             for layr in layers:
                 genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey, filtercmpr):
                 yield sodes
 
     async def _setStormCmd(self, cdef):
