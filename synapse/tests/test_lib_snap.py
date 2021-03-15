@@ -503,6 +503,7 @@ class SnapTest(s_t_utils.SynTest):
         async with self._getTestCoreMultiLayer() as (view0, view1):
 
             await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+            await view0.core.addTagProp('data', ('data', {}), {'doc': 'hi there'})
 
             await view0.nodes('[ inet:ipv4=1.1.1.4 :asn=4 +#woot:score=4] $node.data.set(woot, 4)')
             await view0.nodes('[ inet:ipv4=1.1.1.1 :asn=1 +#woot:score=1] $node.data.set(woot, 1)')
@@ -602,3 +603,27 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await view1.nodes('[crypto:x509:cert="*" :identities:fqdns=(somedomain.biz,www.somedomain.biz)]'))
             nodes = await view1.nodes('crypto:x509:cert:identities:fqdns*[="*.biz"]')
             self.len(4, nodes)
+
+
+            await view0.nodes('[ test:data=(123) :data=(123) +#woot:data=(123)]')
+            await view0.nodes('[ test:data=(456) :data=(456) +#woot:data=(456)]')
+            await view1.nodes('[ test:data=foo :data=foo +#woot:data=foo]')
+            await view0.nodes('[ test:data=(0) :data=(0) +#woot:data=(0)]')
+
+            nodes = await view1.nodes('test:data')
+            self.len(4, nodes)
+
+            nodes = await view1.nodes('test:data=foo')
+            self.len(1, nodes)
+
+            nodes = await view1.nodes('test:data:data')
+            self.len(4, nodes)
+
+            nodes = await view1.nodes('test:data:data=foo')
+            self.len(1, nodes)
+
+            nodes = await view1.nodes('#woot:data')
+            self.len(4, nodes)
+
+            nodes = await view1.nodes('#woot:data=foo')
+            self.len(1, nodes)

@@ -291,7 +291,7 @@ class Snap(s_base.Base):
 
         layrs = (layr for layr in self.layers if layr.iden not in cache)
         if layrs:
-            newsodes = list(await self.core._getStorNodes(buid, layrs))
+            newsodes = await self.core._getStorNodes(buid, layrs)
 
         sodes = []
         for layr in self.layers:

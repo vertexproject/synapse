@@ -192,6 +192,7 @@ testmodel = {
         ('test:auto', ('str', {}), {}),
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
+        ('test:data', ('data', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
         ('test:arrayform', ('array', {'type': 'int'}), {}),
@@ -291,6 +292,10 @@ testmodel = {
             ('tick', ('test:time', {}), {}),
             ('posneg', ('test:sub', {}), {}),
             ('posneg:isbig', ('bool', {}), {}),
+        )),
+
+        ('test:data', {}, (
+            ('data', ('test:data', {}), {}),
         )),
 
         ('test:str', {}, (
