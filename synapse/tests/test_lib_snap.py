@@ -605,9 +605,9 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
 
             await view0.nodes('[ test:data=(123) :data=(123) +#woot:data=(123)]')
-            await view0.nodes('[ test:data=(456) :data=(456) +#woot:data=(456)]')
             await view1.nodes('[ test:data=foo :data=foo +#woot:data=foo]')
             await view0.nodes('[ test:data=(0) :data=(0) +#woot:data=(0)]')
+            await view0.nodes('[ test:data=bar :data=foo +#woot:data=foo]')
 
             nodes = await view1.nodes('test:data')
             self.len(4, nodes)
@@ -619,10 +619,10 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
 
             nodes = await view1.nodes('test:data:data=foo')
-            self.len(1, nodes)
+            self.len(2, nodes)
 
             nodes = await view1.nodes('#woot:data')
             self.len(4, nodes)
 
             nodes = await view1.nodes('#woot:data=foo')
-            self.len(1, nodes)
+            self.len(2, nodes)
