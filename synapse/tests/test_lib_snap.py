@@ -604,7 +604,6 @@ class SnapTest(s_t_utils.SynTest):
             nodes = await view1.nodes('crypto:x509:cert:identities:fqdns*[="*.biz"]')
             self.len(4, nodes)
 
-
             await view0.nodes('[ test:data=(123) :data=(123) +#woot:data=(123)]')
             await view0.nodes('[ test:data=(456) :data=(456) +#woot:data=(456)]')
             await view1.nodes('[ test:data=foo :data=foo +#woot:data=foo]')
