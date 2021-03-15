@@ -48,7 +48,6 @@ class Addr(s_types.Str):
         self.setNormFunc(str, self._normPyStr)
 
     def _getPort(self, valu):
-        port = None
         parts = valu.split(':', 1)
         if len(parts) == 2:
             valu, port = parts
