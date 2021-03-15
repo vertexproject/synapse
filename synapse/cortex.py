@@ -93,7 +93,7 @@ reqValidTagModel = s_config.getJsValidator({
     'required': [],
 })
 
-def cmprkey_abrv(x, y):
+def cmprkey_indx(x, y):
     return x[1][:2] < y[1][:2]
 
 def cmprkey_buid(x, y):
@@ -1619,7 +1619,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_abrv):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByPropValu(self, form, prop, cmprvals, layers):
@@ -1640,7 +1640,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             for layr in layers:
                 genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_abrv, filtercmpr):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
                 yield sodes
 
     async def _liftByPropArray(self, form, prop, cmprvals, layers):
@@ -1679,7 +1679,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             for layr in layers:
                 genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_abrv):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
                 yield sodes
 
     async def _liftByTag(self, tag, form, layers):
@@ -1727,7 +1727,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_abrv):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
@@ -1748,7 +1748,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             for layr in layers:
                 genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_abrv, filtercmpr):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
                 yield sodes
 
     async def _setStormCmd(self, cdef):
