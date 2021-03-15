@@ -840,6 +840,22 @@ class LibBase(Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the package to import.', },
                   ),
                   'returns': {'type': 'storm:lib', 'desc': 'A ``storm:lib`` instance representing the imported package.', }}},
+
+        {'name': 'trycast', 'desc': '''
+            Attempt to normalize a value and return status and the normalized value.
+
+            Examples:
+                Do something if the value is a valid IPV4::
+
+                    ($ok, $ipv4) = $lib.trycast(inet:ipv4, 1.2.3.4)
+                    if $ok { $dostuff($ipv4) }
+         ''',
+         'type': {'type': 'function', '_funcname': 'trycast',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the model type to normalize the value as.', },
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value to normalize.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
     )
 
     def getObjLocals(self):
@@ -864,6 +880,7 @@ class LibBase(Lib):
             'pprint': self._pprint,
             'sorted': self._sorted,
             'import': self._libBaseImport,
+            'trycast': self.trycast,
         }
 
     @stormfunc(readonly=True)
@@ -911,6 +928,22 @@ class LibBase(Lib):
 
         norm, info = typeitem.norm(valu)
         return fromprim(norm, basetypes=False)
+
+    @stormfunc(readonly=True)
+    async def trycast(self, name, valu):
+        name = await toprim(name)
+        valu = await toprim(valu)
+
+        typeitem = self.runt.snap.core.model.type(name)
+        if typeitem is None:
+            mesg = f'No type found for name {name}.'
+            raise s_exc.NoSuchType(mesg=mesg)
+
+        try:
+            norm, info = typeitem.norm(valu)
+            return (True, fromprim(norm, basetypes=False))
+        except s_exc.BadTypeValu:
+            return (False, None)
 
     @stormfunc(readonly=True)
     async def _exit(self):
