@@ -93,11 +93,11 @@ reqValidTagModel = s_config.getJsValidator({
     'required': [],
 })
 
-def cmprkey_buid(x, y):
-    return x[1][0] < y[1][0]
+def cmprkey_indx(x, y):
+    return x[1][:2] < y[1][:2]
 
-def cmprkey_formvalu(x, y):
-    return x[1][1]['valu'][0] < y[1][1]['valu'][0]
+def cmprkey_buid(x, y):
+    return x[1][1] < y[1][1]
 
 async def wrap_liftgenr(iden, genr):
     async for item in genr:
@@ -1576,7 +1576,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         lastbuid = None
         sodes = {}
         async for (layr, item) in s_common.merggenr(genrs, cmprkey):
-            buid, sode = item
+            _, buid, sode = item
             if not buid == lastbuid or layr in sodes:
                 if lastbuid is not None:
                     sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
@@ -1597,7 +1597,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _liftByDataName(self, name, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for (buid, sode) in layers[0].liftByDataName(name):
+            async for _, buid, sode in layers[0].liftByDataName(name):
                 yield (buid, [(layr, sode)])
             return
 
@@ -1611,55 +1611,23 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _liftByProp(self, form, prop, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for (buid, sode) in layers[0].liftByProp(form, prop):
+            async for _, buid, sode in layers[0].liftByProp(form, prop):
                 yield (buid, [(layr, sode)])
             return
-
-        if prop is None:
-            ftyp = self.model.form(form)
-            if ftyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
-                stortype = layers[0].stortypes[ftyp.type.stortype]
-                def cmprkey(x, y):
-                    return (stortype.indx(x[1][1]['valu'][0])[0] <
-                            stortype.indx(y[1][1]['valu'][0])[0])
-            else:
-                cmprkey = cmprkey_formvalu
-        else:
-            ptyp = self.model.prop(':'.join((form, prop)))
-            if ptyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
-                stortype = layers[0].stortypes[ptyp.type.stortype]
-                def cmprkey(x, y):
-                    return ((stortype.indx(x[1][1]['props'][prop][0])[0], x[1][0]) <
-                            (stortype.indx(y[1][1]['props'][prop][0])[0], y[1][0]))
-            else:
-                def cmprkey(x, y):
-                    return ((x[1][1]['props'][prop], x[1][0]) <
-                            (y[1][1]['props'][prop], y[1][0]))
 
         genrs = []
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByPropValu(self, form, prop, cmprvals, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for (buid, sode) in layers[0].liftByPropValu(form, prop, cmprvals):
+            async for _, buid, sode in layers[0].liftByPropValu(form, prop, cmprvals):
                 yield (buid, [(layr, sode)])
             return
-
-        ptyp = self.model.prop(':'.join((form, prop)))
-        if ptyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
-            stortype = layers[0].stortypes[ptyp.type.stortype]
-            def cmprkey(x, y):
-                return ((stortype.indx(x[1][1]['props'][prop][0])[0], x[1][0]) <
-                        (stortype.indx(y[1][1]['props'][prop][0])[0], y[1][0]))
-        else:
-            def cmprkey(x, y):
-                return ((x[1][1]['props'][prop], x[1][0]) <
-                        (y[1][1]['props'][prop], y[1][0]))
 
         def filtercmpr(sode):
             props = sode.get('props')
@@ -1672,13 +1640,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             for layr in layers:
                 genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey, filtercmpr):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
                 yield sodes
 
     async def _liftByPropArray(self, form, prop, cmprvals, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for (buid, sode) in layers[0].liftByPropArray(form, prop, cmprvals):
+            async for _, buid, sode in layers[0].liftByPropArray(form, prop, cmprvals):
                 yield (buid, [(layr, sode)])
             return
 
@@ -1702,31 +1670,22 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _liftByFormValu(self, form, cmprvals, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for (buid, sode) in layers[0].liftByFormValu(form, cmprvals):
+            async for _, buid, sode in layers[0].liftByFormValu(form, cmprvals):
                 yield (buid, [(layr, sode)])
             return
-
-        ftyp = self.model.form(form)
-        if ftyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
-            stortype = layers[0].stortypes[ftyp.type.stortype]
-            def cmprkey(x, y):
-                return (stortype.indx(x[1][1]['valu'][0])[0] <
-                        stortype.indx(y[1][1]['valu'][0])[0])
-        else:
-            cmprkey = cmprkey_formvalu
 
         for cval in cmprvals:
             genrs = []
             for layr in layers:
                 genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
                 yield sodes
 
     async def _liftByTag(self, tag, form, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for (buid, sode) in layers[0].liftByTag(tag, form):
+            async for _, buid, sode in layers[0].liftByTag(tag, form):
                 yield (buid, [(layr, sode)])
             return
 
@@ -1740,7 +1699,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _liftByTagValu(self, tag, cmpr, valu, form, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for (buid, sode) in layers[0].liftByTagValu(tag, cmpr, valu, form):
+            async for _, buid, sode in layers[0].liftByTagValu(tag, cmpr, valu, form):
                 yield (buid, [(layr, sode)])
             return
 
@@ -1760,45 +1719,23 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _liftByTagProp(self, form, tag, prop, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for (buid, sode) in layers[0].liftByTagProp(form, tag, prop):
+            async for _, buid, sode in layers[0].liftByTagProp(form, tag, prop):
                 yield (buid, [(layr, sode)])
             return
-
-        ttyp = self.model.tagprop(prop)
-        if ttyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
-            stortype = layers[0].stortypes[ttyp.type.stortype]
-            def cmprkey(x, y):
-                return ((stortype.indx(x[1][1]['tagprops'][(tag, prop)][0])[0], x[1][0]) <
-                        (stortype.indx(y[1][1]['tagprops'][(tag, prop)][0])[0], y[1][0]))
-        else:
-            def cmprkey(x, y):
-                return ((x[1][1]['tagprops'][(tag, prop)], x[1][0]) <
-                        (y[1][1]['tagprops'][(tag, prop)], y[1][0]))
 
         genrs = []
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for (buid, sode) in layers[0].liftByTagPropValu(form, tag, prop, cmprvals):
+            async for _, buid, sode in layers[0].liftByTagPropValu(form, tag, prop, cmprvals):
                 yield (buid, [(layr, sode)])
             return
-
-        ttyp = self.model.tagprop(prop)
-        if ttyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
-            stortype = layers[0].stortypes[ttyp.type.stortype]
-            def cmprkey(x, y):
-                return ((stortype.indx(x[1][1]['tagprops'][(tag, prop)][0])[0], x[1][0]) <
-                        (stortype.indx(y[1][1]['tagprops'][(tag, prop)][0])[0], y[1][0]))
-        else:
-            def cmprkey(x, y):
-                return ((x[1][1]['tagprops'][(tag, prop)], x[1][0]) <
-                        (y[1][1]['tagprops'][(tag, prop)], y[1][0]))
 
         def filtercmpr(sode):
             tagprops = sode.get('tagprops')
@@ -1811,7 +1748,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             for layr in layers:
                 genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey, filtercmpr):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
                 yield sodes
 
     async def _setStormCmd(self, cdef):
