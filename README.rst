@@ -1,23 +1,29 @@
-synapse
+Synapse
 =======
 
 Synapse is a "batteries included" intelligence analysis platform designed to help analysts and algorithms answer complex questions which require the fusion of data across different disciplines.
 
 |codecov|_ |circleci|_ |dockerhub|_ |rtd|_
 
-Installation
+Learn More About Synapse
 ------------
-Synapse is available as a Python Package on pypi_ and as a Docker image on dockerhub_.
 
-Documentation
--------------
+* Visit our website_ to learn more about Synapse. 
+* Attend a Synapse 101 training_! 
 
-API Documentation and User Guides can be found at https://synapse.docs.vertex.link
 
-Chat
+Installation & Documentation
+------------
+
+* Synapse is available as a Python Package on pypi_ and as a Docker image on dockerhub_.
+* API Documentation and User Guides can be found here_.
+
+Connect With Us
 ----
 
-Join the Vertex Project on |slack|_!
+* Join the Synapse user community on |slack|_
+* Follow us on Twitter_.
+* Follow us on LinkedIn_.
 
 .. |circleci| image:: https://circleci.com/gh/vertexproject/synapse/tree/master.svg?style=svg
 ..  _circleci: https://circleci.com/gh/vertexproject/synapse/tree/master
@@ -35,3 +41,13 @@ Join the Vertex Project on |slack|_!
 .. _slack: http://slackinvite.vertex.link/
 
 .. _pypi: https://pypi.python.org/pypi/synapse
+
+.. _website: https://snip.ly/p7vy8p
+
+.. _training: https://snip.ly/p7vy8p
+
+.. _Twitter: https://twitter.com/vtxproject
+
+.. _LinkedIn: https://www.linkedin.com/company/vertexproject
+
+.. _here: https://snip.ly/80wv4t
