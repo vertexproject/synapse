@@ -1748,7 +1748,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         ttyp = self.model.tagprop(prop)
         stortype = layers[0].stortypes[ttyp.type.stortype]
         def cmprkey(x, y):
-            return stortype.indx(x[1][1]['tagprops'][(tag, prop)][0])[0] < stortype.indx(y[1][1]['tagprops'][(tag, prop)][0])[0]
+            return (stortype.indx(x[1][1]['tagprops'][(tag, prop)][0])[0] <
+                    stortype.indx(y[1][1]['tagprops'][(tag, prop)][0])[0])
 
         genrs = []
         for layr in layers:
