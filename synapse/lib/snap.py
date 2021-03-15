@@ -289,7 +289,7 @@ class Snap(s_base.Base):
             await asyncio.sleep(0)
             return node
 
-        layrs = [layr for layr in self.layers if layr.iden not in cache]
+        layrs = (layr for layr in self.layers if layr.iden not in cache)
         if layrs:
             newsodes = list(await self.core._getStorNodes(buid, layrs))
 
