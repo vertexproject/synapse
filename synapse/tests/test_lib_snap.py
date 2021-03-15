@@ -626,17 +626,3 @@ class SnapTest(s_t_utils.SynTest):
 
             nodes = await view1.nodes('#woot:data=foo')
             self.len(2, nodes)
-
-            await view0.nodes('[ test:latlong=(30, 40) :latlong=(29, 10)]')
-            await view1.nodes('[ test:latlong=(27, 10) :latlong=(29, 10)]')
-            await view0.nodes('[ test:latlong=(27, 10) :latlong=(29, 10)]')
-            await view0.nodes('[ test:latlong=(29, 11) :latlong=(29, 10)]')
-
-            nodes = await view1.nodes('test:latlong')
-            self.len(4, nodes)
-
-            nodes = await view1.nodes('test:latlong:latlong')
-            self.len(3, nodes)
-
-            nodes = await view1.nodes('test:latlong:latlong=(29, 10)')
-            self.len(3, nodes)
