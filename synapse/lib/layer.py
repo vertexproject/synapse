@@ -245,9 +245,15 @@ class IndxBy:
     def getNodeValu(self, buid):
         raise s_exc.NoSuchImpl(name='getNodeValu')
 
+    def keyBuidsByDups(self, indx):
+        yield from self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db)
+
     def buidsByDups(self, indx):
         for _, buid in self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db):
             yield buid
+
+    def keyBuidsByPref(self, indx=b''):
+        yield from self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
 
     def buidsByPref(self, indx=b''):
         for _, buid in self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db):
@@ -443,7 +449,7 @@ class StorType:
         regx = regex.compile(valu)
         lastbuid = None
 
-        for buid in liftby.buidsByPref():
+        for lkey, buid in liftby.keyBuidsByPref():
             if buid == lastbuid:
                 continue
 
@@ -463,7 +469,7 @@ class StorType:
                 return False
 
             if regexin(regx, storvalu):
-                yield buid
+                yield lkey, buid
 
 class StorTypeUtf8(StorType):
 
@@ -479,18 +485,18 @@ class StorTypeUtf8(StorType):
 
     async def _liftUtf8Eq(self, liftby, valu):
         indx = self._getIndxByts(valu)
-        for item in liftby.buidsByDups(indx):
+        for item in liftby.keyBuidsByDups(indx):
             yield item
 
     async def _liftUtf8Range(self, liftby, valu):
         minindx = self._getIndxByts(valu[0])
         maxindx = self._getIndxByts(valu[1])
-        for item in liftby.buidsByRange(minindx, maxindx):
+        for item in liftby.keyBuidsByRange(minindx, maxindx):
             yield item
 
     async def _liftUtf8Prefix(self, liftby, valu):
         indx = self._getIndxByts(valu)
-        for item in liftby.buidsByPref(indx):
+        for item in liftby.keyBuidsByPref(indx):
             yield item
 
     def _getIndxByts(self, valu):
@@ -537,12 +543,12 @@ class StorTypeHier(StorType):
 
     async def _liftHierEq(self, liftby, valu):
         indx = self.getHierIndx(valu)
-        for item in liftby.buidsByDups(indx):
+        for item in liftby.keyBuidsByDups(indx):
             yield item
 
     async def _liftHierPref(self, liftby, valu):
         indx = self.getHierIndx(valu)
-        for item in liftby.buidsByPref(indx):
+        for item in liftby.keyBuidsByPref(indx):
             yield item
 
 class StorTypeLoc(StorTypeHier):
@@ -600,7 +606,7 @@ class StorTypeFqdn(StorTypeUtf8):
 
         if valu[0] == '*':
             indx = self._getIndxByts(valu[1:][::-1])
-            for item in liftby.buidsByPref(indx):
+            for item in liftby.keyBuidsByPref(indx):
                 yield item
             return
 
@@ -630,13 +636,13 @@ class StorTypeIpv6(StorType):
 
     async def _liftIPv6Eq(self, liftby, valu):
         indx = self.getIPv6Indx(valu)
-        for item in liftby.buidsByDups(indx):
+        for item in liftby.keyBuidsByDups(indx):
             yield item
 
     async def _liftIPv6Range(self, liftby, valu):
         minindx = self.getIPv6Indx(valu[0])
         maxindx = self.getIPv6Indx(valu[1])
-        for item in liftby.buidsByRange(minindx, maxindx):
+        for item in liftby.keyBuidsByRange(minindx, maxindx):
             yield item
 
 class StorTypeInt(StorType):
@@ -681,7 +687,7 @@ class StorTypeInt(StorType):
             return
 
         pkey = indx.to_bytes(self.size, 'big')
-        for item in liftby.buidsByDups(pkey):
+        for item in liftby.keyBuidsByDups(pkey):
             yield item
 
     async def _liftIntGt(self, liftby, valu):
@@ -697,7 +703,7 @@ class StorTypeInt(StorType):
 
         pkeymin = minv.to_bytes(self.size, 'big')
         pkeymax = self.fullbyts
-        for item in liftby.buidsByRange(pkeymin, pkeymax):
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
             yield item
 
     async def _liftIntLt(self, liftby, valu):
@@ -713,7 +719,7 @@ class StorTypeInt(StorType):
 
         pkeymin = self.zerobyts
         pkeymax = maxv.to_bytes(self.size, 'big')
-        for item in liftby.buidsByRange(pkeymin, pkeymax):
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
             yield item
 
     async def _liftIntRange(self, liftby, valu):
@@ -727,7 +733,7 @@ class StorTypeInt(StorType):
 
         pkeymin = minv.to_bytes(self.size, 'big')
         pkeymax = maxv.to_bytes(self.size, 'big')
-        for item in liftby.buidsByRange(pkeymin, pkeymax):
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
             yield item
 
 class StorTypeHugeNum(StorType):
@@ -762,7 +768,7 @@ class StorTypeHugeNum(StorType):
 
     async def _liftHugeEq(self, liftby, valu):
         byts = self.getHugeIndx(valu)
-        for item in liftby.buidsByDups(byts):
+        for item in liftby.keyBuidsByDups(byts):
             yield item
 
     async def _liftHugeGt(self, liftby, valu):
@@ -778,19 +784,19 @@ class StorTypeHugeNum(StorType):
     async def _liftHugeGe(self, liftby, valu):
         pkeymin = self.getHugeIndx(valu)
         pkeymax = self.fullbyts
-        for item in liftby.buidsByRange(pkeymin, pkeymax):
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
             yield item
 
     async def _liftHugeLe(self, liftby, valu):
         pkeymin = self.zerobyts
         pkeymax = self.getHugeIndx(valu)
-        for item in liftby.buidsByRange(pkeymin, pkeymax):
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
             yield item
 
     async def _liftHugeRange(self, liftby, valu):
         pkeymin = self.getHugeIndx(valu[0])
         pkeymax = self.getHugeIndx(valu[1])
-        for item in liftby.buidsByRange(pkeymin, pkeymax):
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
             yield item
 
 class StorTypeFloat(StorType):
@@ -825,7 +831,7 @@ class StorTypeFloat(StorType):
         return self.FloatPacker.unpack(bytz)[0]
 
     async def _liftFloatEq(self, liftby, valu):
-        for item in liftby.buidsByDups(self.fpack(valu)):
+        for item in liftby.keyBuidsByDups(self.fpack(valu)):
             yield item
 
     async def _liftFloatGeCommon(self, liftby, valu):
@@ -844,14 +850,14 @@ class StorTypeFloat(StorType):
 
     async def _liftFloatGe(self, liftby, valu):
         async for item in self._liftFloatGeCommon(liftby, valu):
-            yield item[1]
+            yield item
 
     async def _liftFloatGt(self, liftby, valu):
         valupack = self.fpack(valu)
         async for item in self._liftFloatGeCommon(liftby, valu):
             if item[0] == valupack:
                 continue
-            yield item[1]
+            yield item
 
     async def _liftFloatLeCommon(self, liftby, valu):
         if math.isnan(valu):
@@ -870,14 +876,14 @@ class StorTypeFloat(StorType):
 
     async def _liftFloatLe(self, liftby, valu):
         async for item in self._liftFloatLeCommon(liftby, valu):
-            yield item[1]
+            yield item
 
     async def _liftFloatLt(self, liftby, valu):
         valupack = self.fpack(valu)
         async for item in self._liftFloatLeCommon(liftby, valu):
             if item[0] == valupack:
                 continue
-            yield item[1]
+            yield item
 
     async def _liftFloatRange(self, liftby, valu):
         valumin, valumax = valu
@@ -891,22 +897,22 @@ class StorTypeFloat(StorType):
 
         if math.copysign(1.0, valumin) > 0.0:
             # Entire range is nonnegative
-            for item in liftby.buidsByRange(pkeymin, pkeymax):
+            for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
                 yield item
             return
 
         if math.copysign(1.0, valumax) < 0.0:  # negative values and -0.0
             # Entire range is negative
-            for item in liftby.buidsByRangeBack(pkeymax, pkeymin):
+            for item in liftby.keyBuidsByRangeBack(pkeymax, pkeymin):
                 yield item
             return
 
         # Yield all values between min and -0
-        for item in liftby.buidsByRangeBack(self.FloatPackNegMax, pkeymin):
+        for item in liftby.keyBuidsByRangeBack(self.FloatPackNegMax, pkeymin):
             yield item
 
         # Yield all values between 0 and max
-        for item in liftby.buidsByRange(self.FloatPackPosMin, pkeymax):
+        for item in liftby.keyBuidsByRange(self.FloatPackPosMin, pkeymax):
             yield item
 
 class StorTypeGuid(StorType):
@@ -919,7 +925,7 @@ class StorTypeGuid(StorType):
 
     async def _liftGuidEq(self, liftby, valu):
         indx = s_common.uhex(valu)
-        for item in liftby.buidsByDups(indx):
+        for item in liftby.keyBuidsByDups(indx):
             yield item
 
     def indx(self, valu):
@@ -939,8 +945,8 @@ class StorTypeTime(StorTypeInt):
     async def _liftAtIval(self, liftby, valu):
         minindx = self.getIntIndx(valu[0])
         maxindx = self.getIntIndx(valu[1] - 1)
-        for _, buid in liftby.scanByRange(minindx, maxindx):
-            yield buid
+        for item in liftby.scanByRange(minindx, maxindx):
+            yield item
 
 class StorTypeIval(StorType):
 
@@ -954,7 +960,7 @@ class StorTypeIval(StorType):
 
     async def _liftIvalEq(self, liftby, valu):
         indx = self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1])
-        for item in liftby.buidsByDups(indx):
+        for item in liftby.keyBuidsByDups(indx):
             yield item
 
     async def _liftIvalAt(self, liftby, valu):
@@ -974,7 +980,7 @@ class StorTypeIval(StorType):
             if tock <= minindx:
                 continue
 
-            yield buid
+            yield lkey, buid
 
     def indx(self, valu):
         return (self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1]),)
@@ -993,7 +999,7 @@ class StorTypeMsgp(StorType):
 
     async def _liftMsgpEq(self, liftby, valu):
         indx = s_common.buid(valu)
-        for item in liftby.buidsByDups(indx):
+        for item in liftby.keyBuidsByDups(indx):
             yield item
 
     def indx(self, valu):
@@ -1015,7 +1021,7 @@ class StorTypeLatLon(StorType):
 
     async def _liftLatLonEq(self, liftby, valu):
         indx = self._getLatLonIndx(valu)
-        for item in liftby.buidsByDups(indx):
+        for item in liftby.keyBuidsByDups(indx):
             yield item
 
     async def _liftLatLonNear(self, liftby, valu):
@@ -1053,7 +1059,7 @@ class StorTypeLatLon(StorType):
             lonvalu = (int.from_bytes(lonbyts, 'big') - self.lonspace) / self.scale
 
             if s_gis.haversine((lat, lon), (latvalu, lonvalu)) <= dist:
-                yield buid
+                yield lkey, buid
 
     def _getLatLonIndx(self, latlong):
         # yield index bytes in lon/lat order to allow cheap optimal indexing
@@ -1612,8 +1618,8 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        for _, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
-            yield buid, deepcopy(self._getStorNode(buid))
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
+            yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
 
     async def liftByTagValu(self, tag, cmpr, valu, form=None):
 
@@ -1629,11 +1635,11 @@ class Layer(s_nexus.Pusher):
         if filt is None:
             raise s_exc.NoSuchCmpr(cmpr=cmpr)
 
-        for _, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
             # filter based on the ival value before lifting the node...
             valu = await self.getNodeTag(buid, tag)
             if filt(valu):
-                yield buid, deepcopy(self._getStorNode(buid))
+                yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
 
     async def hasTagProp(self, name):
         async for _ in self.liftTagProp(name):
@@ -1663,8 +1669,8 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        for _, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
-            yield buid, deepcopy(self._getStorNode(buid))
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+            yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
 
     async def liftByTagPropValu(self, form, tag, prop, cmprvals):
         '''
@@ -1672,8 +1678,8 @@ class Layer(s_nexus.Pusher):
         '''
         for cmpr, valu, kind in cmprvals:
 
-            async for buid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu):
-                yield buid, deepcopy(self._getStorNode(buid))
+            async for lkey, buid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu):
+                yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
 
     async def liftByProp(self, form, prop):
 
@@ -1683,26 +1689,26 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        for _, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
-            yield buid, deepcopy(self._getStorNode(buid))
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+            yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals):
         for cmpr, valu, kind in cmprvals:
-            async for buid in self.stortypes[kind].indxByForm(form, cmpr, valu):
-                yield buid, deepcopy(self._getStorNode(buid))
+            async for lkey, buid in self.stortypes[kind].indxByForm(form, cmpr, valu):
+                yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
 
     async def liftByPropValu(self, form, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
-            async for buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu):
-                yield buid, deepcopy(self._getStorNode(buid))
+            async for lkey, buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu):
+                yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
 
     async def liftByPropArray(self, form, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
-            async for buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
-                yield buid, deepcopy(self._getStorNode(buid))
+            async for lkey, buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
+                yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
 
     async def liftByDataName(self, name):
         try:
@@ -1720,7 +1726,7 @@ class Layer(s_nexus.Pusher):
                 item = s_msgpack.un(byts)
                 sode['nodedata'][name] = item
 
-            yield buid, deepcopy(sode)
+            yield abrv, buid, deepcopy(sode)
 
     async def storNodeEdits(self, nodeedits, meta):
 
