@@ -845,8 +845,10 @@ class LibBase(Lib):
             Attempt to normalize a value and return status and the normalized value.
 
             Examples:
-                ($ok, $ipv4) = $lib.trycast(inet:ipv4, 1.2.3.4)
-                if $ok { $dostuff($ipv4) }
+                Do something if the value is a valid IPV4::
+
+                    ($ok, $ipv4) = $lib.trycast(inet:ipv4, 1.2.3.4)
+                    if $ok { $dostuff($ipv4) }
          ''',
          'type': {'type': 'function', '_funcname': 'trycast',
                   'args': (
