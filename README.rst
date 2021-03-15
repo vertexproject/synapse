@@ -1,7 +1,7 @@
 Synapse
 =======
 
-Synapse is a "batteries included" intelligence analysis platform designed to help analysts and algorithms answer complex questions which require the fusion of data across different disciplines.
+Synapse is a versatile central intelligence system created to support analyst teams in every stage of the intelligence life cycle.
 
 |codecov|_ |circleci|_ |dockerhub|_ |rtd|_
 
