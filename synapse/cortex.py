@@ -96,6 +96,9 @@ reqValidTagModel = s_config.getJsValidator({
 def cmprkey_buid(x, y):
     return x[1][0] < y[1][0]
 
+def cmprkey_formvalu(x, y):
+    return x[1][1]['valu'][0] < y[1][1]['valu'][0]
+
 async def wrap_liftgenr(iden, genr):
     async for item in genr:
         yield (iden, item)
@@ -1614,16 +1617,24 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if prop is None:
             ftyp = self.model.form(form)
-            stortype = layers[0].stortypes[ftyp.type.stortype]
-            def cmprkey(x, y):
-                return (stortype.indx(x[1][1]['valu'][0])[0] <
-                        stortype.indx(y[1][1]['valu'][0])[0])
+            if ftyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
+                stortype = layers[0].stortypes[ftyp.type.stortype]
+                def cmprkey(x, y):
+                    return (stortype.indx(x[1][1]['valu'][0])[0] <
+                            stortype.indx(y[1][1]['valu'][0])[0])
+            else:
+                cmprkey = cmprkey_formvalu
         else:
             ptyp = self.model.prop(':'.join((form, prop)))
-            stortype = layers[0].stortypes[ptyp.type.stortype]
-            def cmprkey(x, y):
-                return (stortype.indx(x[1][1]['props'][prop][0])[0] <
-                        stortype.indx(y[1][1]['props'][prop][0])[0])
+            if ptyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
+                stortype = layers[0].stortypes[ptyp.type.stortype]
+                def cmprkey(x, y):
+                    return ((stortype.indx(x[1][1]['props'][prop][0])[0], x[1][0]) <
+                            (stortype.indx(y[1][1]['props'][prop][0])[0], y[1][0]))
+            else:
+                def cmprkey(x, y):
+                    return ((x[1][1]['props'][prop], x[1][0]) <
+                            (y[1][1]['props'][prop], y[1][0]))
 
         genrs = []
         for layr in layers:
@@ -1640,10 +1651,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         ptyp = self.model.prop(':'.join((form, prop)))
-        stortype = layers[0].stortypes[ptyp.type.stortype]
-        def cmprkey(x, y):
-            return (stortype.indx(x[1][1]['props'][prop][0])[0] <
-                    stortype.indx(y[1][1]['props'][prop][0])[0])
+        if ptyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
+            stortype = layers[0].stortypes[ptyp.type.stortype]
+            def cmprkey(x, y):
+                return ((stortype.indx(x[1][1]['props'][prop][0])[0], x[1][0]) <
+                        (stortype.indx(y[1][1]['props'][prop][0])[0], y[1][0]))
+        else:
+            def cmprkey(x, y):
+                return ((x[1][1]['props'][prop], x[1][0]) <
+                        (y[1][1]['props'][prop], y[1][0]))
 
         def filtercmpr(sode):
             props = sode.get('props')
@@ -1691,10 +1707,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         ftyp = self.model.form(form)
-        stortype = layers[0].stortypes[ftyp.type.stortype]
-        def cmprkey(x, y):
-            return (stortype.indx(x[1][1]['valu'][0])[0] <
-                    stortype.indx(y[1][1]['valu'][0])[0])
+        if ftyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
+            stortype = layers[0].stortypes[ftyp.type.stortype]
+            def cmprkey(x, y):
+                return (stortype.indx(x[1][1]['valu'][0])[0] <
+                        stortype.indx(y[1][1]['valu'][0])[0])
+        else:
+            cmprkey = cmprkey_formvalu
 
         for cval in cmprvals:
             genrs = []
@@ -1746,10 +1765,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         ttyp = self.model.tagprop(prop)
-        stortype = layers[0].stortypes[ttyp.type.stortype]
-        def cmprkey(x, y):
-            return (stortype.indx(x[1][1]['tagprops'][(tag, prop)][0])[0] <
-                    stortype.indx(y[1][1]['tagprops'][(tag, prop)][0])[0])
+        if ttyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
+            stortype = layers[0].stortypes[ttyp.type.stortype]
+            def cmprkey(x, y):
+                return ((stortype.indx(x[1][1]['tagprops'][(tag, prop)][0])[0], x[1][0]) <
+                        (stortype.indx(y[1][1]['tagprops'][(tag, prop)][0])[0], y[1][0]))
+        else:
+            def cmprkey(x, y):
+                return ((x[1][1]['tagprops'][(tag, prop)], x[1][0]) <
+                        (y[1][1]['tagprops'][(tag, prop)], y[1][0]))
 
         genrs = []
         for layr in layers:
@@ -1766,10 +1790,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         ttyp = self.model.tagprop(prop)
-        stortype = layers[0].stortypes[ttyp.type.stortype]
-        def cmprkey(x, y):
-            return (stortype.indx(x[1][1]['tagprops'][(tag, prop)][0])[0] <
-                    stortype.indx(y[1][1]['tagprops'][(tag, prop)][0])[0])
+        if ttyp.type.stortype in (s_layer.STOR_TYPE_MSGP, s_layer.STOR_TYPE_LATLONG):
+            stortype = layers[0].stortypes[ttyp.type.stortype]
+            def cmprkey(x, y):
+                return ((stortype.indx(x[1][1]['tagprops'][(tag, prop)][0])[0], x[1][0]) <
+                        (stortype.indx(y[1][1]['tagprops'][(tag, prop)][0])[0], y[1][0]))
+        else:
+            def cmprkey(x, y):
+                return ((x[1][1]['tagprops'][(tag, prop)], x[1][0]) <
+                        (y[1][1]['tagprops'][(tag, prop)], y[1][0]))
 
         def filtercmpr(sode):
             tagprops = sode.get('tagprops')

@@ -193,6 +193,7 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
         ('test:data', ('data', {}), {}),
+        ('test:latlong', ('geo:latlong', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
         ('test:arrayform', ('array', {'type': 'int'}), {}),
@@ -296,6 +297,10 @@ testmodel = {
 
         ('test:data', {}, (
             ('data', ('test:data', {}), {}),
+        )),
+
+        ('test:latlong', {}, (
+            ('latlong', ('test:latlong', {}), {}),
         )),
 
         ('test:str', {}, (
