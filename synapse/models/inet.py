@@ -1628,6 +1628,9 @@ class InetModule(s_module.CoreModule):
                         ('host', ('it:host', {}), {
                             'doc': 'The guid of the host the interface is associated with.'
                         }),
+                        ('network', ('it:network', {}), {
+                            'doc': 'The guid of the it:network the interface connected to.'
+                        }),
                         ('type', ('str', {'lower': True}), {
                             'doc': 'The free-form interface type.'
                         }),

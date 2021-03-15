@@ -632,8 +632,10 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_iface(self):
         formname = 'inet:iface'
         valu = 32 * 'a'
+        netw = s_common.guid()
         input_props = {
             'host': 32 * 'c',
+            'network': netw,
             'type': 'Cool',
             'mac': 'ff:00:ff:00:ff:00',
             'ipv4': '1.2.3.4',
@@ -646,6 +648,7 @@ class InetModelTest(s_t_utils.SynTest):
         }
         expected_props = {
             'host': 32 * 'c',
+            'network': netw,
             'type': 'cool',
             'mac': 'ff:00:ff:00:ff:00',
             'ipv4': 16909060,

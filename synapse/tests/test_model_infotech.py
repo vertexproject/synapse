@@ -124,6 +124,47 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ it:adid=visi ]')
             self.eq(('it:adid', 'visi'), nodes[0].ndef)
 
+            nodes = await core.nodes('''
+                init {
+                    $org = $lib.guid()
+                    $host = $lib.guid()
+                    $acct = $lib.guid()
+                }
+                [
+                    it:account=$acct
+                        :host=$host
+                        :user=visi
+                        :contact={[ ps:contact=* :email=visi@vertex.link ]}
+                        :network={[ it:network=* :name=vertex :org=$org :domain=gan.vertex.link :net4=1.2.3.0/24 :net6=("::1", "::2") ]}
+
+                    (it:logon=* :time=20210314 :logoff:time=202103140201 :account=$acct :host=$host :duration=(:logoff:time - :time))
+                ]
+            ''')
+            self.len(2, nodes)
+            self.eq('visi', nodes[0].get('user'))
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('contact'))
+            self.nn(nodes[0].get('network'))
+
+            self.nn(nodes[1].get('host'))
+            self.nn(nodes[1].get('account'))
+            self.eq(1615680000000, nodes[1].get('time'))
+            self.eq(1615687260000, nodes[1].get('logoff:time'))
+            self.eq(7260000, nodes[1].get('duration'))
+            self.eq('02:01:00.000', nodes[1].repr('duration'))
+
+            nodes = await core.nodes('inet:email=visi@vertex.link -> ps:contact -> it:account -> it:logon +:time>=2021 -> it:host')
+            self.len(1, nodes)
+            self.eq('it:host', nodes[0].ndef[0])
+
+            nodes = await core.nodes('it:account -> it:network')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('org'))
+            self.eq('vertex', nodes[0].get('name'))
+            self.eq('gan.vertex.link', nodes[0].get('domain'))
+            self.eq((0x01020300, 0x010203ff), nodes[0].get('net4'))
+            self.eq(('::1', '::2'), nodes[0].get('net6'))
+
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
         async with self.getTestCore() as core:

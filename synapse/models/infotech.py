@@ -393,7 +393,12 @@ class ItModule(s_module.CoreModule):
                     ('domain', ('inet:fqdn', {}), {
                         'doc': 'A network search zone or domain name for the network.',
                     }),
-                    # TODO host <-> network?
+                    ('net4', ('inet:net4', {}), {
+                        'doc': 'The optional contiguous IPv4 address range of this network.',
+                    }),
+                    ('net6', ('inet:net6', {}), {
+                        'doc': 'The optional contiguous IPv6 address range of this network.',
+                    }),
                 )),
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
@@ -413,13 +418,16 @@ class ItModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The time the the logon occured.',
                     }),
+                    ('logoff:time', ('time', {}), {
+                        'doc': 'The time the the logon session ended.',
+                    }),
                     ('host', ('it:host', {}), {
                         'doc': 'The host that the account logged in to.',
                     }),
                     ('account', ('it:account', {}), {
                         'doc': 'The account that logged in.',
                     }),
-                    ('duration', ('time:duration', {}), {
+                    ('duration', ('duration', {}), {
                         'doc': 'The duration of the logon session.',
                     }),
                 )),

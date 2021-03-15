@@ -1613,36 +1613,45 @@ msec_min = 60000
 msec_sec = 1000
 
 class Duration(IntBase):
+
+    stortype = s_layer.STOR_TYPE_U64
+
     _opt_defs = (
         ('signed', False),
     )
 
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    def _normPyInt(self, valu):
+        return valu, {}
+
     def _normPyStr(self, text):
 
         text = text.strip()
-        if text.find('D') != -1:
-            daystext, text = text.split('D', 1)
-
         dura = 0
 
-        dura += int(daystext.strip(), 0) * msec_day
+        if text.find('D') != -1:
+            daystext, text = text.split('D', 1)
+            dura += int(daystext.strip(), 0) * msec_day
 
         if text.find(':') != -1:
             parts = text.split(':')
             if len(parts) == 2:
-                dura += int(parts[0].strip(), 0) * msec_min
-                dura += int(float(parts[1].strip(), 0) * msec_sec)
+                dura += int(parts[0].strip()) * msec_min
+                dura += int(float(parts[1].strip()) * msec_sec)
             elif len(parts) == 3:
-                dura += int(parts[0].strip(), 0) * msec_hour
-                dura += int(parts[1].strip(), 0) * msec_min
-                dura += int(float(parts[2].strip(), 0) * msec_sec)
+                dura += int(parts[0].strip()) * msec_hour
+                dura += int(parts[1].strip()) * msec_min
+                dura += int(float(parts[2].strip()) * msec_sec)
             else:
                 mesg = 'Invalid number of : characters for duration.'
                 raise s_exc.BadTypeValu(mesg=mesg)
         else:
-            dura += int(float(parts[2].strip(), 0) * msec_sec)
+            dura += int(float(parts[2].strip()) * msec_sec)
 
-        return dura
+        return dura, {}
 
     def repr(self, valu):
 
