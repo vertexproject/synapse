@@ -1581,10 +1581,8 @@ class Cortex(s_cell.Cell):  # type: ignore
                     sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
                     if sodelist is not None:
                         yield sodelist
-
+                    sodes.clear()
                 lastbuid = buid
-                sodes.clear()
-
             sodes[layr] = sode
 
         if lastbuid is not None:
