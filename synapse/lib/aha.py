@@ -132,9 +132,9 @@ class AhaCell(s_cell.Cell):
         self.onfini(fini)
 
     async def initServiceRuntime(self):
-        self.addActiveCoro(self._clearInacticeSessions)
+        self.addActiveCoro(self._clearInactiveSessions)
 
-    async def _clearInacticeSessions(self):
+    async def _clearInactiveSessions(self):
         # Capture the current online svcs
         online_svcs = [svc async for svc in self.getAhaSvcs() if svc.get('svcinfo', {}).get('online')]
 
