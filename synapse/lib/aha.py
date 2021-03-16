@@ -222,8 +222,8 @@ class AhaCell(s_cell.Cell):
     async def setAhaSvcDown(self, name, linkiden, network=None):
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
         path = ('aha', 'services', svcnetw, svcname)
-        ret = await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
-        logger.debug(f'Deleted: {path} {linkiden=} result {ret=}')
+        await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
+        logger.debug(f'Set [{svcfull}] offline.')
         await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
 
     async def getAhaSvc(self, name):

@@ -75,38 +75,24 @@ class AhaTest(s_test.SynTest):
                 wait00 = aha.waiter(1, 'aha:svcadd')
                 cryo_conf = {
                     'aha:name': '0.cryo.mynet',
-                    'aha:leader': 'cryo.mynet',
                     'aha:admin': 'root@cryo.mynet',
                     'aha:registry': f'tcp://root:secret@127.0.0.1:{port}',
                     'dmon:listen': 'tcp://0.0.0.0:0/',
                 }
                 async with self.getTestCryo(dirn=cryo0_dirn, conf=cryo_conf.copy()) as cryo:
                     self.len(1, await wait00.wait(timeout=6))
-                    await asyncio.sleep(1)  # Need a signal from cryo00 that aha has registered
 
-                    svcs = [svc async for svc in aha.getAhaSvcs()]
-                    for s in svcs:
-                        logger.info(s)
+                    svc = await aha.getAhaSvc('0.cryo.mynet')
+                    self.isin('online', svc.get('svcinfo'))
 
                     # Tear down the Aha cell.
-                    import synapse.lib.base as s_base
-                    logger.info(f'AHA INFO: {aha=} {type(aha)} {isinstance(aha, s_base.Base)}')
-
                     await aha.__aexit__(None, None, None)
 
-                    logger.info('tearing down cryp00')
-
-                logger.info('out first aha teardown yield')
-
-            logger.info('Bringing aha back!')
             async with self.getTestAha(conf=conf.copy(), dirn=dirn) as aha:
-                # host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
-
-                svcs = [svc async for svc in aha.getAhaSvcs()]
-                for s in svcs:
-                    logger.info(s)
-
-                await asyncio.sleep(6)
+                wait01 = aha.waiter(1, 'aha:svcdown')
+                await wait01.wait(timeout=6)
+                svc = await aha.getAhaSvc('0.cryo.mynet')
+                self.notin('online', svc.get('svcinfo'))
 
     async def test_lib_aha(self):
 
