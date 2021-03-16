@@ -101,6 +101,7 @@ class LibTst(s_stormtypes.Lib):
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
     )
     _storm_lib_path = ('test',)
+
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
@@ -233,6 +234,8 @@ testmodel = {
 
         ('test:arrayprop', {}, (
             ('ints', ('array', {'type': 'test:int'}), {}),
+            ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
+            ('strsnosplit', ('array', {'type': 'test:str'}), {}),
         )),
         ('test:arrayform', {}, (
         )),
