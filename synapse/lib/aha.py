@@ -141,6 +141,7 @@ class AhaCell(s_cell.Cell):
         # Capture current session idens
         current_sessions = {s_common.guid(iden) for iden in self.dmon.sessions.keys()}
 
+        # Setup all our coroutines we need then await them to reduce race condition risks
         futs = []
         for svc in online_svcs:
 
