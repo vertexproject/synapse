@@ -1619,7 +1619,7 @@ class Layer(s_nexus.Pusher):
             return
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
-            yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
+            yield None, buid, deepcopy(self._getStorNode(buid))
 
     async def liftByTagValu(self, tag, cmpr, valu, form=None):
 
@@ -1639,7 +1639,7 @@ class Layer(s_nexus.Pusher):
             # filter based on the ival value before lifting the node...
             valu = await self.getNodeTag(buid, tag)
             if filt(valu):
-                yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
+                yield None, buid, deepcopy(self._getStorNode(buid))
 
     async def hasTagProp(self, name):
         async for _ in self.liftTagProp(name):
@@ -1726,7 +1726,7 @@ class Layer(s_nexus.Pusher):
                 item = s_msgpack.un(byts)
                 sode['nodedata'][name] = item
 
-            yield abrv, buid, deepcopy(sode)
+            yield None, buid, deepcopy(sode)
 
     async def storNodeEdits(self, nodeedits, meta):
 
