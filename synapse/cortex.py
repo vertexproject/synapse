@@ -1583,8 +1583,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                         yield sodelist
 
                 lastbuid = buid
-                sodes = {layr: sode}
-                continue
+                sodes.clear()
 
             sodes[layr] = sode
 
