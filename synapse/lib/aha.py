@@ -224,6 +224,7 @@ class AhaCell(s_cell.Cell):
         path = ('aha', 'services', svcnetw, svcname)
         ret = await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
         logger.debug(f'Deleted: {path} {linkiden=} result {ret=}')
+        await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
 
     async def getAhaSvc(self, name):
         path = ('aha', 'svcfull', name)

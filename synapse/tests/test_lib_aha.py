@@ -53,7 +53,9 @@ class AhaTest(s_test.SynTest):
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.eq(mnfo.get('name'), 'test.example.net')
 
+                    wait00 = aha0.waiter(1, 'aha:svcdown')
                     await aha0.setAhaSvcDown('test', iden, network='example.net')
+                    self.len(1, await wait00.wait(timeout=6))
                     await aha1.sync()
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.notin('online', mnfo)
@@ -79,7 +81,7 @@ class AhaTest(s_test.SynTest):
                     'dmon:listen': 'tcp://0.0.0.0:0/',
                 }
                 async with self.getTestCryo(dirn=cryo0_dirn, conf=cryo_conf.copy()) as cryo:
-                    await wait00.wait(timeout=2)
+                    self.len(1, await wait00.wait(timeout=6))
                     await asyncio.sleep(1)  # Need a signal from cryo00 that aha has registered
 
                     svcs = [svc async for svc in aha.getAhaSvcs()]
