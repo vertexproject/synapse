@@ -172,6 +172,15 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchType):
                 await core.nodes('$lib.cast(newp, asdf)')
 
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('$lib.trycast(newp, asdf)')
+
+            self.true(await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).0)'))
+            self.false(await core.callStorm('return($lib.trycast(inet:ipv4, asdf).0)'))
+
+            self.eq(None, await core.callStorm('return($lib.trycast(inet:ipv4, asdf).1)'))
+            self.eq(0x01020304, await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).1)'))
+
             self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
             self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))
             self.false(await core.callStorm('$x=(foo,bar) return($x.has((foo,bar)))'))
