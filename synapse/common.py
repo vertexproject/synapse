@@ -852,7 +852,7 @@ async def merggenr(genrs, cmprkey):
 
         curvs[nextindx] = await genrnext(genrs[nextindx])
 
-async def merggenr2(genrs, cmprkey, reverse=False):
+async def merggenr2(genrs, cmprkey=None, reverse=False):
     '''
     Optimized version of merggenr based on heapq.merge
     '''
@@ -869,6 +869,33 @@ async def merggenr2(genrs, cmprkey, reverse=False):
         _heappop = heapq.heappop
         _heapreplace = heapq.heapreplace
         direction = 1
+
+    if cmprkey is None:
+        for order, genr in enumerate(genrs):
+            try:
+                nxt = genr.__anext__
+                h_append([await nxt(), order * direction, nxt])
+            except StopAsyncIteration:
+                pass
+
+        _heapify(h)
+
+        while len(h) > 1:
+            try:
+                while True:
+                    valu, _, nxt = s = h[0]
+                    yield valu
+                    s[0] = await nxt()
+                    _heapreplace(h, s)
+            except StopAsyncIteration:
+                _heappop(h)
+
+        if h:
+            valu, order, _ = h[0]
+            yield valu
+            async for valu in genrs[abs(order)]:
+                yield valu
+        return
 
     for order, genr in enumerate(genrs):
         try:
@@ -895,5 +922,5 @@ async def merggenr2(genrs, cmprkey, reverse=False):
     if h:
         _, order, valu, _ = h[0]
         yield valu
-        async for item in genrs[abs(order)]:
-            yield item
+        async for valu in genrs[abs(order)]:
+            yield valu
