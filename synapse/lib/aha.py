@@ -135,23 +135,16 @@ class AhaCell(s_cell.Cell):
         self.addActiveCoro(self._clearInactiveSessions)
 
     async def _clearInactiveSessions(self):
-        # Capture the current online svcs
-        online_svcs = [svc async for svc in self.getAhaSvcs() if svc.get('svcinfo', {}).get('online')]
 
-        # Capture current session idens
-        current_sessions = {s_common.guid(iden) for iden in self.dmon.sessions.keys()}
-
-        # Setup all our coroutines we need then await them to reduce race condition risks
-        futs = []
-        for svc in online_svcs:
-
+        async for svc in self.getAhaSvcs():
+            if svc.get('svcinfo', {}).get('online') is None:
+                continue
+            current_sessions = {s_common.guid(iden) for iden in self.dmon.sessions.keys()}
             svcname = svc.get('svcname')
             network = svc.get('svcnetw')
             linkiden = svc.get('svcinfo').get('online')
             if linkiden not in current_sessions:
-                futs.append(self.setAhaSvcDown(svcname, linkiden, network=network))
-
-        await asyncio.gather(*futs)
+                await self.setAhaSvcDown(svcname, linkiden, network=network)
 
         # Wait until we are cancelled or the cell is fini.
         await self.waitfini()
