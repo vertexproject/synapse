@@ -1386,6 +1386,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'realname:en': 'brutus',
                 'signup': 3,
                 'signup:client': '0.0.0.4',
+                'signup:client:ipv6': '::1',
                 'tagline': 'Taglines are not tags',
                 'url': 'https://blogs.vertex.link/',
                 'webpage': 'https://blogs.vertex.link/brutus',
@@ -1405,6 +1406,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'realname': 'брут',
                 'signup:client': 'tcp://0.0.0.4',
                 'signup:client:ipv4': 4,
+                'signup:client:ipv6': '::1',
                 'recovery:email': 'recovery@vertex.link',
             })
 
