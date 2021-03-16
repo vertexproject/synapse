@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 
 import synapse.exc as s_exc
@@ -130,29 +131,28 @@ class AhaCell(s_cell.Cell):
 
         self.onfini(fini)
 
-        self._startup_svcs = [svc async for svc in self.getAhaSvcs() if svc.get('svcinfo', {}).get('online')]
-
     async def initServiceRuntime(self):
         self.addActiveCoro(self.oldSessionPruner)
 
     async def oldSessionPruner(self):
-        # This will only remove online flag from  services seen with the flag
-        # during the start of cell storage. During clustered use, the teardown
-        # of the cellapi implementation takes care of edits which were made
-        # while the service is live, since the nexus will push the change
-        # upstream.
-        #
-        # This will not handle a network partition tho from a re-election
-        #
-        for svc in self._startup_svcs:
-            full = svc.get('name')
+        # Capture the current online svcs
+        online_svcs = [svc async for svc in self.getAhaSvcs() if svc.get('svcinfo', {}).get('online')]
+
+        # Capture current session idens
+        current_sessions = {s_common.guid(iden) for iden in self.dmon.sessions.keys()}
+
+        futs = []
+        for svc in online_svcs:
+
             svcname = svc.get('svcname')
             network = svc.get('svcnetw')
             linkiden = svc.get('svcinfo').get('online')
-            currentsvc = await self.getAhaSvc(full)
-            if currentsvc.get('svcinfo').get('online') == linkiden:
+            if linkiden not in current_sessions:
                 # Only make the nexus call when we've got data to change.
-                await self.setAhaSvcDown(svcname, linkiden, network=network)
+                futs.append(self.setAhaSvcDown(svcname, linkiden, network=network))
+
+        await asyncio.gather(*futs)
+
         # Wait until we are cancelled or the cell is fini.
         await self.waitfini()
 
