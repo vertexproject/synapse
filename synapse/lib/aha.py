@@ -148,7 +148,6 @@ class AhaCell(s_cell.Cell):
             network = svc.get('svcnetw')
             linkiden = svc.get('svcinfo').get('online')
             if linkiden not in current_sessions:
-                # Only make the nexus call when we've got data to change.
                 futs.append(self.setAhaSvcDown(svcname, linkiden, network=network))
 
         await asyncio.gather(*futs)
