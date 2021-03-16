@@ -94,14 +94,14 @@ reqValidTagModel = s_config.getJsValidator({
 })
 
 def cmprkey_indx(x, y):
-    return x[1][:2] < y[1][:2]
+    return x[1] < y[1]
 
 def cmprkey_buid(x, y):
     return x[1][1] < y[1][1]
 
 async def wrap_liftgenr(iden, genr):
-    async for item in genr:
-        yield (iden, item)
+    async for indx, buid, sode in genr:
+        yield iden, (indx, buid), sode
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -1575,8 +1575,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _mergeSodes(self, layers, genrs, cmprkey, filtercmpr=None):
         lastbuid = None
         sodes = {}
-        async for (layr, item) in s_common.merggenr(genrs, cmprkey):
-            _, buid, sode = item
+        async for layr, (_, buid), sode in s_common.merggenr(genrs, cmprkey):
             if not buid == lastbuid or layr in sodes:
                 if lastbuid is not None:
                     sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
