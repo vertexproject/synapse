@@ -42,7 +42,7 @@ Connect With Us
 
 .. _pypi: https://pypi.python.org/pypi/synapse
 
-.. _website: https://snip.ly/p7vy8p
+.. _website: http://snip.ly/v3bjz5
 
 .. _training: https://snip.ly/p7vy8p
 
