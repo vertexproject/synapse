@@ -159,10 +159,12 @@ class AstTest(s_test.SynTest):
             self.len(4, ndefs)
 
             opts = {'mode': 'lookup'}
-            nodes = await core.nodes('1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz', opts=opts)
+            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz'
+            nodes = await core.nodes(q, opts=opts)
             self.eq(ndefs, [n.ndef for n in nodes])
 
-            nodes = await core.nodes('1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz | [ +#hehe ]', opts=opts)
+            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz | [ +#hehe ]'
+            nodes = await core.nodes(q, opts=opts)
             self.len(4, nodes)
             self.eq(ndefs, [n.ndef for n in nodes])
             self.true(all(n.tags.get('hehe') is not None for n in nodes))
@@ -494,7 +496,7 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
+            nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) :strs="foo,bar,baz" :strsnosplit=(a,b,c) ]')
             self.len(1, nodes)
 
             # Check that subs were added
@@ -504,9 +506,13 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('test:int=3')
             self.len(1, nodes)
+            nodes = await core.nodes('test:str=foo')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:str=c')
+            self.len(1, nodes)
 
             nodes = await core.nodes('test:arrayprop -> *')
-            self.len(3, nodes)
+            self.len(9, nodes)
 
             nodes = await core.nodes('test:arrayprop -> test:int')
             self.len(3, nodes)
@@ -521,7 +527,7 @@ class AstTest(s_test.SynTest):
             self.len(3, nodes)
 
             nodes = await core.nodes('test:arrayprop:ints -> *')
-            self.len(3, nodes)
+            self.len(9, nodes)
 
             nodes = await core.nodes('test:arrayprop :ints -> *')
             self.len(3, nodes)
@@ -532,6 +538,16 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:int=2 -> test:arrayprop')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'test:arrayprop')
+
+            nodes = await core.nodes('test:str=bar -> test:arrayprop')
+            self.len(1, nodes)
+
+            # This should work...
+            nodes = await core.nodes('test:str=bar -> test:arrayprop:strs')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:str=b -> test:arrayprop:strsnosplit')
+            self.len(1, nodes)
 
     async def test_ast_pivot_ndef(self):
 
@@ -652,16 +668,16 @@ class AstTest(s_test.SynTest):
 
             # ensure that we get a proper exception when using += (et al) on non-array props
             with self.raises(s_exc.StormRuntimeError):
-                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn+=10 ]')
+                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn+=10 ]')
 
             with self.raises(s_exc.StormRuntimeError):
-                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn?+=10 ]')
+                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn?+=10 ]')
 
             with self.raises(s_exc.StormRuntimeError):
-                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn-=10 ]')
+                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn-=10 ]')
 
             with self.raises(s_exc.StormRuntimeError):
-                nodes = await core.nodes(f'[ inet:ipv4=1.2.3.4 :asn?-=10 ]')
+                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn?-=10 ]')
 
     async def test_ast_del_array(self):
 
@@ -753,22 +769,22 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('pkg.del foo')
             self.stormIsInPrint('Multiple package names match "foo". Aborting.', msgs)
 
-            msgs = await core.stormlist(f'pkg.del foosball')
+            msgs = await core.stormlist('pkg.del foosball')
             self.stormIsInPrint('Removing package: foosball', msgs)
 
-            msgs = await core.stormlist(f'pkg.del foo')
+            msgs = await core.stormlist('pkg.del foo')
             self.stormIsInPrint('Removing package: foo', msgs)
 
             # Direct add via stormtypes
             await core.stormlist('$lib.pkg.add($pkg)',
-                                   opts={'vars': {'pkg': stormpkg}})
+                                 opts={'vars': {'pkg': stormpkg}})
             msgs = await core.stormlist('pkg.list')
             self.stormIsInPrint('stormpkg', msgs)
 
             # Make sure a JSON package loads
             jsonpkg = json.loads(json.dumps(jsonpkg))
             await core.stormlist('$lib.pkg.add($pkg)',
-                                   opts={'vars': {'pkg': jsonpkg}})
+                                 opts={'vars': {'pkg': jsonpkg}})
             msgs = await core.stormlist('pkg.list')
             self.stormIsInPrint('jsonpkg', msgs)
 
@@ -1187,7 +1203,8 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('init { function x() { return((0)) } }'))
 
             # force sleep in iter with ret
-            self.len(0, await core.nodes('function x() { [ inet:asn=2 ] if ($node.value() = (3)) { return((3)) } } $x()'))
+            q = 'function x() { [ inet:asn=2 ] if ($node.value() = (3)) { return((3)) } } $x()'
+            self.len(0, await core.nodes(q))
 
     async def test_ast_function_scope(self):
 
@@ -1462,9 +1479,11 @@ class AstTest(s_test.SynTest):
         self.eq((1, 2, 3), vals)
 
         data = {}
+
         async def empty():
             data['executed'] = True
-            if 0: yield None
+            if 0:
+                yield None
 
         vals = [x async for x in await s_ast.pullone(empty())]
         self.eq([], vals)
@@ -1564,10 +1583,10 @@ class AstTest(s_test.SynTest):
                 await core.nodes(f'view.fork {iden}', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes(f'$lib.view.get().fork()', opts={'readonly': True})
+                await core.nodes('$lib.view.get().fork()', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes(f'vertex.link', opts={'readonly': True, 'mode': 'autoadd'})
+                await core.nodes('vertex.link', opts={'readonly': True, 'mode': 'autoadd'})
 
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes('inet:ipv4 | limit 1 | tee { [+#foo] }', opts={'readonly': True})
@@ -1575,10 +1594,12 @@ class AstTest(s_test.SynTest):
     async def test_ast_yield(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('$nodes = $lib.list() [ inet:asn=10 inet:asn=20 ] $nodes.append($node) | spin | yield $nodes')
+            q = '$nodes = $lib.list() [ inet:asn=10 inet:asn=20 ] $nodes.append($node) | spin | yield $nodes'
+            nodes = await core.nodes(q)
             self.len(2, nodes)
 
-            nodes = await core.nodes('$nodes = $lib.set() [ inet:asn=10 inet:asn=20 ] $nodes.add($node) | spin | yield $nodes')
+            q = '$nodes = $lib.set() [ inet:asn=10 inet:asn=20 ] $nodes.add($node) | spin | yield $nodes'
+            nodes = await core.nodes(q)
             self.len(2, nodes)
 
     async def test_ast_exprs(self):
@@ -1776,6 +1797,6 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4  +(:asn + 20 >= 42)'))
 
             opts = {'vars': {'asdf': b'asdf'}}
-            nodes = await core.nodes('[ file:bytes=$asdf ]', opts=opts)
+            await core.nodes('[ file:bytes=$asdf ]', opts=opts)
             await core.axon.put(b'asdf')
             self.len(1, await core.nodes('file:bytes +$lib.bytes.has(:sha256)'))
