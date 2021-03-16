@@ -4,7 +4,6 @@ import sys
 import json
 import time
 import fcntl
-import heapq
 import types
 import base64
 import shutil
@@ -851,49 +850,3 @@ async def merggenr(genrs, cmprkey):
         yield nextvalu
 
         curvs[nextindx] = await genrnext(genrs[nextindx])
-
-async def merggenr2(genrs, cmprkey, reverse=False):
-    '''
-    Optimized version of merggenr based on heapq.merge
-    '''
-    h = []
-    h_append = h.append
-
-    if reverse:
-        _heapify = heapq._heapify_max
-        _heappop = heapq._heappop_max
-        _heapreplace = heapq._heapreplace_max
-        direction = -1
-    else:
-        _heapify = heapq.heapify
-        _heappop = heapq.heappop
-        _heapreplace = heapq.heapreplace
-        direction = 1
-
-    for order, genr in enumerate(genrs):
-        try:
-            nxt = genr.__anext__
-            valu = await nxt()
-            h_append([cmprkey(valu), order * direction, valu, nxt])
-        except StopAsyncIteration:
-            pass
-
-    _heapify(h)
-
-    while len(h) > 1:
-        try:
-            while True:
-                _, _, valu, nxt = s = h[0]
-                yield valu
-                valu = await nxt()
-                s[0] = cmprkey(valu)
-                s[2] = valu
-                _heapreplace(h, s)
-        except StopAsyncIteration:
-            _heappop(h)
-
-    if h:
-        _, order, valu, _ = h[0]
-        yield valu
-        async for item in genrs[abs(order)]:
-            yield item
