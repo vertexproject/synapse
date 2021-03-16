@@ -69,12 +69,9 @@ class AhaApi(s_cell.CellApi):
                 mesg = f'{self.cell.__class__.__name__} is fini. Unable to set {name}@{network} as down.'
                 logger.warning(mesg)
                 return
-            # In a clustered scenario, a election causing the Dmon to tear down the
-            # links will cause this fini routine to execute. This leaves us trying
-            # to make nexus changes **during** an election after we're in a state
-            # which has less than well defined mechanics. Since the teardown of links
-            # is a awaited, this inline fini operation is also awaited.
-            await self.cell.setAhaSvcDown(name, sess, network=network)
+
+            coro = self.cell.setAhaSvcDown(name, sess, network=network)
+            self.cell.schedCoro(coro)  # this will eventually execute or get cancelled.
 
         self.onfini(fini)
 
