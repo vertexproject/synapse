@@ -1664,7 +1664,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             for layr in layers:
                 genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
                 yield sodes
 
     async def _liftByFormValu(self, form, cmprvals, layers):
@@ -1693,7 +1693,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTag(tag, form)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByTagValu(self, tag, cmpr, valu, form, layers):
@@ -1713,7 +1713,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagValu(tag, cmpr, valu, form)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
             yield sodes
 
     async def _liftByTagProp(self, form, tag, prop, layers):
