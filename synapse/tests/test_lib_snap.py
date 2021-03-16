@@ -510,6 +510,14 @@ class SnapTest(s_t_utils.SynTest):
             await view1.nodes('[ inet:ipv4=1.1.1.2 :asn=2 +#woot:score=2] $node.data.set(woot, 2)')
             await view0.nodes('[ inet:ipv4=1.1.1.3 :asn=3 +#woot:score=3] $node.data.set(woot, 3)')
 
+            await view1.nodes('[ test:str=foo +#woot=2001 ]')
+            await view0.nodes('[ test:str=foo +#woot=2001 ]')
+            await view0.nodes('[ test:int=1 +#woot=2001 ]')
+            await view0.nodes('[ test:int=2 +#woot=2001 ]')
+
+            nodes = await view1.nodes('#woot')
+            self.len(7, nodes)
+
             nodes = await view1.nodes('inet:ipv4')
             self.len(4, nodes)
             last = 0

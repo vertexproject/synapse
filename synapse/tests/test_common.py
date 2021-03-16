@@ -317,7 +317,7 @@ class CommonTest(s_t_utils.SynTest):
         retn = s_common.merggenr([asyncl(lt) for lt in (l3, l2, l1)], lambda x, y: x < y)
         self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
 
-        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l2, l3)], lambda x: x)
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l2, l3, ())], lambda x: x)
         self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
 
         retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l1, l1)], lambda x: x)
@@ -326,7 +326,7 @@ class CommonTest(s_t_utils.SynTest):
         retn = s_common.merggenr2([asyncl(lt) for lt in (l3, l2, l1)], lambda x: x)
         self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
 
-        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l2, l3)])
+        retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l2, l3, ())])
         self.eq((1, 2, 3, 4, 5, 6, 7, 8, 9), await alist(retn))
 
         retn = s_common.merggenr2([asyncl(lt) for lt in (l1, l1, l1)])

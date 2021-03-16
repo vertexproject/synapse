@@ -1688,11 +1688,20 @@ class Cortex(s_cell.Cell):  # type: ignore
                 yield (buid, [(layr, sode)])
             return
 
+        if form is None:
+            def filtercmpr(sode):
+                tags = sode.get('tags')
+                if tags is None:
+                    return False
+                return tags.get(tag) is not None
+        else:
+            filtercmpr = None
+
         genrs = []
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTag(tag, form)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
             yield sodes
 
     async def _liftByTagValu(self, tag, cmpr, valu, form, layers):
