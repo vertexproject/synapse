@@ -291,13 +291,15 @@ class Snap(s_base.Base):
 
         layrs = (layr for layr in self.layers if layr.iden not in cache)
         if layrs:
+            indx = 0
             newsodes = await self.core._getStorNodes(buid, layrs)
 
         sodes = []
         for layr in self.layers:
             sode = cache.get(layr.iden)
             if sode is None:
-                sode = newsodes.pop(0)
+                sode = newsodes[indx]
+                indx += 1
             sodes.append((layr.iden, sode))
 
         return await self._joinSodes(buid, sodes)
