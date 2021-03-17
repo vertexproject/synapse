@@ -69,7 +69,9 @@ class AhaApi(s_cell.CellApi):
                 mesg = f'{self.cell.__class__.__name__} is fini. Unable to set {name}@{network} as down.'
                 logger.warning(mesg)
                 return
-            await self.cell.setAhaSvcDown(name, sess, network=network)
+
+            coro = self.cell.setAhaSvcDown(name, sess, network=network)
+            self.cell.schedCoro(coro)  # this will eventually execute or get cancelled.
 
         self.onfini(fini)
 
@@ -127,6 +129,24 @@ class AhaCell(s_cell.Cell):
             await slab.fini()
 
         self.onfini(fini)
+
+    async def initServiceRuntime(self):
+        self.addActiveCoro(self._clearInactiveSessions)
+
+    async def _clearInactiveSessions(self):
+
+        async for svc in self.getAhaSvcs():
+            if svc.get('svcinfo', {}).get('online') is None:
+                continue
+            current_sessions = {s_common.guid(iden) for iden in self.dmon.sessions.keys()}
+            svcname = svc.get('svcname')
+            network = svc.get('svcnetw')
+            linkiden = svc.get('svcinfo').get('online')
+            if linkiden not in current_sessions:
+                await self.setAhaSvcDown(svcname, linkiden, network=network)
+
+        # Wait until we are cancelled or the cell is fini.
+        await self.waitfini()
 
     async def getAhaSvcs(self, network=None):
         path = ('aha', 'services')
@@ -195,6 +215,8 @@ class AhaCell(s_cell.Cell):
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
         path = ('aha', 'services', svcnetw, svcname)
         await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
+        logger.debug(f'Set [{svcfull}] offline.')
+        await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
 
     async def getAhaSvc(self, name):
         path = ('aha', 'svcfull', name)
