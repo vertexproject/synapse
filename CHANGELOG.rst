@@ -5,6 +5,37 @@ Synapse Changelog
 *****************
 
 
+v2.30.0 - 2021-03-17
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.trycast()`` to allow for Storm control flow based on type
+  normalization.
+  (`#2113 <https://github.com/vertexproject/synapse/pull/2113>`_)
+
+Bugfixes
+--------
+- Resolve a bug related to pivoting to a secondary property that is an
+  array value.
+  (`#2111 <https://github.com/vertexproject/synapse/pull/2111>`_)
+- Fix an issue with Aha and persisting the online state of services upon
+  startup.
+  (`#2103 <https://github.com/vertexproject/synapse/pull/2103>`_)
+- Convert the type of ``inet:web:acct:singup:client:ipv6`` from a
+  ``inet:ipv4`` to an ``inet:ipv6``.
+  (`#2114 <https://github.com/vertexproject/synapse/pull/2114>`_)
+- Fix an idempotency issue when deleting a custom form.
+  (`#2112 <https://github.com/vertexproject/synapse/pull/2112>`_)
+
+Improved Documentation
+----------------------
+- Update README.rst.
+  (`#2215 <https://github.com/vertexproject/synapse/pull/2115>`_)
+  (`#2217 <https://github.com/vertexproject/synapse/pull/2117>`_)
+  (`#2216 <https://github.com/vertexproject/synapse/pull/2116>`_)
+
+
 v2.29.0 - 2021-03-11
 ====================
 
