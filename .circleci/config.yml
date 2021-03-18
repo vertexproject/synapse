@@ -435,6 +435,10 @@ commands:
       - setup_remote_docker
       - do_docker_login
       - run:
+          name: setcommit
+          command: |
+            - python setup.py setcommit
+      - run:
           name: build images
           command: |
             docker build -t vertexproject/synapse:${CIRCLE_BRANCH} -f docker/images/synapse/Dockerfile .
