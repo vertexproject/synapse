@@ -718,7 +718,7 @@ class Model:
 
         form = self.forms.get(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=formname)
+            return
 
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name].remove(form)
@@ -737,7 +737,7 @@ class Model:
 
         _type = self.types.get(typename)
         if _type is None:
-            raise s_exc.NoSuchType(name=typename)
+            return
 
         if self.propsbytype.get(typename):
             raise s_exc.CantDelType(name=typename)
