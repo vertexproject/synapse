@@ -359,7 +359,7 @@ commands:
       - run:
           name: setcommit
           command: |
-            python setup.py setcommit
+            python3 setup.py setcommit
       - run:
           name: build images
           command: |
@@ -406,7 +406,7 @@ commands:
       - run:
           name: setcommit
           command: |
-            python setup.py setcommit
+            python3 setup.py setcommit
       - run:
           name: build image
           command: |
@@ -453,7 +453,7 @@ commands:
       - run:
           name: setcommit
           command: |
-            python setup.py setcommit
+            python3 setup.py setcommit
       - run:
           name: build images
           command: |
