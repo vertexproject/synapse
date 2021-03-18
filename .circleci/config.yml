@@ -709,7 +709,6 @@ workflows:
             branches:
               only:
                 - master
-                - feature_commit_embed
 
       - gh-release/dorelease:
           requires:
