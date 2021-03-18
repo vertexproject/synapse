@@ -135,6 +135,9 @@ class SynModule(s_module.CoreModule):
                 ('syn:user', ('guid', {'strip': True}), {
                     'doc': 'A synapse user GUID.'
                 }),
+                ('syn:role', ('guid', {'strip': True}), {
+                    'doc': 'A synapse role GUID.'
+                }),
             ),
 
             'forms': (

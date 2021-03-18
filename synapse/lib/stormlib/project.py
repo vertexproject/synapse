@@ -1,3 +1,6 @@
+import asyncio
+
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.stormtypes as s_stormtypes
@@ -30,9 +33,10 @@ class ProjectEpic(s_stormtypes.Prim):
 
     async def setitem(self, name, valu):
         if name == 'name':
-            self.proj.confirm(('project', 'admin', 'manager'))
+            self.proj.confirm(('project', 'epic', 'set', 'name'))
             await self.node.set('name', await tostr(valu))
-        return s_stormtypes.Prim.setitem(name, valu)
+            return
+        return await s_stormtypes.Prim.setitem(self, name, valu)
 
 @s_stormtypes.registry.registerType
 class ProjectEpics(s_stormtypes.Prim):
@@ -46,34 +50,30 @@ class ProjectEpics(s_stormtypes.Prim):
 
     def getObjLocals(self):
         return {
-            'get': self._getProjEpic,
+            'get': self.proj._getProjEpic,
             'add': self._addProjEpic,
             'del': self._delProjEpic,
         }
 
-    async def _getProjEpic(self, name):
-
-        # return ProjectEpic based on name or iden lookup
-        async def filt(node):
-            return node.get('project') == self.proj.node.ndef[1]
-
-        name = await tostr(name)
-
-        node = await self.proj.runt.getOneNode('proj:epic:name', name, filt=filt, cmpr='^=')
-        if node is not None:
-            return ProjectEpic(self.proj, node)
-
-        node = await self.proj.runt.getOneNode('proj:epic', name, filt=filt, cmpr='^=')
-        if node is not None:
-            return ProjectEpic(self.proj, node)
-
     async def _delProjEpic(self, name):
-        self.proj.confirm(('project', 'admin', 'manager'))
-        # clear :epic on any matching tickets
-        # delete the proj:epic node
+
+        self.proj.confirm(('project', 'epic', 'del'))
+        epic = await self.proj._getProjEpic(name)
+        if epic is None:
+            return False
+
+        nodeedits = []
+        async for tick in self.proj.runt.snap.nodesByPropValu('proj:ticket:epic', '=', epic.node.ndef[1]):
+            nodeedits.append(
+                (tick.buid, 'proj:ticket', await tick._getPropDelEdits('epic'))
+            )
+            await asyncio.sleep(0)
+
+        await self.proj.runt.snap.applyNodeEdits(nodeedits)
+        await epic.node.delete()
 
     async def _addProjEpic(self, name):
-        self.proj.confirm(('project', 'admin', 'manager'))
+        self.proj.confirm(('project', 'epic', 'add'))
         tick = s_common.now()
         props = {
             'name': await tostr(name),
@@ -99,11 +99,20 @@ class ProjectTicket(s_stormtypes.Prim):
         self.proj = proj
         self.node = node
         self.locls.update(self.getObjLocals())
+        self.stors.update({
+            'name': self._setName,
+            'desc': self._setDesc,
+            'epic': self._setEpic,
+            'status': self._setStatus,
+            'sprint': self._setSprint,
+            'assignee': self._setAssignee,
+            'priority': self._setPriority,
+        })
 
     def getObjLocals(self):
         return {
             'name': self.node.get('name'),
-            'descr': self.node.get('descr'),
+            'desc': self.node.get('desc'),
             'priority': self.node.get('priority'),
         }
 
@@ -117,52 +126,83 @@ class ProjectTicket(s_stormtypes.Prim):
     async def value(self):
         return self.node.ndef[1]
 
-    def _reqUserPerms(self):
-        if self.proj.runt.asroot:
-            return
-        if self.node.get('creator') == self.proj.runt.user.iden:
-            return
-        self.proj.confirm(('project', 'admin', 'manager'))
+    async def _setName(self, valu):
 
-    def _reqSelfPerms(self, useriden):
-        if self.proj.runt.asroot:
-            return
-        if useriden == self.proj.runt.user.iden:
-            return
-        self.proj.confirm(('project', 'admin', 'manager'))
+        useriden = self.proj.runt.user.iden
+        if useriden != self.node.get('creator'):
+            self.proj.confirm(('project', 'ticket', 'set', 'name'))
 
-    async def setitem(self, name, valu):
-        creator = self.node.get('creator')
+        strvalu = await tostr(valu)
+        await self.node.set('name', strvalu)
+        await self.node.set('updated', s_common.now())
 
-        strvalu = await tostr(valu, noneok=True)
+    async def _setDesc(self, valu):
 
-        if name == 'name':
-            self._reqUserPerms()
-            await self.node.set('name', await tostr(valu))
-            await self.node.set('updated', s_common.now())
-            return
+        useriden = self.proj.runt.user.iden
+        if useriden != self.node.get('creator'):
+            self.proj.confirm(('project', 'ticket', 'set', 'desc'))
 
-        if name == 'descr':
-            self._reqUserPerms()
-            await self.node.set('descr', await tostr(valu))
-            await self.node.set('updated', s_common.now())
-            return
+        strvalu = await tostr(valu)
+        await self.node.set('desc', strvalu)
+        await self.node.set('updated', s_common.now())
 
-        if name == 'priority':
-            self.proj.confirm(('project', 'manager'))
-            await self.node.set('priority', await tostr(valu))
-            await self.node.set('updated', s_common.now())
-            return
+    async def _setEpic(self, valu):
 
-        if name == 'assignee':
-            #FIXME lookup user guid from name here
-            useriden = self.proj.runt.core.getUserDef(strval)
-            self._reqSelfPerms(useriden)
-            await self.node.set('assignee', useriden)
-            await self.node.set('updated', s_common.now())
-            return
+        useriden = self.proj.runt.user.iden
+        if useriden != self.node.get('creator'):
+            self.proj.confirm(('project', 'ticket', 'set', 'epic'))
 
-        return s_stormtypes.Prim.setitem(name, valu)
+        strvalu = await tostr(valu)
+        epic = await self.proj._getProjEpic(strvalu)
+        if epic is None:
+            mesg = 'No epic found by that name/iden.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        await self.node.set('epic', epic.node.ndef[1])
+        await self.node.set('updated', s_common.now())
+
+    async def _setStatus(self, valu):
+
+        useriden = self.proj.runt.user.iden
+        if useriden != self.node.get('assignee'):
+            self.proj.confirm(('project', 'ticket', 'set', 'status'))
+
+        strvalu = await tostr(valu)
+        await self.node.set('status', strvalu)
+        await self.node.set('updated', s_common.now())
+
+    async def _setPriority(self, valu):
+
+        self.proj.confirm(('project', 'ticket', 'set', 'priority'))
+
+        strvalu = await tostr(valu)
+        await self.node.set('priority', strvalu)
+        await self.node.set('updated', s_common.now())
+
+    async def _setAssignee(self, valu):
+
+        self.proj.confirm(('project', 'ticket', 'set', 'assignee'))
+
+        strvalu = await tostr(valu)
+        udef = await self.proj.runt.snap.core.getUserDefByName(strvalu)
+        if udef is None:
+            mesg = 'No user found by the name {strvalu}'
+            raise s_exc.NoSuchUser(mesg=msg)
+        await self.node.set('assignee', udef['iden'])
+        await self.node.set('updated', s_common.now())
+
+    async def _setSprint(self, valu):
+
+        self.proj.confirm(('project', 'ticket', 'set', 'sprint'))
+
+        strvalu = await tostr(valu)
+        sprint = await self.proj._getProjSprint(strvalu)
+        if sprint is None:
+            mesg = f'No sprint found by that name/iden ({strvalu}).'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        await self.node.set('sprint', sprint.node.ndef[1])
+        await self.node.set('updated', s_common.now())
 
 @s_stormtypes.registry.registerType
 class ProjectTickets(s_stormtypes.Prim):
@@ -184,7 +224,6 @@ class ProjectTickets(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def _getProjTicket(self, name):
 
-        props = ('proj:ticket', 'proj:ticket:name')
         async def filt(node):
             return node.get('project') == self.proj.node.ndef[1]
 
@@ -201,16 +240,23 @@ class ProjectTickets(s_stormtypes.Prim):
         return None
 
     async def _delProjTicket(self, name):
-        pass
-        # allow delete tickets you created...
-        #self.proj.confirm(('project', 'ticket', 'del'))
 
-    async def _addProjTicket(self, name, descr=''):
-        self.proj.confirm(('project', 'admin', 'manager', 'user'))
+        tick = await self._getProjTicket(name)
+        if tick is None:
+            return False
+
+        if tick.node.get('creator') != self.proj.runt.user.iden:
+            self.proj.confirm(('project', 'ticket', 'del'))
+
+        # TODO cacade delete comments?
+        await tick.node.delete()
+
+    async def _addProjTicket(self, name, desc=''):
+        self.proj.confirm(('project', 'ticket', 'add'))
         tick = s_common.now()
         props = {
             'name': await tostr(name),
-            'descr': await tostr(descr),
+            'desc': await tostr(desc),
             'status': 0,
             'priority': 0,
             'created': tick,
@@ -228,6 +274,111 @@ class ProjectTickets(s_stormtypes.Prim):
             yield ProjectTicket(self.proj, node)
 
 @s_stormtypes.registry.registerType
+class ProjectSprint(s_stormtypes.Prim):
+
+    _storm_typename = 'storm:project:sprint'
+
+    def __init__(self, proj, node):
+        s_stormtypes.Prim.__init__(self, None)
+        self.proj = proj
+        self.node = node
+        self.locls.update(self.getObjLocals())
+        self.ctors.update({
+            'tickets': self._getSprintTickets,
+        })
+
+    async def _getSprintTickets(self):
+        retn = []
+        async for node in self.proj.runt.snap.nodesByPropValu('proj:ticket:sprint', '=', self.node.ndef[1]):
+            retn.append(ProjectTicket(self.proj, node))
+        return s_stormtypes.List(retn)
+
+    def getObjLocals(self):
+        return {
+            'name': self.node.get('name'),
+            'desc': self.node.get('desc'),
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def repr(self):
+        tickname = self.node.get('name')
+        sprintname = self.proj.node.get('name')
+        periodrepr = self.node.repr('period')
+        return f'Project Sprint: {projname} - {sprintname} {periodrepr}'
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def value(self):
+        return self.node.ndef[1]
+
+    async def setitem(self, name, valu):
+
+        creator = self.node.get('creator')
+        useriden = self.proj.runt.user.iden
+
+        strvalu = await tostr(valu, noneok=True)
+
+        if name == 'name':
+            self.proj.confirm(('project', 'sprint', 'set', 'name'))
+            await self.node.set('name', await tostr(valu))
+            await self.node.set('updated', s_common.now())
+            return
+
+        return s_stormtypes.Prim.setitem(self, name, valu)
+
+@s_stormtypes.registry.registerType
+class ProjectSprints(s_stormtypes.Prim):
+
+    _storm_typename = 'storm:project:sprints'
+
+    def __init__(self, proj):
+        s_stormtypes.Prim.__init__(self, None)
+        self.proj = proj
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'get': self.proj._getProjSprint,
+            'add': self._addProjSprint,
+            'del': self._delProjSprint,
+        }
+
+    async def _addProjSprint(self, name, period=None):
+
+        self.proj.confirm(('project', 'sprint', 'add'))
+
+        props = {
+            'name': await tostr(name),
+            'created': s_common.now(),
+            'project': self.proj.node.ndef[1],
+            'creator': self.proj.runt.snap.user.iden,
+        }
+
+        if period is not None:
+            props['period'] = period
+
+        node = await self.proj.runt.snap.addNode('proj:sprint', '*', props=props)
+        return ProjectSprint(self.proj, node)
+
+    async def _delProjSprint(self, name):
+
+        self.proj.confirm(('project', 'sprint', 'del'))
+        sprint = await self.proj._getProjSprint(name)
+        if sprint is None:
+            return False
+
+        sprintiden = sprint.node.ndef[1]
+
+        nodeedits = []
+        async for tick in self.proj.runt.snap.nodesByPropValu('proj:ticket:sprint', '=', sprintiden):
+            nodeedits.append(
+                (tick.buid, 'proj:ticket', await tick._getPropDelEdits('sprint'))
+            )
+            await asyncio.sleep(0)
+
+        await self.proj.runt.snap.applyNodeEdits(nodeedits)
+        await sprint.node.delete()
+
+@s_stormtypes.registry.registerType
 class Project(s_stormtypes.Prim):
 
     _storm_typename = 'storm:project'
@@ -237,17 +388,33 @@ class Project(s_stormtypes.Prim):
         self.node = node
         self.runt = runt
         self.locls.update(self.getObjLocals())
+        self.ctors.update({
+            'epics': self._ctorProjEpics,
+            'sprints': self._ctorProjSprints,
+            'tickets': self._ctorProjTickets,
+        })
+        self.stors.update({
+            'name': self._setName,
+        })
+
+    def _ctorProjEpics(self, path=None):
+        return ProjectEpics(self)
+
+    def _ctorProjSprints(self, path=None):
+        return ProjectSprints(self)
+
+    def _ctorProjTickets(self, path=None):
+        return ProjectTickets(self)
 
     def confirm(self, perm):
         gateiden = self.node.ndef[1]
-        return self.runt.confirm(perm, gateiden=gateiden)
+        # bypass runt.confirm() here to avoid asroot
+        return self.runt.user.confirm(perm, gateiden=gateiden)
 
     def getObjLocals(self):
         return {
             'name': self.node.get('name'),
             'repr': self.repr,
-            'epics': ProjectEpics(self),
-            'tickets': ProjectTickets(self),
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -255,17 +422,45 @@ class Project(s_stormtypes.Prim):
         projname = self.node.get('name')
         return f'Project - {projname}'
 
-    async def setitem(self, name, valu):
-        if name == 'name':
-            self.confirm(('project', 'manager'))
-            await self.node.set('name', await tostr(valu))
-            return
-
-        return s_stormtypes.Prim.setitem(self, name, valu)
+    async def _setName(self, valu):
+        self.confirm(('project', 'set', 'name'))
+        await self.node.set('name', await tostr(valu))
 
     @s_stormtypes.stormfunc(readonly=True)
     def value(self):
         return self.node.ndef[1]
+
+    async def _getProjEpic(self, name):
+
+        async def filt(node):
+            return node.get('project') == self.node.ndef[1]
+
+        name = await tostr(name)
+
+        node = await self.runt.getOneNode('proj:epic:name', name, filt=filt, cmpr='^=')
+        if node is not None:
+            return ProjectEpic(self, node)
+
+        node = await self.runt.getOneNode('proj:epic', name, filt=filt, cmpr='^=')
+        if node is not None:
+            return ProjectEpic(self, node)
+
+    async def _getProjSprint(self, name):
+
+        async def filt(node):
+            return node.get('project') == self.node.ndef[1]
+
+        name = await tostr(name)
+
+        node = await self.runt.getOneNode('proj:sprint:name', name, filt=filt, cmpr='^=')
+        if node is not None:
+            return ProjectSprint(self, node)
+
+        node = await self.runt.getOneNode('proj:sprint', name, filt=filt, cmpr='^=')
+        if node is not None:
+            return ProjectSprint(self, node)
+
+        return None
 
 @s_stormtypes.registry.registerLib
 class LibProjects(s_stormtypes.Lib):
@@ -286,7 +481,9 @@ class LibProjects(s_stormtypes.Lib):
             yield Project(self.runt, node)
 
     async def _funcProjDel(self, name):
-        pass
+        gateiden = self.runt.snap.view.iden
+        # do not use self.runt.confirm() to avoid asroot
+        self.runt.user.confirm(('project', 'del'), gateiden=gateiden)
 
     async def _funcProjGet(self, name):
 
@@ -300,12 +497,16 @@ class LibProjects(s_stormtypes.Lib):
         if node is not None:
             return Project(self.runt, node)
 
-    async def _funcProjAdd(self, name, descr=''):
-        self.runt.layerConfirm(('project', 'admin'))
+    async def _funcProjAdd(self, name, desc=''):
+
+        gateiden = self.runt.snap.view.iden
+        # do not use self.runt.confirm() to avoid asroot
+        self.runt.user.confirm(('project', 'add'), gateiden=gateiden)
+
         tick = s_common.now()
         props = {
             'name': await tostr(name),
-            'descr': await tostr(descr),
+            'desc': await tostr(desc),
             'created': tick,
             'updated': tick,
             'creator': self.runt.user.iden,

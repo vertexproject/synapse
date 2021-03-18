@@ -287,22 +287,14 @@ class Node:
             return self.tags.get(name[1:])
         return self.props.get(name)
 
-    async def pop(self, name, init=False):
-        '''
-        Remove a property from a node and return the value
-        '''
+    async def _getPropDelEdits(self, name, init=False):
+
         prop = self.form.prop(name)
         if prop is None:
             if self.snap.strict:
                 raise s_exc.NoSuchProp(name=name, form=self.form.name)
             await self.snap.warn(f'No Such Property: {name}')
-            return False
-
-        if self.form.isrunt:
-            if prop.info.get('ro'):
-                raise s_exc.IsRuntForm(mesg='Cannot delete read-only props on runt nodes',
-                                       form=self.form.full, prop=name)
-            return await self.snap.core.runRuntPropDel(self, prop)
+            return ()
 
         if not init:
 
@@ -310,17 +302,35 @@ class Node:
                 if self.snap.strict:
                     raise s_exc.ReadOnlyProp(name=name)
                 await self.snap.warn(f'Property is read-only: {name}')
-                return False
+                return ()
 
-        curv = self.props.pop(name, s_common.novalu)
+        curv = self.props.get(name, s_common.novalu)
         if curv is s_common.novalu:
-            return False
+            return ()
 
         edits = (
             (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
         )
+        return edits
+
+    async def pop(self, name, init=False):
+        '''
+        Remove a property from a node and return the value
+        '''
+        if self.form.isrunt:
+            prop = self.form.prop(name)
+            if prop.info.get('ro'):
+                raise s_exc.IsRuntForm(mesg='Cannot delete read-only props on runt nodes',
+                                       form=self.form.full, prop=name)
+            return await self.snap.core.runRuntPropDel(self, prop)
+
+        edits = await self._getPropDelEdits(name, init=init)
+        if not edits:
+            return False
 
         await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
+        self.props.pop(name, None)
+        return True
 
     def repr(self, name=None, defv=None):
 
@@ -498,10 +508,8 @@ class Node:
 
         return root
 
-    async def delTag(self, tag, init=False):
-        '''
-        Delete a tag from the node.
-        '''
+    async def _getTagDelEdits(self, tag, init=False):
+
         path = s_chop.tagpath(tag)
 
         name = '.'.join(path)
@@ -512,7 +520,7 @@ class Node:
 
         curv = self.tags.get(name, s_common.novalu)
         if curv is s_common.novalu:
-            return False
+            return ()
 
         pref = name + '.'
 
@@ -556,8 +564,14 @@ class Node:
         edits.extend(self._getTagPropDel(name))
         edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
 
-        nodeedit = (self.buid, self.form.name, edits)
+        return edits
 
+    async def delTag(self, tag, init=False):
+        '''
+        Delete a tag from the node.
+        '''
+        edits = await self._getTagDelEdits(tag, init=init)
+        nodeedit = (self.buid, self.form.name, edits)
         await self.snap.applyNodeEdit(nodeedit)
 
     def _getTagPropDel(self, tag):
@@ -666,7 +680,8 @@ class Node:
             raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',
                                    form=formname, valu=formvalu)
 
-        tags = [(len(t), t) for t in self.tags.keys()]
+        # top level tags will cause delete cascades
+        tags = [t for t in self.tags.keys() if len(t.split('.')) == 1]
 
         # check for any nodes which reference us...
         if not force:
@@ -688,20 +703,18 @@ class Node:
                 return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
                                                       iden=self.iden())
 
-        # TODO put these into one edit...
+        edits = []
+        for tag in tags:
+            edits.extend(await self._getTagDelEdits(tag, init=True))
 
-        for _, tag in sorted(tags, reverse=True):
-            await self.delTag(tag, init=True)
+        for name in self.props.keys():
+            edits.extend(await self._getPropDelEdits(name, init=True))
 
-        for name in list(self.props.keys()):
-            await self.pop(name, init=True)
-
-        edits = (
+        edits.append(
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),
         )
 
         await self.snap.applyNodeEdit((self.buid, formname, edits))
-
         self.snap.livenodes.pop(self.buid, None)
 
     async def getData(self, name):

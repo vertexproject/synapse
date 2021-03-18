@@ -1489,7 +1489,6 @@ class Runtime:
     def confirm(self, perms, gateiden=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
-
         '''
         if self.asroot:
             return

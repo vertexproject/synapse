@@ -163,8 +163,14 @@ class ItModule(s_module.CoreModule):
                 ('it:network', ('guid', {}), {
                     'doc': 'A GUID that represents logical network.'
                 }),
+                ('it:domain', ('guid', {}), {
+                    'doc': 'A logical boundary of authentication and configuration such as a windows domain.'
+                }),
                 ('it:account', ('guid', {}), {
                     'doc': 'A GUID that represents an account on a host or network.'
+                }),
+                ('it:group', ('guid', {}), {
+                    'doc': 'A GUID that represents a group on a host or network.'
                 }),
                 ('it:logon', ('guid', {}), {
                     'doc': 'A GUID that represents an individual logon/logoff event.'
@@ -202,6 +208,11 @@ class ItModule(s_module.CoreModule):
 
                 ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),
+
+                ('it:os:windows:sid', ('str', {'regex': r'^S-1-[0-59]-\d{2}-\d{8,10}-\d{8,10}-\d{8,10}-[1-9]\d{3}$'}), {
+                    'doc': 'A Microsoft Windows Security Identifier.',
+                    'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
+                }),
 
                 ('it:os:ios:idfa', ('it:adid', {}), {
                     'doc': 'An iOS advertising identification string.'}),
@@ -352,6 +363,9 @@ class ItModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the host.',
                     }),
+                    ('domain', ('it:domain', {}), {
+                        'doc': 'The authentication domain that the host is a member of.',
+                    }),
                     ('ipv4', ('inet:ipv4', {}), {
                         'doc': 'The last known ipv4 address for the host.'
                     }),
@@ -383,15 +397,26 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The org that operates the given host.',
                     }),
                 )),
+                ('it:domain', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The name of the domain.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A brief description of the domain.',
+                    }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org that operates the given domain.',
+                    }),
+                )),
                 ('it:network', {}, (
                     ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
                         'doc': 'The name of the network.',
                     }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A brief description of the network.',
+                    }),
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that owns/operates the network.',
-                    }),
-                    ('domain', ('inet:fqdn', {}), {
-                        'doc': 'A network search zone or domain name for the network.',
                     }),
                     ('net4', ('inet:net4', {}), {
                         'doc': 'The optional contiguous IPv4 address range of this network.',
@@ -410,13 +435,65 @@ class ItModule(s_module.CoreModule):
                     ('host', ('it:host', {}), {
                         'doc': 'The host where the account is registered.',
                     }),
-                    ('network', ('it:network', {}), {
-                        'doc': 'The network where the account is registered.',
+                    ('domain', ('it:domain', {}), {
+                        'doc': 'The authentication domain where the account is registered.',
+                    }),
+                    ('posix:uid', ('int', {}), {
+                        'doc': 'The user ID of the account.',
+                        'ex': '1001',
+                    }),
+                    ('posix:gid', ('int', {}), {
+                        'doc': 'The primary group ID of the account.',
+                        'ex': '1001',
+                    }),
+                    ('posix:gecos', ('int', {}), {
+                        'doc': 'The GECOS field for the POSIX account.',
+                    }),
+                    ('posix:home', ('file:path', {}), {
+                        'doc': "The path to the POSIX account's home directory.",
+                        'ex': '/home/visi',
+                    }),
+                    ('posix:shell', ('file:path', {}), {
+                        'doc': "The path to the POSIX account's default shell.",
+                        'ex': '/bin/bash',
+                    }),
+                    ('windows:sid', ('it:os:windows:sid', {}), {
+                        'doc': 'The Microsoft Windows Security Identifier of the account.',
+                    }),
+                    ('groups', ('array', {'type': 'it:group'}), {
+                        'doc': 'An array of groups that the account is a member of.',
+                    }),
+                )),
+                ('it:group', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The name of the group.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A brief description of the group.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host where the group is registered.',
+                    }),
+                    ('domain', ('it:domain', {}), {
+                        'doc': 'The authentication domain where the group is registered.',
+                    }),
+                    ('groups', ('array', {'type': 'it:group'}), {
+                        'doc': 'Groups that are a member of this group.',
+                    }),
+                    ('posix:gid', ('int', {}), {
+                        'doc': 'The primary group ID of the account.',
+                        'ex': '1001',
+                    }),
+                    ('windows:sid', ('it:os:windows:sid', {}), {
+                        'doc': 'The Microsoft Windows Security Identifier of the group.',
                     }),
                 )),
                 ('it:logon', {}, (
                     ('time', ('time', {}), {
                         'doc': 'The time the the logon occured.',
+                    }),
+                    ('success', ('bool', {}), {
+                        'doc': 'Set to false to indicate an unsuccessful logon attempt.',
                     }),
                     ('logoff:time', ('time', {}), {
                         'doc': 'The time the the logon session ended.',
@@ -427,8 +504,20 @@ class ItModule(s_module.CoreModule):
                     ('account', ('it:account', {}), {
                         'doc': 'The account that logged in.',
                     }),
+                    ('creds', ('auth:creds', {}), {
+                        'doc': 'The credentials that were used for the logon.',
+                    }),
                     ('duration', ('duration', {}), {
                         'doc': 'The duration of the logon session.',
+                    }),
+                    ('client:host', ('it:host', {}), {
+                        'doc': 'The host where the logon originated.',
+                    }),
+                    ('client:ipv4', ('inet:ipv4', {}), {
+                        'doc': 'The IPv4 where the logon originated.',
+                    }),
+                    ('client:ipv6', ('inet:ipv6', {}), {
+                        'doc': 'The IPv6 where the logon originated.',
                     }),
                 )),
                 ('it:hosturl', {}, (

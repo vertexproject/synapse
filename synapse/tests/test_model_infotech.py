@@ -135,7 +135,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         :host=$host
                         :user=visi
                         :contact={[ ps:contact=* :email=visi@vertex.link ]}
-                        :network={[ it:network=* :name=vertex :org=$org :domain=gan.vertex.link :net4=1.2.3.0/24 :net6=("::1", "::2") ]}
+                        :domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
 
                     (it:logon=* :time=20210314 :logoff:time=202103140201 :account=$acct :host=$host :duration=(:logoff:time - :time))
                 ]
@@ -143,8 +143,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq('visi', nodes[0].get('user'))
             self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('domain'))
             self.nn(nodes[0].get('contact'))
-            self.nn(nodes[0].get('network'))
 
             self.nn(nodes[1].get('host'))
             self.nn(nodes[1].get('account'))
@@ -157,13 +157,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('it:host', nodes[0].ndef[0])
 
-            nodes = await core.nodes('it:account -> it:network')
+            nodes = await core.nodes('it:account -> it:domain')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))
             self.eq('vertex', nodes[0].get('name'))
-            self.eq('gan.vertex.link', nodes[0].get('domain'))
-            self.eq((0x01020300, 0x010203ff), nodes[0].get('net4'))
-            self.eq(('::1', '::2'), nodes[0].get('net6'))
+            self.eq('the vertex project domain', nodes[0].get('desc'))
 
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms

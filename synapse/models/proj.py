@@ -13,13 +13,13 @@ prioenums = (
 
 statusenums = (
     (0, 'new'),
-    (10, 'needs more'),
+    (10, 'in validation'),
     (20, 'in backlog'),
     (30, 'in sprint'),
-    (40, 'working on it'),
-    (50, 'peer review'),
-    (60, 'work complete'),
-    (70, 'accepted'),
+    (40, 'in progress'),
+    (50, 'in review'),
+    (60, 'completed'),
+    (70, 'done'),
 )
 
 class ProjectModule(s_module.CoreModule):
@@ -51,22 +51,29 @@ class ProjectModule(s_module.CoreModule):
                 'types': (
                     ('proj:epic', ('guid', {}), {}),
                     ('proj:ticket', ('guid', {}), {}),
+                    ('proj:sprint', ('guid', {}), {}),
                     ('proj:comment', ('guid', {}), {}),
                     ('proj:project', ('guid', {}), {}),
-                    ('proj:milestone', ('guid', {}), {}),
-                    #('proj:backlog', ('guid', {}), {}),
                 ),
 
                 'forms': (
 
                     ('proj:project', {}, (
-                        ('name', ('str', {'strip': True, 'onespace': True}), {}),
-                        ('created', ('time', {}), {}),
+                        ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {}),
                         ('creator', ('syn:user', {}), {}),
+                        ('created', ('time', {}), {}),
                         ('updated', ('time', {}), {}),
                     )),
 
-                    # TODO do this with sortable array or linked list
+                    ('proj:sprint', {}, (
+                        ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {}),
+                        ('project', ('proj:project', {}), {}),
+                        ('creator', ('syn:user', {}), {}),
+                        ('created', ('time', {}), {}),
+                        ('period', ('ival', {}), {}),
+                    )),
+
+                    # TODO this will require a special layer storage mechanism
                     #('proj:backlog', {}, (
 
                     ('proj:comment', {}, (
@@ -80,17 +87,6 @@ class ProjectModule(s_module.CoreModule):
 
                     ('proj:epic', {}, (
                         ('name', ('str', {'strip': True, 'onespace': True}), {}),
-                        ('project', ('proj:project', {}), {}),
-
-                        ('creator', ('syn:user', {}), {}),
-                        ('created', ('time', {}), {}),
-                        ('updated', ('time', {'max': True}), {}),
-                    )),
-
-                    ('proj:milestone', {}, (
-                        ('name', ('str', {'strip': True, 'onespace': True}), {}),
-                        ('due', ('time', {}), {}),
-                        ('delivered', ('time', {}), {}),
                         ('project', ('proj:project', {}), {}),
 
                         ('creator', ('syn:user', {}), {}),
@@ -113,8 +109,9 @@ class ProjectModule(s_module.CoreModule):
                         ('updated', ('time', {'max': True}), {}),
 
                         ('name', ('str', {'strip': True, 'onespace': True}), {}),
-                        ('descr', ('str', {}), {}),
+                        ('desc', ('str', {}), {}),
                         ('status', ('int', {'enums': statusenums}), {}),
+                        ('sprint', ('proj:sprint', {}), {}),
                         ('priority', ('int', {'enums': prioenums}), {}),
 
                         ('type', ('str', {'lower': True, 'strip': True}), {}),

@@ -401,7 +401,13 @@ class Array(Type):
             raise s_exc.BadTypeDef(mesg=mesg)
 
         typeopts = self.opts.get('typeopts', {})
-        self.arraytype = self.modl.type(typename).clone(typeopts)
+
+        basetype = self.modl.type(typename)
+        if basetype is None:
+            mesg = f'Array type ({self.name}) based on unknown type: {typename}.'
+            raise s_exc.BadTypeDef(mesg=mesg)
+
+        self.arraytype = basetype.clone(typeopts)
 
         if isinstance(self.arraytype, Array):
             mesg = 'Array type of array values is not (yet) supported.'

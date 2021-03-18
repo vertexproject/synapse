@@ -30,6 +30,9 @@ class AuthModule(s_module.CoreModule):
                     ('passwdhash', ('it:auth:passwdhash', {}), {
                         'doc': 'The password hash used to authenticate.',
                     }),
+                    ('account', ('it:account', {}), {
+                        'doc': 'The account that the creds allow access to.',
+                    }),
                     ('website', ('inet:url', {}), {
                         'doc': 'The base URL of the website that the credentials allow access to.',
                     }),

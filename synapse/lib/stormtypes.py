@@ -221,6 +221,7 @@ class StormType:
     def __init__(self, path=None):
         self.path = path
         self.ctors = {}
+        self.stors = {}
         self.locls = {}
 
     def getObjLocals(self):
@@ -236,8 +237,19 @@ class StormType:
         return {}
 
     async def setitem(self, name, valu):
-        mesg = f'{self.__class__.__name__} does not support assignment.'
-        raise s_exc.StormRuntimeError(mesg=mesg)
+
+        if not self.stors:
+            mesg = f'{self.__class__.__name__} does not support assignment.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        name = await tostr(name)
+
+        stor = self.stors.get(await tostr(name))
+        if stor is None:
+            mesg = f'Setting {name} is not supported on .'
+            raise s_exc.NoSuchName(name=name, mesg=mesg)
+
+        await s_coro.ornot(stor, valu)
 
     async def deref(self, name):
         locl = self.locls.get(name, s_common.novalu)
