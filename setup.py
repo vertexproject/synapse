@@ -35,7 +35,6 @@ class ReplaceCommitVersion(install):
             return 1
         else:
             commit = ret.stdout.strip()
-            # TODO Assert commit to avoid injection
         fp = './synapse/lib/version.py'
         with open(fp, 'rb') as fd:
             buf = fd.read()
