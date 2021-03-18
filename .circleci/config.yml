@@ -610,19 +610,19 @@ jobs:
 
   docker_tags:
     docker:
-      - image: docker:18.05.0-ce
+      - image: docker:20.10.1
     steps:
       - deploy_docker_tags
 
   docker_branches:
     docker:
-      - image: docker:18.05.0-ce
+      - image: docker:20.10.1
     steps:
       - deploy_docker_branches
 
   docker_tags_2xx:
     docker:
-      - image: docker:18.05.0-ce
+      - image: docker:20.10.1
     steps:
       - deploy_docker_2xx
 
