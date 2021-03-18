@@ -259,6 +259,7 @@ commands:
           name: create packages
           command: |
             . venv/bin/activate
+            python setup.py setcommit
             python setup.py sdist
 
       - run:
@@ -281,6 +282,7 @@ commands:
           name: create packages
           command: |
             . venv/bin/activate
+            python setup.py setcommit
             python setup.py bdist_wheel --python-tag=$PYTHON_TAG
 
       - run:
@@ -350,6 +352,10 @@ commands:
       - checkout
       - setup_remote_docker
       - do_docker_login
+      - run:
+          name: setcommit
+          command: |
+            - python setup.py setcommit
       - run:
           name: build images
           command: |
@@ -683,6 +689,7 @@ workflows:
             branches:
               only:
                 - master
+                - feature_commit_embed
 
       - gh-release/dorelease:
           requires:
