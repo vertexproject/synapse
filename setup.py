@@ -31,7 +31,7 @@ class ReplaceCommitVersion(install):
                                  text=True,
                                  )
         except Exception as e:
-            print(f'{e=}')
+            print(f'Error grabbing commit: {e}')
             return 1
         else:
             commit = ret.stdout.strip()

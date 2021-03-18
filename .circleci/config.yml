@@ -574,7 +574,7 @@ jobs:
   doctests:
     parallelism: 1
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.8
         environment:
           PYVERS: 3.7
 
