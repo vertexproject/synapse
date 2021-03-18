@@ -355,7 +355,7 @@ commands:
       - run:
           name: install python
           command: |
-            apk add python3 py3-pip
+            apk add python3 py3-pip git
       - run:
           name: setcommit
           command: |
@@ -402,7 +402,7 @@ commands:
       - run:
           name: install python
           command: |
-            apk add python3 py3-pip
+            apk add python3 py3-pip git
       - run:
           name: setcommit
           command: |
@@ -449,7 +449,7 @@ commands:
       - run:
           name: install python
           command: |
-            apk add python3 py3-pip
+            apk add python3 py3-pip git
       - run:
           name: setcommit
           command: |
