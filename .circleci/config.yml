@@ -353,9 +353,13 @@ commands:
       - setup_remote_docker
       - do_docker_login
       - run:
+          name: install python
+          command: |
+            apk add python3
+      - run:
           name: setcommit
           command: |
-            - python setup.py setcommit
+            python setup.py setcommit
       - run:
           name: build images
           command: |
@@ -396,6 +400,14 @@ commands:
       - setup_remote_docker
       - do_docker_login
       - run:
+          name: install python
+          command: |
+            apk add python3
+      - run:
+          name: setcommit
+          command: |
+            python setup.py setcommit
+      - run:
           name: build image
           command: |
             docker build -t vertexproject/synapse:v2.x.x -f docker/images/synapse/Dockerfile .
@@ -435,9 +447,13 @@ commands:
       - setup_remote_docker
       - do_docker_login
       - run:
+          name: install python
+          command: |
+            apk add python3
+      - run:
           name: setcommit
           command: |
-            - python setup.py setcommit
+            python setup.py setcommit
       - run:
           name: build images
           command: |
