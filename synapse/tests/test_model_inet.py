@@ -842,7 +842,8 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu_str)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-            await self.agenlen(1, core.eval('inet:ipv6*range=(0::1, 0::1)'))
+            self.len(1, await core.nodes('inet:ipv6=0::1'))
+            self.len(1, await core.nodes('inet:ipv6*range=(0::1, 0::1)'))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[inet:ipv6=foo]')
