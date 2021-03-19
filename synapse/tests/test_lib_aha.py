@@ -6,6 +6,7 @@ import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_test
 
+
 class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_mirrors(self):
@@ -46,7 +47,9 @@ class AhaTest(s_test.SynTest):
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.eq(mnfo.get('name'), 'test.example.net')
 
+                    wait00 = aha0.waiter(1, 'aha:svcdown')
                     await aha0.setAhaSvcDown('test', iden, network='example.net')
+                    self.len(1, await wait00.wait(timeout=6))
                     await aha1.sync()
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.notin('online', mnfo)
@@ -55,6 +58,35 @@ class AhaTest(s_test.SynTest):
                     await aha1.sync()
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.none(mnfo)
+
+    async def test_lib_aha_offon(self):
+        with self.getTestDir() as dirn:
+            cryo0_dirn = s_common.gendir(dirn, 'cryo0')
+            conf = {'auth:passwd': 'secret'}
+            async with self.getTestAha(conf=conf.copy(), dirn=dirn) as aha:
+                host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
+
+                wait00 = aha.waiter(1, 'aha:svcadd')
+                cryo_conf = {
+                    'aha:name': '0.cryo.mynet',
+                    'aha:admin': 'root@cryo.mynet',
+                    'aha:registry': f'tcp://root:secret@127.0.0.1:{port}',
+                    'dmon:listen': 'tcp://0.0.0.0:0/',
+                }
+                async with self.getTestCryo(dirn=cryo0_dirn, conf=cryo_conf.copy()) as cryo:
+                    self.len(1, await wait00.wait(timeout=6))
+
+                    svc = await aha.getAhaSvc('0.cryo.mynet')
+                    self.isin('online', svc.get('svcinfo'))
+
+                    # Tear down the Aha cell.
+                    await aha.__aexit__(None, None, None)
+
+            async with self.getTestAha(conf=conf.copy(), dirn=dirn) as aha:
+                wait01 = aha.waiter(1, 'aha:svcdown')
+                await wait01.wait(timeout=6)
+                svc = await aha.getAhaSvc('0.cryo.mynet')
+                self.notin('online', svc.get('svcinfo'))
 
     async def test_lib_aha(self):
 

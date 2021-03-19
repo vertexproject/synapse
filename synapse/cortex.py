@@ -2116,12 +2116,18 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
         await self.fire('core:extmodel:change', form=formname, act='add', type='form')
 
-    @s_nexus.Pusher.onPushAuto('model:form:del')
     async def delForm(self, formname):
-
         if not formname.startswith('_'):
             mesg = 'Extended form must begin with "_"'
             raise s_exc.BadFormDef(form=formname, mesg=mesg)
+
+        if self.model.form(formname) is None:
+            raise s_exc.NoSuchForm(name=formname)
+
+        return await self._push('model:form:del', formname)
+
+    @s_nexus.Pusher.onPush('model:form:del')
+    async def _delForm(self, formname):
 
         for layr in self.layers.values():
             async for item in layr.iterFormRows(formname):
