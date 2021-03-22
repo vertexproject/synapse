@@ -3,6 +3,7 @@ import uuid
 import datetime
 import collections
 # import synapse.lib.datfile as s_datfile
+import synapse.exc as s_exc
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -39,18 +40,20 @@ def _uuid4_to_buidpre(uuids: str) -> bytes:
 
     return (buidi.to_bytes(15, byteorder='big'))
 
-# Constant used to identify the extra property we put on every emitting STIX object
-SYNAPSE_EXTENSION_UUID = '480c630e-be95-2ae5-a189-aa7ff4b40653'
+# Constant used to identify the extra property we put on every generated STIX object
+SYNAPSE_EXTENSION_UUID = uuid.UUID('480c630e-be95-2ae5-a189-aa7ff4b40653')
 
 _contact_info_q = '''
     $lst = $lib.list()
-    if (:loc) {
-        $lst.append(:loc)
+    $loc = :loc
+    if ($loc) {
+        $lst.append($loc)
     }
-    if (:phone) {
-        $lst.append(:phone)
+    $phone = :phone
+    if ($phone) {
+        $lst.append($phone)
     }
-    if (not $lib.len(lst) {
+    if (not $lib.len($lst)) {
         return($lib.null)
     }
     return ($lib.str.join(" ", $lst))'''
@@ -90,19 +93,18 @@ _DefaultConfig = {
                     'query': 'if (:title) {return ($lib.list(:title))}'},
             },
             'rels': {
-                'located-at': {  # Make a new location STIX object from :loc, add the SRO from here to that
+                'located-at': [{  # Make a new location STIX object from :loc, add the SRO from here to that
                     'stixtype': 'location',
                     'query': 'return (:loc)',
                     'syntype': 'loc'
-                }
+                }]
             }
         }
     },
     'location': {
         'loc': {  # A synapse type, not a form
-            'typeprops': {
-                'country': '{ return ($field.split(".").0) }'  # FIXME:  for testing purposes.  Need to validate
-            }
+            'country': {
+                'query': '{ return ($field.split(".").0) }'}  # FIXME:  for testing purposes.  Need to validate
         }
     },
     'malware': {
@@ -171,7 +173,7 @@ class LibStix(s_stormtypes.Lib):
             _validateConfig(config)
         else:
             config = _DefaultConfig
-        return StixBundle(config)
+        return StixBundle(self.runt, config)
 
 @s_stormtypes.registry.registerType
 class StixBundle(s_stormtypes.Prim):
@@ -233,11 +235,13 @@ class StixBundle(s_stormtypes.Prim):
 
     )
 
-    def __init__(self, config, path=None):
+    def __init__(self, runt, config, path=None):
         s_stormtypes.Prim.__init__(self, 'bundle', path=path)
+        self.runt = runt
         self.locls.update(self.getObjLocals())
         self.config = config
         self.objs = {}  # id -> STIX obj(dict)
+        self.rels = {}  # (srcid, reltype, targid) -> STIX obj(dict)
 
     def getObjLocals(self):
         return {
@@ -259,69 +263,141 @@ class StixBundle(s_stormtypes.Prim):
             for formname in stixtypedict.keys():
                 formmap[formname].append(stixt)
 
-        # FIXME:  what if you convert the same node to two different STIX object types?
-        stixid = _buid_to_uuid4(node.buid)
-
         if stixtype is None:
             guess = formmap.get(node.form.name)
             if guess is None:
-                raise Exception(f'Cannot discern STIX object type from form {form}.  Must specify type.')
+                raise s_exc.NeedConfValu(mesg=f'Cannot discern STIX object type from form {form}.  Must specify type.')
             if len(guess) > 1:
-                raise Exception('Multiple STIX object candidates.  Must specify type.')
+                raise s_exc.NeedConfValu(mesg='Multiple STIX object candidates.  Must specify type.')
             stixtype = guess[0]
+
+        stixid = f'{stixtype}--{_buid_to_uuid4(node.buid)}'
 
         # Check if we already added this node
         obj = self.objs.get(stixid, {})
         if obj and stixtype != obj['type']:
-            raise Exception('Cannot add the same node as two different STIX types in the same bundle.')
+            raise s_exc.NeedConfValu(mesg='Cannot add the same node as two different STIX types in the same bundle.')
 
         stixtentry = self.config.get(stixtype)
         if stixtentry is None:
-            raise Exception(f'No configuration present for converting to a {stixtype}')
+            raise s_exc.NeedConfValu(mesg=f'No configuration present for converting to a {stixtype}')
 
         entry = stixtentry.get(form)
         if entry is None:
-            raise Exception(f'No configuration present for converting a {form} to a {stixtype}')
+            raise s_exc.NeedConfValu(mesg=f'No configuration present for converting a {form} to a {stixtype}')
 
         propsentry = entry.get('props')
         if propsentry is None:
-            raise Exception(f'"props" property required in config {stixtype}.{form}')
+            raise s_exc.NeedConfValu(mesg=f'"props" property required in config {stixtype}.{form}')
 
         # Make/update the STIX object from the node
         obj.update(await self._convertProps(node, propsentry, dorefs=dorels))
-        obj['type'] = stixtype
-        dt = datetime.datetime.utcfromtimestamp(node.props.get('.created', 0) / 1000.0)
-        created = dt.isoformat(timespec='milliseconds') + 'Z'
-        obj['created'] = obj['modified'] = created
-        obj['id'] = stixid
-        obj['extensions'] = {
-            f'extension-definition--{SYNAPSE_EXTENSION_UUID}': {
-                "extension_type": "property-extension",
-                "synapse_ndef": node.ndef,
-            }
-        }
+        obj.update(self._obj_boilerplate(stixid, stixtype, node))
+
+        # TODO:  node tags to 'labels'?
         obj.update(props)
 
-        if not dorels:
-            _validateStixObj(obj)
-            self.objs[stixid] = obj
-
-            return obj
-
+        self.objs[stixid] = obj
         rels = entry.get('rels')
-        if not rels:
-            return obj
+        if dorels and rels:
+            await self._make_rels(obj, node, rels)
 
-        await self._make_rels(obj, node, rels)
+        _validateStixObj(obj)
+
         return obj
 
-    async def _methAddRel(self, srcid, reltype, destid, props):
-        # FIXME
-        pass
+    def _obj_boilerplate(self, stixid, stixtype, node):
+        dt = datetime.datetime.utcfromtimestamp(node.props.get('.created', 0) / 1000.0)
+        created = dt.isoformat(timespec='milliseconds') + 'Z'
+
+        return {
+            'type': stixtype,
+            'created': created,
+            'modified': created,
+            'id': stixid,
+            'spec_version': '2.1',
+            'extensions': {
+                f'extension-definition--{SYNAPSE_EXTENSION_UUID}': {
+                    "extension_type": "property-extension",
+                    "synapse_ndef": node.ndef,
+                }
+            }
+        }
+
+    async def _methAddRel(self, srcid, reltype, targid, props=None):
+        # TODO:  should relationships have stable UUIDs between bundles?
+        stixid = f'relationship--{uuid.uuid4()}'
+        key = (srcid, reltype, targid)
+        rel = self.rels.get(key)
+        if rel:
+            return rel
+
+        obj = {
+            'id': stixid,
+            'type': 'relationship',
+            'relationship_type': reltype,
+            'source_ref': srcid,
+            'target_ref': targid,
+            'spec_version': '2.1',
+        }
+
+        if props:
+            obj.update(props)
+
+        self.rels[key] = obj
+        self.objs[stixid] = obj
+        return obj
 
     async def _make_rels(self, obj, node, rels):
-        # FIXME
-        pass
+        '''
+        Make all the SROs and dest objects by trying all the rels
+        '''
+        for reltype, relentries in rels.items():
+            for relentry in relentries:
+                query = relentry.get('query')
+                if query is None:
+                    mesg = f'STIX config: relationship entry {reltype} must contain "query" property'
+                    raise s_exc.NeedConfValu(mesg=mesg)
+                stixtype = relentry.get('stixtype')
+                if stixtype is None:
+                    mesg = f'STIX config: relationship entry {reltype} must contain "stixtype" property'
+                    raise s_exc.NeedConfValu(mesg=mesg)
+                retn = await self._callStorm(node, query)
+                if retn is None or not len(retn):
+                    continue
+                syntype = relentry.get('syntype')
+                if syntype is None:
+                    destobj = await self._methAddNode(retn, {'type': stixtype, 'dorels': False})
+                else:
+                    destobj = await self._addSynType(stixtype, syntype, node, retn)
+
+                if destobj is None:
+                    continue
+
+                await self._methAddRel(obj['id'], reltype, destobj['id'])
+
+    async def _addSynType(self, stixtype, syntype, node, valu):
+        guid = uuid.uuid5(SYNAPSE_EXTENSION_UUID, str((stixtype, valu)))
+        stixid = f'{stixtype}--{guid}'
+        obj = self.objs.get(stixid)
+        if obj is not None:
+            return obj
+
+        stixtentry = self.config.get(stixtype)
+        if stixtentry is None:
+            raise s_exc.NeedConfValu(mesg=f'STIX config: config[{stixtype}][{syntype}] missing')
+
+        entry = stixtentry.get(syntype)
+        if entry is None:
+            return None
+
+        obj = await self._convertProps(node, entry, dorefs=False, vars_={'field': valu})
+
+        obj.update(self._obj_boilerplate(stixid, stixtype, node))
+
+        self.objs[stixid] = obj
+        _validateStixObj(obj)
+        return obj
 
     async def _methAddRaw(self, stixobj):
         _validateStixObj(stixobj)
@@ -340,10 +416,10 @@ class StixBundle(s_stormtypes.Prim):
     async def _methGet(self, guid):
         return self.objs.get(guid)
 
-    async def _callStorm(self, node, query):
-
+    async def _callStorm(self, node, query, vars_=None):
+        opts = {'vars': vars_} if vars_ else None
         try:
-            async for _ in node.storm(self.runt, query):
+            async for _ in node.storm(self.runt, query, opts=opts):
                 await asyncio.sleep(0)
 
         except s_stormctrl.StormReturn as e:
@@ -351,18 +427,17 @@ class StixBundle(s_stormtypes.Prim):
 
         return None
 
-    async def _convertProps(self, node, entry, dorefs=True):
+    async def _convertProps(self, node, entry, dorefs=True, vars_=None):
         '''
         Apply the queries in a config entry
         '''
         obj = {}
-        props = entry.get('props', {})
-        for field, fconf in props.items():
+        for field, fconf in entry.items():
             if not dorefs and (field.endswith('_ref') or field.endswith('_refs')):
                 continue
             query = fconf.get('query')
             if query:
-                retn = await self._callStorm(node, query)
+                retn = await self._callStorm(node, query, vars_=vars_)
                 if retn is None:
                     continue
                 obj[field] = retn
@@ -373,12 +448,14 @@ class StixBundle(s_stormtypes.Prim):
             if not refnodesq:
                 refnodesq = fconf.get('ref-node')
                 if not refnodesq:
-                    raise Exception(f'No conversion config for {field} (must have query, ref-node, ref-nodes set)')
+                    mesg = f'STIX config: No conversion config for {field} (must have query, ref-node, ref-nodes set)'
+                    raise s_exc.NeedConfValu(mesg=mesg)
                 stopatone = True
 
             stixtype = fconf.get('stixtype')
             if not stixtype:
-                raise Exception('"stixtype" property must be present if "ref-nodes" is present')
+                mesg = 'STIX config: "stixtype" property must be present if "ref-nodes" is present'
+                raise s_exc.NeedConfValu(mesg=mesg)
 
             # Convert the nodes returned from the query in ref-nodes and put their ids as a list
             refids = []
