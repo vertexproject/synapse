@@ -3,7 +3,7 @@ Synapse
 
 Synapse is a versatile central intelligence system created to support analyst teams in every stage of the intelligence life cycle.
 
-|codecov|_ |circleci|_ |dockerhub|_ |rtd|_
+|codecov|_ |circleci|_ |rtd|_
 
 Learn More About Synapse
 ------------
@@ -33,9 +33,6 @@ Connect With Us
 
 .. |rtd| image:: https://readthedocs.com/projects/vertex-synapse/badge/?version=latest
 .. _rtd: https://synapse.docs.vertex.link/en/latest/?badge=latest
-
-.. |dockerhub| image:: https://img.shields.io/docker/build/vertexproject/synapse.svg?branch=master
-.. _dockerhub: https://hub.docker.com/r/vertexproject/synapse/
 
 .. |slack| image:: http://slackinvite.vertex.link/badge.svg
 .. _slack: http://slackinvite.vertex.link/
