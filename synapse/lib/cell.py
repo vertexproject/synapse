@@ -99,8 +99,10 @@ async def _doIterBackup(path, chunksize=1024):
     while True:
         byts = await link0.recv(chunksize)
         if not byts:
-            return
+            break
         yield byts
+
+    await coro
 
 async def _iterBackupWork(path, linkinfo, done):
     '''
