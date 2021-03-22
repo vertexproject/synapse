@@ -59,18 +59,34 @@ class ProjectModule(s_module.CoreModule):
                 'forms': (
 
                     ('proj:project', {}, (
-                        ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {}),
-                        ('creator', ('syn:user', {}), {}),
-                        ('created', ('time', {}), {}),
-                        ('updated', ('time', {}), {}),
+                        ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                            'doc': 'The project name.'}),
+
+                        ('creator', ('syn:user', {}), {
+                            'doc': 'The synapse user who created the project.'}),
+
+                        ('created', ('time', {}), {
+                            'doc': 'The time the project was created.'}),
                     )),
 
                     ('proj:sprint', {}, (
-                        ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {}),
-                        ('project', ('proj:project', {}), {}),
-                        ('creator', ('syn:user', {}), {}),
-                        ('created', ('time', {}), {}),
-                        ('period', ('ival', {}), {}),
+                        ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                            'doc': 'The name of the sprint.'}),
+
+                        ('status', ('str', {'enums': 'planned,current,completed'}), {
+                            'doc': 'The sprint status.'}),
+
+                        ('project', ('proj:project', {}), {
+                            'doc': 'The project conaining the sprint.'}),
+
+                        ('creator', ('syn:user', {}), {
+                            'doc': 'The synapse user who created the sprint.'}),
+
+                        ('created', ('time', {}), {
+                            'doc': 'The date the sprint was created.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The interval for the sprint.'}),
                     )),
 
                     # TODO this will require a special layer storage mechanism
@@ -88,7 +104,6 @@ class ProjectModule(s_module.CoreModule):
                     ('proj:epic', {}, (
                         ('name', ('str', {'strip': True, 'onespace': True}), {}),
                         ('project', ('proj:project', {}), {}),
-
                         ('creator', ('syn:user', {}), {}),
                         ('created', ('time', {}), {}),
                         ('updated', ('time', {'max': True}), {}),
@@ -104,20 +119,41 @@ class ProjectModule(s_module.CoreModule):
                         ('ext:url', ('inet:url', {}), {
                             'doc': 'A URL to the ticket in an external system.'}),
 
-                        ('epic', ('proj:epic', {}), {}),
-                        ('created', ('time', {}), {}),
-                        ('updated', ('time', {'max': True}), {}),
+                        ('epic', ('proj:epic', {}), {
+                            'doc': 'The epic that includes the ticket.'}),
 
-                        ('name', ('str', {'strip': True, 'onespace': True}), {}),
-                        ('desc', ('str', {}), {}),
-                        ('status', ('int', {'enums': statusenums}), {}),
-                        ('sprint', ('proj:sprint', {}), {}),
-                        ('priority', ('int', {'enums': prioenums}), {}),
+                        ('created', ('time', {}), {
+                            'doc': 'The time the ticket was created.'}),
 
-                        ('type', ('str', {'lower': True, 'strip': True}), {}),
+                        ('updated', ('time', {'max': True}), {
+                            'doc': 'The last time the ticket was updated.'}),
 
-                        ('creator', ('syn:user', {}), {}),
-                        ('assignee', ('syn:user', {}), {}),
+                        ('name', ('str', {'strip': True, 'onespace': True}), {
+                            'doc': 'The name of the ticket.'}),
+
+                        ('desc', ('str', {}), {
+                            'doc': 'A description of the ticket.'}),
+
+                        ('points', ('int', {}), {
+                            'doc': 'Optional SCRUM style story points value.'}),
+
+                        ('status', ('int', {'enums': statusenums}), {
+                            'doc': 'The ticket completion status.'}),
+
+                        ('sprint', ('proj:sprint', {}), {
+                            'doc': 'The sprint that contains the ticket.'}),
+
+                        ('priority', ('int', {'enums': prioenums}), {
+                            'doc': 'The priority of the ticket.'}),
+
+                        ('type', ('str', {'lower': True, 'strip': True}), {
+                            'doc': 'The type of ticket. (eg story / bug)'}),
+
+                        ('creator', ('syn:user', {}), {
+                            'doc': 'The synapse user who created the ticket.'}),
+
+                        ('assignee', ('syn:user', {}), {
+                            'doc': 'The synapse user who the ticket is assigned to.'}),
                     )),
                 ),
             }),

@@ -490,13 +490,13 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:logon', {}, (
                     ('time', ('time', {}), {
-                        'doc': 'The time the the logon occured.',
+                        'doc': 'The time the logon occured.',
                     }),
                     ('success', ('bool', {}), {
                         'doc': 'Set to false to indicate an unsuccessful logon attempt.',
                     }),
                     ('logoff:time', ('time', {}), {
-                        'doc': 'The time the the logon session ended.',
+                        'doc': 'The time the logon session ended.',
                     }),
                     ('host', ('it:host', {}), {
                         'doc': 'The host that the account logged in to.',

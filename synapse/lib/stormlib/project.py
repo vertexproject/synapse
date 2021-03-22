@@ -286,6 +286,28 @@ class ProjectSprint(s_stormtypes.Prim):
         self.ctors.update({
             'tickets': self._getSprintTickets,
         })
+        self.stors.update({
+            'name': self._setSprintName,
+            'status': self._setSprintStatus,
+        })
+
+    async def _setSprintStatus(self, valu):
+        self.proj.confirm(('project', 'sprint', 'set', 'status'))
+        valu = await tostr(valu, noneok=True)
+        if valu is None:
+            await self.node.pop('status')
+        else:
+            await self.node.set('status', valu)
+
+    async def _setSprintName(self, valu):
+
+        self.proj.confirm(('project', 'sprint', 'set', 'name'))
+        valu = await tostr(valu, noneok=True)
+        if valu is None:
+            await self.node.pop('name')
+        else:
+            await self.node.set('name', valu)
+        await self.node.set('updated', s_common.now())
 
     async def _getSprintTickets(self):
         retn = []
@@ -309,21 +331,6 @@ class ProjectSprint(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def value(self):
         return self.node.ndef[1]
-
-    async def setitem(self, name, valu):
-
-        creator = self.node.get('creator')
-        useriden = self.proj.runt.user.iden
-
-        strvalu = await tostr(valu, noneok=True)
-
-        if name == 'name':
-            self.proj.confirm(('project', 'sprint', 'set', 'name'))
-            await self.node.set('name', await tostr(valu))
-            await self.node.set('updated', s_common.now())
-            return
-
-        return s_stormtypes.Prim.setitem(self, name, valu)
 
 @s_stormtypes.registry.registerType
 class ProjectSprints(s_stormtypes.Prim):
@@ -351,6 +358,7 @@ class ProjectSprints(s_stormtypes.Prim):
             'created': s_common.now(),
             'project': self.proj.node.ndef[1],
             'creator': self.proj.runt.snap.user.iden,
+            'status': 'planned',
         }
 
         if period is not None:
@@ -484,6 +492,12 @@ class LibProjects(s_stormtypes.Lib):
         gateiden = self.runt.snap.view.iden
         # do not use self.runt.confirm() to avoid asroot
         self.runt.user.confirm(('project', 'del'), gateiden=gateiden)
+        proj = await self._funcProjGet(name)
+        if proj is None:
+            return False
+
+        await proj.node.delete()
+        return True
 
     async def _funcProjGet(self, name):
 
