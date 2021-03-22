@@ -927,7 +927,7 @@ class StorTypeGuid(StorType):
 
     async def _liftGuidPref(self, liftby, byts):
         # valu is already bytes of the guid prefix
-        for item in liftby.buidsByPref(byts):
+        for item in liftby.keyBuidsByPref(byts):
             yield item
 
     async def _liftGuidEq(self, liftby, valu):
