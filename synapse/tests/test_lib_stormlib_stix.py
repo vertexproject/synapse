@@ -1,3 +1,5 @@
+import copy
+
 import synapse.tests.utils as s_test
 from pprint import pprint
 
@@ -12,10 +14,17 @@ class StormlibModelTest(s_test.SynTest):
         buidpre = s_stix._uuid4_to_buidpre(uuid)
         self.true(buid.startswith(buidpre))
 
-    async def test_stormlib_stix_basics(self):
+    async def test_stormlib_libstix(self):
 
         async with self.getTestCore() as core:
-            q = '[ps:contact=* :name=visi :loc=us ] $s = $lib.stix.make($node) return($s)'
+            q = '[ps:contact=* :name=visi :loc=us ]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = '''
+            ps:contact
+            $bund = $lib.stix.bundle()
+            $s = $bund.addNode($node)
+            return($s)'''
             retn = await core.callStorm(q)
-            pprint(retn)
-            q = '[ps:contact=* :name=visi :loc=us ] $s = $lib.stix.makerels($node) return($s)'
+            self.eq(retn.get('type'), 'identity')
