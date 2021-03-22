@@ -1655,7 +1655,7 @@ class Duration(IntBase):
                 mesg = 'Invalid number of : characters for duration.'
                 raise s_exc.BadTypeValu(mesg=mesg)
         else:
-            dura += int(float(parts[2].strip()) * msec_sec)
+            dura += int(float(text.strip()) * msec_sec)
 
         return dura, {}
 

@@ -23,8 +23,16 @@ class TypesTest(s_t_utils.SynTest):
     def test_duration(self):
         model = s_datamodel.Model()
         t = model.type('duration')
+
         self.eq('00:05:00.333', t.repr(300333))
         self.eq('11D 11:47:12.344', t.repr(992832344))
+
+        self.eq(300333, t.norm('00:05:00.333')[0])
+        self.eq(992832344, t.norm('11D 11:47:12.344')[0])
+
+        self.eq(60000, t.norm('1:00')[0])
+        self.eq(60200, t.norm('1:00.2')[0])
+        self.eq(9999, t.norm('9.9999')[0])
 
     def test_bool(self):
         model = s_datamodel.Model()
@@ -1084,6 +1092,9 @@ class TypesTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeDef):
                 await core.addFormProp('test:int', '_hehe', ('array', {'type': 'array'}), {})
+
+            with self.raises(s_exc.BadTypeDef):
+                await core.addFormProp('test:int', '_hehe', ('array', {'type': 'newp'}), {})
 
             nodes = await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
             self.len(1, nodes)

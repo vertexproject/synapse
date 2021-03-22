@@ -51,6 +51,10 @@ class ProjModelTest(s_test.SynTest):
             self.eq('bar', await core.callStorm('return($lib.projects.get($proj).epics.get($epic).name)', opts=opts))
             self.eq('baz', await core.callStorm('return($lib.projects.get($proj).tickets.get($tick).name)', opts=opts))
 
+            # test coverage for new storm primitive setitem default impl...
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm('$lib.projects.get($proj).tickets.get($tick).newp = zoinks', opts=opts)
+
             # we created the ticket, so we can set these...
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).name = zoinks', opts=opts)
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).desc = scoobie', opts=opts)

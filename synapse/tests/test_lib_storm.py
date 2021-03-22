@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import itertools
 import unittest.mock as mock
 
 import synapse.exc as s_exc
@@ -498,6 +499,29 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
             await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
             await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
+
+            # test some StormRuntime APIs directly...
+            await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            await core.nodes('[ ou:org=* ou:org=* :name=dupcorp ]')
+            async with await core.view.snap(user=core.auth.rootuser) as snap:
+
+                query = core.getStormQuery('')
+                with snap.getStormRuntime(query) as runt:
+
+                    self.len(1, await alist(runt.storm('inet:ipv4=1.2.3.4')))
+
+                    self.nn(await runt.getOneNode('inet:ipv4', 0x01020304))
+
+                    counter = itertools.count()
+                    async def skipone(n):
+                        if next(counter) == 0:
+                            return True
+                        return False
+
+                    self.nn(await runt.getOneNode('ou:org:name', 'dupcorp', filt=skipone))
+
+                    with self.raises(s_exc.StormRuntimeError):
+                        await runt.getOneNode('ou:org:name', 'dupcorp')
 
     async def test_storm_pipe(self):
 
