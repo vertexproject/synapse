@@ -126,6 +126,10 @@ def _iterBackupProc(path, linkinfo, done):
     '''
     Multiprocessing target for streaming a backup.
     '''
+    # This logging call is okay to run since we're executing in
+    # our own process space and no logging has been configured.
+    s_common.setlogging(logger, linkinfo.get('loglevel'))
+
     asyncio.run(_iterBackupWork(path, linkinfo, done))
 
 class CellApi(s_base.Base):
@@ -1228,7 +1232,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             retn = await s_coro.executor(waitforproc)
 
         except (asyncio.CancelledError, Exception):
-            logger.exception('Error performing backup to [{dirn}]')
+            logger.exception(f'Error performing backup to [{dirn}]')
             proc.terminate()
             raise
 
@@ -1299,6 +1303,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         link = s_scope.get('link')
         linkinfo = await link.getSpawnInfo()
+        linkinfo['loglevel'] = logger.getEffectiveLevel()
 
         await self.boss.promote('backup:stream', user=user)
 
