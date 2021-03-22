@@ -1545,7 +1545,7 @@ class LibTime(Lib):
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The timestamp string to parse.', },
                       {'name': 'format', 'type': 'str', 'desc': 'The format string to use for parsing.', },
-                      {'name': 'parse', 'type': 'boolean', 'default': False,
+                      {'name': 'errok', 'type': 'boolean', 'default': False,
                        'desc': 'If set, parsing errors will return ``$lib.null`` instead of raising an exception.'}
                   ),
                   'returns': {'type': 'int', 'desc': 'The epoch timetsamp for the string.', }}},
