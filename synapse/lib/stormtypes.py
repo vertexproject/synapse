@@ -835,9 +835,9 @@ class LibBase(Lib):
         ''',
          'type': {'type': 'function', '_funcname': '_range',
                   'args': (
-                      {'name': 'stop', 'type': 'integer', 'description': 'The value to stop at.', },
-                      {'name': 'start', 'type': 'integer', 'description': 'The value to start at.', 'default': None, },
-                      {'name': 'step', 'type': 'integer', 'description': 'The range step size.', 'default': None, },
+                      {'name': 'stop', 'type': 'integer', 'desc': 'The value to stop at.', },
+                      {'name': 'start', 'type': 'integer', 'desc': 'The value to start at.', 'default': None, },
+                      {'name': 'step', 'type': 'integer', 'desc': 'The range step size.', 'default': None, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'intger', 'desc': 'The sequence of integers.'}}},
         {'name': 'pprint', 'desc': 'The pprint API should not be considered a stable interface.',
