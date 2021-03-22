@@ -85,11 +85,9 @@ class DataModelTest(s_t_utils.SynTest):
         with self.raises(s_exc.NoSuchType):
             modl.addForm('he:he', {}, [])
 
-        with self.raises(s_exc.NoSuchForm):
-            modl.delForm('newp')
+        self.none(modl.delForm('newp'))
 
-        with self.raises(s_exc.NoSuchType):
-            modl.delType('newp')
+        self.none(modl.delType('newp'))
 
         with self.raises(s_exc.BadPropDef):
             modl.addType('he:he', 'int', {}, {})

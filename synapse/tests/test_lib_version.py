@@ -61,6 +61,9 @@ class VersionTest(s_t_utils.SynTest):
         tver = tuple([int(p) for p in s_version.verstring.split('.')])
         self.eq(tver, s_version.version)
 
+        self.isinstance(s_version.commit, str)
+        self.true((s_version.commit == '') or (len(s_version.commit) == 40))
+
     def test_version_pack(self):
         ver = s_version.packVersion(0)
         self.eq(ver, 0)

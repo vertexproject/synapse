@@ -57,7 +57,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_cortex.py synapse/tests/test_lib_storm.py synapse/tests/test_lib_stormtypes.py synapse/tests/test_lib_stormlib_macro.py synapse/tests/test_lib_stormlib_model.py synapse/tests/test_lib_view.py synapse/tests/test_lib_hiveauth.py synapse/tests/test_lib_cell.py synapse/tests/test_lib_layer.py synapse/tests/test_lib_spawn.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+            circleci tests glob synapse/tests/test_cortex.py synapse/tests/test_lib_storm.py synapse/tests/test_lib_stormtypes.py synapse/tests/test_lib_stormlib*.py synapse/tests/test_lib_view.py synapse/tests/test_lib_hiveauth.py synapse/tests/test_lib_cell.py synapse/tests/test_lib_layer.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
   test_steps_doc:
     description: "Documentation test steps"
@@ -259,6 +259,7 @@ commands:
           name: create packages
           command: |
             . venv/bin/activate
+            python setup.py setcommit
             python setup.py sdist
 
       - run:
@@ -281,6 +282,7 @@ commands:
           name: create packages
           command: |
             . venv/bin/activate
+            python setup.py setcommit
             python setup.py bdist_wheel --python-tag=$PYTHON_TAG
 
       - run:
@@ -351,6 +353,14 @@ commands:
       - setup_remote_docker
       - do_docker_login
       - run:
+          name: install python
+          command: |
+            apk add python3 py3-pip git
+      - run:
+          name: setcommit
+          command: |
+            python3 setup.py setcommit
+      - run:
           name: build images
           command: |
             docker build -t vertexproject/synapse:${CIRCLE_TAG} -f docker/images/synapse/Dockerfile .
@@ -390,6 +400,14 @@ commands:
       - setup_remote_docker
       - do_docker_login
       - run:
+          name: install python
+          command: |
+            apk add python3 py3-pip git
+      - run:
+          name: setcommit
+          command: |
+            python3 setup.py setcommit
+      - run:
           name: build image
           command: |
             docker build -t vertexproject/synapse:v2.x.x -f docker/images/synapse/Dockerfile .
@@ -428,6 +446,14 @@ commands:
       - checkout
       - setup_remote_docker
       - do_docker_login
+      - run:
+          name: install python
+          command: |
+            apk add python3 py3-pip git
+      - run:
+          name: setcommit
+          command: |
+            python3 setup.py setcommit
       - run:
           name: build images
           command: |
@@ -548,7 +574,7 @@ jobs:
   doctests:
     parallelism: 1
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.8
         environment:
           PYVERS: 3.7
 
@@ -584,19 +610,19 @@ jobs:
 
   docker_tags:
     docker:
-      - image: docker:18.05.0-ce
+      - image: docker:20.10.1
     steps:
       - deploy_docker_tags
 
   docker_branches:
     docker:
-      - image: docker:18.05.0-ce
+      - image: docker:20.10.1
     steps:
       - deploy_docker_branches
 
   docker_tags_2xx:
     docker:
-      - image: docker:18.05.0-ce
+      - image: docker:20.10.1
     steps:
       - deploy_docker_2xx
 

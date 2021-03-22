@@ -571,66 +571,66 @@ class LayerTest(s_t_utils.SynTest):
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
                 layr.layrslab.put(key[0], val, db=tmpdb)
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', minv)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '=', minv)]
             self.eq(retn, [minv])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', maxv)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '=', maxv)]
             self.eq(retn, [maxv])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', minv + 1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<', minv + 1)]
             self.eq(retn, [minv])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', maxv - 1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>', maxv - 1)]
             self.eq(retn, [maxv])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', minv)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<=', minv)]
             self.eq(retn, [minv])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', maxv)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>=', maxv)]
             self.eq(retn, [maxv])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (minv, maxv))]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, 'range=', (minv, maxv))]
             self.eq(retn, vals)
 
             # Should get no results instead of overflowing
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', minv - 1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '=', minv - 1)]
             self.eq(retn, [])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', maxv + 1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '=', maxv + 1)]
             self.eq(retn, [])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', minv)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<', minv)]
             self.eq(retn, [])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', maxv)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>', maxv)]
             self.eq(retn, [])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', minv - 1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<=', minv - 1)]
             self.eq(retn, [])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', maxv + 1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>=', maxv + 1)]
             self.eq(retn, [])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (minv - 2, minv - 1))]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, 'range=', (minv - 2, minv - 1))]
             self.eq(retn, [])
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (maxv + 1, maxv + 2))]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, 'range=', (maxv + 1, maxv + 2))]
             self.eq(retn, [])
 
             # Value is out of range but there are still valid results
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', maxv + 2)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<', maxv + 2)]
             self.eq(retn, vals)
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', minv - 2)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>', minv - 2)]
             self.eq(retn, vals)
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', maxv + 1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<=', maxv + 1)]
             self.eq(retn, vals)
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', minv - 1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>=', minv - 1)]
             self.eq(retn, vals)
 
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (minv - 1, maxv + 1))]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, 'range=', (minv - 1, maxv + 1))]
             self.eq(retn, vals)
 
     async def test_layer_stortype_float(self):
@@ -650,59 +650,59 @@ class LayerTest(s_t_utils.SynTest):
                 self.eqOrNan(s_msgpack.un(val), stor.decodeIndx(key[0]))
 
             # = -99999.9
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '=', -99999.9)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '=', -99999.9)]
             self.eq(retn, [-99999.9])
 
             # <= -99999.9
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', -99999.9)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<=', -99999.9)]
             self.eq(retn, [-math.inf, -99999.9])
 
             # < -99999.9
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', -99999.9)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<', -99999.9)]
             self.eq(retn, [-math.inf])
 
             # > 99999.9
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', 99999.9)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>', 99999.9)]
             self.eq(retn, [math.inf])
 
             # >= 99999.9
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', 99999.9)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>=', 99999.9)]
             self.eq(retn, [99999.9, math.inf])
 
             # <= 0.0
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', 0.0)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<=', 0.0)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0])
 
             # >= -0.0
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', -0.0)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>=', -0.0)]
             self.eq(retn, [-0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # >= -42.1
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>=', -42.1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>=', -42.1)]
             self.eq(retn, [-42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # > -42.1
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '>', -42.1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '>', -42.1)]
             self.eq(retn, [-0.0000000001, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf])
 
             # < 42.1
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<', 42.1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<', 42.1)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0, 0.000001])
 
             # <= 42.1
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, '<=', 42.1)]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '<=', 42.1)]
             self.eq(retn, [-math.inf, -99999.9, -42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1])
 
             # -42.1 to 42.1
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (-42.1, 42.1))]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, 'range=', (-42.1, 42.1))]
             self.eq(retn, [-42.1, -0.0000000001, -0.0, 0.0, 0.000001, 42.1])
 
             # 1 to 42.1
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (1.0, 42.1))]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, 'range=', (1.0, 42.1))]
             self.eq(retn, [42.1])
 
             # -99999.9 to -0.1
-            retn = [s_msgpack.un(valu) async for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
+            retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
             self.eq(retn, [-99999.9, -42.1])
 
             # <= NaN

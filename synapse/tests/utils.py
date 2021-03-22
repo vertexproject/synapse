@@ -101,6 +101,7 @@ class LibTst(s_stormtypes.Lib):
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
     )
     _storm_lib_path = ('test',)
+
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
@@ -192,8 +193,10 @@ testmodel = {
         ('test:auto', ('str', {}), {}),
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
+        ('test:data', ('data', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
+        ('test:arrayform', ('array', {'type': 'int'}), {}),
 
         ('test:comp', ('comp', {'fields': (
             ('hehe', 'test:int'),
@@ -231,6 +234,10 @@ testmodel = {
 
         ('test:arrayprop', {}, (
             ('ints', ('array', {'type': 'test:int'}), {}),
+            ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
+            ('strsnosplit', ('array', {'type': 'test:str'}), {}),
+        )),
+        ('test:arrayform', {}, (
         )),
         ('test:type10', {}, (
 
@@ -288,6 +295,10 @@ testmodel = {
             ('tick', ('test:time', {}), {}),
             ('posneg', ('test:sub', {}), {}),
             ('posneg:isbig', ('bool', {}), {}),
+        )),
+
+        ('test:data', {}, (
+            ('data', ('test:data', {}), {}),
         )),
 
         ('test:str', {}, (

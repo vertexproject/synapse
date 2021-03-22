@@ -455,6 +455,7 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('test:ival@=("now-3days", "now+3days")'))
             await self.agenlen(0, core.eval('test:ival@=("1993", "1995")'))
             await self.agenlen(0, core.eval('test:ival@=("1997", "1998")'))
+            await self.agenlen(1, core.eval('test:ival=("1995", "1997")'))
 
             await self.agenlen(1, core.eval('test:ival:interval@="now+2days"'))
             await self.agenlen(0, core.eval('test:ival:interval@=("now-4days","now-3days")'))

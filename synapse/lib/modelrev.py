@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 1)
+maxvers = (0, 2, 2)
 
 class ModelRev:
 
@@ -15,7 +15,37 @@ class ModelRev:
         self.core = core
         self.revs = (
             ((0, 2, 1), self.revModel20210126),
+            ((0, 2, 2), self.revModel20210312),
         )
+
+    async def revModel20210312(self, layers):
+
+        ipv4type = self.core.model.type('inet:ipv4')
+        ipv6type = self.core.model.type('inet:ipv6')
+
+        for layr in layers:
+
+            nodeedits = []
+            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            async for buid, propvalu in layr.iterPropRows('inet:web:acct', 'signup:client:ipv6'):
+
+                ipv6text = ipv6type.norm(ipv4type.repr(propvalu))[0]
+                nodeedits.append(
+                    (buid, 'inet:web:acct', (
+                        (s_layer.EDIT_PROP_SET, ('signup:client:ipv6', ipv6text, propvalu, s_layer.STOR_TYPE_IPV6), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:
+                    await save()
+
+            if nodeedits:
+                await save()
 
     async def revModel20210126(self, layers):
 

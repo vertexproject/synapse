@@ -842,7 +842,8 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu_str)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-            await self.agenlen(1, core.eval('inet:ipv6*range=(0::1, 0::1)'))
+            self.len(1, await core.nodes('inet:ipv6=0::1'))
+            self.len(1, await core.nodes('inet:ipv6*range=(0::1, 0::1)'))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[inet:ipv6=foo]')
@@ -1386,6 +1387,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'realname:en': 'brutus',
                 'signup': 3,
                 'signup:client': '0.0.0.4',
+                'signup:client:ipv6': '::1',
                 'tagline': 'Taglines are not tags',
                 'url': 'https://blogs.vertex.link/',
                 'webpage': 'https://blogs.vertex.link/brutus',
@@ -1405,6 +1407,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'realname': 'брут',
                 'signup:client': 'tcp://0.0.0.4',
                 'signup:client:ipv4': 4,
+                'signup:client:ipv6': '::1',
                 'recovery:email': 'recovery@vertex.link',
             })
 
