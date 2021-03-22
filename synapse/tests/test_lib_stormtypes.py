@@ -1281,6 +1281,15 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Error during time parsing', ernfos[0][1].get('mesg'))
 
+            # We can optionally suppress that if error we want to do so and then
+            # we can compare the return value against $lib.null if we wanted to
+            # do any flow control based on that information.
+            query = '''$valu="10/1/2017 2:52"
+            $parsed=$lib.time.parse($valu, "%m/%d/%Y--%H:%MTZ", errok=$lib.true)
+            return ($parsed)'''
+            ret = await core.callStorm(query)
+            self.none(ret)
+
             query = '''[test:str=1234 :tick=20190917]
             $lib.print($lib.time.format(:tick, "%Y-%d-%m"))
             '''
