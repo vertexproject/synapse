@@ -1,0 +1,21 @@
+{
+  "type": "bundle",
+  "id": "bundle--44af6c39-c09b-49c5-9de2-394224b04982",
+  "objects": [
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "pattern_type": "stix",
+      "id": "indicator--33fe3b22-0201-47cf-85d0-97c02164528d",
+      "created": "2014-05-08T09:00:00.000Z",
+      "modified": "2014-05-08T09:00:00.000Z",
+      "name": "IP Address for known C2 channel",
+      "description": "Test description C2 channel.",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "pattern": "[ipv4-addr:value = '10.0.0.0']",
+      "valid_from": "2014-05-08T09:00:00.000000Z"
+    }
+  ]
+}

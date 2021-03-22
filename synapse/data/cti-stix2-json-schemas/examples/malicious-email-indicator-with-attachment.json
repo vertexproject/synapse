@@ -1,0 +1,84 @@
+{
+    "type": "bundle",
+    "id": "bundle--8b8ed1c1-f01d-4393-ac65-97017ed15876",
+    "objects": [
+        {
+            "type": "identity",
+            "spec_version": "2.1",
+            "id": "identity--f690c992-8e7d-4b9a-9303-3312616c0220",
+            "created": "2016-08-08T15:50:10.983Z",
+            "modified": "2016-08-08T15:50:10.983Z",
+            "name": "The MITRE Corporation - DHS Support Team",
+            "identity_class": "organization"
+        },
+        {
+            "type": "attack-pattern",
+            "spec_version": "2.1",
+            "id": "attack-pattern--d7b066aa-4091-4276-a142-29d5d81c3484",
+            "created_by_ref": "identity--f690c992-8e7d-4b9a-9303-3312616c0220",
+            "created": "2014-10-31T15:52:13.126Z",
+            "modified": "2014-10-31T15:52:13.126Z",
+            "name": "Phishing",
+            "external_references": [
+              {
+                "source_name": "capec",
+                "external_id": "CAPEC-98"
+              }
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "pattern_type": "stix",
+            "id": "indicator--8cf9236f-1b96-493d-98be-0c1c1e8b62d7",
+            "created_by_ref": "identity--f690c992-8e7d-4b9a-9303-3312616c0220",
+            "created": "2014-10-31T15:52:13.127Z",
+            "modified": "2014-10-31T15:52:13.127Z",
+            "description": "",
+            "name": "Malicious E-mail",
+            "indicator_types": [
+                "malicious-activity"
+            ],
+            "pattern": "[email-message:subject MATCHES '^[IMPORTANT] Please Review Before']",
+            "valid_from": "2014-10-31T15:52:13.127931Z"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "pattern_type": "stix",
+            "id": "indicator--2e17f6fe-3a4d-438a-911a-e509ba1b9933",
+            "created_by_ref": "identity--f690c992-8e7d-4b9a-9303-3312616c0220",
+            "created": "2014-10-31T15:52:13.127Z",
+            "modified": "2014-10-31T15:52:13.127Z",
+            "name": "Malicious Email Attachment",
+            "description": "",
+            "indicator_types": [
+              "malicious-activity"
+            ],
+            "valid_from": "2014-10-31T15:52:13.127931Z",
+            "pattern": "[email-message:body_multipart[*].body_raw_ref.name MATCHES '^Final Report.+\\\\.exe$']"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--c3fa00e6-1d31-4137-98f5-32a1ec0d0e92",
+            "created_by_ref": "identity--f690c992-8e7d-4b9a-9303-3312616c0220",
+            "created": "2014-10-31T15:52:13.127Z",
+            "modified": "2014-10-31T15:52:13.127Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--8cf9236f-1b96-493d-98be-0c1c1e8b62d7",
+            "target_ref": "attack-pattern--d7b066aa-4091-4276-a142-29d5d81c3484"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--8e231463-6b3e-4be6-9c44-56999d8c1d80",
+            "created_by_ref": "identity--f690c992-8e7d-4b9a-9303-3312616c0220",
+            "created": "2014-10-31T15:52:13.127Z",
+            "modified": "2014-10-31T15:52:13.127Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--2e17f6fe-3a4d-438a-911a-e509ba1b9933",
+            "target_ref": "attack-pattern--d7b066aa-4091-4276-a142-29d5d81c3484"
+        }
+    ]
+}

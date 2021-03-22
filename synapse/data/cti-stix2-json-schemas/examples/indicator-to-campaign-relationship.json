@@ -1,0 +1,39 @@
+{
+  "type": "bundle",
+  "id": "bundle--44af6c39-c09b-49c5-9de2-394224b04982",
+  "objects": [
+    {
+      "type": "campaign",
+      "spec_version": "2.1",
+      "id": "campaign--b549a58c-afd9-4847-85c3-5be13d56d3cc",
+      "created": "2014-09-09T19:58:39.609Z",
+      "modified": "2014-09-09T19:58:39.609Z",
+      "name": "Operation Omega"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "pattern_type": "stix",
+      "name": "test_name",
+      "description": "Test description.",
+      "id": "indicator--c43a0a05-e8d2-4f64-ae37-3f3fb153f8d9",
+      "created": "2014-09-09T19:58:39.609Z",
+      "modified": "2014-09-09T19:58:39.609Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "pattern": "[ ipv4-addr:value = '10.0.0.0' ]",
+      "valid_from": "2014-09-09T19:58:39.609000Z"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--eca24e47-2259-4850-9705-fd1065c77236",
+      "relationship_type": "indicates",
+      "created": "2014-09-09T19:58:39.609Z",
+      "modified": "2014-09-09T19:58:39.609Z",
+      "source_ref": "indicator--c43a0a05-e8d2-4f64-ae37-3f3fb153f8d9",
+      "target_ref": "campaign--b549a58c-afd9-4847-85c3-5be13d56d3cc"
+    }
+  ]
+}
