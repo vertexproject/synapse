@@ -1171,7 +1171,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             task.add_done_callback(functools.partial(done, self))
 
             if wait:
-                logger.info(f'Waiting for backup to complete [{name}]')
+                logger.info(f'Waiting for backup task to complete [{name}]')
                 await task
 
             return name
@@ -1317,7 +1317,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         linkinfo = await link.getSpawnInfo()
         linkinfo['loglevel'] = logger.getEffectiveLevel()
 
-        await self.boss.promote('backup:stream', user=user)
+        await self.boss.promote('backup:stream', user=user, info={'name': name})
 
         ctx = multiprocessing.get_context('spawn')
         done = ctx.Queue()
@@ -1374,7 +1374,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             linkinfo = await link.getSpawnInfo()
             linkinfo['loglevel'] = logger.getEffectiveLevel()
 
-            await self.boss.promote('backup:stream', user=user)
+            await self.boss.promote('backup:stream', user=user, info={'name': name})
 
             ctx = multiprocessing.get_context('spawn')
             done = ctx.Queue()

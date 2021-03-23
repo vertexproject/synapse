@@ -27,6 +27,14 @@ class Boss(s_base.Base):
     async def promote(self, name, user, info=None):
         '''
         Promote the currently running task.
+
+        Args:
+            name (str): The name of the task.
+            user: The User who owns the task.
+            info: An optional information dictionary containing information about the task.
+
+        Returns:
+            s_task.Task: The Synapse Task object.
         '''
         task = asyncio.current_task()
 
