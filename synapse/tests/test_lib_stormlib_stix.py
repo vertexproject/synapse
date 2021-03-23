@@ -157,9 +157,9 @@ class StormlibModelTest(s_test.SynTest):
 
             #self.setTestBundle('custom0.json', bund)
             self.bundeq(bund, self.getTestBundle('custom0.json'))
-            self.none(await core.callStorm('return($lib.stix.export.bundle(config=$lib.dict()).add($lib.true))'))
-            self.none(await core.callStorm('ou:conference=* return($lib.stix.export.bundle(config=$lib.dict()).add($node))'))
-            self.none(await core.callStorm('ou:conference=* return($lib.stix.export.bundle(config=$lib.dict()).add($node, stixtype=foobar))'))
+            self.none(await core.callStorm('return($lib.stix.export.bundle().add($lib.true))'))
+            self.none(await core.callStorm('[ ou:conference=* ] return($lib.stix.export.bundle().add($node))'))
+            self.none(await core.callStorm('[ inet:fqdn=vertex.link ] return($lib.stix.export.bundle().add($node, stixtype=foobar))'))
 
             with self.raises(s_exc.NoSuchForm):
                 config = {'hehe:haha': {}}
@@ -173,6 +173,11 @@ class StormlibModelTest(s_test.SynTest):
 
             with self.raises(s_exc.NeedConfValu):
                 config = {'inet:fqdn': {'default': 'domain-name'}}
+                opts = {'vars': {'config': config}}
+                await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
+
+            with self.raises(s_exc.BadConfValu):
+                config = {'inet:fqdn': {'default': 'domain-name', 'stix': {}}}
                 opts = {'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
