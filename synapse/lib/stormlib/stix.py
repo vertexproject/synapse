@@ -388,16 +388,16 @@ def _validateConfig(core, config):
         stixdef = formconf.get('default')
         if stixdef is None:
             mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
-            s_exc.NeedConfValu(mesg=mesg)
+            raise s_exc.NeedConfValu(mesg=mesg)
 
         stixmaps = formconf.get('stix')
         if stixmaps is None:
             mesg = f'STIX Bundle config is missing STIX maps for form {formname}.'
-            s_exc.NeedConfValu(mesg=mesg)
+            raise s_exc.NeedConfValu(mesg=mesg)
 
         if stixmaps.get(stixdef) is None:
             mesg = f'STIX Bundle config is missing STIX map for form {formname} default value {stixdef}.'
-            s_exc.BadConfValu(mesg=mesg)
+            raise s_exc.BadConfValu(mesg=mesg)
 
         for stixtype, stixinfo in stixmaps.items():
             stixprops = stixinfo.get('props')
@@ -412,6 +412,7 @@ def _validateConfig(core, config):
                 for stixrel in stixrels:
                     if len(stixrel) != 4:
                         mesg = f'STIX Bundle config has invalid rel entry {formname} {stixtype} {stixrel}.'
+                        raise s_exc.BadConfValu(mesg=mesg)
 
 @s_stormtypes.registry.registerLib
 class LibStix(s_stormtypes.Lib):
@@ -606,12 +607,12 @@ class StixBundle(s_stormtypes.Prim):
     async def add(self, node, stixtype=None):
 
         if not isinstance(node, s_node.Node):
-            self.runt.warnonce('STIX bundle add() method requires a node.')
+            await self.runt.warnonce('STIX bundle add() method requires a node.')
             return None
 
         formconf = self.config.get(node.form.name)
         if formconf is None:
-            self.runt.warnonce('STIX bundle has no config for mapping {node.form.name}.')
+            await self.runt.warnonce('STIX bundle has no config for mapping {node.form.name}.')
             return None
 
         if stixtype is None:
@@ -625,7 +626,7 @@ class StixBundle(s_stormtypes.Prim):
 
         stixconf = formconf['stix'].get(stixtype)
         if stixconf is None:
-            await self.runt.warnone(f'STIX bundle config has no config to map {node.form.name} to {stixtype}.')
+            await self.runt.warnonce(f'STIX bundle config has no config to map {node.form.name} to {stixtype}.')
             return None
 
         stixitem = self.objs.get(stixid)

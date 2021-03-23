@@ -5,6 +5,7 @@ import aiohttp
 
 import stix2validator
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_test
 
@@ -156,5 +157,47 @@ class StormlibModelTest(s_test.SynTest):
 
             #self.setTestBundle('custom0.json', bund)
             self.bundeq(bund, self.getTestBundle('custom0.json'))
+            self.none(await core.callStorm('return($lib.stix.export.bundle(config=$lib.dict()).add($lib.true))'))
+            self.none(await core.callStorm('ou:conference=* return($lib.stix.export.bundle(config=$lib.dict()).add($node))'))
+            self.none(await core.callStorm('ou:conference=* return($lib.stix.export.bundle(config=$lib.dict()).add($node, stixtype=foobar))'))
 
-            return
+            with self.raises(s_exc.NoSuchForm):
+                config = {'hehe:haha': {}}
+                opts = {'vars': {'config': config}}
+                await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
+
+            with self.raises(s_exc.NeedConfValu):
+                config = {'inet:fqdn': {}}
+                opts = {'vars': {'config': config}}
+                await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
+
+            with self.raises(s_exc.NeedConfValu):
+                config = {'inet:fqdn': {'default': 'domain-name'}}
+                opts = {'vars': {'config': config}}
+                await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
+
+            with self.raises(s_exc.BadConfValu):
+                config = {'inet:fqdn': {
+                                'default': 'domain-name',
+                                'stix': {
+                                    'domain-name': {
+                                        'props': {'foo': (1, 2, 3)},
+                                    },
+                                },
+                         }}
+                opts = {'vars': {'config': config}}
+                await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
+
+            with self.raises(s_exc.BadConfValu):
+                config = {'inet:fqdn': {
+                                'default': 'domain-name',
+                                'stix': {
+                                    'domain-name': {
+                                        'rels': (
+                                            (1, 2, 3, 4, 5),
+                                        ),
+                                    },
+                                },
+                         }}
+                opts = {'vars': {'config': config}}
+                await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
