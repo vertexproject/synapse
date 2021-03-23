@@ -1977,10 +1977,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            msgs = await alist(core.storm('|help'))
+            msgs = await alist(core.storm('.created | limit 1 | help'))
             self.printed(msgs, 'package: synapse')
             self.stormIsInPrint('help', msgs)
             self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
+            self.len(1, [n for n in msgs if n[0] == 'node'])
 
             msgs = await alist(core.storm('help'))
             self.printed(msgs, 'package: synapse')
