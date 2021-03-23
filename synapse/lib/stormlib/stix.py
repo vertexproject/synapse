@@ -54,6 +54,11 @@ _DefaultConfig = {
                     'identity_class': ('return(organization)', {}),
                     'created': ('return($lib.stix.export.timestamp(.created))', {}),
                     'modified': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'sectors': ('''
+                        init { $list = $lib.list() }
+                        -> ou:industry +:name $list.append(:name)
+                        fini { if $list { return($list) } }
+                    ''', {}),
                 }
             },
             'threat-actor': {
@@ -78,6 +83,21 @@ _DefaultConfig = {
         'stix': {
             'identity': {
                 'props': {
+                    'name': ('{+:name return(:name)} return($node.repr())', {}),
+                    'created': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'modified': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'identity_class': ('return(individual)', {}),
+                }
+            },
+        },
+    },
+
+    'ps:contact': {
+        'default': 'identity',
+        'stix': {
+            'identity': {
+                'props': {
+                    'name': ('{+:name return(:name)} return($node.repr())', {}),
                     'created': ('return($lib.stix.export.timestamp(.created))', {}),
                     'modified': ('return($lib.stix.export.timestamp(.created))', {}),
                     'identity_class': ('return(individual)', {}),
@@ -91,7 +111,7 @@ _DefaultConfig = {
         'stix': {
             'location': {
                 'props': {
-                    'name': ('+:name return(:name)', {}),
+                    'name': ('{+:name return(:name)} return($node.repr())', {}),
                     'created': ('return($lib.stix.export.timestamp(.created))', {}),
                     'modified': ('return($lib.stix.export.timestamp(.created))', {}),
                     'country': ('+:loc $loc = :loc return($loc.split(".").0)', {}),
@@ -174,13 +194,35 @@ _DefaultConfig = {
     },
 
     'file:bytes': {
-        'default': 'malware',
+        'default': 'file',
         'stix': {
             'tool': {
                 'rels': (
                     #('targets', 'identity', '', {}),
                     #('targets', 'location', '', {}),
                 ),
+            },
+            'file': {
+                'props': {
+                    'name': ('+:name return(:name)', {}),
+                    'size': ('+:size return(:size)', {}),
+                    'hashes': ('''
+                        init { $dict = $lib.dict() }
+                        { +:md5 $dict.MD5 = :md5 }
+                        { +:sha1 $dict."SHA-1" = :sha1 }
+                        { +:sha256 $dict."SHA-256" = :sha256 }
+                        { +:sha512 $dict."SHA-512" = :sha512 }
+                        fini { if $dict { return($dict) } }
+                    ''', {}),
+                    'mime_type': ('+:mime return(:mime)', {}),
+                    'contains_refs': ('''
+                        init { $refs = $lib.list() }
+                        -(refs)> *
+                        $stixid = $bundle.add($node)
+                        if $stixid { $refs.append($stixid) }
+                        fini { if $refs { return($refs) } }
+                    ''', {}),
+                },
             },
             'malware': {
                 'props': {
@@ -291,11 +333,9 @@ _DefaultConfig = {
                     'published': ('return($lib.stix.export.timestamp(:published))', {}),
                     'object_refs': ('''
                         init { $refs = $lib.list() }
-                        {
-                            -(refs)> *
-                            +(inet:fqdn or inet:ipv4 or inet:ipv6 or inet:email or file:bytes or inet:url)
-                            $refs.append($bundle.add($node))
-                        }
+                        -(refs)> *
+                        $stixid = $bundle.add($node)
+                        if $stixid { $refs.append($stixid) }
                         fini { return($refs) }
                     ''', {}),
                 },
@@ -566,13 +606,13 @@ class StixBundle(s_stormtypes.Prim):
     async def add(self, node, stixtype=None):
 
         if not isinstance(node, s_node.Node):
-            mesg = 'STIX bundle add() method requires a node.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+            self.runt.warnonce('STIX bundle add() method requires a node.')
+            return None
 
         formconf = self.config.get(node.form.name)
         if formconf is None:
-            mesg = f'STIX bundle has no config for mapping {node.form.name}.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+            self.runt.warnonce('STIX bundle has no config for mapping {node.form.name}.')
+            return None
 
         if stixtype is None:
             stixtype = formconf.get('default')
@@ -583,14 +623,14 @@ class StixBundle(s_stormtypes.Prim):
         else:
             stixid = f'{stixtype}--{uuid4(node.ndef)}'
 
+        stixconf = formconf['stix'].get(stixtype)
+        if stixconf is None:
+            await self.runt.warnone(f'STIX bundle config has no config to map {node.form.name} to {stixtype}.')
+            return None
+
         stixitem = self.objs.get(stixid)
         if stixitem is None:
             stixitem = self.objs[stixid] = self._initStixItem(stixid, stixtype, node)
-
-        stixconf = formconf['stix'].get(stixtype)
-        if stixconf is None:
-            mesg = f'STIX bundle config has no config to map {node.form.name} to {stixtype}.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
 
         props = stixconf.get('props')
         if props is not None:

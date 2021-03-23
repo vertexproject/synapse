@@ -59,6 +59,7 @@ class StormlibModelTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             opts = {'vars': {
+                'ind': '6ba7d8500964902bf2e03126ed0f6cb1',
                 'news': '840b9b003a765020705ea8d203a7659c',
                 'place': 'c0254e1d0f9dedb0a03e2b95a55428eb',
                 'attack': '6a07c4b0789fd9ea73e7bfe54fb3c724',
@@ -69,16 +70,18 @@ class StormlibModelTest(s_test.SynTest):
                 'snortrule': '73e8073e66b2833c12184094d3433ebb',
                 'targetorg': 'c915178f2ddd08145ff48ccbaa551873',
                 'attackorg': 'd820b6d58329662bc5cabec03ef72ffa',
+
+                'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
-            self.len(17, await core.nodes('''[
+            self.len(18, await core.nodes('''[
                 (inet:asn=30 :name=woot30)
                 (inet:asn=40 :name=woot40)
                 (inet:ipv4=1.2.3.4 :asn=30)
                 (inet:ipv6="::ff" :asn=40)
                 inet:email=visi@vertex.link
                 (ps:contact=* :name="visi stark" :email=visi@vertex.link)
-                (ou:org=$targetorg :name=target)
+                (ou:org=$targetorg :name=target :industries={[ou:industry=$ind :name=aerospace]})
                 (ou:org=$attackorg :name=attacker :hq={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
                 (ou:campaign=$campaign :name=woot :org={ou:org:name=attacker})
                 (risk:attack=$attack :campaign={ou:campaign} :target:org={ou:org:name=target})
@@ -86,6 +89,7 @@ class StormlibModelTest(s_test.SynTest):
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
                 (media:news=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
+                (file:bytes=$sha256 :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link })
                 inet:dns:a=(vertex.link, 1.2.3.4)
                 inet:dns:aaaa=(vertex.link, "::ff")
                 inet:dns:cname=(vertex.link, vtx.lk)
@@ -105,6 +109,7 @@ class StormlibModelTest(s_test.SynTest):
                 ou:org:name=target
                 ou:campaign
 
+                file:bytes
                 inet:email:message
 
                 it:app:yara:rule
@@ -114,10 +119,10 @@ class StormlibModelTest(s_test.SynTest):
 
                 fini { return($bundle) }
             ''')
+
+            self.reqValidStix(bund)
+
             #self.setTestBundle('basic.json', bund)
-
-            #self.reqValidStix(bund)
-
             self.bundeq(bund, self.getTestBundle('basic.json'))
 
             opts = {'vars': {
@@ -147,10 +152,9 @@ class StormlibModelTest(s_test.SynTest):
                 fini { return($bundle) }
             ''', opts=opts)
 
-            #self.setTestBundle('custom0.json', bund)
-
             self.reqValidStix(bund)
 
+            #self.setTestBundle('custom0.json', bund)
             self.bundeq(bund, self.getTestBundle('custom0.json'))
 
             return

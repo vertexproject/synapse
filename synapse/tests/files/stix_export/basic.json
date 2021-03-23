@@ -1,5 +1,5 @@
 {
-  "id": "bundle--2e83066d-bf69-4245-9ebf-7de2e4325df4",
+  "id": "bundle--def5c58c-1956-4468-b424-2639a99d6f7a",
   "objects": [
     {
       "id": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
@@ -22,9 +22,9 @@
       "value": "1.2.3.4"
     },
     {
-      "created": "2021-03-23T16:02:08.702Z",
+      "created": "2021-03-23T17:29:42.592Z",
       "id": "relationship--feb9091d-46ff-42b6-97e0-ba4e41923f8d",
-      "modified": "2021-03-23T16:02:08.702Z",
+      "modified": "2021-03-23T17:29:42.592Z",
       "relationship_type": "belongs-to",
       "source_ref": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
       "spec_version": "2.1",
@@ -38,9 +38,9 @@
       "value": "::ff"
     },
     {
-      "created": "2021-03-23T16:02:08.702Z",
+      "created": "2021-03-23T17:29:42.593Z",
       "id": "relationship--3e8d2f05-2541-4bc7-8f35-da7981385933",
-      "modified": "2021-03-23T16:02:08.702Z",
+      "modified": "2021-03-23T17:29:42.593Z",
       "relationship_type": "belongs-to",
       "source_ref": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
       "spec_version": "2.1",
@@ -97,53 +97,58 @@
       "value": "visi@vertex.link"
     },
     {
-      "created": "2021-03-23T16:02:08.263Z",
+      "created": "2021-03-23T17:29:41.687Z",
       "id": "report--1a48d29c-bb1c-4e55-8cff-49175be054d5",
-      "modified": "2021-03-23T16:02:08.263Z",
+      "modified": "2021-03-23T17:29:41.687Z",
       "name": "report0",
-      "object_refs": [],
+      "object_refs": [
+        "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3"
+      ],
       "published": "2021-03-28T00:00:00.000Z",
       "spec_version": "2.1",
       "type": "report"
     },
     {
-      "created": "2021-03-23T16:02:08.250Z",
+      "created": "2021-03-23T17:29:41.664Z",
       "id": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
       "identity_class": "organization",
-      "modified": "2021-03-23T16:02:08.250Z",
+      "modified": "2021-03-23T17:29:41.664Z",
       "name": "target",
+      "sectors": [
+        "aerospace"
+      ],
       "spec_version": "2.1",
       "type": "identity"
     },
     {
-      "created": "2021-03-23T16:02:08.254Z",
+      "created": "2021-03-23T17:29:41.679Z",
       "id": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
-      "modified": "2021-03-23T16:02:08.254Z",
+      "modified": "2021-03-23T17:29:41.679Z",
       "name": "woot",
       "spec_version": "2.1",
       "type": "campaign"
     },
     {
-      "created": "2021-03-23T16:02:08.251Z",
+      "created": "2021-03-23T17:29:41.667Z",
       "id": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
-      "modified": "2021-03-23T16:02:08.251Z",
+      "modified": "2021-03-23T17:29:41.667Z",
       "name": "attacker",
       "spec_version": "2.1",
       "type": "threat-actor"
     },
     {
-      "created": "2021-03-23T16:02:08.251Z",
+      "created": "2021-03-23T17:29:41.667Z",
       "id": "identity--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "identity_class": "organization",
-      "modified": "2021-03-23T16:02:08.251Z",
+      "modified": "2021-03-23T17:29:41.667Z",
       "name": "attacker",
       "spec_version": "2.1",
       "type": "identity"
     },
     {
-      "created": "2021-03-23T16:02:08.755Z",
+      "created": "2021-03-23T17:29:42.257Z",
       "id": "relationship--edd954bf-db4e-4500-a1c5-f68182d9726b",
-      "modified": "2021-03-23T16:02:08.755Z",
+      "modified": "2021-03-23T17:29:42.257Z",
       "relationship_type": "attributed-to",
       "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
@@ -152,19 +157,19 @@
     },
     {
       "country": "ru",
-      "created": "2021-03-23T16:02:08.252Z",
+      "created": "2021-03-23T17:29:41.676Z",
       "id": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
       "latitude": 55.7558,
       "longitude": 37.6173,
-      "modified": "2021-03-23T16:02:08.252Z",
+      "modified": "2021-03-23T17:29:41.676Z",
       "name": "moscow",
       "spec_version": "2.1",
       "type": "location"
     },
     {
-      "created": "2021-03-23T16:02:08.805Z",
+      "created": "2021-03-23T17:29:42.333Z",
       "id": "relationship--df8ad0c6-0a9d-427c-a5c6-5c4678a1dd38",
-      "modified": "2021-03-23T16:02:08.805Z",
+      "modified": "2021-03-23T17:29:42.333Z",
       "relationship_type": "located-at",
       "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
@@ -172,9 +177,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T16:02:08.816Z",
+      "created": "2021-03-23T17:29:42.347Z",
       "id": "relationship--5ab635cf-c993-4ec8-8a15-0fc2f1444c25",
-      "modified": "2021-03-23T16:02:08.816Z",
+      "modified": "2021-03-23T17:29:42.347Z",
       "relationship_type": "targets",
       "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
@@ -182,9 +187,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T16:02:08.816Z",
+      "created": "2021-03-23T17:29:42.347Z",
       "id": "relationship--13c5643d-b8ce-40de-b7ee-b7e84ca3579e",
-      "modified": "2021-03-23T16:02:08.816Z",
+      "modified": "2021-03-23T17:29:42.347Z",
       "relationship_type": "attributed-to",
       "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
@@ -192,9 +197,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T16:02:08.823Z",
+      "created": "2021-03-23T17:29:42.357Z",
       "id": "relationship--3e3fe323-9bdc-4ad1-8d7d-a2a23920b82a",
-      "modified": "2021-03-23T16:02:08.823Z",
+      "modified": "2021-03-23T17:29:42.357Z",
       "relationship_type": "originates-from",
       "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
@@ -202,14 +207,28 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T16:02:08.831Z",
+      "created": "2021-03-23T17:29:42.366Z",
       "id": "relationship--ab5ca8aa-4b0f-44b8-9e73-6e8862d84bca",
-      "modified": "2021-03-23T16:02:08.831Z",
+      "modified": "2021-03-23T17:29:42.366Z",
       "relationship_type": "targets",
       "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
       "target_ref": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
       "type": "relationship"
+    },
+    {
+      "contains_refs": [
+        "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3"
+      ],
+      "hashes": {
+        "SHA-256": "00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e"
+      },
+      "id": "file--7b92f2ab-cba7-507f-a5ed-79fdd41a0fe9",
+      "mime_type": "application/json",
+      "name": "woot.json",
+      "size": 333,
+      "spec_version": "2.1",
+      "type": "file"
     },
     {
       "from_ref": "email-addr--8e09ab16-4934-5073-9fe8-767d743643e6",
@@ -223,28 +242,28 @@
       "type": "email-message"
     },
     {
-      "created": "2021-03-23T16:02:08.257Z",
+      "created": "2021-03-23T17:29:41.682Z",
       "description": "a yara rule",
       "id": "indicator--3614a192-7cee-4c0f-8782-3ee2f6654e76",
-      "modified": "2021-03-23T16:02:08.257Z",
+      "modified": "2021-03-23T17:29:41.682Z",
       "name": "yararulez",
       "pattern": "rule dummy { condition: false }",
       "pattern_type": "yara",
       "spec_version": "2.1",
       "type": "indicator",
-      "valid_from": "2021-03-23T16:02:08.257Z"
+      "valid_from": "2021-03-23T17:29:41.682Z"
     },
     {
-      "created": "2021-03-23T16:02:08.258Z",
+      "created": "2021-03-23T17:29:41.683Z",
       "description": "a snort rule",
       "id": "indicator--5453376b-2fba-40e5-bec6-eafa39707265",
-      "modified": "2021-03-23T16:02:08.258Z",
+      "modified": "2021-03-23T17:29:41.683Z",
       "name": "snortrulez",
       "pattern": "alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)",
       "pattern_type": "snort",
       "spec_version": "2.1",
       "type": "indicator",
-      "valid_from": "2021-03-23T16:02:08.258Z"
+      "valid_from": "2021-03-23T17:29:41.683Z"
     }
   ],
   "type": "bundle"
