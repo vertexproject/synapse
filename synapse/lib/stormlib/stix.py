@@ -430,9 +430,8 @@ class LibStix(s_stormtypes.Lib):
         ''',
          'type': {
             'type': 'function', '_funcname': 'bundle',
-            'args': (),
-            'kwargs': (
-                {'type': 'dict', 'name': 'config', 'desc': 'The STIX bundle export config to use.'},
+            'args': (
+                {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'The STIX bundle export config to use.'},
             ),
             'returns': {'type': 'storm:stix:bundle', 'desc': 'A new ``storm:stix:bundle`` instance.'},
         }},
@@ -478,8 +477,8 @@ class LibStix(s_stormtypes.Lib):
 
         return StixBundle(self, self.runt, config)
 
-    def timestamp(self, valu):
-        dt = datetime.datetime.utcfromtimestamp(valu / 1000.0)
+    def timestamp(self, tick):
+        dt = datetime.datetime.utcfromtimestamp(tick / 1000.0)
         return dt.isoformat(timespec='milliseconds') + 'Z'
 
 cyberobservables = {
@@ -529,9 +528,8 @@ class StixBundle(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': 'add',
                   'args': (
                       {'name': 'node', 'desc': 'The node to make a STIX object from.', 'type': 'node'},
-                  ),
-                  'kwargs': (
-                      {'name': 'stixtype', 'type': 'str', 'desc': 'A STIX type name to override the default mapping.'},
+                      {'name': 'stixtype', 'desc': 'A STIX type name to override the default mapping.',
+                            'type': 'str', 'default': None},
                   ),
                   'returns': {'type': 'str', 'desc': 'The stable STIX id of the added object.'}}},
 
