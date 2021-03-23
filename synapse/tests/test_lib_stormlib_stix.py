@@ -1,3 +1,4 @@
+import os
 import copy
 import json
 
@@ -5,6 +6,8 @@ import synapse.common as s_common
 import synapse.tests.utils as s_test
 
 import synapse.lib.stormlib.stix as s_stix
+
+regen = os.getenv('SYN_STIX_TEST_REGEN')
 
 class StormlibModelTest(s_test.SynTest):
 
@@ -43,6 +46,8 @@ class StormlibModelTest(s_test.SynTest):
             return json.load(fd)
 
     def setTestBundle(self, name, bund):
+        bund = copy.deepcopy(bund)
+        self._stripStixBundle(bund)
         path = self.getTestFilePath('stix_export', name)
         with open(path, 'w') as fd:
             json.dump(bund, fd, sort_keys=True, indent=2)
@@ -51,6 +56,7 @@ class StormlibModelTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             opts = {'vars': {
+                'news': '840b9b003a765020705ea8d203a7659c',
                 'place': 'c0254e1d0f9dedb0a03e2b95a55428eb',
                 'attack': '6a07c4b0789fd9ea73e7bfe54fb3c724',
                 'contact': 'a0861d3024462211ba5aaa47abaff458',
@@ -62,7 +68,7 @@ class StormlibModelTest(s_test.SynTest):
                 'attackorg': 'd820b6d58329662bc5cabec03ef72ffa',
             }}
 
-            self.len(16, await core.nodes('''[
+            self.len(17, await core.nodes('''[
                 (inet:asn=30 :name=woot30)
                 (inet:asn=40 :name=woot40)
                 (inet:ipv4=1.2.3.4 :asn=30)
@@ -76,6 +82,7 @@ class StormlibModelTest(s_test.SynTest):
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
+                (media:news=$news :title=report0 :published=20210328)
                 inet:dns:a=(vertex.link, 1.2.3.4)
                 inet:dns:aaaa=(vertex.link, "::ff")
                 inet:dns:cname=(vertex.link, vtx.lk)
@@ -89,8 +96,11 @@ class StormlibModelTest(s_test.SynTest):
                 inet:ipv6
                 inet:fqdn
                 inet:email
+                media:news
                 ou:org:name=target
                 ou:campaign
+
+                inet:email:message
 
                 it:app:yara:rule
                 it:app:snort:rule
@@ -99,7 +109,9 @@ class StormlibModelTest(s_test.SynTest):
 
                 fini { return($bundle) }
             ''')
-            #self.setTestBundle('basic.json', bund)
+            if regen:
+                self.setTestBundle('basic.json', bund)
+
             self.bundeq(bund, self.getTestBundle('basic.json'))
 
             opts = {'vars': {
@@ -129,7 +141,9 @@ class StormlibModelTest(s_test.SynTest):
                 fini { return($bundle) }
             ''', opts=opts)
 
-            #self.setTestBundle('custom0.json', bund)
+            if regen:
+                self.setTestBundle('custom0.json', bund)
+
             self.bundeq(bund, self.getTestBundle('custom0.json'))
 
             return

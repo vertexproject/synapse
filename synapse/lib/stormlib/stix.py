@@ -231,7 +231,7 @@ _DefaultConfig = {
         'stix': {
             'email-message': {
                 'props': {
-                    'date': ('+:date return($lib.stix.timestamp(:date))', {}),
+                    'date': ('+:date return($lib.stix.export.timestamp(:date))', {}),
                     'subject': ('+:subject return(:subject)', {}),
                     'message_id': ('-> inet:email:header +:name=message_id return(:value)', {}),
                     'from_ref': (':from -> inet:email return($bundle.add($node))', {}),
@@ -289,7 +289,7 @@ _DefaultConfig = {
             'report': {
                 'props': {
                     'name': ('+:title return(:title)', {}),
-                    'published': ('+:published return($lib.stix.timestamp(:published))', {}),
+                    'published': ('+:published return($lib.stix.export.timestamp(:published))', {}),
                 },
             },
         },

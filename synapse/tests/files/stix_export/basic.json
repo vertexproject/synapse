@@ -1,8 +1,6 @@
 {
-  "id": "89ae444d-ee22-475c-af85-5b0f07ff90ad",
   "objects": [
     {
-      "created": "2021-03-23T11:11:19.049Z",
       "id": "autonomous-system--a39a4bb0-38f8-4bd4-8734-408f32fc188d",
       "name": "woot30",
       "number": 30,
@@ -10,7 +8,6 @@
       "type": "autonomous-system"
     },
     {
-      "created": "2021-03-23T11:11:19.051Z",
       "id": "autonomous-system--b363ed54-80b8-455f-849b-99a7bd4a58e3",
       "name": "woot40",
       "number": 40,
@@ -18,7 +15,6 @@
       "type": "autonomous-system"
     },
     {
-      "created": "2021-03-23T11:11:19.052Z",
       "id": "ipv4-addr--20153b75-8f9d-45ea-aa8e-393d29970db6",
       "spec_version": "2.1",
       "type": "ipv4-addr",
@@ -33,7 +29,6 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T11:11:19.053Z",
       "id": "ipv6-addr--e5650300-6b26-4a08-8cfe-d3f6a52e123d",
       "spec_version": "2.1",
       "type": "ipv6-addr",
@@ -48,7 +43,6 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T11:11:19.069Z",
       "id": "domain-name--ed516b8d-fcd4-45de-b17d-a72ea43acc08",
       "resolves_to_refs": [],
       "spec_version": "2.1",
@@ -56,7 +50,6 @@
       "value": "org"
     },
     {
-      "created": "2021-03-23T11:11:19.069Z",
       "id": "domain-name--f843f83d-4f66-4939-a9b2-9eba735665f0",
       "resolves_to_refs": [],
       "spec_version": "2.1",
@@ -64,7 +57,6 @@
       "value": "scammer.org"
     },
     {
-      "created": "2021-03-23T11:11:19.073Z",
       "id": "domain-name--f33943f9-858e-4ff0-ac90-f9c52f7816e9",
       "resolves_to_refs": [],
       "spec_version": "2.1",
@@ -72,7 +64,6 @@
       "value": "lk"
     },
     {
-      "created": "2021-03-23T11:11:19.073Z",
       "id": "domain-name--dab5b998-501d-4e69-8fd4-bcabbd92d3fc",
       "resolves_to_refs": [],
       "spec_version": "2.1",
@@ -80,7 +71,6 @@
       "value": "vtx.lk"
     },
     {
-      "created": "2021-03-23T11:11:19.054Z",
       "id": "domain-name--058c7ce1-8e67-4e34-b288-54b69b23d3d3",
       "resolves_to_refs": [],
       "spec_version": "2.1",
@@ -88,7 +78,6 @@
       "value": "link"
     },
     {
-      "created": "2021-03-23T11:11:19.054Z",
       "id": "domain-name--3ecd51e1-42a5-4acf-b379-0b00bfd71a0d",
       "resolves_to_refs": [],
       "spec_version": "2.1",
@@ -96,14 +85,12 @@
       "value": "vertex.link"
     },
     {
-      "created": "2021-03-23T11:11:19.069Z",
       "id": "email-addr--570ce910-7306-4aad-9354-771da3a34c94",
       "spec_version": "2.1",
       "type": "email-addr",
       "value": "scammer@scammer.org"
     },
     {
-      "created": "2021-03-23T11:11:19.054Z",
       "display_name": "visi stark",
       "id": "email-addr--2346d7be-d4b0-4fae-8178-02904eefe1c5",
       "spec_version": "2.1",
@@ -111,27 +98,30 @@
       "value": "visi@vertex.link"
     },
     {
-      "created": "2021-03-23T11:11:19.058Z",
+      "id": "report--8facc46c-9784-403c-9c8c-548d738da8c8",
+      "name": "report0",
+      "published": "2021-03-28T00:00:00.000Z",
+      "spec_version": "2.1",
+      "type": "report"
+    },
+    {
       "id": "identity--67004385-aae8-4cee-b532-61b1db5c7d80",
       "identity_class": "organization",
       "spec_version": "2.1",
       "type": "identity"
     },
     {
-      "created": "2021-03-23T11:11:19.062Z",
       "id": "campaign--7e4a647a-6ebd-4c64-b1b4-fe9f3b8cb0f2",
       "name": "woot",
       "spec_version": "2.1",
       "type": "campaign"
     },
     {
-      "created": "2021-03-23T11:11:19.059Z",
       "id": "threat-actor--f21047b6-479a-4fac-83df-659d1fb022d9",
       "spec_version": "2.1",
       "type": "threat-actor"
     },
     {
-      "created": "2021-03-23T11:11:19.059Z",
       "id": "identity--f21047b6-479a-4fac-83df-659d1fb022d9",
       "identity_class": "organization",
       "spec_version": "2.1",
@@ -147,7 +137,6 @@
     },
     {
       "country": "ru",
-      "created": "2021-03-23T11:11:19.060Z",
       "id": "location--1f560abe-0c99-4b33-a252-76dabd0e80ee",
       "latitude": 55.7558,
       "longitude": 37.6173,
@@ -196,7 +185,14 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T11:11:19.065Z",
+      "from_ref": "email-addr--570ce910-7306-4aad-9354-771da3a34c94",
+      "id": "email-message--801256d0-e3d5-421c-8492-174ab74c53cb",
+      "spec_version": "2.1",
+      "subject": "freestuff",
+      "to_refs": "email-addr--2346d7be-d4b0-4fae-8178-02904eefe1c5",
+      "type": "email-message"
+    },
+    {
       "id": "indicator--c7a090b9-e975-42e0-9103-48a075e0f8fd",
       "name": "yararulez",
       "pattern": "rule dummy { condition: false }",
@@ -205,7 +201,6 @@
       "type": "indicator"
     },
     {
-      "created": "2021-03-23T11:11:19.067Z",
       "id": "indicator--49dc9fcc-aead-43c6-93f9-a12b2853c218",
       "name": "snortrulez",
       "pattern": "alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)",
