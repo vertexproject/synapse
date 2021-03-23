@@ -553,9 +553,6 @@ class StixBundle(s_stormtypes.Prim):
         {'name': 'add', 'desc': '''
         Make one or more STIX objects from a node, and add it to the bundle.
 
-        If the object already exists in the bundle, the existing object will
-        be modified.
-
         Optional args:
             stixtype (str): The explicit name of the STIX type to map the node to.
 
@@ -624,6 +621,9 @@ class StixBundle(s_stormtypes.Prim):
             stixid = f'{stixtype}--{uuid5(node.ndef)}'
         else:
             stixid = f'{stixtype}--{uuid4(node.ndef)}'
+
+        if self.objs.get(stixid) is not None:
+            return stixid
 
         stixconf = formconf['stix'].get(stixtype)
         if stixconf is None:
