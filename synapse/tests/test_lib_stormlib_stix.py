@@ -75,7 +75,7 @@ class StormlibModelTest(s_test.SynTest):
                 'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
-            self.len(18, await core.nodes('''[
+            self.len(19, await core.nodes('''[
                 (inet:asn=30 :name=woot30)
                 (inet:asn=40 :name=woot40)
                 (inet:ipv4=1.2.3.4 :asn=30)
@@ -91,6 +91,7 @@ class StormlibModelTest(s_test.SynTest):
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
                 (media:news=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
                 (file:bytes=$sha256 :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link })
+                (inet:web:acct=(twitter.com, invisig0th) :realname="visi stark" .seen=(2010,2021) :signup=2010 :passwd=secret)
                 inet:dns:a=(vertex.link, 1.2.3.4)
                 inet:dns:aaaa=(vertex.link, "::ff")
                 inet:dns:cname=(vertex.link, vtx.lk)
@@ -104,11 +105,14 @@ class StormlibModelTest(s_test.SynTest):
                 inet:asn
                 inet:ipv4
                 inet:ipv6
-                inet:fqdn
                 inet:email
+                inet:web:acct
                 media:news
                 ou:org:name=target
                 ou:campaign
+
+                inet:fqdn=vtx.lk
+                inet:fqdn=vertex.link
 
                 file:bytes
                 inet:email:message
@@ -123,7 +127,7 @@ class StormlibModelTest(s_test.SynTest):
 
             self.reqValidStix(bund)
 
-            #self.setTestBundle('basic.json', bund)
+            self.setTestBundle('basic.json', bund)
             self.bundeq(bund, self.getTestBundle('basic.json'))
 
             opts = {'vars': {

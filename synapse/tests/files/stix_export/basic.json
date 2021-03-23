@@ -1,5 +1,5 @@
 {
-  "id": "bundle--def5c58c-1956-4468-b424-2639a99d6f7a",
+  "id": "bundle--0de8c573-f187-49b5-a82d-3c04344cdf0e",
   "objects": [
     {
       "id": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
@@ -22,9 +22,9 @@
       "value": "1.2.3.4"
     },
     {
-      "created": "2021-03-23T17:29:42.592Z",
+      "created": "2021-03-23T22:01:24.970Z",
       "id": "relationship--feb9091d-46ff-42b6-97e0-ba4e41923f8d",
-      "modified": "2021-03-23T17:29:42.592Z",
+      "modified": "2021-03-23T22:01:24.970Z",
       "relationship_type": "belongs-to",
       "source_ref": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
       "spec_version": "2.1",
@@ -38,50 +38,14 @@
       "value": "::ff"
     },
     {
-      "created": "2021-03-23T17:29:42.593Z",
+      "created": "2021-03-23T22:01:24.971Z",
       "id": "relationship--3e8d2f05-2541-4bc7-8f35-da7981385933",
-      "modified": "2021-03-23T17:29:42.593Z",
+      "modified": "2021-03-23T22:01:24.971Z",
       "relationship_type": "belongs-to",
       "source_ref": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
       "spec_version": "2.1",
       "target_ref": "autonomous-system--1c9278ba-58da-5b55-b7cc-d22d95d46409",
       "type": "relationship"
-    },
-    {
-      "id": "domain-name--80099d6b-6522-5277-afe8-f6ea70aff161",
-      "spec_version": "2.1",
-      "type": "domain-name",
-      "value": "org"
-    },
-    {
-      "id": "domain-name--ad00f68a-74ea-5fff-8299-22fe62b6a98f",
-      "spec_version": "2.1",
-      "type": "domain-name",
-      "value": "scammer.org"
-    },
-    {
-      "id": "domain-name--2cf29a0e-5008-594d-9ad7-0d1fae063a61",
-      "spec_version": "2.1",
-      "type": "domain-name",
-      "value": "lk"
-    },
-    {
-      "id": "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c",
-      "spec_version": "2.1",
-      "type": "domain-name",
-      "value": "vtx.lk"
-    },
-    {
-      "id": "domain-name--1ecc0d07-dd59-5d53-85ee-66a9079c25cc",
-      "spec_version": "2.1",
-      "type": "domain-name",
-      "value": "link"
-    },
-    {
-      "id": "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3",
-      "spec_version": "2.1",
-      "type": "domain-name",
-      "value": "vertex.link"
     },
     {
       "id": "email-addr--8e09ab16-4934-5073-9fe8-767d743643e6",
@@ -97,9 +61,22 @@
       "value": "visi@vertex.link"
     },
     {
-      "created": "2021-03-23T17:29:41.687Z",
+      "account_created": "2010-01-01T00:00:00.000Z",
+      "account_first_login": "2021-01-01T00:00:00.000Z",
+      "account_last_login": "2010-01-01T00:00:00.000Z",
+      "account_login": "invisig0th",
+      "account_type": "twitter",
+      "credential": "secret",
+      "display_name": "visi stark",
+      "id": "user-account--5aee248b-8b9d-5ef3-ab46-fc82de4785d0",
+      "spec_version": "2.1",
+      "type": "user-account",
+      "user_id": "invisig0th"
+    },
+    {
+      "created": "2021-03-23T22:01:24.010Z",
       "id": "report--1a48d29c-bb1c-4e55-8cff-49175be054d5",
-      "modified": "2021-03-23T17:29:41.687Z",
+      "modified": "2021-03-23T22:01:24.010Z",
       "name": "report0",
       "object_refs": [
         "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3"
@@ -109,10 +86,22 @@
       "type": "report"
     },
     {
-      "created": "2021-03-23T17:29:41.664Z",
+      "id": "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3",
+      "spec_version": "2.1",
+      "type": "domain-name",
+      "value": "vertex.link"
+    },
+    {
+      "id": "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c",
+      "spec_version": "2.1",
+      "type": "domain-name",
+      "value": "vtx.lk"
+    },
+    {
+      "created": "2021-03-23T22:01:23.996Z",
       "id": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
       "identity_class": "organization",
-      "modified": "2021-03-23T17:29:41.664Z",
+      "modified": "2021-03-23T22:01:23.996Z",
       "name": "target",
       "sectors": [
         "aerospace"
@@ -121,34 +110,34 @@
       "type": "identity"
     },
     {
-      "created": "2021-03-23T17:29:41.679Z",
+      "created": "2021-03-23T22:01:24.002Z",
       "id": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
-      "modified": "2021-03-23T17:29:41.679Z",
+      "modified": "2021-03-23T22:01:24.002Z",
       "name": "woot",
       "spec_version": "2.1",
       "type": "campaign"
     },
     {
-      "created": "2021-03-23T17:29:41.667Z",
+      "created": "2021-03-23T22:01:23.999Z",
       "id": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
-      "modified": "2021-03-23T17:29:41.667Z",
+      "modified": "2021-03-23T22:01:23.999Z",
       "name": "attacker",
       "spec_version": "2.1",
       "type": "threat-actor"
     },
     {
-      "created": "2021-03-23T17:29:41.667Z",
+      "created": "2021-03-23T22:01:23.999Z",
       "id": "identity--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "identity_class": "organization",
-      "modified": "2021-03-23T17:29:41.667Z",
+      "modified": "2021-03-23T22:01:23.999Z",
       "name": "attacker",
       "spec_version": "2.1",
       "type": "identity"
     },
     {
-      "created": "2021-03-23T17:29:42.257Z",
+      "created": "2021-03-23T22:01:24.655Z",
       "id": "relationship--edd954bf-db4e-4500-a1c5-f68182d9726b",
-      "modified": "2021-03-23T17:29:42.257Z",
+      "modified": "2021-03-23T22:01:24.655Z",
       "relationship_type": "attributed-to",
       "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
@@ -157,19 +146,19 @@
     },
     {
       "country": "ru",
-      "created": "2021-03-23T17:29:41.676Z",
+      "created": "2021-03-23T22:01:24.000Z",
       "id": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
       "latitude": 55.7558,
       "longitude": 37.6173,
-      "modified": "2021-03-23T17:29:41.676Z",
+      "modified": "2021-03-23T22:01:24.000Z",
       "name": "moscow",
       "spec_version": "2.1",
       "type": "location"
     },
     {
-      "created": "2021-03-23T17:29:42.333Z",
+      "created": "2021-03-23T22:01:24.722Z",
       "id": "relationship--df8ad0c6-0a9d-427c-a5c6-5c4678a1dd38",
-      "modified": "2021-03-23T17:29:42.333Z",
+      "modified": "2021-03-23T22:01:24.722Z",
       "relationship_type": "located-at",
       "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
@@ -177,9 +166,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T17:29:42.347Z",
+      "created": "2021-03-23T22:01:24.734Z",
       "id": "relationship--5ab635cf-c993-4ec8-8a15-0fc2f1444c25",
-      "modified": "2021-03-23T17:29:42.347Z",
+      "modified": "2021-03-23T22:01:24.734Z",
       "relationship_type": "targets",
       "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
@@ -187,9 +176,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T17:29:42.347Z",
+      "created": "2021-03-23T22:01:24.734Z",
       "id": "relationship--13c5643d-b8ce-40de-b7ee-b7e84ca3579e",
-      "modified": "2021-03-23T17:29:42.347Z",
+      "modified": "2021-03-23T22:01:24.734Z",
       "relationship_type": "attributed-to",
       "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
@@ -197,9 +186,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T17:29:42.357Z",
+      "created": "2021-03-23T22:01:24.742Z",
       "id": "relationship--3e3fe323-9bdc-4ad1-8d7d-a2a23920b82a",
-      "modified": "2021-03-23T17:29:42.357Z",
+      "modified": "2021-03-23T22:01:24.742Z",
       "relationship_type": "originates-from",
       "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
@@ -207,9 +196,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T17:29:42.366Z",
+      "created": "2021-03-23T22:01:24.750Z",
       "id": "relationship--ab5ca8aa-4b0f-44b8-9e73-6e8862d84bca",
-      "modified": "2021-03-23T17:29:42.366Z",
+      "modified": "2021-03-23T22:01:24.750Z",
       "relationship_type": "targets",
       "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
@@ -242,28 +231,28 @@
       "type": "email-message"
     },
     {
-      "created": "2021-03-23T17:29:41.682Z",
+      "created": "2021-03-23T22:01:24.004Z",
       "description": "a yara rule",
       "id": "indicator--3614a192-7cee-4c0f-8782-3ee2f6654e76",
-      "modified": "2021-03-23T17:29:41.682Z",
+      "modified": "2021-03-23T22:01:24.004Z",
       "name": "yararulez",
       "pattern": "rule dummy { condition: false }",
       "pattern_type": "yara",
       "spec_version": "2.1",
       "type": "indicator",
-      "valid_from": "2021-03-23T17:29:41.682Z"
+      "valid_from": "2021-03-23T22:01:24.004Z"
     },
     {
-      "created": "2021-03-23T17:29:41.683Z",
+      "created": "2021-03-23T22:01:24.006Z",
       "description": "a snort rule",
       "id": "indicator--5453376b-2fba-40e5-bec6-eafa39707265",
-      "modified": "2021-03-23T17:29:41.683Z",
+      "modified": "2021-03-23T22:01:24.006Z",
       "name": "snortrulez",
       "pattern": "alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)",
       "pattern_type": "snort",
       "spec_version": "2.1",
       "type": "indicator",
-      "valid_from": "2021-03-23T17:29:41.683Z"
+      "valid_from": "2021-03-23T22:01:24.006Z"
     }
   ],
   "type": "bundle"

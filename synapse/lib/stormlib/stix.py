@@ -193,6 +193,27 @@ _DefaultConfig = {
         },
     },
 
+    'inet:web:acct': {
+        'default': 'user-account',
+        'stix': {
+            'user-account': {
+                'props': {
+                    'user_id': ('return(:user)', {}),
+                    'account_login': ('return(:user)', {}),
+                    'account_type': ('''
+                        {+:site=twitter.com return(twitter)}
+                        {+:site=facebook.com return(facebook)}
+                    ''', {}),
+                    'credential': ('+:passwd return(:passwd)', {}),
+                    'display_name': ('+:realname return(:realname)', {}),
+                    'account_created': ('+:signup return($lib.stix.export.timestamp(:signup))', {}),
+                    'account_last_login': ('+.seen $ival = .seen return($lib.stix.export.timestamp($ival.0))', {}),
+                    'account_first_login': ('+.seen $ival = .seen return($lib.stix.export.timestamp($ival.1))', {}),
+                },
+            }
+        },
+    },
+
     'file:bytes': {
         'default': 'file',
         'stix': {
