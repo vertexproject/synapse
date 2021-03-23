@@ -57,7 +57,7 @@ def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
 
     with contextlib.ExitStack() as stack:
         for path in lmdbpaths:
-            logger.info(f'Capturing txn for {path}')
+            logger.debug(f'Capturing txn for {path}')
             datafile = os.path.join(path, 'data.mdb')
             stat = os.stat(datafile)
             map_size = stat.st_size
