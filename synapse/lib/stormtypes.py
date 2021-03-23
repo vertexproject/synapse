@@ -1222,6 +1222,10 @@ class LibAxon(Lib):
         {'name': 'wget', 'desc': """
             A method to download an HTTP(S) resource into the Cortex's Axon.
 
+            Notes:
+                The response body will be stored regardless of the status code. See the ``Axon.wget()`` API
+                documentation to see the complete structure of the response dictionary.
+
             Example:
                 Get the Vertex Project website::
 
