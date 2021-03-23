@@ -229,13 +229,26 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.start()  # make sure it doesn't blow up
                 self.eq([], agenda.list())
 
+                # Missing reqs
+                cdef = {'creator': rootiden, 'iden': 'fakeiden', 'storm': 'foo'}
+                await self.asyncraises(ValueError, agenda.add(cdef))
+
+                # Missing creator
                 cdef = {'iden': 'fakeiden', 'storm': 'foo',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await self.asyncraises(ValueError, agenda.add(cdef))
-                cdef = {'creator': rootiden, 'iden': 'fakeiden', 'storm': '',
+
+                # Missing storm
+                cdef = {'creator': rootiden, 'iden': 'fakeiden',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await self.asyncraises(ValueError, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
+
+                # Missing incvals
+                cdef = {'creator': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                        'reqs': {s_agenda.TimeUnit.NOW: True},
+                        'incunit': s_agenda.TimeUnit.MONTH}
+                await self.asyncraises(ValueError, agenda.add(cdef))
 
                 # Cannot schedule a recurring job with 'now'
                 cdef = {'creator': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
@@ -249,6 +262,10 @@ class AgendaTest(s_t_utils.SynTest):
                 cdef = {'creator': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True}}
                 await agenda.add(cdef)
+
+                # Can't have two with the same iden
+                await self.asyncraises(s_exc.DupIden, agenda.add(cdef))
+
                 await sync.wait()  # wait for the query to run
                 sync.clear()
                 self.eq(lastquery, '[test:str=doit]')
