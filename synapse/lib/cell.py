@@ -697,7 +697,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
     }
 
-    BACKUP_SPAWN_TIMEOUT = 4.0
+    BACKUP_SPAWN_TIMEOUT = 30.0
     BACKUP_ACQUIRE_TIMEOUT = 0.5
 
     async def __anit__(self, dirn, conf=None, readonly=False):
@@ -1196,35 +1196,42 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         mypipe, child_pipe = ctx.Pipe()
         paths = [str(slab.path) for slab in slabs]
+        loglevel = logger.getEffectiveLevel()
 
         def spawnproc():
-            proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths))
+            logger.debug('Starting multiprocessing target')
+            proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths, loglevel))
             proc.start()
             hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
             if not hasdata:
-                raise s_exc.SynErr(mesg='backup subprocess stuck')
+                raise s_exc.SynErr(mesg='backup subprocess stuck starting')
             data = mypipe.recv()
             assert data == 'ready'
             return proc
 
         proc = await s_coro.executor(spawnproc)
 
+        logger.debug('Syncing LMDB Slabs')
         while True:
             await s_lmdbslab.Slab.syncLoopOnce()
             if not any(slab.dirty for slab in slabs):
                 break
 
         try:
+
+            logger.debug('Acquiring LMDB txns')
             mypipe.send('proceed')
 
             # This is technically pending the ioloop waiting for the backup process to acquire a bunch of
             # transactions.  We're effectively locking out new write requests the brute force way.
             hasdata = mypipe.poll(timeout=self.BACKUP_ACQUIRE_TIMEOUT)
             if not hasdata:
-                raise s_exc.SynErr(mesg='backup subprocess stuck')
+                raise s_exc.SynErr(mesg='backup subprocess stuck acquiring LMDB txns')
 
             data = mypipe.recv()
             assert data == 'captured'
+
+            logger.debug('Acquired LMDB txns')
 
             def waitforproc():
                 proc.join()
@@ -1243,10 +1250,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return retn
 
     @staticmethod
-    def _backupProc(pipe, srcdir, dstdir, lmdbpaths):
+    def _backupProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
         '''
         (In a separate process) Actually do the backup
         '''
+        s_common.setlogging(logger, loglevel)
         pipe.send('ready')
         data = pipe.recv()
         assert data == 'proceed'
@@ -1362,6 +1370,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.runBackup(name)
             link = s_scope.get('link')
             linkinfo = await link.getSpawnInfo()
+            linkinfo['loglevel'] = logger.getEffectiveLevel()
+            logger.info(linkinfo)
 
             await self.boss.promote('backup:stream', user=user)
 
