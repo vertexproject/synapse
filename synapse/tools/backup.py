@@ -45,9 +45,11 @@ def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
         if skipdirs is None:
             skipdirs = []
 
-        skipdirs.append('**/tmp')
+        srcdir = glob.escape(os.path.abspath(srcdir))
+        skipdirs.append(os.path.join(srcdir, 'tmp/*.lmdb'))
+        skipdirs.append(os.path.join(srcdir, '*/tmp/*.lmdb'))
 
-        srcdirglob = s_common.genpath(glob.escape(os.path.abspath(srcdir)), '**/*.lmdb')
+        srcdirglob = s_common.genpath(srcdir, '**/*.lmdb')
         fniter = glob.iglob(srcdirglob, recursive=True)
         lmdbpaths = [fn for fn in fniter if not any([fnmatch.fnmatch(fn, pattern) for pattern in skipdirs])]
 
