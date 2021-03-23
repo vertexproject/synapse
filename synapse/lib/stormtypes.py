@@ -818,6 +818,28 @@ class LibBase(Lib):
                       {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword argumetns to substitue into the mesg.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'range', 'desc': '''
+        Generate a range of integers.
+
+        Examples:
+            Generate a sequence of integers based on the size of an array::
+
+                cli> storm $a=(foo,bar,(2)) for $i in $lib.range($lib.len($a)) {$lib.fire('test', indx=$i, valu=$a.$i)}
+                Executing query at 2021/03/22 19:25:48.835
+                ('storm:fire', {'type': 'test', 'data': {'index': 0, 'valu': 'foo'}})
+                ('storm:fire', {'type': 'test', 'data': {'index': 1, 'valu': 'bar'}})
+                ('storm:fire', {'type': 'test', 'data': {'index': 2, 'valu': 2}})
+
+        Notes:
+            The range behavior is the same as the Python3 ``range()`` builtin Sequence type.
+        ''',
+         'type': {'type': 'function', '_funcname': '_range',
+                  'args': (
+                      {'name': 'stop', 'type': 'integer', 'desc': 'The value to stop at.', },
+                      {'name': 'start', 'type': 'integer', 'desc': 'The value to start at.', 'default': None, },
+                      {'name': 'step', 'type': 'integer', 'desc': 'The range step size.', 'default': None, },
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'intger', 'desc': 'The sequence of integers.'}}},
         {'name': 'pprint', 'desc': 'The pprint API should not be considered a stable interface.',
          'type': {'type': 'function', '_funcname': '_pprint',
                   'args': (
@@ -877,6 +899,7 @@ class LibBase(Lib):
             'cast': self._cast,
             'warn': self._warn,
             'print': self._print,
+            'range': self._range,
             'pprint': self._pprint,
             'sorted': self._sorted,
             'import': self._libBaseImport,
@@ -1020,6 +1043,24 @@ class LibBase(Lib):
     async def _print(self, mesg, **kwargs):
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
+
+    @stormfunc(readonly=True)
+    async def _range(self, stop, start=None, step=None):
+        stop = await toint(stop)
+        start = await toint(start, True)
+        step = await toint(step, True)
+
+        if start is not None:
+            if step is not None:
+                genr = range(start, stop, step)
+            else:
+                genr = range(start, stop)
+        else:
+            genr = range(stop)
+
+        for valu in genr:
+            yield valu
+            await asyncio.sleep(0)
 
     @stormfunc(readonly=True)
     async def _pprint(self, item, prefix='', clamp=None):

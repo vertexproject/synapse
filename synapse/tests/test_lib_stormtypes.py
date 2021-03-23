@@ -294,6 +294,38 @@ class StormTypesTest(s_test.SynTest):
             self.eq(err[0], 'StormRuntimeError')
             self.isin('Invalid clamp length.', err[1].get('mesg'))
 
+            # lib.range()
+            q = 'for $v in $lib.range($stop, start=$start, step=$step) { $lib.fire(range, v=$v) }'
+            async def getseqn(genr, name, key):
+                seqn = []
+                async for mtyp, info in genr:
+                    print(mtyp, info)
+                    if mtyp != 'storm:fire':
+                        continue
+                    self.eq(info.get('type'), name)
+                    seqn.append(info.get('data', {}).get(key))
+                return seqn
+
+            opts = {'vars': {'stop': 3, 'start': None, 'step': None}}
+            items = await getseqn(core.storm(q, opts), 'range', 'v')
+            self.eq(items, [0, 1, 2])
+
+            opts = {'vars': {'stop': 3, 'start': 1, 'step': None}}
+            items = await getseqn(core.storm(q, opts), 'range', 'v')
+            self.eq(items, [1, 2])
+
+            opts = {'vars': {'stop': 5, 'start': 0, 'step': 2}}
+            items = await getseqn(core.storm(q, opts), 'range', 'v')
+            self.eq(items, [0, 2, 4])
+
+            opts = {'vars': {'stop': 0, 'start': 4, 'step': None}}
+            items = await getseqn(core.storm(q, opts), 'range', 'v')
+            self.eq(items, [])
+
+            opts = {'vars': {'stop': 0, 'start': 4, 'step': -1}}
+            items = await getseqn(core.storm(q, opts), 'range', 'v')
+            self.eq(items, [4, 3, 2, 1])
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
