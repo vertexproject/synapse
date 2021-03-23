@@ -127,7 +127,7 @@ class StormlibModelTest(s_test.SynTest):
 
             self.reqValidStix(bund)
 
-            self.setTestBundle('basic.json', bund)
+            #self.setTestBundle('basic.json', bund)
             self.bundeq(bund, self.getTestBundle('basic.json'))
 
             opts = {'vars': {
@@ -140,11 +140,10 @@ class StormlibModelTest(s_test.SynTest):
                     $config = $lib.stix.export.config()
 
                     $config."file:bytes".stix.malware.rels.append(
-                        (communicates-with, url, ${-> it:exec:url:exe -> inet:url}, $lib.dict()),
+                        (communicates-with, url, ${-> it:exec:url:exe -> inet:url})
                     )
 
-                    $config."file:bytes".stix.malware.props.name = (${return(redtree)}, $lib.dict())
-
+                    $config."file:bytes".stix.malware.props.name = ${return(redtree)}
                     $bundle = $lib.stix.export.bundle(config=$config)
                 }
 
@@ -190,7 +189,7 @@ class StormlibModelTest(s_test.SynTest):
                                 'default': 'domain-name',
                                 'stix': {
                                     'domain-name': {
-                                        'props': {'foo': (1, 2, 3)},
+                                        'props': {'foo': 10},
                                     },
                                 },
                          }}
@@ -203,7 +202,7 @@ class StormlibModelTest(s_test.SynTest):
                                 'stix': {
                                     'domain-name': {
                                         'rels': (
-                                            (1, 2, 3, 4, 5),
+                                            (1, 2, 3, 4),
                                         ),
                                     },
                                 },
