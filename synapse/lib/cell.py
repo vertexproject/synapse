@@ -1254,6 +1254,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         (In a separate process) Actually do the backup
         '''
+        # This logging call is okay to run since we're executing in
+        # our own process space and no logging has been configured.
         s_common.setlogging(logger, loglevel)
         pipe.send('ready')
         data = pipe.recv()
@@ -1371,7 +1373,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             link = s_scope.get('link')
             linkinfo = await link.getSpawnInfo()
             linkinfo['loglevel'] = logger.getEffectiveLevel()
-            logger.info(linkinfo)
 
             await self.boss.promote('backup:stream', user=user)
 
