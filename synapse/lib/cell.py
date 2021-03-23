@@ -103,6 +103,7 @@ async def _doIterBackup(path, chunksize=1024):
         yield byts
 
     await coro
+    await link0.fini()
 
 async def _iterBackupWork(path, linkinfo, done):
     '''
@@ -1311,7 +1312,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         cellguid = os.path.join(path, 'cell.guid')
         if not os.path.isfile(cellguid):
             mesg = 'Specified backup path has no cell.guid file.'
-            raise s_exc.BadArg(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg, arg='path', valu=path)
 
         link = s_scope.get('link')
         linkinfo = await link.getSpawnInfo()
@@ -1407,7 +1408,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         finally:
             if remove:
+                logger.debug(f'Removing {path}')
                 await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+                logger.debug(f'Removed {path}')
+            logger.debug(f'iterNewBackupArchive completed for {name}')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
