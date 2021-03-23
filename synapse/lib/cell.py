@@ -1354,6 +1354,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise
 
         finally:
+            logger.debug(f'iterBackupArchive completed for {name}')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
