@@ -80,7 +80,7 @@ def norm(z):
     if isinstance(z, (list, tuple)):
         return tuple([norm(n) for n in z])
     if isinstance(z, dict):
-        return {norm(k): norm(v) for (k, v) in z.items()}
+        return {norm(k): norm(v) for (k, v) in sorted(z.items())}
     return z
 
 class LibTst(s_stormtypes.Lib):

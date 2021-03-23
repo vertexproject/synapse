@@ -3491,10 +3491,9 @@ class Return(Oper):
             raise s_stormctrl.StormReturn(valu)
 
         # no items in pipeline... execute
-        if self.kids:
+        if self.kids and self.isRuntSafe(runt):
             valu = await self.kids[0].compute(runt, None)
-
-        raise s_stormctrl.StormReturn(valu)
+            raise s_stormctrl.StormReturn(valu)
 
 class FuncArgs(AstNode):
 
