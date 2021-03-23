@@ -1,143 +1,141 @@
 {
   "objects": [
     {
-      "id": "autonomous-system--a39a4bb0-38f8-4bd4-8734-408f32fc188d",
+      "id": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
       "name": "woot30",
       "number": 30,
       "spec_version": "2.1",
       "type": "autonomous-system"
     },
     {
-      "id": "autonomous-system--b363ed54-80b8-455f-849b-99a7bd4a58e3",
+      "id": "autonomous-system--1c9278ba-58da-5b55-b7cc-d22d95d46409",
       "name": "woot40",
       "number": 40,
       "spec_version": "2.1",
       "type": "autonomous-system"
     },
     {
-      "id": "ipv4-addr--20153b75-8f9d-45ea-aa8e-393d29970db6",
+      "id": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
       "spec_version": "2.1",
       "type": "ipv4-addr",
       "value": "1.2.3.4"
     },
     {
-      "id": "relationship--b9c4a141-ed96-434f-9704-5a3ea9526336",
+      "id": "relationship--feb9091d-46ff-42b6-97e0-ba4e41923f8d",
       "relationship_type": "belongs-to",
-      "source_ref": "ipv4-addr--20153b75-8f9d-45ea-aa8e-393d29970db6",
+      "source_ref": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
       "spec_version": "2.1",
-      "target_ref": "autonomous-system--a39a4bb0-38f8-4bd4-8734-408f32fc188d",
+      "target_ref": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
       "type": "relationship"
     },
     {
-      "id": "ipv6-addr--e5650300-6b26-4a08-8cfe-d3f6a52e123d",
+      "id": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
       "spec_version": "2.1",
       "type": "ipv6-addr",
       "value": "::ff"
     },
     {
-      "id": "relationship--096c58e9-3039-46bb-b576-612003dee816",
+      "id": "relationship--3e8d2f05-2541-4bc7-8f35-da7981385933",
       "relationship_type": "belongs-to",
-      "source_ref": "ipv6-addr--e5650300-6b26-4a08-8cfe-d3f6a52e123d",
+      "source_ref": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
       "spec_version": "2.1",
-      "target_ref": "autonomous-system--b363ed54-80b8-455f-849b-99a7bd4a58e3",
+      "target_ref": "autonomous-system--1c9278ba-58da-5b55-b7cc-d22d95d46409",
       "type": "relationship"
     },
     {
-      "id": "domain-name--ed516b8d-fcd4-45de-b17d-a72ea43acc08",
-      "resolves_to_refs": [],
+      "id": "domain-name--80099d6b-6522-5277-afe8-f6ea70aff161",
       "spec_version": "2.1",
       "type": "domain-name",
       "value": "org"
     },
     {
-      "id": "domain-name--f843f83d-4f66-4939-a9b2-9eba735665f0",
-      "resolves_to_refs": [],
+      "id": "domain-name--ad00f68a-74ea-5fff-8299-22fe62b6a98f",
       "spec_version": "2.1",
       "type": "domain-name",
       "value": "scammer.org"
     },
     {
-      "id": "domain-name--f33943f9-858e-4ff0-ac90-f9c52f7816e9",
-      "resolves_to_refs": [],
+      "id": "domain-name--2cf29a0e-5008-594d-9ad7-0d1fae063a61",
       "spec_version": "2.1",
       "type": "domain-name",
       "value": "lk"
     },
     {
-      "id": "domain-name--dab5b998-501d-4e69-8fd4-bcabbd92d3fc",
-      "resolves_to_refs": [],
+      "id": "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c",
       "spec_version": "2.1",
       "type": "domain-name",
       "value": "vtx.lk"
     },
     {
-      "id": "domain-name--058c7ce1-8e67-4e34-b288-54b69b23d3d3",
-      "resolves_to_refs": [],
+      "id": "domain-name--1ecc0d07-dd59-5d53-85ee-66a9079c25cc",
       "spec_version": "2.1",
       "type": "domain-name",
       "value": "link"
     },
     {
-      "id": "domain-name--3ecd51e1-42a5-4acf-b379-0b00bfd71a0d",
-      "resolves_to_refs": [],
+      "id": "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3",
       "spec_version": "2.1",
       "type": "domain-name",
       "value": "vertex.link"
     },
     {
-      "id": "email-addr--570ce910-7306-4aad-9354-771da3a34c94",
+      "id": "email-addr--8e09ab16-4934-5073-9fe8-767d743643e6",
       "spec_version": "2.1",
       "type": "email-addr",
       "value": "scammer@scammer.org"
     },
     {
       "display_name": "visi stark",
-      "id": "email-addr--2346d7be-d4b0-4fae-8178-02904eefe1c5",
+      "id": "email-addr--a20979f7-1b90-5f2a-a1c5-3933675b5c3c",
       "spec_version": "2.1",
       "type": "email-addr",
       "value": "visi@vertex.link"
     },
     {
-      "id": "report--8facc46c-9784-403c-9c8c-548d738da8c8",
+      "id": "report--1a48d29c-bb1c-4e55-8cff-49175be054d5",
       "name": "report0",
+      "object_refs": [],
       "published": "2021-03-28T00:00:00.000Z",
       "spec_version": "2.1",
       "type": "report"
     },
     {
-      "id": "identity--67004385-aae8-4cee-b532-61b1db5c7d80",
+      "id": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
       "identity_class": "organization",
+      "name": "target",
       "spec_version": "2.1",
       "type": "identity"
     },
     {
-      "id": "campaign--7e4a647a-6ebd-4c64-b1b4-fe9f3b8cb0f2",
+      "id": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "name": "woot",
       "spec_version": "2.1",
       "type": "campaign"
     },
     {
-      "id": "threat-actor--f21047b6-479a-4fac-83df-659d1fb022d9",
+      "id": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
+      "name": "attacker",
       "spec_version": "2.1",
       "type": "threat-actor"
     },
     {
-      "id": "identity--f21047b6-479a-4fac-83df-659d1fb022d9",
+      "id": "identity--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "identity_class": "organization",
+      "name": "attacker",
       "spec_version": "2.1",
       "type": "identity"
     },
     {
-      "id": "relationship--5a05ea19-a2b3-4507-8453-53e484e3b2ca",
+      "id": "relationship--edd954bf-db4e-4500-a1c5-f68182d9726b",
       "relationship_type": "attributed-to",
-      "source_ref": "threat-actor--f21047b6-479a-4fac-83df-659d1fb022d9",
+      "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
-      "target_ref": "identity--f21047b6-479a-4fac-83df-659d1fb022d9",
+      "target_ref": "identity--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "type": "relationship"
     },
     {
       "country": "ru",
-      "id": "location--1f560abe-0c99-4b33-a252-76dabd0e80ee",
+      "id": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
       "latitude": 55.7558,
       "longitude": 37.6173,
       "name": "moscow",
@@ -145,55 +143,59 @@
       "type": "location"
     },
     {
-      "id": "relationship--48f72ebb-3131-4491-9f86-bd88f2d65c32",
+      "id": "relationship--df8ad0c6-0a9d-427c-a5c6-5c4678a1dd38",
       "relationship_type": "located-at",
-      "source_ref": "threat-actor--f21047b6-479a-4fac-83df-659d1fb022d9",
+      "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
-      "target_ref": "location--1f560abe-0c99-4b33-a252-76dabd0e80ee",
+      "target_ref": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
       "type": "relationship"
     },
     {
-      "id": "relationship--410c2206-e30e-4a03-bc25-27c02186282c",
+      "id": "relationship--5ab635cf-c993-4ec8-8a15-0fc2f1444c25",
       "relationship_type": "targets",
-      "source_ref": "threat-actor--f21047b6-479a-4fac-83df-659d1fb022d9",
+      "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
-      "target_ref": "identity--67004385-aae8-4cee-b532-61b1db5c7d80",
+      "target_ref": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
       "type": "relationship"
     },
     {
-      "id": "relationship--0cb2afac-0cd6-488f-99d7-1585e629a629",
+      "id": "relationship--13c5643d-b8ce-40de-b7ee-b7e84ca3579e",
       "relationship_type": "attributed-to",
-      "source_ref": "campaign--7e4a647a-6ebd-4c64-b1b4-fe9f3b8cb0f2",
+      "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
-      "target_ref": "threat-actor--f21047b6-479a-4fac-83df-659d1fb022d9",
+      "target_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "type": "relationship"
     },
     {
-      "id": "relationship--8859a05a-78fa-41b0-aaa1-7f331bb04755",
+      "id": "relationship--3e3fe323-9bdc-4ad1-8d7d-a2a23920b82a",
       "relationship_type": "originates-from",
-      "source_ref": "campaign--7e4a647a-6ebd-4c64-b1b4-fe9f3b8cb0f2",
+      "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
-      "target_ref": "location--1f560abe-0c99-4b33-a252-76dabd0e80ee",
+      "target_ref": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
       "type": "relationship"
     },
     {
-      "id": "relationship--10a63e1b-9404-4e31-9e4f-7f371c33f097",
+      "id": "relationship--ab5ca8aa-4b0f-44b8-9e73-6e8862d84bca",
       "relationship_type": "targets",
-      "source_ref": "campaign--7e4a647a-6ebd-4c64-b1b4-fe9f3b8cb0f2",
+      "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
-      "target_ref": "identity--67004385-aae8-4cee-b532-61b1db5c7d80",
+      "target_ref": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
       "type": "relationship"
     },
     {
-      "from_ref": "email-addr--570ce910-7306-4aad-9354-771da3a34c94",
-      "id": "email-message--801256d0-e3d5-421c-8492-174ab74c53cb",
+      "from_ref": "email-addr--8e09ab16-4934-5073-9fe8-767d743643e6",
+      "id": "email-message--81569f0f-802f-53bf-95ba-936383bdf308",
+      "is_multipart": false,
       "spec_version": "2.1",
       "subject": "freestuff",
-      "to_refs": "email-addr--2346d7be-d4b0-4fae-8178-02904eefe1c5",
+      "to_refs": [
+        "email-addr--a20979f7-1b90-5f2a-a1c5-3933675b5c3c"
+      ],
       "type": "email-message"
     },
     {
-      "id": "indicator--c7a090b9-e975-42e0-9103-48a075e0f8fd",
+      "description": "a yara rule",
+      "id": "indicator--3614a192-7cee-4c0f-8782-3ee2f6654e76",
       "name": "yararulez",
       "pattern": "rule dummy { condition: false }",
       "pattern_type": "yara",
@@ -201,7 +203,8 @@
       "type": "indicator"
     },
     {
-      "id": "indicator--49dc9fcc-aead-43c6-93f9-a12b2853c218",
+      "description": "a snort rule",
+      "id": "indicator--5453376b-2fba-40e5-bec6-eafa39707265",
       "name": "snortrulez",
       "pattern": "alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)",
       "pattern_type": "snort",

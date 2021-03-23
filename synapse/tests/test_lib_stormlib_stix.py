@@ -1,22 +1,20 @@
 import os
 import copy
 import json
+import aiohttp
+
+import stix2validator
 
 import synapse.common as s_common
 import synapse.tests.utils as s_test
+
+import synapse.lib.config as s_config
 
 import synapse.lib.stormlib.stix as s_stix
 
 regen = os.getenv('SYN_STIX_TEST_REGEN')
 
 class StormlibModelTest(s_test.SynTest):
-
-    async def test_stormlib_stix_uuid_covert(self):
-        buid = b'\xa5\x5a' * 16
-        uuid = s_stix._buid_to_uuid4(buid)
-        self.len(36, uuid)
-        buidpre = s_stix._uuid4_to_buidpre(uuid)
-        self.true(buid.startswith(buidpre))
 
     def bundeq(self, bund0, bund1):
 
@@ -39,6 +37,8 @@ class StormlibModelTest(s_test.SynTest):
         bund.pop('id', None)
         for sobj in bund['objects']:
             sobj.pop('created', None)
+            sobj.pop('modified', None)
+            sobj.pop('valid_from', None)
 
     def getTestBundle(self, name):
         path = self.getTestFilePath('stix_export', name)
@@ -51,6 +51,13 @@ class StormlibModelTest(s_test.SynTest):
         path = self.getTestFilePath('stix_export', name)
         with open(path, 'w') as fd:
             json.dump(bund, fd, sort_keys=True, indent=2)
+
+    def reqValidStix(self, item):
+        item = json.loads(json.dumps(item))
+        vres = stix2validator.validate_parsed_json(item)
+        if not vres.is_valid:
+            stix2validator.print_results(vres)
+            self.true(vres.is_valid)
 
     async def test_stormlib_libstix(self):
 
@@ -82,11 +89,13 @@ class StormlibModelTest(s_test.SynTest):
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
-                (media:news=$news :title=report0 :published=20210328)
+                (media:news=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
                 inet:dns:a=(vertex.link, 1.2.3.4)
                 inet:dns:aaaa=(vertex.link, "::ff")
                 inet:dns:cname=(vertex.link, vtx.lk)
             ]''', opts=opts))
+
+            self.len(1, await core.nodes('media:news -(refs)> *'))
 
             bund = await core.callStorm('''
                 init { $bundle = $lib.stix.export.bundle() }
@@ -111,6 +120,8 @@ class StormlibModelTest(s_test.SynTest):
             ''')
             if regen:
                 self.setTestBundle('basic.json', bund)
+
+            #self.reqValidStix(bund)
 
             self.bundeq(bund, self.getTestBundle('basic.json'))
 
@@ -143,6 +154,8 @@ class StormlibModelTest(s_test.SynTest):
 
             if regen:
                 self.setTestBundle('custom0.json', bund)
+
+            self.reqValidStix(bund)
 
             self.bundeq(bund, self.getTestBundle('custom0.json'))
 

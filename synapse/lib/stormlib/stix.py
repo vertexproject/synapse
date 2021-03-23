@@ -4,48 +4,23 @@ import uuid
 import asyncio
 import datetime
 import collections
-# import synapse.lib.datfile as s_datfile
+
+import stix2validator
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.node as s_node
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
-_ALL1 = (1 << 128) - 1
 
-def _buid_to_uuid4(buid: bytes) -> str:
-    '''
-    Construct a UUID4 from the leftmost 122 bits of a buid.
+def uuid5(valu=None):
+    guid = s_common.guid(valu=valu)
+    return str(uuid.UUID(guid, version=5))
 
-    Shift bits around so that 122 leftmost bits of buid can be reconstructed from a uuid4
-
-    UUID4 overwrites 6 bits.  Bits 62-63 and 76-79 (with bit 0 being LS bit).
-    xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx
-    '''
-
-    buidi = int.from_bytes(buid[:16], byteorder='big')
-    part1 = buidi & (_ALL1 << 80)  # bits 80-127
-    part2 = buidi & (_ALL1 << 68) ^ part1 # bits 68-79
-    part3 = buidi & (_ALL1 >> 60)  # bits 0-67
-
-    return str(uuid.UUID(int=_ALL1 & (part1 | part2 >> 4 | part3 >> 6), version=4))
-
-
-def _uuid4_to_buidpre(uuids: str) -> bytes:
-    '''
-    Construct a 120-bit buid prefix from a UUID string.
-    '''
-    uuidi = uuid.UUID(uuids).int
-    part1 = uuidi & (_ALL1 << 80)  # bits 80-127
-    part2 = uuidi & (_ALL1 << 76 ^ _ALL1 << 64) # bits 64-75
-    part3 = uuidi & (_ALL1 >> 66) # bits 0-61
-
-    buidi = (part1 | part2 << 4 | part3 << 6) >> 8
-
-    return (buidi.to_bytes(15, byteorder='big'))
-
-# Constant used to identify the extra property we put on every generated STIX object
-#SYNAPSE_EXTENSION_UUID = uuid.UUID('480c630e-be95-2ae5-a189-aa7ff4b40653')
+def uuid4(valu=None):
+    guid = s_common.guid(valu=valu)
+    return str(uuid.UUID(guid, version=4))
 
 _DefaultConfig = {
 
@@ -57,6 +32,8 @@ _DefaultConfig = {
                     'name': ('+:name return(:name)', {}),
                     'description': ('+:desc return(:desc)', {}),
                     'objective': ('+:goal :goal -> ou:goal +:name return(:name)', {}),
+                    'created': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'modified': ('return($lib.stix.export.timestamp(.created))', {}),
                 },
                 'rels': (
                     ('attributed-to', 'threat-actor', ':org -> ou:org', {}),
@@ -73,10 +50,18 @@ _DefaultConfig = {
         'stix': {
             'identity': {
                 'props': {
+                    'name': ('{-:name return($node.repr())} return(:name)', {}),
                     'identity_class': ('return(organization)', {}),
+                    'created': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'modified': ('return($lib.stix.export.timestamp(.created))', {}),
                 }
             },
             'threat-actor': {
+                'props': {
+                    'name': ('{-:name return($node.repr())} return(:name)', {}),
+                    'created': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'modified': ('return($lib.stix.export.timestamp(.created))', {}),
+                },
                 'rels': (
                     ('attributed-to', 'identity', '', {}),
                     #('impersonates', 'identity', '', {}),
@@ -93,6 +78,8 @@ _DefaultConfig = {
         'stix': {
             'identity': {
                 'props': {
+                    'created': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'modified': ('return($lib.stix.export.timestamp(.created))', {}),
                     'identity_class': ('return(individual)', {}),
                 }
             },
@@ -105,6 +92,8 @@ _DefaultConfig = {
             'location': {
                 'props': {
                     'name': ('+:name return(:name)', {}),
+                    'created': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'modified': ('return($lib.stix.export.timestamp(.created))', {}),
                     'country': ('+:loc $loc = :loc return($loc.split(".").0)', {}),
                     'latitude': ('+:latlong $latlong = :latlong return($latlong.0)', {}),
                     'longitude': ('+:latlong $latlong = :latlong return($latlong.1)', {}),
@@ -152,7 +141,7 @@ _DefaultConfig = {
                         { -> inet:dns:a -> inet:ipv4 $refs.append($bundle.add($node)) }
                         { -> inet:dns:aaaa -> inet:ipv6 $refs.append($bundle.add($node)) }
                         { -> inet:dns:cname:fqdn :cname -> inet:fqdn $refs.append($bundle.add($node)) }
-                        fini { return($refs) }
+                        fini { if $refs { return($refs)} }
                      ''', {}),
                 },
             }
@@ -195,11 +184,13 @@ _DefaultConfig = {
             },
             'malware': {
                 'props': {
+                    'is_family': ('return($lib.false)', {}),
+                    'created': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'modified': ('return($lib.stix.export.timestamp(.created))', {}),
                 },
 
                 'rels': (
-                    # many of these depend on tag conventions and must be
-                    # left to the user to decide...
+                    # many of these depend on tag conventions (left for user to decide)
 
                     #('controls', 'malware', '', {}),
                     #('authored-by', 'threat-actor', '', {}),
@@ -234,8 +225,14 @@ _DefaultConfig = {
                     'date': ('+:date return($lib.stix.export.timestamp(:date))', {}),
                     'subject': ('+:subject return(:subject)', {}),
                     'message_id': ('-> inet:email:header +:name=message_id return(:value)', {}),
+                    # TODO: maybe add property or iter headers?
+                    'is_multipart': ('return($lib.false)', {}),
                     'from_ref': (':from -> inet:email return($bundle.add($node))', {}),
-                    'to_refs': (':to -> inet:email return($bundle.add($node))', {}),
+                    'to_refs': ('''
+                        init { $refs = $lib.list() }
+                        { :to -> inet:email $refs.append($bundle.add($node)) }
+                        fini { if $refs { return($refs) } }
+                    ''', {}),
                 },
             },
         },
@@ -288,8 +285,19 @@ _DefaultConfig = {
         'stix': {
             'report': {
                 'props': {
-                    'name': ('+:title return(:title)', {}),
-                    'published': ('+:published return($lib.stix.export.timestamp(:published))', {}),
+                    'name': ('return(:title)', {}),
+                    'created': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'modified': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'published': ('return($lib.stix.export.timestamp(:published))', {}),
+                    'object_refs': ('''
+                        init { $refs = $lib.list() }
+                        {
+                            -(refs)> *
+                            +(inet:fqdn or inet:ipv4 or inet:ipv6 or inet:email or file:bytes or inet:url)
+                            $refs.append($bundle.add($node))
+                        }
+                        fini { return($refs) }
+                    ''', {}),
                 },
             },
         },
@@ -301,8 +309,12 @@ _DefaultConfig = {
             'indicator': {
                 'props': {
                     'name': ('+:name return(:name)', {}),
+                    'description': ('return("a yara rule")', {}),
                     'pattern': ('+:text return(:text)', {}),
                     'pattern_type': ('return(yara)', {}),
+                    'created': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'modified': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'valid_from': ('return($lib.stix.export.timestamp(.created))', {}),
                 },
             },
         },
@@ -314,18 +326,17 @@ _DefaultConfig = {
             'indicator': {
                 'props': {
                     'name': ('+:name return(:name)', {}),
+                    'description': ('return("a snort rule")', {}),
                     'pattern': ('+:text return(:text)', {}),
                     'pattern_type': ('return(snort)', {}),
+                    'created': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'modified': ('return($lib.stix.export.timestamp(.created))', {}),
+                    'valid_from': ('return($lib.stix.export.timestamp(.created))', {}),
                 },
             },
         },
     }
 }
-
-def _validateStixObj(obj):
-    # fastjsonschema.compile(schema, handlers={'file': ':':':   )
-    # FIXME
-    pass
 
 def _validateConfig(core, config):
     for formname, formconf in config.items():
@@ -471,6 +482,27 @@ class LibStix(s_stormtypes.Lib):
         dt = datetime.datetime.utcfromtimestamp(valu / 1000.0)
         return dt.isoformat(timespec='milliseconds') + 'Z'
 
+cyberobservables = {
+    'url',
+    'file',
+    'mutex',
+    'process',
+    'artifact',
+    'mac-addr',
+    'software',
+    'directory',
+    'ipv4-addr',
+    'ipv6-addr',
+    'email-addr',
+    'archive-ext',
+    'user-account',
+    'domain-name',
+    'email-message',
+    'x509-certificate',
+    'autonomous-system',
+    'windows-registry-key',
+}
+
 @s_stormtypes.registry.registerType
 class StixBundle(s_stormtypes.Prim):
 
@@ -547,7 +579,11 @@ class StixBundle(s_stormtypes.Prim):
         if stixtype is None:
             stixtype = formconf.get('default')
 
-        stixid = f'{stixtype}--{_buid_to_uuid4(node.buid)}'
+        # cyber observables have UUIDv5 the rest have UUIDv4
+        if stixtype in cyberobservables:
+            stixid = f'{stixtype}--{uuid5(node.ndef)}'
+        else:
+            stixid = f'{stixtype}--{uuid4(node.ndef)}'
 
         stixitem = self.objs.get(stixid)
         if stixitem is None:
@@ -576,29 +612,26 @@ class StixBundle(s_stormtypes.Prim):
         return stixid
 
     def _initStixItem(self, stixid, stixtype, node):
-
+        #created = self.libstix.timestamp(node.get('.created'))
         retn = {
             'id': stixid,
             'type': stixtype,
             'spec_version': '2.1',
         }
-
-        created = node.get('.created')
-        if created is not None:
-            retn['created'] = self.libstix.timestamp(created)
-
         return retn
 
     #async def _methAddRel(self, srcid, reltype, targid, props=None):
     async def _addRel(self, srcid, reltype, targid, relinfo):
 
-        buid = s_common.buid(valu=(srcid, targid))
-        stixid = f'relationship--{_buid_to_uuid4(buid)}'
+        stixid = f'relationship--{uuid4((srcid, targid))}'
+        tstamp = self.libstix.timestamp(s_common.now())
 
         obj = {
             'id': stixid,
             'type': 'relationship',
             'relationship_type': reltype,
+            'created': tstamp,
+            'modified': tstamp,
             'source_ref': srcid,
             'target_ref': targid,
             'spec_version': '2.1',
@@ -610,7 +643,7 @@ class StixBundle(s_stormtypes.Prim):
     def pack(self):
         bundle = {
             'type': 'bundle',
-            'id': str(uuid.uuid4()),
+            'id': f'bundle--{uuid4()}',
             'objects': list(self.objs.values())
         }
         return bundle
@@ -629,4 +662,5 @@ class StixBundle(s_stormtypes.Prim):
                     await asyncio.sleep(0)
             except s_stormctrl.StormReturn as e:
                 return await s_stormtypes.toprim(e.item)
+
         return s_common.novalu
