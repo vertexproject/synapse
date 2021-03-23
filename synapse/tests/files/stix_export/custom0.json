@@ -1,24 +1,29 @@
 {
+  "id": "bundle--f0c2c937-aed0-481b-922d-908da2de8ea5",
   "objects": [
     {
+      "created": "2021-03-23T16:02:09.099Z",
       "id": "malware--91f2d7c9-4247-42a6-a438-840acce2f906",
       "is_family": false,
+      "modified": "2021-03-23T16:02:09.099Z",
       "name": "redtree",
       "spec_version": "2.1",
       "type": "malware"
     },
     {
-      "id": "url--6c65574b-79c2-4b5e-9759-19626b2b522a",
+      "id": "url--6c65574b-79c2-5b5e-9759-19626b2b522a",
       "spec_version": "2.1",
       "type": "url",
       "value": "http://vertex.link/"
     },
     {
-      "id": "relationship--9cd40668-b8c4-417c-bca2-6eb266d7db44",
+      "created": "2021-03-23T16:02:09.115Z",
+      "id": "relationship--0d6aff84-6c9f-44ec-a01c-e101622dcee1",
+      "modified": "2021-03-23T16:02:09.115Z",
       "relationship_type": "communicates-with",
       "source_ref": "malware--91f2d7c9-4247-42a6-a438-840acce2f906",
       "spec_version": "2.1",
-      "target_ref": "url--6c65574b-79c2-4b5e-9759-19626b2b522a",
+      "target_ref": "url--6c65574b-79c2-5b5e-9759-19626b2b522a",
       "type": "relationship"
     }
   ],

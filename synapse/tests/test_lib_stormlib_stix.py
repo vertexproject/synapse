@@ -12,8 +12,6 @@ import synapse.lib.config as s_config
 
 import synapse.lib.stormlib.stix as s_stix
 
-regen = os.getenv('SYN_STIX_TEST_REGEN')
-
 class StormlibModelTest(s_test.SynTest):
 
     def bundeq(self, bund0, bund1):
@@ -46,8 +44,6 @@ class StormlibModelTest(s_test.SynTest):
             return json.load(fd)
 
     def setTestBundle(self, name, bund):
-        bund = copy.deepcopy(bund)
-        self._stripStixBundle(bund)
         path = self.getTestFilePath('stix_export', name)
         with open(path, 'w') as fd:
             json.dump(bund, fd, sort_keys=True, indent=2)
@@ -118,8 +114,7 @@ class StormlibModelTest(s_test.SynTest):
 
                 fini { return($bundle) }
             ''')
-            if regen:
-                self.setTestBundle('basic.json', bund)
+            #self.setTestBundle('basic.json', bund)
 
             #self.reqValidStix(bund)
 
@@ -152,8 +147,7 @@ class StormlibModelTest(s_test.SynTest):
                 fini { return($bundle) }
             ''', opts=opts)
 
-            if regen:
-                self.setTestBundle('custom0.json', bund)
+            #self.setTestBundle('custom0.json', bund)
 
             self.reqValidStix(bund)
 
