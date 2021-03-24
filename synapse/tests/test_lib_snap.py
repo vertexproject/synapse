@@ -505,6 +505,12 @@ class SnapTest(s_t_utils.SynTest):
             await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
             await view0.core.addTagProp('data', ('data', {}), {'doc': 'hi there'})
 
+            await view0.nodes('[ inet:ipv4=1.1.1.4 ]')
+            await view1.nodes('inet:ipv4=1.1.1.4 [+#tag]')
+            await view0.nodes('inet:ipv4=1.1.1.4 | delnode')
+            nodes = await view1.nodes('#tag | uniq')
+            self.len(0, nodes)
+
             await view0.nodes('[ inet:ipv4=1.1.1.4 :asn=4 +#woot:score=4] $node.data.set(woot, 4)')
             await view0.nodes('[ inet:ipv4=1.1.1.1 :asn=1 +#woot:score=1] $node.data.set(woot, 1)')
             await view1.nodes('[ inet:ipv4=1.1.1.2 :asn=2 +#woot:score=2] $node.data.set(woot, 2)')
