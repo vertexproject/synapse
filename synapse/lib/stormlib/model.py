@@ -180,7 +180,7 @@ class LibModelTags(s_stormtypes.Lib):
                   'args': (
                     {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
                   ),
-                  'returns': {'type': '', 'desc': '', }}},
+                  'returns': {'type': 'dict', 'desc': 'The tag model definition.'}}},
         {'name': 'set', 'desc': '''
         Set a tag model property for a tag.
 
@@ -195,7 +195,7 @@ class LibModelTags(s_stormtypes.Lib):
                       {'name': 'propname', 'type': 'str', 'desc': 'The name of the tag model property.', },
                       {'name': 'propvalu', 'type': 'prim', 'desc': 'The value to set.', },
                   ),
-                  'returns': {'type': '', 'desc': '', }}},
+                  'returns': {'type': 'none', }}},
         {'name': 'pop', 'desc': '''
             Pop and return a tag model property.
 
@@ -220,7 +220,7 @@ class LibModelTags(s_stormtypes.Lib):
                   'args': (
                       {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
                   ),
-                  'returns': {'type': '', 'desc': '', }}},
+                  'returns': {'type': 'none', }}},
         {'name': 'list', 'desc': '''
         List all tag model specifications.
 
