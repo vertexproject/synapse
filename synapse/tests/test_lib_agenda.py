@@ -4,6 +4,7 @@ from unittest import mock
 from datetime import timezone as tz
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
 import synapse.lib.boss as s_boss
@@ -179,6 +180,30 @@ class AgendaTest(s_t_utils.SynTest):
             return
             yield None
 
+        class FakeAuth(mock.Mock):
+            def __init__(self, **kwargs):
+                mock.Mock.__init__(self, **kwargs)
+                self.users = {}
+
+            def user(self, iden):
+                return self.users.get(iden)
+
+            async def addUser(self, username, iden=None):
+                if iden is None:
+                    iden = s_common.guid()
+                user = FakeUser()
+                user.name = username
+                self.users[iden] = user
+                return user
+
+        class FakeUser(mock.Mock):
+            def __init__(self, **kwargs):
+                mock.Mock.__init__(self, **kwargs)
+                self.info = {'locked': False}
+
+            async def setLocked(self, valu):
+                self.info['locked'] = valu
+
         loop = asyncio.get_running_loop()
         with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
             core = mock.Mock()
@@ -189,6 +214,11 @@ class AgendaTest(s_t_utils.SynTest):
 
             db = core.slab.initdb('hive')
             core.hive = await s_hive.SlabHive.anit(core.slab, db=db, nexsroot=nexsroot)
+
+            core.auth = FakeAuth()
+            rootiden = 'aaaaa'
+            await core.auth.addUser('root', iden=rootiden)
+
             core.boss = await s_boss.Boss.anit()
             async with await s_agenda.Agenda.anit(core) as agenda:
                 agenda.onfini(core.hive)
@@ -199,14 +229,29 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.start()  # make sure it doesn't blow up
                 self.eq([], agenda.list())
 
-                rootiden = 'aaaaa'
-                cdef = {'useriden': rootiden, 'iden': 'fakeiden', 'storm': '',
+                # Missing reqs
+                cdef = {'creator': rootiden, 'iden': 'fakeiden', 'storm': 'foo'}
+                await self.asyncraises(ValueError, agenda.add(cdef))
+
+                # Missing creator
+                cdef = {'iden': 'fakeiden', 'storm': 'foo',
+                        'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
+                await self.asyncraises(ValueError, agenda.add(cdef))
+
+                # Missing storm
+                cdef = {'creator': rootiden, 'iden': 'fakeiden',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await self.asyncraises(ValueError, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
 
+                # Missing incvals
+                cdef = {'creator': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                        'reqs': {s_agenda.TimeUnit.NOW: True},
+                        'incunit': s_agenda.TimeUnit.MONTH}
+                await self.asyncraises(ValueError, agenda.add(cdef))
+
                 # Cannot schedule a recurring job with 'now'
-                cdef = {'useriden': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                cdef = {'creator': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
@@ -214,9 +259,13 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
 
                 # Schedule a one-shot to run immediately
-                cdef = {'useriden': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                cdef = {'creator': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True}}
                 await agenda.add(cdef)
+
+                # Can't have two with the same iden
+                await self.asyncraises(s_exc.DupIden, agenda.add(cdef))
+
                 await sync.wait()  # wait for the query to run
                 sync.clear()
                 self.eq(lastquery, '[test:str=doit]')
@@ -230,7 +279,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.delete('DOIT')
 
                 # Schedule a one-shot 1 minute from now
-                cdef = {'useriden': rootiden, 'iden': 'IDEN1', 'storm': '[test:str=foo]',
+                cdef = {'creator': rootiden, 'iden': 'IDEN1', 'storm': '[test:str=foo]',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await agenda.add(cdef)
                 await asyncio.sleep(0)  # give the scheduler a shot to wait
@@ -247,7 +296,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appts[0][1].nexttime, None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
-                cdef = {'useriden': rootiden, 'iden': 'IDEN2', 'storm': '[test:str=bar]',
+                cdef = {'creator': rootiden, 'iden': 'IDEN2', 'storm': '[test:str=bar]',
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
@@ -255,7 +304,7 @@ class AgendaTest(s_t_utils.SynTest):
                 guid = adef.get('iden')
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                cdef = {'useriden': rootiden, 'iden': 'IDEN3', 'storm': '[test:str=baz]',
+                cdef = {'creator': rootiden, 'iden': 'IDEN3', 'storm': '[test:str=baz]',
                         'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
@@ -266,7 +315,7 @@ class AgendaTest(s_t_utils.SynTest):
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
 
                 # And one-shots for Christmas and last day of Hanukkah of 2018
-                cdef = {'useriden': rootiden, 'iden': 'IDEN4', 'storm': '#happyholidays',
+                cdef = {'creator': rootiden, 'iden': 'IDEN4', 'storm': '#happyholidays',
                         'reqs': (xmas, lasthanu)}
                 await agenda.add(cdef)
 
@@ -338,7 +387,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(0, agenda.apptheap)
 
                 # Test that isrunning updated, cancelling works
-                cdef = {'useriden': rootiden, 'iden': 'IDEN5', 'storm': 'inet:ipv4=1 | sleep 120',
+                cdef = {'creator': rootiden, 'iden': 'IDEN5', 'storm': 'inet:ipv4=1 | sleep 120',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
@@ -361,7 +410,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.delete(guid)
 
                 # Test bad queries record exception
-                cdef = {'useriden': rootiden, 'iden': '#foo', 'storm': 'IDEN',
+                cdef = {'creator': rootiden, 'iden': '#foo', 'storm': 'IDEN',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE,
                         'incvals': 1}
                 adef = await agenda.add(cdef)
@@ -385,8 +434,10 @@ class AgendaTest(s_t_utils.SynTest):
                 agenda._schedtask.cancel()
                 agenda._schedtask = agenda.schedCoro(agenda._scheduleLoop())
 
+                visi = await core.auth.addUser('visi', iden='visivisi')
+
                 # schedule a query to run every Wednesday and Friday at 10:15am
-                cdef = {'useriden': rootiden, 'iden': 'IDEN6', 'storm': '[test:str=bar]',
+                cdef = {'creator': 'visivisi', 'iden': 'IDEN6', 'storm': '[test:str=bar]',
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
@@ -418,6 +469,21 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(lastquery, '[test:str=bar]')
                 self.eq(1, appt.startcount)
 
+                cdef = {'creator': rootiden, 'iden': 'IDEN2', 'storm': '[test:str=foo2]',
+                        'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
+                await agenda.add(cdef)
+
+                # Lock user and advance time
+                await visi.setLocked(True)
+
+                with self.getLoggerStream('synapse.lib.agenda', 'locked') as stream:
+                    unixtime = datetime.datetime(year=2019, month=2, day=16, hour=10, minute=16,
+                                                 tzinfo=tz.utc).timestamp()
+                    await sync.wait()
+                    sync.clear()
+                    self.eq(2, appt.startcount)
+                    self.true(stream.wait(0.1))
+
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:
@@ -439,7 +505,7 @@ class AgendaTest(s_t_utils.SynTest):
                 async with await s_agenda.Agenda.anit(core) as agenda:
                     await agenda.start()
                     # Schedule a query to run every Wednesday and Friday at 10:15am
-                    cdef = {'useriden': 'visi', 'iden': 'IDEN1', 'storm': '[test:str=bar]',
+                    cdef = {'creator': 'visi', 'iden': 'IDEN1', 'storm': '[test:str=bar]',
                             'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                             'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                             'incvals': (2, 4)}
@@ -447,14 +513,14 @@ class AgendaTest(s_t_utils.SynTest):
                     guid1 = adef.get('iden')
 
                     # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                    cdef = {'useriden': 'visi', 'iden': 'IDEN2', 'storm': '[test:str=baz]',
+                    cdef = {'creator': 'visi', 'iden': 'IDEN2', 'storm': '[test:str=baz]',
                             'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                             'incunit': s_agenda.TimeUnit.MONTH,
                             'incvals': 1}
                     await agenda.add(cdef)
 
                     # Add an appt with an invalid query
-                    cdef = {'useriden': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
+                    cdef = {'creator': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
                             'reqs': {s_tu.HOUR: (7, 8)},
                             'incunit': s_agenda.TimeUnit.MONTH,
                             'incvals': 1}
@@ -462,7 +528,7 @@ class AgendaTest(s_t_utils.SynTest):
                     badguid1 = adef.get('iden')
 
                     # Add an appt with a bad version in storage
-                    cdef = {'useriden': 'visi', 'iden': 'BAD2', 'storm': '[test:str=foo]',
+                    cdef = {'creator': 'visi', 'iden': 'BAD2', 'storm': '[test:str=foo]',
                             'reqs': {s_tu.HOUR: (7, 8)},
                             'incunit': s_agenda.TimeUnit.MONTH,
                             'incvals': 1}
@@ -479,7 +545,7 @@ class AgendaTest(s_t_utils.SynTest):
                     await agenda.delete(guid1)
 
                     # And one-shots for Christmas and last day of Hanukkah of 2018
-                    cdef = {'useriden': 'visi', 'iden': 'IDEN3', 'storm': '#happyholidays',
+                    cdef = {'creator': 'visi', 'iden': 'IDEN3', 'storm': '#happyholidays',
                             'reqs': (xmas, lasthanu)}
 
                     adef = await agenda.add(cdef)

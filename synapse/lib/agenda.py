@@ -582,17 +582,18 @@ class Agenda(s_base.Base):
         Persistently adds an appointment
 
         Args:
-            query (str):
-                storm query to run
-            reqs (Union[None, Dict[TimeUnit, Union[int, Tuple[int]], List[...]):
-                one or more dicts of the fixed aspects of the appointment.  dict value may be a single or multiple.
-                May be an empty dict or None.
-            incunit (Union[None, TimeUnit]):
-                the unit that changes for recurring, or None for non-recurring.  It is an error for this value to match
-                a key in reqdict.
-            incvals (Union[None, int, Iterable[int]): count of units of incunit or explicit day of week or day of month.
-                Not allowed for incunit == None, required for others (1 would be a typical
-                value)
+            cdef (dict):  May contain the following keys:
+                creator (str):  iden of the creating user
+                iden (str): Iden of the appointment
+                storm (str): storm query to run
+                reqs (Union[None, Dict[TimeUnit, Union[int, Tuple[int]], List[...]):
+                    one or more dicts of the fixed aspects of the appointment.  dict value may be a single or multiple.
+                    May be an empty dict or None.
+                incunit (Union[None, TimeUnit]):
+                    the unit that changes for recurring, or None for non-recurring.  It is an error for this value to
+                    match a key in reqdict.
+                incvals (Union[None, int, Iterable[int]): count of units of incunit or explicit day of week or day of
+                    month.  Not allowed for incunit == None, required for others (1 would be a typical value)
 
         Notes:
             For values in reqs that are lists and incvals if a list, all combinations of all values (the product) are
@@ -616,7 +617,10 @@ class Agenda(s_base.Base):
             raise s_exc.DupIden()
 
         if not query:
-            raise ValueError('empty query')
+            raise ValueError('"query" key of cdef parameter is not present or empty')
+
+        if not creator:
+            raise ValueError('"creator" key is cdef parameter is not present or empty')
 
         if not reqs and incunit is None:
             raise ValueError('at least one of reqs and incunit must be non-empty')
@@ -764,6 +768,13 @@ class Agenda(s_base.Base):
             logger.warning('Unknown user %s in stored appointment', appt.creator)
             await self._markfailed(appt)
             return
+
+        locked = user.info.get('locked')
+        if locked:
+            logger.warning('Cron failed because creator %s is locked', user.name)
+            await self._markfailed(appt)
+            return
+
         info = {'iden': appt.iden, 'query': appt.query}
         task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
         self._running_tasks.append(task)
