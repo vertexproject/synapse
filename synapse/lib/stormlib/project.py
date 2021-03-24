@@ -17,26 +17,25 @@ class ProjectEpic(s_stormtypes.Prim):
         self.proj = proj
         self.node = node
         self.locls.update(self.getObjLocals())
+        self.stors.update({
+            'name': self._setEpicName,
+        })
 
     def getObjLocals(self):
         return {
             'name': self.node.get('name'),
         }
 
-    async def repr(self):
-        epicname = self.node.get('name')
-        projname = self.proj.node.get('name')
-        return f'Project Epic: {projname} - {epicname}'
-
     async def value(self):
         return self.node.ndef[1]
 
-    async def setitem(self, name, valu):
-        if name == 'name':
-            self.proj.confirm(('project', 'epic', 'set', 'name'))
-            await self.node.set('name', await tostr(valu))
-            return
-        return await s_stormtypes.Prim.setitem(self, name, valu)
+    async def _setEpicName(self, valu):
+        self.proj.confirm(('project', 'epic', 'set', 'name'))
+        name = await tostr(valu, noneok=True)
+        if name is None:
+            await self.node.pop('name')
+        else:
+            await self.node.set('name', name)
 
 @s_stormtypes.registry.registerType
 class ProjectEpics(s_stormtypes.Prim):
@@ -117,12 +116,6 @@ class ProjectTicket(s_stormtypes.Prim):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def repr(self):
-        tickname = self.node.get('name')
-        projname = self.proj.node.get('name')
-        return f'Project Ticket: {projname} - {tickname}'
-
-    @s_stormtypes.stormfunc(readonly=True)
     async def value(self):
         return self.node.ndef[1]
 
@@ -132,8 +125,11 @@ class ProjectTicket(s_stormtypes.Prim):
         if useriden != self.node.get('creator'):
             self.proj.confirm(('project', 'ticket', 'set', 'name'))
 
-        strvalu = await tostr(valu)
-        await self.node.set('name', strvalu)
+        strvalu = await tostr(valu, noneok=True)
+        if strvalu is None:
+            await self.node.pop('name')
+        else:
+            await self.node.set('name', strvalu)
         await self.node.set('updated', s_common.now())
 
     async def _setDesc(self, valu):
@@ -142,8 +138,11 @@ class ProjectTicket(s_stormtypes.Prim):
         if useriden != self.node.get('creator'):
             self.proj.confirm(('project', 'ticket', 'set', 'desc'))
 
-        strvalu = await tostr(valu)
-        await self.node.set('desc', strvalu)
+        strvalu = await tostr(valu, noneok=True)
+        if strvalu is None:
+            await self.node.pop('desc')
+        else:
+            await self.node.set('desc', strvalu)
         await self.node.set('updated', s_common.now())
 
     async def _setEpic(self, valu):
@@ -152,7 +151,12 @@ class ProjectTicket(s_stormtypes.Prim):
         if useriden != self.node.get('creator'):
             self.proj.confirm(('project', 'ticket', 'set', 'epic'))
 
-        strvalu = await tostr(valu)
+        strvalu = await tostr(valu, noneok=True)
+        if strvalu is None:
+            await self.node.pop('epic')
+            await self.node.set('updated', s_common.now())
+            return
+
         epic = await self.proj._getProjEpic(strvalu)
         if epic is None:
             mesg = 'No epic found by that name/iden.'
@@ -184,10 +188,16 @@ class ProjectTicket(s_stormtypes.Prim):
         self.proj.confirm(('project', 'ticket', 'set', 'assignee'))
 
         strvalu = await tostr(valu)
+
+        if strvalu is None:
+            await self.node.pop('assignee')
+            await self.node.set('updated', s_common.now())
+            return
+
         udef = await self.proj.runt.snap.core.getUserDefByName(strvalu)
         if udef is None:
             mesg = 'No user found by the name {strvalu}'
-            raise s_exc.NoSuchUser(mesg=msg)
+            raise s_exc.NoSuchUser(mesg=mesg)
         await self.node.set('assignee', udef['iden'])
         await self.node.set('updated', s_common.now())
 
@@ -195,7 +205,13 @@ class ProjectTicket(s_stormtypes.Prim):
 
         self.proj.confirm(('project', 'ticket', 'set', 'sprint'))
 
-        strvalu = await tostr(valu)
+        strvalu = await tostr(valu, noneok=True)
+
+        if strvalu is None:
+            await self.node.pop('sprint')
+            await self.node.set('updated', s_common.now())
+            return
+
         sprint = await self.proj._getProjSprint(strvalu)
         if sprint is None:
             mesg = f'No sprint found by that name/iden ({strvalu}).'
@@ -250,6 +266,7 @@ class ProjectTickets(s_stormtypes.Prim):
 
         # TODO cacade delete comments?
         await tick.node.delete()
+        return True
 
     async def _addProjTicket(self, name, desc=''):
         self.proj.confirm(('project', 'ticket', 'add'))
@@ -307,7 +324,6 @@ class ProjectSprint(s_stormtypes.Prim):
             await self.node.pop('name')
         else:
             await self.node.set('name', valu)
-        await self.node.set('updated', s_common.now())
 
     async def _getSprintTickets(self):
         retn = []
@@ -320,13 +336,6 @@ class ProjectSprint(s_stormtypes.Prim):
             'name': self.node.get('name'),
             'desc': self.node.get('desc'),
         }
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def repr(self):
-        tickname = self.node.get('name')
-        sprintname = self.proj.node.get('name')
-        periodrepr = self.node.repr('period')
-        return f'Project Sprint: {projname} - {sprintname} {periodrepr}'
 
     @s_stormtypes.stormfunc(readonly=True)
     async def value(self):
@@ -385,6 +394,13 @@ class ProjectSprints(s_stormtypes.Prim):
 
         await self.proj.runt.snap.applyNodeEdits(nodeedits)
         await sprint.node.delete()
+        return True
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def iter(self):
+        opts = {'vars': {'proj': self.proj.node.ndef[1]}}
+        async for node, path in self.proj.runt.storm('proj:sprint:project=$proj', opts=opts):
+            yield ProjectSprint(self.proj, node)
 
 @s_stormtypes.registry.registerType
 class Project(s_stormtypes.Prim):
@@ -422,13 +438,7 @@ class Project(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'name': self.node.get('name'),
-            'repr': self.repr,
         }
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def repr(self):
-        projname = self.node.get('name')
-        return f'Project - {projname}'
 
     async def _setName(self, valu):
         self.confirm(('project', 'set', 'name'))

@@ -1638,24 +1638,30 @@ class Duration(IntBase):
         text = text.strip()
         dura = 0
 
-        if text.find('D') != -1:
-            daystext, text = text.split('D', 1)
-            dura += int(daystext.strip(), 0) * msec_day
+        try:
 
-        if text.find(':') != -1:
-            parts = text.split(':')
-            if len(parts) == 2:
-                dura += int(parts[0].strip()) * msec_min
-                dura += int(float(parts[1].strip()) * msec_sec)
-            elif len(parts) == 3:
-                dura += int(parts[0].strip()) * msec_hour
-                dura += int(parts[1].strip()) * msec_min
-                dura += int(float(parts[2].strip()) * msec_sec)
+            if text.find('D') != -1:
+                daystext, text = text.split('D', 1)
+                dura += int(daystext.strip(), 0) * msec_day
+
+            if text.find(':') != -1:
+                parts = text.split(':')
+                if len(parts) == 2:
+                    dura += int(parts[0].strip()) * msec_min
+                    dura += int(float(parts[1].strip()) * msec_sec)
+                elif len(parts) == 3:
+                    dura += int(parts[0].strip()) * msec_hour
+                    dura += int(parts[1].strip()) * msec_min
+                    dura += int(float(parts[2].strip()) * msec_sec)
+                else:
+                    mesg = 'Invalid number of : characters for duration.'
+                    raise s_exc.BadTypeValu(mesg=mesg)
             else:
-                mesg = 'Invalid number of : characters for duration.'
-                raise s_exc.BadTypeValu(mesg=mesg)
-        else:
-            dura += int(float(text.strip()) * msec_sec)
+                dura += int(float(text.strip()) * msec_sec)
+
+        except ValueError:
+            mesg = f'Invalid numeric value in duration: {text}.'
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         return dura, {}
 

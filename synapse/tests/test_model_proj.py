@@ -32,7 +32,7 @@ class ProjModelTest(s_test.SynTest):
             self.nn(tick)
 
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return($lib.projects.get($proj).sprints.add(giterdone))', opts=opts)
+                await core.callStorm('return($lib.projects.get($proj).sprints.add(giterdone, period=(202103,212104)))', opts=opts)
             await visi.addRule((True, ('project', 'sprint', 'add')), gateiden=proj)
             sprint = await core.callStorm('return($lib.projects.get($proj).sprints.add(giterdone))', opts=opts)
             self.nn(sprint)
@@ -72,6 +72,8 @@ class ProjModelTest(s_test.SynTest):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = visi', opts=opts)
             await visi.addRule((True, ('project', 'ticket', 'set', 'assignee')), gateiden=proj)
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = visi', opts=opts)
+            with self.raises(s_exc.NoSuchUser):
+                await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = newp', opts=opts)
             # now as assignee visi should be able to update status
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).status = "in sprint"', opts=opts)
 
@@ -79,23 +81,56 @@ class ProjModelTest(s_test.SynTest):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = giter', opts=opts)
             await visi.addRule((True, ('project', 'ticket', 'set', 'sprint')), gateiden=proj)
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = giter', opts=opts)
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = newp', opts=opts)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm('$lib.projects.get($proj).tickets.get($tick).epic = newp', opts=opts)
+
+            # test iterable APIs...
+            self.eq('bar', await core.callStorm(
+                'for $epic in $lib.projects.get($proj).epics { return($epic.name) }', opts=opts))
+            self.eq('zoinks', await core.callStorm(
+                'for $tick in $lib.projects.get($proj).tickets { return($tick.name) }', opts=opts))
+            self.eq('giterdone', await core.callStorm(
+                'for $sprint in $lib.projects.get($proj).sprints { return($sprint.name) }', opts=opts))
 
             aslow = dict(opts)
             aslow['user'] = lowuser.iden
 
             with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.projects.get($proj).sprints.get($sprint).name = newp', opts=aslow)
+            await lowuser.addRule((True, ('project', 'sprint', 'set', 'name')), gateiden=proj)
+            await core.callStorm('$lib.projects.get($proj).sprints.get($sprint).name = $lib.null', opts=aslow)
+            self.len(0, await core.nodes('proj:sprint:project=$proj +:name', opts=aslow))
+            await core.callStorm('$lib.projects.get($proj).sprints.get($sprint).name = giterdone', opts=aslow)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.projects.get($proj).epics.get($epic).name = newp', opts=aslow)
+            await lowuser.addRule((True, ('project', 'epic', 'set', 'name')), gateiden=proj)
+            await core.callStorm('$lib.projects.get($proj).epics.get($epic).name = $lib.null', opts=aslow)
+            self.len(0, await core.nodes('proj:epic:project=$proj +:name', opts=aslow))
+            await core.callStorm('$lib.projects.get($proj).epics.get($epic).name = bar', opts=aslow)
+
+            with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).name = zoinks', opts=aslow)
             await lowuser.addRule((True, ('project', 'ticket', 'set', 'name')), gateiden=proj)
+            await core.callStorm('$lib.projects.get($proj).tickets.get($tick).name = $lib.null', opts=aslow)
+            self.len(0, await core.nodes('proj:ticket:project=$proj +:name', opts=aslow))
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).name = zoinks', opts=aslow)
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).epic = bar', opts=aslow)
             await lowuser.addRule((True, ('project', 'ticket', 'set', 'epic')), gateiden=proj)
+            await core.callStorm('$lib.projects.get($proj).tickets.get($tick).epic = $lib.null', opts=aslow)
+            self.len(0, await core.nodes('proj:ticket:project=$proj +:epic', opts=aslow))
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).epic = bar', opts=aslow)
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).desc = scoobie', opts=aslow)
             await lowuser.addRule((True, ('project', 'ticket', 'set', 'desc')), gateiden=proj)
+            await core.callStorm('$lib.projects.get($proj).tickets.get($tick).desc = $lib.null', opts=aslow)
+            self.len(0, await core.nodes('proj:ticket:project=$proj +:desc', opts=aslow))
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).desc = scoobie', opts=aslow)
 
             with self.raises(s_exc.AuthDeny):
@@ -140,17 +175,20 @@ class ProjModelTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).sprints.del($sprint)', opts=opts)
             await visi.addRule((True, ('project', 'sprint', 'del')), gateiden=proj)
-            await core.callStorm('$lib.projects.get($proj).sprints.del($sprint)', opts=opts)
+            self.true(await core.callStorm('return($lib.projects.get($proj).sprints.del($sprint))', opts=opts))
+            self.false(await core.callStorm('return($lib.projects.get($proj).sprints.del(newp))', opts=opts))
             self.len(0, await core.nodes('proj:ticket:sprint'))
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).tickets.del($tick)', opts=aslow)
             # visi ( as creator ) can delete the ticket
-            await core.callStorm('$lib.projects.get($proj).tickets.del($tick)', opts=opts)
+            self.true(await core.callStorm('return($lib.projects.get($proj).tickets.del($tick))', opts=opts))
+            self.false(await core.callStorm('return($lib.projects.get($proj).tickets.del(newp))', opts=opts))
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.del($proj)', opts=opts)
             await visi.addRule((True, ('project', 'del')), gateiden=core.view.iden)
-            await core.callStorm('$lib.projects.del($proj)', opts=opts)
+            self.true(await core.callStorm('return($lib.projects.del($proj))', opts=opts))
+            self.false(await core.callStorm('return($lib.projects.del(newp))', opts=opts))
 
             self.none(core.auth.getAuthGate(proj))

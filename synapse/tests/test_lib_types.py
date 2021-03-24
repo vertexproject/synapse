@@ -34,6 +34,12 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(60200, t.norm('1:00.2')[0])
         self.eq(9999, t.norm('9.9999')[0])
 
+        with self.raises(s_exc.BadTypeValu):
+            t.norm('1:2:3:4')
+
+        with self.raises(s_exc.BadTypeValu):
+            t.norm('1:a:b')
+
     def test_bool(self):
         model = s_datamodel.Model()
         t = model.type('bool')

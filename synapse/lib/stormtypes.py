@@ -986,7 +986,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _sorted(self, valu, reverse=False):
-        valu = await toiter(valu)
+        valu = await toprim(valu)
         for item in sorted(valu, reverse=reverse):
             yield item
 
@@ -2517,7 +2517,8 @@ class Prim(StormType):
         return self.valu
 
     async def iter(self):
-        return tuple(await s_coro.ornot(self.value))
+        for item in await s_coro.ornot(self.value):
+            yield item
 
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
@@ -2870,7 +2871,8 @@ class Dict(Prim):
         return len(self.valu)
 
     async def iter(self):
-        return tuple(item for item in self.valu.items())
+        for item in tuple(self.valu.items()):
+            yield item
 
     async def setitem(self, name, valu):
 
@@ -4009,6 +4011,10 @@ class StatTally(Prim):
 
     def value(self):
         return dict(self.counters)
+
+    async def iter(self):
+        for item in tuple(self.counters.items()):
+            yield item
 
 @registry.registerLib
 class LibLayer(Lib):
@@ -6040,19 +6046,6 @@ async def tostr(valu, noneok=False):
     except Exception as e:
         mesg = f'Failed to make a string from {valu!r}.'
         raise s_exc.BadCast(mesg=mesg) from e
-
-async def toiter(valu, noneok=False):
-    '''
-    Make a python primative or storm type into an iterable.
-    '''
-
-    if noneok and valu is None:
-        return ()
-
-    if isinstance(valu, Prim):
-        return await valu.iter()
-
-    return tuple(valu)
 
 async def tobool(valu, noneok=False):
 
