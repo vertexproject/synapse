@@ -292,6 +292,7 @@ class Trigger:
         self.view = view
         self.tdef = tdef
         self.iden = tdef.get('iden')
+        self.lockwarned = False
 
     async def set(self, name, valu):
         '''
@@ -321,6 +322,13 @@ class Trigger:
             return
 
         useriden = self.tdef.get('user')
+        user = self.view.core.auth.user(useriden)
+        locked = user.info.get('locked')
+        if locked:
+            if not self.lockwarned:
+                self.lockwarned = True
+                logger.warning('Skipping trigger execution because user {useriden} is locked')
+            return
 
         tag = self.tdef.get('tag')
         cond = self.tdef.get('cond')
