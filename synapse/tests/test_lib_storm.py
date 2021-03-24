@@ -696,6 +696,9 @@ class StormTest(s_t_utils.SynTest):
                 await tagnode.set('doc', 'haha doc')
                 await tagnode.set('title', 'haha title')
 
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag hehe hehe')
+
             await core.nodes('movetag hehe woot')
 
             self.len(0, await core.nodes('#hehe'))

@@ -1977,15 +1977,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            msgs = await alist(core.storm('|help'))
+            msgs = await alist(core.storm('.created | limit 1 | help'))
             self.printed(msgs, 'package: synapse')
             self.stormIsInPrint('help', msgs)
             self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
+            self.len(1, [n for n in msgs if n[0] == 'node'])
 
             msgs = await alist(core.storm('help'))
             self.printed(msgs, 'package: synapse')
             self.stormIsInPrint('help', msgs)
             self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
+
+            msgs = await alist(core.storm('help view'))
+            self.stormIsInPrint('view.merge', msgs)
+            with self.raises(AssertionError):
+                self.stormIsInPrint('uniq', msgs)
 
             # test that storm package commands that didn't come from
             # a storm service are displayed
@@ -2005,6 +2011,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.printed(msgs, 'package: foosball')
             self.stormIsInPrint('testcmd', msgs)
             self.stormIsInPrint(': test command', msgs)
+
+            msgs = await alist(core.storm('help testcmd'))
+            self.stormIsInPrint('testcmd', msgs)
+            with self.raises(AssertionError):
+                self.stormIsInPrint('view.merge', msgs)
+
+            msgs = await alist(core.storm('[test:str=uniq] | help $node.value()'))
+            self.stormIsInErr('help does not support per-node invocation', msgs)
 
             await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
 
