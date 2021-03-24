@@ -3194,6 +3194,17 @@ class StormTypesTest(s_test.SynTest):
                 return($lib.auth.users.byname(visi).allowed(foo.bar))
             '''))
 
+            # user roles can be set in bulk
+            roles = await core.callStorm('''$roles=$lib.list()
+            $role=$lib.auth.roles.byname(admins) $roles.append($role.iden)
+            $role=$lib.auth.roles.byname(all) $roles.append($role.iden)
+            $lib.auth.users.byname(visi).grants($roles)
+            return ($lib.auth.users.byname(visi).roles())
+            ''')
+            self.len(2, roles)
+            self.eq(roles[0].get('name'), 'admins')
+            self.eq(roles[1].get('name'), 'all')
+
             q = 'for $user in $lib.auth.users.list() { if $($user.get(email) = "visi@vertex.link") { return($user) } }'
             self.nn(await core.callStorm(q))
             q = 'for $role in $lib.auth.roles.list() { if $( $role.name = "all") { return($role) } }'
