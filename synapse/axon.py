@@ -443,6 +443,8 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             timeout (int): The timeout of the request, in seconds.
 
         Notes:
+            The response body will be stored, regardless of the response code. The ``ok`` value in the reponse does not
+            reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
             The dictionary returned by this may contain the following values::
 
@@ -885,6 +887,8 @@ class Axon(s_cell.Cell):
             timeout (int): The timeout of the request, in seconds.
 
         Notes:
+            The response body will be stored, regardless of the response code. The ``ok`` value in the reponse does not
+            reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
             The dictionary returned by this may contain the following values::
 
