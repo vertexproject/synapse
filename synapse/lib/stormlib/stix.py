@@ -492,11 +492,10 @@ class LibStix(s_stormtypes.Lib):
         {
             'name': 'bundle',
             'desc': '''
-
                 Return a new empty STIX bundle.
 
                 The config argument maps synapse forms to stix types and allows you to specify
-                how to resolove STIX properties and relationships.  The config expects to following format:
+                how to resolve STIX properties and relationships.  The config expects to following format::
 
                     {
                         "maxsize": 10000,
@@ -521,7 +520,7 @@ class LibStix(s_stormtypes.Lib):
                         },
                     },
 
-                For example, the default config includes the following entry to map ou:campaign nodes to stix campaigns:
+                For example, the default config includes the following entry to map ou:campaign nodes to stix campaigns::
 
                     { "forms": {
                         "ou:campaign": {
@@ -545,8 +544,9 @@ class LibStix(s_stormtypes.Lib):
                             },
                     }},
 
-                NOTE: The default config is an evolving set of mappings.  If you need to guarantee stable output please specify a config.
-
+                Note:
+                    The default config is an evolving set of mappings.  If you need to guarantee stable output please
+                    specify a config.
             ''',
             'type': {
                 'type': 'function', '_funcname': 'bundle',
@@ -666,22 +666,20 @@ class StixBundle(s_stormtypes.Prim):
         {'name': 'add', 'desc': '''
         Make one or more STIX objects from a node, and add it to the bundle.
 
-        Optional args:
-            stixtype (str): The explicit name of the STIX type to map the node to.
+        Examples:
+            Example Storm which would be called remotely via the ``callStorm()`` API::
 
-        Example (via callStorm()):
-
-            init { $bundle = $lib.stix.bundle() }
-            #aka.feye.thr.apt1
-            $bundle.add($node)
-            fini { return($bundle) }
-
+                init { $bundle = $lib.stix.bundle() }
+                #aka.feye.thr.apt1
+                $bundle.add($node)
+                fini { return($bundle) }
             ''',
          'type': {'type': 'function', '_funcname': 'add',
                   'args': (
                       {'name': 'node', 'desc': 'The node to make a STIX object from.', 'type': 'node'},
-                      {'name': 'stixtype', 'desc': 'A STIX type name to override the default mapping.',
-                            'type': 'str', 'default': None},
+                      {'name': 'stixtype', 'type': 'str', 'default': None,
+                       'desc': 'The explicit name of the STIX type to map the node to. This will override the default'
+                               ' mapping.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The stable STIX id of the added object.'}}},
 
