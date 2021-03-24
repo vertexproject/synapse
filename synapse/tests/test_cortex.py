@@ -1989,8 +1989,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
 
             msgs = await alist(core.storm('help view'))
-            for m in msgs:
-                print(m)
+            self.stormIsInPrint('view.merge', msgs)
+            with self.raises(AssertionError):
+                self.stormIsInPrint('uniq', msgs)
+
             # test that storm package commands that didn't come from
             # a storm service are displayed
             otherpkg = {
@@ -2011,8 +2013,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.stormIsInPrint(': test command', msgs)
 
             msgs = await alist(core.storm('help testcmd'))
-            for m in msgs:
-                print(m)
+            self.stormIsInPrint('testcmd', msgs)
+            with self.raises(AssertionError):
+                self.stormIsInPrint('view.merge', msgs)
 
             await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
 
