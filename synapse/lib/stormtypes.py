@@ -5194,6 +5194,18 @@ class User(Prim):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'grants', 'desc': '''
+        Grant a list of Roles to the User.
+
+        Notes:
+            The roleiden for the "all" role must be present in the new list of roles. This replaces all existing roles
+            that the user has with the new roles.
+        ''',
+         'type': {'type': 'function', '_funcname': '_methUserGrants',
+                  'args': (
+                      {'name': 'idens', 'type': 'list', 'desc': 'The idens to  of the Role.', },
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'revoke', 'desc': 'Remove a Role from the User',
          'type': {'type': 'function', '_funcname': '_methUserRevoke',
                   'args': (
@@ -5263,6 +5275,7 @@ class User(Prim):
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
             'grant': self._methUserGrant,
+            'grants': self._methUserGrants,
             'revoke': self._methUserRevoke,
             'addRule': self._methUserAddRule,
             'delRule': self._methUserDelRule,
@@ -5292,6 +5305,10 @@ class User(Prim):
     async def _methUserGrant(self, iden):
         self.runt.confirm(('auth', 'user', 'grant'))
         await self.runt.snap.core.addUserRole(self.valu, iden)
+
+    async def _methUserGrants(self, idens):
+        self.runt.confirm(('auth', 'user', 'grant'))
+        await self.runt.snap.core.addUserRoles(self.valu, idens)
 
     async def _methUserRevoke(self, iden):
         self.runt.confirm(('auth', 'user', 'revoke'))

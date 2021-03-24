@@ -405,6 +405,10 @@ class CellApi(s_base.Base):
         return await self.cell.addUserRole(useriden, roleiden)
 
     @adminapi(log=True)
+    async def addUserRoles(self, useriden, roleidens):
+        return await self.cell.addUserRole(useriden, roleidens)
+
+    @adminapi(log=True)
     async def delUserRole(self, useriden, roleiden):
         return await self.cell.delUserRole(useriden, roleiden)
 
@@ -1455,6 +1459,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(useriden)
         await user.grant(roleiden)
         await self.fire('user:mod', act='grant', user=useriden, role=roleiden)
+
+    async def addUserRoles(self, useriden, roleidens):
+        user = await self.auth.reqUser(useriden)
+        await user.grants(roleidens)
+        await self.fire('user:mod', act='grants', user=useriden, roles=roleidens)
 
     async def delUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
