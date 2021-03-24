@@ -3190,6 +3190,10 @@ class StormTypesTest(s_test.SynTest):
                 $lib.auth.users.byname(visi).revoke($role.iden)
             ''')
 
+            self.false(await core.callStorm('''
+                return($lib.auth.users.byname(visi).allowed(foo.bar))
+            '''))
+
             q = 'for $user in $lib.auth.users.list() { if $($user.get(email) = "visi@vertex.link") { return($user) } }'
             self.nn(await core.callStorm(q))
             q = 'for $role in $lib.auth.roles.list() { if $( $role.name = "all") { return($role) } }'

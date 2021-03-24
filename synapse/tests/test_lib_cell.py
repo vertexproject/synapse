@@ -179,6 +179,26 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.setUserPasswd('newp', 'new[')
 
+                # Grants() allows arbitrary role ordering
+                extra_role = await echo.auth.addRole('extrarole')
+                await visi.grants((extra_role.iden, testrole.iden, echo.auth.allrole.iden))
+                visi_url = f'tcp://visi:foobar@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
+                    uatm = await proxy.getUserInfo('visi')
+                    self.eq(uatm.get('roles'), ('extrarole', 'testrole', 'all',))
+
+                    # Grants are wholesale replacements
+                    await visi.grants((echo.auth.allrole.iden, testrole.iden))
+                    uatm = await proxy.getUserInfo('visi')
+                    self.eq(uatm.get('roles'), ('all', 'testrole'))
+
+                # coverage test - nops short circuit
+                await visi.grants((echo.auth.allrole.iden, testrole.iden))
+
+                # grants must have the allrole in place
+                with self.raises(s_exc.BadArg):
+                    await visi.grants((extra_role.iden, testrole.iden))
+
                 # New password works
                 visi_url = f'tcp://visi:foobar@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
