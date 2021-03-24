@@ -80,7 +80,8 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:guid#tagdel'))
 
             # Form/tag add
-            tdef = {'cond': 'tag:add', 'storm': '[ test:guid="*" +#formtagadd]', 'tag': 'bartag', 'form': 'test:str'}
+            tdef = {'cond': 'tag:add', 'storm': '[ test:guid="*" +#formtagadd]', 'tag': 'bartag',
+                    'form': 'test:str'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:str=foo +#bartag ]')
             self.len(1, await core.nodes('test:guid#formtagadd'))
@@ -285,6 +286,26 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('#baz.asdf.faz [ -#baz.asdf.faz ]')
 
             self.eq(0, await core.callStorm('return ($lib.queue.get(foo).size())'))
+
+    async def test_trigger_running_perms(self):
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+
+            # Verify that triggers are run as user
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:guid="*" +#nodeadd]', 'user': visi.iden}
+            await core.view.addTrigger(tdef)
+            await core.nodes('[ test:str=foo ]')
+            self.len(0, await core.nodes('test:guid#nodeadd'))
+
+            await visi.addRule((True, ('node', 'tag', 'add')))
+            await visi.addRule((True, ('node', 'add')))
+            await core.nodes('[ test:str=foo2 ]')
+            self.len(1, await core.nodes('test:guid#nodeadd'))
+
+            # If the user is locked, the trigger doesn't run
+            await visi.setLocked(True)
+            await core.nodes('[ test:str=foo3 ]')
+            self.len(1, await core.nodes('test:guid#nodeadd'))
 
     async def test_trigger_perms(self):
 

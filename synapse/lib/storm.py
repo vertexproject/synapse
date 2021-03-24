@@ -1231,6 +1231,11 @@ class StormDmon(s_base.Base):
 
         while not self.isfini:
 
+            if self.user.info.get('locked'):
+                self.status = 'fatal error: user locked'
+                logger.warning('Dmon user is locked. Stopping Dmon.')
+                return
+
             text = self.ddef.get('storm')
             opts = self.ddef.get('stormopts', {})
 
@@ -1238,7 +1243,7 @@ class StormDmon(s_base.Base):
             view = self.core.getView(viewiden)
             if view is None:
                 self.status = 'fatal error: invalid view'
-                logger.warning(f'Dmon View is invalid. Stopping Dmon.')
+                logger.warning('Dmon View is invalid. Stopping Dmon.')
                 return
 
             try:
