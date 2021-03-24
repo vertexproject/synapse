@@ -1,11 +1,7 @@
-import copy
 import json
 import uuid
 import asyncio
 import datetime
-import collections
-
-import stix2validator
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -82,8 +78,8 @@ _DefaultConfig = {
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', ':hq -> geo:place'),
                         ('targets', 'identity', '-> ou:campaign -> risk:attack :target:org -> ou:org'),
-                        #('targets', 'location', ''),
-                        #('impersonates', 'identity', ''),
+                        # ('targets', 'location', ''),
+                        # ('impersonates', 'identity', ''),
                     ),
                 },
             },
@@ -304,26 +300,26 @@ _DefaultConfig = {
                     'rels': (
                         # many of these depend on tag conventions (left for user to decide)
 
-                        #('controls', 'malware', '',
-                        #('authored-by', 'threat-actor', '',
+                        # ('controls', 'malware', '',
+                        # ('authored-by', 'threat-actor', '',
 
-                        #('drops', 'file', '',
-                        #('drops', 'tool', '',
-                        #('drops', 'malware', '',
+                        # ('drops', 'file', '',
+                        # ('drops', 'tool', '',
+                        # ('drops', 'malware', '',
 
-                        #('downloads', 'file', '',
-                        #('downloads', 'tool', '',
-                        #('downloads', 'malware', '',
+                        # ('downloads', 'file', '',
+                        # ('downloads', 'tool', '',
+                        # ('downloads', 'malware', '',
 
-                        #('uses', 'tool', '',
-                        #('uses', 'malware', '',
-                        #('targets', 'identity', '',
-                        #('targets', 'location', '',
+                        # ('uses', 'tool', '',
+                        # ('uses', 'malware', '',
+                        # ('targets', 'identity', '',
+                        # ('targets', 'location', '',
 
-                        #('communicates-with', 'ipv4-addr',
-                        #('communicates-with', 'ipv6-addr',
-                        #('communicates-with', 'domain-name',
-                        #('communicates-with', 'url',
+                        # ('communicates-with', 'ipv4-addr',
+                        # ('communicates-with', 'ipv6-addr',
+                        # ('communicates-with', 'domain-name',
+                        # ('communicates-with', 'url',
                     ),
                 },
             },
@@ -353,17 +349,17 @@ _DefaultConfig = {
                         'tool_version': '+:vers return(:vers)',
                     },
                     'rels': (
-                        #TODO
-                        #('has', 'vulnerability', ''),
+                        # TODO
+                        # ('has', 'vulnerability', ''),
 
-                        # depends on tag conventions
-                        #('delivers', 'malware', ''),
-                        #('drops', 'malware', ''),
-                        #('targets', 'identity', '')
-                        #('targets', 'infrastructure', '')
-                        #('targets', 'location', '')
-                        #('targets', 'vulnerability', '')
-                        #('uses', 'infrastructure', ''),
+                        #  depends on tag conventions
+                        # ('delivers', 'malware', ''),
+                        # ('drops', 'malware', ''),
+                        # ('targets', 'identity', '')
+                        # ('targets', 'infrastructure', '')
+                        # ('targets', 'location', '')
+                        # ('targets', 'vulnerability', '')
+                        # ('uses', 'infrastructure', ''),
                     ),
                 },
             },
@@ -493,85 +489,93 @@ class LibStix(s_stormtypes.Lib):
     A Storm Library for exporting to STIX version 2.1
     '''
     _storm_locals = (  # type: ignore
-        {'name': 'bundle', 'desc': '''
+        {
+            'name': 'bundle',
+            'desc': '''
 
-        Return a new empty STIX bundle.
+                Return a new empty STIX bundle.
 
-        The config argument maps synapse forms to stix types and allows you to specify
-        how to resolove STIX properties and relationships.  The config expects to following format:
+                The config argument maps synapse forms to stix types and allows you to specify
+                how to resolove STIX properties and relationships.  The config expects to following format:
 
-            {
-                "maxsize": 10000,
+                    {
+                        "maxsize": 10000,
 
-                "forms": {
-                    <formname>: {
-                        "default": <stixtype0>,
-                        "stix": {
-                            <stixtype0>: {
-                                "props": {
-                                    <stix_prop_name>: <storm_with_return>,
-                                    ...
+                        "forms": {
+                            <formname>: {
+                                "default": <stixtype0>,
+                                "stix": {
+                                    <stixtype0>: {
+                                        "props": {
+                                            <stix_prop_name>: <storm_with_return>,
+                                            ...
+                                        },
+                                        "rels": (
+                                            ( <relname>, <target_stixtype>, <storm> ),
+                                            ...
+                                        )
+                                    },
+                                    <stixtype1>: ...
                                 },
-                                "rels": (
-                                    ( <relname>, <target_stixtype>, <storm> ),
-                                    ...
-                                )
                             },
-                            <stixtype1>: ...
                         },
                     },
-                },
+
+                For example, the default config includes the following entry to map ou:campaign nodes to stix campaigns:
+
+                    { "forms": {
+                        "ou:campaign": {
+                            "default": "campaign",
+                            "stix": {
+                                "campaign": {
+                                    "props": {
+                                        "name": "{+:name return(:name)} return($node.repr())",
+                                        "description": "+:desc return(:desc)",
+                                        "objective": "+:goal :goal -> ou:goal +:name return(:name)",
+                                        "created": "return($lib.stix.export.timestamp(.created))",
+                                        "modified": "return($lib.stix.export.timestamp(.created))",
+                                    },
+                                    "rels": (
+                                        ("attributed-to", "threat-actor", ":org -> ou:org"),
+                                        ("originates-from", "location", ":org -> ou:org :hq -> geo:place"),
+                                        ("targets", "identity", "-> risk:attack :target:org -> ou:org"),
+                                        ("targets", "identity", "-> risk:attack :target:person -> ps:person"),
+                                    ),
+                                },
+                            },
+                    }},
+
+                NOTE: The default config is an evolving set of mappings.  If you need to guarantee stable output please specify a config.
+
+            ''',
+            'type': {
+                'type': 'function', '_funcname': 'bundle',
+                'args': (
+                    {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'The STIX bundle export config to use.'},
+                ),
+                'returns': {'type': 'storm:stix:bundle', 'desc': 'A new ``storm:stix:bundle`` instance.'},
             },
+        },
 
-        For example, the default config includes the following entry to map ou:campaign nodes to stix campaigns:
+        {
+            'name': 'timestamp', 'desc': 'Format an epoch milliseconds timestamp for use in STIX output.',
+             'type': {
+                'type': 'function', '_funcname': 'timestamp',
+                'args': (
+                    {'type': 'time', 'name': 'tick', 'desc': 'The epoch milliseconds timestamp.'},
+                ),
+                'returns': {'type': 'str', 'desc': 'A STIX formatted timestamp string.'},
+            }
+        },
 
-            { "forms": {
-                "ou:campaign": {
-                    "default": "campaign",
-                    "stix": {
-                        "campaign": {
-                            "props": {
-                                "name": "{+:name return(:name)} return($node.repr())",
-                                "description": "+:desc return(:desc)",
-                                "objective": "+:goal :goal -> ou:goal +:name return(:name)",
-                                "created": "return($lib.stix.export.timestamp(.created))",
-                                "modified": "return($lib.stix.export.timestamp(.created))",
-                            },
-                            "rels": (
-                                ("attributed-to", "threat-actor", ":org -> ou:org"),
-                                ("originates-from", "location", ":org -> ou:org :hq -> geo:place"),
-                                ("targets", "identity", "-> risk:attack :target:org -> ou:org"),
-                                ("targets", "identity", "-> risk:attack :target:person -> ps:person"),
-                            ),
-                        },
-                    },
-            }},
-
-        NOTE: The default config is an evolving set of mappings.  If you need to guarantee stable output please specify a config.
-
-        ''',
-         'type': {
-            'type': 'function', '_funcname': 'bundle',
-            'args': (
-                {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'The STIX bundle export config to use.'},
-            ),
-            'returns': {'type': 'storm:stix:bundle', 'desc': 'A new ``storm:stix:bundle`` instance.'},
-        }},
-
-        {'name': 'timestamp', 'desc': 'Format an epoch milliseconds timestamp for use in STIX output.',
-         'type': {
-            'type': 'function', '_funcname': 'timestamp',
-            'args': (
-                {'type': 'time', 'name': 'tick', 'desc': 'The epoch milliseconds timestamp.'},
-            ),
-            'returns': {'type': 'str', 'desc': 'A STIX formatted timestamp string.'},
-        }},
-
-        {'name': 'config', 'desc': 'Construct a default STIX bundle export config.',
-         'type': {
-            'type': 'function', '_funcname': 'config',
-            'returns': {'type': 'dict', 'desc': 'A default STIX bundle export config.'},
-        }},
+        {
+            'name': 'config',
+            'desc': 'Construct a default STIX bundle export config.',
+            'type': {
+                'type': 'function', '_funcname': 'config',
+                'returns': {'type': 'dict', 'desc': 'A default STIX bundle export config.'},
+            },
+        },
     )
     _storm_lib_path = ('stix', 'export')
 
@@ -775,7 +779,7 @@ class StixBundle(s_stormtypes.Prim):
 
     async def _addRel(self, srcid, reltype, targid):
 
-        stixid = f'relationship--{uuid4((srcid, targid))}'
+        stixid = f'relationship--{uuid4((srcid, reltype, targid))}'
         tstamp = self.libstix.timestamp(s_common.now())
 
         obj = {

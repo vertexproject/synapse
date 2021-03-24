@@ -1,13 +1,13 @@
 {
-  "id": "bundle--94334068-699f-4590-9036-060c0a7e9e28",
+  "id": "bundle--afc1587e-684a-4a71-9a9b-c40990ae3cb4",
   "objects": [
     {
-      "created": "2021-03-24T10:14:36.040Z",
+      "created": "2021-03-24T21:30:52.741Z",
       "first_seen": "2010-01-01T00:00:00.000Z",
       "id": "malware--af4ebd59-9d48-46df-a560-cf2e3ccbf714",
       "is_family": true,
       "last_seen": "2020-01-01T00:00:00.000Z",
-      "modified": "2021-03-24T10:14:36.040Z",
+      "modified": "2021-03-24T21:30:52.741Z",
       "name": "redtree",
       "spec_version": "2.1",
       "type": "malware"
@@ -46,9 +46,9 @@
       "type": "autonomous-system"
     },
     {
-      "created": "2021-03-24T10:14:37.608Z",
-      "id": "relationship--feb9091d-46ff-42b6-97e0-ba4e41923f8d",
-      "modified": "2021-03-24T10:14:37.608Z",
+      "created": "2021-03-24T21:30:54.312Z",
+      "id": "relationship--0a7f84d6-961f-46f9-873f-375f96ce2785",
+      "modified": "2021-03-24T21:30:54.312Z",
       "relationship_type": "belongs-to",
       "source_ref": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
       "spec_version": "2.1",
@@ -69,9 +69,9 @@
       "type": "autonomous-system"
     },
     {
-      "created": "2021-03-24T10:14:37.609Z",
-      "id": "relationship--3e8d2f05-2541-4bc7-8f35-da7981385933",
-      "modified": "2021-03-24T10:14:37.609Z",
+      "created": "2021-03-24T21:30:54.313Z",
+      "id": "relationship--56958d44-7ccf-4894-9cfc-9d2a850cbf42",
+      "modified": "2021-03-24T21:30:54.313Z",
       "relationship_type": "belongs-to",
       "source_ref": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
       "spec_version": "2.1",
@@ -97,9 +97,9 @@
       "value": "http://vertex.link/"
     },
     {
-      "created": "2021-03-24T10:14:37.623Z",
-      "id": "relationship--b712ff93-b1ef-4f74-bb3b-f2e0b4c566d0",
-      "modified": "2021-03-24T10:14:37.623Z",
+      "created": "2021-03-24T21:30:54.328Z",
+      "id": "relationship--b109f3bd-8c9e-43f6-851e-75377cf360ec",
+      "modified": "2021-03-24T21:30:54.328Z",
       "relationship_type": "communicates-with",
       "source_ref": "malware--af4ebd59-9d48-46df-a560-cf2e3ccbf714",
       "spec_version": "2.1",

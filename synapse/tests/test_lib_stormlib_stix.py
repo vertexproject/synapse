@@ -1,8 +1,8 @@
 import os
 import copy
 import json
-import aiohttp
 
+import aiohttp
 import stix2validator
 
 import synapse.exc as s_exc
