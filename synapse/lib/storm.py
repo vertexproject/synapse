@@ -2120,6 +2120,8 @@ class HelpCmd(Cmd):
 
                 await runt.printf('')
 
+            await runt.printf('For detailed help on any command, use <cmd> --help')
+
 class MergeCmd(Cmd):
     '''
     Merge edits from the incoming nodes down to the next layer.
