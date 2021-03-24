@@ -2017,6 +2017,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(AssertionError):
                 self.stormIsInPrint('view.merge', msgs)
 
+            msgs = await alist(core.storm('[test:str=uniq] | help $node.value()'))
+            self.stormIsInErr('help does not support per-node invocation', msgs)
+
             await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
 
             await self.agenlen(2, core.eval('inet:user'))
