@@ -62,6 +62,7 @@ class StormlibModelTest(s_test.SynTest):
             opts = {'vars': {
                 'ind': '6ba7d8500964902bf2e03126ed0f6cb1',
                 'news': '840b9b003a765020705ea8d203a7659c',
+                'goal': '940b9b003a765020705ea8d203a7659c',
                 'place': 'c0254e1d0f9dedb0a03e2b95a55428eb',
                 'attack': '6a07c4b0789fd9ea73e7bfe54fb3c724',
                 'contact': 'a0861d3024462211ba5aaa47abaff458',
@@ -72,10 +73,14 @@ class StormlibModelTest(s_test.SynTest):
                 'targetorg': 'c915178f2ddd08145ff48ccbaa551873',
                 'attackorg': 'd820b6d58329662bc5cabec03ef72ffa',
 
+                'softver': 'a920b6d58329662bc5cabec03ef72ffa',
+                'prodsoft': 'a120b6d58329662bc5cabec03ef72ffa',
+
+                'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
                 'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
-            self.len(19, await core.nodes('''[
+            self.len(22, await core.nodes('''[
                 (inet:asn=30 :name=woot30)
                 (inet:asn=40 :name=woot40)
                 (inet:ipv4=1.2.3.4 :asn=30)
@@ -84,14 +89,17 @@ class StormlibModelTest(s_test.SynTest):
                 (ps:contact=* :name="visi stark" :email=visi@vertex.link)
                 (ou:org=$targetorg :name=target :industries={[ou:industry=$ind :name=aerospace]})
                 (ou:org=$attackorg :name=attacker :hq={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
-                (ou:campaign=$campaign :name=woot :org={ou:org:name=attacker})
+                (ou:campaign=$campaign :name=woot :org={ou:org:name=attacker} :goal={[ou:goal=$goal :name=pwning]})
                 (risk:attack=$attack :campaign={ou:campaign} :target:org={ou:org:name=target})
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
                 (media:news=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
-                (file:bytes=$sha256 :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link })
+                (file:bytes=$sha256 :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link } +#cno.mal.redtree)
                 (inet:web:acct=(twitter.com, invisig0th) :realname="visi stark" .seen=(2010,2021) :signup=2010 :passwd=secret)
+                (syn:tag=cno.mal.redtree :title="Redtree Malware" .seen=(2010, 2020))
+                (it:prod:soft=$prodsoft :name=rar)
+                (it:prod:softver=$softver :software=$prodsoft .seen=(1996, 2021) :vers=2.0.1)
                 inet:dns:a=(vertex.link, 1.2.3.4)
                 inet:dns:aaaa=(vertex.link, "::ff")
                 inet:dns:cname=(vertex.link, vtx.lk)
@@ -116,11 +124,14 @@ class StormlibModelTest(s_test.SynTest):
 
                 file:bytes
                 inet:email:message
+                it:prod:softver
 
                 it:app:yara:rule
                 it:app:snort:rule
 
                 $bundle.add($node)
+
+                | spin | syn:tag=cno.mal.redtree $bundle.add($node, stixtype=malware)
 
                 fini { return($bundle) }
             ''')
@@ -128,7 +139,7 @@ class StormlibModelTest(s_test.SynTest):
             self.reqValidStix(bund)
 
             #self.setTestBundle('basic.json', bund)
-            self.bundeq(bund, self.getTestBundle('basic.json'))
+            self.bundeq(self.getTestBundle('basic.json'), bund)
 
             opts = {'vars': {
                 'file': 'guid:64610b9fdc23964d27f5d84f395a76df',
@@ -139,16 +150,17 @@ class StormlibModelTest(s_test.SynTest):
                 init {
                     $config = $lib.stix.export.config()
 
-                    $config."file:bytes".stix.malware.rels.append(
-                        (communicates-with, url, ${-> it:exec:url:exe -> inet:url})
+                    $config.forms."syn:tag".stix.malware.rels.append(
+                        (communicates-with, url, ${-> file:bytes -> it:exec:url:exe -> inet:url})
                     )
 
-                    $config."file:bytes".stix.malware.props.name = ${return(redtree)}
+                    $config.forms."syn:tag".stix.malware.props.name = ${return(redtree)}
                     $bundle = $lib.stix.export.bundle(config=$config)
                 }
 
-                [ file:bytes=$file +#cno.mal.redtree ]
+                [ syn:tag=cno.mal.redtree ]
 
+                {[( file:bytes=$file +#cno.mal.redtree )]}
                 {[( it:exec:url=$execurl :exe=$file :url=http://vertex.link/ )]}
 
                 $bundle.add($node, stixtype=malware)
@@ -159,45 +171,73 @@ class StormlibModelTest(s_test.SynTest):
             self.reqValidStix(bund)
 
             #self.setTestBundle('custom0.json', bund)
-            self.bundeq(bund, self.getTestBundle('custom0.json'))
+            self.bundeq(self.getTestBundle('custom0.json'), bund)
+
+            # test some sad paths...
             self.none(await core.callStorm('return($lib.stix.export.bundle().add($lib.true))'))
             self.none(await core.callStorm('[ ou:conference=* ] return($lib.stix.export.bundle().add($node))'))
             self.none(await core.callStorm('[ inet:fqdn=vertex.link ] return($lib.stix.export.bundle().add($node, stixtype=foobar))'))
 
+            with self.raises(s_exc.BadConfValu):
+                config = {'maxsize': 'woot'}
+                opts = {'vars': {'config': config}}
+                await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
+
+            with self.raises(s_exc.BadConfValu):
+                config = {'maxsize': 10000000}
+                opts = {'vars': {'config': config}}
+                await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
+
             with self.raises(s_exc.NoSuchForm):
-                config = {'hehe:haha': {}}
+                config = {'forms': {'hehe:haha': {}}}
                 opts = {'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
             with self.raises(s_exc.NeedConfValu):
-                config = {'inet:fqdn': {}}
+                config = {'forms': {'inet:fqdn': {}}}
+                opts = {'vars': {'config': config}}
+                await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
+
+            with self.raises(s_exc.BadConfValu):
+                config = {'forms': {'inet:fqdn': {'default': 'newp'}}}
                 opts = {'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
             with self.raises(s_exc.NeedConfValu):
-                config = {'inet:fqdn': {'default': 'domain-name'}}
+                config = {'forms': {'inet:fqdn': {'default': 'domain-name'}}}
                 opts = {'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
             with self.raises(s_exc.BadConfValu):
-                config = {'inet:fqdn': {'default': 'domain-name', 'stix': {}}}
+                config = {'forms': {'inet:fqdn': {'default': 'domain-name', 'stix': {}}}}
                 opts = {'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
             with self.raises(s_exc.BadConfValu):
-                config = {'inet:fqdn': {
+                config = {'forms': {'inet:fqdn': {
+                                'default': 'domain-name',
+                                'stix': {
+                                    'domain-name': {},
+                                    'newp': {},
+                                },
+                         }}}
+                opts = {'vars': {'config': config}}
+                await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
+
+            with self.raises(s_exc.BadConfValu):
+                config = {'forms': {'inet:fqdn': {
                                 'default': 'domain-name',
                                 'stix': {
                                     'domain-name': {
                                         'props': {'foo': 10},
                                     },
                                 },
-                         }}
+                         }}}
                 opts = {'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
             with self.raises(s_exc.BadConfValu):
-                config = {'inet:fqdn': {
+                config = {'forms': {'inet:fqdn': {
                                 'default': 'domain-name',
                                 'stix': {
                                     'domain-name': {
@@ -206,6 +246,18 @@ class StormlibModelTest(s_test.SynTest):
                                         ),
                                     },
                                 },
-                         }}
+                         }}}
                 opts = {'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('''
+                    init {
+                        $config = $lib.stix.export.config()
+                        $config.maxsize = (1)
+
+                        $bundle = $lib.stix.export.bundle(config=$config)
+                    }
+
+                    inet:fqdn $bundle.add($node)
+                ''')

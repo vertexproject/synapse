@@ -1,5 +1,5 @@
 {
-  "id": "bundle--1bd4fedc-5805-411e-b990-502a2cf5b0ca",
+  "id": "bundle--4bd6637e-c78b-4b45-a13a-5f5c92a6a811",
   "objects": [
     {
       "id": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
@@ -22,9 +22,9 @@
       "value": "1.2.3.4"
     },
     {
-      "created": "2021-03-23T22:22:37.504Z",
+      "created": "2021-03-24T10:14:36.234Z",
       "id": "relationship--feb9091d-46ff-42b6-97e0-ba4e41923f8d",
-      "modified": "2021-03-23T22:22:37.504Z",
+      "modified": "2021-03-24T10:14:36.234Z",
       "relationship_type": "belongs-to",
       "source_ref": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
       "spec_version": "2.1",
@@ -38,9 +38,9 @@
       "value": "::ff"
     },
     {
-      "created": "2021-03-23T22:22:37.504Z",
+      "created": "2021-03-24T10:14:36.235Z",
       "id": "relationship--3e8d2f05-2541-4bc7-8f35-da7981385933",
-      "modified": "2021-03-23T22:22:37.504Z",
+      "modified": "2021-03-24T10:14:36.235Z",
       "relationship_type": "belongs-to",
       "source_ref": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
       "spec_version": "2.1",
@@ -74,9 +74,9 @@
       "user_id": "invisig0th"
     },
     {
-      "created": "2021-03-23T22:22:36.524Z",
+      "created": "2021-03-24T10:14:35.971Z",
       "id": "report--1a48d29c-bb1c-4e55-8cff-49175be054d5",
-      "modified": "2021-03-23T22:22:36.524Z",
+      "modified": "2021-03-24T10:14:35.971Z",
       "name": "report0",
       "object_refs": [
         "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3"
@@ -98,10 +98,10 @@
       "value": "vtx.lk"
     },
     {
-      "created": "2021-03-23T22:22:36.510Z",
+      "created": "2021-03-24T10:14:35.954Z",
       "id": "identity--f04f9df3-e36e-4868-aa54-9627658a4c2b",
       "identity_class": "organization",
-      "modified": "2021-03-23T22:22:36.510Z",
+      "modified": "2021-03-24T10:14:35.954Z",
       "name": "target",
       "sectors": [
         "aerospace"
@@ -110,34 +110,38 @@
       "type": "identity"
     },
     {
-      "created": "2021-03-23T22:22:36.516Z",
+      "created": "2021-03-24T10:14:35.961Z",
       "id": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
-      "modified": "2021-03-23T22:22:36.516Z",
+      "modified": "2021-03-24T10:14:35.961Z",
       "name": "woot",
+      "objective": "pwning",
       "spec_version": "2.1",
       "type": "campaign"
     },
     {
-      "created": "2021-03-23T22:22:36.513Z",
+      "created": "2021-03-24T10:14:35.957Z",
+      "goals": [
+        "pwning"
+      ],
       "id": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
-      "modified": "2021-03-23T22:22:36.513Z",
+      "modified": "2021-03-24T10:14:35.957Z",
       "name": "attacker",
       "spec_version": "2.1",
       "type": "threat-actor"
     },
     {
-      "created": "2021-03-23T22:22:36.513Z",
+      "created": "2021-03-24T10:14:35.957Z",
       "id": "identity--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "identity_class": "organization",
-      "modified": "2021-03-23T22:22:36.513Z",
+      "modified": "2021-03-24T10:14:35.957Z",
       "name": "attacker",
       "spec_version": "2.1",
       "type": "identity"
     },
     {
-      "created": "2021-03-23T22:22:37.185Z",
+      "created": "2021-03-24T10:14:36.805Z",
       "id": "relationship--edd954bf-db4e-4500-a1c5-f68182d9726b",
-      "modified": "2021-03-23T22:22:37.185Z",
+      "modified": "2021-03-24T10:14:36.805Z",
       "relationship_type": "attributed-to",
       "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
@@ -146,19 +150,19 @@
     },
     {
       "country": "ru",
-      "created": "2021-03-23T22:22:36.514Z",
+      "created": "2021-03-24T10:14:35.959Z",
       "id": "location--af96f65c-9496-4719-8f69-5e3fa307ec22",
       "latitude": 55.7558,
       "longitude": 37.6173,
-      "modified": "2021-03-23T22:22:36.514Z",
+      "modified": "2021-03-24T10:14:35.959Z",
       "name": "moscow",
       "spec_version": "2.1",
       "type": "location"
     },
     {
-      "created": "2021-03-23T22:22:37.255Z",
+      "created": "2021-03-24T10:14:36.855Z",
       "id": "relationship--df8ad0c6-0a9d-427c-a5c6-5c4678a1dd38",
-      "modified": "2021-03-23T22:22:37.255Z",
+      "modified": "2021-03-24T10:14:36.855Z",
       "relationship_type": "located-at",
       "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
@@ -166,9 +170,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T22:22:37.267Z",
+      "created": "2021-03-24T10:14:36.865Z",
       "id": "relationship--5ab635cf-c993-4ec8-8a15-0fc2f1444c25",
-      "modified": "2021-03-23T22:22:37.267Z",
+      "modified": "2021-03-24T10:14:36.865Z",
       "relationship_type": "targets",
       "source_ref": "threat-actor--43505c2e-bc8d-4fd1-82ad-26f6f16ef683",
       "spec_version": "2.1",
@@ -176,9 +180,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T22:22:37.267Z",
+      "created": "2021-03-24T10:14:36.865Z",
       "id": "relationship--13c5643d-b8ce-40de-b7ee-b7e84ca3579e",
-      "modified": "2021-03-23T22:22:37.267Z",
+      "modified": "2021-03-24T10:14:36.865Z",
       "relationship_type": "attributed-to",
       "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
@@ -186,9 +190,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T22:22:37.274Z",
+      "created": "2021-03-24T10:14:36.872Z",
       "id": "relationship--3e3fe323-9bdc-4ad1-8d7d-a2a23920b82a",
-      "modified": "2021-03-23T22:22:37.274Z",
+      "modified": "2021-03-24T10:14:36.872Z",
       "relationship_type": "originates-from",
       "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
@@ -196,9 +200,9 @@
       "type": "relationship"
     },
     {
-      "created": "2021-03-23T22:22:37.285Z",
+      "created": "2021-03-24T10:14:36.880Z",
       "id": "relationship--ab5ca8aa-4b0f-44b8-9e73-6e8862d84bca",
-      "modified": "2021-03-23T22:22:37.285Z",
+      "modified": "2021-03-24T10:14:36.880Z",
       "relationship_type": "targets",
       "source_ref": "campaign--6255a534-b9ea-49c8-9d2b-d10a7c53a176",
       "spec_version": "2.1",
@@ -231,28 +235,51 @@
       "type": "email-message"
     },
     {
-      "created": "2021-03-23T22:22:36.519Z",
+      "created": "2021-03-24T10:14:36.048Z",
+      "id": "tool--ee99694e-dab2-40c3-ae6f-6c28ce4264ea",
+      "modified": "2021-03-24T10:14:36.048Z",
+      "name": "rar",
+      "spec_version": "2.1",
+      "tool_version": "2.0.1",
+      "type": "tool"
+    },
+    {
+      "created": "2021-03-24T10:14:35.965Z",
       "description": "a yara rule",
       "id": "indicator--3614a192-7cee-4c0f-8782-3ee2f6654e76",
-      "modified": "2021-03-23T22:22:36.519Z",
+      "modified": "2021-03-24T10:14:35.965Z",
       "name": "yararulez",
       "pattern": "rule dummy { condition: false }",
       "pattern_type": "yara",
       "spec_version": "2.1",
       "type": "indicator",
-      "valid_from": "2021-03-23T22:22:36.519Z"
+      "valid_from": "2021-03-24T10:14:35.965Z"
     },
     {
-      "created": "2021-03-23T22:22:36.520Z",
+      "created": "2021-03-24T10:14:35.966Z",
       "description": "a snort rule",
       "id": "indicator--5453376b-2fba-40e5-bec6-eafa39707265",
-      "modified": "2021-03-23T22:22:36.520Z",
+      "modified": "2021-03-24T10:14:35.966Z",
       "name": "snortrulez",
       "pattern": "alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)",
       "pattern_type": "snort",
       "spec_version": "2.1",
       "type": "indicator",
-      "valid_from": "2021-03-23T22:22:36.520Z"
+      "valid_from": "2021-03-24T10:14:35.966Z"
+    },
+    {
+      "created": "2021-03-24T10:14:36.040Z",
+      "first_seen": "2010-01-01T00:00:00.000Z",
+      "id": "malware--af4ebd59-9d48-46df-a560-cf2e3ccbf714",
+      "is_family": true,
+      "last_seen": "2020-01-01T00:00:00.000Z",
+      "modified": "2021-03-24T10:14:36.040Z",
+      "name": "Redtree Malware",
+      "sample_refs": [
+        "file--7b92f2ab-cba7-507f-a5ed-79fdd41a0fe9"
+      ],
+      "spec_version": "2.1",
+      "type": "malware"
     }
   ],
   "type": "bundle"

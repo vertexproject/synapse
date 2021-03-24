@@ -24,382 +24,426 @@ def uuid4(valu=None):
 
 _DefaultConfig = {
 
-    'ou:campaign': {
-        'default': 'campaign',
-        'stix': {
-            'campaign': {
-                'props': {
-                    'name': '+:name return(:name)',
-                    'description': '+:desc return(:desc)',
-                    'objective': '+:goal :goal -> ou:goal +:name return(:name)',
-                    'created': 'return($lib.stix.export.timestamp(.created))',
-                    'modified': 'return($lib.stix.export.timestamp(.created))',
+    'maxsize': 10000,
+
+    'forms': {
+
+        'ou:campaign': {
+            'default': 'campaign',
+            'stix': {
+                'campaign': {
+                    'props': {
+                        'name': '{+:name return(:name)} return($node.repr())',
+                        'description': '+:desc return(:desc)',
+                        'objective': '+:goal :goal -> ou:goal +:name return(:name)',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                    },
+                    'rels': (
+                        ('attributed-to', 'threat-actor', ':org -> ou:org'),
+                        ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
+                        ('targets', 'identity', '-> risk:attack :target:org -> ou:org'),
+                        ('targets', 'identity', '-> risk:attack :target:person -> ps:person'),
+                    ),
                 },
-                'rels': (
-                    ('attributed-to', 'threat-actor', ':org -> ou:org'),
-                    ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
-                    ('targets', 'identity', '-> risk:attack :target:org -> ou:org'),
-                    ('targets', 'identity', '-> risk:attack :target:person -> ps:person'),
-                ),
             },
         },
-    },
 
-    'ou:org': {
-        'default': 'identity',
-        'stix': {
-            'identity': {
-                'props': {
-                    'name': '{-:name return($node.repr())} return(:name)',
-                    'identity_class': 'return(organization)',
-                    'created': 'return($lib.stix.export.timestamp(.created))',
-                    'modified': 'return($lib.stix.export.timestamp(.created))',
-                    'sectors': '''
-                        init { $list = $lib.list() }
-                        -> ou:industry +:name $list.append(:name)
-                        fini { if $list { return($list) } }
-                    ''',
+        'ou:org': {
+            'default': 'identity',
+            'stix': {
+                'identity': {
+                    'props': {
+                        'name': '{-:name return($node.repr())} return(:name)',
+                        'identity_class': 'return(organization)',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'sectors': '''
+                            init { $list = $lib.list() }
+                            -> ou:industry +:name $list.append(:name)
+                            fini { if $list { return($list) } }
+                        ''',
+                    }
+                },
+                'threat-actor': {
+                    'props': {
+                        'name': '{+:name return(:name)} return($node.repr())',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'first_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.0))',
+                        'last_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.1))',
+                        'goals': '''
+                            init { $goals = $lib.list() }
+                            -> ou:campaign:org -> ou:goal | uniq | +:name $goals.append(:name)
+                            fini { if $goals { return($goals) } }
+                        ''',
+                    },
+                    'rels': (
+                        ('attributed-to', 'identity', ''),
+                        ('located-at', 'location', ':hq -> geo:place'),
+                        ('targets', 'identity', '-> ou:campaign -> risk:attack :target:org -> ou:org'),
+                        #('targets', 'location', ''),
+                        #('impersonates', 'identity', ''),
+                    ),
+                },
+            },
+        },
+
+        'ps:person': {
+            'default': 'identity',
+            'stix': {
+                'identity': {
+                    'props': {
+                        'name': '{+:name return(:name)} return($node.repr())',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'identity_class': 'return(individual)',
+                    }
+                },
+            },
+        },
+
+        'ps:contact': {
+            'default': 'identity',
+            'stix': {
+                'identity': {
+                    'props': {
+                        'name': '{+:name return(:name)} return($node.repr())',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'identity_class': 'return(individual)',
+                    }
+                },
+            },
+        },
+
+        'geo:place': {
+            'default': 'location',
+            'stix': {
+                'location': {
+                    'props': {
+                        'name': '{+:name return(:name)} return($node.repr())',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'country': '+:loc $loc = :loc return($loc.split(".").0)',
+                        'latitude': '+:latlong $latlong = :latlong return($latlong.0)',
+                        'longitude': '+:latlong $latlong = :latlong return($latlong.1)',
+                    },
+                },
+            },
+        },
+
+        'inet:ipv4': {
+            'default': 'ipv4-addr',
+            'stix': {
+                'ipv4-addr': {
+                    'props': {
+                        'value': 'return($node.repr())',
+                    },
+                    'rels': (
+                        ('belongs-to', 'autonomous-system', '-> inet:asn'),
+                    ),
                 }
             },
-            'threat-actor': {
-                'props': {
-                    'name': '{-:name return($node.repr())} return(:name)',
-                    'created': 'return($lib.stix.export.timestamp(.created))',
-                    'modified': 'return($lib.stix.export.timestamp(.created))',
-                },
-                'rels': (
-                    ('attributed-to', 'identity', ''),
-                    ('located-at', 'location', ':hq -> geo:place'),
-                    ('targets', 'identity', '-> ou:campaign -> risk:attack :target:org -> ou:org'),
-                    #('targets', 'location', ''),
-                    #('impersonates', 'identity', ''),
-                ),
-            },
         },
-    },
 
-    'ps:person': {
-        'default': 'identity',
-        'stix': {
-            'identity': {
-                'props': {
-                    'name': '{+:name return(:name)} return($node.repr())',
-                    'created': 'return($lib.stix.export.timestamp(.created))',
-                    'modified': 'return($lib.stix.export.timestamp(.created))',
-                    'identity_class': 'return(individual)',
+        'inet:ipv6': {
+            'default': 'ipv6-addr',
+            'stix': {
+                'ipv6-addr': {
+                    'props': {
+                        'value': 'return($node.repr())',
+                    },
+                    'rels': (
+                        ('belongs-to', 'autonomous-system', '-> inet:asn'),
+                    ),
                 }
             },
         },
-    },
 
-    'ps:contact': {
-        'default': 'identity',
-        'stix': {
-            'identity': {
-                'props': {
-                    'name': '{+:name return(:name)} return($node.repr())',
-                    'created': 'return($lib.stix.export.timestamp(.created))',
-                    'modified': 'return($lib.stix.export.timestamp(.created))',
-                    'identity_class': 'return(individual)',
+        'inet:fqdn': {
+            'default': 'domain-name',
+            'stix': {
+                'domain-name': {
+                    'props': {
+                        'value': 'return($node.repr())',
+                        'resolves_to_refs': '''
+                            init { $refs = $lib.list() }
+                            { -> inet:dns:a -> inet:ipv4 $refs.append($bundle.add($node)) }
+                            { -> inet:dns:aaaa -> inet:ipv6 $refs.append($bundle.add($node)) }
+                            { -> inet:dns:cname:fqdn :cname -> inet:fqdn $refs.append($bundle.add($node)) }
+                            fini { if $refs { return($refs)} }
+                         ''',
+                    },
                 }
             },
         },
-    },
 
-    'geo:place': {
-        'default': 'location',
-        'stix': {
-            'location': {
-                'props': {
-                    'name': '{+:name return(:name)} return($node.repr())',
-                    'created': 'return($lib.stix.export.timestamp(.created))',
-                    'modified': 'return($lib.stix.export.timestamp(.created))',
-                    'country': '+:loc $loc = :loc return($loc.split(".").0)',
-                    'latitude': '+:latlong $latlong = :latlong return($latlong.0)',
-                    'longitude': '+:latlong $latlong = :latlong return($latlong.1)',
+        'inet:asn': {
+            'default': 'autonomous-system',
+            'stix': {
+                'autonomous-system': {
+                    'props': {
+                        'name': '+:name return(:name)',
+                        'number': 'return($node.value())',
+                    },
+                }
+            },
+        },
+
+        'inet:email': {
+            'default': 'email-addr',
+            'stix': {
+                'email-addr': {
+                    'props': {
+                        'value': 'return($node.repr())',
+                        'display_name': '-> ps:contact +:name return(:name)',
+                        'belongs_to_ref': '-> inet:web:acct return($bundle.add($node))',
+                    },
+                }
+            },
+        },
+
+        'inet:web:acct': {
+            'default': 'user-account',
+            'stix': {
+                'user-account': {
+                    'props': {
+                        'user_id': 'return(:user)',
+                        'account_login': 'return(:user)',
+                        'account_type': '''
+                            {+:site=twitter.com return(twitter)}
+                            {+:site=facebook.com return(facebook)}
+                        ''',
+                        'credential': '+:passwd return(:passwd)',
+                        'display_name': '+:realname return(:realname)',
+                        'account_created': '+:signup return($lib.stix.export.timestamp(:signup))',
+                        'account_last_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.0))',
+                        'account_first_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.1))',
+                    },
+                }
+            },
+        },
+
+        'file:bytes': {
+            'default': 'file',
+            'stix': {
+                'file': {
+                    'props': {
+                        'name': '{+:name return(:name)} return($node.repr())',
+                        'size': '+:size return(:size)',
+                        'hashes': '''
+                            init { $dict = $lib.dict() }
+                            { +:md5 $dict.MD5 = :md5 }
+                            { +:sha1 $dict."SHA-1" = :sha1 }
+                            { +:sha256 $dict."SHA-256" = :sha256 }
+                            { +:sha512 $dict."SHA-512" = :sha512 }
+                            fini { if $dict { return($dict) } }
+                        ''',
+                        'mime_type': '+:mime return(:mime)',
+                        'contains_refs': '''
+                            init { $refs = $lib.list() }
+                            -(refs)> *
+                            $stixid = $bundle.add($node)
+                            if $stixid { $refs.append($stixid) }
+                            fini { if $refs { return($refs) } }
+                        ''',
+                    },
+                },
+            },
+        },
+
+        'inet:email:message': {
+            'default': 'email-message',
+            'stix': {
+                'email-message': {
+                    'props': {
+                        'date': '+:date return($lib.stix.export.timestamp(:date))',
+                        'subject': '+:subject return(:subject)',
+                        'message_id': '-> inet:email:header +:name=message_id return(:value)',
+                        'is_multipart': 'return($lib.false)',
+                        'from_ref': ':from -> inet:email return($bundle.add($node))',
+                        'to_refs': '''
+                            init { $refs = $lib.list() }
+                            { :to -> inet:email $refs.append($bundle.add($node)) }
+                            fini { if $refs { return($refs) } }
+                        ''',
+                    },
+                },
+            },
+        },
+
+        'inet:url': {
+            'default': 'url',
+            'stix': {
+                'url': {
+                    'props': {
+                        'value': 'return($node.repr())',
+                    },
+                }
+            },
+        },
+
+        'syn:tag': {
+            'default': 'malware',
+            'stix': {
+                'malware': {
+                    'props': {
+                        'name': '{+:title return(:title)} return($node.repr())',
+                        'is_family': 'return($lib.true)',
+                        'first_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.0))',
+                        'last_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.1))',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'sample_refs': '''
+                            init { $refs = $lib.list() }
+                            -> file:bytes $refs.append($bundle.add($node))
+                            fini { if $refs { return($refs) } }
+                        ''',
+                    },
+                    'rels': (
+                        # many of these depend on tag conventions (left for user to decide)
+
+                        #('controls', 'malware', '',
+                        #('authored-by', 'threat-actor', '',
+
+                        #('drops', 'file', '',
+                        #('drops', 'tool', '',
+                        #('drops', 'malware', '',
+
+                        #('downloads', 'file', '',
+                        #('downloads', 'tool', '',
+                        #('downloads', 'malware', '',
+
+                        #('uses', 'tool', '',
+                        #('uses', 'malware', '',
+                        #('targets', 'identity', '',
+                        #('targets', 'location', '',
+
+                        #('communicates-with', 'ipv4-addr',
+                        #('communicates-with', 'ipv6-addr',
+                        #('communicates-with', 'domain-name',
+                        #('communicates-with', 'url',
+                    ),
+                },
+            },
+        },
+
+        'it:prod:soft': {
+            'default': 'tool',
+            'stix': {
+                'tool': {
+                    'props': {
+                        'name': '{+:name return(:name)} return($node.repr())',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                    },
+                },
+            },
+        },
+
+        'it:prod:softver': {
+            'default': 'tool',
+            'stix': {
+                'tool': {
+                    'props': {
+                        'name': '-> it:prod:soft {+:name return(:name)} return($node.repr())',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'tool_version': '+:vers return(:vers)',
+                    },
+                    'rels': (
+                        #TODO
+                        #('has', 'vulnerability', ''),
+
+                        # depends on tag conventions
+                        #('delivers', 'malware', ''),
+                        #('drops', 'malware', ''),
+                        #('targets', 'identity', '')
+                        #('targets', 'infrastructure', '')
+                        #('targets', 'location', '')
+                        #('targets', 'vulnerability', '')
+                        #('uses', 'infrastructure', ''),
+                    ),
+                },
+            },
+        },
+
+        'media:news': {
+            'default': 'report',
+            'stix': {
+                'report': {
+                    'props': {
+                        'name': 'return(:title)',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'published': 'return($lib.stix.export.timestamp(:published))',
+                        'object_refs': '''
+                            init { $refs = $lib.list() }
+                            -(refs)> *
+                            $stixid = $bundle.add($node)
+                            if $stixid { $refs.append($stixid) }
+                            fini { return($refs) }
+                        ''',
+                    },
+                },
+            },
+        },
+
+        'it:app:yara:rule': {
+            'default': 'indicator',
+            'stix': {
+                'indicator': {
+                    'props': {
+                        'name': '+:name return(:name)',
+                        'description': 'return("a yara rule")',
+                        'pattern': '+:text return(:text)',
+                        'pattern_type': 'return(yara)',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'valid_from': 'return($lib.stix.export.timestamp(.created))',
+                    },
+                },
+            },
+        },
+
+        'it:app:snort:rule': {
+            'default': 'indicator',
+            'stix': {
+                'indicator': {
+                    'props': {
+                        'name': '+:name return(:name)',
+                        'description': 'return("a snort rule")',
+                        'pattern': '+:text return(:text)',
+                        'pattern_type': 'return(snort)',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'valid_from': 'return($lib.stix.export.timestamp(.created))',
+                    },
                 },
             },
         },
     },
-
-    'inet:ipv4': {
-        'default': 'ipv4-addr',
-        'stix': {
-            'ipv4-addr': {
-                'props': {
-                    'value': 'return($node.repr())',
-                },
-                'rels': (
-                    ('belongs-to', 'autonomous-system', '-> inet:asn'),
-                ),
-            }
-        },
-    },
-
-    'inet:ipv6': {
-        'default': 'ipv6-addr',
-        'stix': {
-            'ipv6-addr': {
-                'props': {
-                    'value': 'return($node.repr())',
-                },
-                'rels': (
-                    ('belongs-to', 'autonomous-system', '-> inet:asn'),
-                ),
-            }
-        },
-    },
-
-    'inet:fqdn': {
-        'default': 'domain-name',
-        'stix': {
-            'domain-name': {
-                'props': {
-                    'value': 'return($node.repr())',
-                    'resolves_to_refs': '''
-                        init { $refs = $lib.list() }
-                        { -> inet:dns:a -> inet:ipv4 $refs.append($bundle.add($node)) }
-                        { -> inet:dns:aaaa -> inet:ipv6 $refs.append($bundle.add($node)) }
-                        { -> inet:dns:cname:fqdn :cname -> inet:fqdn $refs.append($bundle.add($node)) }
-                        fini { if $refs { return($refs)} }
-                     ''',
-                },
-            }
-        },
-    },
-
-    'inet:asn': {
-        'default': 'autonomous-system',
-        'stix': {
-            'autonomous-system': {
-                'props': {
-                    'name': '+:name return(:name)',
-                    'number': 'return($node.value())',
-                },
-            }
-        },
-    },
-
-    'inet:email': {
-        'default': 'email-addr',
-        'stix': {
-            'email-addr': {
-                'props': {
-                    'value': 'return($node.repr())',
-                    'display_name': '-> ps:contact +:name return(:name)',
-                    'belongs_to_ref': '-> inet:web:acct return($bundle.add($node))',
-                },
-            }
-        },
-    },
-
-    'inet:web:acct': {
-        'default': 'user-account',
-        'stix': {
-            'user-account': {
-                'props': {
-                    'user_id': 'return(:user)',
-                    'account_login': 'return(:user)',
-                    'account_type': '''
-                        {+:site=twitter.com return(twitter)}
-                        {+:site=facebook.com return(facebook)}
-                    ''',
-                    'credential': '+:passwd return(:passwd)',
-                    'display_name': '+:realname return(:realname)',
-                    'account_created': '+:signup return($lib.stix.export.timestamp(:signup))',
-                    'account_last_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.0))',
-                    'account_first_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.1))',
-                },
-            }
-        },
-    },
-
-    'file:bytes': {
-        'default': 'file',
-        'stix': {
-            'tool': {
-                'rels': (
-                    #('targets', 'identity', '',
-                    #('targets', 'location', '',
-                ),
-            },
-            'file': {
-                'props': {
-                    'name': '+:name return(:name)',
-                    'size': '+:size return(:size)',
-                    'hashes': '''
-                        init { $dict = $lib.dict() }
-                        { +:md5 $dict.MD5 = :md5 }
-                        { +:sha1 $dict."SHA-1" = :sha1 }
-                        { +:sha256 $dict."SHA-256" = :sha256 }
-                        { +:sha512 $dict."SHA-512" = :sha512 }
-                        fini { if $dict { return($dict) } }
-                    ''',
-                    'mime_type': '+:mime return(:mime)',
-                    'contains_refs': '''
-                        init { $refs = $lib.list() }
-                        -(refs)> *
-                        $stixid = $bundle.add($node)
-                        if $stixid { $refs.append($stixid) }
-                        fini { if $refs { return($refs) } }
-                    ''',
-                },
-            },
-            'malware': {
-                'props': {
-                    'is_family': 'return($lib.false)',
-                    'created': 'return($lib.stix.export.timestamp(.created))',
-                    'modified': 'return($lib.stix.export.timestamp(.created))',
-                },
-
-                'rels': (
-                    # many of these depend on tag conventions (left for user to decide)
-
-                    #('controls', 'malware', '',
-                    #('authored-by', 'threat-actor', '',
-
-                    #('drops', 'file', '',
-                    #('drops', 'tool', '',
-                    #('drops', 'malware', '',
-
-                    #('downloads', 'file', '',
-                    #('downloads', 'tool', '',
-                    #('downloads', 'malware', '',
-
-                    #('uses', 'tool', '',
-                    #('uses', 'malware', '',
-                    #('targets', 'identity', '',
-                    #('targets', 'location', '',
-
-                    #('communicates-with', 'ipv4-addr',
-                    #('communicates-with', 'ipv6-addr',
-                    #('communicates-with', 'domain-name',
-                    #('communicates-with', 'url',
-                ),
-            },
-        },
-    },
-
-    'inet:email:message': {
-        'default': 'email-message',
-        'stix': {
-            'email-message': {
-                'props': {
-                    'date': '+:date return($lib.stix.export.timestamp(:date))',
-                    'subject': '+:subject return(:subject)',
-                    'message_id': '-> inet:email:header +:name=message_id return(:value)',
-                    'is_multipart': 'return($lib.false)',
-                    'from_ref': ':from -> inet:email return($bundle.add($node))',
-                    'to_refs': '''
-                        init { $refs = $lib.list() }
-                        { :to -> inet:email $refs.append($bundle.add($node)) }
-                        fini { if $refs { return($refs) } }
-                    ''',
-                },
-            },
-        },
-    },
-
-    'inet:url': {
-        'default': 'url',
-        'stix': {
-            'url': {
-                'props': {
-                    'value': 'return($node.repr())',
-                },
-            }
-        },
-    },
-
-    'syn:tag': {
-        'default': 'malware',
-        'stix': {
-            'malware': {
-            },
-        },
-    },
-
-    'it:prod:soft': {
-        'default': 'tool',
-        'stix': {
-            'tool': {
-                'props': {
-                    'name': '+:name return(:name)',
-                },
-            },
-        },
-    },
-
-    'it:prod:softver': {
-        'default': 'tool',
-        'stix': {
-            'tool': {
-                'props': {
-                    'name': '-> it:prod:soft +:name return(:name)',
-                    'tool_version': '+:vers return(:vers)',
-                },
-            },
-        },
-    },
-
-    'media:news': {
-        'default': 'report',
-        'stix': {
-            'report': {
-                'props': {
-                    'name': 'return(:title)',
-                    'created': 'return($lib.stix.export.timestamp(.created))',
-                    'modified': 'return($lib.stix.export.timestamp(.created))',
-                    'published': 'return($lib.stix.export.timestamp(:published))',
-                    'object_refs': '''
-                        init { $refs = $lib.list() }
-                        -(refs)> *
-                        $stixid = $bundle.add($node)
-                        if $stixid { $refs.append($stixid) }
-                        fini { return($refs) }
-                    ''',
-                },
-            },
-        },
-    },
-
-    'it:app:yara:rule': {
-        'default': 'indicator',
-        'stix': {
-            'indicator': {
-                'props': {
-                    'name': '+:name return(:name)',
-                    'description': 'return("a yara rule")',
-                    'pattern': '+:text return(:text)',
-                    'pattern_type': 'return(yara)',
-                    'created': 'return($lib.stix.export.timestamp(.created))',
-                    'modified': 'return($lib.stix.export.timestamp(.created))',
-                    'valid_from': 'return($lib.stix.export.timestamp(.created))',
-                },
-            },
-        },
-    },
-
-    'it:app:snort:rule': {
-        'default': 'indicator',
-        'stix': {
-            'indicator': {
-                'props': {
-                    'name': '+:name return(:name)',
-                    'description': 'return("a snort rule")',
-                    'pattern': '+:text return(:text)',
-                    'pattern_type': 'return(snort)',
-                    'created': 'return($lib.stix.export.timestamp(.created))',
-                    'modified': 'return($lib.stix.export.timestamp(.created))',
-                    'valid_from': 'return($lib.stix.export.timestamp(.created))',
-                },
-            },
-        },
-    }
 }
 
 def _validateConfig(core, config):
-    for formname, formconf in config.items():
+
+    maxsize = config.get('maxsize', 10000)
+
+    if not isinstance(maxsize, int):
+        mesg = f'STIX Bundle config maxsize option must be an integer.'
+        raise s_exc.BadConfValu(mesg=mesg)
+
+    if maxsize > 10000:
+        mesg = f'STIX Bundle config maxsize option must be <= 10000.'
+        raise s_exc.BadConfValu(mesg=mesg)
+
+    formmaps = config.get('forms')
+    if formmaps is None:
+        mesg = f'STIX Bundle config is missing "forms" mappings.'
+        raise s_exc.NeedConfValu(mesg=mesg)
+
+    for formname, formconf in formmaps.items():
         form = core.model.form(formname)
         if form is None:
             mesg = f'STIX Bundle config contains invalid form name {formname}.'
@@ -409,6 +453,10 @@ def _validateConfig(core, config):
         if stixdef is None:
             mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
             raise s_exc.NeedConfValu(mesg=mesg)
+
+        if stixdef not in stix_all:
+            mesg = f'STIX Bundle default mapping ({stixdef}) for {formname} is not a STIX type.'
+            raise s_exc.BadConfValu(mesg=mesg)
 
         stixmaps = formconf.get('stix')
         if stixmaps is None:
@@ -420,6 +468,11 @@ def _validateConfig(core, config):
             raise s_exc.BadConfValu(mesg=mesg)
 
         for stixtype, stixinfo in stixmaps.items():
+
+            if stixtype not in stix_all:
+                mesg = f'STIX Bundle config has unknown STIX type {stixtype} for form {formname}.'
+                raise s_exc.BadConfValu(mesg=mesg)
+
             stixprops = stixinfo.get('props')
             if stixprops is not None:
                 for stixprop, stormtext in stixprops.items():
@@ -448,26 +501,53 @@ class LibStix(s_stormtypes.Lib):
         how to resolove STIX properties and relationships.  The config expects to following format:
 
             {
-                <formname>: {
-                    "default": <stixtype0>,
-                    "stix": {
-                        <stixtype0>: {
-                            "props": {
-                                <stix_prop_name>: <storm_with_return>,
-                                ...
+                "maxsize": 10000,
+
+                "forms": {
+                    <formname>: {
+                        "default": <stixtype0>,
+                        "stix": {
+                            <stixtype0>: {
+                                "props": {
+                                    <stix_prop_name>: <storm_with_return>,
+                                    ...
+                                },
+                                "rels": (
+                                    ( <relname>, <target_stixtype>, <storm> ),
+                                    ...
+                                )
                             },
-                            "rels": (
-                                ( <relname>, <target_stixtype>, <storm> ),
-                                ...
-                            )
+                            <stixtype1>: ...
                         },
-                        <stixtype1>: ...
                     },
                 },
             },
 
         For example, the default config includes the following entry to map ou:campaign nodes to stix campaigns:
 
+            { "forms": {
+                "ou:campaign": {
+                    "default": "campaign",
+                    "stix": {
+                        "campaign": {
+                            "props": {
+                                "name": "{+:name return(:name)} return($node.repr())",
+                                "description": "+:desc return(:desc)",
+                                "objective": "+:goal :goal -> ou:goal +:name return(:name)",
+                                "created": "return($lib.stix.export.timestamp(.created))",
+                                "modified": "return($lib.stix.export.timestamp(.created))",
+                            },
+                            "rels": (
+                                ("attributed-to", "threat-actor", ":org -> ou:org"),
+                                ("originates-from", "location", ":org -> ou:org :hq -> geo:place"),
+                                ("targets", "identity", "-> risk:attack :target:org -> ou:org"),
+                                ("targets", "identity", "-> risk:attack :target:person -> ps:person"),
+                            ),
+                        },
+                    },
+            }},
+
+        NOTE: The default config is an evolving set of mappings.  If you need to guarantee stable output please specify a config.
 
         ''',
          'type': {
@@ -523,26 +603,55 @@ class LibStix(s_stormtypes.Lib):
         dt = datetime.datetime.utcfromtimestamp(tick / 1000.0)
         return dt.isoformat(timespec='milliseconds') + 'Z'
 
-cyberobservables = {
-    'url',
-    'file',
-    'mutex',
-    'process',
+stix_sdos = {
+    'attack-pattern',
+    'campaign',
+    'course-of-action',
+    'grouping',
+    'identity',
+    'incident',
+    'indicator',
+    'infrastructure',
+    'intrusion-set',
+    'location',
+    'malware-analysis',
+    'malware',
+    'note',
+    'observed-data',
+    'opinion',
+    'report',
+    'threat-actor',
+    'tool',
+    'vulnerability',
+}
+
+stix_sros = {
+    'sighting',
+    'relationship',
+}
+
+stix_observables = {
     'artifact',
-    'mac-addr',
-    'software',
+    'autonomous-system',
     'directory',
+    'domain-name',
+    'email-addr',
+    'email-message',
+    'file',
     'ipv4-addr',
     'ipv6-addr',
-    'email-addr',
-    'archive-ext',
+    'mac-addr',
+    'mutex',
+    'network-traffic',
+    'process',
+    'software',
+    'url',
     'user-account',
-    'domain-name',
-    'email-message',
-    'x509-certificate',
-    'autonomous-system',
     'windows-registry-key',
+    'x509-certificate',
 }
+
+stix_all = set().union(stix_sdos, stix_sros, stix_observables)
 
 @s_stormtypes.registry.registerType
 class StixBundle(s_stormtypes.Prim):
@@ -588,6 +697,7 @@ class StixBundle(s_stormtypes.Prim):
         self.config = config
         self.locls.update(self.getObjLocals())
         self.objs = {}  # id -> STIX obj(dict)
+        self.maxsize = config.get('maxsize', 10000)
 
     async def value(self):
         return self.pack()
@@ -604,11 +714,15 @@ class StixBundle(s_stormtypes.Prim):
 
     async def add(self, node, stixtype=None):
 
+        if len(self.objs) >= self.maxsize:
+            mesg = f'STIX Bundle is at maxsize ({self.maxsize}).'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         if not isinstance(node, s_node.Node):
             await self.runt.warnonce('STIX bundle add() method requires a node.')
             return None
 
-        formconf = self.config.get(node.form.name)
+        formconf = self.config['forms'].get(node.form.name)
         if formconf is None:
             await self.runt.warnonce('STIX bundle has no config for mapping {node.form.name}.')
             return None
@@ -617,7 +731,7 @@ class StixBundle(s_stormtypes.Prim):
             stixtype = formconf.get('default')
 
         # cyber observables have UUIDv5 the rest have UUIDv4
-        if stixtype in cyberobservables:
+        if stixtype in stix_observables:
             stixid = f'{stixtype}--{uuid5(node.ndef)}'
         else:
             stixid = f'{stixtype}--{uuid4(node.ndef)}'
