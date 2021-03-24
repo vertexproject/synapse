@@ -2061,56 +2061,64 @@ class HelpCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        if not self.runtsafe:
+            mesg = 'help does not support per-node invocation'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         async for item in genr:
             yield item
 
-        if not self.opts.command:
-            stormcmds = sorted(runt.snap.core.getStormCmds())
-            stormpkgs = await runt.snap.core.getStormPkgs()
+        stormcmds = sorted(runt.snap.core.getStormCmds())
 
-            pkgsvcs = {}
-            pkgcmds = {}
-            pkgmap = {}
+        if self.opts.command:
+            stormcmds = [c for c in stormcmds if self.opts.command in c[0]]
 
-            for pkg in stormpkgs:
-                svciden = pkg.get('svciden')
-                pkgname = pkg.get('name')
+        stormpkgs = await runt.snap.core.getStormPkgs()
 
-                for cmd in pkg.get('commands', []):
-                    pkgmap[cmd.get('name')] = pkgname
+        pkgsvcs = {}
+        pkgcmds = {}
+        pkgmap = {}
 
-                ssvc = runt.snap.core.getStormSvc(svciden)
-                if ssvc is not None:
-                    pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
+        for pkg in stormpkgs:
+            svciden = pkg.get('svciden')
+            pkgname = pkg.get('name')
 
-            if stormcmds:
-                maxlen = max(len(x[0]) for x in stormcmds)
+            for cmd in pkg.get('commands', []):
+                pkgmap[cmd.get('name')] = pkgname
 
-                for name, ctor in stormcmds:
-                    cmdinfo = f'{name:<{maxlen}}: {ctor.getCmdBrief()}'
-                    pkgcmds.setdefault(pkgmap.get(name, 'synapse'), []).append(cmdinfo)
+            ssvc = runt.snap.core.getStormSvc(svciden)
+            if ssvc is not None:
+                pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
+
+        if stormcmds:
+            maxlen = max(len(x[0]) for x in stormcmds)
+
+            for name, ctor in stormcmds:
+                cmdinfo = f'{name:<{maxlen}}: {ctor.getCmdBrief()}'
+                pkgcmds.setdefault(pkgmap.get(name, 'synapse'), []).append(cmdinfo)
+
+            syncmds = pkgcmds.pop('synapse', [])
+            if syncmds:
 
                 await runt.printf(f'package: synapse')
 
-                for cmd in pkgcmds.pop('synapse', []):
+                for cmd in syncmds:
                     await runt.printf(cmd)
 
                 await runt.printf('')
 
-                for name, cmds in sorted(pkgcmds.items()):
-                    svcinfo = pkgsvcs.get(name)
+            for name, cmds in sorted(pkgcmds.items()):
+                svcinfo = pkgsvcs.get(name)
 
-                    if svcinfo:
-                        await runt.printf(f'service: {svcinfo}')
+                if svcinfo:
+                    await runt.printf(f'service: {svcinfo}')
 
-                    await runt.printf(f'package: {name}')
+                await runt.printf(f'package: {name}')
 
-                    for cmd in cmds:
-                        await runt.printf(cmd)
+                for cmd in cmds:
+                    await runt.printf(cmd)
 
-                    await runt.printf('')
-
-        await runt.printf('For detailed help on any command, use <cmd> --help')
+                await runt.printf('')
 
 class MergeCmd(Cmd):
     '''
