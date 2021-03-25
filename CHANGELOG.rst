@@ -5,6 +5,37 @@ Synapse Changelog
 *****************
 
 
+v2.31.0 - 2021-03-24
+====================
+
+Features and Enhancements
+-------------------------
+- Add initial capability for exporting STIX 2.1 from the Cortex.
+  (`#2120 <https://github.com/vertexproject/synapse/pull/2120>`_)
+- Refactor how lift APIs are implemented, moving them up to the Cortex itself.
+  This results in multi-layer lifts now yielding nodes in a sorted order.
+  (`#2093 <https://github.com/vertexproject/synapse/pull/2093>`_)
+  (`#2128 <https://github.com/vertexproject/synapse/pull/2128>`_)
+- Add ``$lib.range()`` Storm function to generate ranges of integers.
+  (`#2122 <https://github.com/vertexproject/synapse/pull/2122>`_)
+- Add an ``errok`` option to the ``$lib.time.parse()`` Storm function to
+  allow the function to return ``$lib.null`` if the time string fails to
+  parse.
+  (`#2126 <https://github.com/vertexproject/synapse/pull/2126>`_)
+- Don't execute Cron jobs, Triggers, or StormDmons for locked users.
+  (`#2123 <https://github.com/vertexproject/synapse/pull/2123>`_)
+  (`#2129 <https://github.com/vertexproject/synapse/pull/2129>`_)
+- The ``git`` commit hash is now embedded into the ``synapse.lib.version``
+  module when building PyPi packages and Docker images.
+  (`#2119 <https://github.com/vertexproject/synapse/pull/2119>`_)
+
+Improved Documentation
+----------------------
+- Update Axon wget API documentation to note that we always store the body of
+  the HTTP response, regardless of status code.
+  (`#2125 <https://github.com/vertexproject/synapse/pull/2125>`_)
+
+
 v2.30.0 - 2021-03-17
 ====================
 
