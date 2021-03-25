@@ -10,7 +10,7 @@ class VersionLib(s_stormtypes.Lib):
     A Storm Library for interacting with version information.
     '''
     _storm_locals = (
-        {'name': 'version',
+        {'name': 'synapse',
          'desc': 'The synapse version tuple for the local Cortex.',
          'type': {'type': 'function', '_funcname': '_getSynVersion',
                   'returns': {'type': 'list', 'desc': 'The version triple.', }}},
