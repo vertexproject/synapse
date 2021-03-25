@@ -200,9 +200,9 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
             await self.proxy.waitready()
             return await s_stormtypes.Proxy.deref(self, name)
         except asyncio.TimeoutError:
-            mesg = 'Timeout waiting for storm service'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
+            mesg = f'Timeout waiting for storm service {self.name}.{name}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name, service=self.name) from None
         except AttributeError as e:  # pragma: no cover
             # possible client race condition seen in the real world
-            mesg = f'Error dereferencing storm service - {str(e)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
+            mesg = f'Error dereferencing storm service - {self.name}.{name} - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name, service=self.name) from None
