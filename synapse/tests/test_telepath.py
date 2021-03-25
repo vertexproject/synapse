@@ -793,6 +793,7 @@ class TeleTest(s_t_utils.SynTest):
 
             # Client implements some base helpers the proxy does
             self.eq(targ._getSynVers(), s_version.version)
+            self.eq(targ._getSynCommit(), s_version.commit)
             self.eq(targ._getClasses(),
                     ('synapse.tests.test_telepath.TestRedir',
                      'synapse.telepath.Aware'))

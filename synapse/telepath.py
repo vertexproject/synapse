@@ -1053,6 +1053,19 @@ class Client(s_base.Base):
         '''
         return self._t_proxy._getSynVers()
 
+    def _getSynCommit(self):
+        '''
+        Helper method to retrieve the remote Synapse commit hash from Proxy.
+
+        Notes:
+            This will return None if the synapse commit hash was not supplied
+            during the Telepath handshake.
+
+        Returns:
+            str: A string containing the commit hash. This may be a empty string.
+        '''
+        return self._t_proxy._getSynCommit()
+
     def _getClasses(self):
         '''
         Helper method to retrieve the classes that comprise the remote object
