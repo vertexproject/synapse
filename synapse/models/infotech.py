@@ -8,6 +8,31 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
+class Cpe23Str(s_types.Str):
+    '''
+    CPE 2.3 Formatted String
+
+    https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir7695.pdf
+
+    (Section 6.2)
+
+    cpe:2.3: part : vendor : product : version : update : edition :
+        language : sw_edition : target_sw : target_hw : other
+
+    * = "any"
+    - = N/A
+    '''
+
+    def _normPyStr(self, valu):
+        text, info = Str._normPyStr(self, valu)
+
+        def noms(x, o):
+            s = o
+            while o < len(x):
+                if x[o] == '\\':
+                    o += 1
+                    continue
+
 class SemVer(s_types.Int):
     '''
     Provides support for parsing a semantic version string into its component
