@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.30.0'
+VERSION = '2.31.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -92,6 +92,7 @@ setup(
         'Pygments>=2.6.0,<2.7.0',
         'packaging>=20.0,<21.0',
         'fastjsonschema>=2.14.3,<2.15',
+        'stix2-validator>=2.0.4,<3.0',
     ],
 
     extras_require={
