@@ -270,6 +270,7 @@ commands:
             cp dist/*.tar.gz /tmp/sdisttest
             cd /tmp/sdisttest
             . ./venv/bin/activate
+            python3 -m twine check *.tar.gz
             python3 -m pip install -U wheel pip
             python3 -m pip install *.tar.gz
             python3 -c "$PYPI_SMOKE_CODE"
@@ -293,6 +294,7 @@ commands:
             cp dist/*.whl /tmp/wheeltest
             cd /tmp/wheeltest
             . ./venv/bin/activate
+            python3 -m twine check *.whl
             python3 -m pip install -U wheel pip
             python3 -m pip install *.whl
             python3 -c "$PYPI_SMOKE_CODE"
@@ -583,6 +585,18 @@ jobs:
     steps:
       - test_steps_doc
 
+  python_package_smoketest:
+    docker:
+      - image: circleci/python:3.8
+        environment:
+          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
+          PYTHON_TAG: py38
+
+    steps:
+      - deploy_pypi_prologue
+      - deploy_pypi_wheel_build
+      - deploy_pypi_sdist_build
+
   deploy_pypi:
     docker:
       - image: circleci/python:3.8
@@ -674,6 +688,15 @@ workflows:
               only:
                 - master
 
+      - python_package_smoketest:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only:
+                - master
+                - pkg_smoketest
+
       - deploy_pypi:
           requires:
             - doctests
@@ -705,6 +728,7 @@ workflows:
             - doctests
             - python37
             - python38
+            - python_package_smoketest
           filters:
             branches:
               only:
@@ -717,6 +741,7 @@ workflows:
             - python38
             - python37_replay
             - python38_replay
+            - python_package_smoketest
           context: GithubMachine
           filters:
             tags:
@@ -731,6 +756,7 @@ workflows:
             - python38
             - python37_replay
             - python38_replay
+            - python_package_smoketest
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -744,6 +770,7 @@ workflows:
             - python38
             - python37_replay
             - python38_replay
+            - python_package_smoketest
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
