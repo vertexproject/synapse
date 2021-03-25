@@ -2761,7 +2761,8 @@ class EmbedQuery(Const):
         pass
 
     def getRuntVars(self, runt):
-        if 0: yield
+        if 0:
+            yield
 
     async def compute(self, runt, path):
 
@@ -2991,26 +2992,31 @@ class EditPropSet(Edit):
 
             try:
 
-                valu = await self.kids[2].compute(runt, path)
-                valu = await s_stormtypes.toprim(valu)
+                try:
+                    valu = await self.kids[2].compute(runt, path)
+                    valu = await s_stormtypes.toprim(valu)
 
-                # Setting a value to a subquery means assigning the value of
-                # the primary property (for a single value) or array of values
-                if isinstance(self.kids[2], SubQuery):
+                    # Setting a value to a subquery means assigning the value of
+                    # the primary property (for a single value) or array of values
+                    if isinstance(self.kids[2], SubQuery):
 
-                    if not isarray:
+                        if not isarray:
 
-                        if len(valu) != 1:
-                            if len(valu) == 0:
-                                mesg = "Subquery assignment didn't return any nodes."
-                            else:
-                                mesg = 'Subquery assignment returned more than 1 node.'
-                            raise s_exc.BadTypeValu(mesg=mesg)
+                            if len(valu) != 1:
+                                if len(valu) == 0:
+                                    mesg = "Subquery assignment didn't return any nodes."
+                                else:
+                                    mesg = 'Subquery assignment returned more than 1 node.'
+                                raise s_exc.BadTypeValu(mesg=mesg)
 
-                        valu = valu[0]
+                            valu = valu[0]
 
-                    else:
-                        expand = False
+                        else:
+                            expand = False
+
+                except s_stormctrl.StormReturn as e:
+                    # a subquery assignment with a return; just use the returned value
+                    valu = await s_stormtypes.toprim(e.item)
 
                 if isadd or issub:
 

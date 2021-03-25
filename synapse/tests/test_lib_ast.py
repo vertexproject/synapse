@@ -717,7 +717,7 @@ class AstTest(s_test.SynTest):
             self.len(0, nodes)
 
     async def test_ast_embed_compute(self):
-        # currently a simple smoke test for the EmbedQuery.compute method
+        # =${...} assigns a query object to a variable
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:int=20 ]  $q=${#foo.bar}')
             self.len(2, nodes)
