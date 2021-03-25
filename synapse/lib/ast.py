@@ -3004,9 +3004,9 @@ class EditPropSet(Edit):
 
                             if len(valu) != 1:
                                 if len(valu) == 0:
-                                    mesg = "Subquery assignment didn't return any nodes."
+                                    mesg = "Subquery assignment didn't yield any nodes."
                                 else:
-                                    mesg = 'Subquery assignment returned more than 1 node.'
+                                    mesg = 'Subquery assignment yielded more than 1 node.'
                                 raise s_exc.BadTypeValu(mesg=mesg)
 
                             valu = valu[0]
