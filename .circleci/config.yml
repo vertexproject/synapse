@@ -700,7 +700,6 @@ workflows:
             branches:
               only:
                 - master
-                - pkg_smoketest
 
       - deploy_pypi:
           requires:
