@@ -833,7 +833,7 @@ class SetItemOper(Oper):
 
             yield node, path
 
-        if count == 0 and vkid.isRuntSafe(runt):
+        if count == 0 and self.isRuntSafe(runt):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, None), basetypes=False)
 
@@ -3496,10 +3496,9 @@ class Return(Oper):
             raise s_stormctrl.StormReturn(valu)
 
         # no items in pipeline... execute
-        if self.kids:
+        if self.kids and self.isRuntSafe(runt):
             valu = await self.kids[0].compute(runt, None)
-
-        raise s_stormctrl.StormReturn(valu)
+            raise s_stormctrl.StormReturn(valu)
 
 class FuncArgs(AstNode):
 

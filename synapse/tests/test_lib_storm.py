@@ -523,6 +523,21 @@ class StormTest(s_t_utils.SynTest):
                     with self.raises(s_exc.StormRuntimeError):
                         await runt.getOneNode('ou:org:name', 'dupcorp')
 
+    async def test_storm_dmon_user_locked(self):
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('dmon', 'add')))
+            async with core.getLocalProxy(user='visi') as asvisi:
+                q = '''return($lib.dmon.add(${{ $lib.queue.gen(hehedmon).put(lolz) $lib.time.sleep(10) }},
+                                            name=hehedmon))'''
+                ddef0 = await asvisi.callStorm(q)
+
+            with self.getAsyncLoggerStream('synapse.lib.storm', 'user is locked') as stream:
+                await visi.setLocked(True)
+                q = 'return($lib.dmon.bump($iden))'
+                self.true(await core.callStorm(q, opts={'vars': {'iden': ddef0['iden']}}))
+                self.true(await stream.wait(2))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
@@ -704,6 +719,9 @@ class StormTest(s_t_utils.SynTest):
 
                 await tagnode.set('doc', 'haha doc')
                 await tagnode.set('title', 'haha title')
+
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag hehe hehe')
 
             await core.nodes('movetag hehe woot')
 

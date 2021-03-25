@@ -1234,6 +1234,10 @@ class LibAxon(Lib):
         {'name': 'wget', 'desc': """
             A method to download an HTTP(S) resource into the Cortex's Axon.
 
+            Notes:
+                The response body will be stored regardless of the status code. See the ``Axon.wget()`` API
+                documentation to see the complete structure of the response dictionary.
+
             Example:
                 Get the Vertex Project website::
 
@@ -1598,6 +1602,8 @@ class LibTime(Lib):
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The timestamp string to parse.', },
                       {'name': 'format', 'type': 'str', 'desc': 'The format string to use for parsing.', },
+                      {'name': 'errok', 'type': 'boolean', 'default': False,
+                       'desc': 'If set, parsing errors will return ``$lib.null`` instead of raising an exception.'}
                   ),
                   'returns': {'type': 'int', 'desc': 'The epoch timetsamp for the string.', }}},
         {'name': 'format', 'desc': '''
@@ -1681,10 +1687,13 @@ class LibTime(Lib):
                                           format=format) from None
         return ret
 
-    async def _parse(self, valu, format):
+    async def _parse(self, valu, format, errok=False):
+        errok = await tobool(errok)
         try:
             dt = datetime.datetime.strptime(valu, format)
         except ValueError as e:
+            if errok:
+                return None
             mesg = f'Error during time parsing - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
                                           format=format) from None
