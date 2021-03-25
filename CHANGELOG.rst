@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.31.0 - 2021-03-23
+v2.31.0 - 2021-03-24
 ====================
 
 Features and Enhancements
