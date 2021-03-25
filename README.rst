@@ -37,6 +37,8 @@ Connect With Us
 .. |slack| image:: http://slackinvite.vertex.link/badge.svg
 .. _slack: http://slackinvite.vertex.link/
 
+.. _dockerhub: https://hub.docker.com/r/vertexproject/synapse/
+
 .. _pypi: https://pypi.python.org/pypi/synapse
 
 .. _website: http://snip.ly/v3bjz5
