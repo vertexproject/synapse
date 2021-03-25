@@ -5,6 +5,16 @@ Synapse Changelog
 *****************
 
 
+v2.31.1 - 2021-03-25
+====================
+
+Bugfixes
+--------
+- Fix a formatting issue preventing Python packages from being uploaded to
+  PyPI.
+  (`#2131 <https://github.com/vertexproject/synapse/pull/2131>`_)
+
+
 v2.31.0 - 2021-03-24
 ====================
 
