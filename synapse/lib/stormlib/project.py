@@ -70,6 +70,7 @@ class ProjectEpics(s_stormtypes.Prim):
 
         await self.proj.runt.snap.applyNodeEdits(nodeedits)
         await epic.node.delete()
+        return True
 
     async def _addProjEpic(self, name):
         self.proj.confirm(('project', 'epic', 'add'))
@@ -187,7 +188,7 @@ class ProjectTicket(s_stormtypes.Prim):
 
         self.proj.confirm(('project', 'ticket', 'set', 'assignee'))
 
-        strvalu = await tostr(valu)
+        strvalu = await tostr(valu, noneok=True)
 
         if strvalu is None:
             await self.node.pop('assignee')
@@ -196,7 +197,7 @@ class ProjectTicket(s_stormtypes.Prim):
 
         udef = await self.proj.runt.snap.core.getUserDefByName(strvalu)
         if udef is None:
-            mesg = 'No user found by the name {strvalu}'
+            mesg = f'No user found by the name {strvalu}'
             raise s_exc.NoSuchUser(mesg=mesg)
         await self.node.set('assignee', udef['iden'])
         await self.node.set('updated', s_common.now())
@@ -325,11 +326,12 @@ class ProjectSprint(s_stormtypes.Prim):
         else:
             await self.node.set('name', valu)
 
-    async def _getSprintTickets(self):
-        retn = []
+    async def _getSprintTickets(self, path=None):
+        #retn = []
         async for node in self.proj.runt.snap.nodesByPropValu('proj:ticket:sprint', '=', self.node.ndef[1]):
-            retn.append(ProjectTicket(self.proj, node))
-        return s_stormtypes.List(retn)
+            yield ProjectTicket(self.proj, node)
+            #retn.append(ProjectTicket(self.proj, node))
+        #return s_stormtypes.List(retn)
 
     def getObjLocals(self):
         return {

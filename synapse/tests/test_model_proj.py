@@ -72,6 +72,11 @@ class ProjModelTest(s_test.SynTest):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = visi', opts=opts)
             await visi.addRule((True, ('project', 'ticket', 'set', 'assignee')), gateiden=proj)
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = visi', opts=opts)
+            await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = $lib.null', opts=opts)
+            self.len(0, await core.nodes('proj:ticket:assignee', opts=opts))
+            await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = visi', opts=opts)
+            self.len(1, await core.nodes('proj:ticket:assignee', opts=opts))
+
             with self.raises(s_exc.NoSuchUser):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = newp', opts=opts)
             # now as assignee visi should be able to update status
@@ -81,6 +86,10 @@ class ProjModelTest(s_test.SynTest):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = giter', opts=opts)
             await visi.addRule((True, ('project', 'ticket', 'set', 'sprint')), gateiden=proj)
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = giter', opts=opts)
+            await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = $lib.null', opts=opts)
+            self.len(0, await core.nodes('proj:ticket:sprint', opts=opts))
+            await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = giter', opts=opts)
+            self.len(1, await core.nodes('proj:ticket:sprint', opts=opts))
             with self.raises(s_exc.NoSuchName):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = newp', opts=opts)
 
@@ -143,6 +152,17 @@ class ProjModelTest(s_test.SynTest):
             await visi.addRule((True, ('project', 'ticket', 'set', 'priority')), gateiden=proj)
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).priority = highest', opts=opts)
 
+            # test that we can lift by name prefix...
+            self.nn(await core.callStorm('return($lib.projects.get($proj).epics.get(ba))', opts=opts))
+            self.nn(await core.callStorm('return($lib.projects.get($proj).tickets.get(zoi))', opts=opts))
+
+            # test iter sprint tickets
+            self.eq('zoinks', await core.callStorm('''
+                for $tick in $lib.projects.get($proj).sprints.get($sprint).tickets {
+                    return($tick.name)
+                }
+            ''', opts=opts))
+
             nodes = await core.nodes('proj:project')
             self.len(1, nodes)
 
@@ -155,6 +175,7 @@ class ProjModelTest(s_test.SynTest):
             self.nn(nodes[0].get('creator'))
             self.nn(nodes[0].get('created'))
             self.nn(nodes[0].get('updated'))
+            self.nn(nodes[0].get('assignee'))
             self.eq(70, nodes[0].get('status'))
             self.eq(50, nodes[0].get('priority'))
             self.eq('done', nodes[0].repr('status'))
@@ -169,7 +190,8 @@ class ProjModelTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).epics.del($epic)', opts=opts)
             await visi.addRule((True, ('project', 'epic', 'del')), gateiden=proj)
-            await core.callStorm('$lib.projects.get($proj).epics.del($epic)', opts=opts)
+            self.true(await core.callStorm('return($lib.projects.get($proj).epics.del($epic))', opts=opts))
+            self.false(await core.callStorm('return($lib.projects.get($proj).epics.del($epic))', opts=opts))
             self.len(0, await core.nodes('proj:ticket:epic'))
 
             with self.raises(s_exc.AuthDeny):
