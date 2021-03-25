@@ -14,6 +14,10 @@ class VersionLib(s_stormtypes.Lib):
          'desc': 'The synapse version tuple for the local Cortex.',
          'type': {'type': 'function', '_funcname': '_getSynVersion',
                   'returns': {'type': 'list', 'desc': 'The version triple.', }}},
+        {'name': 'commit',
+         'desc': 'The synapse commit hash for the local Cortex.',
+         'type': {'type': 'function', '_funcname': '_getSynCommit',
+                  'returns': {'type': 'str', 'desc': 'The commit hash.', }}},
         {'name': 'matches',
          'desc': '''
             Check if the given version triple meets the requirements string.
@@ -38,11 +42,15 @@ class VersionLib(s_stormtypes.Lib):
     def getObjLocals(self):
         return {
             'matches': self.matches,
+            'commit': self._getSynCommit,
             'synapse': self._getSynVersion,
         }
 
     async def _getSynVersion(self):
         return s_version.version
+
+    async def _getSynCommit(self):
+        return s_version.commit
 
     async def matches(self, vertup, reqstr):
         reqstr = await s_stormtypes.tostr(reqstr)

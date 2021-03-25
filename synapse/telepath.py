@@ -531,6 +531,19 @@ class Proxy(s_base.Base):
         version = self.sharinfo.get('syn:version')
         return version
 
+    def _getSynCommit(self):
+        '''
+        Helper method to retrieve the remote Synapse commit hash from Proxy.
+
+        Notes:
+            This will return None if the synapse commit hash was not supplied
+            during the Telepath handshake.
+
+        Returns:
+            str: A string containing the commit hash. This may be a empty string.
+        '''
+        return self.sharinfo.get('syn:commit')
+
     def _getClasses(self):
         '''
         Helper method to retrieve the classes that comprise the remote object.

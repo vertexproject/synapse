@@ -73,6 +73,7 @@ def getShareInfo(item):
 
     meths = {}
     info = {'meths': meths,
+            'syn:commit': s_version.commit,
             'syn:version': s_version.version,
             'classes': getClsNames(item),
             }
