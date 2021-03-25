@@ -987,6 +987,8 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _sorted(self, valu, reverse=False):
         valu = await toprim(valu)
+        if isinstance(valu, dict):
+            valu = list(valu.items())
         for item in sorted(valu, reverse=reverse):
             yield item
 
@@ -2868,13 +2870,6 @@ class Dict(Prim):
     Implements the Storm API for a Dictionary object.
     '''
     _storm_typename = 'dict'
-    # TODO Add inline examples here once we have the stormrst stable
-    def __iter__(self):
-        return self.valu.items()
-
-    async def __aiter__(self):
-        for item in self.valu.items():
-            yield item
 
     def __len__(self):
         return len(self.valu)
@@ -2905,15 +2900,6 @@ class CmdOpts(Dict):
     '''
     _storm_typename = 'storm:cmdopts'
 
-    def __iter__(self):
-        valu = vars(self.valu.opts)
-        return valu.items()
-
-    async def __aiter__(self):
-        valu = vars(self.valu.opts)
-        for item in valu.items():
-            yield item
-
     def __len__(self):
         valu = vars(self.valu.opts)
         return len(valu)
@@ -2930,6 +2916,11 @@ class CmdOpts(Dict):
     async def value(self):
         valu = vars(self.valu.opts)
         return {await toprim(k): await toprim(v) for (k, v) in valu.items()}
+
+    async def iter(self):
+        valu = vars(self.valu.opts)
+        for item in valu.items():
+            yield item
 
 @registry.registerType
 class Set(Prim):
@@ -2990,11 +2981,7 @@ class Set(Prim):
             'size': self._methSetSize,
         }
 
-    def __iter__(self):
-        for item in self.valu:
-            yield item
-
-    async def __aiter__(self):
+    async def iter(self):
         for item in self.valu:
             yield item
 
@@ -3073,10 +3060,6 @@ class List(Prim):
             'append': self._methListAppend,
         }
 
-    def __iter__(self):
-        for item in self.valu:
-            yield item
-
     async def setitem(self, name, valu):
 
         indx = await toint(name)
@@ -3092,10 +3075,6 @@ class List(Prim):
 
     async def _derefGet(self, name):
         return await self._methListIndex(name)
-
-    async def __aiter__(self):
-        for item in self:
-            yield item
 
     def __len__(self):
         return len(self.valu)
@@ -3139,6 +3118,10 @@ class List(Prim):
 
     async def value(self):
         return tuple([await toprim(v) for v in self.valu])
+
+    async def iter(self):
+        for item in self.valu:
+            yield item
 
 @registry.registerType
 class Bool(Prim):
@@ -3349,8 +3332,9 @@ class StormHiveDict(Prim):
     def _list(self):
         return list(self.info.items())
 
-    def __iter__(self):
-        return list(self.info.items())
+    async def iter(self):
+        for item in list(self.info.items()):
+            yield item
 
     def value(self):
         return self.info.pack()
@@ -3455,7 +3439,7 @@ class Query(Prim):
         async for node, path in self._getRuntGenr():
             yield node
 
-    async def __aiter__(self):
+    async def iter(self):
         async for node, path in self._getRuntGenr():
             yield Node(node)
 
@@ -3517,7 +3501,7 @@ class NodeProps(Prim):
         valu = await toprim(valu)
         return await self.valu.set(name, valu)
 
-    def __iter__(self):
+    async def iter(self):
         # Make copies of property values since array types are mutable
         items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
         for item in items:
@@ -3797,7 +3781,7 @@ class PathMeta(Prim):
             return
         self.path.meta(name, valu)
 
-    async def __aiter__(self):
+    async def iter(self):
         # prevent "edit while iter" issues
         for item in list(self.path.metadata.items()):
             yield item
@@ -3826,12 +3810,7 @@ class PathVars(Prim):
             return
         self.path.setVar(name, valu)
 
-    def __iter__(self):
-        # prevent "edit while iter" issues
-        for item in list(self.path.vars.items()):
-            yield item
-
-    async def __aiter__(self):
+    async def iter(self):
         # prevent "edit while iter" issues
         for item in list(self.path.vars.items()):
             yield item

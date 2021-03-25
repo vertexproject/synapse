@@ -562,6 +562,11 @@ class ForLoop(Oper):
 
             # TODO: remove when storm is all objects
             valu = await self.kids[1].compute(runt, path)
+
+            if isinstance(valu, s_stormtypes.Prim):
+                # returns an async genr instance...
+                valu = valu.iter()
+
             if isinstance(valu, dict):
                 valu = list(valu.items())
 
