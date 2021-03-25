@@ -37,6 +37,7 @@ class AstNode:
     '''
     def __init__(self, kids=()):
         self.kids = []
+        self.hasast = {}
         [self.addKid(k) for k in kids]
 
     def repr(self):
@@ -101,16 +102,27 @@ class AstNode:
         pass
 
     def hasAstClass(self, clss):
+        hasast = self.hasast.get(clss)
+        if hasast is not None:
+            return hasast
+
+        retn = False
 
         for kid in self.kids:
 
             if isinstance(kid, clss):
-                return True
+                retn = True
+                break
+
+            if isinstance(kid, (EditPropSet, Function, CmdOper)):
+                continue
 
             if kid.hasAstClass(clss):
-                return True
+                retn = True
+                break
 
-        return False
+        self.hasast[clss] = retn
+        return retn
 
     def optimize(self):
         [k.optimize() for k in self.kids]
@@ -2974,6 +2986,8 @@ class EditPropSet(Edit):
 
         isadd = oper in ('+=', '?+=')
         issub = oper in ('-=', '?-=')
+        rval = self.kids[2]
+        hasretn = isinstance(rval, SubQuery) and rval.hasAstClass(Return)
 
         async for node, path in genr:
 
@@ -2992,13 +3006,23 @@ class EditPropSet(Edit):
 
             try:
 
-                try:
-                    valu = await self.kids[2].compute(runt, path)
+                if hasretn:
+                    try:
+                        valu = await rval.compute(runt, path)
+                    except s_stormctrl.StormReturn as e:
+                        # a subquery assignment with a return; just use the returned value
+                        valu = await s_stormtypes.toprim(e.item)
+                    else:
+                        mesg = "Subquery assignment with return didn't return."
+                        raise s_exc.BadTypeValu(mesg=mesg)
+
+                else:
+                    valu = await rval.compute(runt, path)
                     valu = await s_stormtypes.toprim(valu)
 
                     # Setting a value to a subquery means assigning the value of
                     # the primary property (for a single value) or array of values
-                    if isinstance(self.kids[2], SubQuery):
+                    if isinstance(rval, SubQuery):
 
                         if not isarray:
 
@@ -3013,10 +3037,6 @@ class EditPropSet(Edit):
 
                         else:
                             expand = False
-
-                except s_stormctrl.StormReturn as e:
-                    # a subquery assignment with a return; just use the returned value
-                    valu = await s_stormtypes.toprim(e.item)
 
                 if isadd or issub:
 

@@ -486,8 +486,13 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.len(2, nodes[0].get('industries'))
 
-            nodes = await core.nodes('ou:org:alias=visiacme [ :name={return(penetrode)} ]')
+            await core.nodes('[ it:dev:str=a it:dev:str=b ]')
+            q = "ou:org:alias=visiacme [ :name={it:dev:str if ($node='b') {return(penetrode)}} ]"
+            nodes = await core.nodes(q)
             self.len(1, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={if (0) {return(penetrode)}} ]')
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('ou:org:alias=visiacme [ :name={} ]')
