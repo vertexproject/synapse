@@ -1613,11 +1613,6 @@ class Tag(Str):
 
         return norm, {'subs': subs}
 
-msec_day = 86400000
-msec_hour = 3600000
-msec_min = 60000
-msec_sec = 1000
-
 class Duration(IntBase):
 
     stortype = s_layer.STOR_TYPE_U64
@@ -1642,35 +1637,35 @@ class Duration(IntBase):
 
             if text.find('D') != -1:
                 daystext, text = text.split('D', 1)
-                dura += int(daystext.strip(), 0) * msec_day
+                dura += int(daystext.strip(), 0) * s_time.oneday
 
             if text.find(':') != -1:
                 parts = text.split(':')
                 if len(parts) == 2:
-                    dura += int(parts[0].strip()) * msec_min
-                    dura += int(float(parts[1].strip()) * msec_sec)
+                    dura += int(parts[0].strip()) * s_time.onemin
+                    dura += int(float(parts[1].strip()) * s_time.onesec)
                 elif len(parts) == 3:
-                    dura += int(parts[0].strip()) * msec_hour
-                    dura += int(parts[1].strip()) * msec_min
-                    dura += int(float(parts[2].strip()) * msec_sec)
+                    dura += int(parts[0].strip()) * s_time.onehour
+                    dura += int(parts[1].strip()) * s_time.onemin
+                    dura += int(float(parts[2].strip()) * s_time.onesec)
                 else:
                     mesg = 'Invalid number of : characters for duration.'
                     raise s_exc.BadTypeValu(mesg=mesg)
             else:
-                dura += int(float(text.strip()) * msec_sec)
+                dura += int(float(text.strip()) * s_time.onesec)
 
         except ValueError:
             mesg = f'Invalid numeric value in duration: {text}.'
-            raise s_exc.BadTypeValu(mesg=mesg)
+            raise s_exc.BadTypeValu(mesg=mesg) from None
 
         return dura, {}
 
     def repr(self, valu):
 
-        days, rem = divmod(valu, msec_day)
-        hours, rem = divmod(rem, msec_hour)
-        minutes, rem = divmod(rem, msec_min)
-        seconds, millis = divmod(rem, msec_sec)
+        days, rem = divmod(valu, s_time.oneday)
+        hours, rem = divmod(rem, s_time.onehour)
+        minutes, rem = divmod(rem, s_time.onemin)
+        seconds, millis = divmod(rem, s_time.onesec)
 
         retn = ''
         if days:
