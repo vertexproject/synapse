@@ -239,18 +239,21 @@ commands:
           key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
-          name: verify git tag vs. version
-          command: |
-            env | grep -i circle
-            . venv/bin/activate
-            python setup.py verify
-
-      - run:
           name: init .pypirc
           command: |
             echo -e "[pypi]" >> ~/.pypirc
             echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
             echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
+
+  deploy_pypi_tag_verify:
+    description: "Verify the git tag"
+    steps:
+      - run:
+          name: verify git tag vs. version
+          command: |
+            env | grep -i circle
+            . venv/bin/activate
+            python setup.py verify
 
   deploy_pypi_sdist_build:
     description: "Build sdist packages for pypi"
@@ -606,6 +609,7 @@ jobs:
 
     steps:
       - deploy_pypi_prologue
+      - deploy_pypi_tag_verify
       - deploy_pypi_wheel_build
       - deploy_pypi_sdist_build
       - deploy_pypi_upload
@@ -619,6 +623,7 @@ jobs:
 
     steps:
       - deploy_pypi_prologue
+      - deploy_pypi_tag_verify
       - deploy_pypi_wheel_build
       - deploy_pypi_upload
 
