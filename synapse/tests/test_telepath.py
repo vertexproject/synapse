@@ -228,6 +228,9 @@ class TeleTest(s_t_utils.SynTest):
             # Prox exposes remote synapse version
             self.eq(prox._getSynVers(), s_version.version)
 
+            # Prox exposes remote synapse commit hash
+            self.eq(prox._getSynCommit(), s_version.commit)
+
             # Prox exposes reflected classes
             self.eq(prox._getClasses(),
                     ('synapse.tests.test_telepath.Foo',))
@@ -790,6 +793,7 @@ class TeleTest(s_t_utils.SynTest):
 
             # Client implements some base helpers the proxy does
             self.eq(targ._getSynVers(), s_version.version)
+            self.eq(targ._getSynCommit(), s_version.commit)
             self.eq(targ._getClasses(),
                     ('synapse.tests.test_telepath.TestRedir',
                      'synapse.telepath.Aware'))
