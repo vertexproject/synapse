@@ -444,6 +444,7 @@ class SubQuery(Oper):
     def __init__(self, kids=()):
         Oper.__init__(self, kids)
         self.hasyield = False
+        self.hasretn = self.hasAstClass(Return)
 
     async def run(self, runt, genr):
 
@@ -471,16 +472,32 @@ class SubQuery(Oper):
             yield item
 
     async def compute(self, runt, path):
-        # not technically a prim, but we can produce an array of primary prop vals
+        '''
+        Only called when subquery is used as a value.  Its value is a list of primary prop vals, or, if there's a
+        return statement,  the value returned as a list of one.
+        '''
         subvals = []
         async with runt.getSubRuntime(self.kids[0]) as runt:
-            async for valunode, valupath in runt.execute():
+            try:
+                async for valunode, valupath in runt.execute():
 
-                subvals.append(valunode.ndef[1])
+                    subvals.append(valunode.ndef[1])
 
-                if len(subvals) >= 128:
-                    mesg = 'Cannot use subquery assignment for >128 items.'
-                    raise s_exc.BadTypeValu(mesg=mesg)
+                    if len(subvals) >= 128:
+                        mesg = 'Cannot use subquery assignment for >128 items.'
+                        raise s_exc.BadTypeValu(mesg=mesg)
+
+            except s_stormctrl.StormReturn as e:
+                # a subquery assignment with a return; just use the returned value
+                return [e.item]
+
+        if self.hasretn:
+            mesg = 'Subquery value contains a return but did not return any values'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        if not subvals:
+            mesg = "Subquery value didn't yield any nodes"
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         return subvals
 
@@ -2349,7 +2366,7 @@ class TagValuCond(Cond):
 
 class RelPropCond(Cond):
     '''
-    :foo:bar <cmpr> <value>
+    (:foo:bar or .univ) <cmpr> <value>
     '''
     async def getCondEval(self, runt):
 
@@ -2987,7 +3004,6 @@ class EditPropSet(Edit):
         isadd = oper in ('+=', '?+=')
         issub = oper in ('-=', '?-=')
         rval = self.kids[2]
-        hasretn = isinstance(rval, SubQuery) and rval.hasAstClass(Return)
 
         async for node, path in genr:
 
@@ -3005,38 +3021,23 @@ class EditPropSet(Edit):
             isarray = isinstance(prop.type, s_types.Array)
 
             try:
+                valu = await rval.compute(runt, path)
+                valu = await s_stormtypes.toprim(valu)
 
-                if hasretn:
-                    try:
-                        valu = await rval.compute(runt, path)
-                    except s_stormctrl.StormReturn as e:
-                        # a subquery assignment with a return; just use the returned value
-                        valu = await s_stormtypes.toprim(e.item)
+                # Setting a value to a subquery means assigning the value of
+                # the primary property (for a single value) or array of values
+                if isinstance(rval, SubQuery):
+
+                    if not isarray:
+
+                        if len(valu) > 1:
+                            mesg = 'Setting a property from a subquery value yielded more than 1 node.'
+                            raise s_exc.BadTypeValu(mesg=mesg)
+
+                        valu = valu[0]
+
                     else:
-                        mesg = "Subquery assignment with return didn't return."
-                        raise s_exc.BadTypeValu(mesg=mesg)
-
-                else:
-                    valu = await rval.compute(runt, path)
-                    valu = await s_stormtypes.toprim(valu)
-
-                    # Setting a value to a subquery means assigning the value of
-                    # the primary property (for a single value) or array of values
-                    if isinstance(rval, SubQuery):
-
-                        if not isarray:
-
-                            if len(valu) != 1:
-                                if len(valu) == 0:
-                                    mesg = "Subquery assignment didn't yield any nodes."
-                                else:
-                                    mesg = 'Subquery assignment yielded more than 1 node.'
-                                raise s_exc.BadTypeValu(mesg=mesg)
-
-                            valu = valu[0]
-
-                        else:
-                            expand = False
+                        expand = False
 
                 if isadd or issub:
 

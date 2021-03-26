@@ -469,49 +469,6 @@ class StormTest(s_t_utils.SynTest):
             task = core.schedCoro(sleeper())
             self.false(await s_coro.waittask(task, timeout=0.1))
 
-            # test subquery based property assignment
-            await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
-            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
-            self.len(1, nodes)
-            self.len(2, nodes[0].get('industries'))
-
-            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('org'))
-
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
-            self.len(1, nodes)
-            self.len(1, nodes[0].get('industries'))
-
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={ou:industry:name=foo} ]')
-            self.len(1, nodes)
-            self.len(2, nodes[0].get('industries'))
-
-            await core.nodes('[ it:dev:str=a it:dev:str=b ]')
-            q = "ou:org:alias=visiacme [ :name={it:dev:str if ($node='b') {return(penetrode)}} ]"
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-
-            # Running the query again ensures that the ast hasattr memoizing works
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :name={if (0) {return(penetrode)}} ]')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :name={} ]')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')
-
-            await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
-            await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
-            await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
-
     async def test_storm_dmon_user_locked(self):
         async with self.getTestCore() as core:
             visi = await core.auth.addUser('visi')

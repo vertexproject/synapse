@@ -218,7 +218,7 @@ looklist: (_WS? _lookvalu)*
 valulist: "(" [_WS? _listvalu _WS? ((",")|("," _WS? _listvalu)+ [_WS? ","])] _WS? ")"
 tagvalu: tagname
 tagpropvalu: tagprop
-//relpropvalu: relprop
+
 relpropvalu: ":" BASEPROP | ":" _varvalu
 univpropvalu: univprop
 embedquery: _EMBEDQUERYSTART query "}"
@@ -328,7 +328,7 @@ BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]+)*/
 // The name of a storm command
 CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
 
-// The entry point for a $(...) expression
+// The entry point for a $(...) expression.  The initial dollar sign is now optional
 dollarexpr: "$"? "(" _WSCOMM? expror _WSCOMM? ")"
 EXPRCMPR: /<=|>=|<|>|=|!=|~=|\^=/
 EXPRPLUS: "+"

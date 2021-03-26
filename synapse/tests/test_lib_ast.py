@@ -722,6 +722,66 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ test:int=10 test:int=20 ]  $q=${#foo.bar}')
             self.len(2, nodes)
 
+    async def test_ast_subquery_value(self):
+        '''
+        Test subqueries as rvals in property sets, filters, lifts
+        '''
+        async with self.getTestCore() as core:
+
+            # test subquery based property assignment
+            await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
+            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
+            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('org'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('industries'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
+            await core.nodes('[ it:dev:str=a it:dev:str=b ]')
+            q = "ou:org:alias=visiacme [ :name={it:dev:str if ($node='b') {return(penetrode)}} ]"
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # Running the query again ensures that the ast hasattr memoizing works
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={if (0) {return(penetrode)}} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')
+
+            await core.nodes('ou:org:alias=visiacme [ -:name]')
+            nodes = await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
+            self.notin('name', nodes[0].props)
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
+            self.notin('name', nodes[0].props)
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
+            self.notin('name', nodes[0].props)
+
+            # test subquery based filter
+
+            # await core.nodes('it:dev:str=visiacme')
+            # nodes = await core.nodes('ou:org +:alias={it:dev:str=visiacme}')
+
     async def test_lib_ast_module(self):
 
         otherpkg = {
