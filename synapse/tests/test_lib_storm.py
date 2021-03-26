@@ -491,6 +491,10 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
+            # Running the query again ensures that the ast hasattr memoizing works
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('ou:org:alias=visiacme [ :name={if (0) {return(penetrode)}} ]')
 
