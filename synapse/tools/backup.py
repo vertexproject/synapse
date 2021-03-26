@@ -45,9 +45,11 @@ def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
         if skipdirs is None:
             skipdirs = []
 
-        skipdirs.append('**/tmp')
+        srcdir = glob.escape(os.path.abspath(srcdir))
+        skipdirs.append(os.path.join(srcdir, 'tmp/*.lmdb'))
+        skipdirs.append(os.path.join(srcdir, '*/tmp/*.lmdb'))
 
-        srcdirglob = s_common.genpath(glob.escape(os.path.abspath(srcdir)), '**/*.lmdb')
+        srcdirglob = s_common.genpath(srcdir, '**/*.lmdb')
         fniter = glob.iglob(srcdirglob, recursive=True)
         lmdbpaths = [fn for fn in fniter if not any([fnmatch.fnmatch(fn, pattern) for pattern in skipdirs])]
 
@@ -55,6 +57,7 @@ def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
 
     with contextlib.ExitStack() as stack:
         for path in lmdbpaths:
+            logger.debug(f'Capturing txn for {path}')
             datafile = os.path.join(path, 'data.mdb')
             stat = os.stat(datafile)
             map_size = stat.st_size

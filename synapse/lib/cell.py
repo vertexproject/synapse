@@ -99,8 +99,11 @@ async def _doIterBackup(path, chunksize=1024):
     while True:
         byts = await link0.recv(chunksize)
         if not byts:
-            return
+            break
         yield byts
+
+    await coro
+    await link0.fini()
 
 async def _iterBackupWork(path, linkinfo, done):
     '''
@@ -126,6 +129,10 @@ def _iterBackupProc(path, linkinfo, done):
     '''
     Multiprocessing target for streaming a backup.
     '''
+    # This logging call is okay to run since we're executing in
+    # our own process space and no logging has been configured.
+    s_common.setlogging(logger, linkinfo.get('loglevel'))
+
     asyncio.run(_iterBackupWork(path, linkinfo, done))
 
 class CellApi(s_base.Base):
@@ -691,7 +698,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
     }
 
-    BACKUP_SPAWN_TIMEOUT = 4.0
+    BACKUP_SPAWN_TIMEOUT = 30.0
     BACKUP_ACQUIRE_TIMEOUT = 0.5
 
     async def __anit__(self, dirn, conf=None, readonly=False):
@@ -1165,7 +1172,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             task.add_done_callback(functools.partial(done, self))
 
             if wait:
-                logger.info(f'Waiting for backup to complete [{name}]')
+                logger.info(f'Waiting for backup task to complete [{name}]')
                 await task
 
             return name
@@ -1190,35 +1197,42 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         mypipe, child_pipe = ctx.Pipe()
         paths = [str(slab.path) for slab in slabs]
+        loglevel = logger.getEffectiveLevel()
 
         def spawnproc():
-            proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths))
+            logger.debug('Starting multiprocessing target')
+            proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths, loglevel))
             proc.start()
             hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
             if not hasdata:
-                raise s_exc.SynErr(mesg='backup subprocess stuck')
+                raise s_exc.SynErr(mesg='backup subprocess stuck starting')
             data = mypipe.recv()
             assert data == 'ready'
             return proc
 
         proc = await s_coro.executor(spawnproc)
 
+        logger.debug('Syncing LMDB Slabs')
         while True:
             await s_lmdbslab.Slab.syncLoopOnce()
             if not any(slab.dirty for slab in slabs):
                 break
 
         try:
+
+            logger.debug('Acquiring LMDB txns')
             mypipe.send('proceed')
 
             # This is technically pending the ioloop waiting for the backup process to acquire a bunch of
             # transactions.  We're effectively locking out new write requests the brute force way.
             hasdata = mypipe.poll(timeout=self.BACKUP_ACQUIRE_TIMEOUT)
             if not hasdata:
-                raise s_exc.SynErr(mesg='backup subprocess stuck')
+                raise s_exc.SynErr(mesg='backup subprocess stuck acquiring LMDB txns')
 
             data = mypipe.recv()
             assert data == 'captured'
+
+            logger.debug('Acquired LMDB txns')
 
             def waitforproc():
                 proc.join()
@@ -1228,7 +1242,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             retn = await s_coro.executor(waitforproc)
 
         except (asyncio.CancelledError, Exception):
-            logger.exception('Error performing backup to [{dirn}]')
+            logger.exception(f'Error performing backup to [{dirn}]')
             proc.terminate()
             raise
 
@@ -1237,10 +1251,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return retn
 
     @staticmethod
-    def _backupProc(pipe, srcdir, dstdir, lmdbpaths):
+    def _backupProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
         '''
         (In a separate process) Actually do the backup
         '''
+        # This logging call is okay to run since we're executing in
+        # our own process space and no logging has been configured.
+        s_common.setlogging(logger, loglevel)
         pipe.send('ready')
         data = pipe.recv()
         assert data == 'proceed'
@@ -1295,12 +1312,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         cellguid = os.path.join(path, 'cell.guid')
         if not os.path.isfile(cellguid):
             mesg = 'Specified backup path has no cell.guid file.'
-            raise s_exc.BadArg(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg, arg='path', valu=path)
 
         link = s_scope.get('link')
         linkinfo = await link.getSpawnInfo()
+        linkinfo['loglevel'] = logger.getEffectiveLevel()
 
-        await self.boss.promote('backup:stream', user=user)
+        await self.boss.promote('backup:stream', user=user, info={'name': name})
 
         ctx = multiprocessing.get_context('spawn')
         done = ctx.Queue()
@@ -1336,6 +1354,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise
 
         finally:
+            logger.debug(f'iterBackupArchive completed for {name}')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
@@ -1355,8 +1374,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.runBackup(name)
             link = s_scope.get('link')
             linkinfo = await link.getSpawnInfo()
+            linkinfo['loglevel'] = logger.getEffectiveLevel()
 
-            await self.boss.promote('backup:stream', user=user)
+            await self.boss.promote('backup:stream', user=user, info={'name': name})
 
             ctx = multiprocessing.get_context('spawn')
             done = ctx.Queue()
@@ -1389,7 +1409,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         finally:
             if remove:
+                logger.debug(f'Removing {path}')
                 await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+                logger.debug(f'Removed {path}')
+            logger.debug(f'iterNewBackupArchive completed for {name}')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
