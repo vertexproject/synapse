@@ -214,6 +214,22 @@ class FileModule(s_module.CoreModule):
                     'doc': 'Properties common to various microsoft office file formats.',
                     'interfaces': ('file:mime:meta',),
                 }),
+                ('file:mime:meta:exif', {
+                    'props': (
+                        ('desc', ('str', {}), {
+                            'doc': 'ImageDescription field extracted from Exif metadata.'}),
+                        ('created', ('time', {}), {
+                            'doc': 'The DateTime tag extracted from Exif metadata.'}),
+                        ('gpstime', ('time', {}), {
+                            'doc': 'The GPSTimeStamp information from the GPSInfoIFD metadata.'}),
+                        ('loc', ('geo:latlong', {}), {
+                            'doc': 'The lat/long information from the GPSInfoIFD metadata.'}),
+                        ('altitude', ('geo:altitude', {}), {
+                            'doc': 'The GPSAltitude information from the GPSInfoIFD metadata.'}),
+                    ),
+                    'doc': 'Properties common to Exchangable Image File Format.',
+                    'interfaces': ('file:mime:meta',),
+                }),
             ),
 
             'types': (
@@ -253,6 +269,11 @@ class FileModule(s_module.CoreModule):
                 ('file:mime:rtf', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a .rtf file.',
                     'interfaces': ('file:mime:meta',),
+                }),
+
+                ('file:mime:jpg', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a .jpg file.',
+                    'interfaces': ('file:mime:meta:exif',),
                 }),
 
                 ('file:mime:pe:section', ('comp', {'fields': (
@@ -369,6 +390,8 @@ class FileModule(s_module.CoreModule):
                 ('file:mime:msdoc', {}, ()),
                 ('file:mime:msxls', {}, ()),
                 ('file:mime:msppt', {}, ()),
+
+                ('file:mime:jpg', {}, ()),
 
                 ('file:mime:rtf', {}, (
                     ('guid', ('guid', {}), {

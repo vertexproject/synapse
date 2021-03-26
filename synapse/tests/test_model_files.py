@@ -301,3 +301,32 @@ class FileTest(s_t_utils.SynTest):
             self.eq(0, nodes[0].get('file:offs'))
             self.eq(('foo', 'bar'), nodes[0].get('file:data'))
             self.eq('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', nodes[0].get('guid'))
+
+    async def test_model_file_meta_exif(self):
+
+        async with self.getTestCore() as core:
+
+            fileguid = s_common.guid()
+            opts = {'vars': {'fileguid': f'guid:{fileguid}'}}
+
+            nodes = await core.nodes('''[
+                file:mime:jpg=*
+                    :file=$fileguid
+                    :file:offs=0
+                    :file:data=(foo, bar)
+                    :desc=aaaa
+                    :created="2020-01-05 14:57:18"
+                    :gpstime="2020-01-05 18:57:18"
+                    :loc="38.9582839,-77.358946"
+                    :altitude="129 meters"
+            ]''', opts=opts)
+
+            self.len(1, nodes)
+            self.eq(f'guid:{fileguid}', nodes[0].get('file'))
+            self.eq(0, nodes[0].get('file:offs'))
+            self.eq(('foo', 'bar'), nodes[0].get('file:data'))
+            self.eq('aaaa', nodes[0].get('desc'))
+            self.eq(1578236238000, nodes[0].get('created'))
+            self.eq(1578250638000, nodes[0].get('gpstime'))
+            self.eq((38.9582839, -77.358946), nodes[0].get('loc'))
+            self.eq(6371137800, nodes[0].get('altitude'))
