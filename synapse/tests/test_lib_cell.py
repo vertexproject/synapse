@@ -18,14 +18,14 @@ import synapse.lib.link as s_link
 import synapse.tests.utils as s_t_utils
 
 # Defective versions of spawned backup processes
-def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths):
+def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
     time.sleep(3.0)
 
-def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths):
+def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
     pipe.send('ready')
     time.sleep(2.0)
 
-def _exiterProc(pipe, srcdir, dstdir, lmdbpaths):
+def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
     pipe.send('ready')
     pipe.send('captured')
     sys.exit(1)
