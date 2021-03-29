@@ -5201,7 +5201,7 @@ class User(Prim):
             The roleiden for the "all" role must be present in the new list of roles. This replaces all existing roles
             that the user has with the new roles.
         ''',
-         'type': {'type': 'function', '_funcname': '_methUsersetRoles',
+         'type': {'type': 'function', '_funcname': '_methUserSetRoles',
                   'args': (
                       {'name': 'idens', 'type': 'list', 'desc': 'The idens to  of the Role.', },
                   ),
