@@ -3198,7 +3198,7 @@ class StormTypesTest(s_test.SynTest):
             roles = await core.callStorm('''$roles=$lib.list()
             $role=$lib.auth.roles.byname(admins) $roles.append($role.iden)
             $role=$lib.auth.roles.byname(all) $roles.append($role.iden)
-            $lib.auth.users.byname(visi).grants($roles)
+            $lib.auth.users.byname(visi).setRoles($roles)
             return ($lib.auth.users.byname(visi).roles())
             ''')
             self.len(2, roles)

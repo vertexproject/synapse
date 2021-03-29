@@ -841,7 +841,7 @@ class HiveUser(HiveRuler):
 
         await self.auth.setUserInfo(self.iden, 'roles', roles)
 
-    async def grants(self, roleidens):
+    async def setRoles(self, roleidens):
         '''
         Replace all the roles for a given user with a new list of roles.
 
@@ -863,7 +863,7 @@ class HiveUser(HiveRuler):
             return
 
         if self.auth.allrole.iden not in roleidens:
-            mesg = 'Role "all" must be in the list of role grants.'
+            mesg = 'Role "all" must be in the list of roles set.'
             raise s_exc.BadArg(mesg=mesg)
 
         for iden in roleidens:
