@@ -5195,7 +5195,7 @@ class User(Prim):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'setRoles', 'desc': '''
-        Grant a list of Roles to the User.
+        Replace all the Roles of the User with a new list of roles.
 
         Notes:
             The roleiden for the "all" role must be present in the new list of roles. This replaces all existing roles
