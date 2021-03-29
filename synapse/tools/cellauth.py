@@ -68,7 +68,7 @@ async def printuser(user, details=False, cell=None):
     if authtype == 'user':
 
         outp.printf('roles:')
-        for rolename in sorted(user.get('roles')):
+        for rolename in user.get('roles'):
             outp.printf(f'    role: {rolename}')
 
             if details:
