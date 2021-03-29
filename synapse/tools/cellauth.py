@@ -133,6 +133,11 @@ async def handleModify(opts):
                 outp.printf(f'granting {opts.grant} to: {opts.name}')
                 await cell.addUserRole(await useriden(opts.name), await roleiden(opts.grant))
 
+            if opts.setroles:
+                outp.printf(f'settings roles {opts.setroles} to: {opts.name}')
+                roles = [await roleiden(role) for role in opts.setroles]
+                await cell.setUserRoles(await useriden(opts.name), roles)
+
             if opts.revoke:
                 outp.printf(f'revoking {opts.revoke} from: {opts.name}')
                 await cell.delUserRole(await useriden(opts.name), await roleiden(opts.revoke))
@@ -324,6 +329,7 @@ def makeargparser():
 
     muxp.add_argument('--grant', help='Grant the specified role to the user.')
     muxp.add_argument('--revoke', help='Grant the specified role to the user.')
+    muxp.add_argument('--setroles', help='Set the roles for the user.', nargs='+')
 
     muxp.add_argument('--addrule', help='Add the given rule to the user/role.')
     muxp.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
