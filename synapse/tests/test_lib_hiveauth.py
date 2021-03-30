@@ -49,39 +49,27 @@ class AuthTest(s_test.SynTest):
 
                     await user.setAdmin(True)
                     self.true(user.info.get('admin'))
-
                     self.true(user.allowed(('foo', 'bar')))
 
                     await user.addRule((True, ('foo',)))
-
                     self.true(user.allowed(('foo', 'bar')))
-
                     self.len(1, user.permcache)
 
                     await user.delRule((True, ('foo',)))
-
                     self.len(0, user.permcache)
 
                     await user.addRule((True, ('foo',)))
-
                     await user.grant(role.iden)
-
                     self.len(0, user.permcache)
-
                     self.true(user.allowed(('baz', 'faz')))
-
                     self.len(1, user.permcache)
 
                     await role.addRule((True, ('baz', 'faz')))
-
                     self.len(0, user.permcache)
-
                     self.true(user.allowed(('baz', 'faz')))
-
                     self.len(1, user.permcache)
 
                     await user.setLocked(True)
-
                     self.false(user.allowed(('baz', 'faz')))
 
                     await user.setAdmin(False)

@@ -83,8 +83,7 @@ async def main(argv, outp=s_output.stdout):
     pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic)
 
     if opts.save:
-        with s_common.genfile(opts.save) as fd:
-            fd.write(json.dumps(pkgdef).encode())
+        s_common.jssave(pkgdef, opts.save)
 
     if opts.push:
 
