@@ -2381,7 +2381,6 @@ class RelPropCond(Cond):
 
         cmpr = await self.kids[1].compute(runt, None)
         valukid = self.kids[2]
-        valukidyields = isinstance(valukid, SubQuery) and not valukid.hasretn
 
         async def cond(node, path):
 
@@ -2398,16 +2397,16 @@ class RelPropCond(Cond):
                 func = ctor(xval)
 
             except s_exc.BadTypeValu:
-                if not valukidyields:
+                if not isinstance(valukid, SubQuery):
                     raise
 
-                if len(xval) != 1:
+                if isinstance(xval, (tuple, list)) and len(xval) > 1:
                     mesg = 'Subquery value as a filter yielded more than 1 value'
                     raise s_exc.BadTypeValu(mesg=mesg)
 
                 func = ctor(xval[0])
 
-            return func
+            return func(valu)
 
         return cond
 
@@ -3040,8 +3039,8 @@ class EditPropSet(Edit):
                 # runt node property permissions are enforced by the callback
                 runt.layerConfirm(('node', 'prop', 'set', prop.full))
 
-            expand = True
             isarray = isinstance(prop.type, s_types.Array)
+            expand = not isarray or not isinstance(rval, SubQuery)
 
             try:
                 valu = await rval.compute(runt, path)
@@ -3050,13 +3049,13 @@ class EditPropSet(Edit):
                 # Setting a value to a subquery means assigning the value of
                 # the primary property (for a single value) or array of values
                 if not isarray:
+                    # FIXME:  this precludes yielding two nodes that return parts of an ival
 
-                    if isinstance(valu, tuple) and len(valu) > 1:
-                        mesg = 'Setting a property from a subquery value yielded/returned more than 1 values.'
-                        raise s_exc.BadTypeValu(mesg=mesg)
-
-                else:
-                    expand = False
+                    if isinstance(rval, SubQuery) and isinstance(valu, (tuple, list)):
+                        if len(valu) > 1:
+                            mesg = 'Setting a property from a subquery value yielded/returned more than 1 values.'
+                            raise s_exc.BadTypeValu(mesg=mesg)
+                        valu = valu[0]
 
                 if isadd or issub:
 

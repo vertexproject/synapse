@@ -734,6 +734,13 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.len(2, nodes[0].get('industries'))
 
+            # Make sure we're accidentally adding extra nodes
+            nodes = await core.nodes('[ou:campaign=* :goal={[ou:goal=* :name="paperclip manufacturing" ]} ]')
+            self.len(1, nodes)
+            nodes = await core.nodes('ou:goal')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('name'))
+
             nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))

@@ -201,14 +201,15 @@ CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
 
 _safe_cmpr: BYNAME | CMPR
 
-// Baseline subset of values allowed
+// Common subset of values allowed
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | dollarexpr
 
-// Baseline + valu lists allowable in command arguments
-_root2valu: _rootvalu | valulist
+// Common subset + stuff allowable in command arguments
+_argvalu: _rootvalu | valulist | embedquery
 
-_basevalu: _root2valu | baresubquery | embedquery
+// Used for most instances of values
+_basevalu: _argvalu | baresubquery
 
 _valu: _basevalu | NONQUOTEWORD
 
@@ -216,7 +217,7 @@ _valu: _basevalu | NONQUOTEWORD
 _exprvalu: NUMBER | HEXNUMBER | BOOL | _rootvalu
 
 // command arguments
-_toknvalu: _root2valu | WORDTOKN
+_toknvalu: _argvalu | WORDTOKN
 
 _listvalu: _basevalu | LISTTOKN
 
