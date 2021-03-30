@@ -5307,6 +5307,7 @@ class User(Prim):
     async def _methUserSetRoles(self, idens):
         self.runt.confirm(('auth', 'user', 'grant'))
         self.runt.confirm(('auth', 'user', 'revoke'))
+        idens = await toprim(idens)
         await self.runt.snap.core.setUserRoles(self.valu, idens)
 
     async def _methUserRevoke(self, iden):
