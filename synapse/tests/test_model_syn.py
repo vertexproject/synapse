@@ -282,6 +282,15 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:form~="test:type"')
             self.len(2, nodes)
 
+            # Can't add an edge to a runt node
+            await self.asyncraises(s_exc.IsRuntForm, nodes[0].addEdge('newp', 'newp'))
+
+            q = core.nodes('syn:form [ +(newp)> { inet:ipv4 } ]')
+            await self.asyncraises(s_exc.IsRuntForm, q)
+
+            q = core.nodes('test:str [ +(newp)> { syn:form } ]')
+            await self.asyncraises(s_exc.IsRuntForm, q)
+
             # Syn:splice uses a null lift handler
             self.len(1, await core.nodes('[test:str=test]'))
             self.len(0, await core.nodes('syn:splice'))
