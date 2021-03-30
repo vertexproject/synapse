@@ -231,15 +231,8 @@ class AstConverter(lark.Transformer):
 
     def stormcmdargs(self, kids):
         kids = self._convert_children(kids)
-        argv = []
 
-        for kid in kids:
-            if isinstance(kid, s_ast.SubQuery):
-                argv.append(s_ast.Const(kid.text))
-            else:
-                argv.append(self._convert_child(kid))
-
-        return s_ast.List(kids=argv)
+        return s_ast.List(kids=kids)
 
     def cmdrargs(self, kids):
         argv = []

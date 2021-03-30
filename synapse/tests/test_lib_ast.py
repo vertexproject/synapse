@@ -728,7 +728,7 @@ class AstTest(s_test.SynTest):
         '''
         async with self.getTestCore() as core:
 
-            # test subquery based property assignment
+            # test property assignment with subquery value
             await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
             nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
             self.len(1, nodes)
@@ -750,6 +750,10 @@ class AstTest(s_test.SynTest):
             q = "ou:org:alias=visiacme [ :name={it:dev:str if ($node='b') {return(penetrode)}} ]"
             nodes = await core.nodes(q)
             self.len(1, nodes)
+
+            nodes = await core.nodes('[ test:arrayprop=* :strs={return ($lib.list(a,b,c,d))} ]')
+            self.len(1, nodes)
+            self.len(4, nodes[0].get('strs'))
 
             # Running the query again ensures that the ast hasattr memoizing works
             nodes = await core.nodes(q)
@@ -777,10 +781,37 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
             self.notin('name', nodes[0].props)
 
-            # test subquery based filter
+            # Filter by Subquery value
 
-            # await core.nodes('it:dev:str=visiacme')
-            # nodes = await core.nodes('ou:org +:alias={it:dev:str=visiacme}')
+            await core.nodes('[it:dev:str=visiacme]')
+            nodes = await core.nodes('ou:org +:alias={it:dev:str=visiacme}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ou:org +:alias={return(visiacme)}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:arrayprop +:strs={return ((a,b,c,d))}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ou:org +:industries={ou:industry#sqa}')
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('ou:org +:alias={it:dev:str}')
+
+            # Lift by Subquery value
+
+            nodes = await core.nodes('ou:org:alias={it:dev:str=visiacme}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:arrayprop:strs={return ((a,b,c,d))}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ou:org:alias={return(visiacme)}')
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('ou:org:alias={it:dev:str}')
 
     async def test_lib_ast_module(self):
 

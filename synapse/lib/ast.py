@@ -474,9 +474,10 @@ class SubQuery(Oper):
     async def compute(self, runt, path):
         '''
         Only called when subquery is used as a value.  Its value is a list of primary prop vals, or, if there's a
-        return statement,  the value returned as a list of one.
+        return statement, the value returned.
         '''
         subvals = []
+
         async with runt.getSubRuntime(self.kids[0]) as runt:
             try:
                 async for valunode, valupath in runt.execute():
@@ -489,7 +490,7 @@ class SubQuery(Oper):
 
             except s_stormctrl.StormReturn as e:
                 # a subquery assignment with a return; just use the returned value
-                return [e.item]
+                return e.item
 
         if self.hasretn:
             mesg = 'Subquery value contains a return but did not return any values'
@@ -1302,7 +1303,15 @@ class LiftPropBy(LiftOper):
 
         name = await self.kids[0].compute(runt, path)
         cmpr = await self.kids[1].compute(runt, path)
-        valu = await self.kids[2].compute(runt, path)
+        valukid = self.kids[2]
+        valu = await valukid.compute(runt, path)
+
+        # FIXME:  this precludes lifting by array prop matching a series of nodes
+        if isinstance(valukid, SubQuery) and not valukid.hasretn:
+            if len(valu) != 1:
+                mesg = 'Subquery value as a lift yielded more than 1 value'
+                raise s_exc.BadTypeValu(mesg=mesg)
+            valu = valu[0]
 
         async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
             yield node
@@ -2371,6 +2380,8 @@ class RelPropCond(Cond):
     async def getCondEval(self, runt):
 
         cmpr = await self.kids[1].compute(runt, None)
+        valukid = self.kids[2]
+        valukidyields = isinstance(valukid, SubQuery) and not valukid.hasretn
 
         async def cond(node, path):
 
@@ -2378,13 +2389,25 @@ class RelPropCond(Cond):
             if valu is None:
                 return False
 
-            xval = await self.kids[2].compute(runt, path)
+            xval = await valukid.compute(runt, path)
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
                 raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
-            func = ctor(xval)
 
-            return func(valu)
+            try:
+                func = ctor(xval)
+
+            except s_exc.BadTypeValu:
+                if not valukidyields:
+                    raise
+
+                if len(xval) != 1:
+                    mesg = 'Subquery value as a filter yielded more than 1 value'
+                    raise s_exc.BadTypeValu(mesg=mesg)
+
+                func = ctor(xval[0])
+
+            return func
 
         return cond
 
@@ -3026,18 +3049,14 @@ class EditPropSet(Edit):
 
                 # Setting a value to a subquery means assigning the value of
                 # the primary property (for a single value) or array of values
-                if isinstance(rval, SubQuery):
+                if not isarray:
 
-                    if not isarray:
+                    if isinstance(valu, tuple) and len(valu) > 1:
+                        mesg = 'Setting a property from a subquery value yielded/returned more than 1 values.'
+                        raise s_exc.BadTypeValu(mesg=mesg)
 
-                        if len(valu) > 1:
-                            mesg = 'Setting a property from a subquery value yielded more than 1 node.'
-                            raise s_exc.BadTypeValu(mesg=mesg)
-
-                        valu = valu[0]
-
-                    else:
-                        expand = False
+                else:
+                    expand = False
 
                 if isadd or issub:
 
