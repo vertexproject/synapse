@@ -4,6 +4,27 @@
 Synapse Changelog
 *****************
 
+v2.32.0 - 2021-03-30
+====================
+
+Features and Enhancements
+-------------------------
+- Increase the verbosity of logging statements related to Cell backup
+  operations. This allows for better visibility into what is happening
+  while a backup is occurring.
+  (`#2124 <https://github.com/vertexproject/synapse/pull/2124>`_)
+- Add Telepath and Storm APIs for setting all the roles of a User at once.
+  (`#2127 <https://github.com/vertexproject/synapse/pull/2127>`_)
+- Expose the Synapse package commit hash over Telepath and Stormtypes.
+  (`#2133 <https://github.com/vertexproject/synapse/pull/2133>`_)
+
+Bugfixes
+--------
+- Increase the process spawn timeout for Cell backup operations. Prevent the
+  Cell backup from grabbing lmdb transactions for slabs in the cell local tmp
+  directory.
+  (`#2124 <https://github.com/vertexproject/synapse/pull/2124>`_)
+
 
 v2.31.1 - 2021-03-25
 ====================
