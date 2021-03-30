@@ -1061,7 +1061,7 @@ class Snap(s_base.Base):
                                     continue
 
                                 if n2form.isrunt:
-                                    await self.warn(f'Edges cannot be used with runt nodes: {n2iden}')
+                                    await self.warn(f'Edges cannot be used with runt nodes: {n2formname}')
                                     continue
 
                                 try:

@@ -67,7 +67,7 @@ class Node:
 
     async def addEdge(self, verb, n2iden):
         if self.form.isrunt:
-            mesg = 'Edges cannot be used with runt nodes'
+            mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
             raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
 
         nodeedits = (
