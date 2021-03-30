@@ -162,7 +162,7 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:x509:cert', {}, (
 
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The file that the certificate was parsed from.',
+                        'doc': 'The file that the certificate metadata was parsed from.',
                     }),
 
                     ('subject', ('str', {}), {

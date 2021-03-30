@@ -58,6 +58,8 @@ class ProjModelTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).sprints.get($sprint).status = current', opts=opts)
             await visi.addRule((True, ('project', 'sprint', 'set', 'status')), gateiden=proj)
+            await core.callStorm('$lib.projects.get($proj).sprints.get($sprint).status = $lib.null', opts=opts)
+            self.len(0, await core.nodes('proj:sprint:status'))
             await core.callStorm('$lib.projects.get($proj).sprints.get($sprint).status = current', opts=opts)
             self.len(1, await core.nodes('proj:sprint:status=current'))
 

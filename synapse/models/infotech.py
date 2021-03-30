@@ -161,7 +161,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A GUID that represents a host or system.'
                 }),
                 ('it:network', ('guid', {}), {
-                    'doc': 'A GUID that represents logical network.'
+                    'doc': 'A GUID that represents a logical network.'
                 }),
                 ('it:domain', ('guid', {}), {
                     'doc': 'A logical boundary of authentication and configuration such as a windows domain.'

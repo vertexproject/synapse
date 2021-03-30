@@ -327,11 +327,8 @@ class ProjectSprint(s_stormtypes.Prim):
             await self.node.set('name', valu)
 
     async def _getSprintTickets(self, path=None):
-        #retn = []
         async for node in self.proj.runt.snap.nodesByPropValu('proj:ticket:sprint', '=', self.node.ndef[1]):
             yield ProjectTicket(self.proj, node)
-            #retn.append(ProjectTicket(self.proj, node))
-        #return s_stormtypes.List(retn)
 
     def getObjLocals(self):
         return {
@@ -485,7 +482,7 @@ class Project(s_stormtypes.Prim):
 @s_stormtypes.registry.registerLib
 class LibProjects(s_stormtypes.Lib):
     '''
-    A Storm Library for interacting with the Storm Macros in the Cortex.
+    A Storm Library for interacting with Projects.
     '''
     _storm_lib_path = ('projects',)
 
