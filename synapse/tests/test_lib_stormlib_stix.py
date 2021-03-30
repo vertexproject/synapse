@@ -1,17 +1,12 @@
-import os
 import copy
 import json
 
-import aiohttp
 import stix2validator
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.tests.utils as s_test
 
-import synapse.lib.config as s_config
-
-import synapse.lib.stormlib.stix as s_stix
+# flake8: noqa: E501
 
 class StormlibModelTest(s_test.SynTest):
 
@@ -138,7 +133,6 @@ class StormlibModelTest(s_test.SynTest):
 
             self.reqValidStix(bund)
 
-            #self.setTestBundle('basic.json', bund)
             self.bundeq(self.getTestBundle('basic.json'), bund)
 
             opts = {'vars': {
@@ -170,7 +164,6 @@ class StormlibModelTest(s_test.SynTest):
 
             self.reqValidStix(bund)
 
-            #self.setTestBundle('custom0.json', bund)
             self.bundeq(self.getTestBundle('custom0.json'), bund)
 
             # test some sad paths...
