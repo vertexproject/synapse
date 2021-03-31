@@ -678,8 +678,10 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
         {'name': 'exit', 'desc': 'Cause a Storm Runtime to stop running.',
-        'type': {'type': 'function', '_funcname': '_exit',
-                  'returns': {'type': 'null', }}},
+         'type': {'type': 'function', '_funcname': '_exit',
+                  'args': (
+                      {'name': 'mesg', 'type': 'str', 'desc': 'A optional exit message'},
+                  ), 'returns': {'type': 'null', }}},
         {'name': 'guid', 'desc': 'Get a random guid, or generate a guid from the arguments.',
          'type': {'type': 'function', '_funcname': '_guid',
                   'args': (
@@ -969,7 +971,11 @@ class LibBase(Lib):
             return (False, None)
 
     @stormfunc(readonly=True)
-    async def _exit(self):
+    async def _exit(self, mesg=None):
+        logger.info(f'{mesg=}')
+        if mesg:
+            await self.runt.warn(mesg)
+            raise s_stormctrl.StormExit(mesg)
         raise s_stormctrl.StormExit()
 
     @stormfunc(readonly=True)

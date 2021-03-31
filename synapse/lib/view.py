@@ -285,6 +285,7 @@ class View(s_nexus.Pusher):  # type: ignore
                             count += 1
 
             except s_stormctrl.StormExit:
+                logger.exception('StormExit !!')
                 pass
 
             except asyncio.CancelledError:

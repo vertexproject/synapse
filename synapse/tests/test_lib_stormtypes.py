@@ -3583,3 +3583,25 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(sadt)
+
+    async def test_exit(self):
+        async with self.getTestCore() as core:
+            q = '[test:str=beep.sys] $lib.exit()'
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                print(m)
+
+            q = '[test:str=beep.sys] $lib.exit(foo)'
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                print(m)
+
+            async with core.getLocalProxy() as prox:
+                q = '[test:str=beep.sys] $lib.exit()'
+                async for msg in prox.storm(q):
+                    print(msg)
+
+            async with core.getLocalProxy() as prox:
+                q = '[test:str=beep.sys] $lib.exit(foo)'
+                async for msg in prox.storm(q):
+                    print(msg)
