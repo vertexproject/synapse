@@ -3131,6 +3131,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', data)
             self.len(0, await core1.nodes('syn:cmd=newp'))
 
+            data = [(('test:str', 'beef'), {'edges': [('newp', ('syn:form', 'newp'))]})]
+            await core1.addFeedData('syn.nodes', data)
+            nodes = await core1.nodes('test:str=beef')
+            self.len(1, nodes)
+            await self.agenlen(0, nodes[0].iterEdgesN1())
+
             # Feed into a forked view
             vdef2 = await core1.view.fork()
             view2_iden = vdef2.get('iden')
