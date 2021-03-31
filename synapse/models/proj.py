@@ -77,7 +77,7 @@ class ProjectModule(s_module.CoreModule):
                             'doc': 'The sprint status.'}),
 
                         ('project', ('proj:project', {}), {
-                            'doc': 'The project conaining the sprint.'}),
+                            'doc': 'The project containing the sprint.'}),
 
                         ('creator', ('syn:user', {}), {
                             'doc': 'The synapse user who created the sprint.'}),
