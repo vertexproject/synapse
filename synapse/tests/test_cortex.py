@@ -3215,6 +3215,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(nodes[0].props.get('ndefprop'))
             self.len(0, await core1.nodes('test:deprprop', opts={'view': view2_iden}))
 
+            with self.raises(s_exc.IsDeprLocked):
+                q = '[test:deprform=dform :ndefprop=(test:deprprop, a)]'
+                await core1.nodes(q, opts={'view': view2_iden})
+
+            with self.raises(s_exc.IsDeprLocked):
+                q = '[test:deprform=dform :deprprop=(1, 2)]'
+                await core1.nodes(q, opts={'view': view2_iden})
+
     async def test_feed_syn_splice(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
