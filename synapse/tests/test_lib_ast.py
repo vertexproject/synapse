@@ -729,29 +729,29 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             # test property assignment with subquery value
-            await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
-            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
-            self.len(1, nodes)
-            self.len(2, nodes[0].get('industries'))
-
-            # Make sure we're accidentally adding extra nodes
             nodes = await core.nodes('[ou:campaign=* :goal={[ou:goal=* :name="paperclip manufacturing" ]} ]')
             self.len(1, nodes)
+            # Make sure we're not accidentally adding extra nodes
             nodes = await core.nodes('ou:goal')
             self.len(1, nodes)
             self.nn(nodes[0].get('name'))
 
-            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
+            await core.nodes('[ ou:industry=* :name=foo2 ]')
+            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries+={ou:industry:name=foo2} ]')
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('industries'))
+
+            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme} ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={[ ou:industry=* :name=foo ] } ]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
 
             nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
             self.len(1, nodes)
             self.len(1, nodes[0].get('industries'))
-
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={ou:industry:name=foo} ]')
-            self.len(1, nodes)
-            self.len(2, nodes[0].get('industries'))
 
             await core.nodes('[ it:dev:str=a it:dev:str=b ]')
             q = "ou:org:alias=visiacme [ :name={it:dev:str if ($node='b') {return(penetrode)}} ]"
@@ -798,9 +798,6 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
 
             nodes = await core.nodes('test:arrayprop +:strs={return ((a,b,c,d))}')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('ou:org +:industries={ou:industry#sqa}')
             self.len(1, nodes)
 
             with self.raises(s_exc.BadTypeValu):

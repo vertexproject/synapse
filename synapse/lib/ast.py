@@ -473,34 +473,36 @@ class SubQuery(Oper):
 
     async def compute(self, runt, path):
         '''
-        Only called when subquery is used as a value.  Its value is a list of primary prop vals, or, if there's a
-        return statement, the value returned.
+        Use subuqery as a value.  It is error if the subquery used in this way doesn't yield exactly one node or has a
+        return statement.
+
+        Its value is the primary property of the node yielded, or the returned value.
         '''
-        subvals = []
+        retn = None
 
         async with runt.getSubRuntime(self.kids[0]) as runt:
             try:
                 async for valunode, valupath in runt.execute():
 
-                    subvals.append(valunode.ndef[1])
-
-                    if len(subvals) >= 128:
-                        mesg = 'Cannot use subquery assignment for >128 items.'
+                    if retn is not None:
+                        mesg = 'Subquery used as a value may not yield more than 1 node'
                         raise s_exc.BadTypeValu(mesg=mesg)
+
+                    retn = valunode.ndef[1]
 
             except s_stormctrl.StormReturn as e:
                 # a subquery assignment with a return; just use the returned value
                 return e.item
 
         if self.hasretn:
-            mesg = 'Subquery value contains a return but did not return any values'
+            mesg = 'Subquery used as value contains a return but did not return any values'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        if not subvals:
-            mesg = "Subquery value didn't yield any nodes"
+        if retn is None:
+            mesg = "Subquery used as value didn't yield any nodes"
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        return subvals
+        return retn
 
 class InitBlock(AstNode):
     '''
@@ -1305,13 +1307,6 @@ class LiftPropBy(LiftOper):
         cmpr = await self.kids[1].compute(runt, path)
         valukid = self.kids[2]
         valu = await valukid.compute(runt, path)
-
-        # FIXME:  this precludes lifting by array prop matching a series of nodes
-        if isinstance(valukid, SubQuery) and not valukid.hasretn:
-            if len(valu) != 1:
-                mesg = 'Subquery value as a lift yielded more than 1 value'
-                raise s_exc.BadTypeValu(mesg=mesg)
-            valu = valu[0]
 
         async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
             yield node
@@ -2393,19 +2388,7 @@ class RelPropCond(Cond):
             if ctor is None:
                 raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
 
-            try:
-                func = ctor(xval)
-
-            except s_exc.BadTypeValu:
-                if not isinstance(valukid, SubQuery):
-                    raise
-
-                if isinstance(xval, (tuple, list)) and len(xval) > 1:
-                    mesg = 'Subquery value as a filter yielded more than 1 value'
-                    raise s_exc.BadTypeValu(mesg=mesg)
-
-                func = ctor(xval[0])
-
+            func = ctor(xval)
             return func(valu)
 
         return cond
@@ -3039,23 +3022,9 @@ class EditPropSet(Edit):
                 # runt node property permissions are enforced by the callback
                 runt.layerConfirm(('node', 'prop', 'set', prop.full))
 
-            isarray = isinstance(prop.type, s_types.Array)
-            expand = not isarray or not isinstance(rval, SubQuery)
-
             try:
                 valu = await rval.compute(runt, path)
                 valu = await s_stormtypes.toprim(valu)
-
-                # Setting a value to a subquery means assigning the value of
-                # the primary property (for a single value) or array of values
-                if not isarray:
-                    # FIXME:  this precludes yielding two nodes that return parts of an ival
-
-                    if isinstance(rval, SubQuery) and isinstance(valu, (tuple, list)):
-                        if len(valu) > 1:
-                            mesg = 'Setting a property from a subquery value yielded/returned more than 1 values.'
-                            raise s_exc.BadTypeValu(mesg=mesg)
-                        valu = valu[0]
 
                 if isadd or issub:
 
@@ -3070,14 +3039,13 @@ class EditPropSet(Edit):
                     # make arry mutable
                     arry = list(arry)
 
-                    if expand:
-                        valu = (valu,)
+                    valu = (valu,)
 
                     if isadd:
                         arry.extend(valu)
 
                     else:
-
+                        assert issub
                         # we cant remove something we cant norm...
                         # but that also means it can't be in the array so...
                         for v in valu:

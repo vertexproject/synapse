@@ -82,7 +82,7 @@ class StormlibModelTest(s_test.SynTest):
                 (inet:ipv6="::ff" :asn=40)
                 inet:email=visi@vertex.link
                 (ps:contact=* :name="visi stark" :email=visi@vertex.link)
-                (ou:org=$targetorg :name=target :industries={[ou:industry=$ind :name=aerospace]})
+                (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
                 (ou:org=$attackorg :name=attacker :hq={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
                 (ou:campaign=$campaign :name=woot :org={ou:org:name=attacker} :goal={[ou:goal=$goal :name=pwning]})
                 (risk:attack=$attack :campaign={ou:campaign} :target:org={ou:org:name=target})
