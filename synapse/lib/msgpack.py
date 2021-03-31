@@ -37,8 +37,6 @@ def en(item):
     Returns:
         bytes: The serialized bytes in msgpack format.
     '''
-    if pakr is None:  # pragma: no cover
-        return msgpack.packb(item, use_bin_type=True, unicode_errors='surrogatepass')
     try:
         return pakr.pack(item)
     except TypeError as e:
@@ -49,6 +47,34 @@ def en(item):
         pakr.reset()
         mesg = f'Cannot serialize: {repr(e)}:  {repr(item)[:20]}'
         raise s_exc.NotMsgpackSafe(mesg=mesg) from e
+
+def _fallback_en(item):
+    '''
+    Use msgpack to serialize a compatible python object.
+
+    Args:
+        item (obj): The object to serialize
+
+    Notes:
+        String objects are encoded using utf8 encoding.  In order to handle
+        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
+        to allow encoding bad input strings.
+
+    Returns:
+        bytes: The serialized bytes in msgpack format.
+    '''
+    try:
+        return msgpack.packb(item, use_bin_type=True, unicode_errors='surrogatepass')
+    except TypeError as e:
+        mesg = f'{e.args[0]}: {repr(item)[:20]}'
+        raise s_exc.NotMsgpackSafe(mesg=mesg) from e
+    except Exception as e:
+        mesg = f'Cannot serialize: {repr(e)}:  {repr(item)[:20]}'
+        raise s_exc.NotMsgpackSafe(mesg=mesg) from e
+
+# Redefine the en() function if we're in fallback mode.
+if pakr is None:  # pragma: no cover
+    en = _fallback_en
 
 def un(byts):
     '''
