@@ -226,6 +226,9 @@ class CellApi(s_base.Base):
     def getCellUser(self):
         return self.user.pack()
 
+    def getCellVersionInfo(self):
+        return self.cell.getCellVersionInfo()
+
     def setCellUser(self, iden):
         '''
         Switch to another user (admin only).
@@ -704,6 +707,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     BACKUP_SPAWN_TIMEOUT = 30.0
     BACKUP_ACQUIRE_TIMEOUT = 0.5
+
+    COMMIT = s_version.commit
+    VERSION = s_version.version
+    VERSTRING = s_version.verstring
 
     async def __anit__(self, dirn, conf=None, readonly=False):
 
@@ -2158,3 +2165,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         perm = '.'.join(perm)
         raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
                              task=iden, user=str(user), perm=perm)
+
+    def getCellVersionInfo(self):
+        '''
+        Return version metadata specific for this Cell.
+
+        Notes:
+            By default, this function returns information about the base Cell
+            implementation, which relects the base information in the Synapse
+            Cell.
+
+            It is expected that implementers override the following Class
+            attributes in order to provide meaningful version information:
+
+            ``COMMIT``  - A Git Commit
+            ``VERSION`` - A Version tuple.
+            ``VERSTRING`` - A Version string.
+
+        Returns:
+            Dict: A Dictionary of version metadata.
+        '''
+        ret = {
+            'commit': self.COMMIT,
+            'cellvers': self.cellvers,
+            'version': self.VERSION,
+            'verstring': self.VERSTRING,
+        }
+        return ret
