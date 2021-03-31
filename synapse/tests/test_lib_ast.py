@@ -817,6 +817,9 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('ou:org:alias={it:dev:str}')
 
+            retn = await core.callStorm('$val={inet:ipv4=42} return(($lib.null=$val))')
+            self.true(retn)
+
     async def test_lib_ast_module(self):
 
         otherpkg = {

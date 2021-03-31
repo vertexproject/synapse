@@ -494,14 +494,7 @@ class SubQuery(Oper):
                 # a subquery assignment with a return; just use the returned value
                 return e.item
 
-        if self.hasretn:
-            mesg = 'Subquery used as value contains a return but did not return any values'
-            raise s_exc.BadTypeValu(mesg=mesg)
-
-        if retn is None:
-            mesg = "Subquery used as value didn't yield any nodes"
-            raise s_exc.BadTypeValu(mesg=mesg)
-
+        # If nothing yielded/returned, just return None
         return retn
 
 class InitBlock(AstNode):
