@@ -3214,6 +3214,10 @@ class EditEdgeAdd(Edit):
 
         async for node, path in genr:
 
+            if node.form.isrunt:
+                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                raise s_exc.IsRuntForm(mesg=mesg, form=node.form.full)
+
             iden = node.iden()
             verb = await tostr(await self.kids[0].compute(runt, path))
 
@@ -3222,6 +3226,10 @@ class EditEdgeAdd(Edit):
             opts = {'vars': path.vars.copy()}
             async with runt.getSubRuntime(query, opts=opts) as subr:
                 async for subn, subp in subr.execute():
+                    if subn.form.isrunt:
+                        mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                        raise s_exc.IsRuntForm(mesg=mesg, form=subn.form.full)
+
                     if self.n2:
                         await subn.addEdge(verb, iden)
                     else:
