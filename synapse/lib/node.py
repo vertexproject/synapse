@@ -66,6 +66,10 @@ class Node:
         return f'Node{{{self.pack()}}}'
 
     async def addEdge(self, verb, n2iden):
+        if self.form.isrunt:
+            mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
+            raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
+
         nodeedits = (
             (self.buid, self.form.name, (
                 (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
