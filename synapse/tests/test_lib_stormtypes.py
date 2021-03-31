@@ -3190,6 +3190,21 @@ class StormTypesTest(s_test.SynTest):
                 $lib.auth.users.byname(visi).revoke($role.iden)
             ''')
 
+            self.false(await core.callStorm('''
+                return($lib.auth.users.byname(visi).allowed(foo.bar))
+            '''))
+
+            # user roles can be set in bulk
+            roles = await core.callStorm('''$roles=$lib.list()
+            $role=$lib.auth.roles.byname(admins) $roles.append($role.iden)
+            $role=$lib.auth.roles.byname(all) $roles.append($role.iden)
+            $lib.auth.users.byname(visi).setRoles($roles)
+            return ($lib.auth.users.byname(visi).roles())
+            ''')
+            self.len(2, roles)
+            self.eq(roles[0].get('name'), 'admins')
+            self.eq(roles[1].get('name'), 'all')
+
             q = 'for $user in $lib.auth.users.list() { if $($user.get(email) = "visi@vertex.link") { return($user) } }'
             self.nn(await core.callStorm(q))
             q = 'for $role in $lib.auth.roles.list() { if $( $role.name = "all") { return($role) } }'
@@ -3568,3 +3583,48 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(sadt)
+
+    async def test_exit(self):
+        async with self.getTestCore() as core:
+            q = '[test:str=beep.sys] $lib.exit()'
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, nodes)
+
+            q = '[test:str=beep.sys] $lib.exit(foo)'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('foo', msgs)
+
+            # Local callstorm behavior keeps the local exception
+            import synapse.lib.stormctrl as s_ctrl
+            with self.raises(s_ctrl.StormExit) as cm:
+                q = '[test:str=beep.sys] $lib.exit(foo)'
+                _ = await core.callStorm(q)
+            self.eq(cm.exception.args, ('foo',))
+
+            # Remote tests
+            async with core.getLocalProxy() as prox:
+                # No message is emitted
+                q = '[test:str=beep.sys] $lib.exit()'
+                msgs = await prox.storm(q).list()
+                self.eq(('init', 'fini'), [m[0] for m in msgs])
+
+                # A exception is raised but no message; this is
+                # treated as a generic SynErr by the telepath client.
+                q = '[test:str=beep.sys] $lib.exit()'
+                with self.raises(s_exc.SynErr) as cm:
+                    _ = await prox.callStorm(q)
+                self.eq(cm.exception.get('mesg'), '')
+                self.eq(cm.exception.get('errx'), 'StormExit')
+
+                # A warn is emitted
+                q = '[test:str=beep.sys] $lib.exit(foo)'
+                msgs = await prox.storm(q).list()
+                self.stormIsInWarn('foo', msgs)
+
+                # A exception is raised with the message
+                q = '[test:str=beep.sys] $lib.exit("foo {bar}", bar=baz)'
+                with self.raises(s_exc.SynErr) as cm:
+                    _ = await prox.callStorm(q)
+                self.eq(cm.exception.get('mesg'), 'foo baz')
+                self.eq(cm.exception.get('errx'), 'StormExit')
