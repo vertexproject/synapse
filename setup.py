@@ -89,7 +89,7 @@ setup(
         'aiohttp-socks>=0.5.5,<0.6.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
         'lark-parser>=0.9.0,<0.11.0',
-        'Pygments>=2.6.0,<2.7.0',
+        'Pygments>=2.7.4,<2.8.0',
         'packaging>=20.0,<21.0',
         'fastjsonschema>=2.14.3,<2.15',
         'stix2-validator>=2.0.4,<3.0',
