@@ -678,7 +678,11 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
         {'name': 'exit', 'desc': 'Cause a Storm Runtime to stop running.',
-        'type': {'type': 'function', '_funcname': '_exit',
+         'type': {'type': 'function', '_funcname': '_exit',
+                  'args': (
+                      {'name': 'mesg', 'type': 'str', 'desc': 'Optional string to warn.', 'default': None, },
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
+                  ),
                   'returns': {'type': 'null', }}},
         {'name': 'guid', 'desc': 'Get a random guid, or generate a guid from the arguments.',
          'type': {'type': 'function', '_funcname': '_guid',
@@ -969,7 +973,11 @@ class LibBase(Lib):
             return (False, None)
 
     @stormfunc(readonly=True)
-    async def _exit(self):
+    async def _exit(self, mesg=None, **kwargs):
+        if mesg:
+            mesg = self._get_mesg(mesg, **kwargs)
+            await self.runt.warn(mesg, log=False)
+            raise s_stormctrl.StormExit(mesg)
         raise s_stormctrl.StormExit()
 
     @stormfunc(readonly=True)
