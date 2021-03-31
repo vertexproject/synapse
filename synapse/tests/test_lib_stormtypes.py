@@ -3588,13 +3588,19 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             q = '[test:str=beep.sys] $lib.exit()'
             msgs = await core.stormlist(q)
-            for m in msgs:
-                print(m)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, nodes)
 
             q = '[test:str=beep.sys] $lib.exit(foo)'
             msgs = await core.stormlist(q)
-            for m in msgs:
-                print(m)
+            self.stormIsInWarn('foo', msgs)
+
+            # Local callstorm behavior keeps the local exception
+            import synapse.lib.stormctrl as s_ctrl
+            with self.raises(s_ctrl.StormExit) as cm:
+                q = '[test:str=beep.sys] $lib.exit(foo)'
+                _ = await core.callStorm(q)
+            self.eq(cm.exception.args, ('foo',))
 
             # Remote tests
             async with core.getLocalProxy() as prox:
@@ -3603,7 +3609,8 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await prox.storm(q).list()
                 self.eq(('init', 'fini'), [m[0] for m in msgs])
 
-                # A exception is raised but no message
+                # A exception is raised but no message; this is
+                # treated as a generic SynErr by the telepath client.
                 q = '[test:str=beep.sys] $lib.exit()'
                 with self.raises(s_exc.SynErr) as cm:
                     _ = await prox.callStorm(q)
