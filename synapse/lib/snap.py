@@ -1060,6 +1060,10 @@ class Snap(s_base.Base):
                                     await self.warn(f'Failed to make n2 edge node for {n2iden}: invalid form')
                                     continue
 
+                                if n2form.isrunt:
+                                    await self.warn(f'Edges cannot be used with runt nodes: {n2formname}')
+                                    continue
+
                                 try:
                                     n2norm, _ = n2form.type.norm(n2valu)
                                     n2buid = s_common.buid((n2form.name, n2norm))
