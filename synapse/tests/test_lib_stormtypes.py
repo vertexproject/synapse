@@ -3596,12 +3596,28 @@ class StormTypesTest(s_test.SynTest):
             for m in msgs:
                 print(m)
 
+            # Remote tests
             async with core.getLocalProxy() as prox:
+                # No message is emitted
                 q = '[test:str=beep.sys] $lib.exit()'
-                async for msg in prox.storm(q):
-                    print(msg)
+                msgs = await prox.storm(q).list()
+                self.eq(('init', 'fini'), [m[0] for m in msgs])
 
-            async with core.getLocalProxy() as prox:
+                # A exception is raised but no message
+                q = '[test:str=beep.sys] $lib.exit()'
+                with self.raises(s_exc.SynErr) as cm:
+                    _ = await prox.callStorm(q)
+                self.eq(cm.exception.get('mesg'), '')
+                self.eq(cm.exception.get('errx'), 'StormExit')
+
+                # A warn is emitted
                 q = '[test:str=beep.sys] $lib.exit(foo)'
-                async for msg in prox.storm(q):
-                    print(msg)
+                msgs = await prox.storm(q).list()
+                self.stormIsInWarn('foo', msgs)
+
+                # A exception is raised with the message
+                q = '[test:str=beep.sys] $lib.exit("foo {bar}", bar=baz)'
+                with self.raises(s_exc.SynErr) as cm:
+                    _ = await prox.callStorm(q)
+                self.eq(cm.exception.get('mesg'), 'foo baz')
+                self.eq(cm.exception.get('errx'), 'StormExit')
