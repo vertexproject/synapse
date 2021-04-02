@@ -148,6 +148,7 @@ class OuModelTest(s_t_utils.SynTest):
                 oprops = {
                     'loc': 'US.CA',
                     'name': name,
+                    'type': 'corp',
                     'names': altnames,
                     'logo': '*',
                     'alias': 'arrow',
@@ -162,6 +163,7 @@ class OuModelTest(s_t_utils.SynTest):
                 node = await snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
                 self.eq(node.get('loc'), 'us.ca')
+                self.eq(node.get('type'), 'corp')
                 self.eq(node.get('name'), normname)
                 self.eq(node.get('names'), altnames)
                 self.eq(node.get('alias'), 'arrow')

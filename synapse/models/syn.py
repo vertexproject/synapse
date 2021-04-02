@@ -132,6 +132,12 @@ class SynModule(s_module.CoreModule):
                 ('syn:nodedata', ('comp', {'fields': (('key', 'str'), ('form', 'syn:form'))}), {
                     'doc': 'A nodedata key and the form it may be present on.',
                 }),
+                ('syn:user', ('guid', {'strip': True}), {
+                    'doc': 'A synapse user GUID.'
+                }),
+                ('syn:role', ('guid', {'strip': True}), {
+                    'doc': 'A synapse role GUID.'
+                }),
             ),
 
             'forms': (

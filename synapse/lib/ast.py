@@ -562,6 +562,11 @@ class ForLoop(Oper):
 
             # TODO: remove when storm is all objects
             valu = await self.kids[1].compute(runt, path)
+
+            if isinstance(valu, s_stormtypes.Prim):
+                # returns an async genr instance...
+                valu = valu.iter()
+
             if isinstance(valu, dict):
                 valu = list(valu.items())
 
@@ -611,6 +616,11 @@ class ForLoop(Oper):
         if node is None and self.kids[1].isRuntSafe(runt):
 
             valu = await self.kids[1].compute(runt, None)
+
+            if isinstance(valu, s_stormtypes.Prim):
+                # returns an async genr instance...
+                valu = valu.iter()
+
             if isinstance(valu, dict):
                 valu = list(valu.items())
 

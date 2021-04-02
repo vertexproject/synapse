@@ -221,6 +221,7 @@ class StormType:
     def __init__(self, path=None):
         self.path = path
         self.ctors = {}
+        self.stors = {}
         self.locls = {}
 
     def getObjLocals(self):
@@ -236,8 +237,19 @@ class StormType:
         return {}
 
     async def setitem(self, name, valu):
-        mesg = f'{self.__class__.__name__} does not support assignment.'
-        raise s_exc.StormRuntimeError(mesg=mesg)
+
+        if not self.stors:
+            mesg = f'{self.__class__.__name__} does not support assignment.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        name = await tostr(name)
+
+        stor = self.stors.get(await tostr(name))
+        if stor is None:
+            mesg = f'Setting {name} is not supported on .'
+            raise s_exc.NoSuchName(name=name, mesg=mesg)
+
+        await s_coro.ornot(stor, valu)
 
     async def deref(self, name):
         locl = self.locls.get(name, s_common.novalu)
@@ -982,7 +994,9 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _sorted(self, valu, reverse=False):
-        valu = await toiter(valu)
+        valu = await toprim(valu)
+        if isinstance(valu, dict):
+            valu = list(valu.items())
         for item in sorted(valu, reverse=reverse):
             yield item
 
@@ -2521,8 +2535,10 @@ class Prim(StormType):
     def value(self):
         return self.valu
 
-    async def iter(self):
-        return tuple(await s_coro.ornot(self.value))
+    async def iter(self): # pragma: no cover
+        for x in (): yield x
+        name = f'{self.__class__.__module__}.{self.__class__.__name__}'
+        raise s_exc.StormRuntimeError(mesg=f'Object {name} is not iterable.', name=name)
 
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
@@ -2863,19 +2879,13 @@ class Dict(Prim):
     Implements the Storm API for a Dictionary object.
     '''
     _storm_typename = 'dict'
-    # TODO Add inline examples here once we have the stormrst stable
-    def __iter__(self):
-        return self.valu.items()
-
-    async def __aiter__(self):
-        for item in self.valu.items():
-            yield item
 
     def __len__(self):
         return len(self.valu)
 
     async def iter(self):
-        return tuple(item for item in self.valu.items())
+        for item in tuple(self.valu.items()):
+            yield item
 
     async def setitem(self, name, valu):
 
@@ -2899,15 +2909,6 @@ class CmdOpts(Dict):
     '''
     _storm_typename = 'storm:cmdopts'
 
-    def __iter__(self):
-        valu = vars(self.valu.opts)
-        return valu.items()
-
-    async def __aiter__(self):
-        valu = vars(self.valu.opts)
-        for item in valu.items():
-            yield item
-
     def __len__(self):
         valu = vars(self.valu.opts)
         return len(valu)
@@ -2924,6 +2925,11 @@ class CmdOpts(Dict):
     async def value(self):
         valu = vars(self.valu.opts)
         return {await toprim(k): await toprim(v) for (k, v) in valu.items()}
+
+    async def iter(self):
+        valu = vars(self.valu.opts)
+        for item in valu.items():
+            yield item
 
 @registry.registerType
 class Set(Prim):
@@ -2984,11 +2990,7 @@ class Set(Prim):
             'size': self._methSetSize,
         }
 
-    def __iter__(self):
-        for item in self.valu:
-            yield item
-
-    async def __aiter__(self):
+    async def iter(self):
         for item in self.valu:
             yield item
 
@@ -3067,10 +3069,6 @@ class List(Prim):
             'append': self._methListAppend,
         }
 
-    def __iter__(self):
-        for item in self.valu:
-            yield item
-
     async def setitem(self, name, valu):
 
         indx = await toint(name)
@@ -3086,10 +3084,6 @@ class List(Prim):
 
     async def _derefGet(self, name):
         return await self._methListIndex(name)
-
-    async def __aiter__(self):
-        for item in self:
-            yield item
 
     def __len__(self):
         return len(self.valu)
@@ -3133,6 +3127,10 @@ class List(Prim):
 
     async def value(self):
         return tuple([await toprim(v) for v in self.valu])
+
+    async def iter(self):
+        for item in self.valu:
+            yield item
 
 @registry.registerType
 class Bool(Prim):
@@ -3343,8 +3341,9 @@ class StormHiveDict(Prim):
     def _list(self):
         return list(self.info.items())
 
-    def __iter__(self):
-        return list(self.info.items())
+    async def iter(self):
+        for item in list(self.info.items()):
+            yield item
 
     def value(self):
         return self.info.pack()
@@ -3449,7 +3448,7 @@ class Query(Prim):
         async for node, path in self._getRuntGenr():
             yield node
 
-    async def __aiter__(self):
+    async def iter(self):
         async for node, path in self._getRuntGenr():
             yield Node(node)
 
@@ -3511,7 +3510,7 @@ class NodeProps(Prim):
         valu = await toprim(valu)
         return await self.valu.set(name, valu)
 
-    def __iter__(self):
+    async def iter(self):
         # Make copies of property values since array types are mutable
         items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
         for item in items:
@@ -3791,7 +3790,7 @@ class PathMeta(Prim):
             return
         self.path.meta(name, valu)
 
-    async def __aiter__(self):
+    async def iter(self):
         # prevent "edit while iter" issues
         for item in list(self.path.metadata.items()):
             yield item
@@ -3820,12 +3819,7 @@ class PathVars(Prim):
             return
         self.path.setVar(name, valu)
 
-    def __iter__(self):
-        # prevent "edit while iter" issues
-        for item in list(self.path.vars.items()):
-            yield item
-
-    async def __aiter__(self):
+    async def iter(self):
         # prevent "edit while iter" issues
         for item in list(self.path.vars.items()):
             yield item
@@ -4014,6 +4008,10 @@ class StatTally(Prim):
 
     def value(self):
         return dict(self.counters)
+
+    async def iter(self):
+        for item in tuple(self.counters.items()):
+            yield item
 
 @registry.registerLib
 class LibLayer(Lib):
@@ -5317,6 +5315,7 @@ class User(Prim):
     async def _methUserSetRoles(self, idens):
         self.runt.confirm(('auth', 'user', 'grant'))
         self.runt.confirm(('auth', 'user', 'revoke'))
+        idens = await toprim(idens)
         await self.runt.snap.core.setUserRoles(self.valu, idens)
 
     async def _methUserRevoke(self, iden):
@@ -6063,19 +6062,6 @@ async def tostr(valu, noneok=False):
     except Exception as e:
         mesg = f'Failed to make a string from {valu!r}.'
         raise s_exc.BadCast(mesg=mesg) from e
-
-async def toiter(valu, noneok=False):
-    '''
-    Make a python primative or storm type into an iterable.
-    '''
-
-    if noneok and valu is None:
-        return ()
-
-    if isinstance(valu, Prim):
-        return await valu.iter()
-
-    return tuple(valu)
 
 async def tobool(valu, noneok=False):
 
