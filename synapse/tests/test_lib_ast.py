@@ -729,6 +729,11 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             # test property assignment with subquery value
+            await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
+            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
             nodes = await core.nodes('[ou:campaign=* :goal={[ou:goal=* :name="paperclip manufacturing" ]} ]')
             self.len(1, nodes)
             # Make sure we're not accidentally adding extra nodes
@@ -736,22 +741,21 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('name'))
 
-            await core.nodes('[ ou:industry=* :name=foo2 ]')
-            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries+={ou:industry:name=foo2} ]')
-            self.len(1, nodes)
-            self.len(1, nodes[0].get('industries'))
-
-            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme} ]')
+            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))
 
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={[ ou:industry=* :name=foo ] } ]')
+            nodes = await core.nodes('ou:org:alias=visiacme')
             self.len(1, nodes)
             self.len(2, nodes[0].get('industries'))
 
             nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
             self.len(1, nodes)
             self.len(1, nodes[0].get('industries'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
 
             await core.nodes('[ it:dev:str=a it:dev:str=b ]')
             q = "ou:org:alias=visiacme [ :name={it:dev:str if ($node='b') {return(penetrode)}} ]"
@@ -816,9 +820,6 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('ou:org:alias={it:dev:str}')
-
-            retn = await core.callStorm('$val={inet:ipv4=42} return(($lib.null=$val))')
-            self.true(retn)
 
     async def test_lib_ast_module(self):
 

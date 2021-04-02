@@ -471,31 +471,49 @@ class SubQuery(Oper):
         async for item in self.kids[0].run(runt, genr):
             yield item
 
+    async def _compute(self, runt, limit):
+        retn = []
+
+        async with runt.getSubRuntime(self.kids[0]) as runt:
+            async for valunode, valupath in runt.execute():
+
+                retn.append(valunode.ndef[1])
+
+                if len(retn) > limit:
+                    mesg = f'Subquery used as a value yielded too many (>{limit}) nodes'
+                    raise s_exc.BadTypeValu(mesg=mesg)
+
+        return retn
+
     async def compute(self, runt, path):
         '''
-        Use subuqery as a value.  It is error if the subquery used in this way doesn't yield exactly one node or has a
+        Use subquery as a value.  It is error if the subquery used in this way doesn't yield exactly one node or has a
         return statement.
 
         Its value is the primary property of the node yielded, or the returned value.
         '''
-        retn = None
+        try:
+            retn = await self._compute(runt, 1)
 
-        async with runt.getSubRuntime(self.kids[0]) as runt:
-            try:
-                async for valunode, valupath in runt.execute():
+        except s_stormctrl.StormReturn as e:
+            # a subquery assignment with a return; just use the returned value
+            return e.item
 
-                    if retn is not None:
-                        mesg = 'Subquery used as a value may not yield more than 1 node'
-                        raise s_exc.BadTypeValu(mesg=mesg)
+        if retn == []:
+            return None
 
-                    retn = valunode.ndef[1]
+        return retn[0]
 
-            except s_stormctrl.StormReturn as e:
-                # a subquery assignment with a return; just use the returned value
-                return e.item
+    async def compute_array(self, runt, path):
+        '''
+        Use subquery as an array.
+        '''
+        try:
+            return await self._compute(runt, 128)
+        except s_stormctrl.StormReturn as e:
+            # a subquery assignment with a return; just use the returned value
+            return e.item
 
-        # If nothing yielded/returned, just return None
-        return retn
 
 class InitBlock(AstNode):
     '''
@@ -3002,6 +3020,7 @@ class EditPropSet(Edit):
         isadd = oper in ('+=', '?+=')
         issub = oper in ('-=', '?-=')
         rval = self.kids[2]
+        expand = True
 
         async for node, path in genr:
 
@@ -3015,13 +3034,21 @@ class EditPropSet(Edit):
                 # runt node property permissions are enforced by the callback
                 runt.layerConfirm(('node', 'prop', 'set', prop.full))
 
+            isarray = isinstance(prop.type, s_types.Array)
+
             try:
-                valu = await rval.compute(runt, path)
+                if isarray and isinstance(rval, SubQuery):
+                    valu = await rval.compute_array(runt, path)
+                    expand = False
+
+                else:
+                    valu = await rval.compute(runt, path)
+
                 valu = await s_stormtypes.toprim(valu)
 
                 if isadd or issub:
 
-                    if not isinstance(prop.type, s_types.Array):
+                    if not isarray:
                         mesg = f'Property set using ({oper}) is only valid on arrays.'
                         raise s_exc.StormRuntimeError(mesg)
 
@@ -3032,7 +3059,8 @@ class EditPropSet(Edit):
                     # make arry mutable
                     arry = list(arry)
 
-                    valu = (valu,)
+                    if expand:
+                        valu = (valu,)
 
                     if isadd:
                         arry.extend(valu)
