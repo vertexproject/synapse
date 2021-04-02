@@ -124,6 +124,45 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ it:adid=visi ]')
             self.eq(('it:adid', 'visi'), nodes[0].ndef)
 
+            nodes = await core.nodes('''
+                init {
+                    $org = $lib.guid()
+                    $host = $lib.guid()
+                    $acct = $lib.guid()
+                }
+                [
+                    it:account=$acct
+                        :host=$host
+                        :user=visi
+                        :contact={[ ps:contact=* :email=visi@vertex.link ]}
+                        :domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
+
+                    (it:logon=* :time=20210314 :logoff:time=202103140201 :account=$acct :host=$host :duration=(:logoff:time - :time))
+                ]
+            ''')
+            self.len(2, nodes)
+            self.eq('visi', nodes[0].get('user'))
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('domain'))
+            self.nn(nodes[0].get('contact'))
+
+            self.nn(nodes[1].get('host'))
+            self.nn(nodes[1].get('account'))
+            self.eq(1615680000000, nodes[1].get('time'))
+            self.eq(1615687260000, nodes[1].get('logoff:time'))
+            self.eq(7260000, nodes[1].get('duration'))
+            self.eq('02:01:00.000', nodes[1].repr('duration'))
+
+            nodes = await core.nodes('inet:email=visi@vertex.link -> ps:contact -> it:account -> it:logon +:time>=2021 -> it:host')
+            self.len(1, nodes)
+            self.eq('it:host', nodes[0].ndef[0])
+
+            nodes = await core.nodes('it:account -> it:domain')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('org'))
+            self.eq('vertex', nodes[0].get('name'))
+            self.eq('the vertex project domain', nodes[0].get('desc'))
+
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
         async with self.getTestCore() as core:

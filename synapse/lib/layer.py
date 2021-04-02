@@ -62,6 +62,7 @@ import shutil
 import struct
 import asyncio
 import logging
+import binascii
 import ipaddress
 import contextlib
 import collections
@@ -921,7 +922,13 @@ class StorTypeGuid(StorType):
         StorType.__init__(self, layr, STOR_TYPE_GUID)
         self.lifters.update({
             '=': self._liftGuidEq,
+            '^=': self._liftGuidPref,
         })
+
+    async def _liftGuidPref(self, liftby, byts):
+        # valu is already bytes of the guid prefix
+        for item in liftby.keyBuidsByPref(byts):
+            yield item
 
     async def _liftGuidEq(self, liftby, valu):
         indx = s_common.uhex(valu)

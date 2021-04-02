@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import binascii
 import collections
 
 import regex
@@ -400,7 +401,13 @@ class Array(Type):
             raise s_exc.BadTypeDef(mesg=mesg)
 
         typeopts = self.opts.get('typeopts', {})
-        self.arraytype = self.modl.type(typename).clone(typeopts)
+
+        basetype = self.modl.type(typename)
+        if basetype is None:
+            mesg = f'Array type ({self.name}) based on unknown type: {typename}.'
+            raise s_exc.BadTypeDef(mesg=mesg)
+
+        self.arraytype = basetype.clone(typeopts)
 
         if isinstance(self.arraytype, Array):
             mesg = 'Array type of array values is not (yet) supported.'
@@ -561,6 +568,21 @@ class Guid(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
+        self.storlifts.update({
+            '^=': self._storLiftPref,
+        })
+
+    def _storLiftPref(self, cmpr, valu):
+
+        try:
+            byts = s_common.uhex(valu)
+        except binascii.Error:
+            mesg = f'Invalid GUID prefix ({valu}). Must be even number of hex chars.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        return (
+            ('^=', byts, self.stortype),
+        )
 
     def _normPyList(self, valu):
         return s_common.guid(valu), {}
@@ -1590,6 +1612,67 @@ class Tag(Str):
             subs['up'] = '.'.join(toks[:-1])
 
         return norm, {'subs': subs}
+
+class Duration(IntBase):
+
+    stortype = s_layer.STOR_TYPE_U64
+
+    _opt_defs = (
+        ('signed', False),
+    )
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    def _normPyInt(self, valu):
+        return valu, {}
+
+    def _normPyStr(self, text):
+
+        text = text.strip()
+        dura = 0
+
+        try:
+
+            if text.find('D') != -1:
+                daystext, text = text.split('D', 1)
+                dura += int(daystext.strip(), 0) * s_time.oneday
+
+            if text.find(':') != -1:
+                parts = text.split(':')
+                if len(parts) == 2:
+                    dura += int(parts[0].strip()) * s_time.onemin
+                    dura += int(float(parts[1].strip()) * s_time.onesec)
+                elif len(parts) == 3:
+                    dura += int(parts[0].strip()) * s_time.onehour
+                    dura += int(parts[1].strip()) * s_time.onemin
+                    dura += int(float(parts[2].strip()) * s_time.onesec)
+                else:
+                    mesg = 'Invalid number of : characters for duration.'
+                    raise s_exc.BadTypeValu(mesg=mesg)
+            else:
+                dura += int(float(text.strip()) * s_time.onesec)
+
+        except ValueError:
+            mesg = f'Invalid numeric value in duration: {text}.'
+            raise s_exc.BadTypeValu(mesg=mesg) from None
+
+        return dura, {}
+
+    def repr(self, valu):
+
+        days, rem = divmod(valu, s_time.oneday)
+        hours, rem = divmod(rem, s_time.onehour)
+        minutes, rem = divmod(rem, s_time.onemin)
+        seconds, millis = divmod(rem, s_time.onesec)
+
+        retn = ''
+        if days:
+            retn += f'{days}D '
+
+        retn += f'{hours:02}:{minutes:02}:{seconds:02}.{millis:03}'
+        return retn
 
 class Time(IntBase):
 
