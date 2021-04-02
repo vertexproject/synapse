@@ -538,6 +538,9 @@ class Snap(s_base.Base):
 
                 if prop.locked:
                     mesg = f'Prop {prop.full} is locked due to deprecation.'
+                    if not self.strict:
+                        await self.warn(mesg)
+                        continue
                     raise s_exc.IsDeprLocked(mesg=mesg)
 
                 assert prop.type.stortype is not None
@@ -549,6 +552,13 @@ class Snap(s_base.Base):
                     ndefform = self.core.model.form(ndefname)
                     if ndefform is None:
                         raise s_exc.NoSuchForm(name=ndefname)
+
+                    if ndefform.locked:
+                        mesg = f'Form {ndefform.full} is locked due to deprecation.'
+                        if not self.strict:
+                            await self.warn(mesg)
+                            continue
+                        raise s_exc.IsDeprLocked(mesg=mesg)
 
                     ndefnorm, ndefinfo = ndefform.type.norm(ndefvalu)
                     do_subedit = True
@@ -562,6 +572,13 @@ class Snap(s_base.Base):
                 elif isinstance(prop.type, s_types.Array):
                     arrayform = self.core.model.form(prop.type.arraytype.name)
                     if arrayform is not None:
+                        if arrayform.locked:
+                            mesg = f'Form {arrayform.full} is locked due to deprecation.'
+                            if not self.strict:
+                                await self.warn(mesg)
+                                continue
+                            raise s_exc.IsDeprLocked(mesg=mesg)
+
                         for arrayvalu in propnorm:
                             arraynorm, arrayinfo = arrayform.type.norm(arrayvalu)
 
@@ -1010,7 +1027,7 @@ class Snap(s_base.Base):
                     props.pop('.created', None)
 
                 oldstrict = self.strict
-                self.strict = True
+                self.strict = False
                 try:
 
                     (node, editset) = await self._getAddNodeEdits(formname, formvalu, props=props)
@@ -1058,6 +1075,10 @@ class Snap(s_base.Base):
                                 n2form = self.core.model.form(n2formname)
                                 if n2form is None:
                                     await self.warn(f'Failed to make n2 edge node for {n2iden}: invalid form')
+                                    continue
+
+                                if n2form.isrunt:
+                                    await self.warn(f'Edges cannot be used with runt nodes: {n2formname}')
                                     continue
 
                                 try:

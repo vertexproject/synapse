@@ -678,7 +678,11 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
         {'name': 'exit', 'desc': 'Cause a Storm Runtime to stop running.',
-        'type': {'type': 'function', '_funcname': '_exit',
+         'type': {'type': 'function', '_funcname': '_exit',
+                  'args': (
+                      {'name': 'mesg', 'type': 'str', 'desc': 'Optional string to warn.', 'default': None, },
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
+                  ),
                   'returns': {'type': 'null', }}},
         {'name': 'guid', 'desc': 'Get a random guid, or generate a guid from the arguments.',
          'type': {'type': 'function', '_funcname': '_guid',
@@ -969,7 +973,11 @@ class LibBase(Lib):
             return (False, None)
 
     @stormfunc(readonly=True)
-    async def _exit(self):
+    async def _exit(self, mesg=None, **kwargs):
+        if mesg:
+            mesg = self._get_mesg(mesg, **kwargs)
+            await self.runt.warn(mesg, log=False)
+            raise s_stormctrl.StormExit(mesg)
         raise s_stormctrl.StormExit()
 
     @stormfunc(readonly=True)
@@ -5194,6 +5202,18 @@ class User(Prim):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'setRoles', 'desc': '''
+        Replace all the Roles of the User with a new list of roles.
+
+        Notes:
+            The roleiden for the "all" role must be present in the new list of roles. This replaces all existing roles
+            that the user has with the new roles.
+        ''',
+         'type': {'type': 'function', '_funcname': '_methUserSetRoles',
+                  'args': (
+                      {'name': 'idens', 'type': 'list', 'desc': 'The idens to  of the Role.', },
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'revoke', 'desc': 'Remove a Role from the User',
          'type': {'type': 'function', '_funcname': '_methUserRevoke',
                   'args': (
@@ -5266,6 +5286,7 @@ class User(Prim):
             'revoke': self._methUserRevoke,
             'addRule': self._methUserAddRule,
             'delRule': self._methUserDelRule,
+            'setRoles': self._methUserSetRoles,
             'setRules': self._methUserSetRules,
             'setAdmin': self._methUserSetAdmin,
             'setEmail': self._methUserSetEmail,
@@ -5292,6 +5313,11 @@ class User(Prim):
     async def _methUserGrant(self, iden):
         self.runt.confirm(('auth', 'user', 'grant'))
         await self.runt.snap.core.addUserRole(self.valu, iden)
+
+    async def _methUserSetRoles(self, idens):
+        self.runt.confirm(('auth', 'user', 'grant'))
+        self.runt.confirm(('auth', 'user', 'revoke'))
+        await self.runt.snap.core.setUserRoles(self.valu, idens)
 
     async def _methUserRevoke(self, iden):
         self.runt.confirm(('auth', 'user', 'revoke'))

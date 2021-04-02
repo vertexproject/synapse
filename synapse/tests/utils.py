@@ -223,6 +223,11 @@ testmodel = {
         ('test:ndef', ('ndef', {}), {}),
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
 
+        ('test:deprprop', ('test:str', {}), {'deprecated': True}),
+        ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
+        ('test:deprform', ('test:str', {}), {}),
+        ('test:deprndef', ('ndef', {}), {}),
+
     ),
 
     'univs': (
@@ -348,6 +353,13 @@ testmodel = {
             ('tick', ('time', {}), {'ro': True}),
             ('lulz', ('str', {}), {}),
             ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
+        )),
+
+        ('test:deprprop', {}, ()),
+        ('test:deprform', {}, (
+            ('ndefprop', ('test:deprndef', {}), {}),
+            ('deprprop', ('test:deprarray', {}), {}),
+            ('okayprop', ('str', {}), {}),
         )),
     ),
 }

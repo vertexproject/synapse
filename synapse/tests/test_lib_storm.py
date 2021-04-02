@@ -176,6 +176,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('$lib.import(foo.bar).dyncall()', opts=opts)
             await core.nodes('$lib.import(foo.bar).dyniter()', opts=opts)
 
+            self.eq(s_version.commit, await core.callStorm('return($lib.version.commit())'))
             self.eq(s_version.version, await core.callStorm('return($lib.version.synapse())'))
             self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">=2.9.0"))'))
             self.false(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">0.0.1,<2.0"))'))
@@ -1059,6 +1060,10 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn('BadTypeValue', msgs)
             msgs = await core.stormlist('[ media:news=* :title="https://t.c…" ] | scrape :title')
             self.stormIsInWarn('BadTypeValue', msgs)
+
+            await core.nodes('trigger.add node:add --query {[ +#foo.com ]} --form inet:ipv4')
+            msgs = await core.stormlist('syn:trigger | scrape :storm --refs')
+            self.stormIsInWarn('Edges cannot be used with runt nodes: syn:trigger', msgs)
 
     async def test_storm_tee(self):
 

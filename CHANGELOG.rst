@@ -5,6 +5,64 @@ Synapse Changelog
 *****************
 
 
+v2.32.1 - 2021-04-01
+====================
+
+Features and Enhancements
+-------------------------
+- The Storm ``$lib.exit()`` function now takes message arguments similar to
+  ``$lib.warn()`` and fires that message into the run time as a ``warn`` prior
+  to stopping the runtime.
+  (`#2138 <https://github.com/vertexproject/synapse/pull/2138>`_)
+- Update ``pygments`` minimum version to ``v2.7.4``.
+  (`#2139 <https://github.com/vertexproject/synapse/pull/2139>`_)
+
+Bugfixes
+--------
+- Do not allow light edge creation on runt nodes.
+  (`#2136 <https://github.com/vertexproject/synapse/pull/2136>`_)
+- Fix backup test timeout issues.
+  (`#2141 <https://github.com/vertexproject/synapse/pull/2141>`_)
+- Fix the ``synapse.lib.msgpack.en()`` function so that now raises the correct
+  exceptions when operating in fallback mode.
+  (`#2140 <https://github.com/vertexproject/synapse/pull/2140>`_)
+- Fix the ``Snap.addNodes()`` API handling of deprecated model elements when
+  doing bulk data ingest.
+  (`#2142 <https://github.com/vertexproject/synapse/pull/2142>`_)
+
+
+v2.32.0 - 2021-03-30
+====================
+
+Features and Enhancements
+-------------------------
+- Increase the verbosity of logging statements related to Cell backup
+  operations. This allows for better visibility into what is happening
+  while a backup is occurring.
+  (`#2124 <https://github.com/vertexproject/synapse/pull/2124>`_)
+- Add Telepath and Storm APIs for setting all the roles of a User at once.
+  (`#2127 <https://github.com/vertexproject/synapse/pull/2127>`_)
+- Expose the Synapse package commit hash over Telepath and Stormtypes.
+  (`#2133 <https://github.com/vertexproject/synapse/pull/2133>`_)
+
+Bugfixes
+--------
+- Increase the process spawn timeout for Cell backup operations. Prevent the
+  Cell backup from grabbing lmdb transactions for slabs in the cell local tmp
+  directory.
+  (`#2124 <https://github.com/vertexproject/synapse/pull/2124>`_)
+
+
+v2.31.1 - 2021-03-25
+====================
+
+Bugfixes
+--------
+- Fix a formatting issue preventing Python packages from being uploaded to
+  PyPI.
+  (`#2131 <https://github.com/vertexproject/synapse/pull/2131>`_)
+
+
 v2.31.0 - 2021-03-24
 ====================
 

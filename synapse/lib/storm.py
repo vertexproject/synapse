@@ -3204,7 +3204,11 @@ class ScrapeCmd(Cmd):
                         npath = path.fork(nnode)
 
                         if refs:
-                            await node.addEdge('refs', nnode.iden())
+                            if node.form.isrunt:
+                                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                                await runt.warn(mesg)
+                            else:
+                                await node.addEdge('refs', nnode.iden())
 
                         if self.opts.doyield:
                             yield nnode, npath

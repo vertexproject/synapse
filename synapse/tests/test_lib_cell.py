@@ -18,14 +18,14 @@ import synapse.lib.link as s_link
 import synapse.tests.utils as s_t_utils
 
 # Defective versions of spawned backup processes
-def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths):
+def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
     time.sleep(3.0)
 
-def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths):
+def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
     pipe.send('ready')
     time.sleep(2.0)
 
-def _exiterProc(pipe, srcdir, dstdir, lmdbpaths):
+def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
     pipe.send('ready')
     pipe.send('captured')
     sys.exit(1)
@@ -178,6 +178,26 @@ class CellTest(s_t_utils.SynTest):
                     # cannot change a password for a non existent user
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.setUserPasswd('newp', 'new[')
+
+                # setRoles() allows arbitrary role ordering
+                extra_role = await echo.auth.addRole('extrarole')
+                await visi.setRoles((extra_role.iden, testrole.iden, echo.auth.allrole.iden))
+                visi_url = f'tcp://visi:foobar@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
+                    uatm = await proxy.getUserInfo('visi')
+                    self.eq(uatm.get('roles'), ('extrarole', 'testrole', 'all',))
+
+                    # setRoles are wholesale replacements
+                    await visi.setRoles((echo.auth.allrole.iden, testrole.iden))
+                    uatm = await proxy.getUserInfo('visi')
+                    self.eq(uatm.get('roles'), ('all', 'testrole'))
+
+                # coverage test - nops short circuit
+                await visi.setRoles((echo.auth.allrole.iden, testrole.iden))
+
+                # grants must have the allrole in place
+                with self.raises(s_exc.BadArg):
+                    await visi.setRoles((extra_role.iden, testrole.iden))
 
                 # New password works
                 visi_url = f'tcp://visi:foobar@127.0.0.1:{port}/echo00'

@@ -3131,6 +3131,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', data)
             self.len(0, await core1.nodes('syn:cmd=newp'))
 
+            data = [(('test:str', 'beef'), {'edges': [('newp', ('syn:form', 'newp'))]})]
+            await core1.addFeedData('syn.nodes', data)
+            nodes = await core1.nodes('test:str=beef')
+            self.len(1, nodes)
+            await self.agenlen(0, nodes[0].iterEdgesN1())
+
             # Feed into a forked view
             vdef2 = await core1.view.fork()
             view2_iden = vdef2.get('iden')
@@ -3186,6 +3192,36 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             core1.view.layers[0].readonly = True
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
+
+            await core1.nodes('model.deprecated.lock ou:org:sic')
+
+            data = [(('ou:org', '*'), {'props': {'sic': 1111, 'name': 'foo'}})]
+            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            nodes = await core1.nodes('ou:org', opts={'view': view2_iden})
+            self.len(1, nodes)
+            self.nn(nodes[0].props.get('name'))
+            self.none(nodes[0].props.get('sic'))
+
+            await core1.nodes('model.deprecated.lock test:deprprop')
+
+            data = [(('test:deprform', 'dform'), {'props': {'deprprop': ['1', '2'],
+                                                            'ndefprop': ('test:deprprop', 'a'),
+                                                            'okayprop': 'okay'}})]
+            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            nodes = await core1.nodes('test:deprform', opts={'view': view2_iden})
+            self.len(1, nodes)
+            self.nn(nodes[0].props.get('okayprop'))
+            self.none(nodes[0].props.get('deprprop'))
+            self.none(nodes[0].props.get('ndefprop'))
+            self.len(0, await core1.nodes('test:deprprop', opts={'view': view2_iden}))
+
+            with self.raises(s_exc.IsDeprLocked):
+                q = '[test:deprform=dform :ndefprop=(test:deprprop, a)]'
+                await core1.nodes(q, opts={'view': view2_iden})
+
+            with self.raises(s_exc.IsDeprLocked):
+                q = '[test:deprform=dform :deprprop=(1, 2)]'
+                await core1.nodes(q, opts={'view': view2_iden})
 
     async def test_feed_syn_splice(self):
 

@@ -6,20 +6,20 @@ Synapse is a versatile central intelligence system created to support analyst te
 |codecov|_ |circleci|_ |rtd|_
 
 Learn More About Synapse
-------------
+------------------------
 
 * Visit our website_ to learn more about Synapse. 
 * Attend a Synapse 101 training_! 
 
 
 Installation & Documentation
-------------
+----------------------------
 
 * Synapse is available as a Python Package on pypi_ and as a Docker image on dockerhub_.
 * API Documentation and User Guides can be found here_.
 
 Connect With Us
-----
+---------------
 
 * Join the Synapse user community on |slack|_
 * Follow us on Twitter_.
@@ -36,6 +36,8 @@ Connect With Us
 
 .. |slack| image:: http://slackinvite.vertex.link/badge.svg
 .. _slack: http://slackinvite.vertex.link/
+
+.. _dockerhub: https://hub.docker.com/r/vertexproject/synapse/
 
 .. _pypi: https://pypi.python.org/pypi/synapse
 
