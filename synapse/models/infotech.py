@@ -239,7 +239,7 @@ class ItModule(s_module.CoreModule):
                     'ex': 'cve-2012-0158'
                 }),
                 ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
-                    'doc': 'NIST NVD Commen Weaknesses Enumerateion Specification',
+                    'doc': 'NIST NVD Common Weaknesses Enumeration Specification',
                     'ex': 'CWE-120',
                 }),
                 ('it:dev:str', ('str', {}), {
