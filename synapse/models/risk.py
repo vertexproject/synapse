@@ -106,6 +106,9 @@ class RiskModule(s_module.CoreModule):
                     ('cvss:score:temporal', ('float', {}), {
                         'doc': 'The CVSS Temporal Score value.',
                     }),
+                    ('cvss:score:environmental', ('float', {}), {
+                        'doc': 'The CVSS Environmental Score value.',
+                    }),
                     ('cwes', ('array', {'type': 'it:sec:cwe'}), {
                         'doc': 'An array of MITRE CWE values that apply to the vulnerability.',
                     }),
