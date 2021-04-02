@@ -599,29 +599,43 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A free-form description of the CVE vulnerability.',
                         'disp': {'hint': 'text'},
                     }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL linking this CVE to a full description.',
+                    }),
                 )),
                 ('it:sec:cpe', {}, (
                     ('part', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "part" field from the CPE 2.3 string.'}),
                     ('vendor', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "vendor" field from the CPE 2.3 string.'}),
                     ('product', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "product" field from the CPE 2.3 string.'}),
                     ('version', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "version" field from the CPE 2.3 string.'}),
                     ('update', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "update" field from the CPE 2.3 string.'}),
                     ('edition', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "edition" field from the CPE 2.3 string.'}),
                     ('language', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "language" field from the CPE 2.3 string.'}),
                     ('sw_edition', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
                     ('target_sw', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
                     ('target_hw', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
                     ('other', ('str', {'lower': True}), {
+                        'ro': True,
                         'doc': 'The "other" field from the CPE 2.3 string.'}),
                 )),
                 ('it:sec:cwe', {}, (
