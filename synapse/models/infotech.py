@@ -22,9 +22,36 @@ class Cpe23Str(s_types.Str):
     * = "any"
     - = N/A
     '''
+    def __init__(self, modl, name, info, opts):
+        opts['lower'] = True
+        s_types.Str.__init__(self, modl, name, info, opts)
+
+    def _splitCpe23(self, text):
+        text = text.replace('\\:', '\x00')
+        # TODO noms with proper escaping...
+        parts = text.split(':')
+        return [p.replace('\x00', '\\:') for p in parts]
 
     def _normPyStr(self, valu):
+
         text, info = Str._normPyStr(self, valu)
+        parts = self.splitCpe23(text)
+
+        subs = {
+            'part': parts[0],
+            'vendor': parts[1],
+            'product': parts[2],
+            'version': parts[3],
+            'update': parts[4],
+            'edition': parts[5],
+            'language': parts[6],
+            'sw_edition': parts[7],
+            'target_sw': parts[8],
+            'target_hw': parts[9],
+            'other': parts[10],
+        }
+
+        return ':'.join(parts), {'subs': subs}
 
         def noms(x, o):
             s = o
@@ -177,6 +204,9 @@ class ItModule(s_module.CoreModule):
                 ('it:semver', 'synapse.models.infotech.SemVer', {}, {
                     'doc': 'Semantic Version type.',
                 }),
+                ('it:sec:cpe', 'synapse.models.infotech.Cpe23Str', {}, {
+                    'doc': 'A NIST CPE 2.3 Formatted String',
+                }),
             ),
             'types': (
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
@@ -192,6 +222,10 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:cve', ('str', {'lower': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                     'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
                     'ex': 'cve-2012-0158'
+                }),
+                ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
+                    'doc': 'NIST NVD Commen Weaknesses Enumerateion Specification',
+                    'ex': 'CWE-120',
                 }),
                 ('it:dev:str', ('str', {}), {
                     'doc': 'A developer-selected string.'
@@ -404,6 +438,42 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                 )),
+                ('it:sec:cpe', {}, (
+                    ('part', ('str', {'lower': True}), {
+                        'doc': 'The "part" field from the CPE 2.3 string.'}),
+                    ('vendor', ('str', {'lower': True}), {
+                        'doc': 'The "vendor" field from the CPE 2.3 string.'}),
+                    ('product', ('str', {'lower': True}), {
+                        'doc': 'The "product" field from the CPE 2.3 string.'}),
+                    ('version', ('str', {'lower': True}), {
+                        'doc': 'The "version" field from the CPE 2.3 string.'}),
+                    ('update', ('str', {'lower': True}), {
+                        'doc': 'The "update" field from the CPE 2.3 string.'}),
+                    ('edition', ('str', {'lower': True}), {
+                        'doc': 'The "edition" field from the CPE 2.3 string.'}),
+                    ('language', ('str', {'lower': True}), {
+                        'doc': 'The "language" field from the CPE 2.3 string.'}),
+                    ('sw_edition', ('str', {'lower': True}), {
+                        'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
+                    ('target_sw', ('str', {'lower': True}), {
+                        'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
+                    ('target_hw', ('str', {'lower': True}), {
+                        'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
+                    ('other', ('str', {'lower': True}), {
+                        'doc': 'The "other" field from the CPE 2.3 string.'}),
+                )),
+                ('it:sec:cwe', {}, (
+                    ('desc', ('str', {}), {
+                        'doc': 'The CWE description field.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL linking this CWE to a full description.',
+                    }),
+                    ('parents', ('array', {'type': 'it:sec:cwe'}), {
+                        'doc': 'An array of ChildOf CWE Relationships.'
+                    }),
+                )),
                 ('it:dev:int', {}, ()),
                 ('it:dev:pipe', {}, ()),
                 ('it:dev:mutex', {}, ()),
@@ -433,6 +503,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('desc:short', ('str', {'lower': True}), {
                         'doc': 'A short description of the software.',
+                    }),
+                    ('cpe', ('it:sec:cpe', {}), {
+                        'doc': 'The NIST CPE 2.3 string specifying this software.',
                     }),
                     ('author:org', ('ou:org', {}), {
                         'doc': 'Organization which authored the software.',
@@ -508,6 +581,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('software:name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name of the software at a particular version.',
+                    }),
+                    ('cpe', ('it:sec:cpe', {}), {
+                        'doc': 'The NIST CPE 2.3 string specifying this software version',
                     }),
                     ('vers', ('it:dev:str', {}), {
                         'doc': 'Version string associated with this version instance.',
