@@ -1,4 +1,7 @@
+import math
+
 import synapse.common as s_common
+import synapse.lib.node as s_node
 import synapse.lib.stormtypes as s_stormtypes
 
 CVSS31 = {
@@ -58,11 +61,6 @@ class CvssLib(s_stormtypes.Lib):
         if vers != '3.1':
             raise s_exc
 
-        if not isinstance(node, s_stormtypes.Node):
-            raise s_exc
-
-        # unwrap the storm node...
-        node = node.valu
         if node.ndef[0] != 'risk:vuln':
             raise s_exc
 
@@ -76,11 +74,14 @@ class CvssLib(s_stormtypes.Lib):
         A = node.get('cvss:a')
 
         score = None
+        impact = None
         basescore = None
+        modimpact = None
         temporalscore = None
+        exploitability = None
         environmentalscore = None
 
-        if all((AV, AC, PR, UI, S, C, I, A)):
+        if all((AV, AC, PR, UI, S, C, _I, A)):
 
             iscbase = 1.0 - ((1.0 - CVSS31['C'][C]) * (1.0 - CVSS31['I'][_I]) * (1.0 - CVSS31['A'][A]))
 
@@ -89,14 +90,14 @@ class CvssLib(s_stormtypes.Lib):
             else:
                 impact = (7.52 * (iscbase - 0.029)) - (3.25 * ((iscbase - 0.02)**15))
 
-            exploitability = 8.22 * CVSS31['AV'][AV] * CVSS31['AC'][AC] * CVSS31['PR'][PR] * CVSS31['UI'][UI]
+            exploitability = 8.22 * CVSS31['AV'][AV] * CVSS31['AC'][AC] * CVSS31['PR'][S][PR] * CVSS31['UI'][UI]
 
             if impact <= 0:
                 basescore = 0
             elif S == 'U':
-                basescore = min(roundup(impact * exploitability), 10.0)
+                basescore = min(roundup(impact + exploitability), 10.0)
             else:
-                basescore = min(roundup(1.08 * impact * exploitability), 10.0)
+                basescore = min(roundup(1.08 * (impact + exploitability)), 10.0)
 
             score = basescore
 
@@ -127,12 +128,12 @@ class CvssLib(s_stormtypes.Lib):
                 if all((MAV, MAC, MPR, MUI, MS, MC, MI, MA, CR, IR, AR)):
 
                     modiscbase = min(1.0 - (
-                        (1.0 - (CVSS31['MC'][MC] * CVSS31['CR'][CR])) *
-                        (1.0 - (CVSS31['MI'][MI] * CVSS31['IR'][IR])) *
-                        (1.0 - (CVSS31['MA'][MA] * CVSS31['AR'][AR]))
+                        (1.0 - (CVSS31['C'][MC] * CVSS31['CR'][CR])) *
+                        (1.0 - (CVSS31['I'][MI] * CVSS31['IR'][IR])) *
+                        (1.0 - (CVSS31['A'][MA] * CVSS31['AR'][AR]))
                     ), 0.915)
 
-                    modexploit = 8.22 * CVSS31['MAV'][MAV] * CVSS31['MAC'][MAC] * CVSS31['MPR'][MPR] * CVSS31['MUI'][MUI]
+                    modexploit = 8.22 * CVSS31['AV'][MAV] * CVSS31['AC'][MAC] * CVSS31['PR'][MS][MPR] * CVSS31['UI'][MUI]
 
                     if MS == 'U':
                         modimpact = 6.42 * modiscbase
@@ -161,7 +162,7 @@ class CvssLib(s_stormtypes.Lib):
             if environmentalscore is not None:
                 await node.set('cvss:score:environmental', environmentalscore)
 
-        return {
+        rval = {
             'ok': True,
             'version': '3.1',
             'score': score,
@@ -171,3 +172,9 @@ class CvssLib(s_stormtypes.Lib):
                 'environmental': environmentalscore,
             },
         }
+
+        if impact: rval['scores']['impact'] = min(10.0, roundup(impact))
+        if modimpact: rval['scores']['modifiedimpact'] = min(10.0, roundup(modimpact))
+        if exploitability: rval['scores']['exploitability'] = min(10.0, roundup(exploitability))
+
+        return rval
