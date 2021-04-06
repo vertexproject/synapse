@@ -695,6 +695,9 @@ class OuModule(s_module.CoreModule):
                     ('score', ('int', {}), {
                         'doc': 'The score of the participant.',
                     }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The contest result website URL.',
+                    }),
                     #TODO duration ('duration'
                 )),
             )
