@@ -470,37 +470,6 @@ class StormTest(s_t_utils.SynTest):
             task = core.schedCoro(sleeper())
             self.false(await s_coro.waittask(task, timeout=0.1))
 
-            # test subquery based property assignment
-            await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
-            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
-            self.len(1, nodes)
-            self.len(2, nodes[0].get('industries'))
-
-            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('org'))
-
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
-            self.len(1, nodes)
-            self.len(1, nodes[0].get('industries'))
-
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={ou:industry:name=foo} ]')
-            self.len(1, nodes)
-            self.len(2, nodes[0].get('industries'))
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :name={} ]')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
-
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')
-
-            await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
-            await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
-            await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
-
             # test some StormRuntime APIs directly...
             await core.nodes('[ inet:ipv4=1.2.3.4 ]')
             await core.nodes('[ ou:org=* ou:org=* :name=dupcorp ]')
@@ -514,6 +483,7 @@ class StormTest(s_t_utils.SynTest):
                     self.nn(await runt.getOneNode('inet:ipv4', 0x01020304))
 
                     counter = itertools.count()
+
                     async def skipone(n):
                         if next(counter) == 0:
                             return True

@@ -14,6 +14,8 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    'macro.set hehe ${ inet:ipv4 }',
+    '$q=${#foo.bar}',
     'metrics.edits.byprop inet:fqdn:domain --newv $lib.null',
     'tee // comment',
     'inet:fqdn=newp.com\n | tee\n { inet:fqdn } // faz\n | uniq',
@@ -575,6 +577,8 @@ _Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery:  inet:ipv4 ]]]',
+    'Query: [SetVarOper: [Const: q, EmbedQuery: #foo.bar]]',
     'Query: [CmdOper: [Const: metrics.edits.byprop, List: [Const: inet:fqdn:domain, Const: --newv, VarDeref: [VarValue: [Const: lib], Const: null]]]]',
     'Query: [CmdOper: [Const: tee, Const: ()]]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: newp.com], CmdOper: [Const: tee, List: [ArgvQuery: [Query: [LiftProp: [Const: inet:fqdn]]]]], CmdOper: [Const: uniq, Const: ()]]',
