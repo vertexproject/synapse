@@ -9,6 +9,92 @@ from synapse.tests.utils import alist
 
 class InfotechModelTest(s_t_utils.SynTest):
 
+    async def test_infotech_basics(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                it:sec:cwe=CWE-120
+                    :name=omg
+                    :desc=omgwtfbbq
+                    :url=https://cwe.mitre.org/data/definitions/120.html
+                    :parents=(CWE-119,)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cwe', 'CWE-120'))
+            self.eq(nodes[0].get('name'), 'omg')
+            self.eq(nodes[0].get('desc'), 'omgwtfbbq')
+            self.eq(nodes[0].get('url'), 'https://cwe.mitre.org/data/definitions/120.html')
+            self.eq(nodes[0].get('parents'), ('CWE-119',))
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[it:sec:cpe=asdf]')
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:asdf]')
+
+            nodes = await core.nodes('''[
+                it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*'))
+            self.eq(nodes[0].get('part'), 'a')
+            self.eq(nodes[0].get('vendor'), 'microsoft')
+            self.eq(nodes[0].get('product'), 'internet_explorer')
+            self.eq(nodes[0].get('version'), '8.0.6001')
+            self.eq(nodes[0].get('update'), 'beta')
+
+            nodes = await core.nodes('''[
+                it:mitre:attack:group=G0100
+                    :name=aptvisi
+                    :desc=worlddom
+                    :url=https://vertex.link
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:group', 'G0100'))
+            self.eq(nodes[0].get('name'), 'aptvisi')
+            self.eq(nodes[0].get('desc'), 'worlddom')
+            self.eq(nodes[0].get('url'), 'https://vertex.link')
+
+            nodes = await core.nodes('''[
+                it:mitre:attack:tactic=TA0100
+                    :name=tactilneck
+                    :desc=darkerblack
+                    :url=https://archer.link
+                    :tag=cno.mitre.ta0100
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:tactic', 'TA0100'))
+            self.eq(nodes[0].get('name'), 'tactilneck')
+            self.eq(nodes[0].get('desc'), 'darkerblack')
+            self.eq(nodes[0].get('url'), 'https://archer.link')
+
+            nodes = await core.nodes('''[
+                it:mitre:attack:technique=T0100
+                    :name=lockpicking
+                    :desc=speedhackers
+                    :url=https://locksrus.link
+                    :tag=cno.mitre.t0100
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:technique', 'T0100'))
+            self.eq(nodes[0].get('name'), 'lockpicking')
+            self.eq(nodes[0].get('desc'), 'speedhackers')
+            self.eq(nodes[0].get('url'), 'https://locksrus.link')
+
+            nodes = await core.nodes('''[
+                it:mitre:attack:software=S0100
+                    :name=redtree
+                    :desc=redtreestuff
+                    :url=https://redtree.link
+                    :tag=cno.mitre.s0100
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:software', 'S0100'))
+            self.eq(nodes[0].get('name'), 'redtree')
+            self.eq(nodes[0].get('desc'), 'redtreestuff')
+            self.eq(nodes[0].get('url'), 'https://redtree.link')
+
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:

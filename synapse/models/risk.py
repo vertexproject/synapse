@@ -36,9 +36,15 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('cvss:ac', ('str', {'enums': 'L,H'}), {
                         'doc': 'The CVSS Attack Complexity (AC) value.',
+                        'disp': {'enums': (('Low', 'L'), ('High', 'H'))},
                     }),
                     ('cvss:pr', ('str', {'enums': 'N,L,H'}), {
                         'doc': 'The CVSS Privileges Required (PR) value.',
+                        'disp': {'enums': (
+                            {'title': 'None', 'value': 'N', 'doc': 'FIXME privs stuff'},
+                            {'title': 'Low', 'value': 'L', 'doc': 'FIXME privs stuff'},
+                            {'title': 'High', 'value': 'H', 'doc': 'FIXME privs stuff'},
+                        )},
                     }),
                     ('cvss:ui', ('str', {'enums': 'N,R'}), {
                         'doc': 'The CVSS User Interaction (UI) value.',
