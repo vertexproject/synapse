@@ -513,7 +513,7 @@ jobs:
   python37:
     parallelism: 8
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.7.9
         environment:
           PYVERS: 3.7
           RUN_SYNTAX: 1
@@ -545,7 +545,7 @@ jobs:
   python37_replay:
     parallelism: 6
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.7.9
         environment:
           PYVERS: 3.7
           RUN_SYNTAX: 1
@@ -616,7 +616,7 @@ jobs:
 
   deploy_pypi_37:
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.7.9
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py37
