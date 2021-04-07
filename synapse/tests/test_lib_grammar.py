@@ -1116,6 +1116,10 @@ class GrammarTest(s_t_utils.SynTest):
         parser = s_parser.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 
+        query = 'test:str {'
+        parser = s_parser.Parser(query)
+        self.raises(s_exc.BadSyntax, parser.query)
+
     async def test_quotes(self):
 
         # Test vectors
