@@ -753,6 +753,9 @@ class ItModule(s_module.CoreModule):
                     ('parent', ('it:mitre:attack:technique', {}), {
                         'doc': 'The parent ATT&CK technique on this sub-technique.',
                     }),
+                    ('tactics', ('array', {'type': 'it:mitre:attack:tactic', 'uniq': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK tactics that include this technique.',
+                    }),
                 )),
                 ('it:mitre:attack:software', {}, (
                     ('software', ('it:prod:soft', {}), {
