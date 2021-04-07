@@ -1217,10 +1217,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.debug('Starting backup process')
 
                 args = (child_pipe, self.dirn, dirn, paths, loglevel)
-                proc = ctx.Process(target=self._backupProc, args=args)
-                proc.start()
 
                 def waitforproc1():
+                    nonlocal proc
+                    proc = ctx.Process(target=self._backupProc, args=args)
+                    proc.start()
                     hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
                     if not hasdata:
                         raise s_exc.SynErr(mesg='backup subprocess start timed out')
