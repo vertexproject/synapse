@@ -1232,7 +1232,8 @@ class LibStr(Lib):
         return text
 
     async def join(self, sepr, items):
-        strs = [str(item) for item in items]
+        # FIXME: Maybe this should be a tostr()?
+        strs = [str(item) async for item in toiter(items)]
         return sepr.join(strs)
 
 @registry.registerLib
@@ -2721,6 +2722,11 @@ class Str(Prim):
     def __len__(self):
         return len(self.valu)
 
+    async def iter(self):
+        # FIXME: Str didn't previously have an iter, but seems like it would be good to add?
+        for i in self.valu:
+            yield i
+
     async def _methEncode(self, encoding='utf8'):
         try:
             return self.valu.encode(encoding)
@@ -3008,14 +3014,14 @@ class Set(Prim):
 
     async def _methSetAdds(self, *items):
         for item in items:
-            [self.valu.add(i) for i in item]
+            [self.valu.add(i) async for i in toiter(item)]
 
     async def _methSetRem(self, *items):
         [self.valu.discard(i) for i in items]
 
     async def _methSetRems(self, *items):
         for item in items:
-            [self.valu.discard(i) for i in item]
+            [self.valu.discard(i) async for i in toiter(item)]
 
     async def _methSetList(self):
         return list(self.valu)
@@ -6094,3 +6100,20 @@ async def toint(valu, noneok=False):
     except Exception as e:
         mesg = f'Failed to make an integer from {valu!r}.'
         raise s_exc.BadCast(mesg=mesg) from e
+
+async def toiter(valu, noneok=False):
+    # FIXME: Should this be a generator or just return one?
+
+    if noneok and valu is None:
+        # FIXME: OK to have toiter blowup on None if noneok=False?
+        return
+
+    if isinstance(valu, Prim):
+        async for item in valu.iter():
+            yield item
+        return
+
+    # FIXME: Any special handling if its a non-Prim StormType?
+
+    for item in valu:
+        yield item
