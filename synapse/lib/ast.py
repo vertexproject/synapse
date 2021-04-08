@@ -37,6 +37,7 @@ class AstNode:
     '''
     def __init__(self, kids=()):
         self.kids = []
+        self.hasast = {}
         [self.addKid(k) for k in kids]
 
     def repr(self):
@@ -101,16 +102,27 @@ class AstNode:
         pass
 
     def hasAstClass(self, clss):
+        hasast = self.hasast.get(clss)
+        if hasast is not None:
+            return hasast
+
+        retn = False
 
         for kid in self.kids:
 
             if isinstance(kid, clss):
-                return True
+                retn = True
+                break
+
+            if isinstance(kid, (EditPropSet, Function, CmdOper)):
+                continue
 
             if kid.hasAstClass(clss):
-                return True
+                retn = True
+                break
 
-        return False
+        self.hasast[clss] = retn
+        return retn
 
     def optimize(self):
         [k.optimize() for k in self.kids]
@@ -432,6 +444,7 @@ class SubQuery(Oper):
     def __init__(self, kids=()):
         Oper.__init__(self, kids)
         self.hasyield = False
+        self.hasretn = self.hasAstClass(Return)
 
     async def run(self, runt, genr):
 
@@ -458,19 +471,49 @@ class SubQuery(Oper):
         async for item in self.kids[0].run(runt, genr):
             yield item
 
-    async def compute(self, runt, path):
-        # not technically a prim, but we can produce an array of primary prop vals
-        subvals = []
+    async def _compute(self, runt, limit):
+        retn = []
+
         async with runt.getSubRuntime(self.kids[0]) as runt:
             async for valunode, valupath in runt.execute():
 
-                subvals.append(valunode.ndef[1])
+                retn.append(valunode.ndef[1])
 
-                if len(subvals) >= 128:
-                    mesg = 'Cannot use subquery assignment for >128 items.'
+                if len(retn) > limit:
+                    mesg = f'Subquery used as a value yielded too many (>{limit}) nodes'
                     raise s_exc.BadTypeValu(mesg=mesg)
 
-        return subvals
+        return retn
+
+    async def compute(self, runt, path):
+        '''
+        Use subquery as a value.  It is error if the subquery used in this way doesn't yield exactly one node or has a
+        return statement.
+
+        Its value is the primary property of the node yielded, or the returned value.
+        '''
+        try:
+            retn = await self._compute(runt, 1)
+
+        except s_stormctrl.StormReturn as e:
+            # a subquery assignment with a return; just use the returned value
+            return e.item
+
+        if retn == []:
+            return None
+
+        return retn[0]
+
+    async def compute_array(self, runt, path):
+        '''
+        Use subquery as an array.
+        '''
+        try:
+            return await self._compute(runt, 128)
+        except s_stormctrl.StormReturn as e:
+            # a subquery assignment with a return; just use the returned value
+            return e.item
+
 
 class InitBlock(AstNode):
     '''
@@ -1283,7 +1326,8 @@ class LiftPropBy(LiftOper):
 
         name = await self.kids[0].compute(runt, path)
         cmpr = await self.kids[1].compute(runt, path)
-        valu = await self.kids[2].compute(runt, path)
+        valukid = self.kids[2]
+        valu = await valukid.compute(runt, path)
 
         async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
             yield node
@@ -2347,11 +2391,12 @@ class TagValuCond(Cond):
 
 class RelPropCond(Cond):
     '''
-    :foo:bar <cmpr> <value>
+    (:foo:bar or .univ) <cmpr> <value>
     '''
     async def getCondEval(self, runt):
 
         cmpr = await self.kids[1].compute(runt, None)
+        valukid = self.kids[2]
 
         async def cond(node, path):
 
@@ -2359,12 +2404,12 @@ class RelPropCond(Cond):
             if valu is None:
                 return False
 
-            xval = await self.kids[2].compute(runt, path)
+            xval = await valukid.compute(runt, path)
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
                 raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
-            func = ctor(xval)
 
+            func = ctor(xval)
             return func(valu)
 
         return cond
@@ -2771,7 +2816,8 @@ class EmbedQuery(Const):
         pass
 
     def getRuntVars(self, runt):
-        if 0: yield
+        if 0:
+            yield
 
     async def compute(self, runt, path):
 
@@ -2983,6 +3029,8 @@ class EditPropSet(Edit):
 
         isadd = oper in ('+=', '?+=')
         issub = oper in ('-=', '?-=')
+        rval = self.kids[2]
+        expand = True
 
         async for node, path in genr:
 
@@ -2996,35 +3044,21 @@ class EditPropSet(Edit):
                 # runt node property permissions are enforced by the callback
                 runt.layerConfirm(('node', 'prop', 'set', prop.full))
 
-            expand = True
             isarray = isinstance(prop.type, s_types.Array)
 
             try:
+                if isarray and isinstance(rval, SubQuery):
+                    valu = await rval.compute_array(runt, path)
+                    expand = False
 
-                valu = await self.kids[2].compute(runt, path)
+                else:
+                    valu = await rval.compute(runt, path)
+
                 valu = await s_stormtypes.toprim(valu)
-
-                # Setting a value to a subquery means assigning the value of
-                # the primary property (for a single value) or array of values
-                if isinstance(self.kids[2], SubQuery):
-
-                    if not isarray:
-
-                        if len(valu) != 1:
-                            if len(valu) == 0:
-                                mesg = "Subquery assignment didn't return any nodes."
-                            else:
-                                mesg = 'Subquery assignment returned more than 1 node.'
-                            raise s_exc.BadTypeValu(mesg=mesg)
-
-                        valu = valu[0]
-
-                    else:
-                        expand = False
 
                 if isadd or issub:
 
-                    if not isinstance(prop.type, s_types.Array):
+                    if not isarray:
                         mesg = f'Property set using ({oper}) is only valid on arrays.'
                         raise s_exc.StormRuntimeError(mesg)
 
@@ -3042,7 +3076,7 @@ class EditPropSet(Edit):
                         arry.extend(valu)
 
                     else:
-
+                        assert issub
                         # we cant remove something we cant norm...
                         # but that also means it can't be in the array so...
                         for v in valu:
