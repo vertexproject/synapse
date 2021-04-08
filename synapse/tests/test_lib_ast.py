@@ -606,6 +606,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(100, 101, 102) ]')
 
+            nodes = await core.nodes('test:arrayprop +:ints=$lib.list(1,2,3)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:arrayprop:ints=$lib.list(1,2,3)')
+            self.len(1, nodes)
+
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('test:arrayprop +:newp*[^=asdf]')
 

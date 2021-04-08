@@ -1328,6 +1328,7 @@ class LiftPropBy(LiftOper):
         cmpr = await self.kids[1].compute(runt, path)
         valukid = self.kids[2]
         valu = await valukid.compute(runt, path)
+        valu = await s_stormtypes.toprim(valu, path)
 
         async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
             yield node
@@ -2405,6 +2406,8 @@ class RelPropCond(Cond):
                 return False
 
             xval = await valukid.compute(runt, path)
+            xval = await s_stormtypes.toprim(xval)
+
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
                 raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
