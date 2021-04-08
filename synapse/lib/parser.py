@@ -231,15 +231,8 @@ class AstConverter(lark.Transformer):
 
     def stormcmdargs(self, kids):
         kids = self._convert_children(kids)
-        argv = []
 
-        for kid in kids:
-            if isinstance(kid, s_ast.SubQuery):
-                argv.append(s_ast.Const(kid.text))
-            else:
-                argv.append(self._convert_child(kid))
-
-        return s_ast.List(kids=argv)
+        return s_ast.List(kids=kids)
 
     def cmdrargs(self, kids):
         argv = []
@@ -338,8 +331,6 @@ QueryParser = lark.Lark(_grammar, regex=True, start='query', propagate_positions
 LookupParser = lark.Lark(_grammar, regex=True, start='lookup', propagate_positions=True)
 CmdrParser = lark.Lark(_grammar, regex=True, start='cmdrargs', propagate_positions=True)
 
-_eofre = regex.compile(r'''Terminal\('(\w+)'\)''')
-
 class Parser:
     '''
     Storm query parser
@@ -351,25 +342,18 @@ class Parser:
         self.text = text.strip()
         self.size = len(self.text)
 
-    def _eofParse(self, mesg):
-        '''
-        Takes a string like "Unexpected end of input! Expecting a terminal of: [Terminal('FOR'), ...] and returns
-        a unique'd set of terminal names.
-        '''
-        return sorted(set(_eofre.findall(mesg)))
-
     def _larkToSynExc(self, e):
         '''
         Convert lark exception to synapse badGrammar exception
         '''
-        mesg = regex.split('[\n!]', e.args[0])[0]
+        mesg = regex.split('[\n!]', str(e))[0]
         at = len(self.text)
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
             mesg += f'.  Expecting one of: {", ".join(terminalEnglishMap[t] for t in sorted(set(e.allowed)))}'
             at = e.pos_in_stream
-        elif isinstance(e, lark.exceptions.ParseError):
-            if mesg == 'Unexpected end of input':
-                mesg += f'.  Expecting one of: {", ".join(terminalEnglishMap[t] for t in self._eofParse(e.args[0]))}'
+        elif isinstance(e, lark.exceptions.UnexpectedEOF):
+            expected = sorted(set(e.expected))
+            mesg += ' ' + ', '.join(terminalEnglishMap[t] for t in expected)
 
         return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg)
 
@@ -556,7 +540,7 @@ CmdStringParser = lark.Lark(CmdStringGrammar,
 
 def parse_cmd_string(text, off):
     '''
-    Parse in a command line string which may be quoted.
+    Parse a command line string which may be quoted.
     '''
     tree = CmdStringParser.parse(text[off:])
     valu, newoff = CmdStringer().transform(tree)
