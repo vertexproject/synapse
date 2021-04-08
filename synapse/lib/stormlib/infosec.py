@@ -1,5 +1,6 @@
 import math
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.node as s_node
 import synapse.lib.stormtypes as s_stormtypes
@@ -22,6 +23,31 @@ CVSS31 = {
   'AR': {'X': 1, 'L': 0.5, 'M': 1, 'H': 1.5},
 }
 
+vect2prop = {
+    'AV': 'cvss:av',
+    'AC': 'cvss:ac',
+    'PR': 'cvss:pr',
+    'UI': 'cvss:ui',
+    'S': 'cvss:s',
+    'C': 'cvss:c',
+    'I': 'cvss:i',
+    'A': 'cvss:a',
+    'E': 'cvss:e',
+    'RL': 'cvss:rl',
+    'RC': 'cvss:rc',
+    'CR': 'cvss:cr',
+    'IR': 'cvss:ir',
+    'AR': 'cvss:ar',
+    'MS': 'cvss:ms',
+    'MC': 'cvss:mc',
+    'MI': 'cvss:mi',
+    'MA': 'cvss:ma',
+    'MAV': 'cvss:mav',
+    'MAC': 'cvss:mac',
+    'MPR': 'cvss:mpr',
+    'MUI': 'cvss:mui',
+}
+
 def roundup(x):
     return (math.ceil(x * 10) / 10.0)
 
@@ -35,13 +61,29 @@ class CvssLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': 'calculate',
                   'args': (
                       {'name': 'node', 'type': 'storm:node',
-                        'desc': 'A risk:vuln node from the Storm runtime.'},
+                       'desc': 'A risk:vuln node from the Storm runtime.'},
                       {'name': 'save', 'type': 'boolean', 'default': True,
-                        'desc': 'If true, save the computed scores to the node properties.'},
+                       'desc': 'If true, save the computed scores to the node properties.'},
                       {'name': 'vers', 'type': 'str', 'default': '3.1',
-                        'desc': 'The version of CVSS calculations to execute.'},
+                       'desc': 'The version of CVSS calculations to execute.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The name of the newly created backup.', }
+        }},
+        {'name': 'vectToProps', 'desc': 'Parse a CVSS vector and return a dictionary of risk:vuln props.',
+         'type': {'type': 'function', '_funcname': 'vectToProps',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'A CVSS vector string.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary of risk:vuln secondary props.', }
+        }},
+        {'name': 'saveVectToNode', 'desc': 'Parse a CVSS vector and record properties on a risk:vuln node.',
+         'type': {'type': 'function', '_funcname': 'vectToProps',
+                  'args': (
+                      {'name': 'node', 'type': 'storm:node',
+                       'desc': 'A risk:vuln node to record the CVSS properties on.'},
+                      {'name': 'text', 'type': 'str', 'desc': 'A CVSS vector string.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary of risk:vuln secondary props.', }
         }},
     )
     _storm_lib_path = ('infosec', 'cvss',)
@@ -49,9 +91,36 @@ class CvssLib(s_stormtypes.Lib):
     def getObjLocals(self):
         return {
             'calculate': self.calculate,
-            #'vectToProps':
-            #'propsToVect':
+            'vectToProps': self.vectToProps,
+            'saveVectToNode': self.saveVectToNode,
         }
+
+    async def vectToProps(self, text):
+        text = await s_stormtypes.tostr(text)
+        props = {}
+
+        try:
+            for item in text.split('/'):
+
+                name, valu = item.split(':')
+
+                prop = vect2prop.get(name)
+                if prop is None:
+                    mesg = f'Invalid Vector Element: {name}'
+                    raise s_exc.BadArg(mesg=mesg)
+
+                props[prop] = valu
+
+        except ValueError:
+            mesg = f'Invalid CVSS Vector: {text}'
+            raise s_exc.BadArg(mesg=mesg) from None
+
+        return props
+
+    async def saveVectToNode(self, node, text):
+        props = await self.vectToProps(text)
+        for prop, valu in props.items():
+            await node.set(prop, valu)
 
     async def calculate(self, node, save=True, vers='3.1'):
 
@@ -59,7 +128,7 @@ class CvssLib(s_stormtypes.Lib):
         wait = await s_stormtypes.tobool(save)
 
         if vers != '3.1':
-            raise s_exc
+            raise s_exc.BadArg(mesg='Currently only vers=3.1 is supported.')
 
         if node.ndef[0] != 'risk:vuln':
             raise s_exc
@@ -88,7 +157,7 @@ class CvssLib(s_stormtypes.Lib):
             if S == 'U':
                 impact = 6.42 * iscbase
             else:
-                impact = (7.52 * (iscbase - 0.029)) - (3.25 * ((iscbase - 0.02)**15))
+                impact = 7.52 * (iscbase - 0.029) - 3.25 * (iscbase - 0.02) ** 15
 
             exploitability = 8.22 * CVSS31['AV'][AV] * CVSS31['AC'][AC] * CVSS31['PR'][S][PR] * CVSS31['UI'][UI]
 
@@ -127,21 +196,34 @@ class CvssLib(s_stormtypes.Lib):
 
                 if all((MAV, MAC, MPR, MUI, MS, MC, MI, MA, CR, IR, AR)):
 
+                    if MAV == 'X': MAV = AV
+                    if MAC == 'X': MAC = AC
+                    if MPR == 'X': MPR = PR
+                    if MS == 'X': MS = S
+                    if MC == 'X': MC = C
+                    if MI == 'X': MC = I
+                    if MA == 'X': MC = A
+
                     modiscbase = min(1.0 - (
                         (1.0 - (CVSS31['C'][MC] * CVSS31['CR'][CR])) *
                         (1.0 - (CVSS31['I'][MI] * CVSS31['IR'][IR])) *
                         (1.0 - (CVSS31['A'][MA] * CVSS31['AR'][AR]))
                     ), 0.915)
 
-                    modexploit = 8.22 * CVSS31['AV'][MAV] * CVSS31['AC'][MAC] * CVSS31['PR'][MS][MPR] * CVSS31['UI'][MUI]
+                    mav = CVSS31['AV'].get(MAV, 1)
+                    mac = CVSS31['AC'].get(MAC, 1)
+                    mpr = CVSS31['PR'][MS].get(MPR, 1)
+                    mui = CVSS31['UI'].get(MUI, 1)
+
+                    modexploit = 8.22 * mav * mac * mpr * mui
 
                     if MS == 'U':
                         modimpact = 6.42 * modiscbase
                     else:
-                        modimpact = 7.52 * (modiscbase - 0.029) - (3.25 * ((modiscbase * 0.9731 - 0.02) ** 13))
+                        modimpact = 7.52 * (modiscbase - 0.029) - 3.25 * (modiscbase * 0.9731 - 0.02) ** 13
 
                     if modimpact <= 0:
-                        envscore = 0
+                        environmentalscore = 0
                     elif MS == 'U':
                         environmentalscore = roundup(roundup(min(modimpact + modexploit, 10.0)) * expfactor)
                     else:
@@ -173,8 +255,8 @@ class CvssLib(s_stormtypes.Lib):
             },
         }
 
-        if impact: rval['scores']['impact'] = min(10.0, roundup(impact))
-        if modimpact: rval['scores']['modifiedimpact'] = min(10.0, roundup(modimpact))
-        if exploitability: rval['scores']['exploitability'] = min(10.0, roundup(exploitability))
+        if impact: rval['scores']['impact'] = round(impact, 1)
+        if modimpact: rval['scores']['modifiedimpact'] = round(modimpact, 1)
+        if exploitability: rval['scores']['exploitability'] = round(exploitability, 1)
 
         return rval

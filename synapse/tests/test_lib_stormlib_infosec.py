@@ -9,11 +9,16 @@ import synapse.tests.utils as s_test
 res0 = {'ok': True, 'version': '3.1', 'score': None, 'scores': {
             'base': None, 'temporal': None, 'environmental': None}}
 res1 = {'ok': True, 'version': '3.1', 'score': 10.0, 'scores': {
-            'base': 10.0, 'temporal': None, 'environmental': None, 'impact': 6.1, 'exploitability': 3.9}}
+            'base': 10.0, 'temporal': None, 'environmental': None, 'impact': 6.0, 'exploitability': 3.9}}
 res2 = {'ok': True, 'version': '3.1', 'score': 10.0, 'scores': {
-            'base': 10.0, 'temporal': 10.0, 'environmental': None, 'impact': 6.1, 'exploitability': 3.9}}
+            'base': 10.0, 'temporal': 10.0, 'environmental': None, 'impact': 6.0, 'exploitability': 3.9}}
 res3 = {'ok': True, 'version': '3.1', 'score': 9.8, 'scores': {
-            'base': 10.0, 'temporal': 10.0, 'environmental': 9.8, 'impact': 6.1, 'modifiedimpact': 5.9, 'exploitability': 3.9}}
+            'base': 10.0, 'temporal': 10.0, 'environmental': 9.8, 'impact': 6.0, 'modifiedimpact': 5.9, 'exploitability': 3.9}}
+
+# https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N&version=3.1
+vec4 = 'AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N'
+res4 = {'ok': True, 'version': '3.1', 'score': 5.6, 'scores': {
+            'base': 6.5, 'temporal': 5.4, 'environmental': 5.6, 'impact': 4.7, 'modifiedimpact': 5.5, 'exploitability': 1.2}}
 
 class InfoSecTest(s_test.SynTest):
 
@@ -80,3 +85,44 @@ class InfoSecTest(s_test.SynTest):
             self.eq(10.0, nodes[0].get('cvss:score:base'))
             self.eq(10.0, nodes[0].get('cvss:score:temporal'))
             self.eq(9.8, nodes[0].get('cvss:score:environmental'))
+
+            with self.raises(s_exc.BadArg):
+                valu = await core.callStorm('return($lib.infosec.cvss.vectToProps(asdf))')
+
+            with self.raises(s_exc.BadArg):
+                valu = await core.callStorm('return($lib.infosec.cvss.vectToProps(foo:bar/baz:faz))')
+
+            valu = await core.callStorm('''
+                [ risk:vuln=* ]
+                $lib.infosec.cvss.saveVectToNode($node, $vect)
+                return($lib.infosec.cvss.calculate($node))
+            ''', opts={'vars': {'vect': vec4}})
+
+            self.eq(res4, valu)
+
+            vect = 'AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N'
+            valu = await core.callStorm('return($lib.infosec.cvss.vectToProps($vect))', opts={'vars': {'vect': vect}})
+            self.eq(valu, {
+                'cvss:av': 'A',
+                'cvss:ac': 'L',
+                'cvss:pr': 'H',
+                'cvss:ui': 'R',
+                'cvss:s': 'C',
+                'cvss:c': 'H',
+                'cvss:i': 'N',
+                'cvss:a': 'L',
+                'cvss:e': 'P',
+                'cvss:rl': 'T',
+                'cvss:rc': 'U',
+                'cvss:cr': 'H',
+                'cvss:ir': 'L',
+                'cvss:ar': 'M',
+                'cvss:mav': 'X',
+                'cvss:mac': 'H',
+                'cvss:mpr': 'L',
+                'cvss:mui': 'N',
+                'cvss:ms': 'U',
+                'cvss:mc': 'H',
+                'cvss:mi': 'L',
+                'cvss:ma': 'N'
+            })
