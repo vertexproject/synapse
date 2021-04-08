@@ -29,8 +29,10 @@ DAYSECS = 24 * HOURSECS
 class Newp:
     def __bool__(self):
         raise s_exc.SynErr(mesg='newp')
+
     def __int__(self):
         raise s_exc.SynErr(mesg='newp')
+
     def __str__(self):
         raise s_exc.SynErr(mesg='newp')
 
@@ -334,7 +336,8 @@ class StormTypesTest(s_test.SynTest):
             iden = None
 
             async def runLongStorm():
-                async for mesg in core.storm(f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'):
+                q = f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'
+                async for mesg in core.storm(q):
                     nonlocal iden
                     if mesg[0] == 'init':
                         iden = mesg[1]['task']
@@ -3631,9 +3634,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_iter(self):
         async with self.getTestCore() as core:
-
-            # FIXME: There are probably still some edge cases to enumerate
-            # FIXME: Gathered tests here for convenience, may want to distribute into other tests instead
+            await self.agenlen(0, s_stormtypes.toiter(None, noneok=True))
 
             await core.nodes('[inet:ipv4=0] [inet:ipv4=1]')
 

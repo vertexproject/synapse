@@ -1242,7 +1242,7 @@ class LibStr(Lib):
         }
 
     async def concat(self, *args):
-        strs = [str(a) for a in args]
+        strs = [await tostr(a) for a in args]
         return ''.join(strs)
 
     async def format(self, text, **kwargs):
@@ -1251,8 +1251,7 @@ class LibStr(Lib):
         return text
 
     async def join(self, sepr, items):
-        # FIXME: Maybe this should be a tostr()?
-        strs = [str(item) async for item in toiter(items)]
+        strs = [await tostr(item) async for item in toiter(items)]
         return sepr.join(strs)
 
 @registry.registerLib
@@ -2764,11 +2763,6 @@ class Str(Prim):
 
     def __len__(self):
         return len(self.valu)
-
-    async def iter(self):
-        # FIXME: Str didn't previously have an iter, but seems like it would be good to add?
-        for i in self.valu:
-            yield i
 
     async def _methEncode(self, encoding='utf8'):
         try:
@@ -6225,18 +6219,13 @@ async def toint(valu, noneok=False):
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):
-    # FIXME: Should this be a generator or just return one?
-
     if noneok and valu is None:
-        # FIXME: OK to have toiter blowup on None if noneok=False?
         return
 
     if isinstance(valu, Prim):
         async for item in valu.iter():
             yield item
         return
-
-    # FIXME: Any special handling if its a non-Prim StormType?
 
     for item in valu:
         yield item
