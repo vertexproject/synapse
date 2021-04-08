@@ -29,8 +29,10 @@ DAYSECS = 24 * HOURSECS
 class Newp:
     def __bool__(self):
         raise s_exc.SynErr(mesg='newp')
+
     def __int__(self):
         raise s_exc.SynErr(mesg='newp')
+
     def __str__(self):
         raise s_exc.SynErr(mesg='newp')
 
@@ -334,7 +336,8 @@ class StormTypesTest(s_test.SynTest):
             iden = None
 
             async def runLongStorm():
-                async for mesg in core.storm(f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'):
+                q = f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'
+                async for mesg in core.storm(q):
                     nonlocal iden
                     if mesg[0] == 'init':
                         iden = mesg[1]['task']
@@ -1802,6 +1805,16 @@ class StormTypesTest(s_test.SynTest):
             mesgs = [m for m in mesgs if m[0] == 'print']
             self.len(1, mesgs)
             self.stormIsInPrint("('testvar', 'test'), ('testkey', 'testvar')", mesgs)
+
+            # Filter by var as node
+            q = '[ps:person=*] $person = $node { [test:edge=($person, $person)] } -ps:person test:edge +:n1=$person'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # Lift by var as node
+            q = '[ps:person=*] $person = $node { [test:ndef=$person] }  test:ndef=$person'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
 
     async def test_feed(self):
 
@@ -3628,3 +3641,72 @@ class StormTypesTest(s_test.SynTest):
                     _ = await prox.callStorm(q)
                 self.eq(cm.exception.get('mesg'), 'foo baz')
                 self.eq(cm.exception.get('errx'), 'StormExit')
+
+    async def test_iter(self):
+        async with self.getTestCore() as core:
+            await self.agenlen(0, s_stormtypes.toiter(None, noneok=True))
+
+            await core.nodes('[inet:ipv4=0] [inet:ipv4=1]')
+
+            # explicit test for a pattern in some stormsvcs
+            scmd = '''
+            function add() {
+                $x=$lib.set()
+                inet:ipv4
+                $x.add($node)
+                fini { return($x) }
+            }
+            $y=$lib.set() $x=$add() for $n in $x { yield $n }
+            '''
+            nodes = await core.nodes(scmd)
+            self.len(2, nodes)
+
+            # set adds
+            ret = await core.callStorm('$x=$lib.set() $y=$lib.list(1,2,3) $x.adds($y) return($x)')
+            self.eq({'1', '2', '3'}, ret)
+
+            ret = await core.callStorm('$x=$lib.set() $y=$lib.dict(foo=1, bar=2) $x.adds($y) return($x)')
+            self.eq({('foo', '1'), ('bar', '2')}, ret)
+
+            ret = await core.nodes('$x=$lib.set() $x.adds(${inet:ipv4}) for $n in $x { yield $n.iden() }')
+            self.len(2, ret)
+
+            ret = await core.callStorm('$x=$lib.set() $x.adds((1,2,3)) return($x)')
+            self.eq({'1', '2', '3'}, ret)
+
+            ret = await core.callStorm('$x=$lib.set() $y=abcd $x.adds($y) return($x)')
+            self.eq({'a', 'b', 'c', 'd'}, ret)
+
+            # set rems
+            ret = await core.callStorm('$x=$lib.set(1,2,3) $y=$lib.list(1,2) $x.rems($y) return($x)')
+            self.eq({'3'}, ret)
+
+            scmd = '''
+                $x=$lib.set()
+                $y=$lib.dict(foo=1, bar=2)
+                $x.adds($y)
+                $z=$lib.dict(foo=1)
+                $x.rems($z)
+                return($x)
+            '''
+            ret = await core.callStorm(scmd)
+            self.eq({('bar', '2')}, ret)
+
+            ret = await core.callStorm('$x=$lib.set() $y=$lib.dict(foo=1, bar=2) $x.adds($y) return($x)')
+            self.eq({('foo', '1'), ('bar', '2')}, ret)
+
+            ret = await core.callStorm('$x=$lib.set(1,2,3) $x.rems((1,2)) return($x)')
+            self.eq({'3'}, ret)
+
+            ret = await core.callStorm('$x=$lib.set(a,b,c,d) $y=ab $x.rems($y) return($x)')
+            self.eq({'d', 'c'}, ret)
+
+            # str join
+            ret = await core.callStorm('$x=$lib.list(foo,bar,baz) $y=$lib.str.join("-", $x) return($y)')
+            self.eq('foo-bar-baz', ret)
+
+            ret = await core.callStorm('$y=$lib.str.join("-", (foo, bar, baz)) return($y)')
+            self.eq('foo-bar-baz', ret)
+
+            ret = await core.callStorm('$x=abcd $y=$lib.str.join("-", $x) return($y)')
+            self.eq('a-b-c-d', ret)
