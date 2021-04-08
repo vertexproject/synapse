@@ -222,7 +222,7 @@ class StormType:
     '''
     The base type for storm runtime value objects.
     '''
-    _storm_locals: Any = ()  # To be overriden for deref constants that need documentation
+    _storm_locals = ()  # type: Any # To be overriden for deref constants that need documentation
 
     def __init__(self, path=None):
         self.path = path
@@ -555,8 +555,8 @@ class LibService(Lib):
          'type': {'type': 'function', '_funcname': '_libSvcGet',
                   'args': (
                       {'name': 'name', 'type': 'str',
-                       'desc':
-                           'The local name, local iden, or remote name, of the service to get the definition for.', },
+                       'desc': 'The local name, local iden, or remote name, '
+                               'of the service to get the definition for.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'A Storm Service definition.', }}},
         {'name': 'has', 'desc': 'Check if a Storm Service is available in the Cortex.',
@@ -2557,7 +2557,7 @@ class Prim(StormType):
     '''
     The base type for all Storm primitive values.
     '''
-    _storm_typename: Any = None
+    _storm_typename = None # type: Any
 
     def __init__(self, valu, path=None):
         StormType.__init__(self, path=path)
