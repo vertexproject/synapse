@@ -14,6 +14,7 @@ import binascii
 import datetime
 import calendar
 import collections
+from typing import Any
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -32,7 +33,9 @@ import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
-class Undef: pass
+class Undef:
+    pass
+
 undef = Undef()
 
 def confirm(perm, gateiden=None):
@@ -95,7 +98,8 @@ class StormTypesRegistry:
         rtype = info.get('type')
         if isinstance(rtype, dict):
             rname = rtype.get('type')
-            assert rname == 'function', f'Dictionary return types must represent functions [{name} {obj} {info.get("name")}].'
+            assert rname == 'function', \
+                   f'Dictionary return types must represent functions [{name} {obj} {info.get("name")}].'
             funcname = rtype.pop('_funcname')
             locl = getattr(obj, funcname, None)
             assert locl is not None, f'bad funcname=[{funcname}] for {obj} {info.get("name")}'
@@ -109,7 +113,8 @@ class StormTypesRegistry:
             for parameter, argdef in zip(callsig.parameters.values(), args):
                 pdef = parameter.default  # defaults to inspect._empty for undefined default values.
                 adef = argdef.get('default', inspect._empty)
-                assert pdef == adef, f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
+                assert pdef == adef, \
+                       f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
 
     def getLibDocs(self):
         libs = self.iterLibs()
@@ -217,7 +222,8 @@ class StormType:
     '''
     The base type for storm runtime value objects.
     '''
-    _storm_locals = ()  # To be overriden for deref constants that need documentation
+    _storm_locals: Any = ()  # To be overriden for deref constants that need documentation
+
     def __init__(self, path=None):
         self.path = path
         self.ctors = {}
@@ -382,10 +388,10 @@ class LibDmon(Lib):
                 ''',
          'type': {'type': 'function', '_funcname': '_libDmonAdd',
                   'args': (
-                    {'name': 'text', 'type': ['str', 'storm:query'],
-                     'desc': 'The Storm query to execute in the Dmon loop.', },
-                    {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname', },
-                ),
+                      {'name': 'text', 'type': ['str', 'storm:query'],
+                       'desc': 'The Storm query to execute in the Dmon loop.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname', },
+                  ),
                   'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.', }}},
         {'name': 'get', 'desc': 'Get a Storm Dmon definition by iden.',
          'type': {'type': 'function', '_funcname': '_libDmonGet',
@@ -414,13 +420,15 @@ class LibDmon(Lib):
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to restart.', },
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the Dmon is restarted; False if the iden does not exist.', }}},
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the Dmon is restarted; False if the iden does not exist.', }}},
         {'name': 'stop', 'desc': 'Stop a Storm Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStop',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the Dmon to stop.', },
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the Dmon is stopped; False if the iden does not exist.', }}},
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the Dmon is stopped; False if the iden does not exist.', }}},
         {'name': 'start', 'desc': 'Start a storm dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStart',
                   'args': (
@@ -475,7 +483,8 @@ class LibDmon(Lib):
 
         opts = {'vars': varz, 'view': viewiden}
 
-        ddef = {'name': name,
+        ddef = {
+            'name': name,
             'user': self.runt.user.iden,
             'storm': text,
             'enabled': True,
@@ -546,16 +555,19 @@ class LibService(Lib):
          'type': {'type': 'function', '_funcname': '_libSvcGet',
                   'args': (
                       {'name': 'name', 'type': 'str',
-                       'desc': 'The local name, local iden, or remote name, of the service to get the definition for.', },
+                       'desc':
+                           'The local name, local iden, or remote name, of the service to get the definition for.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'A Storm Service definition.', }}},
         {'name': 'has', 'desc': 'Check if a Storm Service is available in the Cortex.',
          'type': {'type': 'function', '_funcname': '_libSvcHas',
                   'args': (
-                    {'name': 'name', 'type': 'str',
-                     'desc': 'The local name, local iden, or remote name, of the service to check for the existance of.', },
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The local name, local iden, or remote name, '
+                               'of the service to check for the existance of.', },
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the service exists in the Cortex, False if it does not.', }}},
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the service exists in the Cortex, False if it does not.', }}},
         {'name': 'list',
          'desc': '''
             List the Storm Service definitions for the Cortex.
@@ -594,7 +606,7 @@ class LibService(Lib):
         except s_exc.AuthDeny as e:
             try:
                 self.runt.confirm(('service', 'get', ssvc.name))
-            except s_exc.AuthDeny as sub_e:
+            except s_exc.AuthDeny:
                 raise e from None
             else:
                 mesg = 'Use of service.get.<servicename> permissions are deprecated.'
@@ -602,7 +614,8 @@ class LibService(Lib):
 
     async def _libSvcAdd(self, name, url):
         self.runt.confirm(('service', 'add'))
-        sdef = {'name': name,
+        sdef = {
+            'name': name,
             'url': url,
         }
         return await self.runt.snap.core.addStormSvc(sdef)
@@ -680,13 +693,12 @@ class LibBase(Lib):
                   'args': (
                       {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the set.', },
                   ),
-                  'returns': {'type': 'set', 'desc': 'The new set.', }
-            },
-        },
+                  'returns': {'type': 'set', 'desc': 'The new set.', }}},
         {'name': 'dict', 'desc': 'Get a Storm Dict object.',
          'type': {'type': 'function', '_funcname': '_dict',
                   'args': (
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Initial set of keyword argumetns to place into the dict.', },
+                      {'name': '**kwargs', 'type': 'any',
+                       'desc': 'Initial set of keyword argumetns to place into the dict.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
         {'name': 'exit', 'desc': 'Cause a Storm Runtime to stop running.',
@@ -718,11 +730,12 @@ class LibBase(Lib):
                     ...
             ''',
          'type': {'type': 'function', '_funcname': '_fire',
-                     'args': (
-                         {'name': 'name', 'type': 'str', 'desc': 'The name of the event to fire.', },
-                         {'name': '**info', 'type': 'any', 'desc': 'Additional keyword arguments containing data to add to the event.', },
-                     ),
-                     'returns': {'type': 'null', }}},
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the event to fire.', },
+                      {'name': '**info', 'type': 'any',
+                       'desc': 'Additional keyword arguments containing data to add to the event.', },
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a Storm List object.',
          'type': {'type': 'function', '_funcname': '_list',
                   'args': (
@@ -779,13 +792,15 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_text',
                   'args': (
                       {'name': '*args', 'type': 'str',
-                       'desc': 'An initial set of values to place in the Text. These values are joined together with an empty string.', },
+                       'desc': 'An initial set of values to place in the Text. '
+                               'These values are joined together with an empty string.', },
                   ),
                   'returns': {'type': 'storm:text', 'desc': 'The new Text object.', }}},
         {'name': 'cast', 'desc': 'Normalize a value as a Synapse Data Model Type.',
          'type': {'type': 'function', '_funcname': '_cast',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the model type to normalize the value as.', },
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The name of the model type to normalize the value as.', },
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to normalize.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The normalized value.', }}},
@@ -877,7 +892,8 @@ class LibBase(Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the package to import.', },
                   ),
-                  'returns': {'type': 'storm:lib', 'desc': 'A ``storm:lib`` instance representing the imported package.', }}},
+                  'returns': {'type': 'storm:lib',
+                              'desc': 'A ``storm:lib`` instance representing the imported package.', }}},
 
         {'name': 'trycast', 'desc': '''
             Attempt to normalize a value and return status and the normalized value.
@@ -890,10 +906,12 @@ class LibBase(Lib):
          ''',
          'type': {'type': 'function', '_funcname': 'trycast',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the model type to normalize the value as.', },
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The name of the model type to normalize the value as.', },
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to normalize.', },
                   ),
-                  'returns': {'type': 'list', 'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
+                  'returns': {'type': 'list',
+                              'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
     )
 
     def getObjLocals(self):
@@ -963,7 +981,7 @@ class LibBase(Lib):
             mesg = f'No type found for name {name}.'
             raise s_exc.NoSuchType(mesg=mesg)
 
-        #TODO an eventual mapping between model types and storm prims
+        # TODO an eventual mapping between model types and storm prims
 
         norm, info = typeitem.norm(valu)
         return fromprim(norm, basetypes=False)
@@ -1122,13 +1140,13 @@ class LibPs(Lib):
     '''
     A Storm Library for interacting with running tasks on the Cortex.
     '''
-    _storm_locals = (
+    _storm_locals = (  # type:  ignore
         {'name': 'kill', 'desc': 'Stop a running task on the Cortex.',
          'type': {'type': 'function', '_funcname': '_kill',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
-                       'desc': 'The prefix of the task to stop. Tasks will only be stopped if there is a single prefix match.',
-                      },
+                       'desc': 'The prefix of the task to stop. '
+                               'Tasks will only be stopped if there is a single prefix match.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': ' True if the task was cancelled, False otherwise.', }}},
         {'name': 'list', 'desc': 'List tasks the current user can access.',
@@ -1209,7 +1227,8 @@ class LibStr(Lib):
          'type': {'type': 'function', '_funcname': 'format',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The base text string.', },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword values which are substituted into the string.', },
+                      {'name': '**kwargs', 'type': 'any',
+                       'desc': 'Keyword values which are substituted into the string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string.', }}},
     )
@@ -1261,13 +1280,18 @@ class LibAxon(Lib):
          'type': {'type': 'function', '_funcname': 'wget',
                   'args': (
                       {'name': 'url', 'type': 'str', 'desc': 'The URL to download', },
-                      {'name': 'headers', 'type': 'dict', 'desc': 'An optional dictionary of HTTP headers to send.', 'default': None, },
-                      {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.', 'default': None, },
+                      {'name': 'headers', 'type': 'dict', 'desc': 'An optional dictionary of HTTP headers to send.',
+                       'default': None, },
+                      {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.',
+                       'default': None, },
                       {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'GET', },
-                      {'name': 'json', 'type': 'dict', 'desc': 'A JSON object to send as the body.', 'default': None, },
+                      {'name': 'json', 'type': 'dict', 'desc': 'A JSON object to send as the body.',
+                       'default': None, },
                       {'name': 'body', 'type': 'bytes', 'desc': 'Bytes to send as the body.', 'default': None, },
-                      {'name': 'ssl', 'type': 'boolean', 'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True, },
-                      {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.', 'default': None, }
+                      {'name': 'ssl', 'type': 'boolean',
+                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True, },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
+                       'default': None, }
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.', }}},
         {'name': 'urlfile', 'desc': '''
@@ -1293,7 +1317,8 @@ class LibAxon(Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'del_',
                   'args': (
-                      {'name': 'sha256', 'type': 'hash:sha256', 'desc': 'The sha256 of the bytes to remove from the Axon.'},
+                      {'name': 'sha256', 'type': 'hash:sha256',
+                       'desc': 'The sha256 of the bytes to remove from the Axon.'},
                   ),
                   'returns': {'type': 'bool', 'desc': 'True if the bytes were found and removed.', }}},
 
@@ -1310,7 +1335,8 @@ class LibAxon(Lib):
                   'args': (
                       {'name': 'sha256s', 'type': 'list', 'desc': 'A list of sha256 hashes to remove from the Axon.'},
                   ),
-                  'returns': {'type': 'list', 'desc': 'A list of boolean values that are True if the bytes were found.', }}},
+                  'returns': {'type': 'list',
+                              'desc': 'A list of boolean values that are True if the bytes were found.', }}},
 
         {'name': 'list', 'desc': '''
         List (offset, sha256, size) tuples for files in the Axon in added order.
@@ -1390,7 +1416,8 @@ class LibAxon(Lib):
         await self.runt.snap.core.getAxon()
 
         axon = self.runt.snap.core.axon
-        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json, timeout=timeout)
+        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
+                               timeout=timeout)
 
     async def urlfile(self, *args, **kwargs):
         resp = await self.wget(*args, **kwargs)
@@ -1493,7 +1520,8 @@ class LibBytes(Lib):
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
                   ),
-                  'returns': {'type': ['int', 'null'], 'desc': 'The size of the file or ``null`` if the file is not found.', }}},
+                  'returns': {'type': ['int', 'null'],
+                              'desc': 'The size of the file or ``null`` if the file is not found.', }}},
         {'name': 'upload', 'desc': '''
             Upload a stream of bytes to the Axon as a file.
 
@@ -1561,7 +1589,8 @@ class LibLift(Lib):
                       {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'storm:node',
-                              'desc': 'Yields nodes to the pipeline. This must be used in conjunction with the ``yield`` keyword.', }}},
+                              'desc': 'Yields nodes to the pipeline. '
+                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
     )
     _storm_lib_path = ('lift',)
 
@@ -1653,9 +1682,11 @@ class LibTime(Lib):
         ''',
          'type': {'type': 'function', '_funcname': '_ticker',
                   'args': (
-                      {'name': 'tick', 'desc': 'The amount of time to wait between each tick, in seconds.', 'type': 'int', },
+                      {'name': 'tick',
+                       'desc': 'The amount of time to wait between each tick, in seconds.', 'type': 'int', },
                       {'name': 'count', 'default': None, 'type': 'int',
-                       'desc': 'The number of times to pause the query before exiting the loop. This defaults to None and will yield forever if not set.', }
+                       'desc': 'The number of times to pause the query before exiting the loop. '
+                               'This defaults to None and will yield forever if not set.', }
                   ),
                   'returns': {'name': 'Yields', 'type': 'int',
                               'desc': 'This yields the current tick count after each time it wakes up.', }}},
@@ -1761,7 +1792,8 @@ class LibRegx(Lib):
                   'args': (
                       {'name': 'pattern', 'type': 'str', 'desc': 'The regular expression pattern.', },
                       {'name': 'text', 'type': 'str', 'desc': 'The text to match.', },
-                      {'name': 'flags', 'type': 'int', 'desc': 'Regex flags to control the match behavior.', 'default': 0},
+                      {'name': 'flags', 'type': 'int', 'desc': 'Regex flags to control the match behavior.',
+                       'default': 0},
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of strings for the matching groups in the pattern.', }}},
         {'name': 'matches', 'desc': '''
@@ -1782,10 +1814,12 @@ class LibRegx(Lib):
                   'args': (
                       {'name': 'pattern', 'type': 'str', 'desc': 'The regular expression pattern.', },
                       {'name': 'text', 'type': 'str', 'desc': 'The text to match.', },
-                      {'name': 'flags', 'type': 'int', 'desc': 'Regex flags to control the match behavior.', 'default': 0, },
+                      {'name': 'flags', 'type': 'int', 'desc': 'Regex flags to control the match behavior.',
+                       'default': 0, },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if there is a match, False otherwise.', }}},
-        {'name': 'flags.i', 'desc': 'Regex flag to indicate that case insensitive matches are allowed.', 'type': 'int', },
+        {'name': 'flags.i', 'desc': 'Regex flag to indicate that case insensitive matches are allowed.',
+         'type': 'int', },
         {'name': 'flags.m', 'desc': 'Regex flag to indicate that multiline matches are allowed.', 'type': 'int', },
     )
     _storm_lib_path = ('regex',)
@@ -1976,7 +2010,7 @@ class LibPipe(Lib):
                       {'name': 'filler', 'type': ['str', 'storm:query'],
                        'desc': 'A Storm query to fill the Pipe.', },
                       {'name': 'size', 'type': 'int', 'default': 10000,
-                        'desc': 'Maximum size of the pipe.', },
+                       'desc': 'Maximum size of the pipe.', },
                   ),
                   'returns': {'type': 'storm:pipe', 'desc': 'The pipe containing query results.', }}},
     )
@@ -2077,6 +2111,7 @@ class Pipe(StormType):
                   'returns': {'type': 'int', 'desc': 'The number of items in the Pipe.', }}},
     )
     _storm_typename = 'storm:pipe'
+
     def __init__(self, runt, size):
         StormType.__init__(self)
         self.runt = runt
@@ -2273,7 +2308,8 @@ class Queue(StormType):
                        'desc': 'Wait for the offset to be available before returning the item.', },
                       {'name': 'cull', 'type': 'boolean', 'default': False,
                        'desc': 'Culls items up to, but not including, the specified offset.', },
-                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield', 'default': None, },
+                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of items to yield',
+                       'default': None, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Yields tuples of the offset and item.', }}},
         {'name': 'cull', 'desc': 'Remove items from the queue up to, and including, the offset.',
@@ -2287,6 +2323,7 @@ class Queue(StormType):
                   'returns': {'type': 'int', 'desc': 'The number of items in the Queue.', }}},
     )
     _storm_typename = 'storm:queue'
+
     def __init__(self, runt, name, info):
 
         StormType.__init__(self)
@@ -2422,6 +2459,7 @@ class Proxy(StormType):
 
     '''
     _storm_typename = 'storm:proxy'
+
     def __init__(self, proxy, path=None):
         StormType.__init__(self, path=path)
         self.proxy = proxy
@@ -2478,7 +2516,7 @@ class LibBase64(Lib):
                   'args': (
                       {'name': 'valu', 'type': 'bytes', 'desc': 'The object to encode.', },
                       {'name': 'urlsafe', 'type': 'boolean', 'default': True,
-                        'desc': 'Perform the encoding in a urlsafe manner if true.', },
+                       'desc': 'Perform the encoding in a urlsafe manner if true.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'A base64 encoded string.', }}},
         {'name': 'decode', 'desc': 'Decode a base64 string into a bytes object.',
@@ -2486,7 +2524,7 @@ class LibBase64(Lib):
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The string to decode.', },
                       {'name': 'urlsafe', 'type': 'boolean', 'default': True,
-                        'desc': 'Perform the decoding in a urlsafe manner if true.', },
+                       'desc': 'Perform the decoding in a urlsafe manner if true.', },
                   ),
                   'returns': {'type': 'bytes', 'desc': 'A bytes object for the decoded data.', }}},
     )
@@ -2520,7 +2558,8 @@ class Prim(StormType):
     '''
     The base type for all Storm primitive values.
     '''
-    _storm_typename = None
+    _storm_typename: Any = None
+
     def __init__(self, valu, path=None):
         StormType.__init__(self, path=path)
         self.valu = valu
@@ -2537,7 +2576,8 @@ class Prim(StormType):
         return self.valu
 
     async def iter(self): # pragma: no cover
-        for x in (): yield x
+        for x in ():
+            yield x
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} is not iterable.', name=name)
 
@@ -2573,7 +2613,8 @@ class Str(Prim):
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The text to check.', },
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the text starts with the string, false otherwise.', }}},
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the text starts with the string, false otherwise.', }}},
         {'name': 'ljust', 'desc': 'Left justify the string.',
          'type': {'type': 'function', '_funcname': '_methStrLjust',
                   'args': (
@@ -2589,7 +2630,8 @@ class Str(Prim):
         {'name': 'encode', 'desc': 'Encoding a string value to bytes.',
          'type': {'type': 'function', '_funcname': '_methEncode',
                   'args': (
-                      {'name': 'encoding', 'type': 'str', 'desc': 'Encoding to use. Defaults to utf8.', 'default': 'utf8', },
+                      {'name': 'encoding', 'type': 'str', 'desc': 'Encoding to use. Defaults to utf8.',
+                       'default': 'utf8', },
                   ),
                   'returns': {'type': 'bytes', 'desc': 'The encoded string.', }}},
         {'name': 'replace', 'desc': '''
@@ -2692,6 +2734,7 @@ class Str(Prim):
                   'returns': {'type': 'str', 'desc': 'The reversed string.', }}},
     )
     _storm_typename = 'str'
+
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -2838,6 +2881,7 @@ class Bytes(Prim):
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
     )
     _storm_typename = 'bytes'
+
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -2981,6 +3025,7 @@ class Set(Prim):
                   'returns': {'type': 'int', 'desc': 'The size of the set.', }}},
     )
     _storm_typename = 'set'
+
     def __init__(self, valu, path=None):
         Prim.__init__(self, set(valu), path=path)
         self.locls.update(self.getObjLocals())
@@ -3061,6 +3106,7 @@ class List(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'list'
+
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -3144,6 +3190,7 @@ class Bool(Prim):
     Implements the Storm API for a List instance.
     '''
     _storm_typename = 'bool'
+
     def __str__(self):
         return str(self.value()).lower()
 
@@ -3165,7 +3212,8 @@ class LibUser(Lib):
                       {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the user has the requested permission, false otherwise.', }}},
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the user has the requested permission, false otherwise.', }}},
         {'name': 'vars', 'desc': 'Get a Hive dictionary representing the current users persistent variables.',
          'type': 'storm:hive:dict', },
         {'name': 'profile', 'desc': 'Get a Hive dictionary representing the current users profile information.',
@@ -3174,7 +3222,8 @@ class LibUser(Lib):
     _storm_lib_path = ('user', )
 
     def getObjLocals(self):
-        return {'name': self._libUserName,
+        return {
+            'name': self._libUserName,
             'allowed': self._libUserAllowed,
         }
 
@@ -3227,7 +3276,8 @@ class LibGlobals(Lib):
                   'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
         {'name': 'list', 'desc': 'Get a list of variable names and values.',
          'type': {'type': 'function', '_funcname': '_methList',
-                  'returns': {'type': 'list', 'desc': 'A list of tuples with variable names and values that the user can access.', }}},
+                  'returns': {'type': 'list',
+                              'desc': 'A list of tuples with variable names and values that the user can access.', }}},
     )
     _storm_lib_path = ('globals', )
 
@@ -3315,6 +3365,7 @@ class StormHiveDict(Prim):
                   'returns': {'type': 'list', 'desc': 'A list of tuples containing key, value pairs.', }}},
     )
     _storm_typename = 'storm:hive:dict'
+
     def __init__(self, runt, info):
         Prim.__init__(self, None)
         self.runt = runt
@@ -3383,7 +3434,8 @@ class LibVars(Lib):
                   'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a list of variables from the current Runtime.',
          'type': {'type': 'function', '_funcname': '_libVarsList',
-                  'returns': {'type': 'list', 'desc': 'A list of variable names and their values for the current Runtime.', }}},
+                  'returns': {'type': 'list',
+                              'desc': 'A list of variable names and their values for the current Runtime.', }}},
     )
     _storm_lib_path = ('vars',)
 
@@ -3420,9 +3472,12 @@ class Query(Prim):
                 The ``.exec()`` method can return a value if the Storm query
                 contains a ``return( ... )`` statement in it.''',
          'type': {'type': 'function', '_funcname': '_methQueryExec',
-                  'returns': {'type': ['none', 'any'], 'desc': 'A value specified with a return statement, or none.', }}},
+                  'returns': {'type': ['none', 'any'],
+                              'desc': 'A value specified with a return statement, or none.', }}},
     )
+
     _storm_typename = 'storm:query'
+
     def __init__(self, text, varz, runt, path=None):
 
         text = text.strip()
@@ -3486,6 +3541,7 @@ class NodeProps(Prim):
                   'returns': {'type': 'list', 'desc': 'A list of (name, value) tuples.', }}},
     )
     _storm_typename = 'storm:node:props'
+
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
@@ -3562,7 +3618,8 @@ class NodeData(Prim):
         {'name': 'list', 'desc': 'Get a list of the Node data names on the Node.',
          'type': {'type': 'function', '_funcname': '_listNodeData',
                   'returns': {'type': 'list', 'desc': 'List of the names of values stored on the node.', }}},
-        {'name': 'load', 'desc': 'Load the Node data onto the Node so that the Node data is packed and returned by the runtime.',
+        {'name': 'load',
+         'desc': 'Load the Node data onto the Node so that the Node data is packed and returned by the runtime.',
          'type': {'type': 'function', '_funcname': '_loadNodeData',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the data to load.', },
@@ -3570,6 +3627,7 @@ class NodeData(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:node:data'
+
     def __init__(self, node, path=None):
 
         Prim.__init__(self, node, path=path)
@@ -3636,29 +3694,39 @@ class Node(Prim):
         {'name': 'repr', 'desc': 'Get the repr for the primary property or secondary property of a Node.',
          'type': {'type': 'function', '_funcname': '_methNodeRepr',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the secondary property to get the repr for.', 'default': None, },
-                      {'name': 'defv', 'type': 'str', 'desc': 'The default value to return if the secondary property does not exist', 'default': None, },
-                ),
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The name of the secondary property to get the repr for.', 'default': None, },
+                      {'name': 'defv', 'type': 'str',
+                       'desc': 'The default value to return if the secondary property does not exist',
+                       'default': None, },
+                  ),
                   'returns': {'type': 'str', 'desc': 'The string representation of the requested value.', }}},
         {'name': 'tags', 'desc': 'Get a list of the tags on the Node.',
          'type': {'type': 'function', '_funcname': '_methNodeTags',
                   'args': (
                       {'name': 'glob', 'type': 'str', 'default': None,
-                       'desc': 'A tag glob expression. If this is provided, only tags which match the expression are returned.', },
+                       'desc': 'A tag glob expression. '
+                               'If this is provided, only tags which match the expression are returned.', },
                   ),
-                  'returns': {'type': 'list', 'desc': 'A list of tags on the node. If a glob match is provided, only matching tags are returned.', }}},
+                  'returns': {'type': 'list',
+                              'desc': 'A list of tags on the node. '
+                              'If a glob match is provided, only matching tags are returned.', }}},
         {'name': 'edges', 'desc': 'Yields the (verb, iden) tuples for this nodes edges.',
          'type': {'type': 'function', '_funcname': '_methNodeEdges',
                   'args': (
-                      {'name': 'verb', 'type': 'str', 'desc': 'If provided, only return edges with this verb.', 'default': None, },
+                      {'name': 'verb', 'type': 'str', 'desc': 'If provided, only return edges with this verb.',
+                       'default': None, },
                   ),
-                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'A tuple of (verb, iden) values for this nodes edges.', }}},
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'A tuple of (verb, iden) values for this nodes edges.', }}},
         {'name': 'globtags', 'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
          'type': {'type': 'function', '_funcname': '_methNodeGlobTags',
                   'args': (
                       {'name': 'glob', 'type': 'str', 'desc': 'The glob expression to match.', },
                   ),
-                  'returns': {'type': 'list', 'desc': 'The components of tags which match the wildcard component of a glob expression.', }}},
+                  'returns':
+                      {'type': 'list',
+                       'desc': 'The components of tags which match the wildcard component of a glob expression.', }}},
         {'name': 'isform', 'desc': 'Check if a Node is a given form.',
          'type': {'type': 'function', '_funcname': '_methNodeIsForm',
                   'args': (
@@ -3671,11 +3739,13 @@ class Node(Prim):
         {'name': 'getByLayer', 'desc': 'Return a dict you can use to lookup which props/tags came from which layers.',
          'type': {'type': 'function', '_funcname': 'getByLayer',
                   'returns': {'type': 'dict', 'desc': 'property / tag lookup dictionary.', }}},
-        {'name': 'getStorNodes', 'desc': 'Return a list of "storage nodes" which were fused from the layers to make this node.',
+        {'name': 'getStorNodes',
+         'desc': 'Return a list of "storage nodes" which were fused from the layers to make this node.',
          'type': {'type': 'function', '_funcname': 'getStorNodes',
                   'returns': {'type': 'list', 'desc': 'List of storage node objects.', }}},
     )
     _storm_typename = 'storm:node'
+
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
 
@@ -3784,6 +3854,7 @@ class PathMeta(Prim):
     Put the storm deref/setitem/iter convention on top of path meta information.
     '''
     _storm_typename = 'storm:node:path:meta'
+
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
@@ -3807,6 +3878,7 @@ class PathVars(Prim):
     Put the storm deref/setitem/iter convention on top of path variables.
     '''
     _storm_typename = 'storm:node:path:vars'
+
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
@@ -3841,14 +3913,18 @@ class Path(Prim):
         {'name': 'idens', 'desc': 'The list of Node idens which this Path has bee forked from during pivot operations.',
          'type': {'type': 'function', '_funcname': '_methPathIdens',
                   'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
-        {'name': 'trace', 'desc': 'Make a trace object for the Path. This allows tracking pivots from a arbitrary location in a query.',
+        {'name': 'trace',
+         'desc': 'Make a trace object for the Path. '
+                 'This allows tracking pivots from a arbitrary location in a query.',
          'type': {'type': 'function', '_funcname': '_methPathTrace',
                   'returns': {'type': 'storm:node:path:trace', 'desc': 'The trace object.', }}},
         {'name': 'listvars', 'desc': 'List variables available in the path of a storm query.',
          'type': {'type': 'function', '_funcname': '_methPathListVars',
-                  'returns': {'type': 'list', 'desc': 'List of tuples containing the name and value of path variables.', }}},
+                  'returns': {'type': 'list',
+                              'desc': 'List of tuples containing the name and value of path variables.', }}},
     )
     _storm_typename = 'storm:path'
+
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
@@ -3885,6 +3961,7 @@ class Trace(Prim):
                   'returns': {'type': 'list', 'desc': 'A List of Node idens.', }}},
     )
     _storm_typename = 'storm:node:path:trace'
+
     def __init__(self, trace, path=None):
         Prim.__init__(self, trace, path=path)
         self.locls.update(self.getObjLocals())
@@ -3915,6 +3992,7 @@ class Text(Prim):
                   'returns': {'desc': 'The current string of the text object.', 'type': 'str', }}},
     )
     _storm_typename = 'storm:text'
+
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
@@ -3985,8 +4063,10 @@ class StatTally(Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the counter to get.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
+                  'returns': {'type': 'int',
+                              'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
     )
+
     def __init__(self, path=None):
         Prim.__init__(self, {}, path=path)
         self.counters = collections.defaultdict(int)
@@ -4031,7 +4111,8 @@ class LibLayer(Lib):
                   'args': (
                       {'name': 'ldef', 'type': 'dict', 'desc': 'The layer definition dictionary.', 'default': None, },
                   ),
-                  'returns': {'type': 'storm:layer', 'desc': 'A ``storm:layer`` object representing the new layer.', }}},
+                  'returns': {'type': 'storm:layer',
+                              'desc': 'A ``storm:layer`` object representing the new layer.', }}},
         {'name': 'del', 'desc': 'Delete a layer from the Cortex.',
          'type': {'type': 'function', '_funcname': '_libLayerDel',
                   'args': (
@@ -4042,13 +4123,15 @@ class LibLayer(Lib):
          'type': {'type': 'function', '_funcname': '_libLayerGet',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'default': None,
-                       'desc': 'The iden of the layer to get. If not set, this defaults to the default layer of the Cortex.', },
+                       'desc': 'The iden of the layer to get. '
+                               'If not set, this defaults to the default layer of the Cortex.', },
                   ),
                   'returns': {'type': 'storm:layer', 'desc': 'The storm layer object.', }}},
         {'name': 'list', 'desc': 'List the layers in a Cortex',
          'type': {'type': 'function', '_funcname': '_libLayerList',
                   'returns': {'type': 'list', 'desc': 'List of ``storm:layer`` objects.', }}},
     )
+
     def getObjLocals(self):
         return {
             'add': self._libLayerAdd,
@@ -4136,15 +4219,19 @@ class Layer(Prim):
                       {'name': 'offs', 'type': 'int', 'desc': 'Offset to start getting nodeedits from the layer at.',
                        'default': 0, },
                       {'name': 'wait', 'type': 'boolean', 'default': True,
-                       'desc': 'If true, wait for new edits, otherwise exit the generator when there are no more edits.', },
-                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of nodeedits to yield.', 'default': None, },
+                       'desc': 'If true, wait for new edits, '
+                               'otherwise exit the generator when there are no more edits.', },
+                      {'name': 'size', 'type': 'int', 'desc': 'The maximum number of nodeedits to yield.',
+                       'default': None, },
                   ),
-                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Yields offset, nodeedit tuples from a given offset.', }}},
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields offset, nodeedit tuples from a given offset.', }}},
         {'name': 'addPush', 'desc': 'Configure the layer to push edits to a remote layer/feed.',
          'type': {'type': 'function', '_funcname': '_addPush',
                   'args': (
                       {'name': 'url', 'type': 'str', 'desc': 'A telepath URL of the target layer/feed.', },
-                      {'name': 'offs', 'type': 'int', 'desc': 'The local layer offset to begin pushing from', 'default': 0, },
+                      {'name': 'offs', 'type': 'int', 'desc': 'The local layer offset to begin pushing from',
+                       'default': 0, },
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the push definition.', }}},
         {'name': 'delPush', 'desc': 'Remove a push config from the layer.',
@@ -4176,14 +4263,17 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetTagCount',
                   'args': (
                       {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag to look up.', },
-                      {'name': 'formname', 'type': 'str', 'desc': 'The form to constrain the look up by.', 'default': None, },
+                      {'name': 'formname', 'type': 'str', 'desc': 'The form to constrain the look up by.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of tag rows.', }}},
-        {'name': 'getPropCount', 'desc': 'Get the number of property rows in the layer for the given full form or property name.',
+        {'name': 'getPropCount',
+         'desc': 'Get the number of property rows in the layer for the given full form or property name.',
          'type': {'type': 'function', '_funcname': '_methGetPropCount',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
-                      {'name': 'maxsize', 'type': 'int', 'desc': 'The maximum number of rows to look up.', 'default': None, },
+                      {'name': 'maxsize', 'type': 'int', 'desc': 'The maximum number of rows to look up.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
         {'name': 'getFormCounts', 'desc': '''
@@ -4207,6 +4297,7 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
     )
     _storm_typename = 'storm:layer'
+
     def __init__(self, runt, ldef, path=None):
         Prim.__init__(self, ldef, path=path)
         self.runt = runt
@@ -4509,7 +4600,8 @@ class View(Prim):
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the View.', 'type': 'str', },
         {'name': 'layers', 'desc': 'The ``storm:layer`` objects associated with the ``storm:view``.', 'type': 'list', },
-        {'name': 'triggers', 'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.', 'type': 'list', },
+        {'name': 'triggers', 'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.',
+         'type': 'list', },
         {'name': 'set', 'desc': 'Set a arbitrary value in the View definition.',
          'type': {'type': 'function', '_funcname': '_methViewSet',
                   'args': (
@@ -4543,7 +4635,8 @@ class View(Prim):
         {'name': 'getEdges', 'desc': 'Get node information for Edges in the View.',
          'type': {'type': 'function', '_funcname': '_methGetEdges',
                   'args': (
-                      {'name': 'verb', 'type': 'str', 'desc': 'The name of the Edges verb to iterate over.', 'default': None, },
+                      {'name': 'verb', 'type': 'str', 'desc': 'The name of the Edges verb to iterate over.',
+                       'default': None, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields tuples containing the source iden, verb, and destination iden.', }}},
@@ -4555,7 +4648,8 @@ class View(Prim):
                   'returns': {'type': 'null', }}},
         {'name': 'getEdgeVerbs', 'desc': 'Get the Edge verbs which exist in the View.',
          'type': {'type': 'function', '_funcname': '_methGetEdgeVerbs',
-                  'returns': {'name': 'Yields', 'type': 'str', 'desc': 'Yields the edge verbs used by Layers which make up the View.', }}},
+                  'returns': {'name': 'Yields', 'type': 'str',
+                              'desc': 'Yields the edge verbs used by Layers which make up the View.', }}},
         {'name': 'getFormCounts', 'desc': '''
             Get the formcounts for the View.
 
@@ -4564,9 +4658,12 @@ class View(Prim):
 
                     $counts = $lib.view.get().getFormCounts()''',
          'type': {'type': 'function', '_funcname': '_methGetFormcount',
-                  'returns': {'type': 'dict', 'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.", }}},
+                  'returns':
+                      {'type': 'dict',
+                       'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.", }}},
     )
     _storm_typename = 'storm:view'
+
     def __init__(self, runt, vdef, path=None):
         Prim.__init__(self, vdef, path=path)
         self.runt = runt
@@ -4713,12 +4810,14 @@ class LibTrigger(Lib):
          'type': {'type': 'function', '_funcname': '_methTriggerDel',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a trigger to delete. Only a single matching prefix will be deleted.', },
+                       'desc': 'A prefix to match in order to identify a trigger to delete. '
+                               'Only a single matching prefix will be deleted.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the deleted trigger which matched the prefix.', }}},
         {'name': 'list', 'desc': 'Get a list of Triggers in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``storm:trigger`` objects the user is allowed to access.', }}},
+                  'returns': {'type': 'list',
+                              'desc': 'A list of ``storm:trigger`` objects the user is allowed to access.', }}},
         {'name': 'get', 'desc': 'Get a Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerGet',
                   'args': (
@@ -4729,22 +4828,26 @@ class LibTrigger(Lib):
          'type': {'type': 'function', '_funcname': '_methTriggerEnable',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a trigger to enable. Only a single matching prefix will be enabled.', },
+                       'desc': 'A prefix to match in order to identify a trigger to enable. '
+                               'Only a single matching prefix will be enabled.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the trigger that was enabled.', }}},
         {'name': 'disable', 'desc': 'Disable a Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerDisable',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a trigger to disable. Only a single matching prefix will be disabled.', },
+                       'desc': 'A prefix to match in order to identify a trigger to disable. '
+                               'Only a single matching prefix will be disabled.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the trigger that was disabled.', }}},
         {'name': 'mode', 'desc': 'Modify an existing Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerMod',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a trigger to modify. Only a single matching prefix will be modified.', },
-                      {'name': 'query', 'type': ['str', 'storm:query'], 'desc': 'Thew new Storm query to set as the trigger query.', }
+                       'desc': 'A prefix to match in order to identify a trigger to modify. '
+                               'Only a single matching prefix will be modified.', },
+                      {'name': 'query', 'type': ['str', 'storm:query'],
+                       'desc': 'The new Storm query to set as the trigger query.', }
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the modified Trigger', }}},
     )
@@ -4849,7 +4952,6 @@ class LibTrigger(Lib):
         return iden
 
     async def _methTriggerList(self):
-        user = self.runt.user
         view = self.runt.snap.view
         triggers = []
 
@@ -4903,6 +5005,7 @@ class Trigger(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:trigger'
+
     def __init__(self, runt, tdef):
 
         Prim.__init__(self, tdef)
@@ -4990,7 +5093,8 @@ class LibUsers(Lib):
                       {'name': 'email', 'type': 'str', 'desc': 'The users email address.', 'default': None, },
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden to use to create the user.', 'default': None, }
                   ),
-                  'returns': {'type': 'storm:auth:user', 'desc': 'The ``storm:auth:user`` object for the new user.', }}},
+                  'returns': {'type': 'storm:auth:user',
+                              'desc': 'The ``storm:auth:user`` object for the new user.', }}},
         {'name': 'del', 'desc': 'Delete a User from the Cortex.',
          'type': {'type': 'function', '_funcname': '_methUsersDel',
                   'args': (
@@ -5079,13 +5183,14 @@ class LibRoles(Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the role to retrieve.', },
                   ),
                   'returns': {'type': ['null', 'storm:auth:role'],
-                               'desc': 'The ``storm:auth:role`` object; or null if the role does not exist.', }}},
+                              'desc': 'The ``storm:auth:role`` object; or null if the role does not exist.', }}},
         {'name': 'byname', 'desc': 'Get a specific Role by name.',
          'type': {'type': 'function', '_funcname': '_methRolesByName',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the role to retrieve.', },
                   ),
-                  'returns': {'type': ['null', 'storm:auth:role'], 'desc': 'The role by name, or null if it does not exist.', }}},
+                  'returns': {'type': ['null', 'storm:auth:role'],
+                              'desc': 'The role by name, or null if it does not exist.', }}},
     )
     _storm_lib_path = ('auth', 'roles')
 
@@ -5131,7 +5236,8 @@ class LibGates(Lib):
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the gate to retrieve.', },
                   ),
-                  'returns': {'type': ['null', 'storm:auth:gate'], 'desc': 'The ``storm:auth:gate`` if it exists, otherwise null.', }}},
+                  'returns': {'type': ['null', 'storm:auth:gate'],
+                              'desc': 'The ``storm:auth:gate`` if it exists, otherwise null.', }}},
         {'name': 'list', 'desc': 'Get a list of Gates in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methGatesList',
                   'returns': {'type': 'list', 'desc': 'A list of ``storm:auth:gate`` objects.', }}},
@@ -5167,6 +5273,7 @@ class Gate(Prim):
         {'name': 'users', 'desc': 'The user idens which are a member of the Authgate.', 'type': 'list', },
     )
     _storm_typename = 'storm:auth:gate'
+
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
@@ -5192,7 +5299,8 @@ class User(Prim):
                   'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
         {'name': 'roles', 'desc': 'Get the Roles for the User.',
          'type': {'type': 'function', '_funcname': '_methUserRoles',
-                  'returns': {'type': 'list', 'desc': 'A list of ``storm:auth:roles`` with the user is a member of.', }}},
+                  'returns': {'type': 'list',
+                              'desc': 'A list of ``storm:auth:roles`` with the user is a member of.', }}},
         {'name': 'allowed', 'desc': 'Check if the user has a given permission.',
          'type': {'type': 'function', '_funcname': '_methUserAllowed',
                   'args': (
@@ -5242,14 +5350,17 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': '_methUserSetRules',
                   'args': (
                       {'name': 'rules', 'type': 'list', 'desc': 'A list of rule tuples.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rules.', 'default': None, }
+                      {'name': 'gateiden', 'type': 'str',
+                       'desc': 'The gate iden used for the rules.', 'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'setAdmin', 'desc': 'Set the Admin flag for the user.',
          'type': {'type': 'function', '_funcname': '_methUserSetAdmin',
                   'args': (
-                      {'name': 'admin', 'type': 'boolean', 'desc': 'True to make the User an admin, false to remove their admin status.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the operation.', 'default': None, }
+                      {'name': 'admin', 'type': 'boolean',
+                       'desc': 'True to make the User an admin, false to remove their admin status.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the operation.',
+                       'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'setEmail', 'desc': 'Set the email address of the User.',
@@ -5273,6 +5384,7 @@ class User(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:auth:user'
+
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
@@ -5385,14 +5497,16 @@ class Role(Prim):
          'type': {'type': 'function', '_funcname': '_methRoleAddRule',
                   'args': (
                       {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to added to the Role.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delRule', 'desc': 'Remove a rule from the Role.',
          'type': {'type': 'function', '_funcname': '_methRoleDelRule',
                   'args': (
                       {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to removed from the Role.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'null', }
                   }},
@@ -5400,11 +5514,13 @@ class Role(Prim):
          'type': {'type': 'function', '_funcname': '_methRoleSetRules',
                   'args': (
                       {'name': 'rules', 'type': 'list', 'desc': 'A list of rules to set on the Role.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'Ahe gate iden used for the rules.', 'default': None, },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'Ahe gate iden used for the rules.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:auth:role'
+
     def __init__(self, runt, valu, path=None):
 
         Prim.__init__(self, valu, path=path)
@@ -5465,22 +5581,26 @@ class LibCron(Lib):
          'type': {'type': 'function', '_funcname': '_methCronDel',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a cron job to delete. Only a single matching prefix will be deleted.', },
+                       'desc': 'A prefix to match in order to identify a cron job to delete. '
+                               'Only a single matching prefix will be deleted.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'get', 'desc': 'Get a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronGet',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a cron job to get. Only a single matching prefix will be retrieved.', },
+                       'desc': 'A prefix to match in order to identify a cron job to get. '
+                               'Only a single matching prefix will be retrieved.', },
                   ),
                   'returns': {'type': 'storm:cronjob', 'desc': 'The requested cron job.', }}},
         {'name': 'mod', 'desc': 'Modify the Storm query for a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronMod',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
-                       'desc': ' prefix to match in order to identify a cron job to modify. Only a single matching prefix will be modified.', },
-                      {'name': 'query', 'type': ['str', 'storm:query'], 'desc': 'The new Storm query for the Cron Job.', }
+                       'desc': 'A prefix to match in order to identify a cron job to modify. '
+                               'Only a single matching prefix will be modified.', },
+                      {'name': 'query', 'type': ['str', 'storm:query'],
+                       'desc': 'The new Storm query for the Cron Job.', }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
@@ -5490,14 +5610,16 @@ class LibCron(Lib):
          'type': {'type': 'function', '_funcname': '_methCronEnable',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
-                       'desc': ' A prefix to match in order to identify a cron job to enable. Only a single matching prefix will be enabled.', },
+                       'desc': 'A prefix to match in order to identify a cron job to enable. '
+                               'Only a single matching prefix will be enabled.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was enabled.', }}},
         {'name': 'disable', 'desc': 'Disable a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronDisable',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
-                       'desc': ' A prefix to match in order to identify a cron job to disable. Only a single matching prefix will be disabled.', },
+                       'desc': 'A prefix to match in order to identify a cron job to disable. '
+                               'Only a single matching prefix will be disabled.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was disabled.', }}},
     )
@@ -5520,8 +5642,6 @@ class LibCron(Lib):
         Returns the cron that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        user = self.runt.user
-
         todo = s_common.todo('listCronJobs')
         crons = await self.dyncall('cortex', todo)
         matchcron = None
@@ -5917,9 +6037,12 @@ class CronJob(Prim):
                   'returns': {'type': 'dict', 'desc': 'The definition.', }}},
         {'name': 'pprint', 'desc': 'Get a dictionary containing user friendly strings for printing the CronJob.',
          'type': {'type': 'function', '_funcname': '_methCronJobPprint',
-                  'returns': {'type': 'dict', 'desc': 'A dictionary containing structured data about a cronjob for display purposes.', }}},
+                  'returns':
+                      {'type': 'dict',
+                       'desc': 'A dictionary containing structured data about a cronjob for display purposes.', }}},
     )
     _storm_typename = 'storm:cronjob'
+
     def __init__(self, runt, cdef, path=None):
         Prim.__init__(self, cdef, path=path)
         self.runt = runt
@@ -6079,7 +6202,7 @@ async def tobool(valu, noneok=False):
 
     try:
         return bool(valu)
-    except Exception as e:
+    except Exception:
         mesg = f'Failed to make a boolean from {valu!r}.'
         raise s_exc.BadCast(mesg=mesg)
 
