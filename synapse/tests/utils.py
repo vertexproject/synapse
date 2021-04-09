@@ -223,11 +223,6 @@ testmodel = {
         ('test:ndef', ('ndef', {}), {}),
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
 
-        ('test:deprprop', ('test:str', {}), {'deprecated': True}),
-        ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
-        ('test:deprform', ('test:str', {}), {}),
-        ('test:deprndef', ('ndef', {}), {}),
-
     ),
 
     'univs': (
@@ -355,6 +350,17 @@ testmodel = {
             ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
         )),
 
+    ),
+}
+
+deprmodel = {
+    'types': (
+        ('test:deprprop', ('test:str', {}), {'deprecated': True}),
+        ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
+        ('test:deprform', ('test:str', {}), {}),
+        ('test:deprndef', ('ndef', {}), {}),
+    ),
+    'forms': (
         ('test:deprprop', {}, ()),
         ('test:deprform', {}, (
             ('ndefprop', ('test:deprndef', {}), {}),
@@ -362,6 +368,7 @@ testmodel = {
             ('okayprop', ('str', {}), {}),
         )),
     ),
+
 }
 
 class TestCmd(s_storm.Cmd):
@@ -392,6 +399,13 @@ class TestCmd(s_storm.Cmd):
         async for node, path in genr:
             await runt.printf(f'{self.name}: {node.ndef}')
             yield node, path
+
+class DeprModule(s_module.CoreModule):
+    def getModelDefs(self):
+        return (
+            ('depr', deprmodel),
+        )
+
 
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
@@ -1032,7 +1046,7 @@ class SynTest(unittest.TestCase):
             mods = []
             conf['modules'] = mods
 
-        mods.append(('synapse.tests.utils.TestModule', {'key': 'valu'}))
+        mods.insert(0, ('synapse.tests.utils.TestModule', {'key': 'valu'}))
 
         with self.withNexusReplay():
 
