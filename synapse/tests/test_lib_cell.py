@@ -14,6 +14,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 
@@ -442,6 +443,19 @@ class CellTest(s_t_utils.SynTest):
 
             self.eq(cell00.iden, cell01.iden)
 
+    async def test_cell_version(self):
+        async with self.getTestCore() as cell:
+            cell.COMMIT = 'mycommit'
+            async with cell.getLocalProxy() as prox:
+                resp = await prox.getCellVersionInfo()
+                # An override
+                self.eq(resp.get('commit'), 'mycommit')
+                # Defaults
+                self.eq(resp.get('version'), s_version.version)
+                self.eq(resp.get('verstring'), s_version.verstring)
+                # A Cortex populated cellvers
+                self.isin('cortex:defaults', resp.get('cellvers', {}))
+
     async def test_cell_dyncall(self):
 
         with self.getTestDir() as dirn:
@@ -454,6 +468,12 @@ class CellTest(s_t_utils.SynTest):
 
                 todo = s_common.todo('stream', doraise=True)
                 await self.agenraises(s_exc.BadTime, await prox.dyncall('self', todo))
+
+                items = []
+                todo = s_common.todo('stream', doraise=False)
+                async for item in prox.dyniter('self', todo):
+                    items.append(item)
+                self.eq(items, [1, 2])
 
     async def test_cell_promote(self):
 

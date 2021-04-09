@@ -227,7 +227,7 @@ class CellApi(s_base.Base):
         return self.user.pack()
 
     async def getCellVersionInfo(self):
-        return self.cell.getCellVersionInfo()
+        return await self.cell.getCellVersionInfo()
 
     def setCellUser(self, iden):
         '''
@@ -2187,7 +2187,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         ret = {
             'commit': self.COMMIT,
-            'cellvers': self.cellvers,
+            'cellvers': dict(self.cellvers.items()),
             'version': self.VERSION,
             'verstring': self.VERSTRING,
         }
