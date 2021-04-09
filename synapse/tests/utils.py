@@ -367,7 +367,7 @@ deprmodel = {
             ('deprprop', ('test:deprarray', {}), {}),
             ('okayprop', ('str', {}), {}),
         )),
-    )
+    ),
 
 }
 
