@@ -268,7 +268,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:mitre:attack:software', ('str', {'regex': r'^S[0-9]{4}$'}), {
                     'doc': 'A Mitre ATT&CK Software ID.',
-                    'ex': 'M0154',
+                    'ex': 'S0154',
                 }),
                 ('it:dev:str', ('str', {}), {
                     'doc': 'A developer-selected string.'

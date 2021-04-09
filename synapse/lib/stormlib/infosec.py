@@ -77,7 +77,7 @@ class CvssLib(s_stormtypes.Lib):
                   'returns': {'type': 'dict', 'desc': 'A dictionary of risk:vuln secondary props.', }
         }},
         {'name': 'saveVectToNode', 'desc': 'Parse a CVSS vector and record properties on a risk:vuln node.',
-         'type': {'type': 'function', '_funcname': 'vectToProps',
+         'type': {'type': 'function', '_funcname': 'saveVectToNode',
                   'args': (
                       {'name': 'node', 'type': 'storm:node',
                        'desc': 'A risk:vuln node to record the CVSS properties on.'},
