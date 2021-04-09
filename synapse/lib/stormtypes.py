@@ -646,7 +646,6 @@ class LibService(Lib):
             sdef = dict(ssvc.sdef)
             sdef['ready'] = ssvc.ready.is_set()
             sdef['svcname'] = ssvc.svcname
-            sdef['svcvers'] = ssvc.svcvers
             retn.append(sdef)
 
         return retn
