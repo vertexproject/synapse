@@ -605,6 +605,11 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(100, 101, 102) ]')
+            nodes = await core.nodes('test:arrayprop +:ints=$lib.list(1,2,3)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:arrayprop:ints=$lib.list(1,2,3)')
+            self.len(1, nodes)
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('test:arrayprop +:newp*[^=asdf]')
@@ -717,10 +722,109 @@ class AstTest(s_test.SynTest):
             self.len(0, nodes)
 
     async def test_ast_embed_compute(self):
-        # currently a simple smoke test for the EmbedQuery.compute method
+        # =${...} assigns a query object to a variable
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:int=20 ]  $q=${#foo.bar}')
             self.len(2, nodes)
+
+    async def test_ast_subquery_value(self):
+        '''
+        Test subqueries as rvals in property sets, filters, lifts
+        '''
+        async with self.getTestCore() as core:
+
+            # test property assignment with subquery value
+            await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
+            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
+            nodes = await core.nodes('[ou:campaign=* :goal={[ou:goal=* :name="paperclip manufacturing" ]} ]')
+            self.len(1, nodes)
+            # Make sure we're not accidentally adding extra nodes
+            nodes = await core.nodes('ou:goal')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('name'))
+
+            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('org'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('industries'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
+            await core.nodes('[ it:dev:str=a it:dev:str=b ]')
+            q = "ou:org:alias=visiacme [ :name={it:dev:str if ($node='b') {return(penetrode)}} ]"
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('[ test:arrayprop=* :strs={return ($lib.list(a,b,c,d))} ]')
+            self.len(1, nodes)
+            self.len(4, nodes[0].get('strs'))
+
+            # Running the query again ensures that the ast hasattr memoizing works
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={if (0) {return(penetrode)}} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')
+
+            await core.nodes('ou:org:alias=visiacme [ -:name]')
+            nodes = await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
+            self.notin('name', nodes[0].props)
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
+            self.notin('name', nodes[0].props)
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
+            self.notin('name', nodes[0].props)
+
+            # Filter by Subquery value
+
+            await core.nodes('[it:dev:str=visiacme]')
+            nodes = await core.nodes('ou:org +:alias={it:dev:str=visiacme}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ou:org +:alias={return(visiacme)}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:arrayprop +:strs={return ((a,b,c,d))}')
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('ou:org +:alias={it:dev:str}')
+
+            # Lift by Subquery value
+
+            nodes = await core.nodes('ou:org:alias={it:dev:str=visiacme}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:arrayprop:strs={return ((a,b,c,d))}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ou:org:alias={return(visiacme)}')
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('ou:org:alias={it:dev:str}')
 
     async def test_lib_ast_module(self):
 

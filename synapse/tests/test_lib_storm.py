@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import itertools
 import unittest.mock as mock
 
 import synapse.exc as s_exc
@@ -469,36 +470,29 @@ class StormTest(s_t_utils.SynTest):
             task = core.schedCoro(sleeper())
             self.false(await s_coro.waittask(task, timeout=0.1))
 
-            # test subquery based property assignment
-            await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
-            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
-            self.len(1, nodes)
-            self.len(2, nodes[0].get('industries'))
+            # test some StormRuntime APIs directly...
+            await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            await core.nodes('[ ou:org=* ou:org=* :name=dupcorp ]')
+            async with await core.view.snap(user=core.auth.rootuser) as snap:
 
-            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('org'))
+                query = core.getStormQuery('')
+                with snap.getStormRuntime(query) as runt:
 
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
-            self.len(1, nodes)
-            self.len(1, nodes[0].get('industries'))
+                    self.len(1, await alist(runt.storm('inet:ipv4=1.2.3.4')))
 
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={ou:industry:name=foo} ]')
-            self.len(1, nodes)
-            self.len(2, nodes[0].get('industries'))
+                    self.nn(await runt.getOneNode('inet:ipv4', 0x01020304))
 
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :name={} ]')
+                    counter = itertools.count()
 
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
+                    async def skipone(n):
+                        if next(counter) == 0:
+                            return True
+                        return False
 
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')
+                    self.nn(await runt.getOneNode('ou:org:name', 'dupcorp', filt=skipone))
 
-            await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
-            await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
-            await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
+                    with self.raises(s_exc.StormRuntimeError):
+                        await runt.getOneNode('ou:org:name', 'dupcorp')
 
     async def test_storm_dmon_user_locked(self):
         async with self.getTestCore() as core:

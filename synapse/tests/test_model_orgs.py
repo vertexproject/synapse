@@ -148,6 +148,7 @@ class OuModelTest(s_t_utils.SynTest):
                 oprops = {
                     'loc': 'US.CA',
                     'name': name,
+                    'type': 'corp',
                     'names': altnames,
                     'logo': '*',
                     'alias': 'arrow',
@@ -162,6 +163,7 @@ class OuModelTest(s_t_utils.SynTest):
                 node = await snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
                 self.eq(node.get('loc'), 'us.ca')
+                self.eq(node.get('type'), 'corp')
                 self.eq(node.get('name'), normname)
                 self.eq(node.get('names'), altnames)
                 self.eq(node.get('alias'), 'arrow')
@@ -458,12 +460,14 @@ class OuModelTest(s_t_utils.SynTest):
                 ou:contest:result=(*, *)
                     :rank=1
                     :score=20
+                    :url=http://vertex.link/contest/result
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('contest'))
             self.nn(nodes[0].get('participant'))
             self.eq(1, nodes[0].get('rank'))
             self.eq(20, nodes[0].get('score'))
+            self.eq('http://vertex.link/contest/result', nodes[0].get('url'))
             self.len(1, await core.nodes('ou:contest:result -> ps:contact'))
             self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
 

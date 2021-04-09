@@ -1,17 +1,12 @@
-import os
 import copy
 import json
 
-import aiohttp
 import stix2validator
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.tests.utils as s_test
 
-import synapse.lib.config as s_config
-
-import synapse.lib.stormlib.stix as s_stix
+# flake8: noqa: E501
 
 class StormlibModelTest(s_test.SynTest):
 
@@ -87,7 +82,7 @@ class StormlibModelTest(s_test.SynTest):
                 (inet:ipv6="::ff" :asn=40)
                 inet:email=visi@vertex.link
                 (ps:contact=* :name="visi stark" :email=visi@vertex.link)
-                (ou:org=$targetorg :name=target :industries={[ou:industry=$ind :name=aerospace]})
+                (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
                 (ou:org=$attackorg :name=attacker :hq={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
                 (ou:campaign=$campaign :name=woot :org={ou:org:name=attacker} :goal={[ou:goal=$goal :name=pwning]})
                 (risk:attack=$attack :campaign={ou:campaign} :target:org={ou:org:name=target})
@@ -138,7 +133,6 @@ class StormlibModelTest(s_test.SynTest):
 
             self.reqValidStix(bund)
 
-            #self.setTestBundle('basic.json', bund)
             self.bundeq(self.getTestBundle('basic.json'), bund)
 
             opts = {'vars': {
@@ -170,7 +164,6 @@ class StormlibModelTest(s_test.SynTest):
 
             self.reqValidStix(bund)
 
-            #self.setTestBundle('custom0.json', bund)
             self.bundeq(self.getTestBundle('custom0.json'), bund)
 
             # test some sad paths...

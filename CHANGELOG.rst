@@ -4,6 +4,33 @@
 Synapse Changelog
 *****************
 
+
+v2.32.1 - 2021-04-01
+====================
+
+Features and Enhancements
+-------------------------
+- The Storm ``$lib.exit()`` function now takes message arguments similar to
+  ``$lib.warn()`` and fires that message into the run time as a ``warn`` prior
+  to stopping the runtime.
+  (`#2138 <https://github.com/vertexproject/synapse/pull/2138>`_)
+- Update ``pygments`` minimum version to ``v2.7.4``.
+  (`#2139 <https://github.com/vertexproject/synapse/pull/2139>`_)
+
+Bugfixes
+--------
+- Do not allow light edge creation on runt nodes.
+  (`#2136 <https://github.com/vertexproject/synapse/pull/2136>`_)
+- Fix backup test timeout issues.
+  (`#2141 <https://github.com/vertexproject/synapse/pull/2141>`_)
+- Fix the ``synapse.lib.msgpack.en()`` function so that now raises the correct
+  exceptions when operating in fallback mode.
+  (`#2140 <https://github.com/vertexproject/synapse/pull/2140>`_)
+- Fix the ``Snap.addNodes()`` API handling of deprecated model elements when
+  doing bulk data ingest.
+  (`#2142 <https://github.com/vertexproject/synapse/pull/2142>`_)
+
+
 v2.32.0 - 2021-03-30
 ====================
 
