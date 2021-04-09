@@ -83,6 +83,7 @@ class NexsRoot(s_base.Base):
         self.started = False
         self.celliden = None
         self.donexslog = donexslog
+        self.applylock = asyncio.Lock()
 
         self._mirrors: List[ChangeDist] = []
         self._nexskids: Dict[str, 'Pusher'] = {}
@@ -241,10 +242,12 @@ class NexsRoot(s_base.Base):
 
         nexus = self._nexskids[nexsiden]
         func, passitem = nexus._nexshands[event]
-        if passitem:
-            return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
 
-        return await func(nexus, *args, **kwargs)
+        async with self.applylock:
+            if passitem:
+                return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
+
+            return await func(nexus, *args, **kwargs)
 
     async def iter(self, offs: int) -> AsyncIterator[Any]:
         '''
