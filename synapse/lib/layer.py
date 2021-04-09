@@ -1490,14 +1490,14 @@ class Layer(s_nexus.Pusher):
     async def getFormCounts(self):
         return self.formcounts.pack()
 
-    @s_cache.memoize()
+    @s_cache.memoizemethod()
     def getPropAbrv(self, form, prop):
         return self.propabrv.bytsToAbrv(s_msgpack.en((form, prop)))
 
     def setPropAbrv(self, form, prop):
         return self.propabrv.setBytsToAbrv(s_msgpack.en((form, prop)))
 
-    @s_cache.memoize()
+    @s_cache.memoizemethod()
     def getTagPropAbrv(self, *args):
         return self.tagpropabrv.bytsToAbrv(s_msgpack.en(args))
 
