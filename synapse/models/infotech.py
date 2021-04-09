@@ -27,10 +27,30 @@ class Cpe23Str(s_types.Str):
         s_types.Str.__init__(self, modl, name, info, opts)
 
     def _splitCpe23(self, text):
-        text = text.replace('\\:', '\x00')
-        # TODO noms with proper escaping...
-        parts = text.split(':')
-        return [p.replace('\x00', '\\:').strip() for p in parts]
+
+        part = ''
+        parts = []
+
+        genr = iter(text)
+        try:
+            while True:
+
+                c = next(genr)
+
+                if c == '\\':
+                    c += next(genr)
+
+                if c == ':':
+                    parts.append(part)
+                    part = ''
+                    continue
+
+                part += c
+
+        except StopIteration:
+            parts.append(part)
+
+        return parts
 
     def _normPyStr(self, valu):
 

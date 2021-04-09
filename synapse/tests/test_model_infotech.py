@@ -27,6 +27,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://cwe.mitre.org/data/definitions/120.html')
             self.eq(nodes[0].get('parents'), ('CWE-119',))
 
+            self.eq(r'foo\:bar', core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*')[1]['subs']['vendor'])
+
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[it:sec:cpe=asdf]')
 
@@ -123,6 +125,24 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://redtree.link')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
+
+            nodes = await core.nodes('''[
+                it:mitre:attack:mitigation=M0100
+                    :name=patchstuff
+                    :desc=patchyourstuff
+                    :url=https://wsus.com
+                    :tag=cno.mitre.m0100
+                    :references=(https://foo.com,https://bar.com)
+                    :addresses=(T0200,T0100,T0100)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:mitigation', 'M0100'))
+            self.eq(nodes[0].get('name'), 'patchstuff')
+            self.eq(nodes[0].get('desc'), 'patchyourstuff')
+            self.eq(nodes[0].get('tag'), 'cno.mitre.m0100')
+            self.eq(nodes[0].get('url'), 'https://wsus.com')
+            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('addresses'), ('T0100', 'T0200'))
 
     async def test_infotech_ios(self):
 
