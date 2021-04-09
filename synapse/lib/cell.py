@@ -226,7 +226,7 @@ class CellApi(s_base.Base):
     def getCellUser(self):
         return self.user.pack()
 
-    def getCellVersionInfo(self):
+    async def getCellVersionInfo(self):
         return self.cell.getCellVersionInfo()
 
     def setCellUser(self, iden):
@@ -2166,7 +2166,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
                              task=iden, user=str(user), perm=perm)
 
-    def getCellVersionInfo(self):
+    async def getCellVersionInfo(self):
         '''
         Return version metadata specific for this Cell.
 
