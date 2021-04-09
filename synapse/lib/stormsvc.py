@@ -59,10 +59,23 @@ stormcmds = (
         'cmdconf': {},
         'storm': '''
             $lib.print("")
-            $lib.print("Storm service list (iden, ready, name, url):")
+            $lib.print("Storm service list (iden, ready, name, service name, service version, url):")
             $count = $(0)
             for $sdef in $lib.service.list() {
- $lib.print("    {iden} {ready} ({name}): {url}", iden=$sdef.iden, ready=$sdef.ready, name=$sdef.name, url=$sdef.url)
+                $url = $sdef.url
+                $iden = $sdef.iden
+                $name = $sdef.name
+                $ready = $sdef.ready
+                $sname = $sdef.svcname
+                if $sname {} else { $sname = 'Unknown' }
+                $svers = $sdef.svcvers
+                if $svers {
+                    $svers = $lib.str.join('.', $svers)
+                } else {
+                    $svers = 'Unknown'
+                }
+                $mesg="    {iden} {ready} ({name}) ({sname} @ {svers}): {url}"
+                $lib.print(mesg=$mesg, iden=$iden, ready=$ready, name=$name, sname=$sname, svers=$svers, url=$url)
                 $count = $( $count + 1 )
             }
             $lib.print("")
@@ -110,6 +123,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
         self.iden = sdef.get('iden')
         self.name = sdef.get('name')  # Local name for the cortex
         self.svcname = ''  # remote name from the service
+        self.svcvers = ''  # remove version from the service
 
         # service info from the server...
         self.info = None
@@ -127,6 +141,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
         # Set the latest reference for this object to the remote svcname
         self.core.svcsbysvcname.pop(self.svcname, None)
         self.svcname = self.info['name']
+        self.svcvers = self.info['vers']
         self.core.svcsbysvcname[self.svcname] = self
 
         try:
