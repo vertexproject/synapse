@@ -1222,7 +1222,7 @@ class Loc(Type):
         norm = '.'.join(norms)
         return norm, {}
 
-    @s_cache.memoize()
+    @s_cache.memoizemethod()
     def stems(self, valu):
         norm, info = self.norm(valu)
         parts = norm.split('.')

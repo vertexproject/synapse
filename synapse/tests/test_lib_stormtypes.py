@@ -301,7 +301,6 @@ class StormTypesTest(s_test.SynTest):
             async def getseqn(genr, name, key):
                 seqn = []
                 async for mtyp, info in genr:
-                    print(mtyp, info)
                     if mtyp != 'storm:fire':
                         continue
                     self.eq(info.get('type'), name)

@@ -4164,7 +4164,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def stormlist(self, text, opts=None):
         return [m async for m in self.storm(text, opts=opts)]
 
-    @s_cache.memoize(size=10000)
+    @s_cache.memoizemethod(size=10000)
     def getStormQuery(self, text, mode='storm'):
         '''
         Parse storm query text and return a Query object.
