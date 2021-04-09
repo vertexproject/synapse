@@ -449,7 +449,17 @@ class Array(Type):
         adds = list(set(adds))
 
         if self.isuniq:
-            norms = tuple(set(norms))
+
+            uniqs = []
+            uniqhas = set()
+
+            for n in norms:
+                if n in uniqhas:
+                    continue
+                uniqhas.add(n)
+                uniqs.append(n)
+
+            norms = tuple(uniqs)
 
         if self.issorted:
             norms = tuple(sorted(norms))

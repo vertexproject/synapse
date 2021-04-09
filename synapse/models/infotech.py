@@ -630,6 +630,9 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL linking this CVE to a full description.',
                     }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the CVE ID.',
+                    }),
                 )),
                 ('it:sec:cpe', {}, (
                     ('part', ('str', {'lower': True, 'strip': True}), {
@@ -678,7 +681,8 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL linking this CWE to a full description.',
                     }),
-                    ('parents', ('array', {'type': 'it:sec:cwe', 'uniq': True, 'split': ','}), {
+                    ('parents', ('array', {'type': 'it:sec:cwe',
+                                           'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ChildOf CWE Relationships.'
                     }),
                 )),
@@ -689,7 +693,7 @@ class ItModule(s_module.CoreModule):
                     ('name', ('ou:name', {}), {
                         'doc': 'The primary name for the ATT&CK group.',
                     }),
-                    ('names', ('array', {'type': 'ou:name', 'uniq': True}), {
+                    ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate names for the ATT&CK group.',
                     }),
                     ('desc', ('str', {}), {
@@ -703,13 +707,15 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The synapse tag used to annotate nodes included in this ATT&CK group ID.',
                         'ex': 'cno.mitre.g0100',
                     }),
-                    ('references', ('array', {'type': 'inet:url'}), {
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK group.',
                     }),
-                    ('techniques', ('array', {'type': 'it:mitre:attack:technique', 'uniq': True, 'split': ','}), {
+                    ('techniques', ('array', {'type': 'it:mitre:attack:technique',
+                                              'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ATT&CK technique IDs used by the group.',
                     }),
-                    ('software', ('array', {'type': 'it:mitre:attack:software', 'uniq': True, 'split': ','}), {
+                    ('software', ('array', {'type': 'it:mitre:attack:software',
+                                            'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ATT&CK software IDs used by the group.',
                     }),
                 )),
@@ -728,7 +734,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The synapse tag used to annotate nodes included in this ATT&CK tactic.',
                         'ex': 'cno.mitre.ta0100',
                     }),
-                    ('references', ('array', {'type': 'inet:url'}), {
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK tactic.',
                     }),
                 )),
@@ -747,13 +753,14 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The synapse tag used to annotate nodes included in this ATT&CK technique.',
                         'ex': 'cno.mitre.t0100',
                     }),
-                    ('references', ('array', {'type': 'inet:url'}), {
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK technique.',
                     }),
                     ('parent', ('it:mitre:attack:technique', {}), {
                         'doc': 'The parent ATT&CK technique on this sub-technique.',
                     }),
-                    ('tactics', ('array', {'type': 'it:mitre:attack:tactic', 'uniq': True, 'split': ','}), {
+                    ('tactics', ('array', {'type': 'it:mitre:attack:tactic',
+                                           'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ATT&CK tactics that include this technique.',
                     }),
                 )),
@@ -775,10 +782,11 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The synapse tag used to annotate nodes included in this ATT&CK software.',
                         'ex': 'cno.mitre.s0100',
                     }),
-                    ('references', ('array', {'type': 'inet:url'}), {
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK software.',
                     }),
-                    ('techniques', ('array', {'type': 'it:mitre:attack:technique'}), {
+                    ('techniques', ('array', {'type': 'it:mitre:attack:technique',
+                                              'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of techniques used by the software.',
                     }),
                 )),
@@ -798,10 +806,11 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The synapse tag used to annotate nodes included in this ATT&CK mitigation.',
                         'ex': 'cno.mitre.m0100',
                     }),
-                    ('references', ('array', {'type': 'inet:url'}), {
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK mitigation.',
                     }),
-                    ('addresses', ('array', {'type': 'it:mitre:attack:technique'}), {
+                    ('addresses', ('array', {'type': 'it:mitre:attack:technique',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
                     }),
                 )),

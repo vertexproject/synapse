@@ -46,15 +46,27 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:mitre:attack:group=G0100
+                    :org={[ ou:org=* :name=visicorp ]}
                     :name=aptvisi
+                    :names=(visigroup, nerdsrus, visigroup)
                     :desc=worlddom
                     :url=https://vertex.link
+                    :tag=cno.mitre.g0100
+                    :references=(https://foo.com,https://bar.com)
+                    :software=(S0200,S0100,S0100)
+                    :techniques=(T0200,T0100,T0100)
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:group', 'G0100'))
+            self.nn(nodes[0].get('org'))
             self.eq(nodes[0].get('name'), 'aptvisi')
+            self.eq(nodes[0].get('names'), ('nerdsrus', 'visigroup'))
             self.eq(nodes[0].get('desc'), 'worlddom')
+            self.eq(nodes[0].get('tag'), 'cno.mitre.g0100')
             self.eq(nodes[0].get('url'), 'https://vertex.link')
+            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('software'), ('S0100', 'S0200'))
+            self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
 
             nodes = await core.nodes('''[
                 it:mitre:attack:tactic=TA0100
@@ -62,12 +74,15 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :desc=darkerblack
                     :url=https://archer.link
                     :tag=cno.mitre.ta0100
+                    :references=(https://foo.com,https://bar.com)
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:tactic', 'TA0100'))
             self.eq(nodes[0].get('name'), 'tactilneck')
             self.eq(nodes[0].get('desc'), 'darkerblack')
+            self.eq(nodes[0].get('tag'), 'cno.mitre.ta0100')
             self.eq(nodes[0].get('url'), 'https://archer.link')
+            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
 
             nodes = await core.nodes('''[
                 it:mitre:attack:technique=T0100
@@ -75,25 +90,39 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :desc=speedhackers
                     :url=https://locksrus.link
                     :tag=cno.mitre.t0100
+                    :references=(https://foo.com,https://bar.com)
+                    :parent=T9999
+                    :tactics=(TA0200,TA0100,TA0100)
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:technique', 'T0100'))
             self.eq(nodes[0].get('name'), 'lockpicking')
             self.eq(nodes[0].get('desc'), 'speedhackers')
+            self.eq(nodes[0].get('tag'), 'cno.mitre.t0100')
             self.eq(nodes[0].get('url'), 'https://locksrus.link')
+            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('parent'), 'T9999')
+            self.eq(nodes[0].get('tactics'), ('TA0100', 'TA0200'))
 
             nodes = await core.nodes('''[
                 it:mitre:attack:software=S0100
+                    :software=*
                     :name=redtree
                     :desc=redtreestuff
                     :url=https://redtree.link
                     :tag=cno.mitre.s0100
+                    :references=(https://foo.com,https://bar.com)
+                    :techniques=(T0200,T0100,T0100)
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:software', 'S0100'))
+            self.nn(nodes[0].get('software'))
             self.eq(nodes[0].get('name'), 'redtree')
             self.eq(nodes[0].get('desc'), 'redtreestuff')
+            self.eq(nodes[0].get('tag'), 'cno.mitre.s0100')
             self.eq(nodes[0].get('url'), 'https://redtree.link')
+            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
 
     async def test_infotech_ios(self):
 
