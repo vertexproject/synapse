@@ -10,12 +10,19 @@ v2.33.0 - 2021-04-12
 
 Features and Enhancements
 -------------------------
+- Add CWE and CVSS support to the ``risk:vuln`` form.
+  (`#2143 <https://github.com/vertexproject/synapse/pull/2143>`_)
+- Add a new Stormtypes library, ``$lib.infosec.cvss``, to assist with
+  parsing CVSS data, computing scores, and updating ``risk:vuln`` nodes.
+  (`#2143 <https://github.com/vertexproject/synapse/pull/2143>`_)
+- Add ATT&CK, CWD, and CPE support to the IT model.
+  (`#2143 <https://github.com/vertexproject/synapse/pull/2143>`_)
+- Add ``it:network``, ``it:domain``, ``it:account``, ``it:group`` and
+  ``it:login`` guid forms to model common IT concepts.
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
 - Add a new model, ``project``, to model projects, tickets, sprints and epics.
   The preliminary forms for this model include ``proj:project``,
   ``proj:sprint``, ``proj:ticket``, ``proj:comment``, and ``projec:project``.
-  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
-- Add ``it:network``, ``it:domain``, ``it:account``, ``it:group`` and
-  ``it:login`` guid forms to model common IT concepts.
   (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
 - Add a new Stormtypes library, ``$lib.project``, to assist with using the
   project model. The API is provisional.
