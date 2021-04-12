@@ -133,10 +133,10 @@ class SynModule(s_module.CoreModule):
                     'doc': 'A nodedata key and the form it may be present on.',
                 }),
                 ('syn:user', ('guid', {'strip': True}), {
-                    'doc': 'A synapse user GUID.'
+                    'doc': 'A Synapse user GUID.'
                 }),
                 ('syn:role', ('guid', {'strip': True}), {
-                    'doc': 'A synapse role GUID.'
+                    'doc': 'A Synapse role GUID.'
                 }),
             ),
 
