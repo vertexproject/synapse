@@ -91,7 +91,6 @@ class AstNode:
                 yield item
 
     def init(self, core):
-        self.core = core
         [k.init(core) for k in self.kids]
         self.prepare()
 
@@ -2649,8 +2648,7 @@ class FuncCall(Value):
             raise s_exc.IsReadOnly(mesg=mesg)
 
         argv = await self.kids[1].compute(runt, path)
-        kwlist = await self.kids[2].compute(runt, path)
-        kwargs = dict(kwlist)
+        kwargs = {k: v for (k, v) in await self.kids[2].compute(runt, path)}
 
         with s_scope.enter({'runt': runt}):
             return await s_coro.ornot(func, *argv, **kwargs)
@@ -3548,9 +3546,23 @@ class Return(Oper):
             raise s_stormctrl.StormReturn(valu)
 
 class FuncArgs(AstNode):
+    '''
+    Represents the function arguments in a function definition
+    '''
 
     async def compute(self, runt, path):
-        return [await k.compute(runt, path) for k in self.kids]
+        retn = []
+
+        for kid in self.kids:
+            valu = await kid.compute(runt, path)
+            if not isinstance(kid, CallKwarg):
+                valu = (valu, s_common.novalu)
+            else:
+                # FIXME:  verify default argument runtsafe?
+                pass
+            retn.append(valu)
+
+        return retn
 
 class Function(AstNode):
     '''
@@ -3579,9 +3591,10 @@ class Function(AstNode):
         return True
 
     async def run(self, runt, genr):
+        argdefs = await self.kids[1].compute(runt, None)
 
         async def realfunc(*args, **kwargs):
-            return await self.callfunc(runt, args, kwargs)
+            return await self.callfunc(runt, argdefs, args, kwargs)
 
         runt.setVar(self.name, realfunc)
 
@@ -3595,44 +3608,54 @@ class Function(AstNode):
         # var scope validation occurs in the sub-runtime
         pass
 
-    async def callfunc(self, runt, args, kwargs):
+    async def callfunc(self, runt, argdefs, args, kwargs):
         '''
         Execute a function call using the given runtime.
 
         This function may return a value / generator / async generator
         '''
-        argdefs = await self.kids[1].compute(runt, None)
+        # FIXME: errors could really use line number/position
+        mergargs = {}
+        posnames = set()  # Positional argument names
 
-        # join args and kwargs together...
-        real_args = {}
-        for name, arg in s_common.iterzip(argdefs, args, fillvalue=s_common.novalu):
-            if arg is s_common.novalu:
-                break
-            if name is s_common.novalu:
-                raise s_exc.StormRuntimeError(mesg='Extra positional arguments provided',
-                                              name=self.name, valu=arg)
-            real_args[name] = arg
+        argcount = len(args) + len(kwargs)
+        if argcount > len(argdefs):
+            mesg = f'{self.name}() takes {len(argdefs)} arguments but {argcount} were provided'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        # Fill in the positional arguments
+        for pos, argv in enumerate(args):
+            name = argdefs[pos][0]
+            mergargs[name] = argv
+            posnames.add(name)
+
+        # Merge in the rest from kwargs or the default values set at function definition
+        for name, defv in argdefs[len(args):]:
+            valu = kwargs.pop(name, s_common.novalu)
+            if valu is s_common.novalu:
+                if defv is s_common.novalu:
+                    mesg = f'{self.name}() missing required argument {name}'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+                valu = defv
+
+            mergargs[name] = valu
 
         if kwargs:
-            for name in argdefs:
-                if name in real_args:
-                    continue
-                valu = kwargs.pop(name, s_common.novalu)
-                if valu is s_common.novalu:
-                    continue
-                real_args[name] = valu
+            kwkeys = list(kwargs.keys())
+            if kwkeys[0] in posnames:
+                mesg = f'{self.name}() got multiple values for parameter {kwkeys[0]}'
+                raise s_exc.StormRuntimeError(mesg=mesg)
 
-        if kwargs:
-            raise s_exc.StormRuntimeError(mesg='Unused kwargs provided',
-                                          name=self.name, kwargs=list(kwargs.keys()))
+            plural = 's' if len(kwargs) > 1 else ''
+            mesg = f'{self.name}() got unexpected keyword argument{plural}: {",".join(kwkeys)}'
+            raise s_exc.StormRuntimeError(mesg=mesg)
 
-        if len(real_args) != len(argdefs):
-            raise s_exc.StormRuntimeError(mesg='Bad call argument length',
-                                          name=self.name, args=real_args,
-                                          expected=len(argdefs), got=len(real_args)
-                                          )
+        if len(mergargs) != len(argdefs):
+            breakpoint()
 
-        opts = {'vars': real_args}
+        assert len(mergargs) == len(argdefs)
+
+        opts = {'vars': mergargs}
         async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
             # inform the sub runtime to use function scope rules

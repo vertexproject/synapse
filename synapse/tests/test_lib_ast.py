@@ -47,6 +47,14 @@ foo_stormpkg = {
             '''
         },
         {
+            'name': 'testdefault',
+            'storm': '''
+            function doit(arg1, arg2, arg3=foo, arg4=(42)) {
+                return(($arg1, $arg2, $arg3, $arg4))
+            }
+            '''
+        },
+        {
             'name': 'importnest',
             'storm': '''
             $foobar = $(0)
@@ -1249,9 +1257,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('name'), 'pprint')
-            self.eq(erfo[1][1].get('expected'), 3)
-            self.eq(erfo[1][1].get('got'), 2)
+            self.isin('missing required argument arg3', erfo[1][1].get('mesg'))
 
             # Too few args are problematic - kwargs edition
             q = '''
@@ -1261,45 +1267,92 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('name'), 'pprint')
-            self.eq(erfo[1][1].get('expected'), 3)
-            self.eq(erfo[1][1].get('got'), 2)
+            self.isin('missing required argument arg3', erfo[1][1].get('mesg'))
 
-            # unused kwargs are fatal
+            # too many arguments
             q = '''
             $test=$lib.import(test)
             $haha=$test.pprint('hello', 'world', arg3='world', arg4='newp')
             '''
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('name'), 'pprint')
-            self.eq(erfo[1][1].get('kwargs'), ['arg4'])
+            self.isin('takes 3 arguments', erfo[1][1].get('mesg'))
 
-            # kwargs which duplicate a positional arg is fatal
+            # Bad: unused kwargs
             q = '''
-            $test=$lib.import(test)
-            $haha=$test.pprint('hello', 'world', arg1='hello')
+            $test=$lib.import(testdefault)
+            $haha=$test.doit('hello', arg2='world', arg99='newp')
+            '''
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.isin('got unexpected keyword argument: arg99', erfo[1][1].get('mesg'))
+
+            # Bad: kwargs which duplicate a positional arg
+            q = '''
+            $test=$lib.import(testdefault)
+            $haha=$test.doit('hello', 'world', arg1='hello')
             '''
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('name'), 'pprint')
-            self.eq(erfo[1][1].get('kwargs'), ['arg1'])
+            self.isin('got multiple values for parameter', erfo[1][1].get('mesg'))
 
-            # Too many args are fatal too
+            # Repeated kwargs are fatal
             q = '''
             $test=$lib.import(test)
-            $haha=$test.pprint('hello', 'world', 'goodbye', 'newp')
+            $haha=$test.pprint(arg3='goodbye', arg1='hello', arg1='foo', arg2='world')
             '''
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('name'), 'pprint')
-            self.eq(erfo[1][1].get('valu'), 'newp')
+            self.eq(erfo[1][0], 'BadSyntax')
 
-            # test isRuntSafe on ast function
-            self.len(0, await core.nodes('init { function x() { return((0)) } }'))
+            # Positional argument after kwargs disallowed
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint(arg3='goodbye', arg1='hello', arg1='foo', 'world')
+            '''
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'BadSyntax')
+
+            # Default parameter values work
+            q = '''
+            $test=$lib.import(testdefault)
+            return ($test.doit('foo', arg3='goodbye', arg2='world'))
+            '''
+            retn = await core.callStorm(q)
+            self.eq(('foo', 'world', 'goodbye', 42), retn)
+
+            # Can't have non-default parameter after default parameter in function definition
+            q = '''
+            function badargs(def=foo, bar) {}
+            '''
+            print('--------')
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'BadSyntax')
+
+            # Can't have same positional parameter twice in function definition
+            q = '''
+            function badargs(x=42, x=43) {}
+            '''
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'BadSyntax')
+
+            # Can't have same kwarg parameter twice in function definition
+            q = '''
+            function badargs(x=foo, x=foo) {}
+            '''
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'BadSyntax')
+
+            # test runtsafe function
+            self.eq(42, await core.callStorm('init { function x() { return((42)) } } return($x())'))
+
+            # test variables as parameter defaults
+            self.eq(42, await core.callStorm('$val=42 function x(parm1=$val) { return($parm1) } return($x())'))
 
             # force sleep in iter with ret
             q = 'function x() { [ inet:asn=2 ] if ($node.value() = (3)) { return((3)) } } $x()'
