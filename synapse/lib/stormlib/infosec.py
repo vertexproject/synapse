@@ -5,6 +5,10 @@ import synapse.common as s_common
 import synapse.lib.node as s_node
 import synapse.lib.stormtypes as s_stormtypes
 
+
+# used as a reference implementation:
+# https://www.first.org/cvss/calculator/cvsscalc31.js
+
 CVSS31 = {
   'AV': {'N': 0.85, 'A': 0.62, 'L': 0.55, 'P': 0.2},
   'AC': {'H': 0.44, 'L': 0.77},
@@ -131,7 +135,8 @@ class CvssLib(s_stormtypes.Lib):
             raise s_exc.BadArg(mesg='Currently only vers=3.1 is supported.')
 
         if node.ndef[0] != 'risk:vuln':
-            raise s_exc
+            mesg = '$lib.infosec.cvss.calculate() requires a risk:vuln node.'
+            raise s_exc.BadArg(mesg=mesg)
 
         AV = node.get('cvss:av')
         AC = node.get('cvss:ac')

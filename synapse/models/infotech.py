@@ -81,13 +81,6 @@ class Cpe23Str(s_types.Str):
 
         return ':'.join(parts), {'subs': subs}
 
-        def noms(x, o):
-            s = o
-            while o < len(x):
-                if x[o] == '\\':
-                    o += 1
-                    continue
-
 class SemVer(s_types.Int):
     '''
     Provides support for parsing a semantic version string into its component

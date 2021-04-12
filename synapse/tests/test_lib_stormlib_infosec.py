@@ -20,6 +20,10 @@ vec4 = 'AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/M
 res4 = {'ok': True, 'version': '3.1', 'score': 5.6, 'scores': {
             'base': 6.5, 'temporal': 5.4, 'environmental': 5.6, 'impact': 4.7, 'modifiedimpact': 5.5, 'exploitability': 1.2}}
 
+vec5 = 'AV:A/AC:L/PR:H/UI:R/S:U/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:C/MC:H/MI:L/MA:N'
+res5 = {'ok': True, 'version': '3.1', 'score': 6.6, 'scores': {
+            'base': 4.9, 'temporal': 4.1, 'environmental': 6.6, 'impact': 4.2, 'modifiedimpact': 6.0, 'exploitability': 0.7}}
+
 class InfoSecTest(s_test.SynTest):
 
     async def test_stormlib_infosec(self):
@@ -100,6 +104,14 @@ class InfoSecTest(s_test.SynTest):
 
             self.eq(res4, valu)
 
+            valu = await core.callStorm('''
+                [ risk:vuln=* ]
+                $lib.infosec.cvss.saveVectToNode($node, $vect)
+                return($lib.infosec.cvss.calculate($node))
+            ''', opts={'vars': {'vect': vec5}})
+
+            self.eq(res5, valu)
+
             vect = 'AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N'
             valu = await core.callStorm('return($lib.infosec.cvss.vectToProps($vect))', opts={'vars': {'vect': vect}})
             self.eq(valu, {
@@ -126,3 +138,9 @@ class InfoSecTest(s_test.SynTest):
                 'cvss:mi': 'L',
                 'cvss:ma': 'N'
             })
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('[ risk:vuln=* ] return($lib.infosec.cvss.calculate($node, vers=1.1.1))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('[ ps:contact=* ] return($lib.infosec.cvss.calculate($node))')
