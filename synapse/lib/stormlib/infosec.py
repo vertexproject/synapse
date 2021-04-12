@@ -71,7 +71,7 @@ class CvssLib(s_stormtypes.Lib):
                       {'name': 'vers', 'type': 'str', 'default': '3.1',
                        'desc': 'The version of CVSS calculations to execute.'},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'The name of the newly created backup.', }
+                  'returns': {'type': 'dict', 'desc': 'A dictionary containing the computed score and subscores.', }
         }},
         {'name': 'vectToProps', 'desc': 'Parse a CVSS vector and return a dictionary of risk:vuln props.',
          'type': {'type': 'function', '_funcname': 'vectToProps',
@@ -87,7 +87,7 @@ class CvssLib(s_stormtypes.Lib):
                        'desc': 'A risk:vuln node to record the CVSS properties on.'},
                       {'name': 'text', 'type': 'str', 'desc': 'A CVSS vector string.'},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary of risk:vuln secondary props.', }
+                  'returns': {'type': 'null', }
         }},
     )
     _storm_lib_path = ('infosec', 'cvss',)
