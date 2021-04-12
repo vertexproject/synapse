@@ -91,7 +91,6 @@ class AstNode:
                 yield item
 
     def init(self, core):
-        self.core = core
         [k.init(core) for k in self.kids]
         self.prepare()
 

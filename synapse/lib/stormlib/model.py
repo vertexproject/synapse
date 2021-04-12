@@ -325,19 +325,19 @@ class LibModel(s_stormtypes.Lib):
             'tagprop': self._methTagProp,
         }
 
-    @s_cache.memoize(size=100)
+    @s_cache.memoizemethod(size=100)
     async def _methType(self, name):
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
 
-    @s_cache.memoize(size=100)
+    @s_cache.memoizemethod(size=100)
     async def _methProp(self, name):
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
 
-    @s_cache.memoize(size=100)
+    @s_cache.memoizemethod(size=100)
     async def _methForm(self, name):
         form = self.model.form(name)
         if form is not None:
