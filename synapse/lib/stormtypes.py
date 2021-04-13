@@ -223,6 +223,7 @@ class StormType:
     The base type for storm runtime value objects.
     '''
     _storm_locals = ()  # type: Any # To be overriden for deref constants that need documentation
+    _ismutable = True
 
     def __init__(self, path=None):
         self.path = path
@@ -279,12 +280,13 @@ class StormType:
         return s_common.novalu
 
     def ismutable(self):
-        return True
+        return self._ismutable
 
 class Lib(StormType):
     '''
     A collection of storm methods under a name
     '''
+    _ismutable = False
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -318,8 +320,6 @@ class Lib(StormType):
         async for item in self.runt.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
-    def ismutable(self):
-        return False
 
 @registry.registerLib
 class LibPkg(Lib):
@@ -2740,6 +2740,7 @@ class Str(Prim):
                   'returns': {'type': 'str', 'desc': 'The reversed string.', }}},
     )
     _storm_typename = 'str'
+    _ismutable = False
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -2822,9 +2823,6 @@ class Str(Prim):
     async def _methStrReverse(self):
         return self.valu[::-1]
 
-    def ismutable(self):
-        return False
-
 
 @registry.registerType
 class Bytes(Prim):
@@ -2886,6 +2884,7 @@ class Bytes(Prim):
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
     )
     _storm_typename = 'bytes'
+    _ismutable = False
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -2927,9 +2926,6 @@ class Bytes(Prim):
 
     async def _methJsonLoad(self):
         return json.loads(self.valu)
-
-    def ismutable(self):
-        return False
 
 @registry.registerType
 class Dict(Prim):
@@ -3199,6 +3195,7 @@ class List(Prim):
 
 @registry.registerType
 class Bool(Prim):
+    _ismutable = False
     '''
     Implements the Storm API for a boolean instance.
     '''
@@ -3209,9 +3206,6 @@ class Bool(Prim):
 
     def __int__(self):
         return int(self.value())
-
-    def ismutable(self):
-        return False
 
 @registry.registerLib
 class LibUser(Lib):
@@ -3493,6 +3487,7 @@ class Query(Prim):
     )
 
     _storm_typename = 'storm:query'
+    _ismutable = False
 
     def __init__(self, text, varz, runt, path=None):
 
@@ -3538,9 +3533,6 @@ class Query(Prim):
             return e.item
         except asyncio.CancelledError:  # pragma: no cover
             raise
-
-    def ismutable(self):
-        return False
 
 @registry.registerType
 class NodeProps(Prim):
