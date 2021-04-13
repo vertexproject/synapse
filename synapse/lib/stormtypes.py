@@ -2590,9 +2590,6 @@ class Prim(StormType):
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
 
-    def ismutable(self):
-        return False
-
 @registry.registerType
 class Str(Prim):
     '''
@@ -2825,6 +2822,10 @@ class Str(Prim):
     async def _methStrReverse(self):
         return self.valu[::-1]
 
+    def ismutable(self):
+        return False
+
+
 @registry.registerType
 class Bytes(Prim):
     '''
@@ -2927,6 +2928,9 @@ class Bytes(Prim):
     async def _methJsonLoad(self):
         return json.loads(self.valu)
 
+    def ismutable(self):
+        return False
+
 @registry.registerType
 class Dict(Prim):
     '''
@@ -2955,8 +2959,6 @@ class Dict(Prim):
     async def value(self):
         return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
 
-    def ismutable(self):
-        return True
 
 @registry.registerType
 class CmdOpts(Dict):
@@ -2987,6 +2989,9 @@ class CmdOpts(Dict):
         valu = vars(self.valu.opts)
         for item in valu.items():
             yield item
+
+    def ismutable(self):
+        return False
 
 @registry.registerType
 class Set(Prim):
@@ -3077,9 +3082,6 @@ class Set(Prim):
 
     async def _methSetList(self):
         return list(self.valu)
-
-    def ismutable(self):
-        return True
 
 @registry.registerType
 class List(Prim):
@@ -3194,8 +3196,6 @@ class List(Prim):
         for item in self.valu:
             yield item
 
-    def ismutable(self):
-        return True
 
 @registry.registerType
 class Bool(Prim):
@@ -3209,6 +3209,9 @@ class Bool(Prim):
 
     def __int__(self):
         return int(self.value())
+
+    def ismutable(self):
+        return False
 
 @registry.registerLib
 class LibUser(Lib):
@@ -3418,9 +3421,6 @@ class StormHiveDict(Prim):
     def value(self):
         return self.info.pack()
 
-    def ismutable(self):
-        return True
-
 @registry.registerLib
 class LibVars(Lib):
     '''
@@ -3539,6 +3539,9 @@ class Query(Prim):
         except asyncio.CancelledError:  # pragma: no cover
             raise
 
+    def ismutable(self):
+        return False
+
 @registry.registerType
 class NodeProps(Prim):
     # TODO How to document setitem ?
@@ -3605,9 +3608,6 @@ class NodeProps(Prim):
     @stormfunc(readonly=True)
     def value(self):
         return dict(self.valu.props)
-
-    def ismutable(self):
-        return True
 
 @registry.registerType
 class NodeData(Prim):
@@ -3688,8 +3688,6 @@ class NodeData(Prim):
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
 
-    def ismutable(self):
-        return True
 
 @registry.registerType
 class Node(Prim):
@@ -3870,9 +3868,6 @@ class Node(Prim):
     async def _methNodeIden(self):
         return self.valu.iden()
 
-    def ismutable(self):
-        return True
-
 @registry.registerType
 class PathMeta(Prim):
     '''
@@ -3896,9 +3891,6 @@ class PathMeta(Prim):
         # prevent "edit while iter" issues
         for item in list(self.path.metadata.items()):
             yield item
-
-    def ismutable(self):
-        return True
 
 @registry.registerType
 class PathVars(Prim):
@@ -3930,8 +3922,6 @@ class PathVars(Prim):
         for item in list(self.path.vars.items()):
             yield item
 
-    def ismutable(self):
-        return True
 
 @registry.registerType
 class Path(Prim):
@@ -3980,10 +3970,6 @@ class Path(Prim):
 
     async def _methPathListVars(self):
         return list(self.path.vars.items())
-
-    def ismutable(self):
-        return True
-
 
 @registry.registerType
 class Trace(Prim):
@@ -4047,9 +4033,6 @@ class Text(Prim):
 
     async def _methTextStr(self):
         return self.valu
-
-    def ismutable(self):
-        return True
 
 @registry.registerLib
 class LibStats(Lib):
@@ -4136,9 +4119,6 @@ class StatTally(Prim):
     async def iter(self):
         for item in tuple(self.counters.items()):
             yield item
-
-    def ismutable(self):
-        return True
 
 @registry.registerLib
 class LibLayer(Lib):
@@ -4547,9 +4527,6 @@ class Layer(Prim):
         readonly = self.valu.get('readonly')
         return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
 
-    def ismutable(self):
-        return True
-
 @registry.registerLib
 class LibView(Lib):
     '''
@@ -4838,9 +4815,6 @@ class View(Prim):
         todo = s_common.todo('merge', useriden=useriden)
         await self.runt.dyncall(viewiden, todo)
 
-    def ismutable(self):
-        return True
-
 @registry.registerLib
 class LibTrigger(Lib):
     '''
@@ -5083,9 +5057,6 @@ class Trigger(Prim):
         await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         self.valu[name] = valu
-
-    def ismutable(self):
-        return True
 
 def ruleFromText(text):
     '''
@@ -5530,9 +5501,6 @@ class User(Prim):
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)
 
-    def ismutable(self):
-        return True
-
 @registry.registerType
 class Role(Prim):
     '''
@@ -5612,8 +5580,6 @@ class Role(Prim):
     async def value(self):
         return await self.runt.snap.core.getRoleDef(self.valu)
 
-    def ismutable(self):
-        return True
 
 @registry.registerLib
 class LibCron(Lib):
@@ -6162,10 +6128,6 @@ class CronJob(Prim):
             })
 
         return job
-
-    def ismutable(self):
-        return True
-
 
 # These will go away once we have value objects in storm runtime
 async def toprim(valu, path=None):
