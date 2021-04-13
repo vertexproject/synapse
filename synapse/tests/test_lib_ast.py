@@ -1328,34 +1328,35 @@ class AstTest(s_test.SynTest):
             retn = await core.callStorm(q)
             self.eq(('foo', 'world', 'goodbye', 42), retn)
 
-            # Can't have non-default parameter after default parameter in function definition
+            # Can't have positional parameter after default parameter in function definition
+            q = 'function badargs(def=foo, bar) {}'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'BadSyntax')
+
+            # Can't have positional argument after kwarg argument in function *call*
             q = '''
-            function badargs(def=foo, bar) {}
+            $test=$lib.import(testdefault)
+            return ($test.doit('foo', arg3='goodbye', 'world'))
             '''
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'BadSyntax')
 
             # Can't have same positional parameter twice in function definition
-            q = '''
-            function badargs(x=42, x=43) {}
-            '''
+            q = 'function badargs(x=42, x=43) {}'
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'BadSyntax')
 
             # Can't have same kwarg parameter twice in function definition
-            q = '''
-            function badargs(x=foo, x=foo) {}
-            '''
+            q = 'function badargs(x=foo, x=foo) {}'
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'BadSyntax')
 
             # Can't use a non-runtsafe variable as a default
-            q = '''
-            [test:str=foo] function badargs(x=foo, y=$node) {}
-            '''
+            q = '[test:str=foo] function badargs(x=foo, y=$node) {}'
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')

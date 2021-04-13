@@ -3660,6 +3660,8 @@ class Function(AstNode):
             mergargs[name] = valu
 
         if kwargs:
+            # Repeated kwargs are caught at parse time, so query either repeated a positional parameter, or
+            # used a kwarg not defined.
             kwkeys = list(kwargs.keys())
             if kwkeys[0] in posnames:
                 mesg = f'{self.name}() got multiple values for parameter {kwkeys[0]}'
