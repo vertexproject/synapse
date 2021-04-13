@@ -450,9 +450,9 @@ class CellTest(s_t_utils.SynTest):
                 info = await prox.getCellInfo()
                 # An override
                 self.eq(info.get('cell:commit'), 'mycommit')
-                # Defaults
                 self.eq(info.get('cell:version'), (1, 2, 3))
                 self.eq(info.get('cell:verstring'), '1.2.3')
+                # Defaults
                 self.eq(info.get('syn:version'), s_version.version)
                 self.eq(info.get('syn:verstring'), s_version.verstring),
                 self.eq(info.get('syn:commit'), s_version.commit)
