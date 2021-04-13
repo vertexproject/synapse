@@ -1371,6 +1371,36 @@ class AstTest(s_test.SynTest):
             # test Function.isRuntSafe
             self.len(0, await core.nodes('init { function x() { return((0)) } }'))
 
+            # Can't use a mutable variable as a default
+            q = '$var=$lib.list(1,2,3) function badargs(x=foo, y=$var) {} $badargs()'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+
+            # Can't use a mutable variable as a default
+            q = '$var=$lib.list(1,2,3) function badargs(x=foo, y=$var) {} $badargs()'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+
+            # libs are not mutable:  OK to have as default parameter
+            self.len(0, await core.nodes('$val=$lib function x(parm1=$val) { return($parm1) }'))
+
+            q = '$var=$lib.set(1, 2, 3) function badargs(x=foo, y=$var) {} $badargs()'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+
+            q = '$var=(1, 2, 3) function badargs(x=foo, y=$var) {} $badargs()'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+
+            q = '[test:str=foo] $var=$node function badargs(x=foo, y=$var) {} $badargs()'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+
     async def test_ast_function_scope(self):
 
         async with self.getTestCore() as core:

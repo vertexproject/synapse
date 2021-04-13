@@ -278,6 +278,9 @@ class StormType:
     async def _derefGet(self, name):
         return s_common.novalu
 
+    def ismutable(self):
+        return True
+
 class Lib(StormType):
     '''
     A collection of storm methods under a name
@@ -314,6 +317,9 @@ class Lib(StormType):
     async def dyniter(self, iden, todo, gatekeys=()):
         async for item in self.runt.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
+
+    def ismutable(self):
+        return False
 
 @registry.registerLib
 class LibPkg(Lib):
@@ -2584,6 +2590,9 @@ class Prim(StormType):
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
 
+    def ismutable(self):
+        return False
+
 @registry.registerType
 class Str(Prim):
     '''
@@ -2946,6 +2955,9 @@ class Dict(Prim):
     async def value(self):
         return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
 
+    def ismutable(self):
+        return True
+
 @registry.registerType
 class CmdOpts(Dict):
     '''
@@ -3066,6 +3078,9 @@ class Set(Prim):
     async def _methSetList(self):
         return list(self.valu)
 
+    def ismutable(self):
+        return True
+
 @registry.registerType
 class List(Prim):
     '''
@@ -3179,10 +3194,13 @@ class List(Prim):
         for item in self.valu:
             yield item
 
+    def ismutable(self):
+        return True
+
 @registry.registerType
 class Bool(Prim):
     '''
-    Implements the Storm API for a List instance.
+    Implements the Storm API for a boolean instance.
     '''
     _storm_typename = 'bool'
 
@@ -3400,6 +3418,9 @@ class StormHiveDict(Prim):
     def value(self):
         return self.info.pack()
 
+    def ismutable(self):
+        return True
+
 @registry.registerLib
 class LibVars(Lib):
     '''
@@ -3585,6 +3606,9 @@ class NodeProps(Prim):
     def value(self):
         return dict(self.valu.props)
 
+    def ismutable(self):
+        return True
+
 @registry.registerType
 class NodeData(Prim):
     '''
@@ -3663,6 +3687,9 @@ class NodeData(Prim):
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
+
+    def ismutable(self):
+        return True
 
 @registry.registerType
 class Node(Prim):
@@ -3843,6 +3870,9 @@ class Node(Prim):
     async def _methNodeIden(self):
         return self.valu.iden()
 
+    def ismutable(self):
+        return True
+
 @registry.registerType
 class PathMeta(Prim):
     '''
@@ -3866,6 +3896,9 @@ class PathMeta(Prim):
         # prevent "edit while iter" issues
         for item in list(self.path.metadata.items()):
             yield item
+
+    def ismutable(self):
+        return True
 
 @registry.registerType
 class PathVars(Prim):
@@ -3896,6 +3929,9 @@ class PathVars(Prim):
         # prevent "edit while iter" issues
         for item in list(self.path.vars.items()):
             yield item
+
+    def ismutable(self):
+        return True
 
 @registry.registerType
 class Path(Prim):
@@ -3944,6 +3980,10 @@ class Path(Prim):
 
     async def _methPathListVars(self):
         return list(self.path.vars.items())
+
+    def ismutable(self):
+        return True
+
 
 @registry.registerType
 class Trace(Prim):
@@ -4007,6 +4047,9 @@ class Text(Prim):
 
     async def _methTextStr(self):
         return self.valu
+
+    def ismutable(self):
+        return True
 
 @registry.registerLib
 class LibStats(Lib):
@@ -4093,6 +4136,9 @@ class StatTally(Prim):
     async def iter(self):
         for item in tuple(self.counters.items()):
             yield item
+
+    def ismutable(self):
+        return True
 
 @registry.registerLib
 class LibLayer(Lib):
@@ -4501,6 +4547,9 @@ class Layer(Prim):
         readonly = self.valu.get('readonly')
         return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
 
+    def ismutable(self):
+        return True
+
 @registry.registerLib
 class LibView(Lib):
     '''
@@ -4789,6 +4838,9 @@ class View(Prim):
         todo = s_common.todo('merge', useriden=useriden)
         await self.runt.dyncall(viewiden, todo)
 
+    def ismutable(self):
+        return True
+
 @registry.registerLib
 class LibTrigger(Lib):
     '''
@@ -5031,6 +5083,9 @@ class Trigger(Prim):
         await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         self.valu[name] = valu
+
+    def ismutable(self):
+        return True
 
 def ruleFromText(text):
     '''
@@ -5475,6 +5530,9 @@ class User(Prim):
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)
 
+    def ismutable(self):
+        return True
+
 @registry.registerType
 class Role(Prim):
     '''
@@ -5553,6 +5611,9 @@ class Role(Prim):
 
     async def value(self):
         return await self.runt.snap.core.getRoleDef(self.valu)
+
+    def ismutable(self):
+        return True
 
 @registry.registerLib
 class LibCron(Lib):
@@ -6102,6 +6163,10 @@ class CronJob(Prim):
 
         return job
 
+    def ismutable(self):
+        return True
+
+
 # These will go away once we have value objects in storm runtime
 async def toprim(valu, path=None):
 
@@ -6175,6 +6240,13 @@ def fromprim(valu, path=None, basetypes=True):
         raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
 
     return valu
+
+def ismutable(valu):
+    if isinstance(valu, StormType):
+        return valu.ismutable()
+
+    # N.B. In Python, tuple is immutable, but in Storm, gets converted in toprim to a storm List
+    return isinstance(valu, (set, dict, list, tuple))
 
 async def tostr(valu, noneok=False):
 
