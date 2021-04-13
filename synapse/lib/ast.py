@@ -900,6 +900,8 @@ class VarListSetOper(Oper):
         async for node, path in genr:
 
             item = await vkid.compute(runt, path)
+            item = [i async for i in s_stormtypes.toiter(item)]
+
             if len(item) < len(names):
                 mesg = 'Attempting to assign more items then we have variable to assign to.'
                 raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
@@ -913,6 +915,8 @@ class VarListSetOper(Oper):
         if vkid.isRuntSafe(runt):
 
             item = await vkid.compute(runt, None)
+            item = [i async for i in s_stormtypes.toiter(item)]
+
             if len(item) < len(names):
                 mesg = 'Attempting to assign more items then we have variable to assign to.'
                 raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
