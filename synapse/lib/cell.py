@@ -702,8 +702,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
     }
 
-    BACKUP_SPAWN_TIMEOUT = 30.0
-    BACKUP_ACQUIRE_TIMEOUT = 0.5
+    BACKUP_SPAWN_TIMEOUT = 60.0
 
     async def __anit__(self, dirn, conf=None, readonly=False):
 
@@ -1202,74 +1201,68 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         mypipe, child_pipe = ctx.Pipe()
         paths = [str(slab.path) for slab in slabs]
         loglevel = logger.getEffectiveLevel()
-
-        def spawnproc():
-            logger.debug('Starting multiprocessing target')
-            proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths, loglevel))
-            proc.start()
-            hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
-            if not hasdata:
-                raise s_exc.SynErr(mesg='backup subprocess stuck starting')
-            data = mypipe.recv()
-            assert data == 'ready'
-            return proc
-
-        proc = await s_coro.executor(spawnproc)
-
-        logger.debug('Syncing LMDB Slabs')
-        while True:
-            await s_lmdbslab.Slab.syncLoopOnce()
-            if not any(slab.dirty for slab in slabs):
-                break
+        proc = None
 
         try:
 
-            logger.debug('Acquiring LMDB txns')
-            mypipe.send('proceed')
+            async with self.nexsroot.applylock:
 
-            # This is technically pending the ioloop waiting for the backup process to acquire a bunch of
-            # transactions.  We're effectively locking out new write requests the brute force way.
-            hasdata = mypipe.poll(timeout=self.BACKUP_ACQUIRE_TIMEOUT)
-            if not hasdata:
-                raise s_exc.SynErr(mesg='backup subprocess stuck acquiring LMDB txns')
+                logger.debug('Syncing LMDB Slabs')
 
-            data = mypipe.recv()
-            assert data == 'captured'
+                while True:
+                    await s_lmdbslab.Slab.syncLoopOnce()
+                    if not any(slab.dirty for slab in slabs):
+                        break
 
-            logger.debug('Acquired LMDB txns')
+                logger.debug('Starting backup process')
 
-            def waitforproc():
+                args = (child_pipe, self.dirn, dirn, paths, loglevel)
+
+                def waitforproc1():
+                    nonlocal proc
+                    proc = ctx.Process(target=self._backupProc, args=args)
+                    proc.start()
+                    hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
+                    if not hasdata:
+                        raise s_exc.SynErr(mesg='backup subprocess start timed out')
+                    data = mypipe.recv()
+                    assert data == 'captured'
+
+                await s_coro.executor(waitforproc1)
+
+            def waitforproc2():
                 proc.join()
                 if proc.exitcode:
                     raise s_exc.SpawnExit(code=proc.exitcode)
 
-            retn = await s_coro.executor(waitforproc)
+            await s_coro.executor(waitforproc2)
+            proc = None
+
+            logger.info(f'Backup completed to [{dirn}]')
+            return
 
         except (asyncio.CancelledError, Exception):
             logger.exception(f'Error performing backup to [{dirn}]')
-            proc.terminate()
             raise
 
-        else:
-            logger.info(f'Backup completed to [{dirn}]')
-            return retn
+        finally:
+            if proc:
+                proc.terminate()
 
     @staticmethod
     def _backupProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
         '''
         (In a separate process) Actually do the backup
         '''
-        # This logging call is okay to run since we're executing in
-        # our own process space and no logging has been configured.
+        # This is a new process: configure logging
         s_common.setlogging(logger, loglevel)
-        pipe.send('ready')
-        data = pipe.recv()
-        assert data == 'proceed'
-        with s_t_backup.capturelmdbs(srcdir, onlydirs=lmdbpaths) as lmdbinfo:
-            # Let parent know we have the transactions so he can resume the ioloop
-            pipe.send('captured')
 
+        with s_t_backup.capturelmdbs(srcdir, onlydirs=lmdbpaths) as lmdbinfo:
+            pipe.send('captured')
+            logger.debug('Acquired LMDB transactions')
             s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
+
+        logger.debug('Backup process completed')
 
     def _reqBackConf(self):
         if self.backdirn is None:

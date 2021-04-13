@@ -900,6 +900,8 @@ class VarListSetOper(Oper):
         async for node, path in genr:
 
             item = await vkid.compute(runt, path)
+            item = [i async for i in s_stormtypes.toiter(item)]
+
             if len(item) < len(names):
                 mesg = 'Attempting to assign more items then we have variable to assign to.'
                 raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
@@ -913,6 +915,8 @@ class VarListSetOper(Oper):
         if vkid.isRuntSafe(runt):
 
             item = await vkid.compute(runt, None)
+            item = [i async for i in s_stormtypes.toiter(item)]
+
             if len(item) < len(names):
                 mesg = 'Attempting to assign more items then we have variable to assign to.'
                 raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
@@ -1322,11 +1326,13 @@ class LiftProp(LiftOper):
 class LiftPropBy(LiftOper):
 
     async def lift(self, runt, path):
-
         name = await self.kids[0].compute(runt, path)
         cmpr = await self.kids[1].compute(runt, path)
         valukid = self.kids[2]
+
         valu = await valukid.compute(runt, path)
+        if not isinstance(valu, s_node.Node):
+            valu = await s_stormtypes.toprim(valu, path)
 
         async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
             yield node
@@ -2404,6 +2410,9 @@ class RelPropCond(Cond):
                 return False
 
             xval = await valukid.compute(runt, path)
+            if not isinstance(xval, s_node.Node):
+                xval = await s_stormtypes.toprim(xval, path)
+
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
                 raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)

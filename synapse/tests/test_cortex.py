@@ -2283,6 +2283,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq(node.ndef, ('inet:fqdn', 'vertex.link'))
 
+            now = s_common.now()
+            ret = await core.callStorm('($foo, $bar)=$lib.cast(ival, $lib.time.now()) return($foo)')
+            self.ge(ret, now)
+
             text = '.created ($foo, $bar, $baz) = $blob'
             with self.raises(s_exc.StormVarListError):
                 await core.nodes(text, opts)
@@ -3056,7 +3060,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(await core.stat())
 
     async def test_feed_syn_nodes(self):
-        async with self.getTestCore() as core0:
+        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
+        async with self.getTestCore(conf=copy.deepcopy(conf)) as core0:
 
             podes = []
 
@@ -3076,7 +3081,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
             podes.append(node3.pack())
 
-        async with self.getTestCore() as core1:
+        async with self.getTestCore(conf=copy.deepcopy(conf)) as core1:
 
             await core1.addFeedData('syn.nodes', podes)
             await self.agenlen(3, core1.eval('test:int'))

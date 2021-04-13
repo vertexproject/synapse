@@ -449,7 +449,17 @@ class Array(Type):
         adds = list(set(adds))
 
         if self.isuniq:
-            norms = tuple(set(norms))
+
+            uniqs = []
+            uniqhas = set()
+
+            for n in norms:
+                if n in uniqhas:
+                    continue
+                uniqhas.add(n)
+                uniqs.append(n)
+
+            norms = tuple(uniqs)
 
         if self.issorted:
             norms = tuple(sorted(norms))
@@ -1212,7 +1222,7 @@ class Loc(Type):
         norm = '.'.join(norms)
         return norm, {}
 
-    @s_cache.memoize()
+    @s_cache.memoizemethod()
     def stems(self, valu):
         norm, info = self.norm(valu)
         parts = norm.split('.')
