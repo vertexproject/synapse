@@ -1354,7 +1354,7 @@ class AstTest(s_test.SynTest):
 
             # Can't use a non-runtsafe variable as a default
             q = '''
-            function badargs(x=foo, y=$node) {}
+            [test:str=foo] function badargs(x=foo, y=$node) {}
             '''
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
