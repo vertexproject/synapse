@@ -448,18 +448,21 @@ class CellTest(s_t_utils.SynTest):
             cell.VERSTRING = '1.2.3'
             async with cell.getLocalProxy() as prox:
                 info = await prox.getCellInfo()
-                # An override
-                self.eq(info.get('cell:commit'), 'mycommit')
-                self.eq(info.get('cell:version'), (1, 2, 3))
-                self.eq(info.get('cell:verstring'), '1.2.3')
-                # Defaults
-                self.eq(info.get('syn:version'), s_version.version)
-                self.eq(info.get('syn:verstring'), s_version.verstring),
-                self.eq(info.get('syn:commit'), s_version.commit)
-                self.true(info.get('cell:active'))
-                self.eq(info.get('cell:type'), 'cortex')
+                # Cell information
+                cnfo = info.get('cell')
+                snfo = info.get('synapse')
+                self.eq(cnfo.get('commit'), 'mycommit')
+                self.eq(cnfo.get('version'), (1, 2, 3))
+                self.eq(cnfo.get('verstring'), '1.2.3')
+                self.eq(cnfo.get('type'), 'cortex')
+                self.true(cnfo.get('active'))
                 # A Cortex populated cellvers
-                self.isin('cortex:defaults', info.get('cell:cellvers', {}))
+                self.isin('cortex:defaults', cnfo.get('cellvers', {}))
+
+                # Synapse information
+                self.eq(snfo.get('version'), s_version.version)
+                self.eq(snfo.get('verstring'), s_version.verstring),
+                self.eq(snfo.get('commit'), s_version.commit)
 
     async def test_cell_dyncall(self):
 
