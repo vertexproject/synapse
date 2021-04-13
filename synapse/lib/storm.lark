@@ -171,7 +171,7 @@ tagprop: "#" TAG ":" BASEPROP
 formtagprop: PROPNAME "#" TAG ":" BASEPROP
 
 _funcarg: (VARTOKN | kwarg)
-funcargs: "(" _WS? (VARTOKN (_WS? "," _WS? VARTOKN)* _WS? )? ")"
+funcargs: "(" _WS? (_funcarg (_WS? "," _WS? _funcarg)* _WS? )? ")"
 stormfunc: "function" _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 
 stormcmd: CMDNAME [_WS stormcmdargs]
@@ -332,7 +332,7 @@ relprop: ":" BASEPROP | ":" _varvalu
 RELNAME: /\:\.?[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]+)*/
 
 // Similar to PROPS but does not require a colon
-BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]+)*/
+BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]*)*/
 
 // The name of a storm command
 CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/

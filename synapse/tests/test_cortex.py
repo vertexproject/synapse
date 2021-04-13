@@ -2283,6 +2283,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq(node.ndef, ('inet:fqdn', 'vertex.link'))
 
+            now = s_common.now()
+            ret = await core.callStorm('($foo, $bar)=$lib.cast(ival, $lib.time.now()) return($foo)')
+            self.ge(ret, now)
+
             text = '.created ($foo, $bar, $baz) = $blob'
             with self.raises(s_exc.StormVarListError):
                 await core.nodes(text, opts)

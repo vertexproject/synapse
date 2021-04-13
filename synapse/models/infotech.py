@@ -8,6 +8,79 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
+class Cpe23Str(s_types.Str):
+    '''
+    CPE 2.3 Formatted String
+
+    https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir7695.pdf
+
+    (Section 6.2)
+
+    cpe:2.3: part : vendor : product : version : update : edition :
+        language : sw_edition : target_sw : target_hw : other
+
+    * = "any"
+    - = N/A
+    '''
+    def __init__(self, modl, name, info, opts):
+        opts['lower'] = True
+        s_types.Str.__init__(self, modl, name, info, opts)
+
+    def _splitCpe23(self, text):
+
+        part = ''
+        parts = []
+
+        genr = iter(text)
+        try:
+            while True:
+
+                c = next(genr)
+
+                if c == '\\':
+                    c += next(genr)
+
+                if c == ':':
+                    parts.append(part)
+                    part = ''
+                    continue
+
+                part += c
+
+        except StopIteration:
+            parts.append(part)
+
+        return parts
+
+    def _normPyStr(self, valu):
+
+        if not valu.startswith('cpe:2.3:'):
+            mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        text, info = s_types.Str._normPyStr(self, valu)
+        parts = self._splitCpe23(text)
+
+        if len(parts) != 13:
+            mesg = f'CPE 2.3 string has {len(parts)} parts, expected 13.'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        subs = {
+            'part': parts[2],
+            'vendor': parts[3],
+            'product': parts[4],
+            'version': parts[5],
+            'update': parts[6],
+            'edition': parts[7],
+            'language': parts[8],
+            'sw_edition': parts[9],
+            'target_sw': parts[10],
+            'target_hw': parts[11],
+            'other': parts[12],
+        }
+
+        return ':'.join(parts), {'subs': subs}
+
 class SemVer(s_types.Int):
     '''
     Provides support for parsing a semantic version string into its component
@@ -152,6 +225,9 @@ class ItModule(s_module.CoreModule):
                 ('it:semver', 'synapse.models.infotech.SemVer', {}, {
                     'doc': 'Semantic Version type.',
                 }),
+                ('it:sec:cpe', 'synapse.models.infotech.Cpe23Str', {}, {
+                    'doc': 'A NIST CPE 2.3 Formatted String',
+                }),
             ),
             'types': (
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
@@ -182,6 +258,30 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:cve', ('str', {'lower': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                     'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
                     'ex': 'cve-2012-0158'
+                }),
+                ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
+                    'doc': 'NIST NVD Common Weaknesses Enumeration Specification',
+                    'ex': 'CWE-120',
+                }),
+                ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
+                    'doc': 'A Mitre ATT&CK Group ID.',
+                    'ex': 'G0100',
+                }),
+                ('it:mitre:attack:tactic', ('str', {'regex': r'^TA[0-9]{4}$'}), {
+                    'doc': 'A Mitre ATT&CK Tactic ID.',
+                    'ex': 'TA0040',
+                }),
+                ('it:mitre:attack:technique', ('str', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
+                    'doc': 'A Mitre ATT&CK Technique ID.',
+                    'ex': 'T1548',
+                }),
+                ('it:mitre:attack:mitigation', ('str', {'regex': r'^M[0-9]{4}$'}), {
+                    'doc': 'A Mitre ATT&CK Mitigation ID.',
+                    'ex': 'M1036',
+                }),
+                ('it:mitre:attack:software', ('str', {'regex': r'^S[0-9]{4}$'}), {
+                    'doc': 'A Mitre ATT&CK Software ID.',
+                    'ex': 'S0154',
                 }),
                 ('it:dev:str', ('str', {}), {
                     'doc': 'A developer-selected string.'
@@ -540,6 +640,192 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A free-form description of the CVE vulnerability.',
                         'disp': {'hint': 'text'},
                     }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL linking this CVE to a full description.',
+                    }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the CVE ID.',
+                    }),
+                )),
+                ('it:sec:cpe', {}, (
+                    ('part', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "part" field from the CPE 2.3 string.'}),
+                    ('vendor', ('ou:name', {}), {
+                        'ro': True,
+                        'doc': 'The "vendor" field from the CPE 2.3 string.'}),
+                    ('product', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "product" field from the CPE 2.3 string.'}),
+                    ('version', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "version" field from the CPE 2.3 string.'}),
+                    ('update', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "update" field from the CPE 2.3 string.'}),
+                    ('edition', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "edition" field from the CPE 2.3 string.'}),
+                    ('language', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "language" field from the CPE 2.3 string.'}),
+                    ('sw_edition', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
+                    ('target_sw', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
+                    ('target_hw', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
+                    ('other', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "other" field from the CPE 2.3 string.'}),
+                )),
+                ('it:sec:cwe', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The CWE description field.',
+                        'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'The CWE description field.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL linking this CWE to a full description.',
+                    }),
+                    ('parents', ('array', {'type': 'it:sec:cwe',
+                                           'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ChildOf CWE Relationships.'
+                    }),
+                )),
+                ('it:mitre:attack:group', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'Used to map an ATT&CK group to a synapse ou:org.',
+                    }),
+                    ('name', ('ou:name', {}), {
+                        'doc': 'The primary name for the ATT&CK group.',
+                    }),
+                    ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of alternate names for the ATT&CK group.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the ATT&CK group.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL that documents the ATT&CK group.',
+                    }),
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK group ID.',
+                        'ex': 'cno.mitre.g0100',
+                    }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the ATT&CK group.',
+                    }),
+                    ('techniques', ('array', {'type': 'it:mitre:attack:technique',
+                                              'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK technique IDs used by the group.',
+                    }),
+                    ('software', ('array', {'type': 'it:mitre:attack:software',
+                                            'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK software IDs used by the group.',
+                    }),
+                )),
+                ('it:mitre:attack:tactic', {}, (
+                    ('name', ('str', {'strip': True}), {
+                        'doc': 'The primary name for the ATT&CK tactic.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the ATT&CK tactic.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL that documents the ATT&CK tactic.',
+                    }),
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK tactic.',
+                        'ex': 'cno.mitre.ta0100',
+                    }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the ATT&CK tactic.',
+                    }),
+                )),
+                ('it:mitre:attack:technique', {}, (
+                    ('name', ('str', {'strip': True}), {
+                        'doc': 'The primary name for the ATT&CK technique.',
+                    }),
+                    ('desc', ('str', {'strip': True}), {
+                        'doc': 'A description of the ATT&CK technique.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL that documents the ATT&CK technique.',
+                    }),
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK technique.',
+                        'ex': 'cno.mitre.t0100',
+                    }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the ATT&CK technique.',
+                    }),
+                    ('parent', ('it:mitre:attack:technique', {}), {
+                        'doc': 'The parent ATT&CK technique on this sub-technique.',
+                    }),
+                    ('tactics', ('array', {'type': 'it:mitre:attack:tactic',
+                                           'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK tactics that include this technique.',
+                    }),
+                )),
+                ('it:mitre:attack:software', {}, (
+                    ('software', ('it:prod:soft', {}), {
+                        'doc': 'Used to map an ATT&CK software to a synapse it:prod:soft.',
+                    }),
+                    ('name', ('str', {'strip': True}), {
+                        'doc': 'The primary name for the ATT&CK software.',
+                    }),
+                    ('desc', ('str', {'strip': True}), {
+                        'doc': 'A description of the ATT&CK software.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL that documents the ATT&CK software.',
+                    }),
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK software.',
+                        'ex': 'cno.mitre.s0100',
+                    }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the ATT&CK software.',
+                    }),
+                    ('techniques', ('array', {'type': 'it:mitre:attack:technique',
+                                              'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of techniques used by the software.',
+                    }),
+                )),
+                ('it:mitre:attack:mitigation', {}, (
+                    # TODO map to an eventual risk:mitigation
+                    ('name', ('str', {'strip': True}), {
+                        'doc': 'The primary name for the ATT&CK mitigation.',
+                    }),
+                    ('desc', ('str', {'strip': True}), {
+                        'doc': 'A description of the ATT&CK mitigation.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL that documents the ATT&CK mitigation.',
+                    }),
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK mitigation.',
+                        'ex': 'cno.mitre.m0100',
+                    }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the ATT&CK mitigation.',
+                    }),
+                    ('addresses', ('array', {'type': 'it:mitre:attack:technique',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
+                    }),
                 )),
                 ('it:dev:int', {}, ()),
                 ('it:dev:pipe', {}, ()),
@@ -570,6 +856,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('desc:short', ('str', {'lower': True}), {
                         'doc': 'A short description of the software.',
+                    }),
+                    ('cpe', ('it:sec:cpe', {}), {
+                        'doc': 'The NIST CPE 2.3 string specifying this software.',
                     }),
                     ('author', ('ps:contact', {}), {
                         'doc': 'The contact information of the org or person who authored the software.',
@@ -652,6 +941,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('software:name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name of the software at a particular version.',
+                    }),
+                    ('cpe', ('it:sec:cpe', {}), {
+                        'doc': 'The NIST CPE 2.3 string specifying this software version',
                     }),
                     ('vers', ('it:dev:str', {}), {
                         'doc': 'Version string associated with this version instance.',

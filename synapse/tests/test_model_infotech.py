@@ -9,6 +9,141 @@ from synapse.tests.utils import alist
 
 class InfotechModelTest(s_t_utils.SynTest):
 
+    async def test_infotech_basics(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                it:sec:cwe=CWE-120
+                    :name=omg
+                    :desc=omgwtfbbq
+                    :url=https://cwe.mitre.org/data/definitions/120.html
+                    :parents=(CWE-119,)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cwe', 'CWE-120'))
+            self.eq(nodes[0].get('name'), 'omg')
+            self.eq(nodes[0].get('desc'), 'omgwtfbbq')
+            self.eq(nodes[0].get('url'), 'https://cwe.mitre.org/data/definitions/120.html')
+            self.eq(nodes[0].get('parents'), ('CWE-119',))
+
+            self.eq(r'foo\:bar', core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*')[1]['subs']['vendor'])
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[it:sec:cpe=asdf]')
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:asdf]')
+
+            nodes = await core.nodes('''[
+                it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*'))
+            self.eq(nodes[0].get('part'), 'a')
+            self.eq(nodes[0].get('vendor'), 'microsoft')
+            self.eq(nodes[0].get('product'), 'internet_explorer')
+            self.eq(nodes[0].get('version'), '8.0.6001')
+            self.eq(nodes[0].get('update'), 'beta')
+
+            nodes = await core.nodes('''[
+                it:mitre:attack:group=G0100
+                    :org={[ ou:org=* :name=visicorp ]}
+                    :name=aptvisi
+                    :names=(visigroup, nerdsrus, visigroup)
+                    :desc=worlddom
+                    :url=https://vertex.link
+                    :tag=cno.mitre.g0100
+                    :references=(https://foo.com,https://bar.com)
+                    :software=(S0200,S0100,S0100)
+                    :techniques=(T0200,T0100,T0100)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:group', 'G0100'))
+            self.nn(nodes[0].get('org'))
+            self.eq(nodes[0].get('name'), 'aptvisi')
+            self.eq(nodes[0].get('names'), ('nerdsrus', 'visigroup'))
+            self.eq(nodes[0].get('desc'), 'worlddom')
+            self.eq(nodes[0].get('tag'), 'cno.mitre.g0100')
+            self.eq(nodes[0].get('url'), 'https://vertex.link')
+            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('software'), ('S0100', 'S0200'))
+            self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
+
+            nodes = await core.nodes('''[
+                it:mitre:attack:tactic=TA0100
+                    :name=tactilneck
+                    :desc=darkerblack
+                    :url=https://archer.link
+                    :tag=cno.mitre.ta0100
+                    :references=(https://foo.com,https://bar.com)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:tactic', 'TA0100'))
+            self.eq(nodes[0].get('name'), 'tactilneck')
+            self.eq(nodes[0].get('desc'), 'darkerblack')
+            self.eq(nodes[0].get('tag'), 'cno.mitre.ta0100')
+            self.eq(nodes[0].get('url'), 'https://archer.link')
+            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+
+            nodes = await core.nodes('''[
+                it:mitre:attack:technique=T0100
+                    :name=lockpicking
+                    :desc=speedhackers
+                    :url=https://locksrus.link
+                    :tag=cno.mitre.t0100
+                    :references=(https://foo.com,https://bar.com)
+                    :parent=T9999
+                    :tactics=(TA0200,TA0100,TA0100)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:technique', 'T0100'))
+            self.eq(nodes[0].get('name'), 'lockpicking')
+            self.eq(nodes[0].get('desc'), 'speedhackers')
+            self.eq(nodes[0].get('tag'), 'cno.mitre.t0100')
+            self.eq(nodes[0].get('url'), 'https://locksrus.link')
+            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('parent'), 'T9999')
+            self.eq(nodes[0].get('tactics'), ('TA0100', 'TA0200'))
+
+            nodes = await core.nodes('''[
+                it:mitre:attack:software=S0100
+                    :software=*
+                    :name=redtree
+                    :desc=redtreestuff
+                    :url=https://redtree.link
+                    :tag=cno.mitre.s0100
+                    :references=(https://foo.com,https://bar.com)
+                    :techniques=(T0200,T0100,T0100)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:software', 'S0100'))
+            self.nn(nodes[0].get('software'))
+            self.eq(nodes[0].get('name'), 'redtree')
+            self.eq(nodes[0].get('desc'), 'redtreestuff')
+            self.eq(nodes[0].get('tag'), 'cno.mitre.s0100')
+            self.eq(nodes[0].get('url'), 'https://redtree.link')
+            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
+
+            nodes = await core.nodes('''[
+                it:mitre:attack:mitigation=M0100
+                    :name=patchstuff
+                    :desc=patchyourstuff
+                    :url=https://wsus.com
+                    :tag=cno.mitre.m0100
+                    :references=(https://foo.com,https://bar.com)
+                    :addresses=(T0200,T0100,T0100)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:mitigation', 'M0100'))
+            self.eq(nodes[0].get('name'), 'patchstuff')
+            self.eq(nodes[0].get('desc'), 'patchyourstuff')
+            self.eq(nodes[0].get('tag'), 'cno.mitre.m0100')
+            self.eq(nodes[0].get('url'), 'https://wsus.com')
+            self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('addresses'), ('T0100', 'T0200'))
+
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:

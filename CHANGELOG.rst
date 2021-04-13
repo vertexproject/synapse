@@ -5,6 +5,70 @@ Synapse Changelog
 *****************
 
 
+v2.33.1 - 2021-04-13
+====================
+
+Bugfixes
+--------
+
+- Fix a regression when expanding list objects in Storm.
+  (`#2154 <https://github.com/vertexproject/synapse/pull/2154>`_)
+
+
+v2.33.0 - 2021-04-12
+====================
+
+Features and Enhancements
+-------------------------
+- Add CWE and CVSS support to the ``risk:vuln`` form.
+  (`#2143 <https://github.com/vertexproject/synapse/pull/2143>`_)
+- Add a new Stormtypes library, ``$lib.infosec.cvss``, to assist with
+  parsing CVSS data, computing scores, and updating ``risk:vuln`` nodes.
+  (`#2143 <https://github.com/vertexproject/synapse/pull/2143>`_)
+- Add ATT&CK, CWD, and CPE support to the IT model.
+  (`#2143 <https://github.com/vertexproject/synapse/pull/2143>`_)
+- Add ``it:network``, ``it:domain``, ``it:account``, ``it:group`` and
+  ``it:login`` guid forms to model common IT concepts.
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
+- Add a new model, ``project``, to model projects, tickets, sprints and epics.
+  The preliminary forms for this model include ``proj:project``,
+  ``proj:sprint``, ``proj:ticket``, ``proj:comment``, and ``projec:project``.
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
+- Add a new Stormtypes library, ``$lib.project``, to assist with using the
+  project model. The API is provisional.
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
+- Allow lifting ``guid`` types with the prefix (``^=``) operator.
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
+- Add ``ou:contest:result:url`` to record where to find contest results.
+  (`#2144 <https://github.com/vertexproject/synapse/pull/2144>`_)
+- Allow subquery as a value in additional places in Storm. This use must yield
+  exactly one node. Secondary property assignments to array types may yield
+  multiple nodes.
+  (`#2137 <https://github.com/vertexproject/synapse/pull/2137>`_)
+- Tighten up Storm iterator behavior on the backend. This should not have have
+  user-facing changes in Storm behavior.
+  (`#2148 <https://github.com/vertexproject/synapse/pull/2148>`_)
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
+- Update the Cell backup routine so that it blocks the ioloop less.
+  (`#2145 <https://github.com/vertexproject/synapse/pull/2145>`_)
+- Expose the remote name and version of Storm Services in the ``service.list``
+  command.
+  (`#2149 <https://github.com/vertexproject/synapse/pull/2149>`_)
+- Move test deprecated model elements into their own Coremodule.
+  (`#2150 <https://github.com/vertexproject/synapse/pull/2150>`_)
+- Update ``lark`` dependency.
+  (`#2146 <https://github.com/vertexproject/synapse/pull/2146>`_)
+
+Bugfixes
+--------
+- Fix incorrect grammer in model.edge commands.
+  (`#2147 <https://github.com/vertexproject/synapse/pull/2147>`_)
+- Reduce unit test memory usage.
+  (`#2152 <https://github.com/vertexproject/synapse/pull/2152>`_)
+- Pin ``jupyter-client`` library.
+  (`#2153 <https://github.com/vertexproject/synapse/pull/2153>`_)
+
+
 v2.32.1 - 2021-04-01
 ====================
 

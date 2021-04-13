@@ -195,7 +195,7 @@ class LibModelTags(s_stormtypes.Lib):
                       {'name': 'propname', 'type': 'str', 'desc': 'The name of the tag model property.', },
                       {'name': 'propvalu', 'type': 'prim', 'desc': 'The value to set.', },
                   ),
-                  'returns': {'type': 'none', }}},
+                  'returns': {'type': 'null', }}},
         {'name': 'pop', 'desc': '''
             Pop and return a tag model property.
 
@@ -220,7 +220,7 @@ class LibModelTags(s_stormtypes.Lib):
                   'args': (
                       {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
                   ),
-                  'returns': {'type': 'none', }}},
+                  'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': '''
         List all tag model specifications.
 
@@ -325,19 +325,19 @@ class LibModel(s_stormtypes.Lib):
             'tagprop': self._methTagProp,
         }
 
-    @s_cache.memoize(size=100)
+    @s_cache.memoizemethod(size=100)
     async def _methType(self, name):
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
 
-    @s_cache.memoize(size=100)
+    @s_cache.memoizemethod(size=100)
     async def _methProp(self, name):
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
 
-    @s_cache.memoize(size=100)
+    @s_cache.memoizemethod(size=100)
     async def _methForm(self, name):
         form = self.model.form(name)
         if form is not None:
@@ -513,7 +513,7 @@ class LibModelEdge(s_stormtypes.Lib):
                       {'name': 'verb', 'type': 'str', 'desc': 'The name of the Edge verb to remove a key from.', },
                       {'name': 'key', 'type': 'str', 'desc': 'The name of the key to remove from the key-value store.', },
                   ),
-                  'returns': {'type': 'none', }}},
+                  'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.',
          'type': {'type': 'function', '_funcname': '_methEdgeList',
                   'returns': {'type': 'list', 'desc': 'A list of (str, dict) tuples for each verb in the current Cortex View.', }}},
