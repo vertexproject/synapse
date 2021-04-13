@@ -5,6 +5,16 @@ Synapse Changelog
 *****************
 
 
+v2.33.1 - 2021-04-13
+====================
+
+Bugfixes
+--------
+
+- Fix a regression when expanding list objects in Storm.
+  (`#2154 <https://github.com/vertexproject/synapse/pull/2154>`_)
+
+
 v2.33.0 - 2021-04-12
 ====================
 
