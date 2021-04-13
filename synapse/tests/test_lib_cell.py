@@ -456,7 +456,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(info.get('syn:version'), s_version.version)
                 self.eq(info.get('syn:verstring'), s_version.verstring),
                 self.eq(info.get('syn:commit'), s_version.commit)
-                self.false(info.get('cell:active'))
+                self.true(info.get('cell:active'))
                 self.eq(info.get('cell:type'), 'cortex')
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', info.get('cell:cellvers', {}))

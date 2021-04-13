@@ -2181,7 +2181,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ret = {
             'cell:type': self.getCellType(),
             'cell:iden': self.getCellIden(),
-            'cell.active': self.isactive,
+            'cell:active': self.isactive,
             'cell:commit': self.COMMIT,
             'cell:version': self.VERSION,
             'cell:verstring': self.VERSTRING,
