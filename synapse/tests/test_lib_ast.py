@@ -1367,6 +1367,9 @@ class AstTest(s_test.SynTest):
             q = 'function x() { [ inet:asn=2 ] if ($node.value() = (3)) { return((3)) } } $x()'
             self.len(0, await core.nodes(q))
 
+            # test Function.isRuntSafe
+            self.len(0, await core.nodes('init { function x() { return((0)) } }'))
+
     async def test_ast_function_scope(self):
 
         async with self.getTestCore() as core:
