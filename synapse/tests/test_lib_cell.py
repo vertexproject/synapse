@@ -445,12 +445,12 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestCore() as cell:
             cell.COMMIT = 'mycommit'
             async with cell.getLocalProxy() as prox:
-                resp = await prox.getCellVersionInfo()
+                info = await prox.getCellInfo()
                 # An override
-                self.eq(resp.get('commit'), 'mycommit')
+                self.eq(info.get('commit'), 'mycommit')
                 # Defaults
-                self.eq(resp.get('version'), s_version.version)
-                self.eq(resp.get('verstring'), s_version.verstring)
+                self.eq(info.get('version'), s_version.version)
+                self.eq(info.get('verstring'), s_version.verstring)
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', resp.get('cellvers', {}))
 
