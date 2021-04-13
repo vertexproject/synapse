@@ -2179,10 +2179,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             Dict: A Dictionary of version metadata.
         '''
         ret = {
-            'cell:commit': self.COMMIT,
             'cell.active': self.isactive,
             'cell:type': self.getCellType(),
             'cell:iden': self.getCellIden(),
+            'cell:commit': self.COMMIT,
             'cell:version': self.VERSION,
             'cell:verstring': self.VERSTRING,
             'celll:cellvers': dict(self.cellvers.items()),
