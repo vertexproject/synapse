@@ -44,7 +44,7 @@ class Scrubber:
 
         return pode
 
-    @s_cache.memoize()
+    @s_cache.memoizemethod()
     def _isTagInc(self, tag):
         if tag in self.inctags:
             return True

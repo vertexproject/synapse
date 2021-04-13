@@ -2,6 +2,7 @@
 A few speed optimized (lockless) cache helpers.  Use carefully.
 '''
 import asyncio
+import weakref
 import functools
 import collections
 
@@ -12,6 +13,27 @@ import synapse.common as s_common
 
 def memoize(size=16384):
     return functools.lru_cache(maxsize=size)
+
+# From https://stackoverflow.com/a/33672499/6518334
+def memoizemethod(size=16384):
+    '''
+    A version of memoize that doesn't cause GC cycles when applied to a method.
+    '''
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapped_func(self, *args, **kwargs):
+            # We're storing the wrapped method inside the instance. If we had
+            # a strong reference to self the instance would never die.
+            self_weak = weakref.ref(self)
+
+            @functools.wraps(func)
+            @functools.lru_cache(maxsize=size)
+            def cached_method(*args, **kwargs):
+                return func(self_weak(), *args, **kwargs)
+            setattr(self, func.__name__, cached_method)
+            return cached_method(*args, **kwargs)
+        return wrapped_func
+    return decorator
 
 class FixedCache:
 
