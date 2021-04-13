@@ -3557,9 +3557,6 @@ class FuncArgs(AstNode):
             valu = await kid.compute(runt, path)
             if not isinstance(kid, CallKwarg):
                 valu = (valu, s_common.novalu)
-            else:
-                # FIXME:  verify default argument runtsafe?
-                pass
             retn.append(valu)
 
         return retn
@@ -3591,15 +3588,29 @@ class Function(AstNode):
         return True
 
     async def run(self, runt, genr):
-        argdefs = await self.kids[1].compute(runt, None)
+        argskid = self.kids[1]
+        if not argskid.isRuntSafe(runt):
+            raise s_exc.StormRuntimeError(mesg='Non-runtsafe default parameter value not allowed')
 
-        async def realfunc(*args, **kwargs):
-            return await self.callfunc(runt, argdefs, args, kwargs)
+        async def once():
+            argdefs = await argskid.compute(runt, None)
 
-        runt.setVar(self.name, realfunc)
+            async def realfunc(*args, **kwargs):
+                return await self.callfunc(runt, argdefs, args, kwargs)
+
+            runt.setVar(self.name, realfunc)
+
+        count = 0
 
         async for node, path in genr:
+            count += 1
+            if count == 1:
+                await once()
+
             yield node, path
+
+        if count == 0:
+            await once()
 
     def getRuntVars(self, runt):
         yield (self.kids[0].value(), True)
@@ -3614,7 +3625,6 @@ class Function(AstNode):
 
         This function may return a value / generator / async generator
         '''
-        # FIXME: errors could really use line number/position
         mergargs = {}
         posnames = set()  # Positional argument names
 
@@ -3649,9 +3659,6 @@ class Function(AstNode):
             plural = 's' if len(kwargs) > 1 else ''
             mesg = f'{self.name}() got unexpected keyword argument{plural}: {",".join(kwkeys)}'
             raise s_exc.StormRuntimeError(mesg=mesg)
-
-        if len(mergargs) != len(argdefs):
-            breakpoint()
 
         assert len(mergargs) == len(argdefs)
 

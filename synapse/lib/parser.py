@@ -172,11 +172,6 @@ class AstConverter(lark.Transformer):
 
         return argq
 
-    # FIXME:  use table
-    def looklist(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.Lookup(kids)
-
     def yieldvalu(self, kids):
         kid = self._convert_child(kids[-1])
         return s_ast.YieldValu(kids=[kid])
@@ -191,9 +186,11 @@ class AstConverter(lark.Transformer):
     def query(self, kids, meta):
         kids = self._convert_children(kids)
 
-        # FIXME: why getattr?
-        epos = getattr(meta, 'end_pos', 0)
-        spos = getattr(meta, 'start_pos', 0)
+        if kids:
+            epos = meta.end_pos
+            spos = meta.start_pos
+        else:
+            epos = spos = 0
 
         quer = s_ast.Query(kids=kids)
         quer.text = self.text[spos:epos]
@@ -330,16 +327,6 @@ class AstConverter(lark.Transformer):
             newkid = self._convert_child(kids[1])
         return s_ast.VarDeref(kids=(kids[0], newkid))
 
-    # FIXME:  use table
-    def tagprop(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.TagProp(kids=kids)
-
-    # FIXME:  use table
-    def formtagprop(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.FormTagProp(kids=kids)
-
     def tagname(self, kids):
         assert kids and len(kids) == 1
         kid = kids[0]
@@ -348,16 +335,6 @@ class AstConverter(lark.Transformer):
 
         kids = self._tagsplit(kid.value)
         return s_ast.TagName(kids=kids)
-
-    # FIXME:  use table
-    def valulist(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.List(kids=kids)
-
-    # FIXME:  use table
-    def univpropvalu(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.UnivPropValue(kids=kids)
 
     def switchcase(self, kids):
         newkids = []
@@ -532,6 +509,7 @@ ruleClassMap = {
     'formpivot_pivottotags': s_ast.PivotToTags,
     'formpivotin_': s_ast.PivotIn,
     'formpivotin_pivotinfrom': s_ast.PivotInFrom,
+    'formtagprop': s_ast.FormTagProp,
     'hasabspropcond': s_ast.HasAbsPropCond,
     'hasrelpropcond': s_ast.HasRelPropCond,
     'hastagpropcond': s_ast.HasTagPropCond,
@@ -546,6 +524,7 @@ ruleClassMap = {
     'liftbyarray': s_ast.LiftByArray,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
+    'looklist': s_ast.Lookup,
     'n1walk': s_ast.N1Walk,
     'n2walk': s_ast.N2Walk,
     'n1walknpivo': s_ast.N1WalkNPivo,
@@ -564,13 +543,16 @@ ruleClassMap = {
     'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
     'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
+    'tagprop': s_ast.TagProp,
     'tagvalu': s_ast.TagValue,
     'tagpropvalu': s_ast.TagPropValue,
     'tagvalucond': s_ast.TagValuCond,
     'tagpropcond': s_ast.TagPropCond,
+    'valulist': s_ast.List,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
-    'univprop': s_ast.UnivProp
+    'univprop': s_ast.UnivProp,
+    'univpropvalu': s_ast.UnivPropValue,
 }
 
 def unescape(valu):

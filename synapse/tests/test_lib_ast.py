@@ -1327,7 +1327,6 @@ class AstTest(s_test.SynTest):
             q = '''
             function badargs(def=foo, bar) {}
             '''
-            print('--------')
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'BadSyntax')
@@ -1348,11 +1347,16 @@ class AstTest(s_test.SynTest):
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'BadSyntax')
 
-            # test runtsafe function
-            self.eq(42, await core.callStorm('init { function x() { return((42)) } } return($x())'))
+            # Can't use a non-runtsafe variable as a default
+            q = '''
+            function badargs(x=foo, y=$node) {}
+            '''
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
 
             # test variables as parameter defaults
-            self.eq(42, await core.callStorm('$val=42 function x(parm1=$val) { return($parm1) } return($x())'))
+            self.eq(42, await core.callStorm('$val=(42) function x(parm1=$val) { return($parm1) } return($x())'))
 
             # force sleep in iter with ret
             q = 'function x() { [ inet:asn=2 ] if ($node.value() = (3)) { return((3)) } } $x()'
