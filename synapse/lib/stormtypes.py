@@ -2963,6 +2963,7 @@ class CmdOpts(Dict):
     ( This allows late-evaluation of command arguments rather than forcing capture )
     '''
     _storm_typename = 'storm:cmdopts'
+    _ismutable = False
 
     def __len__(self):
         valu = vars(self.valu.opts)
@@ -2985,9 +2986,6 @@ class CmdOpts(Dict):
         valu = vars(self.valu.opts)
         for item in valu.items():
             yield item
-
-    def ismutable(self):
-        return False
 
 @registry.registerType
 class Set(Prim):
